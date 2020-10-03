@@ -4,5 +4,8 @@
   "main": "index.js",
   "repository": "git@github.com:dannon/galaxy-visualizations.git",
   "author": "Dannon Baker <dannon.baker@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "lerna": "^3.22.1"
+  }
 }
