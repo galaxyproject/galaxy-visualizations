@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/pv_load",
-    "version": "0.1.3",
+    "version": "0.1.2",
     "description": "PV visualization plugin.",
     "keywords": [
         "galaxy",
@@ -13,5 +13,6 @@
     },
     "scripts": {
         "build": "parcel build src/pv.js -d static/dist"
-    }
+    },
+    "gitHead": "5bb5d9b5bad6fc6610527838ad2a4401bf19f8bf"
 }
