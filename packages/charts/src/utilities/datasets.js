@@ -3,7 +3,7 @@ import _ from "underscore";
 import { getAjax, merge } from "./utils";
 
 /** Assists in assigning the viewport panels */
-var requestPanels = function (options) {
+export function requestPanels(options) {
     var process = options.process;
     var chart = options.chart;
     var root = options.root;
@@ -49,7 +49,7 @@ var requestPanels = function (options) {
 
 /** Fills request dictionary with data from cache/response */
 var _cache = {};
-var request = function (options) {
+export function request(options) {
     var groups = options.dataset_groups;
     var dataset_id = options.dataset_id;
     var root = options.root;
@@ -174,5 +174,3 @@ var _fillFromCache = function (options) {
 var _block_id = function (dataset_id, column) {
     return dataset_id + "_" + "_" + column;
 };
-
-export default { request: request, requestPanels: requestPanels };

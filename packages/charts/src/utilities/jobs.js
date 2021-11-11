@@ -1,12 +1,12 @@
 /** This class handles job submissions to the Galaxy API. */
 import _ from "underscore";
-import Utils from "./utils";
+import Utils from "../utils";
 
 /** Time to wait before refreshing to check if job has completed */
 const WAITTIME = 1000;
 
 /** build job dictionary */
-var requestCharts = function (chart, module) {
+export function requestCharts(chart, module) {
     var settings_string = "";
     var columns_string = "";
     var group_index = 0;
@@ -47,7 +47,7 @@ var requestCharts = function (chart, module) {
 };
 
 /** Submit job request to charts tool */
-var request = function (root, chart, parameters, success, error) {
+export function request(root, chart, parameters, success, error) {
     chart.state("wait", "Requesting job results...");
     if (chart.get("modified") && chart.get("dataset_id_job")) {
         Utils.request({
@@ -104,7 +104,7 @@ var request = function (root, chart, parameters, success, error) {
 };
 
 /** Request job details */
-var wait = function (root, chart, success, error) {
+function wait(root, chart, success, error) {
     Utils.request({
         type: "GET",
         url: root + "api/datasets/" + chart.get("dataset_id_job"),
@@ -140,5 +140,3 @@ var wait = function (root, chart, success, error) {
         },
     });
 };
-
-export default { request: request, requestCharts: requestCharts };

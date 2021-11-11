@@ -2,7 +2,7 @@ import _ from "underscore";
 import * as d3 from "d3";
 
 /** Category make for unique category labels */
-function makeUniqueCategories(groups, with_index) {
+export function makeUniqueCategories(groups, with_index) {
     var categories = {};
     var array = {};
     var counter = {};
@@ -48,7 +48,7 @@ function makeUniqueCategories(groups, with_index) {
 }
 
 /** Make axis */
-function makeTickFormat(options) {
+export function makeTickFormat(options) {
     var type = options.type;
     var precision = options.precision;
     var categories = options.categories;
@@ -99,7 +99,7 @@ function makeTickFormat(options) {
 }
 
 /** Add zoom handler */
-function addZoom(options) {
+export function addZoom(options) {
     var scaleExtent = 100;
     var yAxis = options.yAxis;
     var xAxis = options.xAxis;
@@ -135,9 +135,3 @@ function addZoom(options) {
     svg.call(d3zoom).on("dblclick.zoom", unzoomed);
     return d3zoom;
 }
-
-export default {
-    makeUniqueCategories: makeUniqueCategories,
-    makeTickFormat: makeTickFormat,
-    addZoom: addZoom,
-};
