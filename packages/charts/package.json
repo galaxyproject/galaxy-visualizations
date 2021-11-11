@@ -1,0 +1,32 @@
+{
+  "name": "charts",
+  "version": "0.0.1",
+  "description": "Galaxy Charts (currently just utils)",
+  "keywords": [
+    "galaxy",
+    "visualization",
+    "chart",
+    "viz"
+  ],
+  "author": "Dannon Baker <dannon.baker@gmail.com>",
+  "homepage": "http://github.com/galaxyproject/galaxy-visualizations",
+  "license": "MIT",
+  "main": "lib/charts.js",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dannon/galaxy-visualizations.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "bugs": {
+    "url": "https://github.com/dannon/galaxy-visualizations/issues"
+  }
+}
