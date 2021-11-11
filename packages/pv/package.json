@@ -1,5 +1,5 @@
 {
-    "name": "pv_load",
+    "name": "@galaxyproject/pv_load",
     "version": "0.1.0",
     "description": "PV visualization plugin.",
     "keywords": [
