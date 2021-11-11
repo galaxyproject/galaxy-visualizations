@@ -1,85 +1,6 @@
 import _ from "underscore";
 import * as d3 from "d3";
 
-/** Get domain boundaries value */
-function getDomains(groups, keys) {
-    function _apply(operator, key) {
-        let value;
-        for (const group_index in groups) {
-            const value_sub = d3[operator](groups[group_index].values, function (d) {
-                return d[key];
-            });
-            value = value === undefined ? value_sub : Math[operator](value, value_sub);
-        }
-        return value;
-    }
-    var result = {};
-    for (var index in keys) {
-        var key = keys[index];
-        result[key] = {
-            min: _apply("min", key),
-            max: _apply("max", key),
-        };
-    }
-    return result;
-}
-
-/** Default series maker */
-function makeSeries(groups, keys) {
-    var plot_data = [];
-    for (var group_index in groups) {
-        var group = groups[group_index];
-        var data = [];
-        for (var value_index in group.values) {
-            var point = [];
-            if (keys) {
-                for (var key_index in keys) {
-                    const column_index = keys[key_index];
-                    point.push(group.values[value_index][column_index]);
-                }
-            } else {
-                for (const column_index in group.values[value_index]) {
-                    point.push(group.values[value_index][column_index]);
-                }
-            }
-            data.push(point);
-        }
-        plot_data.push(data);
-    }
-    return plot_data;
-}
-
-/** Default category maker */
-function makeCategories(groups, column_keys) {
-    var array = {};
-    var data_columns = groups[0].__data_columns;
-    _.each(column_keys, function (key) {
-        if (data_columns[key].is_label) {
-            array[key] = [];
-        }
-    });
-    if (groups && groups[0]) {
-        _.each(groups[0].values, function (value_dict) {
-            for (var key in array) {
-                array[key].push(String(value_dict[key]));
-            }
-        });
-    }
-    mapCategories(array, groups);
-    return { array: array };
-}
-
-/** Apply default mapping index all values contained in label columns (for all groups) */
-function mapCategories(array, groups) {
-    _.each(groups, function (group) {
-        _.each(group.values, function (value_dict, i) {
-            for (var key in array) {
-                value_dict[key] = parseInt(i);
-            }
-        });
-    });
-}
-
 /** Category make for unique category labels */
 function makeUniqueCategories(groups, with_index) {
     var categories = {};
@@ -216,11 +137,7 @@ function addZoom(options) {
 }
 
 export default {
-    makeCategories: makeCategories,
     makeUniqueCategories: makeUniqueCategories,
-    makeSeries: makeSeries,
-    getDomains: getDomains,
-    mapCategories: mapCategories,
     makeTickFormat: makeTickFormat,
     addZoom: addZoom,
 };

@@ -1,17 +1,18 @@
 /** This class handles, formats and caches datasets. */
 import _ from "underscore";
-import { getAppRoot } from "onload/loadConfig";
-import Utils from "utils/utils";
+import { getAjax, merge } from "./utils";
 
 /** Assists in assigning the viewport panels */
 var requestPanels = function (options) {
     var process = options.process;
     var chart = options.chart;
+    var root = options.root;
     var render = options.render;
     var targets = options.targets;
     var dataset_id = options.dataset_id || options.chart.get("dataset_id");
     var dataset_groups = options.dataset_groups || options.chart.groups;
     request({
+        root: root,
         chart: chart,
         dataset_id: dataset_id,
         dataset_groups: dataset_groups,
@@ -51,6 +52,7 @@ var _cache = {};
 var request = function (options) {
     var groups = options.dataset_groups;
     var dataset_id = options.dataset_id;
+    var root = options.root;
     // identify columns needed to fulfill request
     var column_list = [];
     groups.each(function (group) {
@@ -73,8 +75,8 @@ var request = function (options) {
         return;
     }
     // Fetch data columns into dataset object
-    Utils.get({
-        url: getAppRoot() + "api/datasets/" + dataset_id,
+    getAjax({
+        url: root + "api/datasets/" + dataset_id,
         data: {
             data_type: "raw_data",
             provider: "dataset-column",
@@ -130,7 +132,7 @@ var _fillFromCache = function (options) {
     }
     var results = [];
     groups.each(function (group, group_index) {
-        var dict = Utils.merge({ key: group_index + ":" + group.get("key"), values: [] }, group.attributes);
+        var dict = merge({ key: group_index + ":" + group.get("key"), values: [] }, group.attributes);
         for (let j = 0; j < limit; j++) {
             dict.values[j] = { x: parseInt(j) };
         }

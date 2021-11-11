@@ -1,8 +1,6 @@
 /** This class handles job submissions to the Galaxy API. */
 import _ from "underscore";
-import { getAppRoot } from "onload/loadConfig";
-import Utils from "utils/utils";
-import { getGalaxyInstance } from "app";
+import Utils from "./utils";
 
 /** Time to wait before refreshing to check if job has completed */
 const WAITTIME = 1000;
@@ -49,27 +47,24 @@ var requestCharts = function (chart, module) {
 };
 
 /** Submit job request to charts tool */
-var request = function (chart, parameters, success, error) {
+var request = function (root, chart, parameters, success, error) {
     chart.state("wait", "Requesting job results...");
     if (chart.get("modified") && chart.get("dataset_id_job")) {
         Utils.request({
             type: "PUT",
-            url: getAppRoot() + "api/histories/none/contents/" + chart.get("dataset_id_job"),
+            url: root + "api/histories/none/contents/" + chart.get("dataset_id_job"),
             data: { deleted: true },
-            success: () => {
-                refreshHdas();
-            },
         });
         chart.set("dataset_id_job", null);
         chart.set("modified", false);
     }
     if (chart.get("dataset_id_job")) {
-        wait(chart, success, error);
+        wait(root, chart, success, error);
     } else {
         chart.state("wait", "Sending job request...");
         Utils.request({
             type: "POST",
-            url: getAppRoot() + "api/tools",
+            url: root + "api/tools",
             data: parameters,
             success: function (response) {
                 if (!response.outputs || response.outputs.length === 0) {
@@ -78,7 +73,6 @@ var request = function (chart, parameters, success, error) {
                         error();
                     }
                 } else {
-                    refreshHdas();
                     var job = response.outputs[0];
                     chart.state(
                         "wait",
@@ -86,7 +80,7 @@ var request = function (chart, parameters, success, error) {
                     );
                     chart.set("dataset_id_job", job.id);
                     chart.save();
-                    wait(chart, success, error);
+                    wait(root, chart, success, error);
                 }
             },
             error: function (response) {
@@ -110,10 +104,10 @@ var request = function (chart, parameters, success, error) {
 };
 
 /** Request job details */
-var wait = function (chart, success, error) {
+var wait = function (root, chart, success, error) {
     Utils.request({
         type: "GET",
-        url: getAppRoot() + "api/datasets/" + chart.get("dataset_id_job"),
+        url: root + "api/datasets/" + chart.get("dataset_id_job"),
         data: {},
         success: function (dataset) {
             var ready = false;
@@ -140,19 +134,11 @@ var wait = function (chart, success, error) {
             }
             if (!ready) {
                 window.setTimeout(function () {
-                    wait(chart, success, error);
+                    wait(root, chart, success, error);
                 }, WAITTIME);
             }
         },
     });
-};
-
-/** Refresh history panel */
-var refreshHdas = function () {
-    const Galaxy = getGalaxyInstance();
-    if (Galaxy && Galaxy.currHistoryPanel) {
-        Galaxy.currHistoryPanel.refreshContents();
-    }
 };
 
 export default { request: request, requestCharts: requestCharts };
