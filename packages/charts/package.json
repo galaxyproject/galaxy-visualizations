@@ -29,5 +29,9 @@
   },
   "bugs": {
     "url": "https://github.com/dannon/galaxy-visualizations/issues"
+  },
+  "dependencies": {
+    "d3": "3",
+    "underscore": "^1.13.1"
   }
 }
