@@ -1,5 +1,5 @@
 {
-  "name": "charts",
+  "name": "@galaxyproject/charts",
   "version": "0.0.1",
   "description": "Galaxy Charts (currently just utils)",
   "keywords": [
