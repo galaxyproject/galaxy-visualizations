@@ -1,6 +1,6 @@
 {
   "name": "@galaxyproject/charts",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Galaxy Charts (currently just utils)",
   "type": "module",
   "keywords": [
