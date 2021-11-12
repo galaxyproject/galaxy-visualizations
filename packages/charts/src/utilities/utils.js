@@ -6,7 +6,7 @@ import _ from "underscore";
  * @param{Object}   options         - Target dictionary
  * @param{Object}   optionsDefault  - Source dictionary
  */
-export function merge(options, optionsDefault) {
+ export function merge(options, optionsDefault) {
     if (options) {
         return _.defaults(options, optionsDefault);
     } else {
@@ -21,7 +21,7 @@ export function merge(options, optionsDefault) {
  * @param{Function} error   - Callback on error
  * @param{Boolean}  cache   - Use cached data if available
  */
-export function getAjax(options) {
+ export function getAjax(options) {
     top.__utils__get__ = top.__utils__get__ || {};
     var cache_key = JSON.stringify(options);
     if (options.cache && top.__utils__get__[cache_key]) {

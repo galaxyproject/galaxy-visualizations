@@ -1,12 +1,12 @@
 /** This class handles job submissions to the Galaxy API. */
 import _ from "underscore";
-import Utils from "../utils";
+import { requestAjax } from "./utils";
 
 /** Time to wait before refreshing to check if job has completed */
 const WAITTIME = 1000;
 
 /** build job dictionary */
-export function requestCharts(chart, module) {
+var requestCharts = function (chart, module) {
     var settings_string = "";
     var columns_string = "";
     var group_index = 0;
@@ -47,10 +47,10 @@ export function requestCharts(chart, module) {
 };
 
 /** Submit job request to charts tool */
-export function request(root, chart, parameters, success, error) {
+var request = function (root, chart, parameters, success, error) {
     chart.state("wait", "Requesting job results...");
     if (chart.get("modified") && chart.get("dataset_id_job")) {
-        Utils.request({
+        requestAjax({
             type: "PUT",
             url: root + "api/histories/none/contents/" + chart.get("dataset_id_job"),
             data: { deleted: true },
@@ -62,7 +62,7 @@ export function request(root, chart, parameters, success, error) {
         wait(root, chart, success, error);
     } else {
         chart.state("wait", "Sending job request...");
-        Utils.request({
+        requestAjax({
             type: "POST",
             url: root + "api/tools",
             data: parameters,
@@ -104,8 +104,8 @@ export function request(root, chart, parameters, success, error) {
 };
 
 /** Request job details */
-function wait(root, chart, success, error) {
-    Utils.request({
+var wait = function (root, chart, success, error) {
+    requestAjax({
         type: "GET",
         url: root + "api/datasets/" + chart.get("dataset_id_job"),
         data: {},
@@ -140,3 +140,5 @@ function wait(root, chart, success, error) {
         },
     });
 };
+
+export default { request: request, requestCharts: requestCharts };
