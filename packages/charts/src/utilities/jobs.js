@@ -6,29 +6,29 @@ import { requestAjax } from "./utils";
 const WAITTIME = 1000;
 
 /** build job dictionary */
-var requestCharts = function (chart, module) {
-    var settings_string = "";
-    var columns_string = "";
-    var group_index = 0;
-    for (var key in chart.settings.attributes) {
-        var settings_value = chart.settings.get(key);
+export function requestCharts(chart, module) {
+    let settings_string = "";
+    let columns_string = "";
+    let group_index = 0;
+    for (const key in chart.settings.attributes) {
+        let settings_value = chart.settings.get(key);
         _.each(
             [
                 [" ", "&#32;"],
                 [",", "&#44;"],
                 [":", "&#58;"],
             ],
-            function (pair) {
+            (pair) => {
                 settings_value = settings_value.replace(new RegExp(pair[0], "g"), pair[1]);
             }
         );
-        settings_string += key + ":" + settings_value + ", ";
+        settings_string += `${key}:${settings_value}, `;
     }
     settings_string = settings_string.substring(0, settings_string.length - 2);
-    chart.groups.each(function (group) {
+    chart.groups.each((group) => {
         group_index++;
-        _.each(group.get("__data_columns"), function (data_columns, name) {
-            columns_string += name + "_" + group_index + ":" + (parseInt(group.get(name)) + 1) + ", ";
+        _.each(group.get("__data_columns"), (data_columns, name) => {
+            columns_string += `${name}_${group_index}:${parseInt(group.get(name)) + 1}, `;
         });
     });
     columns_string = columns_string.substring(0, columns_string.length - 2);
@@ -39,20 +39,20 @@ var requestCharts = function (chart, module) {
                 id: chart.get("dataset_id"),
                 src: "hda",
             },
-            module: module,
+            module,
             columns: columns_string,
             settings: settings_string,
         },
     };
-};
+}
 
 /** Submit job request to charts tool */
-var request = function (root, chart, parameters, success, error) {
+export function request(root, chart, parameters, success, error) {
     chart.state("wait", "Requesting job results...");
     if (chart.get("modified") && chart.get("dataset_id_job")) {
         requestAjax({
             type: "PUT",
-            url: root + "api/histories/none/contents/" + chart.get("dataset_id_job"),
+            url: `${root}api/histories/none/contents/${chart.get("dataset_id_job")}`,
             data: { deleted: true },
         });
         chart.set("dataset_id_job", null);
@@ -64,16 +64,16 @@ var request = function (root, chart, parameters, success, error) {
         chart.state("wait", "Sending job request...");
         requestAjax({
             type: "POST",
-            url: root + "api/tools",
+            url: `${root}api/tools`,
             data: parameters,
-            success: function (response) {
-                if (!response.outputs || response.outputs.length === 0) {
+            success({ outputs }) {
+                if (!outputs || outputs.length === 0) {
                     chart.state("failed", "Job submission failed. No response.");
                     if (error) {
                         error();
                     }
                 } else {
-                    var job = response.outputs[0];
+                    const job = outputs[0];
                     chart.state(
                         "wait",
                         "Your job has been queued. You may close the browser window. The job will run in the background."
@@ -83,17 +83,14 @@ var request = function (root, chart, parameters, success, error) {
                     wait(root, chart, success, error);
                 }
             },
-            error: function (response) {
-                var message = "";
+            error(response) {
+                let message = "";
                 if (response && response.message && response.message.data && response.message.data.input) {
-                    message = response.message.data.input + ".";
+                    message = `${response.message.data.input}.`;
                 }
                 chart.state(
                     "failed",
-                    "This visualization requires the '" +
-                        parameters.tool_id +
-                        "' tool. Please make sure it is installed. " +
-                        message
+                    `This visualization requires the '${parameters.tool_id}' tool. Please make sure it is installed. ${message}`
                 );
                 if (error) {
                     error();
@@ -101,16 +98,16 @@ var request = function (root, chart, parameters, success, error) {
             },
         });
     }
-};
+}
 
 /** Request job details */
-var wait = function (root, chart, success, error) {
+function wait(root, chart, success, error) {
     requestAjax({
         type: "GET",
-        url: root + "api/datasets/" + chart.get("dataset_id_job"),
+        url: `${root}api/datasets/${chart.get("dataset_id_job")}`,
         data: {},
-        success: function (dataset) {
-            var ready = false;
+        success(dataset) {
+            let ready = false;
             switch (dataset.state) {
                 case "ok":
                     chart.state("wait", "Job completed successfully...");
@@ -133,12 +130,10 @@ var wait = function (root, chart, success, error) {
                     );
             }
             if (!ready) {
-                window.setTimeout(function () {
+                window.setTimeout(() => {
                     wait(root, chart, success, error);
                 }, WAITTIME);
             }
         },
     });
-};
-
-export default { request: request, requestCharts: requestCharts };
+}
