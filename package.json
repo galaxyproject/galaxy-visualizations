@@ -2,7 +2,7 @@
   "name": "galaxy-visualizations",
   "version": "1.0.0",
   "main": "index.js",
-  "repository": "git@github.com:dannon/galaxy-visualizations.git",
+  "repository": "git@github.com:galaxyproject/galaxy-visualizations.git",
   "author": "Dannon Baker <dannon.baker@gmail.com>",
   "license": "MIT",
   "devDependencies": {

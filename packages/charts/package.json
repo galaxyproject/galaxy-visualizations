@@ -22,13 +22,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dannon/galaxy-visualizations.git"
+    "url": "git+https://github.com/galaxyproject/galaxy-visualizations.git"
   },
   "scripts": {
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {
-    "url": "https://github.com/dannon/galaxy-visualizations/issues"
+    "url": "https://github.com/galaxyproject/galaxy-visualizations/issues"
   },
   "dependencies": {
     "d3": "3",
