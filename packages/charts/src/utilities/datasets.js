@@ -3,25 +3,25 @@ import _ from "underscore";
 import { getAjax, merge } from "./utils";
 
 /** Assists in assigning the viewport panels */
-var requestPanels = function (options) {
-    var process = options.process;
-    var chart = options.chart;
-    var root = options.root;
-    var render = options.render;
-    var targets = options.targets;
-    var dataset_id = options.dataset_id || options.chart.get("dataset_id");
-    var dataset_groups = options.dataset_groups || options.chart.groups;
+export function requestPanels(options) {
+    const process = options.process;
+    const chart = options.chart;
+    const root = options.root;
+    const render = options.render;
+    const targets = options.targets;
+    const dataset_id = options.dataset_id || options.chart.get("dataset_id");
+    const dataset_groups = options.dataset_groups || options.chart.groups;
     request({
-        root: root,
-        chart: chart,
-        dataset_id: dataset_id,
-        dataset_groups: dataset_groups,
-        success: function (result) {
+        root,
+        chart,
+        dataset_id,
+        dataset_groups,
+        success(result) {
             try {
                 if (targets.length == result.length) {
-                    var valid = true;
-                    for (var group_index in result) {
-                        var group = result[group_index];
+                    let valid = true;
+                    for (const group_index in result) {
+                        const group = result[group_index];
                         if (!render(targets[group_index], [group])) {
                             valid = false;
                             break;
@@ -39,28 +39,28 @@ var requestPanels = function (options) {
                 }
                 process.resolve();
             } catch (err) {
-                console.debug("FAILED: tabular-utilities::panelHelper() - " + err);
+                console.debug(`FAILED: tabular-utilities::panelHelper() - ${err}`);
                 chart.state("failed", err);
                 process.reject();
             }
         },
     });
-};
+}
 
 /** Fills request dictionary with data from cache/response */
-var _cache = {};
-var request = function (options) {
-    var groups = options.dataset_groups;
-    var dataset_id = options.dataset_id;
-    var root = options.root;
+const _cache = {};
+export function request(options) {
+    const groups = options.dataset_groups;
+    const dataset_id = options.dataset_id;
+    const root = options.root;
     // identify columns needed to fulfill request
-    var column_list = [];
-    groups.each(function (group) {
-        _.each(group.get("__data_columns"), function (column_def, column_name) {
-            var column = group.get(column_name);
-            var block_id = _block_id(dataset_id, column);
+    const column_list = [];
+    groups.each((group) => {
+        _.each(group.get("__data_columns"), (column_def, column_name) => {
+            const column = group.get(column_name);
+            const block_id = _block_id(dataset_id, column);
             if (
-                column_list.indexOf(column) === -1 &&
+                !column_list.includes(column) &&
                 !_cache[block_id] &&
                 column != "auto" &&
                 column != "zero" &&
@@ -76,22 +76,22 @@ var request = function (options) {
     }
     // Fetch data columns into dataset object
     getAjax({
-        url: root + "api/datasets/" + dataset_id,
+        url: `${root}api/datasets/${dataset_id}`,
         data: {
             data_type: "raw_data",
             provider: "dataset-column",
             indeces: column_list.toString(),
         },
-        success: function (response) {
-            var column_length = column_list.length;
-            var results = new Array(column_length);
+        success({ data }) {
+            const column_length = column_list.length;
+            const results = new Array(column_length);
             for (let i = 0; i < results.length; i++) {
                 results[i] = [];
             }
-            for (const i in response.data) {
-                var row = response.data[i];
+            for (const i in data) {
+                const row = data[i];
                 for (const j in row) {
-                    var v = row[j];
+                    const v = row[j];
                     if (v !== undefined && v != 2147483647 && j < column_length) {
                         results[j].push(v);
                     }
@@ -99,26 +99,26 @@ var request = function (options) {
             }
             console.debug("tabular-datasets::_fetch() - Fetching complete.");
             for (const i in results) {
-                var column = column_list[i];
-                var block_id = _block_id(dataset_id, column);
+                const column = column_list[i];
+                const block_id = _block_id(dataset_id, column);
                 _cache[block_id] = results[i];
             }
             _fillFromCache(options);
         },
     });
-};
+}
 
 /** Fill data from cache */
-var _fillFromCache = function (options) {
-    var groups = options.dataset_groups;
-    var dataset_id = options.dataset_id;
+function _fillFromCache(options) {
+    const groups = options.dataset_groups;
+    const dataset_id = options.dataset_id;
     console.debug("tabular-datasets::_fillFromCache() - Filling request from cache.");
-    var limit = 0;
-    groups.each(function (group) {
-        _.each(group.get("__data_columns"), function (column_def, column_name) {
-            var column = group.get(column_name);
-            var block_id = _block_id(dataset_id, column);
-            var column_data = _cache[block_id];
+    let limit = 0;
+    groups.each((group) => {
+        _.each(group.get("__data_columns"), (column_def, column_name) => {
+            const column = group.get(column_name);
+            const block_id = _block_id(dataset_id, column);
+            const column_data = _cache[block_id];
             if (column_data) {
                 limit = Math.max(limit, column_data.length);
             }
@@ -130,18 +130,18 @@ var _fillFromCache = function (options) {
             options.chart.state("failed", "No data available.");
         }
     }
-    var results = [];
-    groups.each(function (group, group_index) {
-        var dict = merge({ key: group_index + ":" + group.get("key"), values: [] }, group.attributes);
+    const results = [];
+    groups.each((group, group_index) => {
+        const dict = merge({ key: `${group_index}:${group.get("key")}`, values: [] }, group.attributes);
         for (let j = 0; j < limit; j++) {
             dict.values[j] = { x: parseInt(j) };
         }
         results.push(dict);
     });
-    groups.each(function (group, group_index) {
-        var values = results[group_index].values;
-        _.each(group.get("__data_columns"), function (column_def, column_name) {
-            var column = group.get(column_name);
+    groups.each((group, group_index) => {
+        const values = results[group_index].values;
+        _.each(group.get("__data_columns"), ({ is_label }, column_name) => {
+            const column = group.get(column_name);
             switch (column) {
                 case "auto":
                     for (let j = 0; j < limit; j++) {
@@ -154,12 +154,12 @@ var _fillFromCache = function (options) {
                     }
                     break;
                 default:
-                    var block_id = _block_id(dataset_id, column);
-                    var column_data = _cache[block_id];
+                    const block_id = _block_id(dataset_id, column);
+                    const column_data = _cache[block_id];
                     for (let j = 0; j < limit; j++) {
-                        var value = values[j];
-                        var v = column_data[j];
-                        if (isNaN(v) && !column_def.is_label) {
+                        const value = values[j];
+                        let v = column_data[j];
+                        if (isNaN(v) && !is_label) {
                             v = 0;
                         }
                         value[column_name] = v;
@@ -168,11 +168,9 @@ var _fillFromCache = function (options) {
         });
     });
     options.success(results);
-};
+}
 
 /** Get block id */
-var _block_id = function (dataset_id, column) {
-    return dataset_id + "_" + "_" + column;
-};
-
-export default { request: request, requestPanels: requestPanels };
+function _block_id(dataset_id, column) {
+    return `${dataset_id}__${column}`;
+}
