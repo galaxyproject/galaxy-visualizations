@@ -6,7 +6,7 @@ import _ from "underscore";
  * @param{Object}   options         - Target dictionary
  * @param{Object}   optionsDefault  - Source dictionary
  */
- export function merge(options, optionsDefault) {
+export function merge(options, optionsDefault) {
     if (options) {
         return _.defaults(options, optionsDefault);
     } else {
@@ -21,9 +21,9 @@ import _ from "underscore";
  * @param{Function} error   - Callback on error
  * @param{Boolean}  cache   - Use cached data if available
  */
- export function getAjax(options) {
+export function getAjax(options) {
     top.__utils__get__ = top.__utils__get__ || {};
-    var cache_key = JSON.stringify(options);
+    const cache_key = JSON.stringify(options);
     if (options.cache && top.__utils__get__[cache_key]) {
         if (options.success) {
             options.success(top.__utils__get__[cache_key]);
@@ -33,13 +33,13 @@ import _ from "underscore";
         requestAjax({
             url: options.url,
             data: options.data,
-            success: function (response) {
+            success(response) {
                 top.__utils__get__[cache_key] = response;
                 if (options.success) {
                     options.success(response);
                 }
             },
-            error: function (response, status) {
+            error(response, status) {
                 if (options.error) {
                     options.error(response, status);
                 }
@@ -58,7 +58,7 @@ import _ from "underscore";
  */
 export function requestAjax(options) {
     // prepare ajax
-    var ajaxConfig = {
+    const ajaxConfig = {
         contentType: "application/json",
         type: options.type || "GET",
         data: options.data || {},
@@ -67,7 +67,7 @@ export function requestAjax(options) {
     // encode data into url
     if (ajaxConfig.type == "GET" || ajaxConfig.type == "DELETE") {
         if (!$.isEmptyObject(ajaxConfig.data)) {
-            ajaxConfig.url += ajaxConfig.url.indexOf("?") == -1 ? "?" : "&";
+            ajaxConfig.url += !ajaxConfig.url.includes("?") ? "?" : "&";
             ajaxConfig.url += $.param(ajaxConfig.data, true);
         }
         ajaxConfig.data = null;
@@ -91,15 +91,15 @@ export function requestAjax(options) {
                 options.success(response);
             }
         })
-        .fail((response) => {
-            var response_text = null;
+        .fail(({ responseText, status }) => {
+            let response_text = null;
             try {
-                response_text = $.parseJSON(response.responseText);
+                response_text = $.parseJSON(responseText);
             } catch (e) {
-                response_text = response.responseText;
+                response_text = responseText;
             }
             if (options.error) {
-                options.error(response_text, response.status);
+                options.error(response_text, status);
             }
         })
         .always(() => {
