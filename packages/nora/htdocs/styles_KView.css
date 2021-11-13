@@ -1,0 +1,5342 @@
+#KView_mainFrame
+{
+   -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+
+  position:relative;
+  display: table;
+  border:0px solid white;
+  margin: 0px;
+  background-color: none;
+  height:100%;
+  width:100%;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+
+  font-family: Arial, sans-serif;  
+
+
+}
+
+#KView_mainSpinner
+{
+  top:50%;
+  left:100px;
+  position:absolute;
+  font-size:20px;
+}
+
+.BORDER_BOX
+{
+ -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+
+}
+
+.KView_DIVCell
+{
+  line-height:1;
+  background:black;
+  display:table-cell;
+  border: 0px solid yellow;
+  vertical-align: top;
+  height: 100%;
+  border-collapse:collapse;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+.KView_viewportNumerator
+{
+    position:absolute;
+    top:50%;
+    left:50%;
+    z-index:1;
+    font-size:30px;
+    color:  yellow;
+    transform: translate(-50%,-50%);
+    opacity:0.25;
+    pointer-events:none;
+    text-align:center;
+
+}
+
+
+/*
+#KViewPort_container_number1 {   background-color:#111; }
+#KViewPort_container_number2 {   background-color:#111; }
+#KViewPort_container_number5 {   background-color:#111; }
+#KViewPort_container_number6 {   background-color:#111; }
+#KViewPort_container_number9 {   background-color:#111; }
+#KViewPort_container_number11 {   background-color:#111; }
+#KViewPort_container_number15 {   background-color:#222; }
+#KViewPort_container_number16 {   background-color:#111; }
+#KViewPort_container_number17 {   background-color:#222; }
+*/
+
+
+
+.KView_viewportNumerator img
+{
+  
+   width:100%;
+/*    position:absolute;
+    z-index:1;
+    width:80%;
+    height:80%;
+    sfont-size:300px;
+    color:  #229966;
+    transform: translate(-50%,-50%);
+    opacity:0.12;
+    pointer-events:none;
+    */
+
+  /*
+  position:absolute;
+  left:20%; 
+  top:20%; 
+  width:120%
+  */
+}
+
+.dropindicator_general_vert
+{
+    position:absolute;
+    
+    height:100%; /* do not! sizing wrong!!*/
+    __width:100%;
+    height:calc(85%);
+    
+    z-index:900;
+    padding:0px; /*this important! for size calculations!*/
+    _margin:39px;
+    
+    display:flex;
+    flex-direction: column;
+    align-items:   center; 
+    justify-content: center;
+    
+    background: rgba(100, 100, 100, 0.8);
+    box-sizing:border-box;
+}
+
+.dropindicator_general_vert > div
+{
+  font-size:18px;
+  line-height:20px;
+  text-align:center;
+  text-shadow: 1px 1px 1px #000;
+  font-weight:normal;
+  color:  lightgray;
+  border-radius:8px;
+  padding:15px;
+  margin: 10px 10px;;
+  background: rgba(139, 0, 0, 0.6);
+
+  display: flex;
+  justify-content: center; 
+  align-items: center; 
+  flex-grow:1;
+  dmin-width:400px;
+  width:70%;
+  height:100%;
+}
+.dropindicator_general_vert > div:hover
+{
+  background: rgba(0,139,139,0.6);
+}
+
+
+
+
+
+.KView_viewportdropIndicator
+{
+    position:absolute;
+    top:50%;
+    right:0%;
+    z-index:90000;
+    transform: translate(00%,-50%);
+    padding:20px;
+    display:flex;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: flex-end; 
+    justify-content:         flex-end;
+    background: rgba(0, 0, 100, 0.0);
+    width: calc(200px - 2px) !important;
+    height:calc(100% - 2px) !important;
+    box-sizing:border-box;
+    __border:1px solid red;
+}
+
+.KView_viewportdropIndicator > div
+{
+  box-sizing:content-box;
+  line-height:1;
+  font-size:18px;
+  line-height:auto;
+  text-align:center;
+  text-shadow: 1px 1px 1px #000;
+  font-weight:normal;
+  vertical-align:middle;
+  color:  lightgray;
+  border: 0px solid rgba(0,139,139,.8);
+  border-radius:8px;
+  padding:15px;
+  padding-top:30px;
+  margin: 10px;
+  background: none;
+  background: rgba(139, 0, 0, 0.6);
+
+  edisplay: flex;
+  justify-content: center; 
+  align-items: center; 
+
+  height:70px !important;
+
+}
+
+
+.KView_viewportdropIndicator > div > div
+{
+  
+  width:100%;
+  font-size:15px;
+  border:1px solid gray;
+  border-radius:3px;
+  height:23px !important;
+  white-space: nowrap;
+  padding:1px;
+  padding-left:6px;
+  padding-right:6px;
+  margin-top:10px;
+  margin-left:-5px;
+     
+}
+
+
+/* autoloader dropper */
+.KView_autoloader_dropIndicator
+{
+    position:absolute;
+    z-index:9990099;
+    padding:0px;
+    margin:0px;
+    display:flex;
+    flex-direction:column;
+    background: rgba(00, 10, 00, 0.7);
+    box-sizing:border-box;
+    border:0px solid red;
+    font-size:15px;
+}
+
+.KView_autoloader_dropIndicator > div
+{
+  padding-top:10px;
+  text-align:center;
+  line-height:15px;;
+}
+
+/* this is the container for the elements*/
+.KView_autoloader_dropIndicator > div:nth-child(2)
+{
+  flex-grow:1;
+  display:flex;
+  flex-direction: horizontal;
+  dbackground:red;
+  flex-wrap:wrap;
+  border:0px solid green;
+
+}
+
+/* this is an element*/
+.KView_autoloader_dropIndicator > div > div
+{
+ 
+  font-weight:normal;
+  color:  hsl(0,0%,90%);
+  border: 0px solid rgba(0,139,139,.8);
+  border-radius:18px;
+  
+  margin: 30px;
+  padding-top:20px;
+  background: rgba(139, 0, 0, 0.6);
+  box-shadow: none; /*0px 0px 30px 20px rgba(130, 0, 0, 0.6);*/
+  
+  display: flex;
+  flex-direction: column;
+  djustify-content: center; /* align horizontal */
+  align-items: center; /* align vertical */
+  flex-grow:0;
+  min-width:300px;
+  max-height:400px;
+
+  _max-width:400px;
+}
+
+.KView_autoloader_dropIndicator > div > div:hover
+{
+  /* what a pitty this does not work on a drag event, need dragster! */
+}
+
+.KView_autoloader_dropIndicator > div > div > div
+{
+  padding:5px;
+  margin:5px;
+  background: rgba(53, 0, 0, 0.9);
+  line-height:25px;
+  border-radius:10px;
+  text-align:left;
+
+}
+.KView_autoloader_dropIndicator > div > div > div:first-child
+{
+  font-size:20px;
+  background:none;
+  text-shadow: 1px 1px 1px #000;
+
+}
+.KView_autoloader_dropIndicator > div > div > div:last-child
+{
+  font-size:20px;
+  background:none;
+  text-shadow: 1px 1px 1px #000;
+  display:none;
+
+}
+
+
+
+
+
+
+
+#KView_viewportContainer
+{
+  margin-top:0px;
+  border:0px solid yellow;
+  doverflow: hidden;
+  display: flex;
+  height:100%;
+  width:100% ;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+   flex-wrap: wrap;
+  dbackground: #001122;
+  position:relative;
+
+  
+}
+
+.KViewPort_container.resizebar-x
+{
+  border-right: 3px solid #990;
+}
+.KViewPort_container.resizebar-y
+{
+  border-top: 3px solid #990;
+}
+
+
+.KViewPort_container
+  {
+    position: relative;
+    background-color:black;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    border-collapse:collapse;
+    overflow:hidden;
+    vertical-align:top;
+    border:1px solid hsla(206, 64%, 37%,0.3);
+    margin: 0px;
+    flex: 1 1 auto;
+    min-width:20px;
+    min-height:20px;
+
+   -webkit-user-select: none;/* Chrome/Safari/Opera */
+     
+}
+
+
+#KView_toolbarLeft
+{
+  margin-left:-2px;
+  height: 100%;
+  width: 35px;
+  padding: 0px;
+  color:white;
+  border: none;
+  display: inline-block;
+    -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  position:relative;
+  
+}
+
+.KView_toolbarLeft_disableDIV
+{
+  position:absolute;
+  background:hsla(0,0%,20%,.9);
+  z-index:;
+  top:0px;
+  left:2px;
+  width:32px;
+  height:100%;
+
+}
+
+.KView_toolbarTop_disableDIV
+{
+  position:absolute;
+  background:hsla(0,0%,20%,.8);
+  z-index:;
+  top:0px;
+  left:0px;
+  width:100%;
+  height:300%;
+  overflow:show;
+  z-index:20;
+}
+
+
+#autoloaderButtonDIV > ul ul
+{
+/*  transform: translate(0%, -50%);*/
+}
+
+
+/*empty placeholder with zero height*/
+.resizer_vertical
+{
+  height:100%;
+  width:0px;
+  position:absolute;
+  background:red;
+  z-index:30000;
+  left:0px;
+  top:0px;
+}
+/* the hover area */
+.resizer_vertical > div
+{
+  width:8px;
+  height:100%;
+  background:none;
+  position:relative;
+  transform: translate(0px, 0);
+  cursor:ew-resize;
+}
+/*the hover glow*/
+.resizer_vertical > div > div
+{
+  width:2px;
+  height:100%;
+  background:none;
+  position:relative;
+  transform: translate(3px, 0%);
+}
+.resizer_vertical > div:hover > div
+{
+    background:rgba(82,168,236, 1);
+   -webkit-box-shadow:  0 0 2px 2px rgba(82,168,236, 1);
+}
+
+
+.ddresizer_vertical
+{
+  position:absolute;
+  height:100%;
+  width:1px;
+  background: red;
+  left:0px;
+  top:0px;
+}
+
+
+.KView_tool
+{
+  line-height:1;
+  box-sizing:content-box;
+  color:white;
+  position:relative;
+  float: none;
+  margin: 0px 3px 3px 3px;
+  font-size: 20px;
+  font-weight:bold;
+  _font-family: cursive;
+  border: 0px solid gray;
+  width: 20px;
+  height: 20px;
+  background-color:#b1b1b1;
+  display: block;
+  text-align: center;
+  vertical-align: center;
+  padding: 5px;
+  border-radius:0px; /*borderradius_button*/
+  wbox-shadow:2px 2px 2px 0px #444444;
+  cursor: default;
+}
+
+.KView_tool_small
+{
+  margin-top:2px;
+  
+  width:10px;
+  height:11px;
+  margin-left:0px;
+  font-size:12px;
+  background:#444;
+  
+}
+
+.KToolsTopMenu > li:nth-child(2)
+{
+  margin-left:35px;
+}
+
+.KToolsTopMenu 
+{
+  font-size:14px;
+  z-index:2;
+  background:#551111; /*toolstopmenucolor*/
+
+}
+
+.KToolsdragger > i 
+{
+   color:white;
+   margin: 5px 0px 0px 8px;
+
+}
+.KToolsdragger
+{
+  
+  height:23px;
+  width:30px;
+  height:25px;  
+  background:rgba(50,50,50,0.5);
+  display:inline-block;
+  position:absolute;
+  z-index:3;
+  border-radius:5px;
+}
+
+.KTool_leftdiv
+{
+  margin-top:25px;
+  fbackground: linear-gradient(to bottom, #111 0%, #333 100%);
+  position:absolute;
+  width:21px;
+  height: auto;
+  opacity:0.1;
+  right:0px;  
+  border-left: 1px solid white;
+  z-index:0;
+ r-moz-border-image: -moz-linear-gradient(top, #3acfd5 0%, #3a4ed5 100%);
+  r-webkit-border-image: -webkit-linear-gradient(top, #3acfd5 0%, #3a4ed5 100%);
+  border-image: linear-gradient(to bottom, #111 0%, #333 100%);
+  border-image-slice: 1;
+  
+  opacity:0.1;
+  padding-top:5px;
+  padding-bottom:5px;
+  padding-left:2px;
+  background: #111;
+}
+
+
+.KTool_leftdiv.LDvisible
+{
+  opacity:1;
+  width:21px;
+}
+
+.KViewPort_container > .annotation_tool > .KTool_leftdiv
+{
+  right:5px;
+
+}
+
+
+
+.KView_tool.inactive
+{
+  pointer-events:none;
+  opacity:0.5;
+}
+
+.KView_tool_blue
+{
+   background:#226699; /*menucolor*/
+}
+
+.KView_tool:hover
+{
+  background-color:#ebebeb;
+  color: black;
+
+}
+
+.KView_tool  > ul
+{
+  visibility:hidden;
+  opacity:0;
+  transition:visibility  ease-in 0.3s,opacity 0.3s ease-in;
+}
+
+.KView_tool:hover  > ul
+{
+   /*display:block;*/
+   visibility:visible;
+   opacity:1;
+   transition-delay:0.2s;
+}
+
+
+.KView_tool_enabled:hover
+{
+   background:#113355; /*highlight*/
+   color: rgb(200,200,200);
+}
+
+
+.KView_tool_enabled
+{ 
+   background:linear-gradient(to top left, #113355, #4466AA); /*toolbutton*/
+   hbackground:#113355; /*highlight*/
+   aaacolor:black;
+}
+
+.KView_tool_enabled_green
+{
+  background:hsl(120, 100%, 25%)!important;
+}
+
+
+.KView_tool_menu
+{
+  position: absolute;
+  z-index: 9999;
+  padding: 0 ;
+  margin: 0;
+  height: auto;
+  width:auto;
+  left:100%;
+  top:0;
+
+  background: #E6E6E6;
+  color: black;
+
+  white-space: nowrap;
+  font-size:14px;
+  font-weight:normal;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, .9);
+  text-align: left;
+  border-radius:0px; /*borderradius*/
+  box-shadow: 10px 10px 15px hsla(0, 0%, 15%, .7); 
+
+
+}
+
+
+
+.KTool_leftdiv .KView_tool_menu
+{
+  left:initial;
+  right:100%;
+}
+
+
+
+
+.KView_tool_menu li
+{
+  padding:  7px 8px 6px 8px;
+  margin: 0;
+  dheight: 20px;
+  position: relative;
+  list-style: none;
+  border: none;
+  background: #E6E6E6;
+  border: none;
+  color: #666;
+  display:flex;
+  flex-direction:horizontal;
+}
+
+.KView_tool_menu li .KView_tool_menu_titleedit
+{
+  margin-right:8px;
+  margin-left:0px;
+}
+
+.KView_tool_menu  i
+{
+  border:0px solid black;
+  text-align:right;
+  margin-left:15px;
+  font-size:13px;
+}
+.KView_tool_menu  i.fa-power-off:hover
+{
+  color:red;
+}
+.KView_tool_menu i:hover
+{
+  color:hsl(0,0%,60%);
+  color: hsl(206, 64%, 77%);
+  _text-shadow: 0 1px 1px rgba(0, 0, 0, .5);
+}
+
+.KView_tool_menu li >  span
+{
+  flex-grow:1;
+}
+
+
+.KView_tool_menu span
+{
+    white-space: nowrap;
+}
+
+.KView_tool_menu  ul
+{
+  padding: 0;
+}
+.KView_tool_menu li ul
+{
+  display: none;
+}
+
+.KView_tool_menu li:hover
+{
+  background:#113355; /*highlight*/
+  color: #FFF !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .1);
+}
+
+.KView_tool_menu > li:first-of-type   
+{
+  border-bottom: 1px solid gray; 
+}
+
+.KView_tool_menu > li:first-of-type:hover   
+{
+  background:initial;
+  color: #666!important;
+  text-shadow: initial!important;
+}
+
+.KView_tool_menu li:hover > ul
+{
+  display:block;
+  
+}
+
+.KView_tool_menu  li > ul
+{
+  float:left;
+  position:absolute;
+  top:0;
+  left:100%;
+}
+
+
+.KView_tool_menu li:after 
+{ 
+  clear: both; 
+}
+
+.KView_tool_menu_layoutSelectorParent
+{
+  height:173px;
+}
+
+
+.KView_tool_menu_layoutSelectorTable
+{width:90px;height:142px;border:0px solid green;border-spacing: 3px;display:inline-block;box-sizing:content-box;line-height:1;border-collapse: separate;text-indent: initial;/* white-space: normal; *//* line-height: normal; *//* font-weight: normal; *//* font-size: medium; *//* font-style: normal; */color: -internal-quirk-inherit;/* text-align: start; *//* border-spacing: 2px; *//* font-variant: normal; */}
+
+.floatports 
+{
+  position:relative;
+  top:3px;
+  margin-left:5px;
+  
+}
+
+.floatports .fa
+{
+    border:1px solid #666666;
+    background:lightgray;
+    width:20px;
+    text-align:center;
+    margin:2px;
+    border-radius:3px;
+    padding:3px 0px 3px 0px;
+}
+
+.floatports .fa:hover
+{
+  background:darkgray;
+  color:white;
+}
+
+
+.vertport
+{
+  position:relative;
+  _background:red;
+  display:inline-block;
+  border:1px solid #666666;
+  height:134px;  
+  width:20px;
+  top:0px !important;
+  margin:3px;
+}
+
+.KView_tool_menu_layoutSelectorTable  td
+{
+  height:21px;
+  width: 20px;
+  border:2px solid #666666;
+  box-sizing:border-box;
+
+  
+}
+
+.KView_tool_menu_layoutSelectorTable_td_hovered
+{
+  background:black !important;
+  
+}
+
+
+.KView_tool_menu_layoutSelectorTable_active
+{
+  background:gray;
+  position:relative;
+  _left:100px;
+}
+
+
+
+.KView_tool_sep
+{
+   margin: 10px 3px 3px 3px;
+
+   background-color:green;
+   acolor:black;
+}
+
+
+
+
+
+
+
+.KViewPort_canvas
+{
+  border:0px solid white;
+  height:100%;
+  width:100%;
+  margin-top: 0px;
+  margin-top: 0px;
+  z-index: 1;
+  image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+  image-rendering: -webkit-optimize-contrast; /* Safari                        */
+  image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+  image-rendering: pixelated;
+  ttttransform: scale(1, -1);
+  
+  position:absolute;
+
+  background-color:none;
+
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+
+}
+
+.KViewPort_canvas_pixelated
+{
+  image-rendering: auto;
+}
+
+
+.KViewPort_canvas3D
+{
+  border:0px solid white;
+  height:100%;
+  width:100%;
+  margin-top: 0px;
+  margin-top: 0px;
+  z-index: 1;
+  image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+  image-rendering: -webkit-optimize-contrast; /* Safari                        */
+  image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+  image-rendering: pixelated;
+
+  position:absolute;
+  top:0px;
+
+   background-color:none;
+
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  cursor:default;
+
+}
+
+
+
+.KViewPort_overlay_canvas
+{
+  border:5px solid white;
+  height:100%;
+  width:100%;
+  z-index: 999;
+
+  background-color: rgba(255,2,255,0.4);
+
+  position:relative;
+
+  background-color:none;
+  box-sizing: border-box;
+
+
+}
+
+
+
+
+.KViewPort_description
+{
+  border:0px solid blue;
+  background-color:none;
+  display: inline-block;
+  position:absolute;
+  z-index:3;
+  text-align:left;
+  padding: 8px;
+  color: white;
+  font-size: 15pt;
+  font-weight:normal;
+}
+
+
+
+.KViewPort_textBox
+{
+  color:#C1C1C1;
+  border: none;
+  width: 100%;
+  height: 100%;
+  display: block;
+  padding:20px;
+  margin-top: 25px;
+}
+
+.KViewPort_textBox textarea
+{
+  font-size: 16px;
+  background-color:black;
+  color:#F0F0F0;
+  width: 90%;
+  height: 90%;
+  min-height: 150px;
+
+  padding:0px;
+  margin-bottom: 10px;
+  border: 0px solid gray;
+
+}
+
+
+.KViewPort_title
+{
+ font-size:15px; 
+ z-index:1;
+ color:yellow;
+ padding:1px 4px; 
+ background: rgba(100,100,100,.2);
+ position:relative;
+ top:3px;
+ left:2px;
+ text-shadow:1px 1px 1px hsl(0,0%,10%);
+}
+
+.KViewPort_img
+{
+  border:0px solid green;
+  cursor: pointer;
+  position:absolute;
+  background-color:none;
+
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  __height:calc(100% - 40px) !important;  
+  __top:25px !important;
+}
+
+
+.KViewPort_tableViewer_outerDiv
+{
+  overflow:scroll;
+  width:100%;
+  position:relative;
+  height:95%;
+  top:8px;
+}
+
+.KViewPort_tableViewer 
+{
+
+  border:0px solid green;
+  height:auto;
+  width:100%;
+  position:relative;
+  background-color: #000000;
+  font-size:12px;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  z-index:5;
+  border-collapse: collapse;
+  overflow:scroll;
+}
+
+.KViewPort_tableViewer.tablelayoutfixed
+{
+  table-layout:fixed;  
+}
+
+.KViewPort_tableViewer td 
+{
+ border-left:1px solid #aaa;
+ border-bottom:1px solid #aaa;
+ padding-left:8px;
+ padding-right:8px;
+ box-sizing: border-box;
+ border-collapse: collapse;
+ max-width:150px;
+ position:relative;
+ overflow:hidden;
+}
+
+.KViewPort_tableViewer td > span
+{
+
+  overflow:hidden;
+  display:block;
+  pointer-events:none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: -1px; 
+}
+
+
+.KViewPort_tableViewer tbody td:hover > span
+{
+  width:initial;
+  position:relative;
+  overflow: visible; 
+  background:#F0F0FF; /*submenucolor*/  
+  z-index:1;
+  display: inline-block;
+  border: 1px dotted;
+  margin: -2px; 
+
+}
+
+.KViewPort_tableViewer 
+{
+  background:#F0F0FF; /*tableentry*/
+}
+.KViewPort_tableViewer tr 
+{
+  dbackground:#F0F0FF; /*tableentry*/
+  color:black;
+  cursor:inherit;
+}
+
+.KViewPort_tableViewer tr.selected
+{
+  color:black; 
+  background:lightblue;   
+}
+
+
+.KViewPort_tableViewer tr.selectedBold
+{
+  color:black; 
+  background:lightgreen;
+}
+
+
+.KViewPort_tableViewer  tr
+{
+    overflow:auto;
+    text-overflow: ellipsis;
+}
+
+.KViewPort_tableViewer  tr.excluded
+{
+  background:red;
+}
+
+.KViewPort_tableViewer thead
+{
+  background:lightgray;
+}
+
+.KViewPort_tableViewer thead td
+{
+
+  z-index:2;
+  color:black;
+  border-right: 1px solid green;
+  cursor:inherit;
+  background:lightgray;
+
+ 
+}
+.tabcolselected
+{ 
+  background-color:yellow !important;
+}
+.tabcolselectedALT
+{ 
+  background-color:green !important;
+}
+
+.KchartOptions:hover
+{
+  width:30%;
+  height:auto;  
+  opacity:1;
+
+}
+
+.KchartOptions > div
+{
+  display:none;
+}
+
+.KchartOptions:hover > div
+{
+  display:block;
+}
+.KchartOptions
+{
+  position:absolute !important;
+  z-index:100;
+  background:lightgray;
+  margin-top:2px;
+  margin-right:2px;
+  border-radius:5px !important;
+  border:3px solid gray;
+  padding:3px !important;
+  right:0px;
+  height:20px;
+  overflow:hidden;
+  width:20px;
+  height:20px;
+  opacity:0.3;
+  color:black !important;
+  box-shadow: 2px 2px 9px gray;
+
+
+}
+
+
+.Kchartstats
+{
+  position:absolute !important;
+  z-index:100;
+  background:lightgray;
+  margin-top:2px;
+  margin-right:2px;
+  border-radius:5px !important;
+  border:3px solid gray;
+  padding:3px !important;
+  left:0px;
+  height:20px;
+  overflow:hidden;
+  width:20px;
+  height:20px;
+  opacity:0.3;
+  color:black !important;
+  box-shadow: 2px 2px 9px gray;
+    
+
+
+}
+
+.Kchartstats:hover,.visible
+{
+  width:50%;
+  height:auto;  
+  opacity:1;
+
+}
+
+.Kchartstats.visible > div
+{
+  display:block;
+}
+.Kchartstats:hover > div
+{
+  display:block;
+}
+
+
+
+
+.Kchartstats > div > div
+{
+  margin-left:20px;
+ 
+}
+.Kchartstats > div > div:first-child
+{
+  margin-left:0px;
+
+  font-weight:bold;
+}
+
+.Kchartstats > div
+{
+  display:none;
+  margin-top:5px;
+}
+
+
+.KViewPort_txtViewer
+{
+  display:inline-block;
+  padding:4px;
+  margin:2px;
+  margin-top:8px;
+  border:3px solid gray;
+  height:calc(100% - 30px) !important;  
+
+  width:100%;
+  position:relative;
+  background-color: hsl(0,0%,60%);
+  color:black;
+  scolor: #CCCC00;
+  font-size:14px;
+  overflow:auto;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  white-space:pre-wrap;
+
+}
+
+.KViewPort_txtViewer h3 
+{
+  padding:2px 4px;
+  margin:10px 2px 2px 0px;
+  _background:hsl(0,0%,50%);
+  border-bottom:1px solid hsl(0,0%,30%);
+}
+
+.KViewPort_txtViewer div
+{
+  padding:2px 0px;
+  margin:10px 2px 2px 0px;
+  font-size:14px;
+  font-weight:bold;
+}
+
+.KViewPort_txtViewer .sr_ok
+{
+  background:green;
+  color:white;
+  padding:2px;
+  margin-right:10px;
+  border-radius:4px;
+  font-weight:bold;
+}
+.KViewPort_txtViewer .sr_not_ok
+{
+  background:red;
+  color:white;
+  padding:2px;
+  margin-right:10px;
+  border-radius:4px;
+  font-weight:bold;
+}
+
+.KViewPort_txtViewer p
+{
+  margin:5px;
+  margin-left:10px;
+  color:hsl(0,0%,8%);
+  __background:green;
+}
+
+
+.KViewPort_jsonViewer
+{
+  width:100%;
+
+  height:calc(100% - 0px) !important;  
+  margin-top:-17px;
+  padding-top:20px;
+
+  position:relative; 
+  background:hsl(0, 0%, 22%); /*windowbackground*/
+  __color: black;
+  font-size:12px;
+
+  overflow:auto;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+
+}
+
+
+.KViewPort_formViewer
+{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  flex-grow:1;
+  height:calc(100% - 0px) !important;
+    
+  margin-top:20px;
+  padding-bottom:40px;
+  padding-top:20px;
+
+  position:relative; 
+  background: linear-gradient( to bottom right , hsl(0, 0%,22%), hsl(0, 0%,35%)); /*blockbackground*/
+
+  __color: black;
+  font-size:12px;
+
+  z-index:0;
+  overflow:auto;
+  box-sizing: border-box;
+
+
+}
+.KViewPort_formViewer_pinfobar
+{
+
+
+  position:absolute;
+  top:20px;
+  width:100%;
+  color:#EE6 !important;
+  padding-left:4px;
+  font-size:12px;
+  box-sizing: border-box;
+  dheight:90px;
+  border-bottom:1px solid hsl(0, 0%,42%);
+  margin-top:-20px;
+  margin-bottom:10px;
+  z-index:2;
+  cursor:default;
+  background:#222;
+
+}
+
+
+.KViewPort_ViewerJS
+{
+  border:0px solid green;
+  height:calc(100% - 30px) !important;  
+  width:100%;
+  position:relative;
+  overflow:none;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+
+}
+
+
+.KViewPort_zoomedPort
+{
+  border:1px solid;
+  border-color:#666666; /*bordercolor*/
+  z-index: 1000;
+  visibility: hidden;
+  padding:auto;
+  height: -moz-calc(100% -0px);
+  height: -webkit-calc(100% -0px);
+  /*minus8*/
+  position: absolute;
+  margin:2px;
+  margin-left:2px;
+  sleft:0 ;
+  htop:0;
+  dddtransform: translate(-50%, 0);
+
+ 
+  background-color:black;
+   -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  overflow:hidden;
+
+}
+
+
+
+.KViewPort_canvascontainer
+{
+  position:relative;
+  soverflow: hidden;
+  padding:0px;
+  border:0px solid green;
+  width: 100%;
+  height:100%;
+  top: 0px;
+ }
+
+.floatingViewporthidetitle .KViewPort_container
+{
+  box-sizing:border-box;
+  border:2px solid gray !important;
+  border-radius:10px;
+  box-shadow: 2px 2px 9px hsla(0,0%,50%,.7);
+  
+}
+
+.KViewPort_icontainer
+{
+  /*z-index:2;*/
+  border:0px solid;
+  border-color:#666666; /*bordercolor*/
+  width:100%;
+  dheight:100%;
+  top:0px;
+  left:0px;
+  overflow:hidden; 
+  position:relative;
+  display: block;
+  background-color:black;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  vertical-align:top;
+  border-radius:0px; /*borderradius*/
+}
+
+.noBorder
+{
+  border: 0px solid !important;
+}
+
+
+.KViewPort_toolbar
+{
+  border: 0px solid #FFFF75;
+  xbackground-color:yellow;
+  vertical-align: top;
+  position: absolute;
+  right:0;
+  display:block;
+  z-index:3;
+  text-align:right;
+  color: none;
+  padding: 0px;
+  cursor: default;
+  pointer-events:none;
+}
+
+.KViewPort_statusbar
+{
+  opacity:0.4;
+  text-align:right;
+  position:absolute;
+  bottom:0px;
+  right:0px;
+  width:30%;
+  min-width:200px;
+  z-index:500;
+
+
+}
+
+.KViewPort_layoutbar
+{
+
+  ffloat: right;
+  border: 0px solid #FFFF75;
+  vertical-align: top;
+  position: absolute;
+  right:0;
+  bottom:10%;
+  margin-left:auto;
+  margin-right:0px;
+  display: inline-block;
+
+  text-align:right;
+  color: none;
+  padding: 0px;
+  cursor: default;
+  z-index:3;
+
+}
+
+.thumb3d
+{
+  background:red;
+  height:30px !important;
+  width:30px !important;
+
+}
+
+.layout3dshortcut
+{
+  font-size:12px !important;
+  background:gray;
+  border-radius:2px !important;
+}
+
+.KViewPort_tool_layout
+{
+  font-size: 18px;
+  
+  margin: 3px;
+  border: 0px solid gray;
+  width: auto;
+  height: auto;
+  min-width:15px;
+  text-align:center;
+  
+  color:#FFF;
+  display: block;
+  padding: 3px;
+  font-family: Arial, sans-serif;  
+  border-radius:0px; /*borderradius_smallbutton*/
+  text-shadow:1px 1px 1px hsl(0,0%,30%);
+
+  
+
+}
+
+.KViewPort_tool_layout i
+{
+  margin:auto;
+}
+
+.KViewPort_tool_layout svg
+{  
+  transform:scale(1.7);
+  margin-bottom:4px;
+}
+
+.KViewPort_tool_layout:hover
+{
+  
+  color:orange;
+}
+
+.KViewPort_tool b
+{
+  font-family: Arial, sans-serif;  
+}
+
+.KViewPort_tool
+{
+  line-height:1;
+  box-sizing:content-box;
+  font-size: 14px;
+  margin: 0px;
+  border: 0px solid transparent;
+  min-width:15px;
+  text-align:center;
+  background:linear-gradient(to top left, #113355, #4466AA); /*toolbutton*/
+  color:#BBB;
+  padding: 3px 6px 5px 6px;
+  border-radius:0px; /*borderradius_smallbutton*/
+  width: auto;
+  height: 15px;
+  overflow:hidden;
+  pointer-events:all;
+  
+  display:inline-block;
+
+
+}
+
+.KViewPort_tool > div
+{
+
+}
+
+
+
+.KViewPort_movie_tool
+{
+  font-size: 12px;
+  min-width:15px;
+  text-align:center;
+  background:linear-gradient(to top left, #113355, #4466AA); /*toolbutton*/
+  color:#BBB;
+  display: inline-block;
+  padding: 3px;
+  font-family: Arial, sans-serif;  
+}
+
+.KViewPort_movie_tool:hover
+{
+  background:#AAAAAA;
+  color:black;
+}
+
+.KTimeRangeSlider:hover::after
+{
+  content:"use mousewheel";
+  position:absolute;
+  top:-18px;
+  font-size:15px;
+  color:white;
+}
+
+.KViewPort_tool_cmap .fa-empty
+{
+  opacity:0.5;
+  border-radius:2px;
+  background: red; /* For browsers that do not support gradients */
+  /* For Safari 5.1 to 6.0 */
+  xbackground: -webkit-linear-gradient(top,red,orange,yellow,green,lightblue);
+  /* For Opera 11.1 to 12.0 */
+  xbackground: -o-linear-gradient(top,red,orange,yellow,green,lightblue);
+  /* For Fx 3.6 to 15 */
+  xbackground: -moz-linear-gradient(top,red,orange,yellow,green,lightblue);
+  /* Standard syntax */
+  background: linear-gradient(to top,red,orange,yellow,green,lightblue);
+  color:black;
+}
+
+
+.KColorMenuItem
+{
+  position:absolute;
+  height:25px;
+  left:0;
+  top:-5px;
+  opacity:0.4;
+  width:95%;
+}
+
+.KViewPort_tool:hover
+{
+  background:#AAAAAA;
+  color:black;
+}
+
+.KViewPort_tool.overlaycaption
+{
+   background:linear-gradient(to top left, #008D7A, #80B2E6); /*overlay*/
+}
+.KViewPort_tool.overlay
+{
+   background:linear-gradient(to top left, #008D7A, #80B2E6); /*overlay*/
+}
+.KViewPort_tool.overlay:hover
+{
+  background:#AAAAAA;
+}
+
+.KViewPort_tool.overlay .fa
+{
+  pointer-events:none;
+}
+
+
+.KViewPort_tool.draganddrop
+{
+   background: linear-gradblackient(to top left, #998D7A, #AAAAAA);
+   border-bottom-left-radius:10px;
+   border:solid 1px gray;
+   color:yellow !important;
+   
+   height:13px;
+   margin-bottom:0px;
+   font-size: 13px;   
+   
+  
+}
+.KTool_hidden
+{
+  opacity:0;
+  min-width:0px !important;
+  width:0px;
+  transition : all 0.5s ease-in;
+}
+
+.KTool_displaynone
+{
+  display:none;
+}
+
+.KToolbarSep
+{
+  position:relative;
+  display:block;
+  dpointer-events:all;
+  border: 0px solid black;
+  eebackground: linear-gradient(-90deg, #AAA, #111); 
+  opacity:1;
+  white-space: nowrap;
+  padding-bottom:2px;
+}
+
+.Kmintoolsep
+{
+   position:relative;
+   top:-6px;
+   left:-20px;
+   pointer-events:all; 
+   display:inline-block;
+}
+
+
+.KViewPort_tool
+{
+  position:relative;
+}
+
+.Kmintoolsep .fa
+{
+    color:gray;
+    font-weight:bold;
+}
+
+.Kmintoolsep .fa:hover
+{
+   color:orange;
+}
+.KToolbarSep.minimized 
+{
+  left:2px;
+  min-height:20px;
+  max-height:40px;
+  overflow-y:scroll;
+  padding-right:0px;
+  margin-right:0px;
+  
+
+}
+
+.KToolbarSep.minimized > .caption
+{
+   line-height:4px;
+   font-weight:bold;
+}
+
+.KToolbarSep.minimized > div:not(.Kmintoolsep) > .fa
+{
+   line-height:5px !important;
+   font-size:6px;
+   
+}
+
+.KToolbarSep.minimized > .Kmintoolsep
+{
+  left:-10px;   
+  top:2px;
+}
+
+
+.KToolbarSep.minimized > div:not(.Kmintoolsep)
+{
+  height:5px;
+  padding:2px;
+  font-size:9px;
+
+}
+
+
+.KToolbar_sticky:hover
+{
+  opacity:1;
+  background:transparent !important;
+  color:orange;
+}
+.KToolbar_sticky
+{
+  opacity:0.4; 
+  background:transparent;
+  color:gray;
+  width:30px;
+  float:right;
+}
+
+.KViewPort_tool.surface
+{
+   background: linear-gradient(to top left, #998D7A, #AA6);
+   color:black;
+}
+.KViewPort_tool.fibers
+{
+   background: linear-gradient(to top left, #998D7A, #FAA);
+   color:black;
+}
+
+
+.KViewPort_tool.roi
+{
+   background: linear-gradient(to top left, #77F, #99F);
+   color:black;
+}
+
+.KViewPort_tool.atlas
+{
+   background: linear-gradient(to top left, #FF7, #FFF);
+   color:black;
+}
+
+
+.KViewPort_tool.cmat
+{
+   background: linear-gradient(to top left, #AA1, #FFF);
+   color:black;
+}
+.KViewPort_tool.current
+{
+   background: linear-gradient(to top left, #FFFFAA, #FFFFFF);
+}
+.KViewPort_tool.current:hover
+{
+    background: linear-gradient(to top left, #FFFFFF, #FFFFFF);
+}
+
+.KViewPort_tool.caption
+{
+   background: linear-gradient(to top left, #444444, #666666);
+   color:white;
+   opacity:0.8;   
+   font-size: 14px;   
+   height:14px;
+   padding-top:3px;
+   padding-bottom:6px;
+
+}
+
+.KViewPort_tool.caption.equalwidth
+{
+   width:80px;
+   text-overflow:ellipsis;
+   text-align:left;
+}
+
+.KViewPort_tool.caption.current
+{
+   background:  linear-gradient(to top left, #FFFFAA, #FFFFFF);
+   color:black;
+
+}
+
+.KViewPort_tool.caption.current
+{
+  opacity:1 !important;
+}
+
+
+.KViewPort_tool.caption.highlight
+{
+  background:#99C2EB;
+
+}
+
+
+
+.KViewPort_tool.fibers.disabled:hover
+{
+   background: linear-gradient(to top left, #444444, #666666);
+}
+.KViewPort_tool:hover
+{
+  background:#99C2EB;
+}
+
+.KViewPort_tool.notsaved
+{
+  background:#FF6644;
+  color:black;
+
+}
+
+
+.KViewPort_tool_enabled
+{
+   background: #e60000 !important;
+   background: darkred !important;
+}
+
+
+.KViewPort_roiview_timeindicator.roi
+{
+  width:25px;
+  pointer-events:all; 
+  background:hsl(0,0%,30%);
+  color:hsl(0,0%,90%);
+  font-weight:bold;
+  cursor:ns-resize;
+}
+
+
+
+.KViewPort_scrollAccelerator
+{
+  border:0px solid red;
+  color: red;
+  font-size: 11pt;
+  opacity:.5;
+  width:100px;
+  height:20px;;
+  position:absolute;
+  right:5px;
+  bottom:-20px;
+  pointer-events:none
+}
+
+
+.KViewPort_infoDIV
+{
+ 
+  float: left;
+  font-size: 8pt;
+  line-height:9pt;
+  border: 0px solid blue;
+  width: auto;
+  height: auto;
+  display: inline;
+  text-align: left;
+  vertical-align: top;
+  padding: 3px;
+  color: yellow;
+  z-index:2;
+  position:absolute;
+  background-color: rgba(0,0,0,0.2);
+  pointer-events:all;
+  
+  cursor: default; /* fallback if grab cursor is unsupported */
+  cursor: grab;
+  cursor: -moz-grab;
+  cursor: -webkit-grab;
+}
+
+.zoomPortButton:hover 
+{
+  background:green;
+  cursor:pointer;
+}
+
+.zoomPortButton
+{
+  border:1px solid;
+  padding:5px;
+  border-radius:3px;
+  background: rgba(128,128,1,0.3);
+
+}
+
+.KViewPort_sliceOutsideRange
+{
+  font-size: 25px;
+  position:absolute;
+  top:5px;
+  left:40%;
+  font-color:20px;
+  pointer-events:none;
+  z-index: 1000;
+  background:hsla(0,0%,10%,.6)
+}
+
+.KViewPort_spinner
+{
+  float: left;
+  font-size: 10pt;
+  border: 0px solid blue;
+  width: auto;
+  height: auto;
+  display: none;
+  text-align: left;
+  vertical-align: top;
+  padding: 3px;
+  color: yellow;
+  z-index:9999;
+  background-color: rgba(0,0,0,0.5);
+  white-space:nowrap;
+
+
+  position:absolute;
+
+  transform: translate(-50%, -50%);
+
+
+}
+
+.KSpinner_abortloading 
+{
+  display:inline;
+  color:red;
+  opacity:0.4;
+}
+
+.KSpinner_abortloading:hover
+{
+  display:inline;
+  color:red;
+  opacity:1;
+}
+
+
+.KViewPort_autoLoaderLiveEdit
+{
+  position:absolute;
+  __background-color: rgba(139, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.6);
+
+  border:0px solid white;
+  top:70px;
+  left:10px;
+  z-index:1000;
+  font-size:15px;
+  border-radius:5px;
+
+}
+.KViewPort_autoLoaderLiveEdit > div
+{
+  border-top:1px solid gray;
+  min-height:70px;
+
+}
+
+.KViewPort_autoLoaderLiveEdit textarea
+{
+  width:300px;
+  height:30px;
+  background: rgba(200, 200, 200, 1);
+  font-size:10px;
+}
+.KViewPort_autoLoaderLiveEdit textarea
+{
+
+}
+
+.KViewPort_autoLoaderLiveEdit .loadEdit_close
+{
+  position:absolute;
+  top:0px;
+  right:1px;
+  background:darkred;
+  padding:5px;
+  width:18px;
+  height:18px;
+  font-size:20px;
+  border-radius:0px;
+}
+
+.KViewPort_autoLoaderLiveEdit .loadEdit_close:hover
+{
+  color:gray;
+}
+
+
+/* *************************************** */
+/* small dot in the middle */
+.haircross_new
+{
+  position:absolute;
+  width:8px;
+  height:8px;
+  border: 0px solid white;
+  z-index:10;
+  
+  left:200px;
+  top:200px;
+  transform: translate(-50%, -50%) rotate(60deg);
+
+  display:block;
+  opacity: 1;
+  background:green/*debug*/;
+  background:none;
+
+  pointer-events: none;
+}
+
+/* center line */
+.haircross_new .centerline
+{
+    height: 5000px;
+    width:2px;
+    position:absolute;
+    transform:translate(1px,-50%);
+    background:#FF0000;
+    border: 1px solid #FFFF00;
+    opacity: .3;
+    pointer-events:none;
+    _box-sizing:border-box;
+    _background:blue; /*debbuging */
+}
+
+
+/* an invisible but large background container for easier grabbing */
+/* give the grabber a top/ bottom and height to customize */
+.haircross_new  .grabberbg
+{
+  position:absolute;
+  width: 25px;
+  height:30px;
+  transform:translate(-10px, 0%);
+  background:cyan; /*for debbuging */
+  background:none;
+  opacity:1;
+  pointer-events: all;
+
+}
+
+/* opacity calculations are expensive ... */
+/*.haircross_new .grabberbg:hover i*/
+.haircross_new .grabberbg i
+{
+  visibility:visible;
+}
+
+.visibility_isvisible
+{
+  visibility:visible!important;
+}
+
+/* the inner marker line */
+.haircross_new  * > div
+{
+  height:2px;
+  width:25px;
+
+  margin:auto;
+  background:none;
+  background:#FFF000;
+  background: rgba(82,168,236,1);;
+  opacity:.7;
+  transform:translate(0px, 15px);
+}
+
+.haircross_new  .rotator > div
+{
+  width:15px;
+}
+
+
+.haircross_new  i
+{
+
+  position:absolute;
+  transform:translate(1px,4px);
+  border-radius:18px;
+  padding:3px;
+  margin:2px;
+  background: black;
+  color:yellow;
+  font-size:15px;
+  top:0px;
+  visibility:hidden;
+  _opacity: 1;
+  _transition: all 200ms ease-out;
+  _transition-delay: 10ms;
+}
+
+
+/* *************************************** */
+
+.haircrossFocus
+{
+
+  border: 1px solid #FF0000;
+  background-color:blue;
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  display: block;
+  z-index:11;
+  top:1000px;
+  left:1000px;
+  opacity:0.4;
+  border-radius: 50%;
+  display:none;
+  pointer-events:none;
+  transform:translate(-50%,-50%) ;
+
+}
+
+/*haircrossFocus_new*/
+.haircrossFocus_new
+{
+  position: absolute;
+  display: flex;
+  align-items:center;
+  justify-content:center;
+  z-index:11;
+  top:1000px;
+  left:1000px;
+  display:none;
+  pointer-events:all;
+
+  width:3000px;
+  height:3000px;
+  transform:translate(-50%,-50%);
+  _background:red;
+
+}
+
+.haircrossFocus_new i
+{
+  position:absolute;
+  opacity:0.8;
+  color:rgba(250,250,00,.9);
+  background:hsl(0,0%,10%);  
+  _text-shadow: 8px 8px 8px hsla(0,0%,0%,.5);
+  border-radius:50%;
+  width:50px;
+  height:50px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transform:translate(-50%,-50%);
+  left:50%;
+  top:50%; 
+  pointer-events:all;
+  __pointer-events:none;
+}
+
+.haircrossFocus_new > i
+{
+  position:absolute;
+  font-size:40px;
+  text-shadow: 8px 8px 8px hsla(0,0%,0%,.8);
+  border:2px solid yellow;
+}
+
+
+.haircrossFocus_new > i > i
+{
+  sdisplay:none;
+  width:24px;
+  height:24px;
+  font-size:12px;
+  opacity:1;
+  background:hsl(0,0%,15%);  
+}
+
+.haircrossFocus_new  i:hover i
+{
+  background:red;
+}
+
+.haircrossFocus_new  div
+{
+  border-radius:50%;
+  border:2px dashed yellow;
+  position:absolute;
+  transform:translate(-50%,-50%);
+  left:50%;
+  top:50%;
+  opacity:1;
+  width:100px;
+  height:100px;
+  box-shadow: 2px 2px 9px hsla(0,0%,100%,.7);
+  display:none;
+
+}
+
+/*end of haircrossFocus_new*/
+
+
+
+
+#KseriesViewerMin
+{
+  position: absolute;
+  top:180px;
+  left:400px;
+}
+
+#KseriesViewerMax
+{
+  position: absolute;
+  top:0px;
+  left:400px;
+}
+
+#KseriesViewerCurrent
+{
+  position: absolute;
+  border: 1px solid #FF0000;
+  width:1px;
+  height:20px;
+  background-color:green;
+  top:0px;
+  left:200px;
+}
+
+#KseriesViewer
+{
+  border: 0px solid #FF0000;
+  background:#226699; /*menucolor*/
+  position: absolute;
+  height: 180px;
+  width: 400px;
+  display: none;
+  z-index:9;
+  opacity:0.5;
+  top:30px;
+  left:30px;
+}
+
+.histogram
+{
+
+  border: 0px;
+  background:#226699; /*menucolor*/
+  position: absolute;
+  display: none;
+  z-index:9;
+  opacity:0.5;
+  bottom:2px;
+  border-radius:0px; /*borderradius_button*/
+  
+}
+.histoname > div
+{
+
+}
+
+.histoname
+{
+  position:absolute;
+  color:yellow;
+  font-size:13px;  
+  top:-20px;
+  width:100%;
+  text-shadow: 1px 2px 2px black;
+  
+  overflow:hidden;
+  pointer-events:none;  
+  
+}
+
+.mosaicbar
+{
+
+  border: 1px;
+  
+  position: absolute;
+  width:40%;
+  height:4px;
+  background-color:gray;
+  display: none;
+  z-index:9;
+  opacity:1;
+  bottom:13px;
+  left:30%;
+  border-radius:0px; /*borderradius_button*/
+  
+}
+
+
+.mosaicslider
+{
+ background-color:blue;
+ position:relative;
+ width:20%;
+ top:30%;
+ left:30%;
+ height:200%;
+ opacity:0.5;
+ transform: translate(0%, -30%);
+ border-radius:0px; /*borderradius_button*/
+    cursor:-webkit-grab;
+}
+
+.mosaicdragleft
+{
+  position:absolute;
+  width:3px;
+  height:100%;
+  background-color:gray;
+  cursor:ew-resize;
+}
+
+.mosaicdragright
+{
+  position:absolute;
+  width:3px;
+  height:100%;
+  right:0px;
+  background-color:gray;
+  cursor:ew-resize;
+}
+
+.colorbar
+{
+
+  border: 1px solid #333333;
+  background-color:darkblue;
+  position: absolute;
+  display: none;
+  z-index:9;
+  opacity:1;
+  bottom:0px;
+  cursor:pointer;
+}
+
+.colorbar  canvas
+{
+}
+
+
+
+.clim
+{
+  vertical-align: top;
+  position: absolute;
+  height: 40px;
+  width: 15px;
+  display: inline-block;
+  z-index:9999;
+  text-align:right;
+  color: none;
+  top:0px;
+  left:-0px;
+  transform:translate(-50%,0%);
+  opacity:1;
+  cursor:ew-resize;
+  background:none;
+}
+
+.clim > div
+{
+  position: absolute;
+  height: 100%;
+  transform:translate(-50%,0%);
+  left:50%;
+  width: 3px;
+  _background:blue;  
+}
+
+.clim:hover > .climL
+{
+  _box-shadow:  0 0 4px 3px #00FF00;
+  width:6px;
+}
+.clim:hover > .climR
+{
+  _box-shadow:  0 0 4px 3px #FF0000;
+  width:6px;
+}
+
+.climL
+{
+  background-color:#00FF00;
+}
+
+.climR
+{
+  background-color:#FF0000;
+}
+
+
+.climhistotxt
+{
+  padding:0px 0px 0px 5px !important;
+}
+
+
+.climtxt
+{
+  position: absolute;
+  display: inline-block;
+  text-shadow: 0 1px 1px red;
+  font-size:10px;
+
+  z-index:9;
+  color:yellow;
+  top:25% ;
+  height:15px !important;
+  padding:0px 0px 0px 15px ;
+  opacity:1;
+  cursor:text;
+
+}
+
+
+
+
+
+.tooltip2
+{
+  position: absolute;
+  height:90px;
+  left: -00%;
+  background: #ffcb66;
+  padding: 5px 15px;
+  color: black;
+  -webkit-border-radius: 10px;
+  -moz-border-radius : 10px;
+  border-radius : 10px;
+  swhite-space: nowrap;
+  sopacity: 1;
+
+  z-index: 99999999;
+  -swebkit-transition: all 0.4s ease;
+  -smoz-transition : all 0.4s ease; transition : all 0.4s ease;
+}
+
+
+.tooltip
+{
+}
+.tooltip:before
+{
+  display:none;
+  font-size:15px;
+  font-weight: normal;
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 100%;
+  background: #ffcb66;
+  padding: 5px 15px;
+  color: black;
+  -webkit-border-radius: 10px;
+  -moz-border-radius : 10px;
+  border-radius : 10px;
+  white-space: nowrap;
+  opacity: 1;
+  z-index: 9999;
+  -webkit-transition: all 1.4s ease;
+  -moz-transition : all 0.4s ease;
+  transition : all 0.4s ease;
+}
+.stooltip::before
+{
+  width: 0;
+height: 0;
+border-style: solid;
+border-width: 100px 0 100px 200px;
+border-color: #007bff;
+}
+
+.dtooltip:before
+{
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 20px solid #ffcb66;
+  border-left: 20px solid transparent;
+  border-right: 20px solid transparent;
+  -webkit-transition: all 0.4s ease;
+  -moz-transition : all 0.4s ease;
+  transition : all 0.4s ease;
+  opacity: 0; left: 30%;
+  bottom: 90%;
+}
+.tooltip:hover:after  { bottom: 100%; }
+.tooltip:hover:before { display:block  }
+.tooltip:hover:after { opacity: 1; }
+
+.markerrectangle
+{
+  background:none;
+  border:1px solid;
+  position:absolute;
+  z-index:5;
+  height:0px;
+  width:90px;
+  _border:none !important;
+}
+
+.rect_term
+{
+  background:aliceblue;
+  width:15px !important;
+  height:15px !important;
+  _opacity:0.3;
+  border:none !important;
+
+
+}
+
+.markerrectangle_rectborder
+{
+  position:absolute;
+  height:20px;
+  width:40px;
+  background:none;
+  opacity:0.8;
+  box-sizing:border-box;
+  border:3px solid;
+}
+
+.markerruler
+{
+  background:none;
+  border:1px solid !important;
+  border-color: red;
+  position:absolute;
+  
+  z-index:99;
+  height:0px;
+  width:90px;
+  transform: translate(-50%, -50%) rotate(50deg);
+}
+
+.markerruler:hover
+{
+  border:2px solid orange !important;
+}
+
+
+.markerruler_text
+{
+  position:relative;
+  left:10%;
+  width:80%;
+  top:2px;
+  cursor:pointer;
+}
+
+.markerruler_text span
+{
+  spointer-events:none;
+  position:absolute;
+  background: rgba(0,0,0,0.2);
+}
+.markerruler_text i
+{
+  float:right;
+  padding-top:2px;
+  color:rgba(255,255,255,1);
+  text-shadow: 0 2px 5px rgba(0, 0, 0, .9);
+
+  font-size:15px;
+    
+}
+.markerruler_text .fa:hover
+{
+  color:red;
+}
+
+
+.markerruler_terminal:hover
+{
+  border:2px solid orange !important;
+}
+
+.markerruler_terminal
+{
+  background:yellow;
+  position:absolute;
+  z-index:99;
+  height:15px;
+  width:15px;
+  border-radius:15px;
+  transform: translate(-50%, -50%);
+}
+
+.markerruler_terminal_a
+{
+  left:100%;
+}
+
+.markerruler_terminal_b
+{
+  left:-2px;
+}
+
+
+
+
+.markerpoint
+{
+  cursor:default;
+  background:none;
+  border:2px solid;
+  border-color: red;
+  border-radius: 50%;
+  position:absolute;
+  
+  z-index:5;
+  height:50px;
+  width:50px;
+  transform: translate(-50%, -50%);
+  cursor: move;
+}
+
+
+.markerpoint_hovered
+{
+  box-shadow: 0 0 15px !important;
+  /* border-color: rgba(81, 203, 238,1)!important; */
+}
+
+.markerpoint:hover .markerpoint_haircross
+{
+  box-shadow: 0 0 20px ;
+}
+
+
+.markerpoint .markerpoint_haircross_x
+{
+  sdisplay:none;
+  
+  background:green;
+  border:0px solid;
+  border-color:green;
+  position:relative;
+  height:50%;
+  width: 2px;
+  margin:auto;
+  vertical-align:center;
+  dtransform: translate(0, -150%);
+  top: 25%;
+  left:0px;
+
+
+}
+
+
+.markerpoint .markerpoint_haircross_y
+{
+  sdisplay:none;
+  
+  background:green;
+  border:0px solid;
+  border-color:green;
+  position:relative;
+  height:50%;
+  width: 2px;
+  margin:auto;
+  vertical-align:center;
+  dtransform: translate(0, -150%);
+
+  transform: rotate(90deg); top:-25%;  
+
+}
+
+.markerpoint_resizer_box
+{
+  position:absolute;
+  bottom:2px;
+  right:2px;
+  
+  display: block;
+  width: 25%;
+  height: 25%;
+
+  background:transparent!important;
+  border-bottom: 4px solid;
+  border-right: 4px solid;
+  border-color: inherit;
+  cursor: se-resize;
+  opacity:.7;
+}
+
+
+
+/* the rect shape for a marker point */
+.markerpoint_box
+{
+   border-radius: 0%;
+/*   transform: translate(-50%, -50%);*/
+}
+
+.markerpoint_resizer_box:hover
+{
+  opacity:1;
+  border-width: 6px;
+  border-color: inherit;
+}
+
+
+
+.markerpoint_3Druler
+{
+  border-radius: 0%;
+  border:none;
+  overflow: visible;
+  cursor: default;
+  pointer-events:none!important;
+}
+
+/* switch off box shadow for ruler */
+.annotation_point_hovered.markerpoint_3Druler 
+{
+  box-shadow: none !important;
+}
+
+
+.markerpoint_3Druler_resizer:hover
+{
+  _border:2px solid white !important;
+  box-shadow:  0 0 4px 3px rgba(000,100,200,.9);
+}
+
+.markerpoint_3Druler_resizer
+{
+  background:yellow;
+  position:absolute;
+  height:10px;
+  width:10px;
+  border-radius:15px;
+  transform: translate(-50%, -50%);
+  _cursor: se-resize;
+  pointer-events:all;
+}
+.markerpoint_3Druler_resizer_______:after
+{
+  content:"";
+  position:absolute;
+  height:10px;
+  width:10px;
+  top:50%;
+  right:50%;
+  border-radius:15px;
+  transform: translate(50%, -50%);
+  background:inherit;
+  background:blue;
+}
+
+
+.markerpoint_resizer_other
+{
+  right:0px;
+  bottom:0px;
+  transform: translate(50%, 50%);
+}
+
+
+.markerpoint_3Druler svg
+{
+  box-sizing:border-box;
+  width: 100%;
+  height:100%;
+  min-width:2px;
+  min-height:2px;
+}
+
+.markerpoint_3Druler svg line
+{
+  stroke:white;
+  stroke-width:2;
+  stroke-dasharray: 4;
+  vector-effect: non-scaling-stroke;
+}
+
+
+.markerpoint_3Druler_text
+{
+  position:absolute;
+  left:50%;
+  bottom:50%;
+
+  padding:2px 4px;
+  background: rgba(0,0,0,0.1);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .9);
+  font-size:15px;
+  font-weight:bold;
+  white-space:nowrap;
+  cursor: move;
+}
+.markerpoint i
+{
+}
+
+.markerpoint i
+{
+  color:white;
+  background:black;
+  padding:1px;
+  opacity:0.8;
+  border-radius:5px;
+  border: whitesmoke 2px solid;
+  display:inline;
+  margin-left: 4px;
+  pointer-events:all;
+  cursor:default;
+}
+.markerpoint i:hover
+{
+  color:red;
+  pointer-events:all;
+}
+
+.markerpoint_scribble
+{
+  border:none;
+  _background:green;
+  overflow:visible;
+  pointer-events:none;
+  opacity:1!important;
+  cursor:default!important;
+}
+
+.markerpoint_scribble svg
+{
+  _background:orange;
+  overflow:visible;
+  width:100000px;
+  height:100000px;
+  left:50%;
+  top:50%;
+  position:absolute;
+  border:1px solid transparent;
+}
+.markerpoint_scribble svg g
+{
+  pointer-events:all;
+  _cursor:pointer;
+}
+
+.markerpoint_comment
+{
+  display:none;
+}
+
+.markerpoint_scribble polyline
+{
+  stroke:red;
+  /* blur does not work with straight lines ...!*/
+  _filter: url(#svg_blur); 
+  stroke-width:3;
+  vector-effect: non-scaling-stroke;
+  fill:blue;
+  fill:none;
+  _opacity:1!important;
+}
+
+.markerpoint_resizer_sphere
+{
+  position:absolute;
+  bottom:-4px;
+  right:-4px;
+  
+  display: block;
+  width: 25%;
+  height: 25%;
+
+  background:transparent!important;
+  border-bottom: 4px solid;
+  border-color: inherit;
+  cursor: se-resize;
+  opacity:.9;
+  
+  transform: translate(-10%, -10%) rotate(-45deg);
+}
+
+.markerpoint_resizer_sphere:hover
+{
+  opacity:1;
+  border-width: 6px;
+}
+
+
+.markerpoint_thresh_slider
+{
+  position:absolute;
+  top:50%;
+  left:-10px;
+  
+  display: block;
+  min-width: 10px;
+  min-height: 10px;
+  _width: 12%;
+  _height: 12%;
+  background:red;
+  border-radius:20px;
+  cursor:ns-resize;
+  transform: translate(-50%, -50%) rotate(-0deg);
+  opacity:.6;
+}
+
+.markerpoint_thresh_slider:hover
+{
+  opacity:1;
+  border-width: 6px;
+}
+
+
+.markerpoint .markerpoint_props, .markerrectangle .markerpoint_props
+{
+  color:black;
+  font-weight:bold;
+  background:hsla(0,0%,90%,.6);
+  padding:5px;
+  border-radius:5px;
+  position:absolute;
+  top:0px;
+  left:100%;
+  width:auto;
+  display:none;
+}
+
+.markerpoint:hover .markerpoint_props, .markerrectangle:hover .markerpoint_props
+{
+  z-index:100;
+  display:block;
+}
+
+
+.markerROIStats 
+{
+
+  width: auto;
+  height: auto;
+  display: inline;
+  text-align: left;
+  vertical-align: top;
+  padding: 3px;
+  color: yellow;
+  z-index:2;
+  position:absolute;
+  background: rgba(0,0,0,0.1);
+
+  line-height:14px;
+  font-size:14px;
+  _pointer-events:none;
+
+  user-select:text;
+  -moz-user-select:text;
+  -webkit-user-select:text;
+}
+
+.markerROIStats td
+{
+  font-weight:bold;
+  height:10px;
+  padding:0px;
+  margin:0px;
+}
+
+.markerROIStats td:first-child
+{
+  text-align:right;
+  font-weight:normal;
+}
+.markerROIStats td:last-child
+{
+  text-align:left;
+  padding-left:5px;
+}
+
+.markerpoint .markerpoint_delete
+{
+  position:absolute;
+  top:-10px;
+  right:-10px;
+  background:darkred;
+  padding:5px;
+  width:20px;
+  height:20px;
+  font-size:20px;
+  border-radius:150px;
+  
+  display:block;
+  text-align:center;
+  vertical-align:middle;
+  color:white;
+}
+.markerpoint:hover .markerpoint_delete:hover
+{
+  background:red;
+}
+
+.markerpoint:hover .markerpoint_delete
+{
+  display:block;
+}
+
+
+
+
+.markerpoint_coords
+{
+}
+
+.markerpoint_coords  div
+{
+  display:inline-block;
+  __width:75px; 
+  margin-right:3px;
+}
+
+
+.markerpoint_coords input
+{
+  color:black;
+  width:50px;
+  border-radius:0px;
+}
+
+.markerpoint_coords .pointcomment
+{
+  width:130%!important;
+  box-sizing:border-box;
+  border-radius:0px;
+}
+
+
+/*------------------
+.markerpoint_coords
+{
+  width:auto;
+}
+
+
+.markerpoint_coords > div
+{
+  display:flex;
+  flex-wrap:nowrap;
+  flex-direction:row;
+  width:100%;
+}
+
+.markerpoint_coords > div > div
+{
+ flex-grow:1;
+}
+
+.markerpoint_coords input
+{
+  color:black;
+  width:50px;
+  border-radius:0px;
+}
+
+.markerpoint_coords .pointcomment
+{
+  width:100%;
+  box-sizing:border-box;
+  border-radius:0px;
+}
+
+.annotation_tool_listDIV .markerpoint_coords > div > div
+{
+ flex-grow:0;
+}
+---------------  */
+
+
+
+/* any generic row for markerpoint representation */
+.markerpointrow
+{
+  display:block;
+  white-space:nowrap;
+  width:auto;
+  
+}
+/* special if in panel itself */
+.markerPanel .markerpointrow
+{
+  border-top: 1px solid hsl(0,0%, 14%);
+  display:block;
+  width:100%;
+}
+
+
+.markerPanel .KViewPort_tool 
+{
+  min-width:initial;
+}
+
+.markerpointrow_info
+{
+  display:flex;
+  margin-bottom:2px;
+  color:white;
+}
+.markerpointrow_info .markerpointrow_colorselector
+{
+  padding:3px;
+  height:12px;;
+  width:12px!important;
+  display:flex;
+  align-items:center;
+}
+.markerpointrow_info > div
+{
+ margin-right:4px;
+}
+/* the toolbar at the right side, find, delete ... */
+.markerpointrow_info .markerpointrow_tools
+{
+  flex-grow:1;
+  text-align:right;
+}
+
+.markerpointrow_info .markerpointrow_tools > i
+{
+  margin:1px 4px;
+}
+.markerpointrow_info .markerpointrow_tools > i:hover
+{
+  color:hsl(0,0%,50%);
+}
+
+/* the coordinates */
+.markerpointrow .markerpointrow_coords
+{
+  flex-grow:1;
+}
+.markerpointrow .markerpointrow_coords input
+{
+  margin:0px!important;
+}
+
+
+.markerset_colselector
+{
+  float:right;
+  margin:-2px;
+  margin-left:2px;
+}
+
+.markerset_row
+{
+  font-size:15px;
+  _padding:3px;
+  background:gray;
+  margin:3px;
+  margin-top:5px;
+  line-height:1;
+}
+
+.annotation_info
+{
+
+}
+
+.markerset_row >  div:first-child
+{
+  box-sizing:content-box;
+  background:lightgray;
+  color:black;
+  _margin:2px;
+  padding:3px;
+  margin-bottom:5px;
+  border:3px solid;
+  border-color:gray;
+  
+}
+
+.markerset_row .annotation_info
+{
+  padding-bottom:10px;
+  color:white;
+}
+
+.markerset_row > div > i 
+{
+  float:right;
+  margin-left:7px;
+  margin-right:3px;
+    
+}
+.markerset_row select
+{
+  float:right;
+  margin-left:7px;
+  margin-right:3px;
+    
+}
+
+.markerset_row i:hover
+{
+  color:red;
+    
+}
+
+.markerset_row input
+{
+  width:70px;    
+}
+
+
+.markerset_row  > div:first-child
+{
+  height:16px;
+}
+
+.markerset_row span
+{
+ float:left;
+    
+}
+
+.markerset_row_active
+{
+  _box-shadow:  0 0 5px 2px rgba(82,168,236,.9);
+  border-color: yellow !important;
+  background-color:#FFFFAA !important;
+}
+  
+
+.markerTable 
+{
+  border-collapse:collapse;
+  width:100%;
+  line-height:1;
+  box-sizing:content-box;
+}
+
+
+
+.markerTable td
+{
+  border-top: 1px solid black;
+  margin:0px;
+  white-space:nowrap;
+
+}
+.markerTable tr:hover td
+{
+  background:hsla(0,0%,60%,.5);
+}
+
+
+.markerTable td:nth-child(1) /*id*/
+{
+  color:lightgray;
+  padding-right:5px;
+  padding-left:5px!important;
+}
+
+.markerTable td:nth-child(2)/*color*/
+{
+  padding:3px;
+  height:12px;;
+  width:12px!important;
+  display:flex;
+  align-items:center;
+}
+
+.markerTable td:nth-child(3)/*name*/
+{
+  padding-left:5px;
+  font-weight:bold;
+}
+
+.markerTable td:last-child
+{
+  padding-left:15px;
+
+}
+.markerTable td div
+{
+  display:inline-block;
+}
+
+.markerTemplates
+{
+ display:flex;
+ flex-wrap: wrap;
+ width:100%; 
+}
+
+.markerTemplates > div
+{
+  margin: 4px;
+  padding:3px 4px;
+  border-radius:6px;
+  min-width:40px;
+  text-align:center;
+  font-weight:bold;
+  min-width:20%;
+  cursor:move;
+
+  _border: 1px solid hsl(0,0%,0%);;
+  background:hsl(0,0%,70%);
+  color:hsl(0,0%,100%);
+  _text-shadow: 0 1px 1px rgba(255, 255, 255, .9);
+
+
+}
+
+.markerTemplates > div:hover
+{
+  _background:hsl(0,0%,90%);
+  _box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/ 
+    box-shadow:  0 0 15px 4px rgba(82,168,236,.9);
+
+
+}
+
+/*  end markers */
+
+
+
+
+
+.annotation_point
+{
+  background:none;
+  border:2px solid;
+  border-color: red;
+  border-radius: 50%;
+  position:absolute;
+  z-index:9;
+  height:50px;
+  width:50px;
+  transform: translate(-50%, -50%);
+}
+
+.annotation_point_hovered
+{
+  box-shadow: 0 0 15px !important;
+  /* border-color: rgba(81, 203, 238,1)!important; */
+}
+
+.annotation_point:hover .annotation_point_haircross
+{
+  box-shadow: 0 0 20px ;
+}
+
+
+.annotation_point .annotation_point_haircross
+{
+  background:red;
+  border:0px solid;
+  border-color:green;
+  position:relative;
+  z-index:10;
+  height:200%;
+  width: 2px;
+  margin:auto;
+  vertical-align:center;
+  stransform: translate(0, -125%);
+  top: -50%;
+
+}
+
+
+
+.annotation_tool
+{
+  padding: 0px;
+  z-index:0;
+  box-sizing:border-box;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  border-radius:0px; /*borderradius*/
+  border:1px solid;
+  border-color:#666666; /*bordercolor*/
+  border-collapse:collapse;
+  position:relative;
+  background:hsl(0, 0%, 22%); /*windowbackground*/
+  display:flex;
+  flex-direction:column;
+
+  white-space: normal;
+
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/ 
+  font-family: Arial, sans-serif;
+  font-size: 10pt;
+}
+
+.annotation_tool.inactive
+{
+  pointer-events:none;
+  opacity:0.5;
+}
+
+
+/*empty placeholder with zero height*/
+.annotion_tool_resizer
+{
+  height:0px;
+  width:100%;
+  position:relative;
+  background:red;
+  z-index:300000;
+}
+/*the relevant height*/
+.annotion_tool_resizer > div
+{
+  width:100%;
+  height:15px;
+  background:none;
+  position:absolute;
+  transform: translate(0%, -50%);
+  cursor:ns-resize;
+}
+/*the hover effect*/
+.annotion_tool_resizer > div > div
+{
+  width:100%;
+  height:0px;
+  background:none;
+  position:absolute;
+  transform: translate(0%, 8px);
+}
+.annotion_tool_resizer > div:hover > div
+{
+   -webkit-box-shadow:  0 0 5px 5px rgba(82,168,236,.9);
+}
+
+
+.annotation_tool .highlight::before
+{
+  content: "x";
+  z-index:100;
+  height:0px;
+  top:0px;
+  position:absolute;
+  background: yellow;
+  -webkit-box-shadow:  0 0 9px 5px rgba(255,255,102,.9);
+  pointer-events:none;
+  width:100%;
+}
+
+
+.annotation_tool_captionBar
+{
+  position: relative;
+  padding: 0;
+}
+.annotation_tool_caption
+{
+  color:white;
+}
+
+.annotation_tool_droparea > span
+{
+  align-self:center;
+  color:white;
+}
+.annotation_tool_droparea
+{
+  color:gray;
+  height:100px !important;
+  background:inherit !important;
+  border-radius:10px;
+  border:2px dashed gray;   
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  overflow:auto;
+}
+
+.annotation_tool_droparea > div
+{
+  color:black;
+  position:relative;
+  border:1px solid;
+  background:aliceblue;
+  opacity:0.9;
+  margin:2px;
+  padding:2px;
+  border-radius:4px !important;
+
+}
+
+.annotation_tool_droparea > div > div
+{
+  min-width:100px;  
+  max-width:180px;  
+  padding-right:4px;  
+  text-overflow:ellipsis;
+  overflow:hidden;
+  cursor:pointer;
+}
+
+.annotation_tool_droparea > div > i
+{
+  position:absolute;
+  top:-2px;
+  right:0px;
+   
+}
+
+
+
+.annotation_tool_listDIV /* inner KTool List element */
+{
+  margin-top:2px;
+  margin-left:4px;  
+  height: -moz-calc(100% - 30px);
+  height: -webkit-calc(100% - 30px);
+  height: calc(100% - 30px);
+  height:100% !important;
+  overflow:auto;
+  white-space:nowrap;
+}
+
+
+.annotation_tool_listDIV 
+{
+  
+  position:relative;
+  left:0px;
+  width: calc(100% - 30px);
+  width: -webkit-calc(100% - 30px);
+  width: -moz-calc(100% - 30px);
+  
+  
+}
+
+.annotation_tool_listDIV button
+{
+ height:21px;
+ line-height:0.5;
+}
+
+
+
+.annotation_tool_elemDIV:first-of-type
+{
+  margin-bottom:0px;
+}
+
+
+.annotation_tool_elemDIV > div /* header div */
+{
+  background-color:gray;
+  border:0 px solid black;
+  padding:0px 0px 0px 2px;
+  font-size: 15px;
+  margin:auto;
+  margin-top:10px;
+  width:98%;
+  height:27px;
+  display:flex;
+  box-sizing:border-box;
+  line-height:20px;
+  
+}
+
+.annotation_tool_elemDIV > div > div
+{
+  vertical-align:middle;
+  margin:auto;
+}
+
+.annotation_tool_elemDIV .annotation_tool_color /* header div color */
+{
+  background:none;
+  width:30px;
+  height:80%;
+}
+
+.annotation_tool_elemDIV .annotation_tool_caption /* name of the annot */
+{
+  padding: 0px 0px 0px 10px;
+}
+
+.annotation_tool_elemDIV.inactive
+{
+  opacity:0.5;
+  pointer-events:none;
+}
+
+.annotation_tool_elemDIV_tools
+{
+  flex-grow:1;
+  text-align:right;
+  vertical-align:middle;
+  border: 0px solid red;
+  height:100%;
+  box-sizing:border-box;
+}
+
+
+.annotation_tool_elemDIV_tool  /* this is the toolbar */
+{
+    font-family: Verdana, Arial, Helvetica, sans-serif; 
+
+}
+
+.annotation_tool_elemDIV  i
+{
+  display:inline-block;
+
+
+  font-size: 15px;
+  padding:  2px 4px ;
+  color: black;
+  height:100%;
+  width:auto;
+  font-weight:normal;
+  cursor: pointer;
+  margin-right: 0px;
+  background: linear-gradient(to top left, #FFFFFF, #CFCFCF);
+  box-sizing:border-box;
+  border-radius:3px;
+
+  margin: 1px;
+  border: 0px solid gray;
+  width: auto;
+  height: auto;
+   dbackground: linear-gradient(to top left, #003D7A, #80B2E6);
+  text-align: center;
+  padding: 2px;
+
+  margin-top:4px;
+
+}
+
+.annotation_tool_elemDIV .space
+{
+  width:20px;
+  background:none;
+}
+
+.annotation_tool_elemDIV .space:hover
+{
+  width:20px;
+  background:none;
+}
+
+
+
+.annotation_tool_elemDIV  i:hover
+{
+   background: #CFCFCF;
+ }
+
+
+
+
+.annotation_tool_elemDIV table
+{
+  width:98%;
+  font-size:15px;
+  border: 0px solid gray;
+  background-color:lightgray;
+  border-spacing: 0px;
+  box-sizing:border-box;
+  margin:auto;
+}
+
+
+
+.annotation_tool_elemDIV .newPoint
+{
+    background: linear-gradient(to top left, #FFFFFF, #CFCFCF);
+    color:black;
+    display:flex;
+    margin-top:0px;
+    border:0px solid green;
+    padding-left:10px;
+    height:20px;
+    box-sizing:border-box;
+}
+
+
+.annotation_tool_elemDIV table th
+{
+    font-size:15px;
+    margin:5px 5px 0 0;
+    height:22px;
+    background: #cccccc;
+    color:black;
+    border: 0px solid black;
+    text-align:center;
+}
+
+
+.annotation_tool_elemDIV table td
+{
+    border: 0px solid black;
+    margin:5px 5px 0 0;
+    height:22px;
+    padding:0px;
+}
+
+.annotation_tool_elemDIV table td:nth-child(4)
+{
+  margin-left:10px;
+  border-right: 1px solid black;
+  width:0px;
+}
+
+.annotation_tool_elemDIV .tr_hovered input
+{
+    background: linear-gradient(to top left, rgba(81, 203, 238,1), #CFCFCF);
+}
+
+.annotation_tool_elemDIV  input
+{
+    width:100%;
+    height:100%;
+    border:0px;
+    margin:0px;
+    text-align:center;
+    color:#171717;
+    font-weight:normal;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    font-size: 13px;
+    background: linear-gradient(to top left, #FFFFFF, #CFCFCF);
+}
+
+.annotation_tool_elemDIV table td:last-child
+{
+  text-align:right;
+  width:100px;
+  font-size:15px;
+  text-align:right;
+
+}
+
+.DBSpanel > .panel
+{
+  width:100%;
+}
+
+.panel hr
+{
+  height:0px;
+  margin:5px;
+}
+
+.DBS_simindicator
+{ 
+ color:yellow;
+ padding-left:3px;
+ width:67px !important;
+ font-size:10px;
+ eopacity:0.7;
+ cursor:default;
+}
+.DBS_siminfo
+{
+  position:absolute;
+  z-index:9999;
+  background:gray;
+  color:black;
+  padding:5px;
+  border-radius:2px;
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/
+
+
+}
+.DBS_name
+{
+  padding:2px;
+  padding-top:8px;
+  padding-left:4px;
+  margin-left:10px;
+
+}
+
+
+
+.DBS_simparams_head
+{
+  background:gray;
+  padding:2px;
+  margin:2px;
+  margin-top:10px;
+  width:95%;
+  border-radius:2px;
+}
+
+.DBS_simparams_head:hover
+{
+  
+  background:#555;
+}
+.DBS_simparams_head:hover .DBS_simparams
+{
+  visibility:visible;
+
+  transition-delay:0.3s;
+
+}
+.DBS_simparams
+{
+  visibility:hidden;
+  position:absolute;
+  width:100%;
+  background:gray;
+  padding:5px;
+  margin-top:6px;
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/
+  border-radius:2px;
+  z-index:999;
+  transition-delay:0.3s;
+
+}
+
+.DBS_paramname
+{
+  display:inline-block;
+  width:150px !important;
+  margin-left:3px;
+}
+
+.DBS_paraminput
+{
+  height:15px;
+  width:80px;
+}
+
+
+.DBS_result
+{
+  background:#555;
+  margin:5px;
+  padding:1px;
+  border-radius:1px;
+  cursor:pointer;
+}
+
+.DBS_result:hover
+{
+  background:gray;
+}
+
+.DBS_filedivs
+{
+  display:inline-block;
+  width:70%;
+}
+
+.DBS_buttons
+{
+  display:inline-block;
+  width:30%;
+  text-align:center;    
+  transform:translate(0%,-30%)
+}
+
+.DBS_buttons > span
+{
+  width:50px;
+  display:inline-block;
+  text-align:center;    
+  transform:translate(0%,-30%)
+}
+
+
+.KPickerPanelLargeHead
+{
+  position:relative;
+  margin-top:15px;
+  width:300px;
+  margin-left:20px;
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/ 
+  padding:30px;  
+    
+}
+
+.KPickerPanelDrop
+{
+  position:absolute;
+  top:20px;
+  right:10px;
+  padding:3px;
+  border-radius:2px;
+}
+
+.KPickerPanelDrop:hover
+{
+   background:red;
+   color:yellow;
+    
+}
+
+.KPickerPanelLargeHead > span:first-child
+{
+  display:inline-block;
+  font-size:20px;
+  font-weight:bold;
+  text-shadow: 0 2px 2px rgba(0, 0, 0, .9);
+  padding-bottom:10px !important;
+}
+
+.KPickingPanelHist
+{
+  margin-right:5px;
+  width:50px;
+  border:1px solid white;
+  text-align:center;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;  
+  bottom:0px;
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/ 
+  text-shadow: 0 2px 2px rgba(0, 0, 0, .9);
+  color:white;
+  font-weight:bold;
+
+
+}
+
+.KPickingPanelHistDense
+{
+  margin-right:0px;
+  border:1px solid black;
+  text-align:center;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;  
+  bottom:0px;
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/ 
+  text-shadow: 0 2px 2px rgba(0, 0, 0, .9);
+  color:white;
+  font-weight:bold;
+
+
+}
+
+.KPickerPanelRow
+{
+  height:60px;
+  bottom:0px;
+  border:2px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  margin-bottom:13px;
+  
+
+}
+
+.KPickerPanelRow > span:first-child
+{
+  display:inline-block;
+  width:100px;
+}
+
+.KPickerPanelRow > div:nth-child(2) 
+{
+  background:red;
+}
+.KPickerPanelRow > div:nth-child(3) 
+{
+  background:green;
+}
+.KPickerPanelRow > div:nth-child(4) 
+{
+  background:blue;
+}
+
+.roiTool_pencil
+{
+  background: none;
+  opacity:0.8;
+  width:40px;
+  height:40px;
+  position:  absolute;
+  z-index:9999;
+  display:block;
+  pointer-events:none;
+  border-radius: 50%;
+  __transform: translate(50%, 50%);
+  border: 2px solid yellow;
+
+}
+
+
+.roiTool_pencil.regionGrow 
+{
+  border:0px !important;
+  background:green;
+  
+
+}
+
+.roiTool_pencil_haircross
+{
+  opacity:0.8;
+  border:none;
+  background:yellow;
+  position:absolute;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  left:50%;
+  top:50%;
+  pointer-events:none;
+}
+
+.roiTool_pencil.leftright
+{
+   sbackground:yellow;
+   opacity:0.5;
+   sborder-color:transparent;
+}
+
+.roiTool_pencil.leftright .left
+{
+  position:relative;
+  width:0px;
+  height:0px;
+  left:170%;
+  border-top: 30px solid transparent;
+  border-bottom: 30px solid transparent;  
+  border-left: 40px solid yellow;
+  background:transparent;
+}
+.roiTool_pencil.leftright .right
+{
+  aposition:relative;
+  width:0px;
+  height:0px;
+  left:-70%;
+  stop:10%;
+  border-top: 30px solid transparent;
+  border-bottom: 30px solid transparent;  
+  border-right: 40px solid yellow;
+  background:transparent;
+}
+
+.roiTool_pencil_busy
+{
+  display:none;
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform: translate(-50%, -50%);
+  
+  font-size:50px;  
+  color:yellow;
+  background:red;
+  border-radius:50%;
+  padding:5px;
+  opacity:1 !important;
+}
+
+.roiTool_pencil.busy .roiTool_pencil_busy
+{
+  display:block;
+}
+
+
+.roiTool_pencil > div:first-child
+{
+  width:15px;
+  height:2px;
+
+}
+.roiTool_pencil > div:last-child
+{
+  width:2px;
+  height:15px;
+
+}
+
+.scribble_pencil
+{
+  border: 4px solid #ff4bd4;
+  background:rgba(255,75, 212, .2);
+  pointer-events:none;
+}
+
+
+.roiToolContainer 
+{
+  margin-top:3px;
+  display:flex;
+  flex-direction:horizontal;
+  overflow-y:auto;
+  overflow-x:hidden;
+  flex-grow:1;
+  box-sizing:border-box;
+  height:calc(100% - 30px)!important;
+
+  /*
+  border:5px solid white;
+  background:red;
+  */
+}
+.roiToolContainer > div 
+{
+  height:100%;
+  
+
+}
+.roiToolContainer > div:nth-child(2) /* the file list */
+{
+  padding:0px;
+  overflow:auto;
+}
+
+
+
+/* Roi panel on right side */
+.roiTool_panel
+{
+  padding-left:2px;
+  width:120px;
+  height:100%;
+  background: rgba(99, 99, 99, 0.99);
+  margin-right:6px;
+  padding-right:2px;
+  z-index:2;
+  _border:1px solid red;
+
+  
+}
+
+.roiTool_panel_flex.inactive:not(.persistent)
+{
+  opacity:0.3;  
+  pointer-events:none;  
+}
+
+
+.markerPanel
+{
+
+  background: hsla(0, 0%, 40%, 1);
+  width:210px;
+  min-width:210px;
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/ 
+
+  /* old version for pos absolute pos */
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+  border-radius:0px; /*border-radius*/
+  position:absolute;
+  top:70px;
+  z-index:1;
+}
+
+.markerPanel > div
+{
+  border-radius:0px; /*border-radius*/
+  box-sizing:border-box;
+  padding:1px 1px; 
+  width: 100%;
+  color:white;
+  cursor:default;
+}
+.markerPanel > div:first-child
+{
+  background:hsla(0, 0%, 30%, 1);;
+}
+.markerPanel > div:first-child i
+{
+  background:hsla(0, 0%, 30%, 1);;
+}
+
+
+.markerPanel_active
+{
+  box-shadow:  0 0 15px 4px rgba(82,168,236,.9);
+  __box-shadow:  0 0 15px 4px #FFFFAA;
+}
+
+
+.panel
+{
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/
+  padding-left:0px;
+  width:120px;
+  height:100%;
+  background: rgba(99, 99, 99, 0.99);
+  margin-right:6px;
+  padding-right:2px;
+  z-index:109;
+  _border:1px solid red;
+}
+
+.panel.inactive
+{
+  opacity:0.3;  
+  pointer-events:none;  
+}
+
+
+.KViewPort_tool.inactive
+{
+  opacity:0.3;  
+  pointer-events:none;  
+}
+
+.panel_toprow
+{   
+   margin-top:-24px;
+   background:#226699; /*menucolor*/
+   overflow:hidden;
+   height:24px;
+
+}
+.panel_toprow > .fa-close
+{
+  position:absolute;
+  right:0px;
+  top:1px;
+  margin-top:0px;
+}
+.panel_toprow > span
+{
+  white-space:nowrap;
+  margin-left:4px;
+}
+
+.roiTool_panel_flex 
+{
+
+  display:flex;
+  flex-directions:column;
+  cdjustify-content: flex-end;
+  align-items:center;
+  cborder:1px solid red;
+  padding-top:2px;
+  position:relative;
+
+}
+
+.anno_panel_tools
+{
+  margin:3px 3px 3px 3px;
+  dborder:1px solid rgb(150,150,150);
+  background:#555;
+  width:calc(100% - 30px) !important;
+  border-radius:3px;
+  padding:2px;
+  position:relative;
+
+}
+
+
+.roiTool_panel > div
+{
+  border-radius:0px; /*border-radius*/
+  dbox-sizing:border-box;
+  padding:1px;
+  swidth: 100%;
+  color:white;
+  cursor:default;
+}
+
+.roiTool_panel > .KViewPort_spinner 
+{
+
+  color:yellow;
+  background: rgba(1,1,1,0.4);
+  font-size:20px;
+  width:50%;
+  
+
+}
+.roiTool_panel > .KViewPort_spinner  >span
+{
+  color:yellow;
+  background: rgba(1,1,1,0.4);
+  font-size:20px;
+  width:50%;
+  
+
+}
+
+.roiTool_panel .roiTool_panel_flex_topRow
+{
+  padding:0px 0px 4px;
+  background: rgba(139, 0, 0, 1);
+  vetical-align:middle;
+  font-size:16px;
+
+}
+
+.roiTool_panel > div:first-child i
+{
+  background:none;
+}
+
+.roiTool_panel_caption:not(:first-child)
+{
+  border-top:1px solid rgb(150,150,150);
+  margin-bottom:0px;
+}
+
+.roiTool_panel_flex  .label
+{
+    font-size:13px; 
+    padding: 0px 2px;
+}
+
+.roiTool_panel_flex  input
+{
+  width:28px;
+  text-align:right;
+  padding-right:1px;
+}
+
+
+.roiTool_KviewControl  input
+{
+  width:28px;
+  text-align:right;
+  padding-right:1px;
+}
+
+
+.floatingViewporthidetitle > .panel_toprow
+{
+  width:20%;
+  height:24px;
+  left:80%;
+  top:2px;
+  border-radius:4px;
+  border:1px solid black;
+}
+
+.floatingViewporthidetitle
+{
+ background:none;
+
+}
+
+
+/**************/
+
+.roiTool_panel .thresPenInput > div
+{
+  display:flex;
+  flex-direction:row;
+  _background:green;
+  align-items:left;
+  justify-content:left;
+  white-space:nowrap;
+}
+
+.roiTool_panel .thresPenInput > div  input
+{
+  width:38px;
+}
+
+.roiTool_panel .thresPenInput > div > div:hover .threspenclimsel
+{
+  display:flex;
+}
+
+.roiTool_panel .threspenclimsel
+{
+  display:none;
+  position:absolute;
+  width:auto;
+  cursor:pointer;
+  z-index:900;
+}
+
+.roiTool_panel .threspenclimsel > div
+{
+  position:relative;
+  padding:1px 4px;
+}
+.roiTool_panel .threspenclimsel > div:first-child
+{
+  background:red;
+}
+.roiTool_panel .threspenclimsel > div:last-child
+{
+  background:darkgreen;
+}
+
+.roiTool_panel .threspenclimsel:hover
+{
+  _border:1px solid black;
+  box-shadow:  0 0 2px 2px rgb(0,0,0) inset;
+}
+
+
+
+#roi_default_names_wrap
+{
+  _position:absolute;
+  width:75px;
+  white-space:nowrap;
+  overflow:hidden;
+  padding:2px;
+  margin-top:2px;
+  margin-left:3px;
+  background-color:white;
+  resize:both;
+  height:100%;
+}
+
+
+#roi_default_names_wrap:hover
+{
+  overflow:visible;
+}
+
+
+
+#roi_default_names
+{
+  
+  background-color:white;
+  color:black;
+  text-align:left;
+  height:auto;
+  //height:20px!important;
+}
+
+/* marker panel */
+.panel_floatable
+{
+  /* old version for pos absolute pos */
+  font-family: Arial, sans-serif; 
+  font-size: 12pt;
+  border-radius:0px; /*border-radius*/
+  position:absolute;
+  right:0;
+  top:70px;
+  _background: rgba(199, 199, 199, 0.6);
+  height:auto;
+}
+
+
+
+@-moz-document url-prefix() {
+  .roiTool_panel_flex  input
+  {
+    width:23%;
+    text-align:right;
+
+  }
+  
+
+
+  input[type=number]
+  {
+      -moz-appearance:textfield;
+      box-shadow: none;   
+  }
+  
+  
+}
+
+.roiTool_panel ul
+{
+  list-style:none;
+  margin:0;
+  border:1px solid white;
+  tex-align:left;
+  padding:3px;
+  background:rgb(90,90,90);
+
+
+}
+
+.roiTool_panel ul li
+{
+  display:block;  
+
+}
+.roiTool_panel ul:hover li
+{
+  display:block;  
+}
+
+
+.flexspacer
+{
+  flex-grow:1;
+}
+
+
+/*  */
+
+
+
+
+.roiTool_svg  
+{
+
+   position:absolute; 
+   overflow:visible;
+   z-index:99;
+   width:100%;
+   height:100%;
+   top:0px;
+   left:0px;
+}
+
+.roiTool_svg  svg
+{
+   position:absolute; 
+   width:100%;
+   height:100%;
+   border:0px solid red;
+  
+}
+.roiTool_svg  polygon
+{
+   stroke: rgb(220,0,0);
+   fill:none; 
+   stroke-width:2;
+}
+
+.roiTool_svg circle 
+{
+   fill:rgb(230,0,0);
+   stroke: rgb(220,0,0);
+   stroke-width:1;
+}
+
+.roiTool_svg circle:hover 
+{
+  color:blue;
+  background:white;
+  border:30px solid green;
+  fill: rgb(220,0,0);;
+  stroke: none;
+  radius:20px;
+  filter: url(#svg_blur);
+}
+.roiTool_svgText
+{
+   position:absolute; 
+   overflow:visible;
+   z-index:199;
+   left:50%;
+   top:50%;
+   transform:translate(-50%);
+   font-size:24px;
+   text-align:center;
+   color:red;
+   text-shadow:0px 0px 0px white ;
+
+} 
+
+
+
+.KRotate3D
+{
+  opacity:0.5;
+  position:absolute;
+  right:0px;
+  bottom:28px;
+  border-radius:1px;
+}
+
+
+.KTimeRangeSlider
+{
+  opacity:0.7;
+  position:absolute;
+  right:0px;
+  bottom:0px;
+  border-radius:1px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+  _background:red;
+  _height:50px;
+  pointer-events:all;
+}
+.KTimeRangeSlider div
+{
+  border-radius:2px;
+  _height:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  
+}
+.KTimeRangeSlider input
+{
+   position:relative;
+   width:20px;
+   height:14px;
+   font-size:12px;
+   text-align:right;
+}
+.KTimeRangeSlider input[type=range]
+{
+   position:relative;
+   width:70px;
+   top:0px;
+}
+
+.KTimeRangeSlider:hover
+{
+
+ background:hsla(0,0%,100%,.35);
+}
+
+#Kcmat_annotation
+{
+  position:absolute;
+  background:white;
+  color:black;
+  z-index:9999;
+  pointer-events:none;
+
+}
+
+
+
+.KFiberQuiver
+{
+  position:absolute;
+  top:0px;
+  left:0px;
+  width:100%;
+  height:100%;
+  z-index:1;
+ pointer-events:none;
+ 
+}
+
+.KFiberQuiver > svg
+{
+  color:red;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  
+}
+
+.atlaslabeltable
+{
+  height:300px;
+  width:auto;
+}
+
+.atlaslabeltable > table
+{
+  top:-2px;
+}
+
+.atlaslabelhead > tr > td
+{
+  border: 0px solid !important;  
+}
+
+
+.atlaslabeltable tr.selected
+{
+  color:black;   
+  border:2px solid red !important 
+}
+
+
+.atlaslabeltable tbody td:hover > span
+{
+  position:relative;
+  overflow: visible; 
+  background:lightgreen;
+
+}
+
+.KSearchHTML 
+{
+  width:100%;
+}
+
+
+
+
+.KViewPort_curvecontainer
+{
+  width:100%;
+  height:auto;
+  border:0px solid lightblue;
+  padding:0px;
+  background:hsl(0,0%,5%);
+  box-sizing:border-box;
+  _position:absolute;
+  top:0px;
+  left:0px;
+  margin:0px;
+  user-select:none;
+  -moz-user-select:none;
+  -webkit-user-select:none;
+
+}
+.KViewPort_svgcontainer
+{
+  padding:40px 40px 40px 60px;
+}
+
+.KViewPort_svgcontainer svg
+{
+   border:0px solid lightblue;
+
+}
+
+
+
+.KViewPort_curvetool_gridline 
+{
+  stroke:hsl(0,0%,60%);
+  stroke-width:.1;
+  stroke-dasharray: 1;
+}
+
+.curveTool_grid_vertlines
+{
+  stroke-dasharray: 1;
+}
+.KViewPort_curvetool_timeline
+{
+  stroke:white;
+  stroke:rgb(240,240,240);
+  stroke-width:.2;
+  stroke-dasharray: 0;
+}
+
+
+.KViewPort_curvecontainer polyline
+{
+  vector-effect: non-scaling-stroke;
+  marker-mid: url(#marker-circle);
+}
+
+.KViewPort_svgcontainer svg .polyline
+{
+}
+
+
+.KViewPort_curvecontainer_list
+{
+  border:0px solid red;
+  background: hsla(0, 0%, 40%, 1);
+  padding:4px;
+  flex-grow:0;
+
+}
+
+.KViewPort_curvecontainer_listTitle
+{
+  background:hsl(0,0%,20%);
+  padding:4px 0px 2px 3px;
+  border-bottom:1px solid gray;
+  display:flex;
+  flex-wrap:wrap;
+  overflow:hidden;
+  width:100%;
+}
+
+.KViewPort_curvecontainer_listTitle > div:nth-child(1)
+{
+  margin-right:10px;
+
+}
+.KViewPort_curvecontainer_listTitle > div:nth-child(3)
+{
+  _flex-grow:1;
+  _text-align:right;
+}
+
+
+.KViewPort_curvecontainer_item
+{
+ display:flex;
+ overflow:hidden;
+ flex-wrap:nowrap;
+ cursor:default;
+ padding:4px 0px;
+ width:100%;
+ _border:1px solid;
+}
+.KViewPort_curvecontainer_item:hover
+{
+  background:hsl(0,0%,44%);
+}
+
+
+.KViewPort_curvecontainer_item > div
+{
+  flex-shrink:0;
+}
+.KViewPort_curvecontainer_item i
+{
+  margin:1px 4px;
+}
+.KViewPort_curvecontainer_item i:hover
+{
+  color:hsl(0,0%,50%)!important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+.menu_context
+{
+  color: black;
+  cfont-size:14px;
+  font-weight:normal;
+  white-space: nowrap;
+  display: block;
+  height: 100%;
+  margin: 0px;
+  padding: 0px;
+  background: #E6E6E6;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, .9);
+  text-align: left;
+  border-radius:0px; /*borderradius*/
+  background:#F0F0FF; /*menucolor_context*/ 
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/
+  position:relative;
+  
+}
+
+.menu_context.small
+{
+  font-size:11px !important;
+}
+
+.menu_context i.leftaligned
+{
+  position:relative;
+  top:0px;
+  width:20px;
+  left:1px;
+
+}
+
+.menu_context i
+{
+  position:absolute;
+  right:5px;
+  top:5px;  
+}
+
+
+.menu_context i.button
+{
+  top:4px;  
+  border: 1px solid gray;
+  border-radius:3px;
+  background:lightgray;
+  padding:2px 4px ;
+
+}
+
+.menu_context.small i.button
+{
+  top:1px;  
+  padding:2px 1px ;
+  margin-right:-20px;
+}
+
+.menu_context i:nth-child(2)
+{
+  right:30px;  
+}
+
+.menu_context i:nth-child(3)
+{
+  right:50px;  
+}
+
+.menu_context .button:hover
+{
+  color:red;
+}
+
+
+.menu_context i.pentool
+{
+   position:inherit;
+  margin: 0px 0px 0px 0px;
+  border: 0px solid gray;
+  width: 20px;
+  height: 20px;
+  font-size:17px;
+   background: gray;
+   color:black;
+  padding: 4px;
+
+}
+.menu_context i.pentool:hover
+{
+  background:#99C2EB;
+}
+
+
+
+
+
+
+
+.menu_context li
+{
+  padding:  5px 85px 5px 8px;
+  margin: 0;
+  float: none;
+  position: relative;
+  list-style: none;
+  border: none;
+  cursor:pointer;
+  background: #E6E6E6;
+  border: none;
+  color: #000;
+  border-radius:0px; /*borderradius*/
+  background:#F0F0FF; /*menucolor_context*/
+
+}
+
+.menu_context.small li
+{
+ padding:  0px 45px 1px 8px;
+}
+
+
+.menu_context hr
+{
+  background:#F0F0FF; /*menucolor_context*/  
+}
+.menu_context span
+{
+    white-space: nowrap;
+  background:#F0F0FF; /*menucolor_context*/
+  color:#666;
+
+}
+
+.menu_context  ul
+{
+  position:relative;
+  padding: 0;
+  box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/
+}
+.menu_context li ul
+{
+  display: none;
+}
+
+.menu_context li:hover
+{
+  background: #229966;
+  color: #fff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .1);
+}
+
+.menu_context li.inactive:hover
+{
+  background:none;
+  color: #000!important;
+  text-shadow:none!important; 
+}
+
+.menu_context li:hover > ul
+{
+  display:block;
+}
+
+.menu_context  li > ul
+{
+  float:none;
+  position:absolute;
+  top:0;
+  left:100%;
+  bborder:1px solid;
+}
+
+
+.patientTableContextmenu
+{
+  position: absolute;
+  display: none;
+  z-index: 9999;
+  padding: 0 ;
+  margin: 0;
+  height: auto;
+  width:auto;
+  border:0px solid transparent;
+  left:100%;
+  top:0;
+  box-sizing:border-box;
+  font-family: Arial, sans-serif;  
+
+}
+
+
+
+.KRoistats_tablecontainer
+{
+  padding:10px;
+}
+
+.KRoistats_table
+{
+  border-collapse:collapse;
+  font-size:14px;
+}
+
+
+.KRoistats_table thead td
+{
+  background:hsl(0,0%,20%);
+  padding:3px;
+  border:1px solid hsl(0,0%,50%);
+  text-align:center;
+
+}
+
+.KRoistats_table tbody td
+{
+  background:hsl(0,0%,70%);
+  color:hsl(0,0%,0%);
+  border:1px solid hsl(0,0%,50%);
+  padding:1px 5px;
+  text-align:right;
+  __font-family: "Courier New", Courier, "Lucida Sans Typewriter", "Lucida Typewriter", monospace;
+
+}
+
+.KRoistats_table tbody td:nth-child(2)
+{
+  _width:0px;
+  _padding:0px;
+}
+
+.KRoistats_table tbody td:nth-child(1), .KRoistats_table tbody td:nth-child(3) 
+{
+  text-align:left;
+  font-weight:bold;
+}
+
+.KRoistats_table tbody .noupperborder
+{
+
+}
+
+
+.text_selectable
+{
+     -webkit-touch-callout: text;
+    -webkit-user-select: text;
+    -khtml-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+
+}
+
+.maintck
+{
+  background: linear-gradient(to top left, #FEA, #FEA) !important;
+}
+
+
+
+.tckNotVisible
+{
+  opacity:0.4 !important;
+  xbackground:#A88 !important;
+  
+}
+
+
+
+.Kinfo3D
+{
+  position:absolute;
+  background:black;
+  width:auto;
+  height:auto;
+  float: left;
+  font-size: 8pt;
+  line-height:9pt;
+  padding: 3px;
+  color: yellow;
+  z-index:2;
+  background-color: rgba(0,0,0,0.2);
+  pointer-events:none;
+   
+}
+
+
+.mosaiclabels
+{
+  sddisplay:none;
+position:absolute;
+color:yellow;
+background:rgba(0,0,0,1);
+z-index:2;
+width:0px;
+pointer-events:none;
+font-size:25px;
+  text-shadow: 2px 2px 2px #000;
+
+}
+
+.KViewPort_curvetoolinput
+{
+  white-space: nowrap;
+  
+}
+
+
+.KViewPort_curvetoolinput > span 
+{
+  width:50px;
+  
+}
+
+.KViewPort_curvetoolinput > input
+{
+  width:50px;
+  margin-right:10px;
+}
+
+.Kcurveinfo
+{
+  position:absolute;
+  z-index:2 !important;
+  right:2px;
+  height:18px;
+  font-size:10px;
+  border:4px solid black;
+  padding-left:3px;
+  padding-right:3px;
+  opacity:0.6;
+  user-select: text;
+ 
+
+}
+
+.markerhover3d
+{
+  position:absolute;
+  background:black;;
+  margin:2px;
+  margin-left:10px;
+  opacity:0.6;
+  border:1px solid white;  
+  border-radius:3px;
+  padding:3px;
+  z-index:999;
+}
+
+.color_selector
+{
+  width:90px;
+  display:flex;
+  flex-wrap:wrap;
+  flex-direction:row;
+  padding:0px;
+  background: hsl(0,0%,35%);
+  padding:1px;
+}
+
+.color_selector  input
+{
+  display:block;
+  width:50px;
+  margin-left:5px;
+}
+
+.color_selector > li
+{
+  box-sizing:border-box;
+  margin:0px;
+  flex-grow: 0;
+  width: 33%; 
+  border-collapse:collapse;
+}
+.color_selector > div
+{
+  box-sizing:border-box;
+  cursor:default;
+  height:30px;
+  margin:0px;
+  border:3px solid hsl(0,0%,35%);
+  flex-grow: 0;
+  width: 33%; 
+  border-collapse:collapse;
+}
+
+.color_selector div:hover
+{
+  border:3px solid hsl(0,0%,25%);
+  opacity:.6;
+}
+
+
+.color_selector_virtual
+{
+  height:10px;
+  width:10px;
+  display:inline-block;
+  border:1px solid gray;
+  margin-right: 4px;
+  margin-bottom:-2px;
+}
+
+
+.ironsight_title
+{
+  font-size:17px;
+  font-weight:700;
+  margin:20px;
+}
+
+.ironSight_ea > span
+{
+  color:lightblue !important;
+}
+
+.ironSight_ep > span
+{
+  color:lightgreen !important;
+}
+
+#brainpicto
+{
+  position:relative;
+  left:10%;
+}
+
+.current_input 
+{
+  background:gray;
+}
+
+.ironsight_done
+{
+  border-radius:3px;
+  box-shadow: 1px 1px 1px 1px rgba(0, 0, 0, 1);
+  height:10px;
+  
+}
+
+.Kchart
+{
+  background:white;
+position:absolute;
+
+}
+
+.KChartCanvas
+{
+  position:relative;
+  height:20px;
+}
