@@ -98,7 +98,7 @@ _.extend(window.bundleEntries || {}, {
     load: function(options) {
         var chart = options.chart;
 
-			var $t = $(document.getElementById( options.targets[ 0 ]))
+			var $t = $(document.getElementById( options.target ))
 
 			var KViewer = new KView($t.parent());
 			$t.remove();
