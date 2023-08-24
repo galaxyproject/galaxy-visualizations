@@ -51,9 +51,8 @@ export function request(root, chart, parameters, success, error) {
     chart.state("wait", "Requesting job results...");
     if (chart.get("modified") && chart.get("dataset_id_job")) {
         requestAjax({
-            type: "PUT",
+            type: "DELETE",
             url: `${root}api/histories/none/contents/${chart.get("dataset_id_job")}`,
-            data: { deleted: true },
         });
         chart.set("dataset_id_job", null);
         chart.set("modified", false);
