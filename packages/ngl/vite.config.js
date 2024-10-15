@@ -23,12 +23,14 @@ export default defineConfig({
         },
     },
     build: {
+        outDir: "./static/dist",
+        emptyOutDir: true,
         rollupOptions: {
             output: {
                 manualChunks: () => "app.js",
-                entryFileNames: "static/[name].js",
-                chunkFileNames: "static/[name].js",
-                assetFileNames: "static/[name][extname]",
+                entryFileNames: "[name].js",
+                chunkFileNames: "[name].js",
+                assetFileNames: "[name][extname]",
             },
         },
     },
