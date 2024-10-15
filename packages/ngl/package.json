@@ -9,6 +9,10 @@
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' 'src/**/*.js' 'src/**/*.vue'"
     },
+    "files": [
+        "static/dist/index.js",
+        "static/dist/index.css"
+    ],
     "dependencies": {
         "@heroicons/vue": "^2.1.5",
         "axios": "^1.7.2",
