@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/ngl",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "type": "module",
     "license": "MIT",
     "scripts": {
@@ -13,22 +13,20 @@
         "static/dist/index.js",
         "static/dist/index.css"
     ],
-    "dependencies": {
+    "devDependencies": {
         "@heroicons/vue": "^2.1.5",
+        "@vitejs/plugin-vue": "^5.0.5",
+        "autoprefixer": "^10.4.19",
         "axios": "^1.7.2",
         "galaxy-charts": "^0.0.8",
         "naive-ui": "^2.39.0",
         "ngl": "^2.3.1",
-        "vue": "^3.4.31"
-    },
-    "devDependencies": {
-        "@vitejs/plugin-vue": "^5.0.5",
-        "autoprefixer": "^10.4.19",
         "postcss": "^8.4.40",
         "prettier": "^3.3.3",
         "tailwindcss": "^3.4.7",
         "typescript": "^5.5.4",
         "vite": "^5.3.4",
-        "vite-plugin-lib-inject-css": "^2.1.1"
+        "vite-plugin-lib-inject-css": "^2.1.1",
+        "vue": "^3.4.31"
     }
 }
