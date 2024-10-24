@@ -43,5 +43,5 @@ watch(
 
 <template>
     <n-alert v-if="message" title="Please resolve the following issue:" type="info" class="m-2">{{ message }}</n-alert>
-    <div v-else ref="viewport" class="h-screen p-4" />
+    <div v-else ref="viewport" class="h-screen" />
 </template>
