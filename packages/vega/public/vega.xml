@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="Vega" logo="logo.svg">
+    <description>A declarative data visualizations grammar. Learn more at: https://vega.github.io.</description>
+    <settings>
+        <input>
+            <label>Vega Specification</label>
+            <name>spec</name>
+            <type>textarea</type>
+            <help>Paste your Vega specification here.</help>
+        </input>
+    </settings>
+</visualization>

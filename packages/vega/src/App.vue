@@ -2,8 +2,7 @@
 import { GalaxyCharts } from "galaxy-charts";
 import Plugin from "@/Plugin.vue";
 
-const chartSpec = `
-{
+const chartSpec = `{
   "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
   "width": "container",
   "height": "container",
