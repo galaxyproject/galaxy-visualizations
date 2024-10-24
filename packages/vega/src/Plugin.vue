@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref, nextTick, watch } from "vue";
 import embed from "vega-embed";
 import { NAlert } from "naive-ui";
 const props = defineProps({
@@ -15,12 +15,13 @@ const viewport = ref(null);
 const message = ref("");
 
 async function render() {
-    viewport.value.innerHTML = "";
     if (props.settings.spec) {
         try {
+            message.value = "";
+            await nextTick();
+            viewport.value.innerHTML = "";
             const spec = JSON.parse(props.settings.spec);
             await embed(viewport.value, spec);
-            message.value = "";
         } catch (e) {
             message.value = `Please provide a valid JSON: ${e}.`;
         }
@@ -41,5 +42,6 @@ watch(
 </script>
 
 <template>
-    <div ref="viewport" class="h-screen p-4" />
+    <n-alert v-if="message" title="Please resolve the following issue:" type="info" class="m-2">{{ message }}</n-alert>
+    <div v-else ref="viewport" class="h-screen p-4" />
 </template>
