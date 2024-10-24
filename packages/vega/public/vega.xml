@@ -6,6 +6,7 @@
         <input>
             <label>Vega Specification</label>
             <name>spec</name>
+            <rows>10</rows>
             <type>textarea</type>
             <help>Paste your Vega specification here.</help>
         </input>
