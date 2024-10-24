@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
+import embed from "vega-embed";
 
 const props = defineProps({
     datasetId: String,
@@ -12,8 +13,35 @@ const props = defineProps({
 
 const viewport = ref(null);
 
-function render() {
+async function render() {
     /** Place your render function here! */
+
+    const spec = {
+        $schema: "https://vega.github.io/schema/vega-lite/v4.json",
+        width: "container",
+        height: "container",
+        data: {
+            values: [
+                { a: "A", b: 28 },
+                { a: "B", b: 55 },
+                { a: "C", b: 43 },
+                { a: "D", b: 91 },
+                { a: "E", b: 81 },
+                { a: "F", b: 53 },
+                { a: "G", b: 19 },
+                { a: "H", b: 87 },
+                { a: "I", b: 52 },
+            ],
+        },
+        mark: "bar",
+        encoding: {
+            x: { field: "a", type: "nominal" },
+            y: { field: "b", type: "quantitative" },
+            tooltip: { field: "b", type: "quantitative" },
+        },
+    };
+    const result = await embed(viewport.value, spec);
+    console.log(result.view);
 }
 
 onMounted(() => {
@@ -28,21 +56,5 @@ watch(
 </script>
 
 <template>
-    <div ref="viewport" class="h-screen p-4">
-        <div class="text-lg py-4">Welcome to Galaxy Charts</div>
-        <div>Use the form on the right to specify settings, these are then parsed to your plugin component!</div>
-        <div>
-            e.g. `Setting:Text` is: <span class="font-bold">{{ props.settings.setting_text }}</span
-            >, and `Setting:Boolean` is: <span class="font-bold">{{ props.settings.setting_boolean }}</span
-            >.
-        </div>
-        <div class="py-4">
-            <span>You have also provided details for the following tracks:</span>
-            <div v-for="(track, index) of props.tracks">
-                <span class="mx-2">Track No. {{ index + 1 }}:</span>
-                <span class="font-bold">'{{ track.track_text }}' and </span>
-                <span class="font-bold">{{ track.track_color || "no color selected" }}.</span>
-            </div>
-        </div>
-    </div>
+    <div ref="viewport" class="h-screen p-4" />
 </template>
