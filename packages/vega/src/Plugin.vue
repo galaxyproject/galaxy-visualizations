@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
 import embed from "vega-embed";
-
+import { NAlert } from "naive-ui";
 const props = defineProps({
     datasetId: String,
     datasetUrl: String,
@@ -12,36 +12,20 @@ const props = defineProps({
 });
 
 const viewport = ref(null);
+const message = ref("");
 
 async function render() {
-    /** Place your render function here! */
-
-    const spec = {
-        $schema: "https://vega.github.io/schema/vega-lite/v4.json",
-        width: "container",
-        height: "container",
-        data: {
-            values: [
-                { a: "A", b: 28 },
-                { a: "B", b: 55 },
-                { a: "C", b: 43 },
-                { a: "D", b: 91 },
-                { a: "E", b: 81 },
-                { a: "F", b: 53 },
-                { a: "G", b: 19 },
-                { a: "H", b: 87 },
-                { a: "I", b: 52 },
-            ],
-        },
-        mark: "bar",
-        encoding: {
-            x: { field: "a", type: "nominal" },
-            y: { field: "b", type: "quantitative" },
-            tooltip: { field: "b", type: "quantitative" },
-        },
-    };
-    const result = await embed(viewport.value, spec);
-    console.log(result.view);
+    if (props.settings.spec) {
+        try {
+            const spec = JSON.parse(props.settings.spec);
+            await embed(viewport.value, spec);
+            message.value = "";
+        } catch (e) {
+            message.value = "Please provide a valid JSON.";
+        }
+    } else {
+        message.value = "Please provide a JSON object using the text input area.";
+    }
 }
 
 onMounted(() => {
@@ -56,5 +40,6 @@ watch(
 </script>
 
 <template>
-    <div ref="viewport" class="h-screen p-4" />
+    <n-alert v-if="message" title="Please resolve the following issue:" type="info" class="m-2">{{ message }}</n-alert>
+    <div v-else ref="viewport" class="h-screen p-4" />
 </template>
