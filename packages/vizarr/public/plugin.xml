@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="Test Environment">
+    <description>Welcome to Galaxy Charts.</description>
+    <requirements>
+        <requirement type="npm" version="NPM_PACKAGE_VERSION" package="NPM_PACKAGE_NAME"/>
+    </requirements>
+    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <specs>
+        <type>spec_type</type>
+    </specs>
+    <tracks>
+        <input>
+            <label>Track: Color</label>
+            <name>track_color</name>
+            <type>color</type>
+        </input>
+        <input>
+            <label>Track: Text</label>
+            <name>track_text</name>
+            <type>text</type>
+            <placeholder>Placeholder</placeholder>
+            <value>Text</value>
+        </input>
+        <input>
+            <name>track_column_0</name>
+            <label>Track: Column (Auto, Text)</label>
+            <type>data_column</type>
+            <is_auto>true</is_auto>
+            <is_text>true</is_text>
+        </input>
+        <input>
+            <name>track_column_1</name>
+            <label>Track: Column (Number)</label>
+            <type>data_column</type>
+            <is_number>true</is_number>
+        </input>
+    </tracks>
+    <settings>
+        <input>
+            <label>Setting: Text</label>
+            <name>setting_text</name>
+            <type>text</type>
+            <optional>true</optional>
+        </input>
+        <input>
+            <label>Setting: Boolean</label>
+            <name>setting_boolean</name>
+            <type>boolean</type>
+            <optional>true</optional>
+        </input>
+    </settings>
+</visualization>
