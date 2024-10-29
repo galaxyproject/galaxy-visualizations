@@ -2,17 +2,12 @@
 import { GalaxyCharts } from "galaxy-charts";
 import Plugin from "@/Plugin.vue";
 const config = {
-    dataset_id: "dataset_id",
-    dataset_url: "test.txt",
-    settings: {
-        setting_text: "my test text",
-        setting_boolean: true,
-    },
+    dataset_id: "09f1e31b9542a75b",
 };
 </script>
 
 <template>
-    <GalaxyCharts :config="config" xml="plugin.xml">
+    <GalaxyCharts :config="config" xml="vizarr.xml">
         <template #default="{ datasetId, datasetUrl, root, settings, specs, tracks }">
             <Plugin
                 :dataset-id="datasetId"
