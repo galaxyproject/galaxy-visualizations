@@ -4,14 +4,13 @@ import vue from "@vitejs/plugin-vue";
 import path from "path";
 import serverConfig from "./server.config";
 
-// determine server route
-let GALAXY_API = "";
-if (process.env.GALAXY_API) {
-    GALAXY_API = process.env.GALAXY_API;
-} else if (serverConfig.GALAXY_API) {
-    GALAXY_API = serverConfig.GALAXY_API;
+let GALAXY_SERVER = "";
+if (process.env.GALAXY_SERVER) {
+    GALAXY_SERVER = process.env.GALAXY_SERVER;
+} else if (serverConfig.GALAXY_SERVER) {
+    GALAXY_SERVER = serverConfig.GALAXY_SERVER;
 } else {
-    console.warn("GALAXY_API not available. Please provide as environment variable or specify in 'server.config'.");
+    console.warn("GALAXY_SERVER not available. Please provide as environment variable or specify in 'server.config'.");
 }
 
 // https://vitejs.dev/config/
@@ -37,9 +36,14 @@ export default defineConfig({
     server: {
         proxy: {
             "/api": {
-                target: GALAXY_API,
+                target: `${GALAXY_SERVER}/api`,
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api/, ""),
+            },
+            "/datasets": {
+                target: `${GALAXY_SERVER}/datasets`,
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/datasets/, ""),
             },
         },
     },
