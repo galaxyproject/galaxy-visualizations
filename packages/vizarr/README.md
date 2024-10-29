@@ -1,5 +1,3 @@
-# Galaxy Charts Starter Kit
+# Galaxy Vizarr Plugin
 
-This example can be used as template should help get you started developing your Galaxy Charts Plugin.
-
-[Click here to learn more.](https://galaxyproject.github.io/galaxy-charts/)
+Galaxy visualization plugin for viewing zarr-based images using [Vizarr](https://github.com/hms-dbmi/vizarr).
