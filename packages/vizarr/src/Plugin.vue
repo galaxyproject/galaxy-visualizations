@@ -1,5 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
+import { createViewer } from "vizarr/dist/index";
+import axios from "axios";
 
 const props = defineProps({
     datasetId: String,
@@ -12,8 +14,30 @@ const props = defineProps({
 
 const viewport = ref(null);
 
-function render() {
-    /** Place your render function here! */
+async function render() {
+    const targetElement = viewport.value;
+    const viewer = await createViewer(targetElement);
+    const { data: dataset } = await axios.get(`/api/datasets/${props.datasetId}`);
+
+    const url = getSourceUrl(dataset);
+
+    const config = {
+        source: url,
+        name: dataset.name,
+    };
+    viewer.addImage(config);
+}
+
+function getSourceUrl(dataset) {
+    return dataset.metadata_remote_uri
+        ? dataset.metadata_remote_uri
+        : window.location.origin +
+              prefixedDownloadUrl(props.root, `datasets/${dataset.id}/display/${dataset.metadata_store_root}`);
+}
+
+const slashCleanup = /(\/)+/g;
+function prefixedDownloadUrl(root, path) {
+    return `${root}/${path}`.replace(slashCleanup, "/");
 }
 
 onMounted(() => {
@@ -28,21 +52,5 @@ watch(
 </script>
 
 <template>
-    <div ref="viewport" class="h-screen p-4">
-        <div class="text-lg py-4">Welcome to Galaxy Charts</div>
-        <div>Use the form on the right to specify settings, these are then parsed to your plugin component!</div>
-        <div>
-            e.g. `Setting:Text` is: <span class="font-bold">{{ props.settings.setting_text }}</span
-            >, and `Setting:Boolean` is: <span class="font-bold">{{ props.settings.setting_boolean }}</span
-            >.
-        </div>
-        <div class="py-4">
-            <span>You have also provided details for the following tracks:</span>
-            <div v-for="(track, index) of props.tracks">
-                <span class="mx-2">Track No. {{ index + 1 }}:</span>
-                <span class="font-bold">'{{ track.track_text }}' and </span>
-                <span class="font-bold">{{ track.track_color || "no color selected" }}.</span>
-            </div>
-        </div>
-    </div>
+    <div ref="viewport" class="h-screen p-4" />
 </template>
