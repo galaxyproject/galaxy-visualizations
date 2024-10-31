@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Vizarr Viewer" logo="vizarr-logo.png">
+<visualization name="Vizarr Viewer" logo="logo.png">
     <description>Basic visualization for Zarr-based images like OME-Zarr</description>
     <requirements>
         <requirement type="npm" version="0.0.0" package="galaxy-vizarr"/>
@@ -21,5 +21,4 @@
     <params>
         <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
     </params>
-    
 </visualization>
