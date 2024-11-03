@@ -4,24 +4,26 @@ import vue from "@vitejs/plugin-vue";
 import path from "path";
 import serverConfig from "./server.config";
 
-// determine server route
-let GALAXY_API = "";
-if (process.env.GALAXY_API) {
-    GALAXY_API = process.env.GALAXY_API;
-} else if (serverConfig.GALAXY_API) {
-    GALAXY_API = serverConfig.GALAXY_API;
+// collect Galaxy server root
+let GALAXY_ROOT = "";
+if (process.env.GALAXY_ROOT) {
+    GALAXY_ROOT = process.env.GALAXY_ROOT;
+} else if (serverConfig.GALAXY_ROOT) {
+    GALAXY_ROOT = serverConfig.GALAXY_ROOT;
 } else {
-    console.warn("GALAXY_API not available. Please provide as environment variable or specify in 'server.config'.");
+    console.log("GALAXY_ROOT not available. Please provide as environment variable or specify in 'server.config'.");
+}
+
+// collect Galaxy API key
+let GALAXY_KEY = "";
+if (process.env.GALAXY_KEY) {
+    GALAXY_KEY = process.env.GALAXY_KEY;
+} else {
+    console.log("GALAXY_KEY not available. Please provide as environment variable to access a remote Galaxy instance.");
 }
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [vue(), tailwindcss()],
-    resolve: {
-        alias: {
-            "@": path.resolve(__dirname, "src"),
-        },
-    },
     build: {
         outDir: "./static/dist",
         emptyOutDir: true,
@@ -34,12 +36,28 @@ export default defineConfig({
             },
         },
     },
+    define: {
+        "process.env.credentials": JSON.stringify(GALAXY_KEY ? "omit" : "include"),
+    },
+    plugins: [vue(), tailwindcss()],
+    resolve: {
+        alias: {
+            "@": path.resolve(__dirname, "src"),
+        },
+    },
     server: {
         proxy: {
             "/api": {
-                target: GALAXY_API,
                 changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/api/, ""),
+                rewrite: (path) => {
+                    if (GALAXY_KEY) {
+                        const separator = path.includes("?") ? "&" : "?";
+                        return `${path}${separator}key=${GALAXY_KEY}`;
+                    } else {
+                        return path;
+                    }
+                },
+                target: GALAXY_ROOT,
             },
         },
     },

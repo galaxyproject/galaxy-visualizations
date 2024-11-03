@@ -1,5 +1,43 @@
-import { createApp } from "vue";
+import { createApp, h } from "vue";
 import "./style.css";
 import App from "./App.vue";
 
-createApp(App).mount("#app");
+
+const chartSpec = `{
+    "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+    "width": "container",
+    "height": "container",
+    "data": {
+        "values": [
+        { "a": "A", "b": 28 },
+        { "a": "B", "b": 55 },
+        { "a": "C", "b": 43 },
+        { "a": "D", "b": 91 },
+        { "a": "E", "b": 81 },
+        { "a": "F", "b": 53 },
+        { "a": "G", "b": 19 },
+        { "a": "H", "b": 87 },
+        { "a": "I", "b": 52 }
+        ]
+    },
+    "mark": "bar",
+    "encoding": {
+        "x": { "field": "a", "type": "nominal" },
+        "y": { "field": "b", "type": "quantitative" },
+        "tooltip": { "field": "b", "type": "quantitative" }
+    }
+}`;
+
+const config = {
+    dataset_id: null,
+    dataset_url: "test.txt",
+    settings: {
+        spec: chartSpec,
+    },
+};
+
+const xml = "vega.xml";
+
+createApp({
+    render: () => h(App, { config: config, xml: xml }),
+}).mount("#app");

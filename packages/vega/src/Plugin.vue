@@ -2,6 +2,7 @@
 import { onMounted, ref, nextTick, watch } from "vue";
 import embed from "vega-embed";
 import { NAlert } from "naive-ui";
+
 const props = defineProps({
     datasetId: String,
     datasetUrl: String,
