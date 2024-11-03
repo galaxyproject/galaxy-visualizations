@@ -43,7 +43,8 @@
                             <label>Vega Specification</label>
                             <name>spec</name>
                             <type>data</type>
-                            <help>Paste your Vega specification here.</help>
+                            <extension>json</extension>
+                            <help>Select your Vega specification dataset.</help>
                         </inputs>
                     </inputs>
                 </cases>

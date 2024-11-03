@@ -28,12 +28,16 @@ const chartSpec = `{
 }`;
 
 const config = {
+    credentials: process.env.credentials,
     dataset_id: "MY_DATASET_ID",
     dataset_url: "MY_DATASET_URL",
     settings: {
         source: {
-            type: "paste",
-            spec: chartSpec,
+            type: "dataset",
+            spec: {
+                name: "Vega Specification JSON",
+                id: "f9cad7b01a472135f24aae93db5a5e5a",
+            },
         },
     },
 };

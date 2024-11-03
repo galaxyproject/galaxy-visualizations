@@ -2,6 +2,7 @@
 import { onMounted, ref, nextTick, watch } from "vue";
 import embed from "vega-embed";
 import { NAlert } from "naive-ui";
+import { GalaxyApi } from "galaxy-charts";
 
 const props = defineProps({
     datasetId: String,
@@ -23,8 +24,14 @@ async function render() {
         let spec = null;
         if (props.settings.source.type === "paste") {
             spec = JSON.parse(props.settings.source.spec);
+        } else {
+            const { id } = props.settings.source.spec;
+            const { data } = await GalaxyApi().GET(`/api/datasets/${id}/display`);
+            spec = data;
         }
-        await embed(viewport.value, spec);
+        if (spec) {
+            await embed(viewport.value, spec);
+        }
     } catch (e) {
         message.value = `Please provide a valid JSON: ${e}.`;
     }
