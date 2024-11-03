@@ -16,18 +16,17 @@ const viewport = ref(null);
 const message = ref("");
 
 async function render() {
-    if (props.settings.spec) {
-        try {
-            message.value = "";
-            await nextTick();
-            viewport.value.innerHTML = "";
-            const spec = JSON.parse(props.settings.spec);
-            await embed(viewport.value, spec);
-        } catch (e) {
-            message.value = `Please provide a valid JSON: ${e}.`;
+    try {
+        message.value = "";
+        await nextTick();
+        viewport.value.innerHTML = "";
+        let spec = null;
+        if (props.settings.source.type === "paste") {
+            spec = JSON.parse(props.settings.source.spec);
         }
-    } else {
-        message.value = "Please provide a JSON object using the text input area.";
+        await embed(viewport.value, spec);
+    } catch (e) {
+        message.value = `Please provide a valid JSON: ${e}.`;
     }
 }
 

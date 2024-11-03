@@ -4,11 +4,50 @@
     <description>A declarative data visualizations grammar. Learn more at: https://vega.github.io.</description>
     <settings>
         <input>
-            <label>Vega Specification</label>
-            <name>spec</name>
-            <rows>10</rows>
-            <type>textarea</type>
-            <help>Paste your Vega specification here.</help>
+            <label>Select Source</label>
+            <name>source</name>
+            <type>conditional</type>
+            <help>Specify the source of your Vega specification.</help>
+            <test_param>
+                <name>type</name>
+                <type>select</type>
+                <value>true</value>
+                <data>
+                    <data>
+                        <value>paste</value>
+                        <label>Paste Content</label>
+                    </data>
+                    <data>
+                        <value>dataset</value>
+                        <label>From Dataset</label>
+                    </data>
+                </data>
+            </test_param>
+            <cases>
+                <cases>
+                    <value>paste</value>
+                    <inputs>
+                        <inputs>
+                            <label>Vega Specification</label>
+                            <name>spec</name>
+                            <rows>10</rows>
+                            <type>textarea</type>
+                            <help>Paste your Vega specification here.</help>
+                        </inputs>
+                    </inputs>
+                </cases>
+                <cases>
+                    <value>dataset</value>
+                    <inputs>
+                        <inputs>
+                            <label>Vega Specification</label>
+                            <name>spec</name>
+                            <type>data</type>
+                            <help>Paste your Vega specification here.</help>
+                        </inputs>
+                    </inputs>
+                </cases>
+            </cases>
         </input>
     </settings>
 </visualization>

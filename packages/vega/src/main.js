@@ -2,7 +2,6 @@ import { createApp, h } from "vue";
 import "./style.css";
 import App from "./App.vue";
 
-
 const chartSpec = `{
     "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
     "width": "container",
@@ -29,10 +28,13 @@ const chartSpec = `{
 }`;
 
 const config = {
-    dataset_id: null,
-    dataset_url: "test.txt",
+    dataset_id: "MY_DATASET_ID",
+    dataset_url: "MY_DATASET_URL",
     settings: {
-        spec: chartSpec,
+        source: {
+            type: "paste",
+            spec: chartSpec,
+        },
     },
 };
 

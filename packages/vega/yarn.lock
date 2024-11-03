@@ -708,10 +708,10 @@ function-bind@^1.1.2:
   resolved "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz"
   integrity sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==
 
-galaxy-charts@^0.0.15:
-  version "0.0.15"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.15.tgz"
-  integrity sha512-AuUod55h6XsuVcTcS/pNsPNHFzvRb079k8QqVFVoA47CGMCPDDIprITxdQvY8MZqndNTcN4ola3pVaniusVQEQ==
+galaxy-charts@^0.0.16:
+  version "0.0.16"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.16.tgz"
+  integrity sha512-aeuSeOxy0w2bUVIG7Hf3Hku37fRf812DffDjE6BIZkv+cBseddH0TUGquwKqP6MEKBRhFUW3xK2oB8CCs0mzfg==
 
 get-caller-file@^2.0.5:
   version "2.0.5"

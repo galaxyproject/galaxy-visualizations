@@ -14,7 +14,7 @@
         "static/dist/index.css"
     ],
     "devDependencies": {
-        "galaxy-charts": "^0.0.15",
+        "galaxy-charts": "^0.0.16",
         "@vitejs/plugin-vue": "^5.0.5",
         "autoprefixer": "^10.4.19",
         "naive-ui": "^2.40.1",
