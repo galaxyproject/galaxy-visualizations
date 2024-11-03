@@ -1,5 +1,5 @@
-# Galaxy Charts Starter Kit
+# Vega for Galaxy
 
-This example can be used as template should help get you started developing your Galaxy Charts Plugin.
+This is a Galaxy wrapper for Vega visualizations.
 
-[Click here to learn more.](https://galaxyproject.github.io/galaxy-charts/)
+[Click here to learn more.](https://vega.github.io)
