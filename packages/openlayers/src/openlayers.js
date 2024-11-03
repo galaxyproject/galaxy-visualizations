@@ -10,85 +10,85 @@ import { saveAs } from "file-saver";
 import shp from "shpjs";
 import axios from "axios";
 
-export function MapViewer (mv) {
+export function MapViewer(mv) {
     mv.gMap = null;
 
     /** Set the style properties of shapes */
-    mv.setStyle = selectedColor => {
+    mv.setStyle = (selectedColor) => {
         const styles = {
             Polygon: new style.Style({
                 stroke: new style.Stroke({
                     color: selectedColor,
-                    width: 1
+                    width: 1,
                 }),
                 fill: new style.Fill({
-                    color: "rgba(0, 0, 255, 0.1)"
-                })
+                    color: "rgba(0, 0, 255, 0.1)",
+                }),
             }),
             Circle: new style.Style({
                 stroke: new style.Stroke({
                     color: selectedColor,
-                    width: 1
+                    width: 1,
                 }),
                 fill: new style.Fill({
-                    color: "rgba(0, 0, 255, 0.1)"
-                })
+                    color: "rgba(0, 0, 255, 0.1)",
+                }),
             }),
             Point: new style.Style({
                 image: new style.Circle({
                     radius: 5,
                     fill: new style.Fill({
-                        color: "rgba(0, 0, 255, 0.1)"
+                        color: "rgba(0, 0, 255, 0.1)",
                     }),
-                    stroke: new style.Stroke({ color: selectedColor, width: 1 })
-                })
+                    stroke: new style.Stroke({ color: selectedColor, width: 1 }),
+                }),
             }),
             LineString: new style.Style({
                 stroke: new style.Stroke({
                     color: selectedColor,
-                    width: 1
-                })
+                    width: 1,
+                }),
             }),
             MultiLineString: new style.Style({
                 stroke: new style.Stroke({
                     color: selectedColor,
-                    width: 1
-                })
+                    width: 1,
+                }),
             }),
             MultiPoint: new style.Style({
                 image: new style.Circle({
                     radius: 5,
                     fill: new style.Fill({
-                        color: "rgba(0, 0, 255, 0.1)"
+                        color: "rgba(0, 0, 255, 0.1)",
                     }),
-                    stroke: new style.Stroke({ color: selectedColor, width: 1 })
-                })
+                    stroke: new style.Stroke({ color: selectedColor, width: 1 }),
+                }),
             }),
             MultiPolygon: new style.Style({
                 stroke: new style.Stroke({
                     color: selectedColor,
-                    width: 1
+                    width: 1,
                 }),
                 fill: new style.Fill({
-                    color: "rgba(0, 0, 255, 0.1)"
-                })
+                    color: "rgba(0, 0, 255, 0.1)",
+                }),
             }),
             GeometryCollection: new style.Style({
                 stroke: new style.Stroke({
                     color: selectedColor,
-                    width: 1
+                    width: 1,
                 }),
                 fill: new style.Fill({
-                    color: selectedColor
+                    color: selectedColor,
                 }),
                 image: new style.Circle({
                     radius: 10,
                     fill: null,
                     stroke: new style.Stroke({
-                        color: selectedColor
-                    })
-                })
-            })
+                        color: selectedColor,
+                    }),
+                }),
+            }),
         };
         return styles;
     };
@@ -102,17 +102,17 @@ export function MapViewer (mv) {
                 drawInteraction = new interaction.Draw({
                     source: source,
                     type: geometryType,
-                    freehand: true
+                    freehand: true,
                 });
-                drawInteraction.on("drawstart", event => {
+                drawInteraction.on("drawstart", (event) => {
                     const sty = new style.Style({
                         stroke: new style.Stroke({
                             color: geometryColor,
-                            width: 2
+                            width: 2,
                         }),
                         fill: new style.Fill({
-                            color: "rgba(0, 0, 255, 0.1)"
-                        })
+                            color: "rgba(0, 0, 255, 0.1)",
+                        }),
                     });
                     event.feature.setStyle(sty);
                 });
@@ -124,16 +124,14 @@ export function MapViewer (mv) {
 
     /** Export the map view to PNG image*/
     mv.exportMap = () => {
-        mv.gMap.once("rendercomplete", event => {
+        mv.gMap.once("rendercomplete", (event) => {
             const canvas = event.context.canvas;
-            let fileName = Math.random()
-                .toString(11)
-                .replace("0.", "");
+            let fileName = Math.random().toString(11).replace("0.", "");
             fileName += ".png";
             if (navigator.msSaveBlob) {
                 navigator.msSaveBlob(canvas.msToBlob(), fileName);
             } else {
-                canvas.toBlob(blob => {
+                canvas.toBlob((blob) => {
                     saveAs(blob, fileName);
                 });
             }
@@ -151,12 +149,12 @@ export function MapViewer (mv) {
         // create vector with styles
         const vectorLayer = new layer.Vector({
             source: vSource,
-            style: styleFunction
+            style: styleFunction,
         });
 
         const view = new View({
             center: [0, 0],
-            zoom: 2
+            zoom: 2,
         });
 
         // create map view
@@ -166,7 +164,7 @@ export function MapViewer (mv) {
             layers: [tile, vectorLayer],
             target: target,
             loadTilesWhileInteracting: true,
-            view: view
+            view: view,
         });
 
         // add grid lines
@@ -174,9 +172,9 @@ export function MapViewer (mv) {
             strokeStyle: new style.Stroke({
                 color: "rgba(255, 120, 0, 0.9)",
                 width: 2,
-                lineDash: [0.5, 4]
+                lineDash: [0.5, 4],
             }),
-            showLabels: true
+            showLabels: true,
         });
 
         mv.gMap.addInteraction(new interaction.Modify({ source: vSource }));
@@ -189,7 +187,7 @@ export function MapViewer (mv) {
     mv.loadFile = (filePath, fileType, geometryColor, geometryType, toExport, target) => {
         const formatType = new GeoJSON();
         const selectedStyles = mv.setStyle(geometryColor);
-        const styleFunction = feature => {
+        const styleFunction = (feature) => {
             return selectedStyles[feature.getGeometry().getType()];
         };
 
@@ -201,19 +199,19 @@ export function MapViewer (mv) {
             const sourceVec = new Vector({ format: formatType, url: filePath, wrapX: false });
             mv.createMap(sourceVec, geometryColor, geometryType, styleFunction, target);
         } else if (fileType === "shp") {
-            axios.get(filePath, { responseType: "arraybuffer" }).then(shpfile => {
+            axios.get(filePath, { responseType: "arraybuffer" }).then((shpfile) => {
                 console.debug(shpfile);
                 shp(shpfile.data).then(
-                    geojson => {
+                    (geojson) => {
                         const url = window.URL.createObjectURL(
-                            new Blob([JSON.stringify(geojson)], { type: "application/json" })
+                            new Blob([JSON.stringify(geojson)], { type: "application/json" }),
                         );
                         const sourceVec = new Vector({ format: formatType, url: url, wrapX: false });
                         mv.createMap(sourceVec, geometryColor, geometryType, styleFunction, target);
                     },
-                    failure => {
+                    (failure) => {
                         console.debug("FAILURE!", failure);
-                    }
+                    },
                 );
             });
         }

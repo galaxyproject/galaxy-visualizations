@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
-import { MapViewer} from "./openlayers";
+import { MapViewer } from "./openlayers";
 
 const props = defineProps({
     datasetId: String,
@@ -16,12 +16,14 @@ const viewport = ref(null);
 function render() {
     viewport.value.innerHTML = "";
     const mv = new MapViewer({});
-    mv.loadFile(props.datasetUrl,
+    mv.loadFile(
+        props.datasetUrl,
         "geojson", //dataset.extension,
         props.settings.geometry_color,
         props.settings.geometry_type,
         props.settings.export_map,
-        viewport.value);
+        viewport.value,
+    );
 }
 
 onMounted(() => {
