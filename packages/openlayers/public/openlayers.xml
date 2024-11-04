@@ -51,6 +51,13 @@
             <value>#ec1515</value>
         </input>
         <input>
+            <label>Select Background</label>
+            <name>background_file</name>
+            <type>data</type>
+            <extension>png</extension>
+            <optional>true</optional>
+        </input>
+        <input>
             <label>Export map</label>
             <name>export_map</name>
             <help>Select to export</help>
