@@ -2,16 +2,13 @@ import { defineConfig } from "vite";
 import tailwindcss from "tailwindcss";
 import vue from "@vitejs/plugin-vue";
 import path from "path";
-import serverConfig from "./server.config";
 
 // collect Galaxy server root
-let GALAXY_ROOT = "";
+let GALAXY_ROOT = "http://127.0.0.1:8080";
 if (process.env.GALAXY_ROOT) {
     GALAXY_ROOT = process.env.GALAXY_ROOT;
-} else if (serverConfig.GALAXY_ROOT) {
-    GALAXY_ROOT = serverConfig.GALAXY_ROOT;
 } else {
-    console.log("GALAXY_ROOT not available. Please provide as environment variable or specify in 'server.config'.");
+    console.log("GALAXY_ROOT not available. Please provide as environment variable.");
 }
 
 // collect Galaxy API key
