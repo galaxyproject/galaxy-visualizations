@@ -562,10 +562,17 @@ function-bind@^1.1.2:
   resolved "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz"
   integrity sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==
 
-galaxy-charts@^0.0.16:
-  version "0.0.16"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.16.tgz"
-  integrity sha512-aeuSeOxy0w2bUVIG7Hf3Hku37fRf812DffDjE6BIZkv+cBseddH0TUGquwKqP6MEKBRhFUW3xK2oB8CCs0mzfg==
+galaxy-charts-xml-parser@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.npmjs.org/galaxy-charts-xml-parser/-/galaxy-charts-xml-parser-1.0.3.tgz"
+  integrity sha512-dmGsqF0yEfv4pdcI0zYrcCwXgE4xhIyrdooeysuAGwDWOe041EobJKGH0/L2Zcehm5SKvLuLa8YoYUsFE7H1Bg==
+  dependencies:
+    axios "^1.7.7"
+
+galaxy-charts@^0.0.26:
+  version "0.0.26"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.26.tgz"
+  integrity sha512-tygf0djiYJVuPR5kxz8wFeJHuxRvXWjxoYvrnZXyAav82H/lLEGpZ7NNoSC1PLVkRHU78DarzVr65ca+nn+P6A==
 
 geotiff@^2.0.7:
   version "2.1.3"
