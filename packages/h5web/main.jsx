@@ -30,12 +30,6 @@ const { root, visualization_config } = JSON.parse(appElement?.getAttribute("data
 const datasetId = visualization_config.dataset_id;
 const datasetName = visualization_config.dataset_name || "Input";
 
-/* This will be part of the standard library */
-const slashCleanup = /(\/)+/g;
-function prefixedDownloadUrl(root, path) {
-  return `${root}/${path}`.replace(slashCleanup, "/");
-}
-
 function MyApp(props) {
   return (
     <H5GroveProvider
@@ -48,7 +42,7 @@ function MyApp(props) {
   );
 }
 
-const url = window.location.origin + prefixedDownloadUrl(root, "api/datasets/" + datasetId + "/content");
+const url = window.location.origin + root + "api/datasets/" + datasetId + "/content";
 
 const rootElement = createRoot(appElement);
 
