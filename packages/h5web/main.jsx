@@ -12,7 +12,7 @@ if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: "0c1da521da72c0b0",
+            dataset_id: process.env.dataset_id,
         },
     };
 

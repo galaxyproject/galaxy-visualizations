@@ -1,5 +1,13 @@
 import { defineConfig } from "vite";
 
+// add dataset id for testing
+let GALAXY_DATASET_ID = ""
+if (process.env.GALAXY_DATASET_ID) {
+    GALAXY_DATASET_ID = process.env.GALAXY_DATASET_ID;
+} else {
+    console.log("GALAXY_DATASET_ID not available. Please provide as environment variable.");
+}
+
 // collect Galaxy server root
 let GALAXY_ROOT = "http://127.0.0.1:8080";
 if (process.env.GALAXY_ROOT) {
@@ -32,6 +40,7 @@ export const viteConfigCharts = defineConfig({
     },
     define: {
         "process.env.credentials": JSON.stringify(GALAXY_KEY ? "omit" : "include"),
+        "process.env.dataset_id": JSON.stringify(GALAXY_DATASET_ID),
     },
     resolve: {
         alias: {
