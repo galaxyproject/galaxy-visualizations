@@ -1,14 +1,15 @@
-<script setup>
-import { GalaxyCharts } from "galaxy-charts";
-import Plugin from "@/Plugin.vue";
-const config = {
-    dataset_url: "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/newbox.pdb",
-    settings: {},
-};
+<script setup lang="ts">
+import { GalaxyCharts, type PluginIncomingType } from "galaxy-charts";
+import Plugin from "./Plugin.vue";
+
+defineProps<{
+    credentials?: RequestCredentials;
+    incoming?: PluginIncomingType;
+}>();
 </script>
 
 <template>
-    <GalaxyCharts :config="config" xml="config/ngl.xml">
+    <GalaxyCharts :credentials="credentials" :incoming="incoming">
         <template #default="{ datasetId, datasetUrl, root, settings, specs, tracks }">
             <Plugin
                 :dataset-id="datasetId"
