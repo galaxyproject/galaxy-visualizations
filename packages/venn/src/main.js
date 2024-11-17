@@ -22,7 +22,7 @@ async function main() {
                 // Placeholder for dataset URL (can be replaced during actual development)
                 dataset_url: "MY_DATASET_URL",
                 // Placeholder for dataset ID
-                dataset_id: "ddaca2bad6847b13",
+                dataset_id: process.env.dataset_id,
                 // Placeholder for additional visualization settings
                 settings: {},
             },
