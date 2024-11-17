@@ -20,14 +20,14 @@ async function main() {
         const dataIncoming = {
             visualization_config: {
                 // Placeholder for dataset URL (can be replaced during actual development)
-                dataset_url: "MY_DATASET_URL",
+                dataset_url: "phylocanvas.nwk",
                 // Placeholder for dataset ID
                 dataset_id: "MY_DATASET_ID",
                 // Placeholder for additional visualization settings
                 settings: {},
             },
             // Parse and load the visualization XML configuration
-            visualization_plugin: await parseXML("MY_VISUALIZATION.xml"),
+            visualization_plugin: await parseXML("phylocanvas.xml"),
         };
 
         // Find the root app element and attach the mock data as a JSON string to its data-incoming attribute
