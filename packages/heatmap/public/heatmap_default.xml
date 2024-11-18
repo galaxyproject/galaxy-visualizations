@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="Heatmap" embeddable="false">
+    <macros>
+        <import>heatmap_shared.xml</import>
+    </macros>
+    <description>Renders a heatmap from matrix data provided in 3-column format (x, y, observation).</description>
+    <requirements>
+        <requirement type="npm" version="MY_NPM_PACKAGE_VERSION" package="MY_NPM_PACKAGE_NAME"/>
+    </requirements>
+    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <expand macro="shared"/>
+    <specs>
+        <exports>
+            <exports>pdf</exports>
+            <exports>png</exports>
+            <exports>svg</exports>
+        </exports>
+    </specs>
+</visualization>
