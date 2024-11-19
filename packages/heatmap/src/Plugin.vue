@@ -23,7 +23,8 @@ function createContainers(n) {
     const containers = [];
     for (var i = 0; i < n; i++) {
         const panel = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        panel.style.cssText = "float: left; height: 100%;";
+        panel.style.float = "left";
+        panel.style.height = "100%";
         panel.style.width = 100 / n + "%";
         viewport.value.appendChild(panel);
         containers.push(panel);
