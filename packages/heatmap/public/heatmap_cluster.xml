@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Heatmap" embeddable="false" logo="logo.svg">
+<visualization name="Clustered Heatmap" embeddable="false" logo="logo.cluster.svg">
     <macros>
         <import>heatmap_shared.xml</import>
     </macros>
-    <description>Renders a heatmap from matrix data provided in 3-column format (x, y, observation).</description>
+    <description>Applies hierarchical clustering to a matrix using R. The data has to be provided in 3-column format. The result is displayed as clustered heatmap.</description>
     <requirements>
         <requirement type="npm" version="MY_NPM_PACKAGE_VERSION" package="MY_NPM_PACKAGE_NAME"/>
     </requirements>
     <expand macro="shared"/>
     <specs>
+        <variant>cluster</variant>
         <exports>
             <exports>pdf</exports>
             <exports>png</exports>
