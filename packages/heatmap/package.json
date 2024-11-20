@@ -1,5 +1,5 @@
 {
-    "name": "galaxy-charts-starter",
+    "name": "@galaxyproject/heatmap",
     "version": "0.0.0",
     "type": "module",
     "license": "MIT",
