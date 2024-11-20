@@ -80,7 +80,7 @@ export default class Heatmap {
         this.tooltip.style.pointerEvents = "none";
 
         // Append to the container
-        this.container.parentElement.appendChild(this.tooltip);
+        this.container.parentElement?.appendChild(this.tooltip);
 
         // Function to update tooltip text and position dynamically
         this.updateTooltip = function (d, x, y) {

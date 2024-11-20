@@ -74,11 +74,13 @@ async function render() {
     // render heatmap
     if (datasetId && tracks.length > 0) {
         const containers = createContainers(tracks.length);
-        const columnsList = await store.fetchColumns(datasetId, tracks, ["x", "y", "z"]);
-        if (columnsList.length > 0 && Object.keys(columnsList[0]).length === 3) {
-            columnsList.forEach((trackData, index) => {
-                new Heatmap(containers[index], props.settings, tracks[index], trackData);
-            });
+        if (containers.length > 0) {
+            const columnsList = await store.fetchColumns(datasetId, tracks, ["x", "y", "z"]);
+            if (columnsList.length > 0 && Object.keys(columnsList[0]).length === 3) {
+                columnsList.forEach((trackData, index) => {
+                    new Heatmap(containers[index], props.settings, tracks[index], trackData);
+                });
+            }
         }
     }
 }
