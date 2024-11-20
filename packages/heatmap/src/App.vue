@@ -10,14 +10,15 @@ defineProps<{
 
 <template>
     <GalaxyCharts :credentials="credentials" :incoming="incoming">
-        <template #default="{ datasetId, datasetUrl, root, settings, specs, tracks }">
+        <template #default="{ datasetId, datasetUrl, root, save, settings, specs, tracks }">
             <Plugin
                 :dataset-id="datasetId"
                 :dataset-url="datasetUrl"
                 :root="root"
                 :settings="settings"
                 :specs="specs"
-                :tracks="tracks" />
+                :tracks="tracks"
+                @save="save" />
         </template>
     </GalaxyCharts>
 </template>
