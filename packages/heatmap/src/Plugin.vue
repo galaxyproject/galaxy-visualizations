@@ -23,11 +23,11 @@ const emit = defineEmits(["save"]);
 
 const viewport = ref(null);
 
-const jobDatasetId = computed(() => props.settings?.job_dataset_id);
-
 const isCluster = computed(() => props.specs?.variant === "cluster");
 
 const isRunning = ref(false);
+
+const jobDatasetId = computed(() => props.settings?.job_dataset_id);
 
 /* Prepare containers */
 function createContainers(n) {
@@ -101,8 +101,8 @@ watch(
 </script>
 
 <template>
-    <div>
-        <div v-if="isRunning" class="p-6">
+    <div class="h-screen">
+        <div v-if="isRunning" class="m-2 absolute">
             <n-icon class="mr-1">
                 <ArrowPathIcon class="animate-spin" />
             </n-icon>
@@ -124,6 +124,11 @@ watch(
                 </n-button>
             </div>
         </div>
+        <n-button v-if="isCluster && jobDatasetId && !isRunning" type="primary" @click="onCluster" class="m-2 absolute">
+            <n-icon>
+                <ArrowPathIcon />
+            </n-icon>
+        </n-button>
         <div ref="viewport" class="h-screen" />
     </div>
 </template>
