@@ -1,6 +1,11 @@
-<macros>
-<xml name="shared">
-    <data_sources>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="Heatmap" embeddable="false">
+    <description>Renders a heatmap from matrix data provided in 3-column format (x, y, observation).</description>
+    <requirements>
+        <requirement type="npm" version="MY_NPM_PACKAGE_VERSION" package="MY_NPM_PACKAGE_NAME"/>
+    </requirements>
+<data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
             <test type="isinstance" test_attr="datatype" result_type="datatype">tabular.Tabular</test>
@@ -476,5 +481,11 @@
             <value>true</value>
         </input>
     </settings>
-</xml>
-</macros>
+    <specs>
+        <exports>
+            <exports>pdf</exports>
+            <exports>png</exports>
+            <exports>svg</exports>
+        </exports>
+    </specs>
+</visualization>
