@@ -131,7 +131,7 @@ watch(
                 <ArrowPathIcon />
             </n-icon>
         </n-button>
-        <div ref="viewport" class="h-screen" />
+        <div v-if="!isCluster || jobDatasetId" ref="viewport" class="h-screen" />
     </div>
 </template>
 
