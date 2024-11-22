@@ -50,22 +50,20 @@ async function render() {
     // collect source and track data
     let datasetId = null;
     let tracks = [];
-    if (isCluster.value) {
-        if (jobDatasetId.value) {
-            isRunning.value = true;
-            await waitForDataset(jobDatasetId.value);
-            isRunning.value = false;
-            datasetId = jobDatasetId.value;
-            let counter = 0;
-            props.tracks.forEach((track) => {
-                tracks.push({
-                    x: counter++,
-                    y: counter++,
-                    z: counter++,
-                    key: track.key,
-                });
+    if (jobDatasetId.value) {
+        isRunning.value = true;
+        await waitForDataset(jobDatasetId.value);
+        isRunning.value = false;
+        datasetId = jobDatasetId.value;
+        let counter = 0;
+        props.tracks.forEach((track) => {
+            tracks.push({
+                x: counter++,
+                y: counter++,
+                z: counter++,
+                key: track.key,
             });
-        }
+        });
     } else {
         datasetId = props.datasetId;
         tracks = props.tracks;
@@ -100,6 +98,12 @@ watch(
     () => render(),
     { deep: true },
 );
+
+watch(
+    () => props.tracks,
+    () => emit("save", { job_dataset_id: null }),
+    { deep: true },
+)
 </script>
 
 <template>
@@ -110,28 +114,13 @@ watch(
             </n-icon>
             <span>Please wait...</span>
         </div>
-        <div v-else-if="isCluster && !jobDatasetId" class="p-6">
-            <div class="p-4 bg-sky-50 rounded-lg text-center">
-                <p class="mb-4 text-large">
-                    Add and configure the data tracks to be clustered using the panel on the right, then click to
-                    initiate the clustering process and generate a clustered heatmap visualization.
-                </p>
-                <n-button type="primary" @click="onCluster">
-                    <span class="mr-2">
-                        <n-icon>
-                            <PlayIcon />
-                        </n-icon>
-                    </span>
-                    Generate Clustered Heatmap
-                </n-button>
-            </div>
-        </div>
-        <n-button v-if="isCluster && jobDatasetId && !isRunning" type="primary" @click="onCluster" class="m-2 absolute">
-            <n-icon>
-                <ArrowPathIcon />
+        <n-button v-else type="primary" size="sm" @click="onCluster" class="p-1 rounded m-2 absolute">
+            <n-icon class="mr-1">
+                <PlayIcon />
             </n-icon>
+            <span>Cluster Data</span>
         </n-button>
-        <div v-if="!isCluster || jobDatasetId" ref="viewport" class="h-screen" />
+        <div ref="viewport" class="h-screen" />
     </div>
 </template>
 
