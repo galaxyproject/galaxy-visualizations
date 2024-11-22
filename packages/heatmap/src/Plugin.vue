@@ -23,8 +23,6 @@ const emit = defineEmits(["save"]);
 
 const viewport = ref(null);
 
-const isCluster = computed(() => props.specs?.variant === "cluster");
-
 const isRunning = ref(false);
 
 const jobDatasetId = computed(() => props.settings?.job_dataset_id);
