@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
 
-import "@/phylocanvas.min.js";
+import phylocanvas from "@/phylocanvas.min.js";
 
 const props = defineProps({
     datasetId: String,
@@ -25,7 +25,7 @@ async function render() {
                 tree.destroy();
                 tree = null;
             }
-            tree = new window.phylocanvas.PhylocanvasGL(container.value, {
+            tree = new phylocanvas(container.value, {
                 alignLabels: props.settings.align_labels,
                 fillColour: props.settings.node_color,
                 highlightColour: props.settings.highlighted_color,
