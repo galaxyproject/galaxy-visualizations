@@ -20,6 +20,7 @@
         "@types/node": "^22.9.0",
         "@vitejs/plugin-vue": "^5.0.5",
         "@vitest/ui": "^2.1.4",
+        "@vue/test-utils": "^2.4.6",
         "autoprefixer": "^10.4.19",
         "galaxy-charts": "^0.0.34",
         "galaxy-charts-xml-parser": "^1.0.3",
