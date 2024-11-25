@@ -56,9 +56,9 @@ async function render() {
         let counter = 0;
         props.tracks.forEach((track) => {
             tracks.push({
-                x: counter++,
-                y: counter++,
-                z: counter++,
+                x: String(counter++),
+                y: String(counter++),
+                z: String(counter++),
                 key: track.key,
             });
         });
