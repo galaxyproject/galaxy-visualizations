@@ -4,8 +4,8 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useColumnsStore } from "galaxy-charts";
 import Heatmap from "./heatmap/heatmap";
 import { ArrowPathIcon, PlayIcon } from "@heroicons/vue/24/solid";
-import { NButton, NIcon } from "naive-ui";
-import { buildJobDict, submitJob } from "@/heatmap/jobs";
+import { NAlert, NButton, NIcon } from "naive-ui";
+import { buildJobDict, jobsCreate } from "@/heatmap/jobs";
 import { waitForDataset } from "@/heatmap/datasets";
 
 const store = useColumnsStore();
@@ -22,6 +22,8 @@ const props = defineProps({
 const emit = defineEmits(["save"]);
 
 const viewport = ref(null);
+
+const errorMessage = ref("");
 
 const isRunning = ref(false);
 
@@ -50,18 +52,23 @@ async function render() {
     let tracks = [];
     if (jobDatasetId.value) {
         isRunning.value = true;
-        await waitForDataset(jobDatasetId.value);
-        isRunning.value = false;
-        datasetId = jobDatasetId.value;
-        let counter = 0;
-        props.tracks.forEach((track) => {
-            tracks.push({
-                x: String(counter++),
-                y: String(counter++),
-                z: String(counter++),
-                key: track.key,
+        try {
+            await waitForDataset(jobDatasetId.value);
+            isRunning.value = false;
+            datasetId = jobDatasetId.value;
+            let counter = 0;
+            props.tracks.forEach((track) => {
+                tracks.push({
+                    x: String(counter++),
+                    y: String(counter++),
+                    z: String(counter++),
+                    key: track.key,
+                });
             });
-        });
+        } catch (e) {
+            isRunning.value = false;
+            errorMessage.value = "Job request failed. Please check the Galaxy history for more details.";
+        }
     } else {
         datasetId = props.datasetId;
         tracks = props.tracks;
@@ -83,7 +90,7 @@ async function render() {
 
 async function onCluster() {
     const toolDict = buildJobDict("heatmap", props.datasetId, props.tracks, ["x", "y", "z"]);
-    const jobDatasetId = await submitJob(toolDict);
+    const jobDatasetId = await jobsCreate(toolDict);
     emit("save", { job_dataset_id: jobDatasetId });
 }
 
@@ -101,12 +108,15 @@ watch(
     () => props.tracks,
     () => emit("save", { job_dataset_id: null }),
     { deep: true },
-)
+);
 </script>
 
 <template>
     <div class="h-screen">
-        <div v-if="isRunning" class="m-2 absolute">
+        <n-alert v-if="errorMessage" class="m-2" type="error">
+            {{ errorMessage }}
+        </n-alert>
+        <div v-else-if="isRunning" class="m-2 absolute">
             <n-icon class="mr-1">
                 <ArrowPathIcon class="animate-spin" />
             </n-icon>

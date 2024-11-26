@@ -21,11 +21,15 @@ export function buildJobDict(module, datasetId, tracks, trackKeys) {
 }
 
 /** Execute job and return output dataset identifier */
-export async function submitJob(jobDict) {
-    const { data } = await GalaxyApi().POST("/api/tools", jobDict);
-    if (!data.outputs || data.outputs.length === 0) {
-        console.error("Job submission failed. No response.");
-    } else {
-        return data.outputs[0].id;
+export async function jobsCreate(jobDict) {
+    try {
+        const { data } = await GalaxyApi().POST("/api/tools", jobDict);
+        if (!data.outputs || data.outputs.length === 0) {
+            throw Error("Job submission failed.");
+        } else {
+            return data.outputs[0].id;
+        }
+    } catch (e) {
+        throw Error("Job submission failed.");
     }
 }
