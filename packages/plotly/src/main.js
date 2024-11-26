@@ -27,7 +27,7 @@ async function main() {
                 settings: {},
             },
             // Parse and load the visualization XML configuration
-            visualization_plugin: await parseXML("plotly.xml"),
+            visualization_plugin: await parseXML("plotly_basics.xml"),
         };
 
         // Find the root app element and attach the mock data as a JSON string to its data-incoming attribute

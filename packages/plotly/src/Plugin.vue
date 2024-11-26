@@ -1,7 +1,10 @@
 <script setup>
 import Plotly from "plotly.js-dist";
 import { onMounted, ref, watch } from "vue";
-import { useColumnsStore } from "galaxy-charts";
+
+import plotlyBasics from "@/variants/basics";
+import plotlyBox from "@/variants/box";
+import plotlyHistogram from "@/variants/histogram";
 
 const props = defineProps({
     datasetId: String,
@@ -13,43 +16,21 @@ const props = defineProps({
 });
 
 const viewport = ref(null);
-const columnsStore = useColumnsStore();
 
-async function plotlyDefault() {
-    const layout = {
-        xaxis: {
-            title: {
-                text: props.settings.x_axis_label,
-            },
-        },
-        yaxis: {
-            title: {
-                text: props.settings.y_axis_label,
-            },
-        },
-    };
-    const config = { responsive: true };
-    const columnsList = await columnsStore.fetchColumns(props.datasetId, props.tracks, ["x", "y"]);
-    const plotData = [];
-    columnsList.forEach((columns, index) => {
-        const track = props.tracks[index];
-        const mode = ["bar", "lines"].includes(track.type) ? "lines" : "markers";
-        plotData.push({
-            marker: {
-                color: track.color,
-            },
-            mode: mode,
-            name: track.name,
-            type: track.type,
-            x: columns.x,
-            y: columns.y,
-        });
-    });
-    Plotly.newPlot(viewport.value, plotData, layout, config);
-}
-
-function render() {
-    plotlyDefault();
+async function render() {
+    let wrapper = null;
+    switch (props.specs?.variant) {
+        case "box":
+            wrapper = plotlyBox;
+            break;
+        case "histogram":
+            wrapper = plotlyHistogram;
+            break;
+        default:
+            wrapper = plotlyBasics;
+    }
+    const { data, layout, config } = await wrapper(props.datasetId, props.settings, props.tracks);
+    Plotly.newPlot(viewport.value, data, layout, config);
 }
 
 onMounted(() => {

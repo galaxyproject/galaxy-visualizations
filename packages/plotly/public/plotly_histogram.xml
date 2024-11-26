@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Plotly: Bar, Line and Scatter">
-    <description>Basic Diagrams from Plotly JavaScript Graphing Library hosted at plotly.com.</description>
+<visualization name="Plotly: Histogram">
+    <description>Histogram from Plotly JavaScript Graphing Library hosted at plotly.com.</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
@@ -13,10 +13,10 @@
     <params>
         <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
     </params>
-    <requirements>
-        <requirement type="npm" version="MY_NPM_PACKAGE_VERSION" package="MY_NPM_PACKAGE_NAME"/>
-    </requirements>
     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <specs>
+        <variant>histogram</variant>
+    </specs>
     <settings>
         <input>
             <name>x_axis_label</name>
@@ -40,28 +40,6 @@
             <label>Pick a series color</label>
             <name>color</name>
             <type>color</type>
-            <optional>true</optional>
-        </input>
-        <input>
-            <name>type</name>
-            <label>Select type</label>
-            <type>select</type>
-            <value>bar</value>
-            <help>Choose the chart type.</help>
-            <data>
-                <data>
-                    <value>bar</value>
-                    <label>Bar</label>
-                </data>
-                <data>
-                    <value>lines</value>
-                    <label>Lines</label>
-                </data>
-                <data>
-                    <value>scatter</value>
-                    <label>Scatter</label>
-                </data>
-            </data>
         </input>
         <input>
             <label>Provide a label</label>
@@ -73,13 +51,6 @@
         <input>
             <name>x</name>
             <label>Column of x-axis values</label>
-            <type>data_column</type>
-            <is_auto>true</is_auto>
-            <is_text>true</is_text>
-        </input>
-        <input>
-            <name>y</name>
-            <label>Column of y-axis values</label>
             <type>data_column</type>
             <is_number>true</is_number>
         </input>
