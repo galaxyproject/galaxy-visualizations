@@ -393,9 +393,9 @@ commander@^4.0.0:
   integrity sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==
 
 cross-spawn@^7.0.0:
-  version "7.0.3"
-  resolved "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.3.tgz"
-  integrity sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==
+  version "7.0.6"
+  resolved "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz"
+  integrity sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==
   dependencies:
     path-key "^3.1.0"
     shebang-command "^2.0.0"
@@ -569,10 +569,10 @@ galaxy-charts-xml-parser@^1.0.3:
   dependencies:
     axios "^1.7.7"
 
-galaxy-charts@^0.0.26:
-  version "0.0.26"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.26.tgz"
-  integrity sha512-tygf0djiYJVuPR5kxz8wFeJHuxRvXWjxoYvrnZXyAav82H/lLEGpZ7NNoSC1PLVkRHU78DarzVr65ca+nn+P6A==
+galaxy-charts@^0.0.40:
+  version "0.0.40"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.40.tgz"
+  integrity sha512-mJyhu76/e2x1FFrWhMVRMS6anuz0iWVgt00AQ3/TQuLoQAAs2z+lpOrnzzMHLtSO+HFaj3Saw0CU1kwFcH+HtQ==
 
 geotiff@^2.0.7:
   version "2.1.3"

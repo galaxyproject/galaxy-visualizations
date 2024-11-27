@@ -1,21 +1,15 @@
-<script setup>
-import { GalaxyCharts } from "galaxy-charts";
-import Plugin from "@/Plugin.vue";
+<script setup lang="ts">
+import { GalaxyCharts, type PluginIncomingType } from "galaxy-charts";
+import Plugin from "./Plugin.vue";
 
-const props = defineProps({
-    config: {
-        type: Object,
-        default: () => {},
-    },
-    xml: {
-        type: String,
-        required: true,
-    },
-});
+defineProps<{
+    credentials?: RequestCredentials;
+    incoming?: PluginIncomingType;
+}>();
 </script>
 
 <template>
-    <GalaxyCharts :config="config" :xml="xml">
+    <GalaxyCharts :credentials="credentials" :incoming="incoming">
         <template #default="{ datasetId, datasetUrl, root, settings, specs, tracks }">
             <Plugin
                 :dataset-id="datasetId"

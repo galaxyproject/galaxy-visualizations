@@ -22,7 +22,7 @@ async function main() {
                 // Placeholder for dataset URL (can be replaced during actual development)
                 dataset_url: "pa-voting-precincts.txt",
                 // Placeholder for dataset ID
-                dataset_id: "MY_DATASET_URL",
+                dataset_id: process.env.dataset_id,
                 // Placeholder for additional visualization settings
                 settings: {},
             },
