@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/venn",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "type": "module",
     "license": "MIT",
     "files": [
@@ -23,7 +23,7 @@
         "autoprefixer": "^10.4.19",
         "d3": "^7.9.0",
         "fmin": "^0.0.4",
-        "galaxy-charts": "^0.0.30",
+        "galaxy-charts": "^0.0.40",
         "galaxy-charts-xml-parser": "^1.0.3",
         "jsdom": "^25.0.1",
         "postcss": "^8.4.40",
