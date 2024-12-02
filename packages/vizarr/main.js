@@ -52,7 +52,9 @@ async function render() {
 
 async function getDataset() {
   try {
-    const { data: dataset } = await axios.get(`/api/datasets/${datasetId}`);
+    const { data: dataset } = await axios.get(
+      `${root}api/datasets/${datasetId}`
+    );
     return dataset;
   } catch (error) {
     console.error(`Failed to load dataset: ${error.message}`);
