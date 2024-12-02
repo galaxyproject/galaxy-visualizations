@@ -12,7 +12,7 @@ if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_url: "MY_DATASET_URL",
+            dataset_url: "vitessce.json",
             dataset_id: "MY_DATASET_ID",
             settings: {},
         },
