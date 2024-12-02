@@ -1,9 +1,9 @@
 import { Vitessce } from "vitessce";
 
-function App({ spec }) {
+function App({ datasetContent }) {
     return (
         <>
-            <Vitessce config={spec} theme="light" />
+            <Vitessce config={datasetContent} theme="light" />
         </>
     );
 }
