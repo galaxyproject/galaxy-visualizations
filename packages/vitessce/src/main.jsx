@@ -1,7 +1,7 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import App from "./App.jsx";
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -33,7 +33,7 @@ const datasetId = incoming.visualization_config.dataset_id;
 const root = incoming.root;
 
 createRoot(appElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+    <StrictMode>
+        <App />
+    </StrictMode>,
+);
