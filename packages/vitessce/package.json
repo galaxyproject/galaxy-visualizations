@@ -1,5 +1,5 @@
 {
-    "name": "galaxy-vitessce",
+    "name": "@galaxyproject/vitessce",
     "version": "0.0.0",
     "type": "module",
     "files": [
