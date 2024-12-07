@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
-import { renderReactComponent } from "./ReactLinearGenomeView";
+import { renderJBrowse } from "./render";
+import config from "./config";
 
 const props = defineProps({
     datasetId: String,
@@ -13,7 +14,7 @@ const props = defineProps({
 
 const viewport = ref(null);
 
-const jbrowseProps = {
+const config1 = {
     assembly: {
         name: "hg19",
         sequence: {
@@ -30,9 +31,8 @@ const jbrowseProps = {
 };
 
 async function render() {
-    /** Place your render function here! */
     if (viewport.value) {
-        renderReactComponent(viewport.value, jbrowseProps.value);
+        renderJBrowse(viewport.value, config);
     }
 }
 
