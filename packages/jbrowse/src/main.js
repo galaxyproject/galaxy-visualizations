@@ -1,6 +1,6 @@
 import { createApp, h } from "vue";
 import App from "./App.vue";
-import "./index.css";
+import "./style.css";
 
 async function main() {
     if (import.meta.env.DEV) {
@@ -22,7 +22,7 @@ async function main() {
                 // Placeholder for dataset URL (can be replaced during actual development)
                 dataset_url: "MY_DATASET_URL",
                 // Placeholder for dataset ID
-                dataset_id: "process.env.dataset_id",
+                dataset_id: process.env.dataset_id,
                 // Placeholder for additional visualization settings
                 settings: {},
             },
@@ -42,7 +42,7 @@ async function main() {
      * and passing in any necessary props such as credentials.
      */
     createApp({
-        render: () => h(App, { credentials: "process.env.credentials" }),
+        render: () => h(App, { credentials: process.env.credentials }),
     }).mount("#app");
 }
 

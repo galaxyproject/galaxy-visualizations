@@ -1,15 +1,18 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 import vue from "@vitejs/plugin-vue";
+
+import { viteConfigCharts } from "./vite.config.charts";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), vue()],
-  base: './',
-  build: {
-    sourcemap: true,
-  },
-  worker: {
-    format: 'es',
-  },
-})
+    ...viteConfigCharts,
+    plugins: [react(), vue()],
+    base: "./",
+    build: {
+        sourcemap: true,
+    },
+    worker: {
+        format: "es",
+    },
+});

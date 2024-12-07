@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
-import JBrowse from "./JBrowse.vue";
+import { renderReactComponent } from "./ReactLinearGenomeView";
 
 const props = defineProps({
     datasetId: String,
@@ -31,6 +31,9 @@ const jbrowseProps = {
 
 async function render() {
     /** Place your render function here! */
+    if (viewport.value) {
+        renderReactComponent(viewport.value, jbrowseProps.value);
+    }
 }
 
 onMounted(() => {
@@ -45,5 +48,5 @@ watch(
 </script>
 
 <template>
-    <JBrowse class="h-screen" :jbrowseProps="jbrowseProps" ref="viewport" />
+    <div ref="viewport"></div>
 </template>
