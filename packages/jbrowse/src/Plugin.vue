@@ -14,23 +14,7 @@ const props = defineProps({
 
 const viewport = ref(null);
 
-const config1 = {
-    assembly: {
-        name: "hg19",
-        sequence: {
-            type: "ReferenceSequenceTrack",
-            trackId: "refseq_track",
-            adapter: {
-                type: "TwoBitAdapter",
-                twoBitLocation: {
-                    uri: "https://jbrowse.org/genomes/hg19/hg19.2bit",
-                },
-            },
-        },
-    },
-};
-
-async function render() {
+function render() {
     if (viewport.value) {
         renderJBrowse(viewport.value, config);
     }
