@@ -1,10 +1,7 @@
 //import React from 'react'
 // @ts-expect-error no font types
 import "@fontsource/roboto";
-import {
-  createViewState,
-  JBrowseLinearGenomeView,
-} from '@jbrowse/react-linear-genome-view'
+import { createViewState, JBrowseLinearGenomeView } from "@jbrowse/react-linear-genome-view";
 
 const config = {
     assembly: {
@@ -36,7 +33,7 @@ const config = {
         },
     },
     tracks: [
-      /* tracks */
+        /* tracks */
         {
             type: "FeatureTrack",
             trackId: "repeats_hg38",
@@ -112,36 +109,35 @@ const config = {
             },
         },
     ],
-  }
-  
+};
+
 const initialState = {
     configuration: {
-      theme: {
-        palette: {
-          primary: { main: "#3f51b5" },
+        theme: {
+            palette: {
+                primary: { main: "#3f51b5" },
+            },
         },
-      },
     },
     assembly: config.assembly,
     tracks: config.tracks,
     defaultSession: {
-      name: "My session",
-      view: {
-        id: "linearGenomeView",
-        type: "LinearGenomeView",
-        tracks: [
-          {
-            id: "repeats_hg38", // Use the same trackId as in the track configuration
-            type: "FeatureTrack",
-            name: "Gene Annotations",
-          },
-        ],
-      },
+        name: "My session",
+        view: {
+            id: "linearGenomeView",
+            type: "LinearGenomeView",
+            tracks: [
+                {
+                    id: "repeats_hg38", // Use the same trackId as in the track configuration
+                    type: "FeatureTrack",
+                    name: "Gene Annotations",
+                },
+            ],
+        },
     },
-  };
+};
 
-  
-export default function() {
-  const state = createViewState(config)
-  return <JBrowseLinearGenomeView viewState={state} />
+export default function () {
+    const state = createViewState(config);
+    return <JBrowseLinearGenomeView viewState={state} />;
 }
