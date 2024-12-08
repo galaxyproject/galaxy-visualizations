@@ -9,9 +9,6 @@ export default defineConfig({
     ...viteConfigCharts,
     plugins: [react(), vue()],
     base: "./",
-    build: {
-        sourcemap: true,
-    },
     worker: {
         format: "es",
     },
