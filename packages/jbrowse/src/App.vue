@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { GalaxyCharts, type PluginIncomingType } from "galaxy-charts";
-import Plugin from "./Plugin.vue";
+import Viewport from "./Viewport.vue";
 
 defineProps<{
     credentials?: RequestCredentials;
@@ -11,7 +11,7 @@ defineProps<{
 <template>
     <GalaxyCharts :credentials="credentials" :incoming="incoming">
         <template #default="{ datasetId, datasetUrl, root, settings, specs, tracks }">
-            <Plugin
+            <Viewport
                 :dataset-id="datasetId"
                 :dataset-url="datasetUrl"
                 :root="root"

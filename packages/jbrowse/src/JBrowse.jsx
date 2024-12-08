@@ -5,6 +5,8 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 // @ts-expect-error no font types
 import "@fontsource/roboto";
 
+import GalaxyConnector from "./plugins/GalaxyConnector";
+
 export default function (props) {
     const [viewState, setViewState] = useState();
 
@@ -24,6 +26,7 @@ export default function (props) {
                     type: "module",
                 });
             },
+            plugins: [GalaxyConnector],
         });
         setViewState(state);
     }, []);
