@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createViewState, JBrowseLinearGenomeView } from "@jbrowse/react-linear-genome-view";
+import { createRoot, hydrateRoot } from "react-dom/client";
 
 // @ts-expect-error no font types
 import "@fontsource/roboto";
@@ -8,7 +9,22 @@ export default function (props) {
     const [viewState, setViewState] = useState();
 
     useEffect(() => {
-        const state = createViewState(props.config);
+        const state = createViewState({
+            ...props.config,
+            createRootFn: createRoot,
+            hydrateFn: hydrateRoot,
+            configuration: {
+                rpc: {
+                    defaultDriver: "WebWorkerRpcDriver",
+                },
+            },
+            makeWorkerInstance: () => {
+                console.log("Creating Worker...");
+                return new Worker(new URL("./rpcWorker", import.meta.url), {
+                    type: "module",
+                });
+            },
+        });
         setViewState(state);
     }, []);
 
