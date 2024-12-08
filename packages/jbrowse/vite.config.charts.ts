@@ -10,7 +10,7 @@ const env = {
 // add history id for testing
 Object.keys(env).forEach((key) => {
     if (process.env[key]) {
-        env[key] = process.env[key];
+        env[key as keyof typeof env] = process.env[key];
     } else {
         console.log(`${key} not available. Please provide as environment variable.`);
     }

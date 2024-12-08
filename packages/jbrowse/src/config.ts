@@ -265,6 +265,7 @@ const config = {
                 showCenterLine: false,
                 showCytobandsSetting: true,
                 showGridlines: true,
+                showTopMenu: false,
             },
         ],
     },
