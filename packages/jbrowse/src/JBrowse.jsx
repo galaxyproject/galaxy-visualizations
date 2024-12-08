@@ -1,18 +1,21 @@
 import { useState, useEffect } from "react";
-import { createViewState, JBrowseLinearGenomeView } from "@jbrowse/react-linear-genome-view";
+//import { createViewState, JBrowseLinearGenomeView } from "@jbrowse/react-linear-genome-view";
+import { createViewState, JBrowseApp } from "@jbrowse/react-app";
 import { createRoot, hydrateRoot } from "react-dom/client";
 
 // @ts-expect-error no font types
 import "@fontsource/roboto";
 
-import GalaxyConnector from "./plugins/GalaxyConnector";
+import GalaxyConnector from "./plugins/src/index";
 
 export default function (props) {
     const [viewState, setViewState] = useState();
 
     useEffect(() => {
         const state = createViewState({
-            ...props.config,
+            config: {
+                ...props.config,
+            },
             createRootFn: createRoot,
             hydrateFn: hydrateRoot,
             configuration: {
@@ -37,7 +40,7 @@ export default function (props) {
 
     return (
         <>
-            <JBrowseLinearGenomeView viewState={viewState} />
+            <JBrowseApp viewState={viewState} />
         </>
     );
 }
