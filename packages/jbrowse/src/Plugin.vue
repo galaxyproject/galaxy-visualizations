@@ -1,7 +1,6 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
 import { renderJBrowse } from "./render";
-import config from "./config";
 
 const props = defineProps({
     datasetId: String,
@@ -15,6 +14,7 @@ const props = defineProps({
 const viewport = ref(null);
 
 function render() {
+    const config = JSON.parse(JSON.stringify(props.settings.jbrowseConfig));
     if (viewport.value) {
         renderJBrowse(viewport.value, config);
     }

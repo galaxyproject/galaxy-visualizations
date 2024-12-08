@@ -6,7 +6,7 @@ import { createViewState, JBrowseApp } from "@jbrowse/react-app";
 // @ts-expect-error no font types
 import "@fontsource/roboto";
 
-export default function(props) {
+export default function (props) {
     const [viewState, setViewState] = useState();
 
     useEffect(() => {

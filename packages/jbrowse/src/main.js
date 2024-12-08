@@ -2,6 +2,8 @@ import { createApp, h } from "vue";
 import App from "./App.vue";
 import "./style.css";
 
+import jbrowseConfig from "../public/jbrowse.json";
+
 async function main() {
     if (import.meta.env.DEV) {
         /**
@@ -24,7 +26,9 @@ async function main() {
                 // Placeholder for dataset ID
                 dataset_id: process.env.dataset_id,
                 // Placeholder for additional visualization settings
-                settings: {},
+                settings: {
+                    jbrowseConfig,
+                },
             },
             // Parse and load the visualization XML configuration
             visualization_plugin: await parseXML("jbrowse.xml"),
