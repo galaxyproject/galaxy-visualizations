@@ -3,6 +3,12 @@ import App from "./App.vue";
 import "./style.css";
 
 async function main() {
+    /**
+     * Identify the target container
+     */
+    const scriptUrl = new URL(import.meta.url);
+    const container = scriptUrl.searchParams.get("container") || "app";
+
     if (import.meta.env.DEV) {
         /**
          * Development Environment Setup
@@ -31,7 +37,7 @@ async function main() {
         };
 
         // Find the root app element and attach the mock data as a JSON string to its data-incoming attribute
-        const appElement = document.querySelector("#app");
+        const appElement = document.getElementById(container);
         appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
     }
 
@@ -42,8 +48,8 @@ async function main() {
      * and passing in any necessary props such as credentials.
      */
     createApp({
-        render: () => h(App, { credentials: process.env.credentials }),
-    }).mount("#app");
+        render: () => h(App, { container: container, credentials: process.env.credentials }),
+    }).mount(`#${container}`);
 }
 
 // Start the application
