@@ -3,16 +3,21 @@ import App from "./App.vue";
 import "./style.css";
 
 async function main() {
-    if (import.meta.env.DEV) {
-        /**
-         * Development Environment Setup
-         *
-         * This section is specifically for configuring the application
-         * during development. You can modify the settings below to
-         * tailor your development environment, such as simulating data
-         * or working with mock services.
-         */
+    /**
+     * Identify the target container
+     */
+    const scriptUrl = new URL(import.meta.url);
+    const container = scriptUrl.searchParams.get("container") || "app";
 
+    /**
+     * Development Environment Setup
+     *
+     * This section is specifically for configuring the application
+     * during development. You can modify the settings below to
+     * tailor your development environment, such as simulating data
+     * or working with mock services.
+     */
+    if (import.meta.env.DEV) {
         // Dynamically import the XML parser utility, used for parsing visualization configurations
         const { parseXML } = await import("galaxy-charts-xml-parser");
 
@@ -42,8 +47,8 @@ async function main() {
      * and passing in any necessary props such as credentials.
      */
     createApp({
-        render: () => h(App, { credentials: process.env.credentials }),
-    }).mount("#app");
+        render: () => h(App, { container: container, credentials: process.env.credentials }),
+    }).mount(`#${container}`);
 }
 
 // Start the application
