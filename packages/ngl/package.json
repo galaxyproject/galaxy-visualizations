@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/ngl",
-    "version": "0.0.19",
+    "version": "0.0.20",
     "type": "module",
     "license": "MIT",
     "scripts": {
@@ -18,7 +18,7 @@
         "@vitejs/plugin-vue": "^5.0.5",
         "autoprefixer": "^10.4.19",
         "axios": "^1.7.2",
-        "galaxy-charts": "^0.0.50",
+        "galaxy-charts": "^0.0.51",
         "galaxy-charts-xml-parser": "^1.0.3",
         "naive-ui": "^2.39.0",
         "ngl": "^2.3.1",
