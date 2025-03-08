@@ -61,7 +61,7 @@ watch(
 </script>
 
 <template>
-    <div ref="viewport" class="h-screen">
+    <div ref="viewport" class="h-screen overflow-hidden">
         <div ref="container" class="h-screen"></div>
     </div>
 </template>

@@ -100,5 +100,5 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="min-h-screen" ref="viewport"></div>
+    <div class="h-screen overflow-hidden" ref="viewport"></div>
 </template>

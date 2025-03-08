@@ -141,9 +141,9 @@
     undici-types "~6.19.8"
 
 "@vitejs/plugin-vue@^5.0.5":
-  version "5.1.2"
-  resolved "https://registry.npmjs.org/@vitejs/plugin-vue/-/plugin-vue-5.1.2.tgz"
-  integrity sha512-nY9IwH12qeiJqumTCLJLE7IiNx7HZ39cbHaysEUd+Myvbz9KAqd2yq+U01Kab1R/H1BmiyM2ShTYlNH32Fzo3A==
+  version "5.2.1"
+  resolved "https://registry.npmjs.org/@vitejs/plugin-vue/-/plugin-vue-5.2.1.tgz"
+  integrity sha512-cxh314tzaWwOLqVes2gnnCtvBDcM1UMdn+iFR+UjAn411dPT3tOmqrJjbMd7koZpMAmBM/GqeV4n9ge7JSiJJQ==
 
 "@vitest/expect@2.1.4":
   version "2.1.4"
@@ -746,10 +746,10 @@ galaxy-charts-xml-parser@^1.0.3:
   dependencies:
     axios "^1.7.7"
 
-galaxy-charts@^0.0.40:
-  version "0.0.40"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.40.tgz"
-  integrity sha512-mJyhu76/e2x1FFrWhMVRMS6anuz0iWVgt00AQ3/TQuLoQAAs2z+lpOrnzzMHLtSO+HFaj3Saw0CU1kwFcH+HtQ==
+galaxy-charts@^0.0.52:
+  version "0.0.52"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.52.tgz"
+  integrity sha512-tYptEAw0U/b7V9Qmmu78lnqZrpptZ5j6N13jTejPZMYQrFC7ev+f9Wd3r+pI6Z9kKCVHETbm0bFQZhRDH+wUpQ==
 
 glob-parent@^5.1.2:
   version "5.1.2"
@@ -1025,9 +1025,9 @@ mz@^2.7.0:
     thenify-all "^1.0.0"
 
 nanoid@^3.3.7:
-  version "3.3.7"
-  resolved "https://registry.npmjs.org/nanoid/-/nanoid-3.3.7.tgz"
-  integrity sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==
+  version "3.3.9"
+  resolved "https://registry.npmjs.org/nanoid/-/nanoid-3.3.9.tgz"
+  integrity sha512-SppoicMGpZvbF1l3z4x7No3OlIjP7QJvC9XR7AhZr1kL133KHnKPztkKDc+Ir4aJ/1VhTySrtKhrsycmrMQfvg==
 
 node-releases@^2.0.18:
   version "2.0.18"
@@ -1564,10 +1564,10 @@ vite-node@2.1.4:
     pathe "^1.1.2"
     vite "^5.0.0"
 
-vite@^5.0.0, vite@^5.3.4:
-  version "5.4.8"
-  resolved "https://registry.npmjs.org/vite/-/vite-5.4.8.tgz"
-  integrity sha512-FqrItQ4DT1NC4zCUqMB4c4AZORMKIa0m8/URVCZ77OZ/QSNeJ54bU1vrFADbDsuwfIPcgknRkmqakQcgnL4GiQ==
+vite@^5.0.0, "vite@^5.0.0 || ^6.0.0", vite@^5.3.4:
+  version "5.4.14"
+  resolved "https://registry.npmjs.org/vite/-/vite-5.4.14.tgz"
+  integrity sha512-EK5cY7Q1D8JNhSaPKVK4pwBFvaTmZxEnoKXLG/U9gmdDcihQGNzFlgIvaxezFR4glP1LsuiedwMBqCXH3wZccA==
   dependencies:
     esbuild "^0.21.3"
     postcss "^8.4.43"
