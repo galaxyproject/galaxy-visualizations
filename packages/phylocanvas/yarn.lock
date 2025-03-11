@@ -728,6 +728,11 @@ fraction.js@^4.3.7:
   resolved "https://registry.npmjs.org/fraction.js/-/fraction.js-4.3.7.tgz"
   integrity sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==
 
+fsevents@~2.3.2, fsevents@~2.3.3:
+  version "2.3.3"
+  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
+  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
+
 function-bind@^1.1.2:
   version "1.1.2"
   resolved "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz"
@@ -740,10 +745,10 @@ galaxy-charts-xml-parser@^1.0.3:
   dependencies:
     axios "^1.7.7"
 
-galaxy-charts@^0.0.52:
-  version "0.0.52"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.52.tgz"
-  integrity sha512-tYptEAw0U/b7V9Qmmu78lnqZrpptZ5j6N13jTejPZMYQrFC7ev+f9Wd3r+pI6Z9kKCVHETbm0bFQZhRDH+wUpQ==
+galaxy-charts@^0.0.59:
+  version "0.0.59"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.59.tgz"
+  integrity sha512-EqWf96bI6tw1qNWUqW5r5aZMEea65F2u+s7LzNVkrnndIDrdd6Aip4u4+EU30VI4B0JW6E0z4Tpui3qP+ZUxNA==
 
 glob-parent@^5.1.2:
   version "5.1.2"
