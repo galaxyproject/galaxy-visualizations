@@ -66,7 +66,6 @@ function getSourceUrl(dataset) {
     return dataset.sources[0].source_uri;
   }
   return (
-    window.location.origin +
     prefixedDownloadUrl(
       root,
       `datasets/${dataset.id}/display/${dataset.metadata_store_root}`

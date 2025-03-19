@@ -42,7 +42,7 @@ function MyApp(props) {
   );
 }
 
-const url = window.location.origin + root + "api/datasets/" + datasetId + "/content";
+const url = root + "api/datasets/" + datasetId + "/content";
 
 const rootElement = createRoot(appElement);
 

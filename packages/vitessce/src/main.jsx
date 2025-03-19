@@ -109,7 +109,7 @@ const root = incoming.root;
 const visualizationConfig = incoming.visualization_config || {};
 
 function datasetsGetUrl(root, datasetId) {
-    return `${window.location.origin}${root}api/datasets/${datasetId}/display`;
+    return `${root}api/datasets/${datasetId}/display`;
 }
 
 async function render() {
