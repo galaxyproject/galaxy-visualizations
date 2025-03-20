@@ -1,6 +1,6 @@
 {
   "name": "@galaxyproject/vizarr",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "A visualization for Zarr-based images based on Vizarr.",
   "keywords": [
     "galaxy",

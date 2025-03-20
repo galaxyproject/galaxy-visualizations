@@ -64,5 +64,5 @@ watch(
     <n-alert v-if="errorMessage" title="Visualization Plugin Error!" type="error" class="m-2">
         {{ errorMessage }}
     </n-alert>
-    <div v-else ref="viewport" class="h-screen"/>
+    <div v-else ref="viewport" class="h-screen" />
 </template>

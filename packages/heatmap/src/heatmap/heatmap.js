@@ -385,18 +385,19 @@ export default class Heatmap {
         var x = this.categories.x[d.x];
         var y = this.categories.y[d.y];
         var z = d.z;
+        var style = "color: FFFFFF";
         return `<table>
                     <tr>
-                        <td class="charts-tooltip-first">Row:</td>
-                        <td>${y}</td>
+                        <td style="${style}">Row:</td>
+                        <td style="${style}">${y}</td>
                     </tr>
                     <tr>
-                        <td class="charts-tooltip-first">Column:</td>
-                        <td>${x}</td>
+                        <td style="${style}">Column:</td>
+                        <td style="${style}">${x}</td>
                     </tr>
                     <tr>
-                        <td class="charts-tooltip-first">Value:</td>
-                        <td>${z}</td>
+                        <td style="${style}">Value:</td>
+                        <td style="${style}">${z}</td>
                     </tr>
                 </table>`;
     }
