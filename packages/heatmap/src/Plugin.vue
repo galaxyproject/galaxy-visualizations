@@ -19,7 +19,7 @@ const props = defineProps({
     tracks: Array,
 });
 
-const emit = defineEmits(["save"]);
+const emit = defineEmits(["save", "update"]);
 
 const viewport = ref(null);
 
@@ -106,7 +106,7 @@ watch(
 
 watch(
     () => props.tracks,
-    () => emit("save", { job_dataset_id: null }),
+    () => emit("update", { job_dataset_id: null }),
     { deep: true },
 );
 </script>

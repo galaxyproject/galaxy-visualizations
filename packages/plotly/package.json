@@ -21,7 +21,7 @@
         "@vitejs/plugin-vue": "^5.0.5",
         "@vitest/ui": "^2.1.4",
         "autoprefixer": "^10.4.19",
-        "galaxy-charts": "^0.0.59",
+        "galaxy-charts": "^0.0.60",
         "galaxy-charts-xml-parser": "^1.0.3",
         "jsdom": "^25.0.1",
         "postcss": "^8.4.40",
