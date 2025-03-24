@@ -2,6 +2,7 @@
 import Plotly from "plotly.js-dist";
 import { onMounted, ref, watch } from "vue";
 
+import plotly3dsurface from "@/variants/3dsurface";
 import plotlyBasics from "@/variants/basics";
 import plotlyBox from "@/variants/box";
 import plotlyHistogram from "@/variants/histogram";
@@ -20,6 +21,9 @@ const viewport = ref(null);
 async function render() {
     let wrapper = null;
     switch (props.specs?.variant) {
+        case "3dsurface":
+            wrapper = plotly3dsurface;
+            break;
         case "box":
             wrapper = plotlyBox;
             break;
