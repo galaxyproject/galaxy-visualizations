@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Plotly: 3D Surface">
-    <description>3D Surface Plot</description>
+<visualization name="Plotly: Surface">
+    <description>Surface Plot</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
@@ -17,6 +17,6 @@
     </requirements>
     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
     <specs>
-        <variant>3dsurface</variant>
+        <variant>surface</variant>
     </specs>
 </visualization>
