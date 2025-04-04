@@ -2,6 +2,7 @@
 import Plotly from "plotly.js-dist";
 import { onMounted, ref, watch } from "vue";
 
+import plotlySurface from "@/variants/surface";
 import plotlyBasics from "@/variants/basics";
 import plotlyBox from "@/variants/box";
 import plotlyHistogram from "@/variants/histogram";
@@ -25,6 +26,9 @@ async function render() {
             break;
         case "histogram":
             wrapper = plotlyHistogram;
+            break;
+        case "surface":
+            wrapper = plotlySurface;
             break;
         default:
             wrapper = plotlyBasics;
