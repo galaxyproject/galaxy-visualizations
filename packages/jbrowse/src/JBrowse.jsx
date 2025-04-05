@@ -1,46 +1,56 @@
-import { useState, useEffect } from "react";
-//import { createViewState, JBrowseLinearGenomeView } from "@jbrowse/react-linear-genome-view";
-import { createViewState, JBrowseApp } from "@jbrowse/react-app";
-import { createRoot, hydrateRoot } from "react-dom/client";
+import { useState, useEffect } from "react"
+import { createViewState, JBrowseApp } from "@jbrowse/react-app"
+import { createRoot, hydrateRoot } from "react-dom/client"
+import "@fontsource/roboto"
 
-// @ts-expect-error no font types
-import "@fontsource/roboto";
+import FieldSelectionPlugin from "./plugins/FieldSelectionPlugin"
 
-import GalaxyConnector from "./plugins/GalaxyConnector";
+export default function JBrowseWrapper(props) {
+  const [viewState, setViewState] = useState()
 
-export default function (props) {
-    const [viewState, setViewState] = useState();
+  useEffect(() => {
+    console.log("🧪 FieldSelectionPlugin class:", FieldSelectionPlugin)
 
-    useEffect(() => {
-        const state = createViewState({
-            config: {
-                ...props.config,
-            },
-            createRootFn: createRoot,
-            hydrateFn: hydrateRoot,
-            configuration: {
-                rpc: {
-                    defaultDriver: "WebWorkerRpcDriver",
-                },
-            },
-            makeWorkerInstance: () => {
-                console.log("Creating Worker...");
-                return new Worker(new URL("./rpcWorker", import.meta.url), {
-                    type: "module",
-                });
-            },
-            plugins: [GalaxyConnector],
-        });
-        setViewState(state);
-    }, []);
+    const state = createViewState({
+      config: { ...props.config },
+      createRootFn: createRoot,
+      hydrateFn: hydrateRoot,
+      configuration: {
+        rpc: {
+          defaultDriver: "WebWorkerRpcDriver",
+        },
+      },
+      makeWorkerInstance: () =>
+        new Worker(new URL("./rpcWorker", import.meta.url), {
+          type: "module",
+        }),
+      plugins: [FieldSelectionPlugin],
+    })
 
-    if (!viewState) {
-        return null;
-    }
+    setViewState(state)
 
-    return (
-        <>
-            <JBrowseApp viewState={viewState} />
-        </>
-    );
+    setTimeout(() => {
+      console.log("🧩 Loaded plugins:")
+      for (const plugin of state.pluginManager.plugins) {
+        console.log("– – –", plugin.name)
+      }
+
+      const widgetTypes = state.pluginManager.widgetTypes
+      if (widgetTypes?.registeredTypes?.FieldSelectionWidget) {
+        console.log("🚀 Opening FieldSelectionWidget...")
+
+        state.session.addWidget("FieldSelectionWidget", "fieldSelection", {
+          id: "fieldSelection",
+          type: "FieldSelectionWidget", // ✅ required
+        })
+        state.session.showWidget("fieldSelection")
+      } else {
+        console.warn("⛔ FieldSelectionWidget not found in registeredTypes.")
+      }
+    }, 300)
+  }, [])
+
+  if (!viewState) return null
+
+  return <JBrowseApp viewState={viewState} />
 }
