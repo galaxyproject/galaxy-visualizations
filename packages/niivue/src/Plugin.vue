@@ -47,6 +47,8 @@ async function render() {
         nv.setInterpolation(props.settings.interpolation);
         nv.setGamma(props.settings.gamma);
         nv.setOpacity(0, props.settings.opacity);
+        nv.opts.isColorbar = props.settings.is_colorbar;
+        nv.drawScene();
     }
 }
 
