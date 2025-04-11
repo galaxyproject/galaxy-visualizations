@@ -1,5 +1,7 @@
 <script setup>
-import { onMounted, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
+import { GalaxyApi } from "galaxy-charts";
+import { NAlert } from "naive-ui";
 import { Niivue } from "@niivue/niivue";
 
 const props = defineProps({
@@ -11,13 +13,31 @@ const props = defineProps({
     tracks: Array,
 });
 
+const errorMessage = ref("");
+const viewport = ref();
+
 let nv;
 
 async function create() {
-    nv = new Niivue();
-    await nv.attachTo("niivue-viewport");
-    const volumeList = [{ url: props.datasetUrl }];
-    nv.loadVolumes(volumeList);
+    const url = props.datasetUrl;
+    try {
+        const { data } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
+        const extension = data?.extension;
+        if (["nii", "nii.gz", "nii.gz", "img", "hdr", "mgz", "mgh"].includes(extension)) {
+            nv = new Niivue();
+            await nv.attachTo("niivue-viewport");
+            await nv.loadVolumes([{ url }]);
+        } else if (["obj", "stl", "ply", "gii", "vtk"].includes(extension)) {
+            nv = new Niivue();
+            nv.opts.is3D = true;
+            await nv.attachTo("niivue-viewport");
+            await nv.loadMeshes([{ url }]);
+        } else {
+            errorMessage.value = `Unsupported file format: ${extension}.`;
+        }
+    } catch (e) {
+        errorMessage.value = `Failed to request metadata from Galaxy: ${e}`;
+    }
 }
 
 async function render() {
@@ -41,5 +61,6 @@ watch(
 </script>
 
 <template>
-    <canvas id="niivue-viewport" />
+    <n-alert v-if="errorMessage" type="error" class="m-2">{{ errorMessage }}</n-alert>
+    <canvas v-else id="niivue-viewport" ref="viewport" />
 </template>
