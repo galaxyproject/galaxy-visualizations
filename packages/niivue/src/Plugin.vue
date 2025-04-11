@@ -11,17 +11,26 @@ const props = defineProps({
     tracks: Array,
 });
 
-const viewport = ref(null);
+let nv;
 
-async function render() {
-    const nv = new Niivue();
-    await nv.attachTo("gl");
+async function create() {
+    nv = new Niivue();
+    await nv.attachTo("niivue-viewport");
     const volumeList = [{ url: props.datasetUrl }];
     nv.loadVolumes(volumeList);
 }
 
+async function render() {
+    if (nv) {
+        nv.setColormap(nv.volumes[0].id, props.settings.colormap);
+        nv.setInterpolation(props.settings.interpolation);
+        nv.setGamma(props.settings.gamma);
+        nv.setOpacity(0, props.settings.opacity);
+    }
+}
+
 onMounted(() => {
-    render();
+    create();
 });
 
 watch(
@@ -32,5 +41,5 @@ watch(
 </script>
 
 <template>
-    <canvas ref="viewport" id="gl" />
+    <canvas id="niivue-viewport" />
 </template>
