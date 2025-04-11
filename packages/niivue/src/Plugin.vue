@@ -23,7 +23,7 @@ async function create() {
     try {
         const { data } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
         const extension = data?.extension;
-        if (["nii", "nii.gz", "nii.gz", "img", "hdr", "mgz", "mgh"].includes(extension)) {
+        if (["nii", "nii.gz", "nii.gz", "nii1.gz", "img", "hdr", "mgz", "mgh"].includes(extension)) {
             nv = new Niivue();
             await nv.attachTo("niivue-viewport");
             await nv.loadVolumes([{ url }]);
