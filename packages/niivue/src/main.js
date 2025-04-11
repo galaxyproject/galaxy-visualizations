@@ -25,7 +25,7 @@ async function main() {
         const dataIncoming = {
             visualization_config: {
                 // Placeholder for dataset URL (can be replaced during actual development)
-                dataset_url: "https://niivue.github.io/niivue-demo-images/mni152.nii.gz",
+                // dataset_url: "https://niivue.github.io/niivue-demo-images/mni152.nii.gz",
                 // Placeholder for dataset ID
                 dataset_id: process.env.dataset_id,
                 // Placeholder for additional visualization settings

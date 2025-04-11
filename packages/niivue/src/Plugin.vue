@@ -19,10 +19,10 @@ const viewport = ref();
 let nv;
 
 async function create() {
-    const url = props.datasetUrl;
     try {
         const { data } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
         const extension = data?.extension;
+        const url = `${props.datasetUrl}?extension=.${extension}`;
         if (["nii", "nii.gz", "nii1.gz", "img", "hdr", "mgz", "mgh"].includes(extension)) {
             nv = new Niivue();
             await nv.attachTo("niivue-viewport");
