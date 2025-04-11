@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { onMounted, watch } from "vue";
 import { Niivue } from "@niivue/niivue";
 
 const props = defineProps({
