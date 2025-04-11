@@ -36,7 +36,7 @@ async function create() {
             errorMessage.value = `Unsupported file format: ${extension}.`;
         }
     } catch (e) {
-        errorMessage.value = `Failed to request metadata from Galaxy: ${e}`;
+        errorMessage.value = `Failed to render: ${e}`;
     }
 }
 
