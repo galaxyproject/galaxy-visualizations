@@ -37,6 +37,7 @@ async function create() {
         }
     } catch (e) {
         errorMessage.value = `Failed to render: ${e}`;
+        throw new Error(e);
     }
 }
 
