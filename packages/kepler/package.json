@@ -10,7 +10,7 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --write 'package.json' 'src/**/*.jsx'"
+        "prettier": "prettier --write 'package.json' '*.js' 'src/**/*.jsx'"
     },
     "devDependencies": {
         "@esbuild-plugins/node-globals-polyfill": "^0.2.3",

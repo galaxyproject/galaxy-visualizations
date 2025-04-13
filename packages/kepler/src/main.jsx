@@ -15,7 +15,7 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: "kepler.csv",
+            //dataset_url: "kepler.csv",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -62,9 +62,9 @@ function KeplerApp({ store }) {
 // Main async render logic
 async function render() {
     try {
-        const { dataset, config } = await loadDataset(url);
+        const dataset = await loadDataset(url);
         const rootElement = createRoot(appElement);
-        const store = storeFactory(dataset, config);
+        const store = storeFactory(dataset);
         rootElement.render(<KeplerApp store={store} />);
     } catch (err) {
         console.error(err);
