@@ -15,7 +15,7 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: "kepler.geojson",
+            dataset_url: "kepler.csv",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -28,13 +28,16 @@ const datasetUrl = incoming.visualization_config.dataset_url;
 const root = incoming.root;
 const url = datasetUrl || `${root}api/datasets/${datasetId}/display`;
 
+// Prevent overflow
+appElement.style.overflow = "hidden";
+
 // Main async render logic
 async function render() {
     try {
         const { dataset, config } = await loadDataset(url);
-        const root = createRoot(appElement);
+        const rootElement = createRoot(appElement);
         const store = storeFactory(dataset, config);
-        root.render(
+        rootElement.render(
             <Provider store={store}>
                 <KeplerGl id="map" mapboxApiAccessToken={null} width={window.innerWidth} height={window.innerHeight} />
             </Provider>,

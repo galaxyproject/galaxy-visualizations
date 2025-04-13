@@ -1,3 +1,4 @@
+import Papa from "papaparse";
 import { processGeojson } from "@kepler.gl/processors";
 
 export default async function (url) {
@@ -35,10 +36,8 @@ export default async function (url) {
             throw new Error("CSV must include 'lat'/'latitude' and 'lon'/'lng'/'longitude' columns.");
         }
 
-        const datasetId = "csv_data";
-
         const dataset = {
-            info: { label: "CSV Geospatial Data", id: datasetId },
+            info: { label: "CSV Geospatial Data", id: "csv" },
             data: {
                 fields: parsed.meta.fields.map((name) => ({ name, type: "string" })),
                 rows: parsed.data.map((row) => parsed.meta.fields.map((col) => row[col])),
@@ -53,12 +52,12 @@ export default async function (url) {
                             id: "layer_1",
                             type: "point",
                             config: {
-                                dataId: datasetId,
+                                dataId: "csv",
                                 label: "Value Layer",
                                 color: [255, 203, 153],
                                 columns: {
-                                    lat: latCol,
-                                    lng: lonCol,
+                                    lat: latCol || null,
+                                    lng: lonCol || null,
                                 },
                                 isVisible: true,
                                 visConfig: {
@@ -80,7 +79,7 @@ export default async function (url) {
                         filters: [
                             {
                                 id: "time_filter",
-                                dataId: datasetId,
+                                dataId: "csv",
                                 name: [timeCol],
                                 type: "timeRange",
                                 enlarged: true,
@@ -90,9 +89,11 @@ export default async function (url) {
                         ],
                     }),
                 },
+                // Don't include mapState so Kepler can handle it based on user interaction or data
                 animation: { enabled: !!timeCol },
             },
         };
-        return [dataset, config];
+
+        return { dataset, config };
     }
 }
