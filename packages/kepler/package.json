@@ -13,9 +13,6 @@
         "prettier": "prettier --write 'package.json' '*.js' 'src/**/*.jsx'"
     },
     "devDependencies": {
-        "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
-        "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
-        "assert": "^2.1.0",
         "buffer": "^6.0.3",
         "d3-request": "^1.0.6",
         "deck.gl": "8.9.27",
@@ -23,7 +20,6 @@
         "kepler.gl": "^3.1.1",
         "mapbox-gl": "1.13.1",
         "maplibre-gl": "^3.6.2",
-        "papaparse": "^5.5.2",
         "prettier": "^3.5.3",
         "process": "^0.11.10",
         "react": "^18.2.0",
@@ -43,8 +39,6 @@
         "@luma.gl/constants": "8.5.21",
         "@luma.gl/core": "8.5.21",
         "@luma.gl/shadertools": "8.5.21",
-        "@luma.gl/experimental": "8.5.21",
-        "@hubble.gl/core": "1.4.0",
-        "@hubble.gl/react": "1.4.0"
+        "@luma.gl/experimental": "8.5.21"
     }
 }
