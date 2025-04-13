@@ -5,6 +5,7 @@ import { Provider } from "react-redux";
 import store from "./store";
 import { KeplerGl } from "@kepler.gl/components";
 import { addDataToMap } from "@kepler.gl/actions";
+import { processGeojson } from "@kepler.gl/processors";
 
 // Get target DOM element
 const appElement = document.querySelector("#app");
@@ -34,38 +35,31 @@ async function renderKeplerApp() {
         const root = createRoot(appElement);
         root.render(
             <Provider store={store}>
-                <KeplerGl
-                    id="kepler"
-                    mapboxApiAccessToken={null}
-                    width={window.innerWidth}
-                    height={window.innerHeight}
-                />
+                <KeplerGl id="map" mapboxApiAccessToken={null} width={window.innerWidth} height={window.innerHeight} />
             </Provider>,
         );
 
         // Better way to wait for Kepler.gl to initialize
         await waitForKeplerReady();
 
-        const testGeoJson = {
-            type: "FeatureCollection",
-            features: [
-                {
-                    type: "Feature",
-                    geometry: { type: "Point", coordinates: [-122.4194, 37.7749] },
-                    properties: { name: "Test Point" },
+        let dataset = null;
+        const res = await fetch(url);
+        const contentType = res.headers.get("content-type");
+        const text = await res.text();
+        const testGeoJsonFile = JSON.parse(text);
+        if (contentType.includes("application/json") || text.trim().startsWith("{")) {
+            const geojson = JSON.parse(text);
+            if (!geojson.features || !Array.isArray(geojson.features)) {
+                throw new Error("Invalid GeoJSON format: missing 'features' array.");
+            }
+            dataset = {
+                info: {
+                    label: "GeoJSON Data",
+                    id: "geojson",
                 },
-            ],
-        };
-
-        const dataset = {
-            info: {
-                label: "GeoJSON Data",
-                id: `geojson-${Date.now()}`, // Ensure unique ID
-            },
-            data: testGeoJson,
-        };
-
-        console.log("Adding dataset:", dataset);
+                data: processGeojson(testGeoJsonFile),
+            };
+        }
 
         try {
             store.dispatch(
@@ -76,10 +70,9 @@ async function renderKeplerApp() {
                         readOnly: false,
                         keepExistingConfig: false,
                     },
-                    config: {}, // Start with empty config
+                    config: {},
                 }),
             );
-            console.log("Current store state:", store.getState());
         } catch (dispatchError) {
             console.error("Dispatch error:", dispatchError);
             throw dispatchError;
@@ -97,8 +90,9 @@ async function renderKeplerApp() {
 function waitForKeplerReady() {
     return new Promise((resolve) => {
         const checkInterval = setInterval(() => {
-            if (store.getState().keplerGl.kepler) {
+            if (store.getState().keplerGl.map) {
                 clearInterval(checkInterval);
+                console.log("Initial store state:", store.getState());
                 resolve();
             }
         }, 100);
