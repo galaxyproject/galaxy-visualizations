@@ -10,7 +10,7 @@ import {
 } from "@kepler.gl/reducers";
 import thunk from "redux-thunk";
 
-function storeFactory(datasets) {
+function storeFactory(dataset, config) {
     // Build base reducer state
     const baseState = {
         mapState: mapStateReducer(undefined, { type: "@@INIT" }),
@@ -22,11 +22,12 @@ function storeFactory(datasets) {
     // Use internal updater to generate fully initialized Kepler instance state
     const preloadedMapState = combinedUpdaters.addDataToMapUpdater(baseState, {
         payload: {
-            datasets: datasets,
+            datasets: [dataset],
             options: {
                 centerMap: true,
                 readOnly: false,
             },
+            ...config,
         },
     });
 

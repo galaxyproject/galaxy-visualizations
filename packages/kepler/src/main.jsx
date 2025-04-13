@@ -31,9 +31,9 @@ const url = datasetUrl || `${root}api/datasets/${datasetId}/display`;
 // Main async render logic
 async function render() {
     try {
-        const dataset = await loadDataset(url);
+        const { dataset, config } = await loadDataset(url);
         const root = createRoot(appElement);
-        const store = storeFactory([dataset]);
+        const store = storeFactory(dataset, config);
         root.render(
             <Provider store={store}>
                 <KeplerGl id="map" mapboxApiAccessToken={null} width={window.innerWidth} height={window.innerHeight} />
