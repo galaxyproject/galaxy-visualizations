@@ -15,7 +15,7 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: process.env.dataset_id ? undefined : "kepler.csv",
+            dataset_url: process.env.dataset_id ? undefined : "geolocation.csv",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
