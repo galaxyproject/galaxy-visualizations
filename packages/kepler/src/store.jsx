@@ -9,8 +9,15 @@ import {
     enhanceReduxMiddleware,
 } from "@kepler.gl/reducers";
 import thunk from "redux-thunk";
+import {KeplerGlSchema} from '@kepler.gl/schemas';
 
 function storeFactory(dataset, config) {
+    // Validate and parse config for v3.11
+    const parsedConfig = config ? KeplerGlSchema.parseSavedConfig({
+        version: "v1",
+        config,
+    }) : null;
+
     // Build base reducer state
     const baseState = {
         mapState: mapStateReducer(undefined, { type: "@@INIT" }),
@@ -27,9 +34,10 @@ function storeFactory(dataset, config) {
                 centerMap: true,
                 readOnly: false,
             },
-            ...config,
+            config: parsedConfig,
         },
     });
+    console.log(parsedConfig);
 
     // Use the state in the Kepler reducer, mounted at ID "map"
     const customizedKeplerReducer = keplerGlReducer.initialState({

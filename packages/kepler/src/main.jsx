@@ -53,12 +53,7 @@ function KeplerApp({ store }) {
     return (
         <Provider store={store}>
             <div style={{ width: `${size.width}px`, height: `${size.height}px`, overflow: "hidden" }}>
-                <KeplerGl
-                    id="map"
-                    mapboxApiAccessToken={null}
-                    width={size.width}
-                    height={size.height}
-                />
+                <KeplerGl id="map" mapboxApiAccessToken={null} width={size.width} height={size.height} />
             </div>
         </Provider>
     );
