@@ -15,7 +15,9 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: process.env.dataset_id ? undefined : "geolocation.csv",
+            dataset_url: process.env.dataset_id
+                ? undefined
+                : "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/geolocation.geojson",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
