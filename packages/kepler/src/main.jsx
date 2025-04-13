@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import storeFactory from "./store";
 import { KeplerGl } from "@kepler.gl/components";
+import loadDataset from "./load";
 
 // Get target DOM element
 const appElement = document.querySelector("#app");
@@ -28,10 +29,11 @@ const root = incoming.root;
 const url = datasetUrl || `${root}api/datasets/${datasetId}/display`;
 
 // Main async render logic
-async function renderKeplerApp() {
+async function render() {
     try {
+        const dataset = await loadDataset(url);
         const root = createRoot(appElement);
-        const store = storeFactory();
+        const store = storeFactory([dataset]);
         root.render(
             <Provider store={store}>
                 <KeplerGl id="map" mapboxApiAccessToken={null} width={window.innerWidth} height={window.innerHeight} />
@@ -43,4 +45,4 @@ async function renderKeplerApp() {
     }
 }
 
-renderKeplerApp();
+render();
