@@ -33,7 +33,7 @@ function storeFactory(datasets) {
     // Use the state in the Kepler reducer, mounted at ID "map"
     const customizedKeplerReducer = keplerGlReducer.initialState({
         uiState: {
-            currentModal: null
+            currentModal: null,
         },
         map: preloadedMapState,
     });
