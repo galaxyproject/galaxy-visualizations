@@ -1,0 +1,19 @@
+{
+    "name": "@galaxyproject/rerun-io",
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --config ./prettier.config.js --write 'package.json' '**/*.{js,jsx,ts,tsx,json,css,md,vue}'"
+    },
+    "devDependencies": {
+        "@rerun-io/web-viewer": "0.22.0",
+        "typescript": "^5.0.2",
+        "vite": "^5.4.11"
+    },
+    "dependencies": {
+        "prettier": "^3.5.3"
+    }
+}
