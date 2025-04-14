@@ -10,7 +10,7 @@ const appElement = document.querySelector("#app");
 if (import.meta.env.DEV) {
     // Build the incoming data object
     const dataIncoming = {
-        root: "/",
+        root: `${window.location.origin}/`,
         visualization_config: {
             dataset_id: process.env.dataset_id,
         },
@@ -30,25 +30,15 @@ const { root, visualization_config } = JSON.parse(appElement?.getAttribute("data
 const datasetId = visualization_config.dataset_id;
 const datasetName = visualization_config.dataset_name || "Input";
 
-function MyApp(props) {
-  return (
+const url = `${root}api/datasets/${datasetId}/content`;
+
+const rootElement = createRoot(appElement);
+rootElement.render(
     <H5GroveProvider
-      url={props.url}
-      filepath={props.name}
-      axiosConfig={{ params: { file: props.name } }}
+      url={url}
+      filepath={datasetName}
+      axiosConfig={{ params: { file: datasetName } }}
     >
       <App />
     </H5GroveProvider>
-  );
-}
-
-const url = root + "api/datasets/" + datasetId + "/content";
-
-const rootElement = createRoot(appElement);
-
-rootElement.render(
-    <MyApp
-        url={url}
-        name={datasetName}
-    />
 );
