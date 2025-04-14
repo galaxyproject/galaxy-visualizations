@@ -10,7 +10,7 @@ const appElement = document.querySelector("#app");
 if (import.meta.env.DEV) {
     // Build the incoming data object
     const dataIncoming = {
-        root: "/",
+        root: `${window.location.origin}/`,
         visualization_config: {
             dataset_id: process.env.dataset_id,
         },
