@@ -1,0 +1,118 @@
+html {
+    /* Remove touch delay: */
+    touch-action: manipulation;
+}
+
+body {
+    background: #0d1011;
+}
+
+/* Allow canvas to fill entire web page: */
+html,
+body {
+    overflow: hidden;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100%;
+    width: 100%;
+}
+
+/* Position canvas in center-top: */
+canvas {
+    margin-right: auto;
+    margin-left: auto;
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0%;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    /* canvas must be on top when visible */
+    z-index: 1000;
+}
+
+/* Match the Rerun header bar. */
+.header {
+    width: 100%;
+    height: 44px;
+    /* background: #111415; */
+    /* Actual value from Rerun Viewer */
+    background: #141414;
+}
+
+/* Create a container filling the remaining space. */
+.container {
+    position: absolute;
+    height: calc(100vh - 44px);
+    width: 100vw;
+}
+
+/* Centered div inside the container. */
+.centered {
+    margin-right: auto;
+    margin-left: auto;
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+/* Rerun styling for normal text. */
+p {
+    /*Gray-775*/
+    color: #cad8de;
+    letter-spacing: -0.15px;
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+}
+
+/* Rerun styling for strong text. Matches `TextStyle::Heading`. */
+.strong {
+    /*Gray-775*/
+    color: #ffffff;
+    /* Match current rerun header value */
+    font-size: 16px;
+}
+
+/* Rerun styling for subdued text.*/
+.subdued {
+    /*Gray-550*/
+    color: #7d8c92;
+    /* Larger subdued size to match current rerun font */
+    font-size: 12px;
+    letter-spacing: -0.12px;
+}
+
+pre {
+    /*Gray-550*/
+    color: #7d8c92;
+    font-size: 10px;
+    letter-spacing: -0.12px;
+}
+
+a .button {
+    display: inline-block;
+    background: white;
+    color: black;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+/* Transition to hidden */
+.hidden {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+    visibility: hidden;
+}
+
+/* Transition to visible */
+.visible {
+    opacity: 100;
+    transition: opacity 0.2s ease-in;
+    visibility: visible;
+}
