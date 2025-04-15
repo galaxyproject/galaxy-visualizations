@@ -1,0 +1,23 @@
+{
+  "name": "@galaxyproject/itk-vtk-viewer",
+  "version": "0.0.0",
+  "type": "module",
+  "files": [
+    "static/dist/index.js",
+    "static/dist/index.css"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "prettier": "prettier --write 'package.json' 'src/**/*.js'",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.5",
+    "@kitware/vtk.js": "^32.14.0",
+    "prettier": "^3.5.3",
+    "vite": "^6.2.2",
+    "vite-plugin-commonjs": "^0.10.4",
+    "vue": "^3.4.31"
+  }
+}
