@@ -50,8 +50,8 @@ fetch(url)
     .then((arrayBuffer) => {
         if (["ply", "vtp"].includes(extension)) {
             const readerClass = {
-                "ply": vtkPlyReader,
-                "vtp": vtkXMLPolyDataReader,
+                ply: vtkPlyReader,
+                vtp: vtkXMLPolyDataReader,
             }[extension];
             const reader = readerClass.newInstance();
             reader.parseAsArrayBuffer(arrayBuffer);
@@ -63,6 +63,8 @@ fetch(url)
             renderer.addActor(actor);
             renderer.resetCamera();
             renderWindow.render();
+        } else {
+            appElement.innerHTML = `<strong>Invalid Extension: ${extension}</strong>`;
         }
     })
     .catch((err) => {
