@@ -8,7 +8,9 @@ import vtkXMLPolyDataReader from "@kitware/vtk.js/IO/XML/XMLPolyDataReader";
 import vtkPlyReader from "@kitware/vtk.js/IO/Geometry/PLYReader";
 
 // Available extensions
+const PLYASCII = "plyascii";
 const PLYBINARY = "plybinary";
+const VTPASCII = "vtpascii";
 const VTPBINARY = "vtpbinary";
 
 // Access container element
@@ -68,9 +70,11 @@ async function render() {
     fetch(url)
         .then((res) => res.arrayBuffer())
         .then((arrayBuffer) => {
-            if ([PLYBINARY, VTPBINARY].includes(extension)) {
+            if ([PLYASCII, PLYBINARY, VTPASCII, VTPBINARY].includes(extension)) {
                 const readerClass = {
+                    [PLYASCII]: vtkPlyReader,
                     [PLYBINARY]: vtkPlyReader,
+                    [VTPASCII]: vtkXMLPolyDataReader,
                     [VTPBINARY]: vtkXMLPolyDataReader,
                 }[extension];
                 const reader = readerClass.newInstance();
