@@ -21,7 +21,7 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: "human.vtp", //"horse.ply", // "kitchen.vtk", //"pyramid.vtk",//
+            dataset_url: "human.vtp",
             dataset_extension: "vtpbinary",
         },
     };
