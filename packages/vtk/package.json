@@ -13,8 +13,9 @@
         "preview": "vite preview"
     },
     "devDependencies": {
-        "@vitejs/plugin-vue": "^5.0.5",
         "@kitware/vtk.js": "^32.14.0",
+        "@vitejs/plugin-vue": "^5.0.5",
+        "axios": "^1.8.4",
         "prettier": "^3.5.3",
         "vite": "^6.2.2"
     }

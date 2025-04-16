@@ -1,10 +1,15 @@
-import "@kitware/vtk.js/Rendering/Profiles/Geometry";
+import axios from "axios";
 
+import "@kitware/vtk.js/Rendering/Profiles/Geometry";
 import vtkFullScreenRenderWindow from "@kitware/vtk.js/Rendering/Misc/FullScreenRenderWindow";
 import vtkActor from "@kitware/vtk.js/Rendering/Core/Actor";
 import vtkMapper from "@kitware/vtk.js/Rendering/Core/Mapper";
 import vtkXMLPolyDataReader from "@kitware/vtk.js/IO/XML/XMLPolyDataReader";
 import vtkPlyReader from "@kitware/vtk.js/IO/Geometry/PLYReader";
+
+// Available extensions
+const PLYBINARY = "plybinary";
+const VTPBINARY = "vtpbinary";
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -16,7 +21,8 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: "kitchen.vtk", //"pyramid.vtk",//"horse.ply", // "human.vtp",
+            dataset_url: "human.vtp", //"horse.ply", // "kitchen.vtk", //"pyramid.vtk",//
+            dataset_extension: "vtpbinary",
         },
     };
 
@@ -32,7 +38,9 @@ const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
  * In production, this data will be provided by Galaxy.
  */
 const datasetId = incoming.visualization_config.dataset_id;
+const datasetExtension = incoming.visualization_config.dataset_extension;
 const datasetUrl = datasetId ? undefined : incoming.visualization_config.dataset_url;
+
 const root = incoming.root;
 
 /* Build the data request url. Modify the API route if necessary. */
@@ -44,30 +52,49 @@ const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
 });
 const renderer = fullScreenRenderer.getRenderer();
 const renderWindow = fullScreenRenderer.getRenderWindow();
-const extension = "ply";
-fetch(url)
-    .then((res) => res.arrayBuffer())
-    .then((arrayBuffer) => {
-        if (["ply", "vtp"].includes(extension)) {
-            const readerClass = {
-                ply: vtkPlyReader,
-                vtp: vtkXMLPolyDataReader,
-            }[extension];
-            const reader = readerClass.newInstance();
-            reader.parseAsArrayBuffer(arrayBuffer);
-            const polyData = reader.getOutputData(0);
-            const mapper = vtkMapper.newInstance();
-            mapper.setInputData(polyData);
-            const actor = vtkActor.newInstance();
-            actor.setMapper(mapper);
-            renderer.addActor(actor);
-            renderer.resetCamera();
-            renderWindow.render();
-        } else {
-            appElement.innerHTML = `<strong>Invalid Extension: ${extension}</strong>`;
+
+async function render() {
+    let extension = "";
+    if (datasetId) {
+        try {
+            const { data } = await axios.get(`${root}api/datasets/${datasetId}`);
+            extension = data.extension;
+        } catch (err) {
+            showError("Invalid Metadata", err);
         }
-    })
-    .catch((err) => {
-        appElement.innerHTML = `<strong>Failed Loading Dataset: ${url}</strong><br/><pre>${err}</pre>`;
-        console.error(`Error loading vtk: ${url} ${err}`);
-    });
+    } else {
+        extension = datasetExtension;
+    }
+    fetch(url)
+        .then((res) => res.arrayBuffer())
+        .then((arrayBuffer) => {
+            if ([PLYBINARY, VTPBINARY].includes(extension)) {
+                const readerClass = {
+                    [PLYBINARY]: vtkPlyReader,
+                    [VTPBINARY]: vtkXMLPolyDataReader,
+                }[extension];
+                const reader = readerClass.newInstance();
+                reader.parseAsArrayBuffer(arrayBuffer);
+                const polyData = reader.getOutputData(0);
+                const mapper = vtkMapper.newInstance();
+                mapper.setInputData(polyData);
+                const actor = vtkActor.newInstance();
+                actor.setMapper(mapper);
+                renderer.addActor(actor);
+                renderer.resetCamera();
+                renderWindow.render();
+            } else {
+                showError("Invalid Extension", extension);
+            }
+        })
+        .catch((err) => {
+            showError("Invalid Dataset", err);
+        });
+}
+
+function showError(title, err) {
+    appElement.innerHTML = `<strong>${title}: ${err}</strong>`;
+    console.error(`Error loading vtk: ${err}`);
+}
+
+render();
