@@ -18,23 +18,24 @@ const viewport = ref();
 
 let nv;
 
+const mapExtension = {
+    "nii1.gz": "nii1.gz",
+    "nii1": "nii1",
+}
+
 async function create() {
     try {
         const { data } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
-        const extension = data?.extension;
-        const url = `${props.datasetUrl}?extension=.${extension}`;
-        if (["nii", "nii.gz", "nii1.gz", "img", "hdr", "mgz", "mgh"].includes(extension)) {
+        const extension = mapExtension[data?.extension];
+        const url = `${props.datasetUrl}?__filename=file.${extension}`;
+        if (["nii1", "nii1.gz"].includes(extension)) {
             nv = new Niivue();
             await nv.attachTo("niivue-viewport");
             await nv.loadVolumes([{ url }]);
-        } else if (["obj", "stl", "ply", "gii", "vtk"].includes(extension)) {
-            nv = new Niivue();
-            nv.opts.is3D = true;
-            await nv.attachTo("niivue-viewport");
-            await nv.loadMeshes([{ url }]);
         } else {
-            errorMessage.value = `Unsupported file format: ${extension}.`;
+            errorMessage.value = `Unsupported file format: ${data?.extension}.`;
         }
+        render();
     } catch (e) {
         errorMessage.value = `Failed to render: ${e}`;
         throw new Error(e);
