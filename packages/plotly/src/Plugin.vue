@@ -16,6 +16,7 @@ const props = defineProps({
     tracks: Array,
 });
 
+const message = ref();
 const viewport = ref(null);
 
 async function render() {
@@ -33,8 +34,14 @@ async function render() {
         default:
             wrapper = plotlyBasics;
     }
-    const { data, layout, config } = await wrapper(props.datasetId, props.settings, props.tracks);
-    Plotly.newPlot(viewport.value, data, layout, config);
+    try {
+        message.value = "";
+        const { data, layout, config } = await wrapper(props.datasetId, props.settings, props.tracks);
+        Plotly.newPlot(viewport.value, data, layout, config);
+    } catch (e) {
+        message.value = `Failed to render: ${e}`;
+        console.error(e);
+    }
 }
 
 onMounted(() => {
@@ -49,5 +56,8 @@ watch(
 </script>
 
 <template>
+    <div v-if="message" class="bg-sky-100 border border-sky-200 p-1 rounded text-sky-800 text-sm">
+        {{ message }}
+    </div>
     <div ref="viewport" class="h-screen" />
 </template>
