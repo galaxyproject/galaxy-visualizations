@@ -5,6 +5,8 @@ import { NAlert } from "naive-ui";
 import { Niivue } from "@niivue/niivue";
 import { debounce } from "lodash-es";
 
+const DELAY = 200;
+
 const props = defineProps({
     datasetId: String,
     datasetUrl: String,
@@ -54,7 +56,7 @@ async function render() {
     }
 }
 
-const debouncedRender = debounce(render, 300);
+const debouncedRender = debounce(render, DELAY);
 
 onMounted(() => {
     create();
