@@ -36,7 +36,7 @@ async function create() {
         } else {
             errorMessage.value = `Unsupported file format: ${data?.extension}.`;
         }
-        debouncedRender();
+        render();
     } catch (e) {
         errorMessage.value = `Failed to render: ${e}`;
         throw new Error(e);
