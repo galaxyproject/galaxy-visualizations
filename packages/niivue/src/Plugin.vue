@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from "vue";
 import { GalaxyApi } from "galaxy-charts";
 import { NAlert } from "naive-ui";
 import { Niivue } from "@niivue/niivue";
+import { debounce } from "lodash-es";
 
 const props = defineProps({
     datasetId: String,
@@ -21,7 +22,7 @@ let nv;
 const mapExtension = {
     "nii1.gz": "nii1.gz",
     "nii1": "nii1",
-}
+};
 
 async function create() {
     try {
@@ -35,7 +36,7 @@ async function create() {
         } else {
             errorMessage.value = `Unsupported file format: ${data?.extension}.`;
         }
-        render();
+        debouncedRender();
     } catch (e) {
         errorMessage.value = `Failed to render: ${e}`;
         throw new Error(e);
@@ -53,13 +54,15 @@ async function render() {
     }
 }
 
+const debouncedRender = debounce(render, 300);
+
 onMounted(() => {
     create();
 });
 
 watch(
     () => props,
-    () => render(),
+    () => debouncedRender(),
     { deep: true },
 );
 </script>
