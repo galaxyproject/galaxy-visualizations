@@ -1,7 +1,3 @@
-
-
-
-
 // ======================================================================================
 // ======================================================================================
 // ============= KTableViewer
@@ -10,10 +6,9 @@
 
 
 function LogGamma(Z) {
-	with (Math) {
-		var S=1+76.18009173/Z-86.50532033/(Z+1)+24.01409822/(Z+2)-1.231739516/(Z+3)+.00120858003/(Z+4)-.00000536382/(Z+5);
-		var LG= (Z-.5)*log(Z+4.5)-(Z+4.5)+log(S*2.50662827465);
-	}
+	// Removed 'with' statement which is not allowed in strict mode
+	var S=1+76.18009173/Z-86.50532033/(Z+1)+24.01409822/(Z+2)-1.231739516/(Z+3)+.00120858003/(Z+4)-.00000536382/(Z+5);
+	var LG= (Z-.5)*Math.log(Z+4.5)-(Z+4.5)+Math.log(S*2.50662827465);
 	return LG
 }
 
@@ -44,28 +39,29 @@ function Betinc(X,A,B) {
 
 function student_t(df,X) 
 {
-    with (Math) {
-		if (df<=0) {
-
-		} else {
-			A=df/2;
-			S=A+.5;
-			Z=df/(df+X*X);
-			BT=exp(LogGamma(S)-LogGamma(.5)-LogGamma(A)+A*log(Z)+.5*log(1-Z));
-			if (Z<(A+1)/(S+2)) {
-				betacdf=BT*Betinc(Z,A,.5)
-			} else {
-				betacdf=1-BT*Betinc(1-Z,.5,A)
-			}
-			if (X<0) {
-				tcdf=betacdf/2
-			} else {
-				tcdf=1-betacdf/2
-			}
-		}
-		tcdf=round(tcdf*100000)/100000;
-	}
-    return tcdf
+    // Removed 'with' statement which is not allowed in strict mode
+    var tcdf;
+    if (df<=0) {
+        // empty condition in original code
+    } else {
+        var A=df/2;
+        var S=A+.5;
+        var Z=df/(df+X*X);
+        var BT=Math.exp(LogGamma(S)-LogGamma(.5)-LogGamma(A)+A*Math.log(Z)+.5*Math.log(1-Z));
+        var betacdf;
+        if (Z<(A+1)/(S+2)) {
+            betacdf=BT*Betinc(Z,A,.5);
+        } else {
+            betacdf=1-BT*Betinc(1-Z,.5,A);
+        }
+        if (X<0) {
+            tcdf=betacdf/2;
+        } else {
+            tcdf=1-betacdf/2;
+        }
+    }
+    tcdf=Math.round(tcdf*100000)/100000;
+    return tcdf;
 }
 
 function linRegression(M,idx)
