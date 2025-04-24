@@ -33,10 +33,11 @@ module.exports = {
     target: "web",
     resolve: {
         fallback: {
-            "crypto": require.resolve("crypto-browserify"), // Using crypto-browserify polyfill
+            "crypto": require.resolve("crypto-browserify"),
             "buffer": require.resolve("buffer/"),
             "path": require.resolve("path-browserify"),
             "stream": require.resolve("stream-browserify"),
+            "vm": require.resolve("vm-browserify"),
         }
     },
     plugins: [

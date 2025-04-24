@@ -34,6 +34,7 @@
     "style-loader": "^4.0.0",
     "system": "^2.0.1",
     "url-loader": "^4.0.0",
+    "vm-browserify": "^1.1.2",
     "webpack": "^5.99.6",
     "webpack-cli": "^6.0.1"
   },
