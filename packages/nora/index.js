@@ -5,8 +5,8 @@ import jQuery from "jquery";
 window.$ = window.jQuery = jQuery;
 
 //import "script-loader!./htdocs/font-awesome-4.5.0/css/font-awesome.min.css";
-import "script-loader!./htdocs/dicom/daikon.js";
-import "script-loader!./htdocs/dicom/dicomReader.js";
+import "imports-loader?imports=default|jquery|jQuery!./htdocs/dicom/daikon.js";
+import "imports-loader?imports=default|jquery|jQuery!./htdocs/dicom/dicomReader.js";
 
 import "./htdocs/alertify.core.css";
 import "./htdocs/alertify.default.css";
@@ -14,35 +14,35 @@ import "./htdocs/styles_main.css";
 import "./htdocs/styles_KView.css";
 
 // Load all required scripts
-import "script-loader!./htdocs/KMiscFuns.js";
-import "script-loader!./htdocs/KForms.js";
-import "script-loader!./htdocs/kmath.js";
-import "script-loader!./htdocs/KStateManager.js";
-import "script-loader!./htdocs/KView/KDataManager.js";
-import "script-loader!./htdocs/KView/KViewPort.js";
-import "script-loader!./htdocs/KView/KMedImageViewer.js";
-import "script-loader!./htdocs/KView/KMedImg3D.js";
-import "script-loader!./htdocs/KView/KMiscViewer.js";
-import "script-loader!./htdocs/KView/KTableViewer.js";
-import "script-loader!./htdocs/KView/KMedImgCurve.js";
-import "script-loader!./htdocs/KView/nifti.js";
-import "script-loader!./htdocs/KView/pako.js";
-import "script-loader!./htdocs/alertify.js";
-import "script-loader!./htdocs/notify.js";
-import "script-loader!./htdocs/dragster.js";
-import "script-loader!./htdocs/bruker2nifti.js";
-import "script-loader!./htdocs/KTools/KTools.js";
-import "script-loader!./htdocs/KTools/DBSsimulation.js";
-import "script-loader!./htdocs/KTools/KAnnotationTool.js";
-import "script-loader!./htdocs/KTools/KNavigationTool.js";
-import "script-loader!./htdocs/KTools/KRoiTool.js";
-import "script-loader!./htdocs/KTools/KObject3DTool.js";
-import "script-loader!./htdocs/KTools/KCacheManager.js"
-import "script-loader!./htdocs/KTools/KAtlasTool.js";
-import "script-loader!./htdocs/KTableOperator.js";
-import "script-loader!./htdocs/KView/KView.js";
-import "script-loader!./htdocs/zip/zip.js";
-import "script-loader!./htdocs/zip/inflate.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KMiscFuns.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KForms.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/kmath.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KStateManager.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KDataManager.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KViewPort.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KMedImageViewer.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KMedImg3D.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KMiscViewer.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KTableViewer.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KMedImgCurve.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/nifti.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/pako.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/alertify.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/notify.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/dragster.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/bruker2nifti.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/KTools.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/DBSsimulation.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/KAnnotationTool.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/KNavigationTool.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/KRoiTool.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/KObject3DTool.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/KCacheManager.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTools/KAtlasTool.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KTableOperator.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/KView/KView.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/zip/zip.js";
+import "imports-loader?additionalCode=var this=window&imports=default|jquery|jQuery!./htdocs/zip/inflate.js";
 
 // Set NORA environment
 setNORAenv({
