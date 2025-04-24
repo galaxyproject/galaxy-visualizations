@@ -33,6 +33,7 @@
     "webpack-cli": "^3.3.11"
   },
   "dependencies": {
+    "jquery": "1.11",
     "underscore": "^1.12.0"
   }
 }

@@ -1,6 +1,7 @@
 const path = require("path");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
+const webpack = require("webpack");
 
 var galaxyPath_noradest;
 var htdocs;
@@ -32,10 +33,13 @@ module.exports = {
     target: "web",
     plugins: [
         new MiniCssExtractPlugin(),
+        new webpack.ProvidePlugin({
+            $: 'jquery',
+            jQuery: 'jquery',
+            'window.jQuery': 'jquery'
+        }),
         new CopyPlugin({
             patterns: [
-                { from: "nora.xml", to: "config/nora.xml" },                
-                { from: "nora.png", to: "static/logo.png" },                
                 { from: htdocs + "/logo_template.svg", to: dist+"logo.svg" },                
                 { from: htdocs + "/babylon.js", to: dist+"babylon.js" },
                 { from: htdocs + "/babylon.objFileLoader.js", to: dist+"babylon.objFileLoader.js" },
