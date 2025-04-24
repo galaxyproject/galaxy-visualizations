@@ -31,6 +31,13 @@ module.exports = {
         path: galaxyPath_noradest
     },
     target: "web",
+    resolve: {
+        fallback: {
+            "crypto": require.resolve("crypto-browserify"), // Using crypto-browserify polyfill
+            "buffer": require.resolve("buffer/"),
+            "path": require.resolve("path-browserify"),
+        }
+    },
     plugins: [
         new MiniCssExtractPlugin(),
         new webpack.ProvidePlugin({
