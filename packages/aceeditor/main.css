@@ -1,0 +1,47 @@
+#editor {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+/* Export button in top-right corner */
+#export-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+    display: inline-block;
+    padding: 10px 14px;
+    border: 1px solid #aeddf5;
+    text-decoration: none;
+    font-size: 14px;
+    line-height: 120%;
+    border-radius: 4px;
+    transition: 300ms ease;
+    cursor: pointer;
+    color: #aeddf5;
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+#export-btn:hover {
+    color: #0062ff;
+    background-color: rgba(174, 221, 245, 0.9);
+}
+
+/* Message box in top-left corner */
+#message {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 99; /* below the button to avoid overlap */
+    width: 50%;
+    background: rgb(249, 241, 241, 0.9);
+    word-break: break-word;
+    padding: 10px;
+    border-radius: 4px;
+    color: rgb(198, 35, 35, 0.9);
+    border: 1px solid rgb(198, 35, 35, 0.9);
+    display: none; /* or block, depending on visibility logic */
+}
