@@ -8,7 +8,7 @@ if (typeof electron == "undefined")
 if (typeof module != "undefined" && !electron)
 {
 
-    var KissFFT = require("../../htdocs/imgproc/kissFFT_main.js");
+    // var KissFFT = require("../../htdocs/imgproc/kissFFT_main.js");
 
     if (typeof daikon == "undefined")
         daikon = require('./daikon');
@@ -16,7 +16,7 @@ if (typeof module != "undefined" && !electron)
     if (daikon.papaya != undefined)
         papaya = daikon.papaya;
 
-    var math = require("../../src/node/kmath.js");
+    var math = require("../kmath.js");
     var path = require("path");
 
     function fullfile(arr)
