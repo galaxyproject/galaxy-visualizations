@@ -6907,7 +6907,7 @@ function setdragstart(ev)
 		****************************************************************************************/
 		var $start = $("<div class='dropindicator_general_vert body_dropindicator' style='border-radius:5px;'><div>Drag here to show all autoloaders</div></div>").hide().appendTo($body).fadeIn(150);
 		var pos = getPixelPosition($("#KView_toolBarLeft").find('.fa-car'));
-		setPixelPosition($start, [pos[0]-00,pos[1]-100, 180,150], 0);
+		setPixelPosition($start, [pos[0]-100,pos[1]-100, 180,150], 0);
 				$start.on("dragenter dragover", function(ev)
 				{ $start.remove(); showAutoloaderIndicators(); 			ev.preventDefault();ev.stopPropagation();return false; });
 
