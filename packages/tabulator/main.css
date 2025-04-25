@@ -20,3 +20,7 @@
     word-break: break-all;
     z-index: 1000;
 }
+
+.tabulator {
+    font-family: sans-serif;
+}

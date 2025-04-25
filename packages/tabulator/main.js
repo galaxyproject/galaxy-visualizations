@@ -1,7 +1,7 @@
 import axios from "axios";
 import "./main.css";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
-import "tabulator-tables/dist/css/tabulator.min.css";
+import "tabulator-tables/dist/css/tabulator_bootstrap5.css";
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -45,6 +45,33 @@ const tableElement = document.createElement("div");
 tableElement.id = "table";
 appElement.appendChild(tableElement);
 
+function filterFunc(headerValue, rowValue) {
+    if (rowValue == null) return false;
+    if (typeof rowValue === "number") rowValue = rowValue.toString();
+    const match = headerValue.match(/^([<>]=?|=)\s*(.+)$/);
+    if (!match) {
+        return rowValue.toString().toLowerCase().includes(headerValue.toLowerCase());
+    }
+    const [, operator, value] = match;
+    const rowNumber = parseFloat(rowValue);
+    const filterNumber = parseFloat(value);
+    if (isNaN(rowNumber) || isNaN(filterNumber)) return false;
+    switch (operator) {
+        case ">":
+            return rowNumber > filterNumber;
+        case ">=":
+            return rowNumber >= filterNumber;
+        case "<":
+            return rowNumber < filterNumber;
+        case "<=":
+            return rowNumber <= filterNumber;
+        case "=":
+            return rowNumber === filterNumber;
+        default:
+            return false;
+    }
+}
+
 async function getData(url) {
     try {
         const { data } = await axios.get(url);
@@ -55,7 +82,12 @@ async function getData(url) {
 }
 
 function renderTabulator(columns, data) {
-    const tabulatorColumns = columns.map((col) => ({ title: col, field: col }));
+    const tabulatorColumns = columns.map((col) => ({
+        title: col,
+        field: col,
+        headerFilter: "input",
+        headerFilterFunc: filterFunc,
+    }));
     const tabulatorData = data.map((row) => Object.fromEntries(columns.map((col, i) => [col, row[i]])));
     new Tabulator(tableElement, {
         columns: tabulatorColumns,
