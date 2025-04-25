@@ -82,8 +82,8 @@ async function getData(url) {
 }
 
 function renderTabulator(columns, data) {
-    const tabulatorColumns = columns.map((col) => ({
-        title: col,
+    const tabulatorColumns = columns.map((col, index) => ({
+        title: `${index}: ${col}`,
         field: col,
         headerFilter: "input",
         headerFilterFunc: filterFunc,
