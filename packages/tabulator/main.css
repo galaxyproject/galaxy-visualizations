@@ -1,0 +1,21 @@
+:root {
+    --message-background: rgba(232, 244, 253, 0.9);  /* light blue */
+    --message-border-color: rgba(30, 144, 255, 0.9); /* dodger blue */
+    --message-text-color: rgba(30, 144, 255, 0.9);   /* same as border for consistency */
+}
+
+#message {
+    background: var(--message-background);
+    border: 1px solid var(--message-border-color);
+    border-radius: 4px;
+    color: var(--message-text-color);
+    display: none;
+    font-family: sans-serif;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    top: 1rem;
+    width: 50%;
+    word-break: break-all;
+}
