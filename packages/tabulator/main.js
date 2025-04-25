@@ -47,11 +47,10 @@ appElement.appendChild(tableElement);
 
 async function getData(url) {
     try {
-        hideError();
         const { data } = await axios.get(url);
         return data;
     } catch (e) {
-        showError("Failed to retrieve data.", e);
+        showMessage("Failed to retrieve data.", e);
     }
 }
 
@@ -77,19 +76,22 @@ function getColumns(dataset) {
 }
 
 async function render() {
+    showMessage("Loading...");
     const dataset = await getData(metaUrl);
     const data = await getData(dataUrl);
+    hideMessage();
     const columns = getColumns(dataset);
     renderTabulator(columns, data.data);
 }
 
-function showError(title, err) {
-    messageElement.innerHTML = `<strong>${title}: ${err}</strong>`;
+function showMessage(title, details = null) {
+    details = details ? `: ${details}` : "";
+    messageElement.innerHTML = `<strong>${title}${details}</strong>`;
     messageElement.style.display = "inline";
-    console.error(`Error loading: ${err}`);
+    console.debug(`${title}${details}`);
 }
 
-function hideError() {
+function hideMessage() {
     messageElement.style.display = "none";
 }
 

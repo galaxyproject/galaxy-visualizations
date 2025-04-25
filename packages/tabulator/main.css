@@ -18,4 +18,5 @@
     top: 1rem;
     width: 50%;
     word-break: break-all;
+    z-index: 1000;
 }
