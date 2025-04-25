@@ -1,7 +1,7 @@
 import axios from "axios";
 import "./main.css";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
-import "tabulator-tables/dist/css/tabulator_bootstrap5.css";
+import "tabulator-tables/dist/css/tabulator_simple.css";
 
 // Access container element
 const appElement = document.querySelector("#app");
