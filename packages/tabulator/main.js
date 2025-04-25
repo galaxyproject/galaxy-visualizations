@@ -12,7 +12,7 @@ if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: "43beb0c095213b7e", //process.env.dataset_id,
+            dataset_id: process.env.dataset_id,
         },
     };
 
@@ -110,10 +110,14 @@ function getColumns(dataset) {
 async function render() {
     showMessage("Loading...");
     const dataset = await getData(metaUrl);
-    const data = await getData(dataUrl);
-    hideMessage();
-    const columns = getColumns(dataset);
-    renderTabulator(columns, data.data);
+    if (dataset.metadata_columns > 0) {
+        const columns = getColumns(dataset);
+        const data = await getData(dataUrl);
+        renderTabulator(columns, data.data);
+        hideMessage();
+    } else {
+        showMessage("No columns found in dataset.");
+    }
 }
 
 function showMessage(title, details = null) {
