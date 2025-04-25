@@ -96,11 +96,11 @@ function renderTabulator(columns, data) {
 }
 
 function getColumns(dataset) {
-    const result = dataset.metadata_column_types;
+    const result = dataset.metadata_column_types.slice();
     const columnCount = dataset.metadata_columns;
     const columnNames = dataset.metadata_column_names;
     if (columnNames && columnNames.length === columnCount) {
-        dataset.metadata_column_names.forEach((name, index) => {
+        columnNames.forEach((name, index) => {
             result[index] = name;
         });
     }
