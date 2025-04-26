@@ -45,7 +45,20 @@ const tableElement = document.createElement("div");
 tableElement.id = "table";
 appElement.appendChild(tableElement);
 
-function filterFunc(headerValue, rowValue) {
+async function create() {
+    showMessage("Loading...");
+    const dataset = await getData(metaUrl);
+    if (dataset.metadata_columns > 0) {
+        const columns = getColumns(dataset);
+        const data = await getData(dataUrl);
+        render(columns, data.data);
+        hideMessage();
+    } else {
+        showMessage("No columns found in dataset.");
+    }
+}
+
+function filter(headerValue, rowValue) {
     if (rowValue == null) return false;
     if (typeof rowValue === "number") rowValue = rowValue.toString();
     const match = headerValue.match(/^([<>]=?|=)\s*(.+)$/);
@@ -80,21 +93,6 @@ async function getData(url) {
         showMessage("Failed to retrieve data.", e);
     }
 }
-
-function renderTabulator(columns, data) {
-    const tabulatorColumns = columns.map((col, index) => ({
-        title: `${index + 1}: ${col}`,
-        field: col,
-        headerFilter: "input",
-        headerFilterFunc: filterFunc,
-    }));
-    const tabulatorData = data.map((row) => Object.fromEntries(columns.map((col, i) => [col, row[i]])));
-    new Tabulator(tableElement, {
-        columns: tabulatorColumns,
-        data: tabulatorData,
-    });
-}
-
 function getColumns(dataset) {
     const result = dataset.metadata_column_types.slice();
     const columnCount = dataset.metadata_columns;
@@ -107,17 +105,19 @@ function getColumns(dataset) {
     return result;
 }
 
-async function render() {
-    showMessage("Loading...");
-    const dataset = await getData(metaUrl);
-    if (dataset.metadata_columns > 0) {
-        const columns = getColumns(dataset);
-        const data = await getData(dataUrl);
-        renderTabulator(columns, data.data);
-        hideMessage();
-    } else {
-        showMessage("No columns found in dataset.");
-    }
+function render(columns, data) {
+    const indexedColumns = columns.map((col, index) => `${index}_${col}`);
+    const tabulatorColumns = indexedColumns.map((col, index) => ({
+        title: `${index + 1}: ${columns[index]}`,
+        field: col,
+        headerFilter: "input",
+        headerFilterFunc: filter,
+    }));
+    const tabulatorData = data.map((row) => Object.fromEntries(indexedColumns.map((col, i) => [col, row[i]])));
+    new Tabulator(tableElement, {
+        columns: tabulatorColumns,
+        data: tabulatorData,
+    });
 }
 
 function showMessage(title, details = null) {
@@ -131,4 +131,4 @@ function hideMessage() {
     messageElement.style.display = "none";
 }
 
-render();
+create();
