@@ -15,10 +15,10 @@
     left: 1rem;
     padding: 0.7rem;
     position: absolute;
+    right: 1rem;
     top: 1rem;
-    width: 50%;
     word-break: break-all;
-    z-index: 1000;
+    z-index: 9999;
 }
 
 .tabulator {
