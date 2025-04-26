@@ -101,7 +101,7 @@ function showMessage(title, details = null) {
     details = details ? `: ${details}` : "";
     messageElement.innerHTML = `<strong>${title}${details}</strong>`;
     messageElement.style.display = "inline";
-    console.error(`${title}${details}`);
+    console.debug(`${title}${details}`);
 }
 
 function hideMessage() {

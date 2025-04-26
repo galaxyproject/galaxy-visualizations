@@ -1,5 +1,5 @@
 {
-    "name": "@galaxyproject/seadragon",
+    "name": "@galaxyproject/openseadragon",
     "version": "0.0.0",
     "type": "module",
     "files": [
