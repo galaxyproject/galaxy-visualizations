@@ -43,9 +43,9 @@ appElement.appendChild(messageElement);
 async function create() {
     showMessage("Loading...");
     const dataset = await getData(metaUrl);
-    if (["mp3", "mp4", "ogg"].includes(dataset.extension)) {
+    if (["mp3", "mp4", "ogg", "wav"].includes(dataset.extension)) {
         // Detect media type
-        const mediaType = ["mp3", "ogg"].includes(dataset.extension) ? "audio" : "video";
+        const mediaType = dataset.extension === "mp4" ? "video" : "audio";
 
         // Create player element
         const playerElement = document.createElement(mediaType);
