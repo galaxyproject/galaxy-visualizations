@@ -36,8 +36,7 @@ async function create() {
     try {
         const dataset = await getData(metaUrl);
 
-        // Supported formats for Aladin Lite (mainly FITS images, or JPEG/PNG for overlays)
-        const supportedFormats = ["fits", "jpeg", "jpg", "png"];
+        const supportedFormats = ["fits"];
 
         if (supportedFormats.includes(dataset.extension.toLowerCase())) {
             const viewerElement = document.createElement("div");
@@ -47,8 +46,8 @@ async function create() {
             appElement.appendChild(viewerElement);
 
             A.init.then(() => {
-                const aladin = A.aladin('#aladin-lite-viewer', {showCooGridControl: true});
-                aladin.displayFITS(dataUrl)
+                const aladin = A.aladin("#aladin-lite-viewer", { showCooGridControl: true });
+                aladin.displayFITS(dataUrl);
                 aladin.showCooGrid(true);
             });
 
