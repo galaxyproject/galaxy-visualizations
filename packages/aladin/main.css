@@ -1,0 +1,21 @@
+:root {
+    --message-background: rgba(255, 255, 255, 0.9);
+    --message-color: #25537b;
+}
+
+#message {
+    background: var(--message-background);
+    border: 1px solid var(--message-color);
+    border-radius: 4px;
+    color: var(--message-color);
+    display: none;
+    font-family: sans-serif;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    word-break: break-all;
+    z-index: 9999;
+}
