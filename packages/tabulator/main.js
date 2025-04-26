@@ -30,9 +30,13 @@ const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
 const datasetId = incoming.visualization_config.dataset_id;
 const root = incoming.root;
 
+/* Wether the first row is containig column names or not */
+let hasNames = false;
+
 /* Build the data request url. Modify the API route if necessary. */
-const dataUrl = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
-const metaUrl = `${root}api/datasets/${datasetId}`;
+const dataUrl = () =>
+    `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column&offset=${hasNames ? 1 : 0}`;
+const metaUrl = () => `${root}api/datasets/${datasetId}`;
 
 /* Build and attach message element */
 const messageElement = document.createElement("div");
@@ -85,19 +89,21 @@ function filter(headerValue, rowValue) {
     }
 }
 
-async function getData(url) {
+async function getData(urlGetter) {
     try {
-        const { data } = await axios.get(url);
+        const { data } = await axios.get(urlGetter());
         return data;
     } catch (e) {
         showMessage("Failed to retrieve data.", e);
     }
 }
+
 function getColumns(dataset) {
     const result = dataset.metadata_column_types.slice();
     const columnCount = dataset.metadata_columns;
     const columnNames = dataset.metadata_column_names;
     if (columnNames && columnNames.length === columnCount) {
+        hasNames = true;
         columnNames.forEach((name, index) => {
             result[index] = name;
         });
