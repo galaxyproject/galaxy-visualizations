@@ -42,7 +42,7 @@ async function create() {
         const dataset = await getData(metaUrl);
 
         // Supported image formats for OpenSeadragon
-        const supportedFormats = ["tiff", "jpeg", "jpg", "png", "dzi", "iiif"];
+        const supportedFormats = ["gif", "tiff", "jpeg", "jpg", "png", "dzi", "iiif"];
 
         if (supportedFormats.includes(dataset.extension.toLowerCase())) {
             // Create container for OpenSeadragon
