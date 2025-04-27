@@ -50,30 +50,6 @@ async function create() {
         // Create player element
         const playerElement = document.createElement(mediaType);
         playerElement.controls = true;
-        playerElement.addEventListener("error", (event) => {
-            const mediaError = event.currentTarget?.error;
-            if (mediaError) {
-                switch (mediaError.code) {
-                    case mediaError.MEDIA_ERR_ABORTED:
-                        showMessage("Media playback was aborted.");
-                        break;
-                    case mediaError.MEDIA_ERR_NETWORK:
-                        showMessage("A network error caused the media download to fail.");
-                        break;
-                    case mediaError.MEDIA_ERR_DECODE:
-                        showMessage(
-                            "The media playback was aborted due to a corruption problem or unsupported features.",
-                        );
-                        break;
-                    case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                        showMessage("The media could not be loaded because the format is not supported.");
-                        break;
-                    default:
-                        showMessage("An unknown media error occurred.");
-                        break;
-                }
-            }
-        });
 
         // Attach and load player
         appElement.appendChild(playerElement);
