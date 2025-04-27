@@ -20,7 +20,6 @@
     z-index: 9999;
 }
 
-.plyr--audio .plyr__tooltip,
-.plyr--audio [data-plyr="settings"] {
+.plyr--audio .plyr__tooltip, [data-plyr="settings"] {
     display: none;
 }
