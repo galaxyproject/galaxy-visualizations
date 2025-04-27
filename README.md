@@ -5,8 +5,7 @@ This repository **galaxy-visualizations** contains visualizations developed for 
 
 ## Overview
 
-Galaxy provides an interactive visualization system to help users explore, interpret, and present their data.  
-The **Galaxy Charts** framework and its **script-entrypoint** defines the standardized approach for visualization development in Galaxy, documented at [charts.galaxyproject.org](https://charts.galaxyproject.org).
+Galaxy provides an interactive visualization system to help users explore, interpret, and present their data. The **Galaxy Charts** framework and its **script-entrypoint** defines the standardized approach for visualization development in Galaxy, documented at [charts.galaxyproject.org](https://charts.galaxyproject.org).
 
 This repository houses **concrete visualization implementations** that:
 - Follow the guidelines and structure defined by **Galaxy Charts**.
