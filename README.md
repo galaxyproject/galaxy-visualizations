@@ -1,11 +1,15 @@
 
 # Galaxy Visualizations
 
-This repository **galaxy-visualizations** contains visualizations developed for the [Galaxy Project](https://galaxyproject.org/).
+This repository contains visualizations developed for the [Galaxy Project](https://galaxyproject.org/).
 
 ## Overview
 
-Galaxy provides an interactive visualization system to help users explore, interpret, and present their data. The **Galaxy Charts** framework and its **script-entrypoint** defines the standardized approach for visualization development in Galaxy, documented at [charts.galaxyproject.org](https://charts.galaxyproject.org).
+Galaxy provides an interactive visualization system to help users explore, interpret, and present their data.
+
+The **Galaxy Charts** framework and its **script-entrypoint** defines the standardized approach for visualization development in Galaxy, documented at [charts.galaxyproject.org](https://charts.galaxyproject.org).
+
+Think of **Galaxy Charts** as the *"how-to-build"* guide and **galaxy-visualizations** as the *"actual built examples"*.
 
 This repository houses **concrete visualization implementations** that:
 - Follow the guidelines and structure defined by **Galaxy Charts**.
@@ -13,8 +17,6 @@ This repository houses **concrete visualization implementations** that:
 - Support a variety of data types and analysis workflows.
 
 Each visualization here is a self-contained module following Galaxy’s visualization plugin system.
-
-Think of **Galaxy Charts** as the *"how-to-build"* guide and **galaxy-visualizations** as the *"actual built examples"*.
 
 ## Developing and Adding Visualizations
 
