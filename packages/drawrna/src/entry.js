@@ -3,7 +3,7 @@ window.$ = $;
 window.jQuery = $;
 
 // Import Drawrna core
-var Drawrna = require("./drawrna"); // <-- the file you posted
+var Drawrna = require("./drawrna");
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -21,37 +21,51 @@ messageElement.id = "message";
 messageElement.style.display = "none";
 appElement.appendChild(messageElement);
 
-async function create() {
+function create() {
     showMessage("Loading...");
-    try {
-        const targetElement = document.createElement("div");
-        targetElement.id = "target";
-        appElement.appendChild(targetElement);
 
-        //const dataset = await getData(dataUrl);
+    const targetElement = document.createElement("div");
+    targetElement.id = "target";
+    appElement.appendChild(targetElement);
 
-        new Drawrna({
-            el: targetElement,
-            seq: "GGGAAACCC",
-            dotbr: "(((...)))",
-            layout: "naview",
-            seqpanel: false,
-            optspanel: false
-        }).render();
-        hideMessage();
-    } catch (error) {
-        showMessage("Error loading dataset", error.message);
-    }
+    getData(dataUrl)
+        .then((dataset) => {
+            const lines = dataset.split(/\r?\n/).filter(line => line.trim() !== "");
+            if (lines.length !== 3) {
+                showMessage("Expects exactly 3 lines: 1) >NAME, 2) SEQUENCE, 3) DOTBRACKET");
+            } else if (lines[0][0] !== ">") {
+                showMessage("Expects line 1 to start with >");
+            } else {
+                new Drawrna({
+                    el: targetElement,
+                    seq: lines[1],
+                    dotbr: lines[2],
+                    layout: "naview",
+                    seqpanel: false,
+                    optspanel: false
+                }).render();
+                hideMessage();
+            }
+        })
+        .catch((error) => {
+            showMessage("Error loading dataset", error);
+        });
 }
 
-async function getData(url) {
-    try {
-        const { data } = await axios.get(url);
-        return data;
-    } catch (e) {
-        showMessage("Failed to retrieve data", e.message);
-        throw e;
-    }
+function getData(url) {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: url,
+            method: 'GET',
+            dataType: 'text',
+            success: function (data) {
+                resolve(data);
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                reject(`${textStatus}: ${errorThrown}`);
+            }
+        });
+    });
 }
 
 function showMessage(title, details = null) {
