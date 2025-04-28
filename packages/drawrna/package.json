@@ -8,8 +8,8 @@
     ],
     "main": "src/drawrnajs.js",
     "scripts": {
-        "build-js": "mkdirp dist && npx browserify src/entry.js -o dist/index.js",
-        "build-css": "npx concat-cli -f style/bootstrap.css style/spectrum.css style/style.css -o dist/index.css",
+        "build-js": "mkdirp static/dist && npx browserify src/entry.js -o static/dist/index.js",
+        "build-css": "npx concat-cli -f style/bootstrap.css style/spectrum.css style/style.css -o static/dist/index.css",
         "build": "npm run build-js && npm run build-css"
     },
         "devDependencies": {
