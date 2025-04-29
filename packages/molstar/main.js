@@ -30,7 +30,7 @@ messageElement.style.display = "none";
 appElement.appendChild(messageElement);
 
 async function create() {
-    showMessage("Loading...");
+    showMessage("Please wait...");
 
     try {
         const dataset = await getData(metaUrl);
