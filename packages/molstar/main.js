@@ -51,7 +51,7 @@ async function create() {
             viewerElement.style.height = "100vh";
             appElement.appendChild(viewerElement);
 
-            const viewer = await molstar.Viewer.create("app");
+            const viewer = await molstar.Viewer.create(viewerElement);
             await viewer.loadStructureFromUrl(dataUrl, loadFormat);
 
             hideMessage();
