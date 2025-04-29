@@ -1,15 +1,15 @@
 :root {
     --message-background: rgba(255, 255, 255, 0.9);
-    --message-color: #25537b;
+    --message-color: rgba(0, 0, 0, 0.9);
 }
 
 #message {
     background: var(--message-background);
-    border: 1px solid var(--message-color);
     border-radius: 4px;
     color: var(--message-color);
     display: none;
     font-family: sans-serif;
+    font-weight: 100;
     font-size: 0.85rem;
     left: 1rem;
     padding: 0.7rem;
