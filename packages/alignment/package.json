@@ -9,7 +9,7 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "prettier": "prettier --write 'package.json' 'main.js'",
+        "prettier": "prettier --write 'package.json' 'main.jsx'",
         "preview": "vite preview"
     },
     "devDependencies": {

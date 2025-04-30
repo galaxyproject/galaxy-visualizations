@@ -4,6 +4,8 @@ import axios from "axios";
 import "./main.css";
 import Alignment from "alignment.js/Alignment.js";
 
+const DELAY = 200;
+
 const appElement = document.querySelector("#app");
 
 if (import.meta.env.DEV) {
@@ -32,14 +34,40 @@ viewerElement.style.width = "100%";
 viewerElement.style.height = "100vh";
 appElement.appendChild(viewerElement);
 
+function ResizableAlignment({ fasta }) {
+    const [dimensions, setDimensions] = React.useState({
+        width: window.innerWidth,
+        height: window.innerHeight,
+    });
+    React.useEffect(() => {
+        let timeoutId = null;
+        function handleResize() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                setDimensions({
+                    width: viewerElement.clientWidth,
+                    height: viewerElement.clientHeight,
+                });
+            }, DELAY);
+        }
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => {
+            clearTimeout(timeoutId);
+            window.removeEventListener("resize", handleResize);
+        };
+    }, []);
+    const key = `${dimensions.width}x${dimensions.height}`;
+    return <Alignment key={key} fasta={fasta} width={dimensions.width} height={dimensions.height} />;
+}
+
 async function create() {
     showMessage("Please wait...");
     try {
         const dataset = await getData(dataUrl);
-        ReactDOM.render(
-            <Alignment fasta={dataset} />,
-            viewerElement
-        );
+
+        ReactDOM.render(<ResizableAlignment fasta={dataset} />, viewerElement);
+
         hideMessage();
     } catch (error) {
         showMessage("Error loading dataset", error.message);
