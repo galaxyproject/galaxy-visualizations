@@ -1,3 +1,6 @@
+import applyPreventDefaultPatch from "alignment.js/prevent_default_patch";
+applyPreventDefaultPatch(document);
+
 import React from "react";
 import ReactDOM from "react-dom";
 import axios from "axios";
@@ -74,9 +77,7 @@ async function create() {
     showMessage("Please wait...");
     try {
         const dataset = await getData(dataUrl);
-
         ReactDOM.render(<ResizableAlignment fasta={dataset} />, viewerElement);
-
         hideMessage();
     } catch (error) {
         showMessage("Error loading dataset", error.message);
