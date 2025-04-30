@@ -22,10 +22,12 @@
 
 html {
     overscroll-behavior: none;
+    overflow: hidden;
 }
 
 body {
     overscroll-behavior: none;
+    overflow: hidden;
 }
 
 div.alignmentjs-container {
