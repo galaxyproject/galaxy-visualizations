@@ -6,6 +6,7 @@ import Alignment from "alignment.js/Alignment.js";
 import * as colors from "alignment.js/helpers/colors.js";
 
 const DELAY = 200;
+const PADDING = 20;
 
 const appElement = document.querySelector("#app");
 
@@ -31,14 +32,12 @@ appElement.appendChild(messageElement);
 
 const viewerElement = document.createElement("div");
 viewerElement.id = "viewer";
-viewerElement.style.width = "100%";
-viewerElement.style.height = "100vh";
 appElement.appendChild(viewerElement);
 
 function ResizableAlignment({ fasta }) {
     const [dimensions, setDimensions] = React.useState({
         width: window.innerWidth,
-        height: window.innerHeight,
+        height: window.innerHeight - PADDING,
     });
     React.useEffect(() => {
         let timeoutId = null;
@@ -46,8 +45,8 @@ function ResizableAlignment({ fasta }) {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => {
                 setDimensions({
-                    width: viewerElement.clientWidth,
-                    height: viewerElement.clientHeight,
+                    width: window.innerWidth,
+                    height: window.innerHeight - PADDING,
                 });
             }, DELAY);
         }
