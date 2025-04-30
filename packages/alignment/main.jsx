@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import axios from "axios";
 import "./main.css";
 import Alignment from "alignment.js/Alignment.js";
+import * as colors from "alignment.js/helpers/colors.js";
 
 const DELAY = 200;
 
@@ -58,7 +59,16 @@ function ResizableAlignment({ fasta }) {
         };
     }, []);
     const key = `${dimensions.width}x${dimensions.height}`;
-    return <Alignment key={key} fasta={fasta} width={dimensions.width} height={dimensions.height} />;
+    return (
+        <Alignment
+            key={key}
+            fasta={fasta}
+            width={dimensions.width}
+            height={dimensions.height}
+            site_color={colors.amino_acid_color}
+            text_color={colors.amino_acid_text_color}
+        />
+    );
 }
 
 async function create() {
