@@ -1,10 +1,15 @@
+import applyPreventDefaultPatch from "alignment.js/prevent_default_patch";
+applyPreventDefaultPatch(document);
+
 import React from "react";
 import ReactDOM from "react-dom";
 import axios from "axios";
 import "./main.css";
 import Alignment from "alignment.js/Alignment.js";
+import * as colors from "alignment.js/helpers/colors.js";
 
 const DELAY = 200;
+const PADDING = 20;
 
 const appElement = document.querySelector("#app");
 
@@ -30,14 +35,12 @@ appElement.appendChild(messageElement);
 
 const viewerElement = document.createElement("div");
 viewerElement.id = "viewer";
-viewerElement.style.width = "100%";
-viewerElement.style.height = "100vh";
 appElement.appendChild(viewerElement);
 
 function ResizableAlignment({ fasta }) {
     const [dimensions, setDimensions] = React.useState({
-        width: window.innerWidth,
-        height: window.innerHeight,
+        width: window.innerWidth - PADDING,
+        height: window.innerHeight - PADDING,
     });
     React.useEffect(() => {
         let timeoutId = null;
@@ -45,8 +48,8 @@ function ResizableAlignment({ fasta }) {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => {
                 setDimensions({
-                    width: viewerElement.clientWidth,
-                    height: viewerElement.clientHeight,
+                    width: window.innerWidth - PADDING,
+                    height: window.innerHeight - PADDING,
                 });
             }, DELAY);
         }
@@ -58,16 +61,23 @@ function ResizableAlignment({ fasta }) {
         };
     }, []);
     const key = `${dimensions.width}x${dimensions.height}`;
-    return <Alignment key={key} fasta={fasta} width={dimensions.width} height={dimensions.height} />;
+    return (
+        <Alignment
+            key={key}
+            fasta={fasta}
+            width={dimensions.width}
+            height={dimensions.height}
+            site_color={colors.amino_acid_color}
+            text_color={colors.amino_acid_text_color}
+        />
+    );
 }
 
 async function create() {
     showMessage("Please wait...");
     try {
         const dataset = await getData(dataUrl);
-
         ReactDOM.render(<ResizableAlignment fasta={dataset} />, viewerElement);
-
         hideMessage();
     } catch (error) {
         showMessage("Error loading dataset", error.message);
