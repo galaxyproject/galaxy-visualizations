@@ -1,3 +1,33 @@
+:root {
+    --message-background: rgba(255, 255, 255, 0.9);
+    --message-color: rgba(0, 0, 0, 0.9);
+}
+
+#message {
+    background: var(--message-background);
+    border-radius: 4px;
+    color: var(--message-color);
+    display: none;
+    font-family: sans-serif;
+    font-weight: 100;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    word-break: break-all;
+    z-index: 9999;
+}
+
+html {
+    overscroll-behavior: none;
+}
+
+body {
+    overscroll-behavior: none;
+}
+
 #editor {
     position: absolute;
     top: 0;
@@ -28,20 +58,4 @@
 #export-btn:hover {
     color: #0062ff;
     background-color: rgba(174, 221, 245, 0.9);
-}
-
-/* Message box in top-left corner */
-#message {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    z-index: 99; /* below the button to avoid overlap */
-    width: 50%;
-    background: rgb(249, 241, 241, 0.9);
-    word-break: break-word;
-    padding: 10px;
-    border-radius: 4px;
-    color: rgb(198, 35, 35, 0.9);
-    border: 1px solid rgb(198, 35, 35, 0.9);
-    display: none; /* or block, depending on visibility logic */
 }
