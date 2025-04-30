@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/alignment",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "type": "module",
     "files": [
         "static/dist/index.js",

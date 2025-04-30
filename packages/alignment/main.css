@@ -20,8 +20,12 @@
     z-index: 9999;
 }
 
+html {
+    overscroll-behavior: none;
+}
+
 body {
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
 }
 
 div.alignmentjs-container {
