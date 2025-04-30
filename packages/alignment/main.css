@@ -1,0 +1,39 @@
+:root {
+    --message-background: rgba(255, 255, 255, 0.9);
+    --message-color: rgba(0, 0, 0, 0.9);
+}
+
+#message {
+    background: var(--message-background);
+    border-radius: 4px;
+    color: var(--message-color);
+    display: none;
+    font-family: sans-serif;
+    font-weight: 100;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    word-break: break-all;
+    z-index: 9999;
+}
+
+div.alignmentjs-container {
+  float: left;
+  padding: 0;
+  margin: 0;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+div.alignmentjs-container::-webkit-scrollbar {
+  display: none;
+}
+
+svg#alignmentjs-labels > text {
+  font-family: Courier;
+  font-size: 14px;
+}
