@@ -36,7 +36,7 @@ appElement.appendChild(viewerElement);
 
 function ResizableAlignment({ fasta }) {
     const [dimensions, setDimensions] = React.useState({
-        width: window.innerWidth,
+        width: window.innerWidth - PADDING,
         height: window.innerHeight - PADDING,
     });
     React.useEffect(() => {
@@ -45,7 +45,7 @@ function ResizableAlignment({ fasta }) {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => {
                 setDimensions({
-                    width: window.innerWidth,
+                    width: window.innerWidth - PADDING,
                     height: window.innerHeight - PADDING,
                 });
             }, DELAY);
