@@ -98,7 +98,7 @@ async function create() {
         appElement.appendChild(editorElement);
 
         // create and attach editor
-        const { data } = await axios.get(url);
+        const { data } = await axios.get(url, { responseType: "text" });
         const aceEditor = ace.edit(editorElement, {
             mode: "ace/mode/powershell",
             theme: "ace/theme/textmate",
