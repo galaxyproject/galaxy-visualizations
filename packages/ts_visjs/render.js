@@ -76,7 +76,8 @@ export async function renderVisualization(container, url) {
     function createMarkup(container) {
         container.innerHTML = `
             <div id="viewer">
-                <aside id="controls">
+                <div id="network"></div>
+                <div id="controls">
                     <div class="control">
                         <img src="${borderIcon}" class="ts_img">
                         <label class="switch">
@@ -98,8 +99,7 @@ export async function renderVisualization(container, url) {
                             <span class="slider round"></span>
                         </label>
                     </div>
-                </aside>
-                <div id="network"></div>
+                </div>
             </div>
             <div id="rectangle"></div>
             <div id="loading">
