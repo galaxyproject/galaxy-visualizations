@@ -51,7 +51,7 @@ async function create() {
 }
 
 function showError(title, err) {
-    messageElement.innerHTML = `<strong>${title}: ${err}</strong>`;
+    messageElement.innerHTML = `${title}: ${err}`;
     messageElement.style.display = "inline";
     console.error(`Error loading: ${err}`);
 }

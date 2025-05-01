@@ -1,7 +1,7 @@
 import * as vis from "vis";
-import borderIcon from "./assets/border.png";
-import loopIcon from "./assets/loop.png";
-import fireIcon from "./assets/fire.png";
+import borderIcon from "./assets/border.png?inline";
+import loopIcon from "./assets/loop.png?inline";
+import fireIcon from "./assets/fire.png?inline";
 
 export async function renderVisualization(container, url) {
     const MAX_SIZE = 100000;
@@ -268,10 +268,10 @@ export async function renderVisualization(container, url) {
     });
 
     network.on("stabilizationProgress", (params) => {
-        const width = 5 * (params.iterations / step);
         const widthFactor = params.iterations / iterations;
-        document.getElementById("bar").style.width = width + "px";
-        document.getElementById("text").innerHTML = Math.round(widthFactor * 100) + "%";
+        const progress = Math.round(widthFactor * 100) + "%";
+        document.getElementById("bar").style.width = progress;
+        document.getElementById("text").innerHTML = progress;
     });
 
     window.addEventListener("resize", () => {

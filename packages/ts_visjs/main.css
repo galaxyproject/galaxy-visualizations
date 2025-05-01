@@ -2,9 +2,29 @@
     --primary-color: #2196f3;
     --background: #fff;
     --text-color: #000;
+    --message-background: rgba(255, 255, 255, 0.9);
+    --message-color: rgba(0, 0, 0, 0.9);
 }
 
-body, html {
+#message {
+    background: var(--message-background);
+    border-radius: 4px;
+    color: var(--message-color);
+    display: none;
+    font-family: sans-serif;
+    font-weight: 100;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    word-break: break-all;
+    z-index: 9999;
+}
+
+body,
+html {
     margin: 0;
     padding: 0;
     height: 100%;
@@ -29,11 +49,11 @@ body, html {
     position: absolute;
     padding: 10px;
     border-radius: 10px;
-    right: 10;
-    bottom: 10;
+    right: 10px;
+    bottom: 10px;
     opacity: 0.9;
     background: white;
-    font-family: 'Courier New', Courier, monospace;
+    font-family: "Courier New", Courier, monospace;
 }
 
 #viewer {
@@ -99,14 +119,11 @@ input:checked + .slider:before {
 #loading {
     position: absolute;
     top: 10px;
-    left: 100px;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+    left: 10px;
+    right: 10px;
 }
 
 #bar {
-    width: 100px;
     height: 20px;
     border-radius: 10px;
     background: var(--primary-color);
@@ -114,6 +131,9 @@ input:checked + .slider:before {
 }
 
 #text {
+    position: absolute;
+    top: 0px;
+    left: 10px;
     font-size: 1rem;
     color: white;
 }
