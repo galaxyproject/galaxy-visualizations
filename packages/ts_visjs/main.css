@@ -96,35 +96,6 @@ body {
     height: 900px;
 }
 
-.outerBorder {
-    position: relative;
-    top: 400px;
-    width: 600px;
-    height: 44px;
-    margin: auto auto auto auto;
-    border: 8px solid rgba(0, 0, 0, 0.1);
-    background: rgb(252, 252, 252); /* Old browsers */
-    background: -moz-linear-gradient(top, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%);
-    background: -webkit-gradient(
-        linear,
-        left top,
-        left bottom,
-        color-stop(0%, rgba(252, 252, 252, 1)),
-        color-stop(100%, rgba(237, 237, 237, 1))
-    );
-    background: -webkit-linear-gradient(
-        top,
-        rgba(252, 252, 252, 1) 0%,
-        rgba(237, 237, 237, 1) 100%
-    );
-    background: -o-linear-gradient(top, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%);
-    background: -ms-linear-gradient(top, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%);
-    background: linear-gradient(to bottom, rgba(252, 252, 252, 1) 0%, rgba(237, 237, 237, 1) 100%);
-    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#fcfcfc', endColorstr='#ededed', GradientType=0);
-    border-radius: 72px;
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
-}
-
 .slider {
     position: absolute;
     cursor: pointer;

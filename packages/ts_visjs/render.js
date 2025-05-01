@@ -85,7 +85,7 @@ export async function renderVisualization(container, url) {
             </aside>
             <div id="rectangle" style="width:94%;border:1px solid #000;"></div>
             <div id="loadingBar">
-                <div class="outerBorder">
+                <div>
                     <div id="text">0%</div>
                     <div id="border"><div id="bar"></div></div>
                 </div>
