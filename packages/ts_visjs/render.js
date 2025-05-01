@@ -3,46 +3,59 @@ import borderIcon from "./assets/border.png?inline";
 import loopIcon from "./assets/loop.png?inline";
 import fireIcon from "./assets/fire.png?inline";
 
+const MAX_SIZE = 1024 * 256;
+
 export async function renderVisualization(container, url) {
-    const MAX_SIZE = 100000;
-
     function toCounter(state, ordering) {
-        if (state === "(inf,)") return Infinity;
-
-        const parsed = state
-            .replace(/[()]/g, "") // Remove parentheses
-            .split(",") // Split by comma
-            .map((x) => parseFloat(x)); // Convert to numbers
-
-        if (parsed[0] === Infinity) return Infinity;
-
         const counter = {};
-        for (let i = 0; i < ordering.length; i++) {
-            const value = parsed[i];
-            if (value !== 0) {
-                counter[ordering[i]] = value;
+        const match = state.match(/\(([^)]+)\)/);
+        if (match) {
+            const values = match[1].split(",").map((x) => {
+                const val = x.trim().toLowerCase();
+                if (val === "inf") return Infinity;
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : num;
+            });
+            if (values.some((v) => v === Infinity)) {
+                return Infinity;
+            }
+            for (let i = 0; i < ordering.length && i < values.length; i++) {
+                const v = values[i];
+                if (v !== 0) {
+                    counter[ordering[i]] = v;
+                }
             }
         }
         return counter;
     }
 
     function nodeToString(node) {
-        if (node === Infinity) return "inf";
-        return Object.entries(node)
-            .map(([k, v]) => `${parseInt(v)} ${k}`)
-            .join("<br>");
+        if (node === Infinity) {
+            return "inf";
+        } else {
+            return Object.entries(node)
+                .map(([k, v]) => `${parseInt(v)} ${k}`)
+                .join("<br>");
+        }
     }
 
     function sideToString(side) {
-        if (side === Infinity) return "inf";
-        return Object.entries(side)
-            .map(([k, v]) => `${parseInt(v)} ${k}`)
-            .join(" + ");
+        if (side === Infinity) {
+            return "inf";
+        } else {
+            return Object.entries(side)
+                .map(([k, v]) => `${parseInt(v)} ${k}`)
+                .join(" + ");
+        }
     }
 
     function createSides(lhs, rhs) {
-        if (lhs === Infinity) return [Infinity, Infinity];
-        if (rhs === Infinity) return [{}, Infinity];
+        if (lhs === Infinity) {
+            return [Infinity, Infinity];
+        }
+        if (rhs === Infinity) {
+            return [{}, Infinity];
+        }
         const left = {},
             right = {};
         for (const k in lhs) {
@@ -57,7 +70,9 @@ export async function renderVisualization(container, url) {
     }
 
     function writeNode(id, label, nodeClass) {
-        if (label === "inf") nodeClass = "hell";
+        if (label === "inf") {
+            nodeClass = "hell";
+        }
         return { id, label: String(id), class: nodeClass, shape: "ellipse", title: String(id), text: label };
     }
 
@@ -79,23 +94,23 @@ export async function renderVisualization(container, url) {
                 <div id="network"></div>
                 <div id="controls">
                     <div class="control">
-                        <img src="${borderIcon}" class="ts_img">
+                        <img src="${borderIcon}" class="symbols">
                         <label class="switch">
                             <input type="checkbox" id="border_nodes">
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <div class="control">
-                        <img src="${loopIcon}" class="ts_img">
+                        <img src="${loopIcon}" class="symbols">
                         <label class="switch">
-                            <input type="checkbox" id="loop_edges">
+                            <input type="checkbox" id="loop_edges" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <div class="control">
-                        <img src="${fireIcon}" class="ts_img">
+                        <img src="${fireIcon}" class="symbols">
                         <label class="switch">
-                            <input type="checkbox" id="hell_node">
+                            <input type="checkbox" id="hell_node" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
@@ -113,7 +128,9 @@ export async function renderVisualization(container, url) {
 
     const response = await fetch(url);
     const text = await response.text();
-    if (text.length > MAX_SIZE) throw new Error("Dataset too large");
+    if (text.length > MAX_SIZE) {
+        throw new Error(`Dataset exceeds limit of ${Math.round(MAX_SIZE / 1024)}kb.`);
+    }
     const data = JSON.parse(text);
 
     const ordering = data.ordering;
@@ -123,8 +140,8 @@ export async function renderVisualization(container, url) {
     }
 
     const borderNodes = new Set();
-    const edges = [],
-        selfLoops = [];
+    const edges = [];
+    const selfLoops = [];
 
     data.edges.forEach((edge, i) => {
         const id = i + 1;
@@ -135,15 +152,17 @@ export async function renderVisualization(container, url) {
         if (prods === Infinity && subs !== Infinity) borderNodes.add(String(edge.s));
     });
 
-    const nodesArr = [],
-        borderNodesArr = [];
+    const nodesArr = [];
+    const borderNodesArr = [];
     for (const id in nodes) {
         const state = nodes[id];
         const label = nodeToString(state);
         const nodeClass = borderNodes.has(id) ? "border" : "default";
         const node = writeNode(id, label, nodeClass);
         nodesArr.push(node);
-        if (nodeClass === "border") borderNodesArr.push(node);
+        if (nodeClass === "border") {
+            borderNodesArr.push(node);
+        }
     }
 
     const edgesArr = edges.map((e) => writeReaction(...e));
@@ -188,7 +207,7 @@ export async function renderVisualization(container, url) {
             color: { color: "#2B7CE9", hover: "#2B7CE9", highlight: "red" },
         },
         interaction: {
-            navigationButtons: true,
+            navigationButtons: false,
             keyboard: true,
             hover: true,
             tooltipDelay: 500,

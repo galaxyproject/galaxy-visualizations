@@ -40,7 +40,7 @@ html {
 #controls {
     position: absolute;
     left: 10px;
-    top: 10px;
+    top: 30px;
     border-radius: 10px;
     background: white;
     opacity: 0.9;
@@ -70,8 +70,8 @@ html {
     padding: 10px;
 }
 
-.ts_img {
-    width: 40px;
+.symbols {
+    width: 50px;
     height: auto;
 }
 

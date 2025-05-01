@@ -46,14 +46,15 @@ async function create() {
     try {
         await renderVisualization(viewportElement, url);
     } catch (e) {
-        showError("Failed creating editor", e);
+        showMessage("Failed to create", e);
     }
 }
 
-function showError(title, err) {
-    messageElement.innerHTML = `${title}: ${err}`;
+function showMessage(title, message) {
+    const msg = `${title}: ${message}`;
+    messageElement.innerHTML = msg;
     messageElement.style.display = "inline";
-    console.error(`Error loading: ${err}`);
+    console.error(msg);
 }
 
 create();
