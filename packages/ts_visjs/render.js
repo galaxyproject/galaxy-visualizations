@@ -3,46 +3,59 @@ import borderIcon from "./assets/border.png?inline";
 import loopIcon from "./assets/loop.png?inline";
 import fireIcon from "./assets/fire.png?inline";
 
+const MAX_SIZE = 1024 * 256;
+
 export async function renderVisualization(container, url) {
-    const MAX_SIZE = 100000;
-
     function toCounter(state, ordering) {
-        if (state === "(inf,)") return Infinity;
-
-        const parsed = state
-            .replace(/[()]/g, "") // Remove parentheses
-            .split(",") // Split by comma
-            .map((x) => parseFloat(x)); // Convert to numbers
-
-        if (parsed[0] === Infinity) return Infinity;
-
         const counter = {};
-        for (let i = 0; i < ordering.length; i++) {
-            const value = parsed[i];
-            if (value !== 0) {
-                counter[ordering[i]] = value;
+        const match = state.match(/\(([^)]+)\)/);
+        if (match) {
+            const values = match[1].split(",").map((x) => {
+                const val = x.trim().toLowerCase();
+                if (val === "inf") return Infinity;
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : num;
+            });
+            if (values.some((v) => v === Infinity)) {
+                return Infinity;
+            }
+            for (let i = 0; i < ordering.length && i < values.length; i++) {
+                const v = values[i];
+                if (v !== 0) {
+                    counter[ordering[i]] = v;
+                }
             }
         }
         return counter;
     }
 
     function nodeToString(node) {
-        if (node === Infinity) return "inf";
-        return Object.entries(node)
-            .map(([k, v]) => `${parseInt(v)} ${k}`)
-            .join("<br>");
+        if (node === Infinity) {
+            return "inf";
+        } else {
+            return Object.entries(node)
+                .map(([k, v]) => `${parseInt(v)} ${k}`)
+                .join("<br>");
+        }
     }
 
     function sideToString(side) {
-        if (side === Infinity) return "inf";
-        return Object.entries(side)
-            .map(([k, v]) => `${parseInt(v)} ${k}`)
-            .join(" + ");
+        if (side === Infinity) {
+            return "inf";
+        } else {
+            return Object.entries(side)
+                .map(([k, v]) => `${parseInt(v)} ${k}`)
+                .join(" + ");
+        }
     }
 
     function createSides(lhs, rhs) {
-        if (lhs === Infinity) return [Infinity, Infinity];
-        if (rhs === Infinity) return [{}, Infinity];
+        if (lhs === Infinity) {
+            return [Infinity, Infinity];
+        }
+        if (rhs === Infinity) {
+            return [{}, Infinity];
+        }
         const left = {},
             right = {};
         for (const k in lhs) {
@@ -57,7 +70,9 @@ export async function renderVisualization(container, url) {
     }
 
     function writeNode(id, label, nodeClass) {
-        if (label === "inf") nodeClass = "hell";
+        if (label === "inf") {
+            nodeClass = "hell";
+        }
         return { id, label: String(id), class: nodeClass, shape: "ellipse", title: String(id), text: label };
     }
 
@@ -113,7 +128,9 @@ export async function renderVisualization(container, url) {
 
     const response = await fetch(url);
     const text = await response.text();
-    if (text.length > MAX_SIZE) throw new Error("Dataset too large");
+    if (text.length > MAX_SIZE) {
+        throw new Error(`Dataset exceeds limit of ${Math.round(MAX_SIZE / 1024)}kb.`);
+    }
     const data = JSON.parse(text);
 
     const ordering = data.ordering;
