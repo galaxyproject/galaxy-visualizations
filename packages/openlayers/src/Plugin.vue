@@ -49,9 +49,9 @@ watch(
     <div>
         <div ref="viewport" class="h-screen p-4"></div>
         <button
-            class="absolute bottom-2 right-2 px-2 py-2 bg-sky-100 text-black rounded-full hover:bg-sky-700 hover:bg-opacity-[0.1]"
+            class="absolute bottom-2 right-2 p-2 bg-sky-100 text-black rounded-full hover:bg-sky-700 hover:bg-opacity-[0.1]"
             @click="onExport">
-            <ArrowDownTrayIcon class="w-6 h-6 text-skyblue-600" />
+            <ArrowDownTrayIcon class="w-5 h-5 text-skyblue-600" />
         </button>
     </div>
 </template>
