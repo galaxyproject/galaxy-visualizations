@@ -1,0 +1,139 @@
+:root {
+    --primary-color: #2196f3;
+    --background: #fff;
+    --text-color: #000;
+    --message-background: rgba(255, 255, 255, 0.9);
+    --message-color: rgba(0, 0, 0, 0.9);
+}
+
+#message {
+    background: var(--message-background);
+    border-radius: 4px;
+    color: var(--message-color);
+    display: none;
+    font-family: sans-serif;
+    font-weight: 100;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    word-break: break-all;
+    z-index: 9999;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: sans-serif;
+    overscroll-behavior: none;
+}
+
+#network {
+    flex: 1;
+}
+
+#controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem 0.5rem;
+    width: 80px;
+    box-sizing: border-box;
+}
+
+#rectangle {
+    position: absolute;
+    padding: 10px;
+    border-radius: 10px;
+    right: 10px;
+    bottom: 10px;
+    opacity: 0.9;
+    background: white;
+    font-family: "Courier New", Courier, monospace;
+}
+
+#viewer {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+}
+
+.control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.ts_img {
+    width: 40px;
+    height: auto;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 28px;
+}
+
+.slider:before {
+    content: "";
+    position: absolute;
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--primary-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+#loading {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+}
+
+#bar {
+    height: 20px;
+    border-radius: 10px;
+    background: var(--primary-color);
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.4);
+}
+
+#text {
+    position: absolute;
+    top: 0px;
+    left: 10px;
+    font-size: 1rem;
+    color: white;
+}
