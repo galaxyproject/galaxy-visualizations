@@ -94,21 +94,21 @@ export async function renderVisualization(container, url) {
                 <div id="network"></div>
                 <div id="controls">
                     <div class="control">
-                        <img src="${borderIcon}" class="ts_img">
+                        <img src="${borderIcon}" class="symbols">
                         <label class="switch">
                             <input type="checkbox" id="border_nodes">
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <div class="control">
-                        <img src="${loopIcon}" class="ts_img">
+                        <img src="${loopIcon}" class="symbols">
                         <label class="switch">
                             <input type="checkbox" id="loop_edges" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <div class="control">
-                        <img src="${fireIcon}" class="ts_img">
+                        <img src="${fireIcon}" class="symbols">
                         <label class="switch">
                             <input type="checkbox" id="hell_node" checked>
                             <span class="slider round"></span>
@@ -207,7 +207,7 @@ export async function renderVisualization(container, url) {
             color: { color: "#2B7CE9", hover: "#2B7CE9", highlight: "red" },
         },
         interaction: {
-            navigationButtons: true,
+            navigationButtons: false,
             keyboard: true,
             hover: true,
             tooltipDelay: 500,
