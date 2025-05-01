@@ -77,21 +77,46 @@ export async function renderVisualization(container, url) {
         container.innerHTML = `
             <div id="mynetwork"></div>
             <aside>
-                <table><tbody>
-                    <tr><td><img src="${borderIcon}" class="ts_img"></td></tr>
-                    <tr class="switch_button"><td class="switch_td"><label class="switch"><input type="checkbox" id="border_nodes"><span class="slider round"></span></label></td></tr>
-                    <tr><td><img src="${loopIcon}" class="ts_img"></td></tr>
-                    <tr class="switch_button"><td class="switch_td"><label class="switch"><input type="checkbox" id="loop_edges" checked><span class="slider round"></span></label></td></tr>
-                    <tr><td><img src="${fireIcon}" class="ts_img"></td></tr>
-                    <tr><td class="switch_td"><label class="switch"><input type="checkbox" id="hell_node" checked><span class="slider round"></span></label></td></tr>
-                </tbody></table>
+                <table>
+                    <tbody>
+                    <tr>
+                        <td><img src="${borderIcon}" class="ts_img"></td>
+                    </tr>
+                    <tr class="switch_button">
+                        <td class="switch_td">
+                            <label class="switch"><input type="checkbox" id="border_nodes">
+                                <span class="slider round"></span>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><img src="${loopIcon}" class="ts_img"></td>
+                    </tr>
+                    <tr class="switch_button">
+                        <td class="switch_td">
+                            <label class="switch">
+                                <input type="checkbox" id="loop_edges" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><img src="${fireIcon}" class="ts_img"></td>
+                    </tr>
+                    <tr>
+                        <td class="switch_td">
+                            <label class="switch">
+                                <input type="checkbox" id="hell_node" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
             </aside>
-            <div id="rectangle" style="width:94%;border:1px solid #000;"></div>
-            <div id="loadingBar">
-                <div>
-                    <div id="text">0%</div>
-                    <div id="border"><div id="bar"></div></div>
-                </div>
+            <div id="loading1">
+                <div id="bar"></div>
+                <div id="text">0%</div>
             </div>`;
     }
 
@@ -248,9 +273,9 @@ export async function renderVisualization(container, url) {
     network.once("stabilizationIterationsDone", () => {
         document.getElementById("text").innerHTML = "100%";
         document.getElementById("bar").style.width = "496px";
-        document.getElementById("loadingBar").style.opacity = 0;
+        document.getElementById("loading").style.opacity = 0;
         setTimeout(() => {
-            document.getElementById("loadingBar").style.display = "none";
+            document.getElementById("loading").style.display = "none";
         }, 0);
     });
 

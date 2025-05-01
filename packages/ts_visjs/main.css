@@ -30,41 +30,14 @@ body {
 
 #bar {
     position: absolute;
-    top: 0px;
-    left: 0px;
-    width: 20px;
-    height: 20px;
-    margin: auto auto auto auto;
-    border-radius: 11px;
-    border: 2px solid rgba(30, 30, 30, 0.05);
-    background: rgb(0, 173, 246); /* Old browsers */
-    box-shadow: 2px 0px 4px rgba(0, 0, 0, 0.4);
-}
-
-#border {
-    position: absolute;
     top: 10px;
     left: 10px;
-    width: 500px;
-    height: 23px;
-    margin: auto auto auto auto;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.2);
+    height: 20px;
+    margin: auto;
     border-radius: 10px;
-}
-
-#loadingBar {
-    position: absolute;
-    top: 1px;
-    left: 1px;
-    width: 94%;
-    height: 93%;
-    background-color: rgba(200, 200, 200, 0.8);
-    -webkit-transition: all 0.5s ease;
-    -moz-transition: all 0.5s ease;
-    -ms-transition: all 0.5s ease;
-    -o-transition: all 0.5s ease;
-    transition: all 0.5s ease;
-    opacity: 1;
+    border: 2px solid rgba(30, 30, 30, 0.05);
+    background: rgb(0, 173, 246);
+    box-shadow: 2px 0px 4px rgba(0, 0, 0, 0.4);
 }
 
 #mynetwork {
@@ -81,13 +54,11 @@ body {
 
 #text {
     position: absolute;
-    top: 8px;
-    left: 530px;
-    width: 30px;
-    height: 50px;
-    margin: auto auto auto auto;
+    top: 9px;
+    left: 20px;
+    margin: auto;
     font-size: 22px;
-    color: #000000;
+    color: white;
 }
 
 #wrapper {
