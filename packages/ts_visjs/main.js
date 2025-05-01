@@ -10,7 +10,7 @@ if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: process.env.dataset_id,
+            dataset_url: "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.bcsl.ts",
         },
     };
 
