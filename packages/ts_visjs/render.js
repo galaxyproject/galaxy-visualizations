@@ -132,7 +132,7 @@ export async function renderVisualization(container, url) {
         const e = [id, edge.s, edge.t, subs, prods, edge.p, edge.label];
         edges.push(e);
         if (edge.s === edge.t) selfLoops.push(e);
-        if (prods === Infinity && subs !== Infinity) borderNodes.add(edge.s);
+        if (prods === Infinity && subs !== Infinity) borderNodes.add(String(edge.s));
     });
 
     const nodesArr = [],
