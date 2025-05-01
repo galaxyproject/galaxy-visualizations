@@ -123,20 +123,16 @@ export function MapViewer(mv) {
     };
 
     /** Export the map view to PNG image*/
-    mv.exportMap = () => {
-        mv.gMap.once("rendercomplete", (event) => {
-            const canvas = event.context.canvas;
-            let fileName = Math.random().toString(11).replace("0.", "");
-            fileName += ".png";
-            if (navigator.msSaveBlob) {
-                navigator.msSaveBlob(canvas.msToBlob(), fileName);
-            } else {
-                canvas.toBlob((blob) => {
-                    saveAs(blob, fileName);
-                });
-            }
-        });
-        mv.gMap.renderSync();
+    mv.exportMap = (canvas) => {
+        let fileName = Math.random().toString(11).replace("0.", "");
+        fileName += ".png";
+        if (navigator.msSaveBlob) {
+            navigator.msSaveBlob(canvas.msToBlob(), fileName);
+        } else {
+            canvas.toBlob((blob) => {
+                saveAs(blob, fileName);
+            });
+        }
     };
 
     /** Create the map view */
@@ -184,17 +180,12 @@ export function MapViewer(mv) {
     };
 
     /** Load the map GeoJson and Shapefiles*/
-    mv.loadFile = (filePath, fileType, geometryColor, geometryType, toExport, target) => {
+    mv.loadFile = (filePath, fileType, geometryColor, geometryType, target) => {
         const formatType = new GeoJSON();
         const selectedStyles = mv.setStyle(geometryColor);
         const styleFunction = (feature) => {
             return selectedStyles[feature.getGeometry().getType()];
         };
-
-        if (toExport === "export") {
-            mv.exportMap();
-        }
-
         if (fileType === "geojson") {
             const sourceVec = new Vector({ format: formatType, url: filePath, wrapX: false });
             mv.createMap(sourceVec, geometryColor, geometryType, styleFunction, target);

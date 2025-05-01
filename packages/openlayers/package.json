@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/openlayers",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "type": "module",
     "license": "MIT",
     "scripts": {
@@ -14,11 +14,12 @@
         "static/dist/index.css"
     ],
     "devDependencies": {
+        "@heroicons/vue": "^2.1.5",
         "@vitejs/plugin-vue": "^5.0.5",
         "autoprefixer": "^10.4.19",
         "axios": "^1.7.7",
         "file-saver": "^2.0.5",
-        "galaxy-charts": "^0.0.59",
+        "galaxy-charts": "^0.0.69",
         "galaxy-charts-xml-parser": "^1.0.3",
         "ol": "^10.2.1",
         "postcss": "^8.4.40",
