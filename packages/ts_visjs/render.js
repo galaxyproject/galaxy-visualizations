@@ -1,4 +1,7 @@
 import * as vis from "vis";
+import borderIcon from "./assets/border.png";
+import loopIcon from "./assets/loop.png";
+import fireIcon from "./assets/fire.png";
 
 export async function renderVisualization(container, url) {
     const MAX_SIZE = 100000;
@@ -75,11 +78,11 @@ export async function renderVisualization(container, url) {
             <div id="mynetwork"></div>
             <aside>
                 <table><tbody>
-                    <tr><td><img src="icons/border.png" class="ts_img"></td></tr>
+                    <tr><td><img src="${borderIcon}" class="ts_img"></td></tr>
                     <tr class="switch_button"><td class="switch_td"><label class="switch"><input type="checkbox" id="border_nodes"><span class="slider round"></span></label></td></tr>
-                    <tr><td><img src="icons/loop.png" class="ts_img"></td></tr>
+                    <tr><td><img src="${loopIcon}" class="ts_img"></td></tr>
                     <tr class="switch_button"><td class="switch_td"><label class="switch"><input type="checkbox" id="loop_edges" checked><span class="slider round"></span></label></td></tr>
-                    <tr><td><img src="icons/fire.png" class="ts_img"></td></tr>
+                    <tr><td><img src="${fireIcon}" class="ts_img"></td></tr>
                     <tr><td class="switch_td"><label class="switch"><input type="checkbox" id="hell_node" checked><span class="slider round"></span></label></td></tr>
                 </tbody></table>
             </aside>
