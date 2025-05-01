@@ -103,14 +103,14 @@ export async function renderVisualization(container, url) {
                     <div class="control">
                         <img src="${loopIcon}" class="ts_img">
                         <label class="switch">
-                            <input type="checkbox" id="loop_edges">
+                            <input type="checkbox" id="loop_edges" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <div class="control">
                         <img src="${fireIcon}" class="ts_img">
                         <label class="switch">
-                            <input type="checkbox" id="hell_node">
+                            <input type="checkbox" id="hell_node" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
@@ -140,8 +140,8 @@ export async function renderVisualization(container, url) {
     }
 
     const borderNodes = new Set();
-    const edges = [],
-        selfLoops = [];
+    const edges = [];
+    const selfLoops = [];
 
     data.edges.forEach((edge, i) => {
         const id = i + 1;
@@ -152,15 +152,17 @@ export async function renderVisualization(container, url) {
         if (prods === Infinity && subs !== Infinity) borderNodes.add(String(edge.s));
     });
 
-    const nodesArr = [],
-        borderNodesArr = [];
+    const nodesArr = [];
+    const borderNodesArr = [];
     for (const id in nodes) {
         const state = nodes[id];
         const label = nodeToString(state);
         const nodeClass = borderNodes.has(id) ? "border" : "default";
         const node = writeNode(id, label, nodeClass);
         nodesArr.push(node);
-        if (nodeClass === "border") borderNodesArr.push(node);
+        if (nodeClass === "border") {
+            borderNodesArr.push(node);
+        }
     }
 
     const edgesArr = edges.map((e) => writeReaction(...e));
