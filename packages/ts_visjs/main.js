@@ -40,11 +40,11 @@ appElement.appendChild(messageElement);
 /* Create Editor */
 async function create() {
     /* Build and attach viewport element */
-    const viewerElement = document.createElement("div");
-    viewerElement.id = "viewer";
-    appElement.appendChild(viewerElement);
+    const viewportElement = document.createElement("div");
+    viewportElement.id = "viewport";
+    appElement.appendChild(viewportElement);
     try {
-        await renderVisualization(viewerElement, url);
+        await renderVisualization(viewportElement, url);
     } catch (e) {
         showError("Failed creating editor", e);
     }
