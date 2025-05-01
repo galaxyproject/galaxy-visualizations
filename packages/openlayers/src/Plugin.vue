@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from "vue";
 import { MapViewer } from "./openlayers";
+import { ArrowDownTrayIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps({
     datasetId: String,
@@ -13,17 +14,24 @@ const props = defineProps({
 
 const viewport = ref(null);
 
+const mv = new MapViewer({});
+
 function render() {
     viewport.value.innerHTML = "";
-    const mv = new MapViewer({});
     mv.loadFile(
         props.datasetUrl,
         "geojson", //dataset.extension,
         props.settings.geometry_color,
         props.settings.geometry_type,
-        props.settings.export_map,
         viewport.value,
     );
+}
+
+function onExport() {
+    const canvas = viewport.value?.querySelector("canvas");
+    if (canvas) {
+        mv.exportMap(canvas);
+    }
 }
 
 onMounted(() => {
@@ -38,5 +46,12 @@ watch(
 </script>
 
 <template>
-    <div ref="viewport" class="h-screen p-4"></div>
+    <div>
+        <div ref="viewport" class="h-screen p-4"></div>
+        <button
+            class="absolute bottom-2 right-2 px-2 py-2 bg-sky-100 text-black rounded-full hover:bg-sky-700 hover:bg-opacity-[0.1]"
+            @click="onExport">
+            <ArrowDownTrayIcon class="w-6 h-6 text-skyblue-600" />
+        </button>
+    </div>
 </template>
