@@ -12,7 +12,6 @@ export async function render(container, url) {
     let colourColumn = 1;
     let dataStart = 2;
 
-    /* Build and attach message element */
     const messageElement = document.createElement("div");
     messageElement.id = "message";
     container.appendChild(messageElement);
@@ -21,7 +20,7 @@ export async function render(container, url) {
     visDiv.id = "visualisation";
 
     try {
-        showMessage("Please wait...");
+        showMessage("Please wait...", false);
         const response = await fetch(url);
         hideMessage();
         const text = await response.text();
@@ -43,7 +42,7 @@ export async function render(container, url) {
 
         const lines = text.trim().split("\n").filter(Boolean);
         const rows = lines.map((line) =>
-            line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((v) => v.replace(/^"|"$/g, "")),
+            line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((v) => v.trim().replace(/^"|"$/g, "")),
         );
 
         if (rows.length < 2) throw new Error("Not enough data rows.");
@@ -65,7 +64,8 @@ export async function render(container, url) {
 
         const selectColour = document.createElement("select");
         selectColour.id = "color_column";
-        for (let i = 0; i < dataStart; i++) {
+
+        for (let i = 0; i < header.length; i++) {
             const option = document.createElement("option");
             option.value = i;
             option.textContent = header[i];
@@ -83,21 +83,27 @@ export async function render(container, url) {
         const selectStart = document.createElement("select");
         selectStart.id = "data_start";
 
-        for (let i = 0; i < header.length; i++) {
-            const isNumeric = data.every((row) => !isNaN(parseFloat(row[i])));
-            if (isNumeric) {
-                const remainingCols = header.slice(i);
-                const numericCols = remainingCols.filter((_, offset) =>
-                    data.every((row) => !isNaN(parseFloat(row[i + offset]))),
-                );
+        for (let i = 0; i <= header.length - 3; i++) {
+            let isValidBlock = true;
 
-                if (numericCols.length >= 3) {
-                    const option = document.createElement("option");
-                    option.value = i;
-                    option.textContent = `${i} (${header[i]})`;
-                    if (i === dataStart) option.selected = true;
-                    selectStart.appendChild(option);
+            for (let j = i; j < i + 3; j++) {
+                if (
+                    !data.every((row) => {
+                        const val = row[j]?.trim();
+                        return val !== "" && isFinite(Number(val));
+                    })
+                ) {
+                    isValidBlock = false;
+                    break;
                 }
+            }
+
+            if (isValidBlock) {
+                const option = document.createElement("option");
+                option.value = i;
+                option.textContent = `${i} (${header[i]})`;
+                if (i === dataStart) option.selected = true;
+                selectStart.appendChild(option);
             }
         }
 
@@ -117,16 +123,12 @@ export async function render(container, url) {
     }
 
     function updateVisualization() {
-        if (colourColumn >= dataStart) {
-            colourColumn = dataStart - 1;
-        }
-
         const numerical = [];
         const filteredAnnotations = [];
         const filteredColours = [];
 
         for (const row of data) {
-            const nums = row.slice(dataStart).map(parseFloat);
+            const nums = row.slice(dataStart).map((v) => Number(v.trim()));
             if (nums.every((n) => !isNaN(n))) {
                 numerical.push(nums);
                 filteredAnnotations.push(
@@ -139,21 +141,25 @@ export async function render(container, url) {
             }
         }
 
-        const cleaned = removeConstantColumns(numerical);
-        if (cleaned[0].length < 3) {
-            showMessage("Too few variable features remain for PCA.");
-            return;
-        }
-
-        try {
-            const pca = new PCA(cleaned, { center: true, scale: true });
-            const result = pca.predict(cleaned, { nComponents: 3 }).to2DArray();
-            pcaResult = result;
-            colours = filteredColours;
-            annotations = filteredAnnotations;
-            renderPlot();
-        } catch (e) {
-            showMessage("PCA failed: " + e.message);
+        if (numerical.length > 0) {
+            const cleaned = removeConstantColumns(numerical);
+            if (cleaned[0].length >= 3) {
+                try {
+                    const pca = new PCA(cleaned, { center: true, scale: true });
+                    const result = pca.predict(cleaned, { nComponents: 3 }).to2DArray();
+                    pcaResult = result;
+                    colours = filteredColours;
+                    annotations = filteredAnnotations;
+                    renderPlot();
+                    hideMessage();
+                } catch (e) {
+                    showMessage("PCA failed: " + e.message);
+                }
+            } else {
+                showMessage("Too few variable features remain for PCA.");
+            }
+        } else {
+            showMessage("Column data not numerical.", false);
         }
     }
 
@@ -213,10 +219,12 @@ export async function render(container, url) {
         window.addEventListener("resize", resize);
     }
 
-    function showMessage(msg) {
+    function showMessage(msg, isError = true) {
         messageElement.innerHTML = msg;
         messageElement.style.display = "inline";
-        console.debug(msg);
+        if (isError) {
+            console.error(msg);
+        }
     }
 
     function hideMessage() {
