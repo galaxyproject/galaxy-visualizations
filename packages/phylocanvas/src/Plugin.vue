@@ -151,6 +151,7 @@ watch(treeindex, (newVal) => {
                     :min="1"
                     :max="treelist.length"
                     :show-button="false"
+                    placeholder="?"
                     size="small"
                     style="width: 4rem"
                     @update:value="onInputIndex" />
