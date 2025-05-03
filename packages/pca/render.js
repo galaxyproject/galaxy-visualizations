@@ -2,29 +2,32 @@ import Plotly from "plotly.js-dist";
 import { PCA } from "ml-pca";
 
 const MAX_SIZE = 1024 * 256;
+const MIN_LINES = 2;
 
 export async function render(container, url) {
+    let annotations = [];
+    let colors = [];
+    let colorColumn = 1;
     let data = [];
+    let dataStart = 2;
     let header = [];
     let pcaResult = [];
-    let colours = [];
-    let annotations = [];
-    let colourColumn = 1;
-    let dataStart = 2;
 
+    // add message
     const messageElement = document.createElement("div");
     messageElement.id = "message";
     container.appendChild(messageElement);
 
-    const visDiv = document.createElement("div");
-    visDiv.id = "visualisation";
+    // add vis container
+    const visualizationElement = document.createElement("div");
+    visualizationElement.id = "visualisation";
 
     try {
         showMessage("Please wait...", false);
         const response = await fetch(url);
         hideMessage();
         const text = await response.text();
-        const parsed = parseCSV(text);
+        const parsed = parseContent(text);
         header = parsed.header;
         data = parsed.data;
 
@@ -34,22 +37,24 @@ export async function render(container, url) {
         showMessage(err.message || "Failed to render PCA visualization.");
     }
 
-    function parseCSV(text) {
+    function parseContent(text) {
         const size = new Blob([text]).size;
-        if (size > MAX_SIZE) {
-            throw new Error("Dataset too large to render (max 100 KB).");
+        if (size <= MAX_SIZE) {
+            const lines = text.trim().split("\n").filter(Boolean);
+            if (lines.length >= MIN_LINES) {
+                const isTSV = lines[0].includes("\t");
+                const delimiter = isTSV ? "\t" : /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+                const rows = lines.map((line) => line.split(delimiter).map((v) => v.trim().replace(/^"|"$/g, "")));
+                return {
+                    header: rows[0],
+                    data: rows.slice(1),
+                };
+            } else {
+                throw new Error(`Less than ${MIN_LINES} lines.`);
+            }
+        } else {
+            throw new Error(`Dataset too large to render (>${MAX_SIZE / 1024} KB).`);
         }
-
-        const lines = text.trim().split("\n").filter(Boolean);
-        const rows = lines.map((line) =>
-            line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((v) => v.trim().replace(/^"|"$/g, "")),
-        );
-
-        if (rows.length < 2) throw new Error("Not enough data rows.");
-        return {
-            header: rows[0],
-            data: rows.slice(1),
-        };
     }
 
     function injectControls() {
@@ -69,11 +74,13 @@ export async function render(container, url) {
             const option = document.createElement("option");
             option.value = i;
             option.textContent = header[i];
-            if (i === colourColumn) option.selected = true;
+            if (i === colorColumn) {
+                option.selected = true;
+            }
             selectColour.appendChild(option);
         }
         selectColour.onchange = () => {
-            colourColumn = parseInt(selectColour.value);
+            colorColumn = parseInt(selectColour.value);
             updateVisualization();
         };
 
@@ -85,7 +92,6 @@ export async function render(container, url) {
 
         for (let i = 0; i <= header.length - 3; i++) {
             let isValidBlock = true;
-
             for (let j = i; j < i + 3; j++) {
                 if (
                     !data.every((row) => {
@@ -97,12 +103,13 @@ export async function render(container, url) {
                     break;
                 }
             }
-
             if (isValidBlock) {
                 const option = document.createElement("option");
                 option.value = i;
                 option.textContent = `${i} (${header[i]})`;
-                if (i === dataStart) option.selected = true;
+                if (i === dataStart) {
+                    option.selected = true;
+                }
                 selectStart.appendChild(option);
             }
         }
@@ -116,16 +123,15 @@ export async function render(container, url) {
         controls.appendChild(selectColour);
         controls.appendChild(label2);
         controls.appendChild(selectStart);
-
         wrapper.appendChild(controls);
-        wrapper.appendChild(visDiv);
+        wrapper.appendChild(visualizationElement);
         container.appendChild(wrapper);
     }
 
     function updateVisualization() {
         const numerical = [];
         const filteredAnnotations = [];
-        const filteredColours = [];
+        const filteredColors = [];
 
         for (const row of data) {
             const nums = row.slice(dataStart).map((v) => Number(v.trim()));
@@ -137,7 +143,7 @@ export async function render(container, url) {
                         .map((key, i) => `<b>${key}</b>: ${row[i]}`)
                         .join("<br>"),
                 );
-                filteredColours.push(row[colourColumn]);
+                filteredColors.push(row[colorColumn]);
             }
         }
 
@@ -148,7 +154,7 @@ export async function render(container, url) {
                     const pca = new PCA(cleaned, { center: true, scale: true });
                     const result = pca.predict(cleaned, { nComponents: 3 }).to2DArray();
                     pcaResult = result;
-                    colours = filteredColours;
+                    colors = filteredColors;
                     annotations = filteredAnnotations;
                     renderPlot();
                     hideMessage();
@@ -166,32 +172,28 @@ export async function render(container, url) {
     function removeConstantColumns(matrix) {
         const numCols = matrix[0].length;
         const transposed = Array.from({ length: numCols }, (_, colIdx) => matrix.map((row) => row[colIdx]));
-
         const filteredCols = transposed.filter((col) => {
             const first = col[0];
             return col.some((v) => v !== first);
         });
-
         return matrix.map((_, rowIdx) => filteredCols.map((col) => col[rowIdx]));
     }
 
     function renderPlot() {
-        const uniqueGroups = [...new Set(colours)];
+        const uniqueGroups = [...new Set(colors)];
         const layout = {
-            hoverlabel: { bgcolor: "#FFF" },
             scene: {
-                xaxis: { title: "PC 1", zerolinecolor: "#ccc" },
-                yaxis: { title: "PC 2", zerolinecolor: "#ccc" },
-                zaxis: { title: "PC 3", zerolinecolor: "#ccc" },
+                xaxis: { title: "PC 1" },
+                yaxis: { title: "PC 2" },
+                zaxis: { title: "PC 3" },
             },
-            margin: { l: 0, r: 0, b: 0, t: 20 },
+            margin: { l: 0, r: 0, b: 0, t: 0 },
         };
 
         const traces = uniqueGroups.map((group, i) => {
-            const indices = colours.map((val, idx) => (val === group ? idx : -1)).filter((idx) => idx !== -1);
+            const indices = colors.map((val, idx) => (val === group ? idx : -1)).filter((idx) => idx !== -1);
             const points = indices.map((idx) => pcaResult[idx]);
             const texts = indices.map((idx) => annotations[idx]);
-
             return {
                 x: points.map((p) => p[0]),
                 y: points.map((p) => p[1]),
@@ -210,10 +212,12 @@ export async function render(container, url) {
             };
         });
 
-        Plotly.newPlot("visualisation", traces, layout);
+        // render plot
+        Plotly.newPlot(visualizationElement, traces, layout);
 
+        // handle resizing
         function resize() {
-            Plotly.Plots.resize(visDiv);
+            Plotly.Plots.resize(visualizationElement);
         }
         window.removeEventListener("resize", resize);
         window.addEventListener("resize", resize);
