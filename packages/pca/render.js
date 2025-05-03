@@ -2,6 +2,7 @@ import Plotly from "plotly.js-dist";
 import { PCA } from "ml-pca";
 
 const MAX_SIZE = 1024 * 256;
+const MIN_LINES = 2;
 
 export async function render(container, url) {
     let annotations = [];
@@ -40,7 +41,7 @@ export async function render(container, url) {
         const size = new Blob([text]).size;
         if (size <= MAX_SIZE) {
             const lines = text.trim().split("\n").filter(Boolean);
-            if (lines.length >= 2) {
+            if (lines.length >= MIN_LINES) {
                 const isTSV = lines[0].includes("\t");
                 const delimiter = isTSV ? "\t" : /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
                 const rows = lines.map((line) => line.split(delimiter).map((v) => v.trim().replace(/^"|"$/g, "")));
@@ -49,10 +50,10 @@ export async function render(container, url) {
                     data: rows.slice(1),
                 };
             } else {
-                throw new Error("Not enough data rows.");
+                throw new Error(`Less than ${MIN_LINES} lines.`);
             }
         } else {
-            throw new Error("Dataset too large to render (max 100 KB).");
+            throw new Error(`Dataset too large to render (>${MAX_SIZE / 1024} KB).`);
         }
     }
 
