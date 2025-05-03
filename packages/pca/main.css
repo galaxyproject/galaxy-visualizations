@@ -15,7 +15,7 @@
     font-family: sans-serif;
     font-weight: 100;
     font-size: 0.85rem;
-    left: 10rem;
+    left: 1rem;
     padding: 0.7rem;
     position: absolute;
     right: 1rem;
@@ -42,11 +42,12 @@ html {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    overflow: hidden;
 }
 
 #controls {
     position: absolute;
-    top: 1rem;
+    top: 3rem;
     left: 1rem;
     display: flex;
     flex-direction: column;
