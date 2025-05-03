@@ -1,6 +1,6 @@
 <script setup>
 import { ArrowPathIcon, ArrowLeftIcon, ArrowRightIcon } from "@heroicons/vue/24/outline";
-import { NAlert, NButton, NIcon, NTooltip } from "naive-ui";
+import { NAlert, NButton, NIcon, NInputNumber, NTooltip } from "naive-ui";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import phylocanvas from "@/phylocanvas.min.js";
@@ -20,6 +20,7 @@ const container = ref(null);
 const errorMessage = ref("");
 const isLoading = ref(true);
 const treeindex = ref(0);
+const treeindexInput = ref(1);
 const treelist = ref([]);
 const viewport = ref(null);
 
@@ -43,6 +44,13 @@ function extract(content) {
     }
 }
 
+function handleResize() {
+    if (tree && viewport.value) {
+        const bcr = viewport.value.getBoundingClientRect();
+        tree.resize(bcr.width, bcr.height);
+    }
+}
+
 async function load() {
     isLoading.value = true;
     const response = await fetch(props.datasetUrl);
@@ -55,6 +63,12 @@ async function load() {
         console.error(response);
     }
     isLoading.value = false;
+}
+
+function onInputIndex(val) {
+    if (val >= 1 && val <= treelist.value.length) {
+        render(val - 1);
+    }
 }
 
 function render(newIndex) {
@@ -88,13 +102,6 @@ function render(newIndex) {
     }
 }
 
-const handleResize = () => {
-    if (tree && viewport.value) {
-        const bcr = viewport.value.getBoundingClientRect();
-        tree.resize(bcr.width, bcr.height);
-    }
-};
-
 onMounted(() => {
     load();
     window.addEventListener("resize", handleResize);
@@ -109,6 +116,10 @@ watch(
     () => render(treeindex.value),
     { deep: true },
 );
+
+watch(treeindex, (newVal) => {
+    treeindexInput.value = newVal + 1;
+});
 </script>
 
 <template>
@@ -121,7 +132,9 @@ watch(
     </div>
     <div ref="viewport" class="h-screen overflow-hidden">
         <div ref="container" class="h-screen"></div>
-        <div v-if="treelist.length > 1" class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-white opacity-[0.9] rounded">
+        <div
+            v-if="treelist.length > 1"
+            class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-white opacity-[0.9] rounded px-3 py-2">
             <div class="flex items-center space-x-2">
                 <n-tooltip trigger="hover" :to="false">
                     <template #trigger>
@@ -133,7 +146,16 @@ watch(
                     </template>
                     <span class="text-xs">Previous</span>
                 </n-tooltip>
-                <span class="text-sm font-medium"> {{ treeindex + 1 }} of {{ treelist.length }} </span>
+                <n-input-number
+                    v-model:value="treeindexInput"
+                    :min="1"
+                    :max="treelist.length"
+                    :show-button="false"
+                    placeholder="?"
+                    size="small"
+                    style="width: 4rem"
+                    @update:value="onInputIndex" />
+                <span class="text-sm">of {{ treelist.length }}</span>
                 <n-tooltip trigger="hover" :to="false">
                     <template #trigger>
                         <n-button
