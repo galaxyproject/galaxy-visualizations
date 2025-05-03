@@ -444,6 +444,104 @@ VueWrapper {
               "render": [Function],
               "setup": [Function],
             },
+            "NInputNumber": {
+              "name": "InputNumber",
+              "props": {
+                "autofocus": [Function],
+                "bordered": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "builtinThemeOverrides": [Function],
+                "buttonPlacement": {
+                  "default": "right",
+                  "type": [Function],
+                },
+                "clearable": [Function],
+                "defaultValue": {
+                  "default": null,
+                  "type": [Function],
+                },
+                "disabled": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "format": [Function],
+                "inputProps": [Function],
+                "keyboard": {
+                  "default": {},
+                  "type": [Function],
+                },
+                "loading": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "max": [
+                  [Function],
+                  [Function],
+                ],
+                "min": [
+                  [Function],
+                  [Function],
+                ],
+                "onBlur": [
+                  [Function],
+                  [Function],
+                ],
+                "onChange": [
+                  [Function],
+                  [Function],
+                ],
+                "onClear": [
+                  [Function],
+                  [Function],
+                ],
+                "onFocus": [
+                  [Function],
+                  [Function],
+                ],
+                "onUpdate:value": [
+                  [Function],
+                  [Function],
+                ],
+                "onUpdateValue": [
+                  [Function],
+                  [Function],
+                ],
+                "parse": [Function],
+                "placeholder": [Function],
+                "precision": [Function],
+                "readonly": [Function],
+                "round": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "showButton": {
+                  "default": true,
+                  "type": [Function],
+                },
+                "size": [Function],
+                "status": [Function],
+                "step": {
+                  "default": 1,
+                  "type": [
+                    [Function],
+                    [Function],
+                  ],
+                },
+                "theme": [Function],
+                "themeOverrides": [Function],
+                "updateValueOnInput": {
+                  "default": true,
+                  "type": [Function],
+                },
+                "validator": [Function],
+                "value": [Function],
+              },
+              "render": [Function],
+              "setup": [Function],
+              "slots": [Function],
+            },
             "NTooltip": {
               "__popover__": true,
               "name": "Tooltip",
@@ -663,6 +761,7 @@ VueWrapper {
             },
             "load": [Function],
             "onBeforeUnmount": [Function],
+            "onInputIndex": [Function],
             "onMounted": [Function],
             "phylocanvas": [Function],
             "props": {
@@ -681,6 +780,30 @@ VueWrapper {
               "__v_isShallow": false,
               "_rawValue": 0,
               "_value": 0,
+              "dep": Map {
+                ReactiveEffect {
+                  "_depsLength": 1,
+                  "_dirtyLevel": 0,
+                  "_runnings": 0,
+                  "_shouldSchedule": false,
+                  "_trackId": 1,
+                  "active": true,
+                  "deps": [
+                    [Circular],
+                  ],
+                  "fn": [Function],
+                  "onTrack": undefined,
+                  "onTrigger": undefined,
+                  "scheduler": [Function],
+                  "trigger": [Function],
+                } => 1,
+              },
+            },
+            "treeindexInput": RefImpl {
+              "__v_isRef": true,
+              "__v_isShallow": false,
+              "_rawValue": 1,
+              "_value": 1,
               "dep": undefined,
             },
             "treelist": RefImpl {
@@ -885,6 +1008,24 @@ VueWrapper {
                 "trigger": [Function],
               },
               ReactiveEffect {
+                "_depsLength": 1,
+                "_dirtyLevel": 0,
+                "_runnings": 0,
+                "_shouldSchedule": false,
+                "_trackId": 1,
+                "active": true,
+                "deps": [
+                  Map {
+                    [Circular] => 1,
+                  },
+                ],
+                "fn": [Function],
+                "onTrack": undefined,
+                "onTrigger": undefined,
+                "scheduler": [Function],
+                "trigger": [Function],
+              },
+              ReactiveEffect {
                 "_depsLength": 4,
                 "_dirtyLevel": 0,
                 "_runnings": 0,
@@ -1042,6 +1183,104 @@ VueWrapper {
               "render": [Function],
               "setup": [Function],
             },
+            "NInputNumber": {
+              "name": "InputNumber",
+              "props": {
+                "autofocus": [Function],
+                "bordered": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "builtinThemeOverrides": [Function],
+                "buttonPlacement": {
+                  "default": "right",
+                  "type": [Function],
+                },
+                "clearable": [Function],
+                "defaultValue": {
+                  "default": null,
+                  "type": [Function],
+                },
+                "disabled": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "format": [Function],
+                "inputProps": [Function],
+                "keyboard": {
+                  "default": {},
+                  "type": [Function],
+                },
+                "loading": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "max": [
+                  [Function],
+                  [Function],
+                ],
+                "min": [
+                  [Function],
+                  [Function],
+                ],
+                "onBlur": [
+                  [Function],
+                  [Function],
+                ],
+                "onChange": [
+                  [Function],
+                  [Function],
+                ],
+                "onClear": [
+                  [Function],
+                  [Function],
+                ],
+                "onFocus": [
+                  [Function],
+                  [Function],
+                ],
+                "onUpdate:value": [
+                  [Function],
+                  [Function],
+                ],
+                "onUpdateValue": [
+                  [Function],
+                  [Function],
+                ],
+                "parse": [Function],
+                "placeholder": [Function],
+                "precision": [Function],
+                "readonly": [Function],
+                "round": {
+                  "default": undefined,
+                  "type": [Function],
+                },
+                "showButton": {
+                  "default": true,
+                  "type": [Function],
+                },
+                "size": [Function],
+                "status": [Function],
+                "step": {
+                  "default": 1,
+                  "type": [
+                    [Function],
+                    [Function],
+                  ],
+                },
+                "theme": [Function],
+                "themeOverrides": [Function],
+                "updateValueOnInput": {
+                  "default": true,
+                  "type": [Function],
+                },
+                "validator": [Function],
+                "value": [Function],
+              },
+              "render": [Function],
+              "setup": [Function],
+              "slots": [Function],
+            },
             "NTooltip": {
               "__popover__": true,
               "name": "Tooltip",
@@ -1187,6 +1426,7 @@ VueWrapper {
             "isLoading": true,
             "load": [Function],
             "onBeforeUnmount": [Function],
+            "onInputIndex": [Function],
             "onMounted": [Function],
             "phylocanvas": [Function],
             "props": {
@@ -1201,6 +1441,7 @@ VueWrapper {
             "render": [Function],
             "tree": null,
             "treeindex": 0,
+            "treeindexInput": 1,
             "treelist": [],
             "viewport": <div
               class="h-screen overflow-hidden"
