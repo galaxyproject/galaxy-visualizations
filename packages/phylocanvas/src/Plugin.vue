@@ -38,6 +38,9 @@ function extract(content) {
             start = i + 1;
         }
     }
+    if (treelist.value.length === 0) {
+        errorMessage.value = "No valid trees found.";
+    }
 }
 
 async function load() {
@@ -77,7 +80,7 @@ function render(newIndex) {
             });
         } catch (e) {
             errorMessage.value = "Failed to render tree.";
-            console.error(errorMessage.value, err);
+            console.error(errorMessage.value, e);
         }
     } else {
         errorMessage.value = `Invalid tree index: ${newIndex}`;
@@ -102,7 +105,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-    () => props,
+    () => props.settings,
     () => render(treeindex.value),
     { deep: true },
 );
