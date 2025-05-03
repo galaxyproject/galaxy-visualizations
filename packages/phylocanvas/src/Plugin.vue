@@ -121,7 +121,7 @@ watch(
     </div>
     <div ref="viewport" class="h-screen overflow-hidden">
         <div ref="container" class="h-screen"></div>
-        <div v-if="treelist.length > 1" class="absolute bottom-2 left-1/2 transform -translate-x-1/2">
+        <div v-if="treelist.length > 1" class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-white opacity-[0.9] rounded">
             <div class="flex items-center space-x-2">
                 <n-tooltip trigger="hover" :to="false">
                     <template #trigger>
