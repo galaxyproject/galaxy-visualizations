@@ -26,7 +26,7 @@ export async function render(container, url) {
         const response = await fetch(url);
         hideMessage();
         const text = await response.text();
-        const parsed = parseCSV(text);
+        const parsed = parseContent(text);
         header = parsed.header;
         data = parsed.data;
 
@@ -36,24 +36,24 @@ export async function render(container, url) {
         showMessage(err.message || "Failed to render PCA visualization.");
     }
 
-    function parseCSV(text) {
+    function parseContent(text) {
         const size = new Blob([text]).size;
-        if (size > MAX_SIZE) {
+        if (size <= MAX_SIZE) {
+            const lines = text.trim().split("\n").filter(Boolean);
+            if (lines.length >= 2) {
+                const isTSV = lines[0].includes("\t");
+                const delimiter = isTSV ? "\t" : /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+                const rows = lines.map((line) => line.split(delimiter).map((v) => v.trim().replace(/^"|"$/g, "")));
+                return {
+                    header: rows[0],
+                    data: rows.slice(1),
+                };
+            } else {
+                throw new Error("Not enough data rows.");
+            }
+        } else {
             throw new Error("Dataset too large to render (max 100 KB).");
         }
-
-        const lines = text.trim().split("\n").filter(Boolean);
-        const rows = lines.map((line) =>
-            line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((v) => v.trim().replace(/^"|"$/g, "")),
-        );
-
-        if (rows.length < 2) {
-            throw new Error("Not enough data rows.");
-        }
-        return {
-            header: rows[0],
-            data: rows.slice(1),
-        };
     }
 
     function injectControls() {
@@ -91,7 +91,6 @@ export async function render(container, url) {
 
         for (let i = 0; i <= header.length - 3; i++) {
             let isValidBlock = true;
-
             for (let j = i; j < i + 3; j++) {
                 if (
                     !data.every((row) => {
@@ -103,7 +102,6 @@ export async function render(container, url) {
                     break;
                 }
             }
-
             if (isValidBlock) {
                 const option = document.createElement("option");
                 option.value = i;
@@ -124,7 +122,6 @@ export async function render(container, url) {
         controls.appendChild(selectColour);
         controls.appendChild(label2);
         controls.appendChild(selectStart);
-
         wrapper.appendChild(controls);
         wrapper.appendChild(visualizationElement);
         container.appendChild(wrapper);
@@ -184,13 +181,12 @@ export async function render(container, url) {
     function renderPlot() {
         const uniqueGroups = [...new Set(colors)];
         const layout = {
-            hoverlabel: { bgcolor: "#FFF" },
             scene: {
-                xaxis: { title: "PC 1", zerolinecolor: "#CCC" },
-                yaxis: { title: "PC 2", zerolinecolor: "#CCC" },
-                zaxis: { title: "PC 3", zerolinecolor: "#CCC" },
+                xaxis: { title: "PC 1" },
+                yaxis: { title: "PC 2" },
+                zaxis: { title: "PC 3" },
             },
-            margin: { l: 0, r: 0, b: 0, t: 20 },
+            margin: { l: 0, r: 0, b: 0, t: 0 },
         };
 
         const traces = uniqueGroups.map((group, i) => {
