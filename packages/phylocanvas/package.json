@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/phylocanvas",
-    "version": "0.0.7",
+    "version": "0.0.9",
     "type": "module",
     "license": "MIT",
     "files": [
@@ -11,12 +11,13 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
+        "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/main.js' 'src/**/*.test.js' 'src/**/*.vue'",
         "test": "vitest",
         "test:watch": "vitest --watch",
         "test:ui": "vitest --ui"
     },
     "devDependencies": {
+        "@heroicons/vue": "^2.2.0",
         "@types/node": "^22.9.0",
         "@vitejs/plugin-vue": "^5.0.5",
         "@vitest/ui": "^2.1.4",
@@ -25,6 +26,7 @@
         "galaxy-charts": "^0.0.59",
         "galaxy-charts-xml-parser": "^1.0.3",
         "jsdom": "^25.0.1",
+        "naive-ui": "^2.41.0",
         "postcss": "^8.4.40",
         "prettier": "^3.3.3",
         "tailwindcss": "^3.4.7",
