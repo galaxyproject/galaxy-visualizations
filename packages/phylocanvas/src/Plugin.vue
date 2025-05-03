@@ -1,7 +1,7 @@
 <script setup>
 import { ArrowPathIcon, ArrowLeftIcon, ArrowRightIcon } from "@heroicons/vue/24/outline";
 import { NAlert, NButton, NIcon, NTooltip } from "naive-ui";
-import { onMounted, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import phylocanvas from "@/phylocanvas.min.js";
 
@@ -38,21 +38,15 @@ function extract(content) {
             start = i + 1;
         }
     }
-    treelist.value.push(treelist.value[0]);
-    treelist.value.push(treelist.value[0]);
-    treelist.value.push(treelist.value[0]);
-    treelist.value.push(treelist.value[0]);
-    treelist.value.push(treelist.value[0]);
 }
 
 async function load() {
     isLoading.value = true;
     const response = await fetch(props.datasetUrl);
     if (response.ok) {
-        response.text().then((content) => {
-            extract(content);
-            render(0);
-        });
+        const content = await response.text();
+        extract(content);
+        render(0);
     } else {
         errorMessage.value = "Failed to load data.";
         console.error(response);
@@ -60,46 +54,56 @@ async function load() {
     isLoading.value = false;
 }
 
-async function render(newIndex) {
-    treeindex.value = newIndex;
-    if (treeindex.value >= 0 && treeindex.value < treelist.value.length) {
-        const source = treelist.value[treeindex.value];
+function render(newIndex) {
+    if (newIndex >= 0 && newIndex < treelist.value.length) {
+        treeindex.value = newIndex;
+        const source = treelist.value[newIndex];
         if (tree) {
             tree.destroy();
             tree = null;
         }
-        tree = new phylocanvas(container.value, {
-            source,
-            alignLabels: props.settings.align_labels,
-            fillColour: props.settings.node_color,
-            highlightColour: props.settings.highlighted_color,
-            interactive: true,
-            nodeShape: props.settings.node_shape,
-            showLabels: props.settings.show_labels,
-            showLeafLabels: props.settings.show_labels,
-            strokeColour: props.settings.edge_color,
-            type: props.settings.tree_type,
-        });
+        try {
+            tree = new phylocanvas(container.value, {
+                source,
+                alignLabels: props.settings.align_labels,
+                fillColour: props.settings.node_color,
+                highlightColour: props.settings.highlighted_color,
+                interactive: true,
+                nodeShape: props.settings.node_shape,
+                showLabels: props.settings.show_labels,
+                showLeafLabels: props.settings.show_labels,
+                strokeColour: props.settings.edge_color,
+                type: props.settings.tree_type,
+            });
+        } catch (e) {
+            errorMessage.value = "Failed to render tree.";
+            console.error(errorMessage.value, err);
+        }
     } else {
-        console.error("no");
+        errorMessage.value = `Invalid tree index: ${newIndex}`;
+        console.error(errorMessage.value);
     }
 }
 
+const handleResize = () => {
+    if (tree && viewport.value) {
+        const bcr = viewport.value.getBoundingClientRect();
+        tree.resize(bcr.width, bcr.height);
+    }
+};
+
 onMounted(() => {
     load();
+    window.addEventListener("resize", handleResize);
+});
 
-    // resize tree on window resize
-    window.addEventListener("resize", () => {
-        if (tree) {
-            const bcr = viewport.value.getBoundingClientRect();
-            tree.resize(bcr.width, bcr.height);
-        }
-    });
+onBeforeUnmount(() => {
+    window.removeEventListener("resize", handleResize);
 });
 
 watch(
     () => props,
-    () => render(),
+    () => render(treeindex.value),
     { deep: true },
 );
 </script>
@@ -112,7 +116,7 @@ watch(
         <ArrowPathIcon class="animate-spin size-4 inline mx-1" />
         <span class="text-xs">Please wait...</span>
     </div>
-    <div else ref="viewport" class="h-screen overflow-hidden">
+    <div ref="viewport" class="h-screen overflow-hidden">
         <div ref="container" class="h-screen"></div>
         <div v-if="treelist.length > 1" class="absolute bottom-2 left-1/2 transform -translate-x-1/2">
             <div class="flex items-center space-x-2">
