@@ -5,6 +5,7 @@
 // ======================================================================================
 // ======================================================================================
 
+const electron=null;
 
 function KCacheManager(master)
 {
@@ -82,13 +83,13 @@ function KCacheManager(master)
   		}
 
   		 
-  		var ipc = require('electron').ipcRenderer;
-	    ipc.on('loadfiles', loadfiles)
-	    ipc.on('loadrecent', function(event,args) {
-			fileLoad([args]);
-	    	})
-	    ipc.on('loaddirs', loaddirs)
-	    ipc.on('saveworkstate', saveWorkstate)
+  		// var ipc = require('electron').ipcRenderer;
+	    // ipc.on('loadfiles', loadfiles)
+	    // ipc.on('loadrecent', function(event,args) {
+			// fileLoad([args]);
+	    // 	})
+	    // ipc.on('loaddirs', loaddirs)
+	    // ipc.on('saveworkstate', saveWorkstate)
 
   		
 		$("<li><a>Load Files</a></li>").click(loadfiles).appendTo($menu);
@@ -197,7 +198,7 @@ function KCacheManager(master)
 							recent = recent.slice(recent.length-10,recent.length);
 
 						fs.writeFile("./recent.json",JSON.stringify(recent),undefined,function(){
-							ipc.send('rebuild-menu');
+							// ipc.send('rebuild-menu');
 							
 						});
 					 });

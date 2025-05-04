@@ -23,7 +23,7 @@ else // when running in NORAview repo
 
 
 module.exports = {
-    mode: "production",
+    mode: "development",
     devtool: "source-map",
     entry: "./index.js",
     output: {

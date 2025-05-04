@@ -10723,7 +10723,7 @@ function FiberQuiver(that)
 }
 
 
-    ovlcnt = 0;
+    var ovlcnt = 0;
 
 
 function KMosaicView(that)

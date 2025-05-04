@@ -8,6 +8,9 @@
 
 var myeps = 0.00000001;
 var runningID = 0;
+
+const electron = null;
+
 function KView($parentContainer)
 {
  /**  @class 
@@ -1665,19 +1668,19 @@ function KView($parentContainer)
 								   );
     that.$iron = $iron
 
-	if (electron)
-	{
+	// if (electron)
+	// {
 
-		var $settingsbutton =  $("<div  class='KView_tool '><i  class='fa fa-bars fa-1x'></i></div>").appendTo($toolbarContainer)
-							   .click( function(){
-								settingsDialog.dialog.toggle()
+	// 	var $settingsbutton =  $("<div  class='KView_tool '><i  class='fa fa-bars fa-1x'></i></div>").appendTo($toolbarContainer)
+	// 						   .click( function(){
+	// 							settingsDialog.dialog.toggle()
 
-							   } )
-							   .append( $("<ul class='KView_tool_menu'></ul>").append($("<li>Settings</li>") )
-								   );
-		var ipc = require('electron').ipcRenderer;
-	    ipc.on('settings', function() { settingsDialog.dialog.toggle() } )
-	}
+	// 						   } )
+	// 						   .append( $("<ul class='KView_tool_menu'></ul>").append($("<li>Settings</li>") )
+	// 							   );
+	// 	var ipc = require('electron').ipcRenderer;
+	//     ipc.on('settings', function() { settingsDialog.dialog.toggle() } )
+	// }
 
   
 

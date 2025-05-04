@@ -44,7 +44,7 @@ function ab2str(buf) {
 
 
 // This expects an ArrayBuffer or (Node.js) Buffer
-parse = function (buffer_org) {
+function parse(buffer_org) {
   /////////////////////////////////////////
   // Parse header
  
@@ -2067,6 +2067,6 @@ function serializeToTextBuffer(data) {
   return nrrd;
 
 }
-nrrd = NRRD();
+var nrrd = NRRD();
 
 

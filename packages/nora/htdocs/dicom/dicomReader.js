@@ -2,7 +2,7 @@
 
 
 if (typeof electron == "undefined")
-    electron = false;
+    var electron = false;
 
 
 if (typeof module != "undefined" && !electron)
@@ -49,11 +49,11 @@ if (typeof module != "undefined" && !electron)
         }
     }
 
-    module.exports =
-    {
-        dicomReader:DicomReader(),
-        dicomReaderFun:DicomReader
-    }
+    // module.exports =
+    // {
+    //     dicomReader:DicomReader(),
+    //     dicomReaderFun:DicomReader
+    // }
 
 
 }
@@ -1796,7 +1796,7 @@ function prepareRTstruct(item)
 }
 
 
-sform2quaternion = function(mat)
+function sform2quaternion(mat)
 {
  
    var vox = [ (math.norm([mat._data[0][0],mat._data[1][0],mat._data[2][0] ])),

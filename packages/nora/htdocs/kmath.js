@@ -631,7 +631,7 @@ kmath.det = function(M)
 
 }
 
-math = kmath;
+var math = kmath;
 
 
 kmath.median = function(values, iqr)

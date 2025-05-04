@@ -4,7 +4,6 @@ import jQuery from "jquery";
 // Explicitly expose jQuery globally
 window.$ = window.jQuery = jQuery;
 
-//import "script-loader!./htdocs/font-awesome-4.5.0/css/font-awesome.min.css";
 import "imports-loader?imports=default|jquery|jQuery!./htdocs/dicom/daikon.js";
 import "imports-loader?imports=default|jquery|jQuery!./htdocs/dicom/dicomReader.js";
 

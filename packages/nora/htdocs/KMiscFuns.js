@@ -181,7 +181,6 @@ if (typeof alertify != "undefined")
     }
 
 
-Array.prototype.chunk = 
 Object.defineProperty(Array.prototype, 'chunk', {
     value:  
     function(fn, chunksize, delay, aggregate, onready)
@@ -2257,7 +2256,7 @@ function permMat(nii)
     return P;
 }
 
-permutationMat = permMat;
+var permutationMat = permMat;
 
 
 function permMat_noscale(nii)
@@ -7871,7 +7870,7 @@ function waiter(condition,callback,delta,maxtimes)
 
 
 
-navigationElementsVisible = true;
+var navigationElementsVisible = true;
 function hideNavigationElements()
 {
 	navigationElementsVisible = false;
@@ -7892,7 +7891,7 @@ function hideNavigationElements()
 
 }
 
-toolBarLeftVisible = true;
+var toolBarLeftVisible = true;
 function hideAllElements()
 {
 	toolBarLeftVisible = false;
@@ -8627,7 +8626,7 @@ function loadDICOMwebURL(urlstr)
 // ============= TagPanel
 // ======================================================================================
 // ======================================================================================
-KTagPanel = function()
+function KTagPanel()
 {
 	var that = new Object();
 	/* major functions of use:
@@ -8666,7 +8665,7 @@ KTagPanel = function()
 		ktagpanel.show();
 		return;
 	}
-	ktagpanel = that;
+	var ktagpanel = that;
 	var $container = $("<div id='KTagPanel"+"' class='markerPanel movableWindows' style='width:auto; min-width:150px;'></div>").appendTo($(document.body));
 
 

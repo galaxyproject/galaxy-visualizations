@@ -21046,5 +21046,5 @@ var firstBy = (function() {
     return tb;
 })();
 
-if (typeof module == 'object')
- module.exports.papaya = papaya;
+// if (typeof module == 'object')
+//  module.exports.papaya = papaya;

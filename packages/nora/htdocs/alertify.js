@@ -9,10 +9,11 @@
  * @module alertify
  * @version 0.3.11
  */
+
 (function (global, undefined) {
 	"use strict";
 
-	var document = global.document,
+	var document = window.document,
 	    Alertify;
 
 	Alertify = function () {
@@ -705,11 +706,6 @@
 		};
 	};
 
-	// AMD and window support
-	if (typeof define === "function") {
-		define([], function () { return new Alertify(); });
-	} else if (typeof global.alertify === "undefined") {
-		global.alertify = new Alertify();
-	}
+		window.alertify = new Alertify();
 
 }(this));
