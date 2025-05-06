@@ -13,7 +13,7 @@ function getPayload(name: string, history_id: string, content: string) {
                     {
                         dbkey: "?",
                         ext: "ipynb",
-                        name: name,
+                        name: `${name} (jl-export)`,
                         paste_content: content,
                         src: "pasted",
                     },
