@@ -1,4 +1,27 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
+import axios from "axios";
+
+function getPayload(name: string, history_id: string, content: string) {
+    return {
+        auto_decompress: true,
+        files: [],
+        history_id: history_id,
+        targets: [
+            {
+                destination: { type: "hdas" },
+                elements: [
+                    {
+                        dbkey: "?",
+                        ext: "auto",
+                        name: name,
+                        paste_content: content,
+                        src: "pasted",
+                    },
+                ],
+            },
+        ],
+    };
+}
 
 async function waitFor(condition: () => boolean, interval = 50, timeout = 5000): Promise<void> {
     const start = Date.now();
@@ -26,7 +49,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const datasetId = params.get("dataset_id");
         const root = params.get("root");
         const datasetUrl = `${root}api/datasets/${datasetId}/display`;
-        if (datasetUrl) {
+        try {
+            const { data: details } = await axios.get(`${root}api/datasets/${datasetId}`);
+            const historyId = details.history_id;
+            const datasetName = details.name;
+
+            // load dataset
             console.log("📥 Loading notebook from:", datasetUrl);
             try {
                 const res = await fetch(datasetUrl);
@@ -34,33 +62,43 @@ const plugin: JupyterFrontEndPlugin<void> = {
                     throw new Error(`Failed to fetch notebook: ${res.statusText}`);
                 }
                 const nbContent = await res.json();
-                const filename = "imported.ipynb";
-                await app.serviceManager.contents.save(filename, {
+                await app.serviceManager.contents.save(datasetName, {
                     type: "notebook",
                     format: "json",
                     content: nbContent,
                 });
                 await app.commands.execute("docmanager:open", {
-                    path: filename,
+                    path: datasetName,
                     factory: "Notebook",
                 });
-                console.log("📂 Notebook opened:", filename);
+                console.log("📂 Notebook opened:", datasetName);
             } catch (err) {
                 console.error("❌ Could not load dataset notebook:", err);
             }
-        }
 
-        app.commands.commandExecuted.connect((_, args) => {
-            if (args.id === "docmanager:save") {
-                console.log("🧭 Detected save");
-                const widget = app.shell.currentWidget;
-                const model = (widget as any)?.content?.model;
-                if (model?.toJSON) {
-                    const content = model.toJSON();
-                    console.log("📝 Notebook content:", content);
+            // save dataset
+            app.commands.commandExecuted.connect((_, args) => {
+                if (args.id === "docmanager:save") {
+                    console.log("🧭 Detected save");
+                    const widget = app.shell.currentWidget;
+                    const model = (widget as any)?.content?.model;
+                    if (model?.toJSON) {
+                        const content = JSON.stringify(model.toJSON());
+                        const payload = getPayload(datasetName, historyId, content);
+                        axios
+                            .post(`${root}api/tools/fetch`, payload)
+                            .then(() => {
+                                console.log("📝 Notebook saved to history");
+                            })
+                            .catch((err) => {
+                                console.error("❌ Could not save dataset notebook:", err);
+                            });
+                    }
                 }
-            }
-        });
+            });
+        } catch (err) {
+            console.error("❌ Could not load dataset details:", err);
+        }
     },
 };
 
