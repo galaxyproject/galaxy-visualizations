@@ -1,0 +1,22 @@
+{
+    "name": "jl-galaxy",
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "build": "webpack && npm run build:jupyter && npm run build:extension && npm run build:index",
+        "build:extension": "node install-extension.js",
+        "build:jupyter": "jupyter lite build --output-dir static/dist/_output",
+        "build:index": "cpx src/index.js static/dist",
+        "serve": "jupyter lite serve --output-dir static/dist/_output",
+        "prettier": "prettier --write 'package.json' 'install-extension.js' 'src/*.js' 'src/*.ts'"
+    },
+    "devDependencies": {
+        "axios": "^1.9.0",
+        "cpx": "^1.5.0",
+        "prettier": "^3.5.3",
+        "ts-loader": "^9.5.0",
+        "typescript": "^5.4.2",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4"
+    }
+}
