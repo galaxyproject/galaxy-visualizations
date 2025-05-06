@@ -1,4 +1,5 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
+import { showDialog, Dialog } from "@jupyterlab/apputils";
 import axios from "axios";
 
 function getPayload(name: string, history_id: string, content: string) {
@@ -13,7 +14,7 @@ function getPayload(name: string, history_id: string, content: string) {
                     {
                         dbkey: "?",
                         ext: "ipynb",
-                        name: `${name} (jl-export)`,
+                        name: `${name}`,
                         paste_content: content,
                         src: "pasted",
                     },
@@ -23,7 +24,7 @@ function getPayload(name: string, history_id: string, content: string) {
     };
 }
 
-async function waitFor(condition: () => boolean, interval = 50, timeout = 5000): Promise<void> {
+async function waitFor(condition: () => boolean, interval = 50, timeout = 10000): Promise<void> {
     const start = Date.now();
     return new Promise((resolve, reject) => {
         const check = () => {
@@ -76,23 +77,35 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 console.error("❌ Could not load dataset notebook:", err);
             }
 
-            // save dataset
             app.commands.commandExecuted.connect((_, args) => {
                 if (args.id === "docmanager:save") {
                     console.log("🧭 Detected save");
                     const widget = app.shell.currentWidget;
                     const model = (widget as any)?.content?.model;
+                    const context = (widget as any)?.context;
+                    const actualName = context?.path?.split("/").pop() || "untitled.ipynb";
+
                     if (model?.toJSON) {
-                        const content = JSON.stringify(model.toJSON(), null, 2);
-                        const payload = getPayload(datasetName, historyId, content);
-                        axios
-                            .post(`${root}api/tools/fetch`, payload)
-                            .then(() => {
-                                console.log("📝 Notebook saved to history");
-                            })
-                            .catch((err) => {
-                                console.error("❌ Could not save dataset notebook:", err);
-                            });
+                        showDialog({
+                            title: "Save to Galaxy?",
+                            body: `Do you want to export "${actualName}" to your Galaxy history?`,
+                            buttons: [Dialog.cancelButton(), Dialog.okButton({ label: "Export" })],
+                        }).then((result) => {
+                            if (result.button.accept) {
+                                const content = JSON.stringify(model.toJSON(), null, 2);
+                                const payload = getPayload(actualName, historyId, content);
+                                axios
+                                    .post(`${root}api/tools/fetch`, payload)
+                                    .then(() => {
+                                        console.log(`📝 Notebook "${actualName}" saved to history`);
+                                    })
+                                    .catch((err) => {
+                                        console.error(`❌ Could not save "${actualName}" to history:`, err);
+                                    });
+                            } else {
+                                console.log("🚫 Export to Galaxy canceled by user");
+                            }
+                        });
                     }
                 }
             });
