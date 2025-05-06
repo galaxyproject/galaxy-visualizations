@@ -4,14 +4,14 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
+const JUPYTER_DIR= "static/dist/_output";
 const EXTENSION_NAME = "jl-galaxy";
 const EXTENSION_FILE = path.join(__dirname, "build/extension.js");
 const ENTRY_FILE = path.join(__dirname, "src/entry.js");
-const DEST_DIR = path.join(__dirname, "_output", "extensions", EXTENSION_NAME);
+const DEST_DIR = path.join(__dirname, JUPYTER_DIR, "extensions", EXTENSION_NAME);
 const DEST_EXTENSION_FILE = path.join(DEST_DIR, "extension.js");
 const DEST_ENTRY_FILE = path.join(DEST_DIR, "entry.js");
-const CONFIG_PATH = path.join(__dirname, "_output", "jupyter-lite.json");
+const CONFIG_PATH = path.join(__dirname, JUPYTER_DIR, "jupyter-lite.json");
 
 const EXTENSION_ENTRY = {
     name: EXTENSION_NAME,

@@ -3,8 +3,9 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "build": "webpack && jupyter lite build && node install-extension.js",
-        "serve": "jupyter lite serve",
+        "build": "webpack && npm run build:jupyter && node install-extension.js",
+        "build:jupyter": "jupyter lite build --output-dir static/dist/_output",
+        "serve": "jupyter lite serve --output-dir static/dist/_output",
         "prettier": "prettier --write 'package.json' 'install-extension.js' 'src/*.js'"
     },
     "devDependencies": {
