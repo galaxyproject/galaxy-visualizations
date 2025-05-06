@@ -1,0 +1,17 @@
+{
+    "name": "jl-galaxy",
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "build": "webpack && jupyter lite build && node install-extension.js",
+        "serve": "jupyter lite serve",
+        "prettier": "prettier --write 'package.json' 'install-extension.js' 'src/*.js'"
+    },
+    "devDependencies": {
+        "prettier": "^3.5.3",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4",
+        "ts-loader": "^9.5.0",
+        "typescript": "^5.4.2"
+    }
+}
