@@ -12,7 +12,7 @@ function getPayload(name: string, history_id: string, content: string) {
                 elements: [
                     {
                         dbkey: "?",
-                        ext: "auto",
+                        ext: "ipynb",
                         name: name,
                         paste_content: content,
                         src: "pasted",
