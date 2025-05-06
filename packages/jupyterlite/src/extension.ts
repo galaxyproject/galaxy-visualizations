@@ -83,7 +83,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                     const widget = app.shell.currentWidget;
                     const model = (widget as any)?.content?.model;
                     if (model?.toJSON) {
-                        const content = JSON.stringify(model.toJSON());
+                        const content = JSON.stringify(model.toJSON(), null, 2);
                         const payload = getPayload(datasetName, historyId, content);
                         axios
                             .post(`${root}api/tools/fetch`, payload)
