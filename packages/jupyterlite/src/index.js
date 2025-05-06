@@ -10,7 +10,6 @@ const root = incoming.root;
 // Build query string
 const query = new URLSearchParams({
     dataset_id: datasetId,
-    dataset_url: datasetUrl || `${root}api/datasets/${datasetId}/display`,
     root,
 }).toString();
 

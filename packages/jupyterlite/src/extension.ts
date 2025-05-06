@@ -23,7 +23,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
         console.log("Activated jl-galaxy!", app);
         await waitFor(() => !!app.shell && !!app.docRegistry.getWidgetFactory("Notebook"));
         const params = new URLSearchParams(window.location.search);
-        const datasetUrl = params.get("dataset_url");
+        const datasetId = params.get("dataset_id");
+        const root = params.get("root");
+        const datasetUrl = `${root}api/datasets/${datasetId}/display`;
         if (datasetUrl) {
             console.log("📥 Loading notebook from:", datasetUrl);
             try {
@@ -32,7 +34,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                     throw new Error(`Failed to fetch notebook: ${res.statusText}`);
                 }
                 const nbContent = await res.json();
-                const filename = datasetUrl.split("/").pop() || "imported.ipynb";
+                const filename = "imported.ipynb";
                 await app.serviceManager.contents.save(filename, {
                     type: "notebook",
                     format: "json",
