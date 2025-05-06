@@ -4,4 +4,3 @@ node_modules
 .cache
 lerna-debug.log
 .DS_Store
-.jupyterlite.doit.db
