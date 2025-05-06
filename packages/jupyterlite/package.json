@@ -8,7 +8,7 @@
         "build:jupyter": "jupyter lite build --output-dir static/dist/_output",
         "build:index": "cpx src/index.js static/dist",
         "serve": "jupyter lite serve --output-dir static/dist/_output",
-        "prettier": "prettier --write 'package.json' 'install-extension.js' 'src/*.js'"
+        "prettier": "prettier --write 'package.json' 'install-extension.js' 'src/*.js' 'src/*.ts'"
     },
     "devDependencies": {
         "cpx": "^1.5.0",

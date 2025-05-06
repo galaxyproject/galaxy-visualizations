@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const JUPYTER_DIR= "static/dist/_output";
+const JUPYTER_DIR = "static/dist/_output";
 const EXTENSION_NAME = "jl-galaxy";
 const EXTENSION_FILE = path.join(__dirname, "build/extension.js");
 const ENTRY_FILE = path.join(__dirname, "src/entry.js");
