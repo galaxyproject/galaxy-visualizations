@@ -65,17 +65,15 @@ const DISABLED = [
     "@jupyterlab/toc-extension",
 ];
 
-jupyterConfig.disabledExtensions = Array.from(
-    new Set([...(jupyterConfig.disabledExtensions || []), ...DISABLED])
-);
+jupyterConfig.disabledExtensions = Array.from(new Set([...(jupyterConfig.disabledExtensions || []), ...DISABLED]));
 console.log(`✅ Disabled sidebar extensions: ${DISABLED.join(", ")}`);
 
 // ---- Add kernelSpecs ----
 jupyterConfig.kernelSpecs = {
     python: {
         name: "python",
-        display_name: "Python (Pyodide)"
-    }
+        display_name: "Python (Pyodide)",
+    },
 };
 console.log(`✅ Added kernelSpecs configuration for Pyodide`);
 
