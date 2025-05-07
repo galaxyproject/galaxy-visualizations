@@ -63,6 +63,15 @@ const DISABLED = [
     "@jupyterlab/launcher-extension",
     "@jupyterlab/running-extension",
     "@jupyterlab/toc-extension",
+    "@jupyterlab/fileeditor-extension:plugin",
+    "@jupyterlab/fileeditor-extension:cursor-position",
+    "@jupyterlab/fileeditor-extension:completer",
+    "@jupyterlab/fileeditor-extension:language-server",
+    "@jupyterlab/fileeditor-extension:editor-syntax-status",
+    "@jupyterlab/fileeditor-extension:tab-space-status",
+    "@jupyterlab/notebook-extension:toc",
+    "@jupyterlite/application-extension:share-file",
+    "@jupyterlab/tooltip-extension:files",
 ];
 
 jupyterConfig.disabledExtensions = Array.from(new Set([...(jupyterConfig.disabledExtensions || []), ...DISABLED]));
