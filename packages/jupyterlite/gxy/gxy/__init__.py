@@ -23,7 +23,7 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         datasets_identifiers = [datasets_identifiers]
     if identifier_type == "regex":
         identifier_type = "hid"
-        datasets_identifiers = _find_matching_ids(datasets_identifiers, identifier_type, history_datasets)
+        datasets_identifiers = _find_matching_ids(history_datasets, datasets_identifiers, identifier_type)
 
     # download filtered datasets
     for dataset_id in datasets_identifiers:
@@ -76,18 +76,16 @@ async def get_history(history_id=None):
 
 
 async def get_history_id():
-    """
-        Returns the history identifer associated
-        with the launching notebook dataset.
-    """
-    from js import window, fetch
-    import urllib.parse
-    query = window.location.search
-    params = urllib.parse.parse_qs(query[1:])
-    dataset_id_list = params.get("dataset_id")
-    if not dataset_id_list:
-        raise ValueError("Missing 'dataset_id' in URL query string")
-    dataset_id = dataset_id_list[0]
+    from js import fetch
+    import json
+    try:
+        with open("gxy.json", "r") as f:
+            context = json.load(f)
+    except Exception as e:
+        raise ValueError("Failed to read gxy.json: " + str(e))
+    dataset_id = context.get("dataset_id")
+    if not dataset_id:
+        raise ValueError("Missing 'dataset_id' in gxy.json")
     url = f"/api/datasets/{dataset_id}"
     response = await fetch(url)
     if not response.ok:
@@ -100,13 +98,10 @@ async def get_history_id():
 
 
 async def put(filename, file_type="auto", history_id=None):
-    from js import fetch, console, FormData, Blob
-
+    from js import fetch, FormData, Blob
     history_id = history_id or await get_history_id()
-
     with open(filename, "r") as f:
         data = f.read()
-
     blob = Blob.new([data])
     form = FormData.new()
     form.append("files_0|file_data", blob, filename)
@@ -114,19 +109,16 @@ async def put(filename, file_type="auto", history_id=None):
     form.append("files_0|dbkey", "?")
     form.append("files_0|file_type", file_type)
     form.append("history_id", history_id)
-
     response = await fetch("/api/tools", {
         "method": "POST",
         "body": form
     })
-
     if not response.ok:
         raise Exception(f"Upload failed: {response.status}")
+    print(f"✅ Uploaded {filename} to Galaxy")
 
-    console.log(f"✅ Uploaded {filename} to Galaxy")
 
-
-def _find_matching_ids(list_of_regex_patterns, identifier_type='hid', history_datasets):
+def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type='hid'):
     """
     Given a list of regex patterns, return matching dataset HIDs or IDs
     from the current Galaxy history.

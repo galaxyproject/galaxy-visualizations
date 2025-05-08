@@ -23,7 +23,7 @@ const GXY_TARGET_WHEEL = path.join(GXY_TARGET_DIR, path.basename(GXY_SOURCE_WHEE
 
 // ---- Optionally disable extensions e.g. side panel ----
 const DISABLED = [
-    "@jupyterlab/filebrowser-extension",
+    /*"@jupyterlab/filebrowser-extension",
     "@jupyterlab/launcher-extension",
     "@jupyterlab/running-extension",
     "@jupyterlab/toc-extension",
@@ -35,7 +35,7 @@ const DISABLED = [
     "@jupyterlab/fileeditor-extension:tab-space-status",
     "@jupyterlab/notebook-extension:toc",
     "@jupyterlite/application-extension:share-file",
-    "@jupyterlab/tooltip-extension:files",
+    "@jupyterlab/tooltip-extension:files",*/
 ];
 
 // ---- Ensure base output dir exists ----

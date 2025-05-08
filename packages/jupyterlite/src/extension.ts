@@ -27,6 +27,20 @@ function getPayload(name: string, history_id: string, content: string) {
     };
 }
 
+async function storeEnvironment(app: JupyterFrontEnd) {
+    const params = new URLSearchParams(window.location.search);
+    const context: Record<string, string> = {};
+    for (const [key, value] of params.entries()) {
+        context[key] = value;
+    }
+    await app.serviceManager.contents.save("gxy.json", {
+        type: "file",
+        format: "text",
+        content: JSON.stringify(context, null, 2),
+    });
+    console.log("✅ Injected gxy.json with:", context);
+}
+
 async function waitFor(condition: () => boolean | Promise<boolean>): Promise<void> {
     const start = Date.now();
     return new Promise((resolve, reject) => {
@@ -59,6 +73,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
             const { data: details } = await axios.get(`${root}api/datasets/${datasetId}`);
             const historyId = details.history_id;
             const datasetName = details.name;
+
+            // save query parameters to environment
+            storeEnvironment(app);
 
             // load notebook
             console.log("📥 Loading notebook from:", datasetUrl);
