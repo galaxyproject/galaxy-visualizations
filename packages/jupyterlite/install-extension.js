@@ -65,11 +65,11 @@ console.log(`✅ Copied GXY wheel → ${GXY_TARGET_WHEEL}`);
 // ---- Add GXY wheel to kernel extension ----
 jupyterConfig.litePluginSettings = {
     "@jupyterlite/pyodide-kernel-extension:kernel": {
-        "loadPyodideOptions": {
-            "packages": [`../../../../pypi/${path.basename(GXY_SOURCE_WHEEL)}`]
-        }
-    }
-}
+        loadPyodideOptions: {
+            packages: [`../../../../pypi/${path.basename(GXY_SOURCE_WHEEL)}`],
+        },
+    },
+};
 
 // ---- Ensure federated_extensions array exists and add plugin ----
 const federated = (jupyterConfig.federated_extensions ||= []);

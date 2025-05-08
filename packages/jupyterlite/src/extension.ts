@@ -44,52 +44,11 @@ async function waitFor(condition: () => boolean | Promise<boolean>): Promise<voi
     });
 }
 
-function injectHelpers(app: JupyterFrontEnd) {
-    const injected = new Set<string>();
-    const tryInject = async (kernelModel: any) => {
-        if (kernelModel?.id && !injected.has(kernelModel.id)) {
-            const sessions = app.serviceManager.sessions.running();
-            const matching = [...sessions].find((s: any) => s.kernel?.id === kernelModel.id);
-            if (matching) {
-                try {
-                    const session = app.serviceManager.sessions.connectTo({ model: matching });
-                    if (session.kernel) {
-                        const future = session.kernel.requestExecute({
-                            code: `def get(dataset_id): return f"Downloading {dataset_id}"\ndef put(dataset_id, content): return f"Uploading to {dataset_id} with content {len(content)} bytes"`,
-                        });
-                        await future.done;
-                        injected.add(kernelModel.id);
-                        console.log("✅ Galaxy helpers injected into kernel:", kernelModel.name || kernelModel.id);
-                    } else {
-                        console.warn("⚠️ No kernel in session for:", kernelModel.id);
-                    }
-                } catch (err) {
-                    console.error("❌ Kernel injection failed:", err);
-                }
-            } else {
-                console.warn("⚠️ No session found for kernel:", kernelModel.id);
-            }
-        }
-    };
-    app.serviceManager.kernels.ready.then(() => {
-        app.serviceManager.kernels.runningChanged.connect(async (_, kernelModels) => {
-            if (Array.isArray(kernelModels)) {
-                for (const kernelModel of kernelModels) {
-                    await tryInject(kernelModel);
-                }
-            } else {
-                console.warn("⚠️ Expected kernel model array, got:", kernelModels);
-            }
-        });
-    });
-}
-
 const plugin: JupyterFrontEndPlugin<void> = {
     id: "jl-galaxy:plugin",
     autoStart: true,
     activate: async (app: JupyterFrontEnd) => {
         console.log("Activating jl-galaxy...", app);
-        injectHelpers(app);
         await waitFor(() => !!app.shell && !!app.docRegistry.getWidgetFactory("Notebook"));
         const params = new URLSearchParams(window.location.search);
         const datasetId = params.get("dataset_id");
