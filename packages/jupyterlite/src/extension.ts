@@ -2,8 +2,7 @@ import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application"
 import { showDialog, Dialog } from "@jupyterlab/apputils";
 import axios from "axios";
 
-const INTERVAL = 1000;
-const TIMEOUT = 15000;
+const TIMEOUT = 100;
 
 function getPayload(name: string, history_id: string, content: string) {
     return {
@@ -27,15 +26,6 @@ function getPayload(name: string, history_id: string, content: string) {
     };
 }
 
-function getEnvironment() {
-    const params = new URLSearchParams(window.location.search);
-    const context: Record<string, string> = {};
-    for (const [key, value] of params.entries()) {
-        context[key] = value;
-    }
-    return context;
-}
-
 async function waitFor(condition: () => boolean | Promise<boolean>): Promise<void> {
     const start = Date.now();
     return new Promise((resolve, reject) => {
@@ -43,10 +33,10 @@ async function waitFor(condition: () => boolean | Promise<boolean>): Promise<voi
             const result = await condition();
             if (result) {
                 resolve();
-            } else if (Date.now() - start > TIMEOUT) {
+            } else if (Date.now() - start > TIMEOUT * TIMEOUT) {
                 reject(new Error("Timeout waiting for condition"));
             } else {
-                setTimeout(check, INTERVAL);
+                setTimeout(check, TIMEOUT);
             }
         };
         check();

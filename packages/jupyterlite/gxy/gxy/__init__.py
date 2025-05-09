@@ -4,8 +4,6 @@ from js import fetch
 from pyodide.ffi import to_js
 
 
-ATTEMPTS = 100
-
 async def get(datasets_identifiers, identifier_type='hid', history_id=None, retrieve_datatype=False):
     """
     Downloads dataset(s) from the current Galaxy history.
