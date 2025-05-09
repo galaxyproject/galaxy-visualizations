@@ -1,8 +1,9 @@
+import asyncio
 import json
 import os
-from js import fetch
-from pyodide.ffi import to_js
-
+import pyodide_js
+from js import XMLHttpRequest, File, FormData, fetch, Promise
+from pyodide.ffi import create_proxy, to_js
 
 async def get(datasets_identifiers, identifier_type='hid', history_id=None, retrieve_datatype=False):
     """
@@ -127,34 +128,30 @@ async def get_history_id():
 
 async def put(name, ext="auto", history_id=None):
     history_id = history_id or await get_history_id()
-    with open(name, "r") as f:
-        paste_content = f.read()
-    url = get_api("/api/tools/fetch")
-    payload = {
-        "history_id": history_id,
-        "targets": [{
-            "destination": {"type": "hdas"},
-            "elements": [{
-                "src": "pasted",
-                "paste_content": paste_content,
-                "dbkey": "?",
-                "ext": ext,
-                "name": f"jl{name}.dat"
-            }]
+    file_bytes = pyodide_js.FS.readFile(name)
+    file_obj = File.new([to_js(file_bytes)], name)
+    form = FormData.new()
+    form.append("history_id", history_id)
+    form.append("targets", json.dumps([{
+        "destination": {"type": "hdas"},
+        "elements": [{
+            "src": "files",
+            "dbkey": "?",
+            "ext": ext,
+            "name": name
         }]
-    }
-    options = {
-        "method": "POST",
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "body": json.dumps(payload)
-    }
-    response = await fetch(url, to_js(options))
-    if not response.ok:
-        error_text = await response.text()
-        raise Exception(f"Upload failed: {response.status} - {error_text}")
-    return name
+    }]))
+    form.append("files_0|file_data", file_obj)
+    xhr = XMLHttpRequest.new()
+    future = asyncio.Future()
+    onload = create_proxy(lambda e: future.set_result(xhr))
+    onerror = create_proxy(lambda e: future.set_exception(Exception(f"Upload failed: {xhr.status} - {xhr.responseText}")))
+    xhr.addEventListener("load", onload)
+    xhr.addEventListener("error", onerror)
+    xhr.open("POST", get_api("/api/tools/fetch"))
+    xhr.send(form)
+    response = await future
+    return response.responseText
 
 
 def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type='hid'):
