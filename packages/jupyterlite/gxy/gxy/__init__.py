@@ -1,3 +1,9 @@
+import json
+import os
+from js import fetch
+from pyodide.ffi import to_js
+
+
 ATTEMPTS = 100
 
 async def get(datasets_identifiers, identifier_type='hid', history_id=None, retrieve_datatype=False):
@@ -9,8 +15,6 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         - A list of paths or a single path if only one dataset
         - Optionally, datatype(s) if `retrieve_datatype=True`
     """
-    from js import fetch
-    import os
 
     file_path_all = []
     datatypes_all = []
@@ -40,7 +44,7 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         # download only if not already written
         if not os.path.exists(path):
             if ds["history_content_type"] == "dataset":
-                url = f"/api/datasets/{ds['id']}/display"
+                url = get_api(f"/api/datasets/{ds['id']}/display")
                 response = await fetch(url)
                 if not response.ok:
                     raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
@@ -67,6 +71,13 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         return file_path_all[0] if len(file_path_all) == 1 else file_path_all
 
 
+def get_api(url):
+    gxy = get_environment()
+    root = gxy.get("root")
+    trimmed = url[1:] if url.startswith("/") else url
+    return f"{root}{trimmed}"
+
+
 async def get_history(history_id=None):
     """
        Get all visible dataset infos of user history.
@@ -75,7 +86,7 @@ async def get_history(history_id=None):
     import json
     from js import fetch
     history_id = history_id or await get_history_id()
-    url = f"/api/histories/{history_id}/contents"
+    url = get_api(f"/api/histories/{history_id}/contents")
     response = await fetch(url)
     if not response.ok:
         raise Exception(f"Failed to fetch history {history_id}: {response.status}")
@@ -84,20 +95,17 @@ async def get_history(history_id=None):
 
 
 def get_environment():
-    import json, os
     if "__gxy__" in os.environ:
         return json.loads(os.environ["__gxy__"])
     raise RuntimeError("__gxy__ not found in environment")
 
 
 async def get_history_id():
-    from js import fetch
-    import json
     gxy = get_environment()
     dataset_id = gxy.get("dataset_id")
     if not dataset_id:
         raise ValueError("Missing 'dataset_id' in gxy")
-    url = f"/api/datasets/{dataset_id}"
+    url = get_api(f"/api/datasets/{dataset_id}")
     response = await fetch(url)
     if not response.ok:
         raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
@@ -111,25 +119,36 @@ async def get_history_id():
     return history_id
 
 
-async def put(filename, file_type="auto", history_id=None):
-    from js import fetch, FormData, Blob
+async def put(name, ext="auto", history_id=None):
     history_id = history_id or await get_history_id()
-    with open(filename, "r") as f:
-        data = f.read()
-    blob = Blob.new([data])
-    form = FormData.new()
-    form.append("files_0|file_data", blob, filename)
-    form.append("files_0|type", "upload_dataset")
-    form.append("files_0|dbkey", "?")
-    form.append("files_0|file_type", file_type)
-    form.append("history_id", history_id)
-    response = await fetch("/api/tools", {
+    with open(name, "r") as f:
+        paste_content = f.read()
+    url = get_api("/api/tools/fetch")
+    payload = {
+        "history_id": history_id,
+        "targets": [{
+            "destination": {"type": "hdas"},
+            "elements": [{
+                "src": "pasted",
+                "paste_content": paste_content,
+                "dbkey": "?",
+                "ext": ext,
+                "name": name
+            }]
+        }]
+    }
+    options = {
         "method": "POST",
-        "body": form
-    })
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": json.dumps(payload)
+    }
+    response = await fetch(url, to_js(options))
     if not response.ok:
-        raise Exception(f"Upload failed: {response.status}")
-    print(f"✅ Uploaded {filename} to Galaxy")
+        error_text = await response.text()
+        raise Exception(f"Upload failed: {response.status} - {error_text}")
+    return name
 
 
 def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type='hid'):
@@ -161,5 +180,4 @@ def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type
     return list(set(matching_ids))
 
 
-print("🛰️ Galaxy helpers loaded. Use `get(dataset_id)` and `put(filename)` to interact with your Galaxy history.")
 __all__ = ["get", "get_environment", "get_history", "get_history_id", "put"]
