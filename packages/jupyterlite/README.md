@@ -92,7 +92,7 @@ await get("myfile.*", identifier_type="regex")
 
 ---
 
-### ✅ `put(name, output=None, ext="auto", history_id=None)`
+### ✅ `put(name, output=None, ext="auto", dbkey="?", history_id=None)`
 Uploads a file from the virtual filesystem to the current Galaxy history.
 
 ```python
