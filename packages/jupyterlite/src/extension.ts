@@ -36,43 +36,6 @@ function getEnvironment() {
     return context;
 }
 
-function watchKernels(app: JupyterFrontEnd) {
-    const env = getEnvironment();
-    const processed = new Set<string>();
-    const injectEnvironment = async (kernelModel: any) => {
-        if (kernelModel?.id && !processed.has(kernelModel.id)) {
-            processed.add(kernelModel.id);
-            const sessions = app.serviceManager.sessions.running();
-            const matching = [...sessions].find((s: any) => s.kernel?.id === kernelModel.id);
-            if (matching) {
-                try {
-                    const session = app.serviceManager.sessions.connectTo({ model: matching });
-                    if (session.kernel) {
-                        const escaped = JSON.stringify(env).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-                        const code = `import json\n__gxy__ = json.loads('${escaped}')`;
-                        const future = session.kernel.requestExecute({ code });
-                        await future.done;
-                        console.log("✅ Galaxy Environment injected into kernel:", kernelModel.name || kernelModel.id);
-                    } else {
-                        console.error("❌ No kernel in session for:", kernelModel.id);
-                    }
-                } catch (err) {
-                    console.error("❌ Kernel injection failed:", err);
-                }
-            }
-        }
-    };
-    app.serviceManager.kernels.runningChanged.connect(async (_, kernelModels) => {
-        if (Array.isArray(kernelModels)) {
-            for (const kernelModel of kernelModels) {
-                await injectEnvironment(kernelModel);
-            }
-        } else {
-            console.error("❌ Expected kernel model array, got:", kernelModels);
-        }
-    });
-}
-
 async function waitFor(condition: () => boolean | Promise<boolean>): Promise<void> {
     const start = Date.now();
     return new Promise((resolve, reject) => {
@@ -105,9 +68,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
             const { data: details } = await axios.get(`${root}api/datasets/${datasetId}`);
             const historyId = details.history_id;
             const datasetName = details.name;
-
-            // save query parameters to environment
-            watchKernels(app);
 
             // load notebook
             console.log("📥 Loading notebook from:", datasetUrl);
