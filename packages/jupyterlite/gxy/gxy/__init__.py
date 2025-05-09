@@ -83,27 +83,15 @@ async def get_history(history_id=None):
     return json.loads(text)
 
 
-def check_id():
-    import sys
-    import importlib
-    if "__main__" in sys.modules:
-        importlib.reload(sys.modules["__main__"])
-    import __main__
-    return hasattr(__main__, "__gxy__")
+def get_environment():
+    import os
+    if "__gxy__" in os.environ:
+        return os.environ["__gxy__"]
+    raise RuntimeError("__gxy__ not found in environment")
+
 
 async def get_history_id():
-    import asyncio
-    import json
-    from js import fetch
-    await asyncio.sleep(1)
-    for _ in range(ATTEMPTS):
-        import __main__
-        if check_id():
-            break
-        await asyncio.sleep(0.1)
-    else:
-        raise RuntimeError("__gxy__ not found in global scope after waiting")
-    gxy = __main__.__gxy__
+    gxy = get_environment()
     dataset_id = gxy.get("dataset_id")
     if not dataset_id:
         raise ValueError("Missing 'dataset_id' in gxy")
@@ -172,4 +160,4 @@ def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type
 
 
 print("🛰️ Galaxy helpers loaded. Use `get(dataset_id)` and `put(filename)` to interact with your Galaxy history.")
-__all__ = ["get", "get_history", "get_history_id", "put"]
+__all__ = ["get", "get_environment", "get_history", "get_history_id", "put"]

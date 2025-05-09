@@ -11,10 +11,17 @@ if (!fs.existsSync(file)) {
 let contents = fs.readFileSync(file, "utf-8");
 
 const marker = "const config = await jupyterConfigData();";
-const injectedLine = "config.contentsStorageName = encodeURIComponent(window.location.href);";
+const injection = `
+    const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
+    config.contentsStorageName = encodeURIComponent(window.location.href);
+    const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
+    config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
+        __gxy__: JSON.stringify(searchParams)
+    };
+`;
 
 // Already patched? No problem, continue silently
-if (contents.includes(injectedLine)) {
+if (contents.includes(injection)) {
     console.log("✅ config-utils.js already patched.");
     process.exit(0);
 }
@@ -26,6 +33,6 @@ if (!contents.includes(marker)) {
 }
 
 // Inject patch
-const patched = contents.replace(marker, `${marker}\n  ${injectedLine}`);
+const patched = contents.replace(marker, `${marker}\n  ${injection}`);
 fs.writeFileSync(file, patched, "utf-8");
 console.log("✅ Patched config-utils.js.");
