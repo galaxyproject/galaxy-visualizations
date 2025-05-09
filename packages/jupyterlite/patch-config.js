@@ -13,7 +13,6 @@ let contents = fs.readFileSync(file, "utf-8");
 const marker = "const config = await jupyterConfigData();";
 const injection = `
     const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
-    config.contentsStorageName = encodeURIComponent(window.location.href);
     const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
     config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
         __gxy__: JSON.stringify(searchParams)

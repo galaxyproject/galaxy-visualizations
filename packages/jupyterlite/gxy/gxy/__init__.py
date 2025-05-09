@@ -4,8 +4,6 @@ from js import fetch
 from pyodide.ffi import to_js
 
 
-ATTEMPTS = 100
-
 async def get(datasets_identifiers, identifier_type='hid', history_id=None, retrieve_datatype=False):
     """
     Downloads dataset(s) from the current Galaxy history.
@@ -32,14 +30,16 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         datasets_identifiers = _find_matching_ids(history_datasets, datasets_identifiers, identifier_type)
 
     # ensure directory
-    os.makedirs("/import", exist_ok=True)
+    os.makedirs(f"/{history_id}", exist_ok=True)
 
     # download filtered datasets
     for dataset_id in datasets_identifiers:
         if identifier_type == "hid":
             dataset_id = int(dataset_id)
+        if dataset_id not in datasets:
+            raise Exception(f"Unavailable dataset identifer: {dataset_id}")
         ds = datasets[dataset_id]
-        path = f"/import/{dataset_id}"
+        path = f"/{history_id}/{dataset_id}"
 
         # download only if not already written
         if not os.path.exists(path):
@@ -133,7 +133,7 @@ async def put(name, ext="auto", history_id=None):
                 "paste_content": paste_content,
                 "dbkey": "?",
                 "ext": ext,
-                "name": name
+                "name": f"jl{name}.dat"
             }]
         }]
     }
