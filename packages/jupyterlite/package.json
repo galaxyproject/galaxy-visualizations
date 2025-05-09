@@ -6,12 +6,11 @@
         "static/dist"
     ],
     "scripts": {
-        "build": "webpack && npm run build:jupyter && npm run build:gxy && npm run build:extension && npm run build:patch && npm run build:index",
+        "build": "webpack && npm run build:jupyter && npm run build:gxy && npm run build:extension && npm run build:index",
         "build:extension": "node install-extension.js",
         "build:gxy": "cd gxy && python -m build --wheel",
         "build:index": "cpx src/index.js static/dist",
         "build:jupyter": "jupyter lite build --output-dir static/dist/_output --config static/dist/_output/jupyter-lite.json",
-        "build:patch": "node patch-config.js",
         "dev": "jupyter lite serve --output-dir static/dist/_output --config static/dist/_output/jupyter-lite.json",
         "prettier": "prettier --write 'package.json' '*.js' 'src/*.js' 'src/*.ts'"
     },
