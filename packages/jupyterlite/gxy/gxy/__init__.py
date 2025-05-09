@@ -49,7 +49,6 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
     # collect all datasets from the history
     history_id = history_id or await get_history_id()
     history_datasets = await get_history(history_id)
-    datasets = {ds[identifier_type]: ds for ds in history_datasets}
 
     # filter datasets
     if not isinstance(datasets_identifiers, list):
@@ -60,6 +59,9 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
 
     # ensure directory
     os.makedirs(f"/{history_id}", exist_ok=True)
+
+    # index datasets
+    datasets = {ds[identifier_type]: ds for ds in history_datasets}
 
     # download filtered datasets
     for dataset_id in datasets_identifiers:
