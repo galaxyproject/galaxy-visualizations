@@ -48,7 +48,8 @@ function watchKernels(app: JupyterFrontEnd) {
                 try {
                     const session = app.serviceManager.sessions.connectTo({ model: matching });
                     if (session.kernel) {
-                        const code = `import json\n__gxy__ = json.loads('${JSON.stringify(env).replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')`;
+                        const escaped = JSON.stringify(env).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+                        const code = `import json\n__gxy__ = json.loads('${escaped}')`;
                         const future = session.kernel.requestExecute({ code });
                         await future.done;
                         console.log("✅ Galaxy Environment injected into kernel:", kernelModel.name || kernelModel.id);

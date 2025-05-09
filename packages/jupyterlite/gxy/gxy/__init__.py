@@ -1,3 +1,5 @@
+ATTEMPTS = 100
+
 async def get(datasets_identifiers, identifier_type='hid', history_id=None, retrieve_datatype=False):
     """
     Downloads dataset(s) from the current Galaxy history.
@@ -76,16 +78,17 @@ async def get_history(history_id=None):
 
 
 async def get_history_id():
+    import asyncio
     from js import fetch
-    import json
-    try:
-        with open("gxy.json", "r") as f:
-            context = json.load(f)
-    except Exception as e:
-        raise ValueError("Failed to read gxy.json: " + str(e))
-    dataset_id = context.get("dataset_id")
+    for _ in range(ATTEMPTS):
+        if "__gxy__" in globals():
+            break
+        await asyncio.sleep(0.1)
+    else:
+        raise RuntimeError("__gxy__ not found in global scope after waiting")
+    dataset_id = __gxy__.get("dataset_id")
     if not dataset_id:
-        raise ValueError("Missing 'dataset_id' in gxy.json")
+        raise ValueError("Missing 'dataset_id' in gxy")
     url = f"/api/datasets/{dataset_id}"
     response = await fetch(url)
     if not response.ok:
@@ -93,7 +96,7 @@ async def get_history_id():
     data = await response.json()
     history_id = data.get("history_id")
     if not history_id:
-        raise ValueError("Missing 'history_id' in dataset metadata")
+        raise ValueError("Missing 'history_id' in dataset metadata", data)
     return history_id
 
 
@@ -148,4 +151,4 @@ def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type
 
 
 print("🛰️ Galaxy helpers loaded. Use `get(dataset_id)` and `put(filename)` to interact with your Galaxy history.")
-__all__ = ["get", "get_history", "put"]
+__all__ = ["get", "get_history", "get_history_id", "put"]
