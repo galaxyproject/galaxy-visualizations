@@ -30,14 +30,14 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         datasets_identifiers = _find_matching_ids(history_datasets, datasets_identifiers, identifier_type)
 
     # ensure directory
-    os.makedirs("/import", exist_ok=True)
+    os.makedirs(f"/{history_id}", exist_ok=True)
 
     # download filtered datasets
     for dataset_id in datasets_identifiers:
         if identifier_type == "hid":
             dataset_id = int(dataset_id)
         ds = datasets[dataset_id]
-        path = f"/import/{dataset_id}"
+        path = f"/{history_id}/{dataset_id}"
 
         # download only if not already written
         if not os.path.exists(path):
