@@ -48,12 +48,18 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
                 response = await fetch(url)
                 if not response.ok:
                     raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
-                content = await response.text()
-                with open(path, "w") as f:
-                    f.write(content)
+                content_type = response.headers.get("Content-Type", "")
+                if content_type.startswith("text/"):
+                    content = await response.text()
+                    with open(path, "w") as f:
+                        f.write(content)
+                else:
+                    buffer = await response.arrayBuffer()
+                    data = bytearray(buffer.to_py())
+                    with open(path, "wb") as f:
+                        f.write(data)
                 file_path_all.append(path)
             elif ds["history_content_type"] == "dataset_collection":
-                # not implemented, download zip and uncompress
                 raise Exception("Not implemented.")
         else:
             file_path_all.append(path)
