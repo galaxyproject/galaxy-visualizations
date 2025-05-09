@@ -52,70 +52,71 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const params = new URLSearchParams(window.location.search);
         const datasetId = params.get("dataset_id");
         const root = params.get("root");
-        const datasetUrl = `${root}api/datasets/${datasetId}/display`;
-
-        try {
-            const { data: details } = await axios.get(`${root}api/datasets/${datasetId}`);
-            const historyId = details.history_id;
-            const datasetName = details.name;
-
-            // load notebook
-            console.log("📥 Loading notebook from:", datasetUrl);
+        if (datasetId) {
             try {
-                const res = await fetch(datasetUrl);
-                if (res.ok) {
-                    const nbContent = await res.json();
-                    await app.serviceManager.contents.save(datasetName, {
-                        type: "notebook",
-                        format: "json",
-                        content: nbContent,
-                    });
-                    await app.commands.execute("docmanager:open", {
-                        path: datasetName,
-                        factory: "Notebook",
-                    });
-                    console.log("✅ Notebook opened:", datasetName);
-                } else {
-                    throw new Error(`Failed to fetch notebook: ${res.statusText}`);
-                }
-            } catch (err) {
-                console.error("❌ Could not load dataset notebook:", err);
-            }
-
-            // save notebook
-            app.commands.commandExecuted.connect((_, args) => {
-                if (args.id === "docmanager:save") {
-                    console.log("✅ Detected save");
-                    const widget = app.shell.currentWidget;
-                    const model = (widget as any)?.content?.model;
-                    const context = (widget as any)?.context;
-                    const actualName = context?.path?.split("/").pop() || "untitled.ipynb";
-                    if (model?.toJSON) {
-                        showDialog({
-                            title: "Save to Galaxy?",
-                            body: `Do you want to export "${actualName}" to your Galaxy history?`,
-                            buttons: [Dialog.cancelButton(), Dialog.okButton({ label: "Export" })],
-                        }).then((result) => {
-                            if (result.button.accept) {
-                                const content = JSON.stringify(model.toJSON(), null, 2);
-                                const payload = getPayload(actualName, historyId, content);
-                                axios
-                                    .post(`${root}api/tools/fetch`, payload)
-                                    .then(() => {
-                                        console.log(`✅ Notebook "${actualName}" saved to history`);
-                                    })
-                                    .catch((err) => {
-                                        console.error(`❌ Could not save "${actualName}" to history:`, err);
-                                    });
-                            } else {
-                                console.log("🚫 Export to Galaxy canceled by user");
-                            }
+                // load notebook
+                const { data: details } = await axios.get(`${root}api/datasets/${datasetId}`);
+                const historyId = details.history_id;
+                const datasetUrl = `${root}api/datasets/${datasetId}/display`;
+                console.log("📥 Loading notebook from:", datasetUrl);
+                try {
+                    const res = await fetch(datasetUrl);
+                    if (res.ok) {
+                        const nbContent = await res.json();
+                        await app.serviceManager.contents.save(datasetId, {
+                            type: "notebook",
+                            format: "json",
+                            content: nbContent,
                         });
+                        await app.commands.execute("docmanager:open", {
+                            path: datasetId,
+                            factory: "Notebook",
+                        });
+                        console.log("✅ Notebook opened:", datasetId);
+                    } else {
+                        throw new Error(`Failed to fetch notebook: ${res.statusText}`);
                     }
+                } catch (err) {
+                    console.error("❌ Could not load dataset notebook:", err);
                 }
-            });
-        } catch (err) {
-            console.error("❌ Could not load dataset details:", err);
+
+                // save notebook
+                app.commands.commandExecuted.connect((_, args) => {
+                    if (args.id === "docmanager:save") {
+                        console.log("✅ Detected save");
+                        const widget = app.shell.currentWidget;
+                        const model = (widget as any)?.content?.model;
+                        const context = (widget as any)?.context;
+                        const actualName = context?.path?.split("/").pop() || "untitled.ipynb";
+                        if (model?.toJSON) {
+                            showDialog({
+                                title: "Save to Galaxy?",
+                                body: `Do you want to export "${actualName}" to your Galaxy history?`,
+                                buttons: [Dialog.cancelButton(), Dialog.okButton({ label: "Export" })],
+                            }).then((result) => {
+                                if (result.button.accept) {
+                                    const content = JSON.stringify(model.toJSON(), null, 2);
+                                    const payload = getPayload(actualName, historyId, content);
+                                    axios
+                                        .post(`${root}api/tools/fetch`, payload)
+                                        .then(() => {
+                                            console.log(`✅ Notebook "${actualName}" saved to history`);
+                                        })
+                                        .catch((err) => {
+                                            console.error(`❌ Could not save "${actualName}" to history:`, err);
+                                        });
+                                } else {
+                                    console.log("🚫 Export to Galaxy canceled by user");
+                                }
+                            });
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("❌ Could not load dataset details:", err);
+            }
+        } else {
+            console.error("❌ Dataset identifer missing from query");
         }
     },
 };
