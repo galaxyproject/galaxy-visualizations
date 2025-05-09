@@ -1,3 +1,11 @@
 build/
+gxy/build
+gxy/dist
+gxy/gxy.egg-info
+node_modules/
+static/
 
 .jupyterlite.doit.db
+.venv/
+
+pyvenv.cfg
