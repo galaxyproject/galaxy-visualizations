@@ -169,7 +169,7 @@ async def get_history_id():
     return history_id
 
 
-async def put(name, ext="auto", history_id=None):
+async def put(name, output=None, ext="auto", history_id=None):
     """
     Uploads a local file from the Pyodide virtual filesystem to the current Galaxy history.
     Uses XMLHttpRequest with FormData to ensure correct binary file transfer to /api/tools/fetch.
@@ -185,7 +185,7 @@ async def put(name, ext="auto", history_id=None):
             "src": "files",
             "dbkey": "?",
             "ext": ext,
-            "name": name
+            "name": output or name
         }]
     }]))
     form.append("files_0|file_data", file_obj)
