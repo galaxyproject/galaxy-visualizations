@@ -27,6 +27,9 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         identifier_type = "hid"
         datasets_identifiers = _find_matching_ids(history_datasets, datasets_identifiers, identifier_type)
 
+    # ensure directory
+    os.makedirs("/import", exist_ok=True)
+
     # download filtered datasets
     for dataset_id in datasets_identifiers:
         if identifier_type == "hid":
@@ -69,34 +72,52 @@ async def get_history(history_id=None):
        Get all visible dataset infos of user history.
        Return a list of dict of each dataset.
     """
+    import json
+    from js import fetch
     history_id = history_id or await get_history_id()
     url = f"/api/histories/{history_id}/contents"
     response = await fetch(url)
     if not response.ok:
         raise Exception(f"Failed to fetch history {history_id}: {response.status}")
-    return await response.json()
+    text = await response.text()
+    return json.loads(text)
 
+
+def check_id():
+    import sys
+    import importlib
+    if "__main__" in sys.modules:
+        importlib.reload(sys.modules["__main__"])
+    import __main__
+    return hasattr(__main__, "__gxy__")
 
 async def get_history_id():
     import asyncio
+    import json
     from js import fetch
+    await asyncio.sleep(1)
     for _ in range(ATTEMPTS):
-        if "__gxy__" in globals():
+        import __main__
+        if check_id():
             break
         await asyncio.sleep(0.1)
     else:
         raise RuntimeError("__gxy__ not found in global scope after waiting")
-    dataset_id = __gxy__.get("dataset_id")
+    gxy = __main__.__gxy__
+    dataset_id = gxy.get("dataset_id")
     if not dataset_id:
         raise ValueError("Missing 'dataset_id' in gxy")
     url = f"/api/datasets/{dataset_id}"
     response = await fetch(url)
     if not response.ok:
         raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
-    data = await response.json()
-    history_id = data.get("history_id")
+    text = await response.text()
+    data = json.loads(text)
+    if "history_id" not in data:
+        raise ValueError("Missing 'history_id' in dataset metadata", text)
+    history_id = data["history_id"]
     if not history_id:
-        raise ValueError("Missing 'history_id' in dataset metadata", data)
+        raise ValueError("Undefined 'history_id' in dataset metadata", text)
     return history_id
 
 
