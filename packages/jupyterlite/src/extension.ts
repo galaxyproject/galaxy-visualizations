@@ -26,6 +26,20 @@ function getPayload(name: string, history_id: string, content: string) {
     };
 }
 
+function getTimestamp() {
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return (
+        now.getFullYear().toString() +
+        pad(now.getMonth() + 1) +
+        pad(now.getDate()) +
+        "-" +
+        pad(now.getHours()) +
+        pad(now.getMinutes()) +
+        pad(now.getSeconds())
+    );
+}
+
 async function waitFor(condition: () => boolean | Promise<boolean>): Promise<void> {
     const start = Date.now();
     return new Promise((resolve, reject) => {
@@ -51,6 +65,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         await waitFor(() => !!app.shell && !!app.docRegistry.getWidgetFactory("Notebook"));
         const params = new URLSearchParams(window.location.search);
         const datasetId = params.get("dataset_id");
+        const notebookName = `jl-${getTimestamp()}.ipynb`;
         const root = params.get("root");
         if (datasetId) {
             try {
@@ -63,16 +78,16 @@ const plugin: JupyterFrontEndPlugin<void> = {
                     const res = await fetch(datasetUrl);
                     if (res.ok) {
                         const nbContent = await res.json();
-                        await app.serviceManager.contents.save(datasetId, {
+                        await app.serviceManager.contents.save(notebookName, {
                             type: "notebook",
                             format: "json",
                             content: nbContent,
                         });
                         await app.commands.execute("docmanager:open", {
-                            path: datasetId,
+                            path: notebookName,
                             factory: "Notebook",
                         });
-                        console.log("✅ Notebook opened:", datasetId);
+                        console.log("✅ Notebook opened:", notebookName);
                     } else {
                         throw new Error(`Failed to fetch notebook: ${res.statusText}`);
                     }

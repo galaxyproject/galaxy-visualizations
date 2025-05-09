@@ -36,6 +36,8 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
     for dataset_id in datasets_identifiers:
         if identifier_type == "hid":
             dataset_id = int(dataset_id)
+        if dataset_id not in datasets:
+            raise Exception(f"Unavailable dataset identifer: {dataset_id}")
         ds = datasets[dataset_id]
         path = f"/{history_id}/{dataset_id}"
 
@@ -131,7 +133,7 @@ async def put(name, ext="auto", history_id=None):
                 "paste_content": paste_content,
                 "dbkey": "?",
                 "ext": ext,
-                "name": name
+                "name": f"jl{name}.dat"
             }]
         }]
     }
