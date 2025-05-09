@@ -84,13 +84,15 @@ async def get_history(history_id=None):
 
 
 def get_environment():
-    import os
+    import json, os
     if "__gxy__" in os.environ:
-        return os.environ["__gxy__"]
+        return json.loads(os.environ["__gxy__"])
     raise RuntimeError("__gxy__ not found in environment")
 
 
 async def get_history_id():
+    from js import fetch
+    import json
     gxy = get_environment()
     dataset_id = gxy.get("dataset_id")
     if not dataset_id:
