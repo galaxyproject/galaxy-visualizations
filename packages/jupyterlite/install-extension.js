@@ -26,7 +26,7 @@ const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
 const PYPI_PATH = "../../../../pypi/";
 
 // ---- Mapping to WASM-compatible packages ----
-const INSTALL = ["rpds-py"]
+const INSTALL = ["rpds-py"];
 
 // ---- Optionally disable extensions e.g. side panel ----
 const DISABLED = [
@@ -79,16 +79,21 @@ if (pipDownload.status !== 0) {
 }
 
 // ---- Collect names of additional wheels ----
-const wheelFiles = fs.readdirSync(PYPI_DIR).filter((f) => f.endsWith(".whl"));
-
-// ---- Scan for incompatible wheels ----
-const invalidWheels = wheelFiles.filter((f) => !f.includes("-none-any.whl"));
-if (invalidWheels.length > 0) {
-    for (const wheel of invalidWheels) {
-        console.warn(`❌ Native wheel detected, must be replaced with WASM-compatible version: ${wheel}`);
-        fs.unlinkSync(path.join(PYPI_DIR, wheel));
-    }
-}
+const wheelFiles = fs
+    .readdirSync(PYPI_DIR)
+    .filter((f) => f.endsWith(".whl"))
+    .filter((f) => {
+        const isValid = f.includes("-none-any.whl");
+        if (!isValid) {
+            const baseName = f.split("-")[0].replace(/_/g, "-");
+            if (!INSTALL.includes(baseName)) {
+                console.error(`❌ Native wheel detected, must be replaced with WASM-compatible version: ${f}`);
+                process.exit(1);
+            }
+            fs.unlinkSync(path.join(PYPI_DIR, f));
+        }
+        return isValid;
+    });
 
 // ---- Log names of additional wheels ----
 for (const file of wheelFiles) {
