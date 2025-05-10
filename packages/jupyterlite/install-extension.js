@@ -25,8 +25,8 @@ const GXY_TARGET_WHEEL = path.join(PYPI_DIR, path.basename(GXY_SOURCE_WHEEL));
 const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
 const PYPI_PATH = "../../../../pypi/";
 
-// ---- Mapping to WASM-compatible packages ----
-const INSTALL = ["rpds-py"];
+// ---- Install pyodide packages ----
+const INSTALL = ["numpy", "pandas", "rpds-py"];
 
 // ---- Optionally disable extensions e.g. side panel ----
 const DISABLED = [
