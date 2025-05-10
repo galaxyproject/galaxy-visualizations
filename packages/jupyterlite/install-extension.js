@@ -1,14 +1,15 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { spawnSync } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- Detect wheel ----
 const distDir = path.join(__dirname, "gxy/dist");
-const wheelFiles = fs.readdirSync(distDir).filter((f) => /^gxy-.*\.whl$/.test(f));
-if (wheelFiles.length === 0) {
+const gxyWheelFiles = fs.readdirSync(distDir).filter((f) => /^gxy-.*\.whl$/.test(f));
+if (gxyWheelFiles.length === 0) {
     console.error("❌ No matching GXY wheel found in gxy/dist/");
     process.exit(1);
 }
@@ -17,9 +18,15 @@ if (wheelFiles.length === 0) {
 const JUPYTER_DIR = "static/dist/_output";
 const EXTENSION_NAME = "jl-galaxy";
 const CONFIG_PATH = path.join(__dirname, JUPYTER_DIR, "jupyter-lite.json");
-const GXY_SOURCE_WHEEL = path.join(distDir, wheelFiles[0]);
-const GXY_TARGET_DIR = path.join(__dirname, JUPYTER_DIR, "pypi");
-const GXY_TARGET_WHEEL = path.join(GXY_TARGET_DIR, path.basename(GXY_SOURCE_WHEEL));
+const PYPI_DIR = path.join(__dirname, JUPYTER_DIR, "pypi");
+const GXY_SOURCE_WHEEL = path.join(distDir, gxyWheelFiles[0]);
+const GXY_TARGET_WHEEL = path.join(PYPI_DIR, path.basename(GXY_SOURCE_WHEEL));
+
+const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
+const PYPI_PATH = "../../../../pypi/";
+
+// ---- Mapping to WASM-compatible packages ----
+const INSTALL = ["rpds-py"]
 
 // ---- Optionally disable extensions e.g. side panel ----
 const DISABLED = [
@@ -47,8 +54,7 @@ if (fs.existsSync(CONFIG_PATH)) {
     config = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
     console.log("✅ Loaded existing jupyter-lite.json");
 } else {
-    console.error(`❌ jupyter-lite.json not found at ${CONFIG_PATH}`);
-    process.exit(1);
+    console.log("✅ Creating new jupyter-lite.json");
 }
 
 // ---- Setup jupyter-config-data ----
@@ -58,15 +64,43 @@ if (!config["jupyter-config-data"]) {
 const jupyterConfig = config["jupyter-config-data"];
 
 // ---- Copy GXY wheel to _output/pypi ----
-fs.mkdirSync(GXY_TARGET_DIR, { recursive: true });
+fs.mkdirSync(PYPI_DIR, { recursive: true });
 fs.copyFileSync(GXY_SOURCE_WHEEL, GXY_TARGET_WHEEL);
 console.log(`✅ Copied GXY wheel → ${GXY_TARGET_WHEEL}`);
 
-// ---- Add GXY wheel to kernel extension ----
+// ---- Download additional wheels ----
+const requirementsPath = path.join(__dirname, "pyodide.txt");
+const pipDownload = spawnSync("pip", ["download", "--dest", PYPI_DIR, "-r", requirementsPath], {
+    stdio: "inherit",
+});
+if (pipDownload.status !== 0) {
+    console.error("❌ pip download failed");
+    process.exit(1);
+}
+
+// ---- Collect names of additional wheels ----
+const wheelFiles = fs.readdirSync(PYPI_DIR).filter((f) => f.endsWith(".whl"));
+
+// ---- Scan for incompatible wheels ----
+const invalidWheels = wheelFiles.filter((f) => !f.includes("-none-any.whl"));
+if (invalidWheels.length > 0) {
+    for (const wheel of invalidWheels) {
+        console.warn(`❌ Native wheel detected, must be replaced with WASM-compatible version: ${wheel}`);
+        fs.unlinkSync(path.join(PYPI_DIR, wheel));
+    }
+}
+
+// ---- Log names of additional wheels ----
+for (const file of wheelFiles) {
+    console.log(`✅ Found downloaded wheel: ${file}`);
+}
+
+// ---- Add GXY and pip-downloaded wheels to kernel extension ----
+const urls = [GXY_SOURCE_WHEEL, ...wheelFiles.map((f) => path.join(PYPI_DIR, f))];
 jupyterConfig.litePluginSettings = {
-    "@jupyterlite/pyodide-kernel-extension:kernel": {
+    [PYODIDE_KERNEL]: {
         loadPyodideOptions: {
-            packages: [`../../../../pypi/${path.basename(GXY_SOURCE_WHEEL)}`],
+            packages: [...urls.map((fullPath) => `${PYPI_PATH}${path.basename(fullPath)}`), ...INSTALL],
         },
     },
 };
