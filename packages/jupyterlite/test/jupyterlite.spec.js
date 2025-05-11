@@ -11,6 +11,11 @@ async function createNotebook(page) {
     await notebookItem.click();
 }
 
+async function executeNext(page, lines) {
+    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
+    await page.keyboard.type(lines.join("\n"));
+    await page.keyboard.press("Shift+Enter");
+}
 async function checkOutputArea(page, index, contains) {
     const outputs = page.locator(".jp-OutputArea-output");
     await outputs.nth(index).waitFor();
@@ -73,12 +78,13 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
     await page.keyboard.press("Shift+Enter");
     await checkOutputArea(page, 0, "Hello World!");
 
-    // test gxy
-    const gxyCode = ["import gxy", "print(gxy.get_environment())"].join("\n");
-    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
-    await page.keyboard.type(gxyCode);
-    await page.keyboard.press("Shift+Enter");
+    // test gxy environment
+    await executeNext(page, ["import gxy", "print(gxy.get_environment())"]);
     await checkOutputArea(page, 1, "{'root': '/root/', 'dataset_id': 'dataset_id'}");
+
+    // test gxy.get_history_id
+    await executeNext(page, ["import gxy", "print(await gxy.get_history_id())"]);
+    await checkOutputArea(page, 2, "history_id");
 
     // test plotly, numpy and pandas
     const plotlyCode = [
