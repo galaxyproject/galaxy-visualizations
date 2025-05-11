@@ -120,8 +120,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                 let path = context.path || "";
                                 let name = path.split("/").pop() || getTimestamp();
                                 const input = await InputDialog.getText({
-                                    title: "Save to Galaxy?",
-                                    label: `Provide a dataset name:`,
+                                    title: "💾 Save to Galaxy?",
+                                    label: `Provide a name to save to source history:`,
                                     text: name,
                                 });
                                 if (input.button.accept && input.value) {
