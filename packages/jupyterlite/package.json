@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/jupyterlite",
-    "version": "0.0.7",
+    "version": "0.0.10",
     "type": "module",
     "files": [
         "static/dist"
@@ -13,7 +13,8 @@
         "build:jupyter": "jupyter lite build --output-dir static/dist/_output --config static/dist/_output/jupyter-lite.json",
         "build:patch": "node patch-config.js",
         "dev": "jupyter lite serve --output-dir static/dist/_output --config static/dist/_output/jupyter-lite.json",
-        "prettier": "prettier --write 'package.json' '*.js' 'src/*.js' 'src/*.ts'"
+        "prettier": "prettier --write 'package.json' '*.js' 'src/*.js' 'src/*.ts' 'test/*.js'",
+        "test": "cd test && npx playwright test --headed"
     },
     "devDependencies": {
         "axios": "^1.9.0",
