@@ -6,7 +6,7 @@
         "static/dist"
     ],
     "scripts": {
-        "build": "webpack && npm run build:jupyter && npm run build:extension && npm run build:gxy && npm run build:patch && npm run build:index",
+        "build": "webpack && npm run build:jupyter && npm run build:gxy && npm run build:extension && npm run build:patch && npm run build:index",
         "build:extension": "node install-extension.js",
         "build:gxy": "cd gxy && python -m build --wheel",
         "build:index": "cpx src/index.js static/dist",
