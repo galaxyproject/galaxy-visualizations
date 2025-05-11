@@ -31,6 +31,7 @@ function getTimestamp() {
     const now = new Date();
     const pad = (n: number) => n.toString().padStart(2, "0");
     return (
+        "jl-" +
         now.getFullYear().toString() +
         pad(now.getMonth() + 1) +
         pad(now.getDate()) +
@@ -66,7 +67,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         await waitFor(() => !!app.shell && !!app.docRegistry.getWidgetFactory("Notebook"));
         const params = new URLSearchParams(window.location.search);
         const datasetId = params.get("dataset_id");
-        const notebookName = `jl-${getTimestamp()}.ipynb`;
+        const notebookName = getTimestamp();
         const root = params.get("root");
         if (datasetId) {
             try {
@@ -104,7 +105,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                             const context = widget?.context;
                             if (context && model?.toJSON) {
                                 if (context.path?.startsWith("Untitled")) {
-                                    const newName = `jl-${getTimestamp()}`;
+                                    const newName = getTimestamp();
                                     await context.rename(newName);
                                     console.log(`✅ Renamed new notebook to: ${newName}`);
                                 }
@@ -117,7 +118,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                             const context = (widget as any)?.context;
                             if (context && model?.toJSON) {
                                 let path = context.path || "";
-                                let name = path.split("/").pop() || `jl-${getTimestamp()}`;
+                                let name = path.split("/").pop() || getTimestamp();
                                 const input = await InputDialog.getText({
                                     title: "Save to Galaxy?",
                                     label: `Provide a dataset name:`,
