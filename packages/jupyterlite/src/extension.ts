@@ -1,5 +1,5 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
-import { showDialog, Dialog } from "@jupyterlab/apputils";
+import { InputDialog } from "@jupyterlab/apputils";
 import axios from "axios";
 
 const TIMEOUT = 100;
@@ -95,36 +95,50 @@ const plugin: JupyterFrontEndPlugin<void> = {
                     console.error("❌ Could not load dataset notebook:", err);
                 }
 
-                // save notebook
-                app.commands.commandExecuted.connect((_, args) => {
-                    if (args.id === "docmanager:save") {
-                        console.log("✅ Detected save");
-                        const widget = app.shell.currentWidget;
-                        const model = (widget as any)?.content?.model;
-                        const context = (widget as any)?.context;
-                        const actualName = context?.path?.split("/").pop() || "untitled.ipynb";
-                        if (model?.toJSON) {
-                            showDialog({
-                                title: "Save to Galaxy?",
-                                body: `Do you want to export "${actualName}" to your Galaxy history?`,
-                                buttons: [Dialog.cancelButton(), Dialog.okButton({ label: "Export" })],
-                            }).then((result) => {
-                                if (result.button.accept) {
+                // open and save notebooks
+                app.commands.commandExecuted.connect(async (_, args) => {
+                    if (args.id === "docmanager:open") {
+                        args.result.then(async (widget: any) => {
+                            const model = widget?.content?.model;
+                            const context = widget?.context;
+                            if (context && model?.toJSON) {
+                                if (context.path?.startsWith("Untitled")) {
+                                    const newName = `jl-${getTimestamp()}.ipynb`;
+                                    await context.rename(newName);
+                                    console.log(`✅ Renamed new notebook to: ${newName}`);
+                                }
+                            }
+                        });
+                    } else if (args.id === "docmanager:save") {
+                        args.result.then(async () => {
+                            const widget = app.shell.currentWidget;
+                            const model = (widget as any)?.content?.model;
+                            const context = (widget as any)?.context;
+                            if (context && model?.toJSON) {
+                                let path = context.path || "";
+                                let name = path.split("/").pop() || `jl-${getTimestamp()}.ipynb`;
+                                const input = await InputDialog.getText({
+                                    title: "Save to Galaxy?",
+                                    label: `Provide a dataset name:`,
+                                    text: name,
+                                });
+                                if (input.button.accept && input.value) {
+                                    name = input.value;
                                     const content = JSON.stringify(model.toJSON(), null, 2);
-                                    const payload = getPayload(actualName, historyId, content);
+                                    const payload = getPayload(name, historyId, content);
                                     axios
                                         .post(`${root}api/tools/fetch`, payload)
                                         .then(() => {
-                                            console.log(`✅ Notebook "${actualName}" saved to history`);
+                                            console.log(`✅ Notebook "${name}" saved to history`);
                                         })
                                         .catch((err) => {
-                                            console.error(`❌ Could not save "${actualName}" to history:`, err);
+                                            console.error(`❌ Could not save "${name}" to history:`, err);
                                         });
                                 } else {
                                     console.log("🚫 Export to Galaxy canceled by user");
                                 }
-                            });
-                        }
+                            }
+                        });
                     }
                 });
             } catch (err) {
