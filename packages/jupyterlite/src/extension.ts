@@ -105,9 +105,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
                             const context = widget?.context;
                             if (context && model?.toJSON) {
                                 if (context.path?.startsWith("Untitled")) {
-                                    const newName = getTimestamp();
-                                    await context.rename(newName);
-                                    console.log(`✅ Renamed new notebook to: ${newName}`);
+                                    const name = getTimestamp();
+                                    await context.rename(name);
+                                    console.log(`✅ Renamed new notebook to: ${name}`);
                                 }
                             }
                         });
