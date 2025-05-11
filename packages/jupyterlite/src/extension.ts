@@ -2,6 +2,7 @@ import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application"
 import { InputDialog } from "@jupyterlab/apputils";
 import axios from "axios";
 
+const EXTENSION = "ipynb";
 const TIMEOUT = 100;
 
 function getPayload(name: string, history_id: string, content: string) {
@@ -15,7 +16,7 @@ function getPayload(name: string, history_id: string, content: string) {
                 elements: [
                     {
                         dbkey: "?",
-                        ext: "ipynb",
+                        ext: EXTENSION,
                         name: `${name}`,
                         paste_content: content,
                         src: "pasted",
@@ -103,7 +104,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                             const context = widget?.context;
                             if (context && model?.toJSON) {
                                 if (context.path?.startsWith("Untitled")) {
-                                    const newName = `jl-${getTimestamp()}.ipynb`;
+                                    const newName = `jl-${getTimestamp()}`;
                                     await context.rename(newName);
                                     console.log(`✅ Renamed new notebook to: ${newName}`);
                                 }
@@ -116,7 +117,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                             const context = (widget as any)?.context;
                             if (context && model?.toJSON) {
                                 let path = context.path || "";
-                                let name = path.split("/").pop() || `jl-${getTimestamp()}.ipynb`;
+                                let name = path.split("/").pop() || `jl-${getTimestamp()}`;
                                 const input = await InputDialog.getText({
                                     title: "Save to Galaxy?",
                                     label: `Provide a dataset name:`,
