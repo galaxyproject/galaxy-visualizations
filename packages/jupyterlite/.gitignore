@@ -6,6 +6,7 @@ node_modules/
 static/
 
 .jupyterlite.doit.db
+.last-run.json
 .venv/
 
 pyvenv.cfg

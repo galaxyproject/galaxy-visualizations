@@ -13,7 +13,7 @@
         "build:jupyter": "jupyter lite build --output-dir static/dist/_output --config static/dist/_output/jupyter-lite.json",
         "build:patch": "node patch-config.js",
         "dev": "jupyter lite serve --output-dir static/dist/_output --config static/dist/_output/jupyter-lite.json",
-        "prettier": "prettier --write 'package.json' '*.js' 'src/*.js' 'src/*.ts'"
+        "prettier": "prettier --write 'package.json' '*.js' 'src/*.js' 'src/*.ts' 'test/*.js'"
     },
     "devDependencies": {
         "axios": "^1.9.0",
