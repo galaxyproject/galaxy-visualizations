@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/rerun-io",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "type": "module",
     "files": [
         "static/dist/index.js",
@@ -14,7 +14,7 @@
         "prettier": "prettier --config ./prettier.config.js --write 'package.json' '**/*.{js,jsx,ts,tsx,json,css,md,vue}'"
     },
     "devDependencies": {
-        "@rerun-io/web-viewer": "0.22.1",
+        "@rerun-io/web-viewer": "0.23.2",
         "prettier": "^3.5.3",
         "vite": "^5.4.11",
         "vite-plugin-static-copy": "^2.3.1"

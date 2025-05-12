@@ -16,11 +16,11 @@ if (import.meta.env.DEV) {
     };
 
     // Attach config to the data-incoming attribute
-    appElement?.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+    appElement.dataset.incoming = JSON.stringify(dataIncoming);
 }
 
 // Access attached data
-const incoming = JSON.parse(appElement.getAttribute("data-incoming") || "{}");
+const incoming = JSON.parse(appElement.dataset.incoming || "{}");
 
 /** Now you can consume the incoming data in your application.
  * In this example, the data was attached in the development mode block.
@@ -32,8 +32,7 @@ const root = incoming.root;
 
 /* Build the data request url. Modify the API route if necessary. */
 const url = datasetUrl || `${root}api/datasets/${datasetId}/display`;
-
-new WebViewer().start(url, null, {
+new WebViewer().start(url, appElement, {
     width: "100%",
     height: "100%",
 });
