@@ -11,15 +11,16 @@ async function createNotebook(page) {
     await notebookItem.click();
 }
 
-async function executeNext(page, lines) {
-    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
-    await page.keyboard.type(lines.join("\n"));
-    await page.keyboard.press("Shift+Enter");
-}
 async function checkOutputArea(page, index, contains) {
     const outputs = page.locator(".jp-OutputArea-output");
     await outputs.nth(index).waitFor();
     await expect(outputs.nth(index)).toContainText(contains);
+}
+
+async function executeNext(page, lines) {
+    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
+    await page.keyboard.type(lines.join("\n"));
+    await page.keyboard.press("Shift+Enter");
 }
 
 async function selectKernel(page) {
@@ -62,6 +63,7 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
             }),
         });
     });
+
     await page.route("**/root/api/datasets/dataset_id", async (route) => {
         await route.fulfill({
             status: 200,
