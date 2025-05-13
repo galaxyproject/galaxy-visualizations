@@ -20,8 +20,11 @@ var RNAInteractionViewer = (function (riv) {
         "tagid, txid1, txid2, geneid1, geneid2, symbol1, symbol2, region1, region2, tx_pos_start1, tx_pos_end1, tx_pos_strand1, length1, tx_pos_start2, tx_pos_end2, tx_pos_strand2, length2, read_info, genomic_pos1, genomic_pos2, locus1, locus2, groupid1, groupid2, tpm1, tpm2, score1, score2, score, sequences, hybrid, hybrid_pos, mfe";
     riv.$elLoader = $(".loader");
 
+    let imagePath = "";
+
     /** Create a url with the specified query */
     riv.formUrl = (configObject, query) => {
+        imagePath = `${configObject.href}static/plugins/visualizations/chiraviz/static/dist/images/`;
         return (
             configObject.href +
             "api/datasets/" +
@@ -1525,7 +1528,7 @@ var RNAInteractionViewer = (function (riv) {
             '<input type="checkbox" id="' +
             record +
             '" value="" class="rna-interaction chkbx-interaction" />' +
-            '<img class="plus-symbols plus-icon" title="See interactions" src="/static/plugins/visualizations/chiraviz/static/images/plus-icon.png" />' +
+            `<img class="plus-symbols plus-icon" title="See interactions" src="${imagePath}plus-icon.png" />` +
             '<span class="rna-pair-interaction" title="Gene symbols">' +
             record +
             "</span>" +
@@ -1570,7 +1573,7 @@ var RNAInteractionViewer = (function (riv) {
             "</div>" +
             '<div class="col-sm-2 elem-rna search-input">' +
             '<input type="text" class="search-gene form-control elem-rna" value="" placeholder="Search..." title="Search">' +
-            '<img class="search-gene-image" src="/static/plugins/visualizations/chiraviz/static/images/search-icon.png" />' +
+            `<img class="search-gene-image" src="${imagePath}search-icon.png" />` +
             "</div>" +
             '<div class="col-sm-2 elem-rna">' +
             '<select name="sort" class="rna-sort form-control elem-rna" title="Sort">' +
@@ -1601,7 +1604,7 @@ var RNAInteractionViewer = (function (riv) {
             '<div class="col-sm-2 elem-rna search-input">' +
             '<input type="text" class="filter-value form-control elem-rna" title="Enter the selected filter value"' +
             'value="" placeholder="Enter value..." />' +
-            '<img class="filter-value-image" src="/static/plugins/visualizations/chiraviz/static/images/search-icon.png" />' +
+            `<img class="filter-value-image" src="${imagePath}search-icon.png" />` +
             "</div>" +
             "</div>" +
             '<div class="row landing-page">' +
