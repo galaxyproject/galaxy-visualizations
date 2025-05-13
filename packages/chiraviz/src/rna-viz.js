@@ -24,7 +24,7 @@ var RNAInteractionViewer = (function (riv) {
     riv.formUrl = (configObject, query) => {
         return (
             configObject.href +
-            "/api/datasets/" +
+            "api/datasets/" +
             configObject.datasetID +
             "?data_type=raw_data&provider=sqlite-table&headers=True" +
             query
@@ -43,7 +43,7 @@ var RNAInteractionViewer = (function (riv) {
     riv.loadData = (configObject) => {
         let query =
                 "&query=SELECT region1, region2, symbol1, symbol2, tpm1, tpm2 FROM " +
-                configObject.tableNames["name"] +
+                configObject.tableName +
                 " group by tagid",
             url = riv.formUrl(configObject, query);
         riv.configObject = configObject;
@@ -157,9 +157,7 @@ var RNAInteractionViewer = (function (riv) {
             href: riv.configObject.href,
             dataName: riv.configObject.dataName,
             datasetID: riv.configObject.datasetID,
-            tableNames: {
-                name: riv.configObject.tableNames["name"],
-            },
+            tableName: riv.configObject.tableName,
         };
         riv.loadData(config);
         riv.showLandingPage();
@@ -386,7 +384,7 @@ var RNAInteractionViewer = (function (riv) {
         let symbols = e.currentTarget.previousElementSibling.id,
             clsSymbols = "symbols-records",
             isOpen = 0,
-            tableName = riv.configObject.tableNames["name"],
+            tableName = riv.configObject.tableName,
             dbQuery = "SELECT tagid, txid1, txid2 FROM " + tableName,
             url = "",
             $elParentElem = $(e.currentTarget.parentElement),
@@ -449,7 +447,7 @@ var RNAInteractionViewer = (function (riv) {
     /** Get details of the selected row/interaction */
     riv.fetchSingleSummary = (e) => {
         let interactionIds = e.currentTarget.id,
-            tableName = riv.configObject.tableNames["name"],
+            tableName = riv.configObject.tableName,
             dbQuery = "SELECT " + riv.exportColNames + "  FROM " + tableName,
             url = "";
         interactionIds = interactionIds.split(":");
@@ -723,7 +721,7 @@ var RNAInteractionViewer = (function (riv) {
     };
 
     riv.makeRegionQ = (baseQ) => {
-        let tableName = riv.configObject.tableNames["name"],
+        let tableName = riv.configObject.tableName,
             col1Name = tableName + ".region1",
             col2Name = tableName + ".region2",
             query = "";
@@ -743,7 +741,7 @@ var RNAInteractionViewer = (function (riv) {
         let myPlot = document.getElementById(elemId);
         // register click event for bar plots on landing page
         myPlot.on("plotly_click", (data) => {
-            let tableName = riv.configObject.tableNames["name"],
+            let tableName = riv.configObject.tableName,
                 dbQuery = riv.getSymbolsBaseQuery(tableName),
                 plotSelectedOpt = data.points[0].x,
                 selectedOpt = "all";
@@ -762,7 +760,7 @@ var RNAInteractionViewer = (function (riv) {
 
     /** Create query for showing interactions */
     riv.makeInteractionsQ = (e) => {
-        let tableName = riv.configObject.tableNames["name"],
+        let tableName = riv.configObject.tableName,
             dbQuery = riv.getSymbolsBaseQuery(tableName),
             url = "";
         // collect the selected types
@@ -823,7 +821,7 @@ var RNAInteractionViewer = (function (riv) {
             searchClause = "",
             filterClause = "",
             sortClause = "",
-            tableName = riv.configObject.tableNames["name"],
+            tableName = riv.configObject.tableName,
             isSearchQuery = false;
         // create a composite query considering all the filters together
         dbQuery = riv.getSymbolsBaseQuery(tableName);
@@ -905,7 +903,7 @@ var RNAInteractionViewer = (function (riv) {
 
     /** Fetch data for the selected combinations of symbols */
     riv.fetchSummary = (checkedSymbols) => {
-        let tableName = riv.configObject.tableNames["name"],
+        let tableName = riv.configObject.tableName,
             dbQuery = "SELECT " + riv.exportColNames + " FROM " + tableName,
             url = riv.makeSummaryExportURL(dbQuery, checkedSymbols, tableName);
         riv.$elLoader.show();
@@ -924,7 +922,7 @@ var RNAInteractionViewer = (function (riv) {
     riv.fetchAndExport = () => {
         let checkedIds = [],
             url = "",
-            tableName = riv.configObject.tableNames["name"],
+            tableName = riv.configObject.tableName,
             dbQuery = "SELECT * FROM " + tableName,
             checkboxes = $(".rna-interaction");
         // get all checked items
@@ -1133,7 +1131,7 @@ var RNAInteractionViewer = (function (riv) {
 
     /** Send data for summary plotting */
     riv.plotInteractions = (data) => {
-        let fileName = riv.configObject.tableNames["name"],
+        let fileName = riv.configObject.tableName,
             expr1Len = data.rnaexpr1.values.length,
             expr2Len = data.rnaexpr2.values.length;
         // plot the summary as pie charts and histograms

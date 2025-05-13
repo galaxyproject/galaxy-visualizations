@@ -13,12 +13,11 @@ import "script-loader!./visualize-alignment";
 const appElement = document.querySelector("#app");
 
 // Access attached data
-const incoming = JSON.parse(appElement.getAttribute("data-incoming") || "{}");
+const incoming = JSON.parse(appElement.dataset.incoming || "{}");
 
 const datasetId = incoming.visualization_config.dataset_id;
 const root = incoming.root;
 
-const dataUrl = `${root}api/datasets/${datasetId}/display`;
 const metaUrl = `${root}api/datasets/${datasetId}`;
 
 const messageElement = document.createElement("div");
@@ -36,10 +35,10 @@ function create() {
     getData(metaUrl)
         .then((meta) => {
             RNAInteractionViewer.loadData({
-                href: dataUrl,
+                href: root,
                 dataName: meta.name,
-                datasetID: meta.id,
-                tableNames: [],
+                datasetID: datasetId,
+                tableName: meta.metadata_tables[0],
             });
             hideMessage();
         })
@@ -48,26 +47,12 @@ function create() {
         });
 }
 
-/*$(document).ready(function (){
-    var config = {
-        href: document.location.origin + '${h.url_for( "/" )}'.replace(/\/$/, ''),
-        dataName: '${hda.name}',
-        datasetID: '${trans.security.encode_id(hda.id)}',
-        tableNames: {
-            % for table in hda.metadata.table_row_count:
-                "name": '${table}',
-            % endfor
-        }
-    };
-    RNAInteractionViewer.loadData(config);
-});
-*/
 function getData(url) {
     return new Promise((resolve, reject) => {
         $.ajax({
             url: url,
             method: "GET",
-            dataType: "text",
+            dataType: "json",
             success: function (data) {
                 resolve(data);
             },
