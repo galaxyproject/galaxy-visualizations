@@ -59,6 +59,7 @@ var RNAInteractionViewer = (function (riv) {
         let templateText = "",
             $elContainer = $("#target");
         templateText = riv.createInteractionTemplate();
+        $elContainer.empty();
         $elContainer.append(templateText);
         $elContainer.find(".one-sample").show();
         riv.registerPageEvents();
