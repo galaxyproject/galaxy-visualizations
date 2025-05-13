@@ -56,7 +56,6 @@ html, body {
     display: none;
     height: 100%;
     width: 100%;
-    margin: 0 1% 0 1%;
 }
 
 .top-row {
@@ -124,6 +123,7 @@ html, body {
 .sample-name {
     margin-top: 1%;
     font-weight: bold;
+    word-break: break-all;
 }
 
 .sample-current-size {
