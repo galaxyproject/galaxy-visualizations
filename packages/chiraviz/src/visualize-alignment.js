@@ -6,12 +6,11 @@
 **/
 
 var VisualizeAlignment = {
-
-    allor3dots: function( str ) {
-        return ( 10 < str.length ? ( str.substr( 0, 3 ) + "..." + str.substr( str.length - 4 ) ) : str );
+    allor3dots: function (str) {
+        return 10 < str.length ? str.substr(0, 3) + "..." + str.substr(str.length - 4) : str;
     },
 
-    repres: function( res ) {
+    repres: function (res) {
         ret = "";
         for (var i = 0, len = res.length; i < len; ++i) {
             ret += "\t";
@@ -23,8 +22,7 @@ var VisualizeAlignment = {
         return ret;
     },
 
-
-     /**
+    /**
      * 4d Visualization
      * ps is a set of pairs of indices from str1 and str2 respectively.
      * The indiceies represent alignment between between both characters.
@@ -35,7 +33,7 @@ var VisualizeAlignment = {
      * test using console.log(repres(visualize4d("axxbxxcxxdxxexxfxxgxx", "cyydyyhyyjyykyylyymyyoyy", [[16, 16], [17, 11], [19, 7]])));
      */
 
-    visualize4d: function(str1, str2, ps) {
+    visualize4d: function (str1, str2, ps) {
         /*
         return JSON.stringify(ps) + "\n" +
         JSON.stringify(str1) + "\n" +
@@ -52,7 +50,10 @@ var VisualizeAlignment = {
         var marked1 = new Array(str1.length + 1);
         var marked2 = new Array(str2.length + 1);
 
-        var st1i = 0, st1f = 0, st2i = 0, st2f = 0;
+        var st1i = 0,
+            st1f = 0,
+            st2i = 0,
+            st2f = 0;
         for (var i = 0; i < str1.length; ++i) {
             marked1[i] = false;
         }
@@ -86,17 +87,16 @@ var VisualizeAlignment = {
         for (var i = 0; i < res.length; ++i) {
             res[i] = new String();
             for (var j = 0; j < portion + gapBegin + gapEnd + portionOffset; ++j) {
-                res[i][j] = ' ';
+                res[i][j] = " ";
             }
-        };
+        }
         // Fill portion
         var st_idx = gapBegin + portionOffset;
         for (var pt1 = st1i, pt2 = st2f, i = 0; (pt1 <= st1f || pt2 >= st2i) && i < portion; ++i) {
-
             if (marked1[pt1] && marked2[pt2]) {
                 res[2][st_idx + i] = str1[pt1 - 1];
                 res[4][st_idx + i] = str2[pt2 - 1];
-                res[3][st_idx + i] = '|';
+                res[3][st_idx + i] = "|";
                 ++pt1;
                 --pt2;
             } else {
@@ -110,7 +110,6 @@ var VisualizeAlignment = {
                 }
             }
         }
-
 
         // Fill GapBegin Str1
         var gapB1 = this.allor3dots(str1.substr(0, st1i - 1)); //[0, st1i)
@@ -142,5 +141,5 @@ var VisualizeAlignment = {
             res[5][st_idx - i] = gapE2[i];
         }
         return res;
-    }
+    },
 };
