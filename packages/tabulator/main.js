@@ -5,7 +5,7 @@ import "tabulator-tables/dist/css/tabulator_simple.css";
 
 // Number of rows per request
 const DELAY = 100;
-const LIMIT = 30;
+const LIMIT = 50;
 
 // Access container element
 const appElement = document.querySelector("#app");
