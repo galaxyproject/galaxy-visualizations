@@ -3,6 +3,9 @@ import "./main.css";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 import "tabulator-tables/dist/css/tabulator_simple.css";
 
+// Number of rows per request
+const LIMIT = 20;
+
 // Access container element
 const appElement = document.querySelector("#app");
 
@@ -32,7 +35,6 @@ const root = incoming.root;
 
 /* Wether the first row is containig column names or not */
 let hasNames = false;
-let limit = 20;
 
 /* Build the data request url. Modify the API route if necessary. */
 const metaUrl = `${root}api/datasets/${datasetId}`;
@@ -59,46 +61,11 @@ async function create() {
     }
 }
 
-function parseFilters(tabFilters, columnTypes) {
-    const operatorMap = {
-        ">": "gt",
-        "<": "lt",
-        ">=": "ge",
-        "<=": "le",
-        "=": "eq",
-        "==": "eq",
-        "!=": "ne"
-    };
-    const operatorPattern = /^(>=|<=|!=|==|>|<|=)/;
-    return tabFilters.map(({ field, value }) => {
-        const columnIndex = parseInt(field);
-        const colType = columnTypes[columnIndex];
-        if (colType === "str" || colType === "list") {
-            return `${columnIndex}-has-${value}`;
-        }
-        if (colType === "int" || colType === "float") {
-            const match = value.match(operatorPattern);
-            if (match) {
-                const symbol = match[0];
-                const op = operatorMap[symbol] || "eq";
-                const actualValue = value.slice(symbol.length);
-                return `${columnIndex}-${op}-${actualValue}`;
-            }
-            return `${columnIndex}-eq-${value}`;
-        }
-
-        return null;
-    }).filter(Boolean);
-}
-
 async function getContent(dataset, params) {
     const columnTypes = dataset.metadata_column_types;
-    const filters = parseFilters(params.filter, columnTypes);
-    const filterParams = filters.map((f) => `filters=${encodeURIComponent(f)}`).join("&");
     const offset = (params.page - 1) * params.size;
     const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
-    const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${limit}${filterParams ? `&${filterParams}` : ""}`;
-    console.log(url);
+    const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${LIMIT}`;
     const { data } = await getData(url);
     return data.map((row) => Object.fromEntries(columnTypes.map((_, i) => [i, row[i]])));
 }
@@ -127,11 +94,10 @@ function getColumns(dataset) {
 
 async function render(dataset) {
     const columns = getColumns(dataset);
-    const last_page = dataset.metadata_data_lines / limit;
+    const last_page = dataset.metadata_data_lines / LIMIT;
     const tabulatorColumns = columns.map((col, index) => ({
         title: `${index + 1}: ${col}`,
         field: String(index),
-        headerFilter: "input",
         headerSort: false,
     }));
     new Tabulator(tableElement, {
@@ -139,7 +105,7 @@ async function render(dataset) {
         filterMode: "remote",
         progressiveLoad: "scroll",
         progressiveLoadScrollMargin: 0,
-        paginationSize: limit,
+        paginationSize: LIMIT,
         ajaxURL: "unused-but-required",
         ajaxRequestFunc: async (_, __, params) => {
             try {
