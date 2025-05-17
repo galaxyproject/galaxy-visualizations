@@ -67,22 +67,28 @@ function parseFilters(tabFilters, columnTypes) {
         "<=": "le",
         "=": "eq",
         "==": "eq",
-        "!=": "ne",
+        "!=": "ne"
     };
-    return tabFilters
-        .map(({ field, type, value }) => {
-            const columnIndex = parseInt(field);
-            const colType = columnTypes[columnIndex];
-            if (colType === "str") {
-                return `${columnIndex}-has-${value}`;
+    const operatorPattern = /^(>=|<=|!=|==|>|<|=)/;
+    return tabFilters.map(({ field, value }) => {
+        const columnIndex = parseInt(field);
+        const colType = columnTypes[columnIndex];
+        if (colType === "str" || colType === "list") {
+            return `${columnIndex}-has-${value}`;
+        }
+        if (colType === "int" || colType === "float") {
+            const match = value.match(operatorPattern);
+            if (match) {
+                const symbol = match[0];
+                const op = operatorMap[symbol] || "eq";
+                const actualValue = value.slice(symbol.length);
+                return `${columnIndex}-${op}-${actualValue}`;
             }
-            if (colType === "int" || colType === "float") {
-                const op = operatorMap[type] || "eq";
-                return `${columnIndex}-${op}-${value}`;
-            }
-            return null;
-        })
-        .filter(Boolean);
+            return `${columnIndex}-eq-${value}`;
+        }
+
+        return null;
+    }).filter(Boolean);
 }
 
 async function getContent(dataset, params) {
@@ -92,6 +98,7 @@ async function getContent(dataset, params) {
     const offset = (params.page - 1) * params.size;
     const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
     const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${limit}${filterParams ? `&${filterParams}` : ""}`;
+    console.log(url);
     const { data } = await getData(url);
     return data.map((row) => Object.fromEntries(columnTypes.map((_, i) => [i, row[i]])));
 }
