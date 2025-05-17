@@ -97,7 +97,7 @@ function getColumns(dataset) {
 
 async function render(dataset) {
     const columns = getColumns(dataset);
-    const last_page = dataset.metadata_data_lines / LIMIT;
+    const last_page = Math.ceil(dataset.metadata_data_lines / LIMIT);
     const tabulatorColumns = columns.map((col, index) => ({
         title: `${index + 1}: ${col}`,
         field: String(index),
