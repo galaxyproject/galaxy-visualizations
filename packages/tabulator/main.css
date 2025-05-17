@@ -24,3 +24,7 @@
     font-family: sans-serif;
     height: 100vh;
 }
+
+body {
+    margin: 0;
+}

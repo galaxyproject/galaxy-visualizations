@@ -49,6 +49,7 @@ appElement.appendChild(messageElement);
 /* Build and attach table element */
 const tableElement = document.createElement("div");
 tableElement.id = "table";
+tableElement.style.height = "100vh";
 appElement.appendChild(tableElement);
 
 async function create() {
