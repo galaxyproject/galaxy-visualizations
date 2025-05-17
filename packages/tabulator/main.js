@@ -59,38 +59,41 @@ async function create() {
     }
 }
 
-function filter(headerValue, rowValue) {
-    if (rowValue == null) return false;
-    if (typeof rowValue === "number") rowValue = rowValue.toString();
-    const match = headerValue.match(/^([<>]=?|=)\s*(.+)$/);
-    if (!match) {
-        return rowValue.toString().toLowerCase().includes(headerValue.toLowerCase());
-    }
-    const [, operator, value] = match;
-    const rowNumber = parseFloat(rowValue);
-    const filterNumber = parseFloat(value);
-    if (isNaN(rowNumber) || isNaN(filterNumber)) return false;
-    switch (operator) {
-        case ">":
-            return rowNumber > filterNumber;
-        case ">=":
-            return rowNumber >= filterNumber;
-        case "<":
-            return rowNumber < filterNumber;
-        case "<=":
-            return rowNumber <= filterNumber;
-        case "=":
-            return rowNumber === filterNumber;
-        default:
-            return false;
-    }
+function parseFilters(tabFilters, columnTypes) {
+    const operatorMap = {
+        ">": "gt",
+        "<": "lt",
+        ">=": "ge",
+        "<=": "le",
+        "=": "eq",
+        "==": "eq",
+        "!=": "ne",
+    };
+    return tabFilters
+        .map(({ field, type, value }) => {
+            const columnIndex = parseInt(field);
+            const colType = columnTypes[columnIndex];
+            if (colType === "str") {
+                return `${columnIndex}-has-${value}`;
+            }
+            if (colType === "int" || colType === "float") {
+                const op = operatorMap[type] || "eq";
+                return `${columnIndex}-${op}-${value}`;
+            }
+            return null;
+        })
+        .filter(Boolean);
 }
 
-async function getContent(columns, offset, limit) {
+async function getContent(dataset, params) {
+    const columnTypes = dataset.metadata_column_types;
+    const filters = parseFilters(params.filter, columnTypes);
+    const filterParams = filters.map((f) => `filters=${encodeURIComponent(f)}`).join("&");
+    const offset = (params.page - 1) * params.size;
     const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
-    const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${limit}`;
+    const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${limit}${filterParams ? `&${filterParams}` : ""}`;
     const { data } = await getData(url);
-    return data.map((row) => Object.fromEntries(columns.map((_, i) => [i, row[i]])));
+    return data.map((row) => Object.fromEntries(columnTypes.map((_, i) => [i, row[i]])));
 }
 
 async function getData(url) {
@@ -121,20 +124,19 @@ async function render(dataset) {
     const tabulatorColumns = columns.map((col, index) => ({
         title: `${index + 1}: ${col}`,
         field: String(index),
-        //headerFilter: "input",
-        //headerFilterFunc: filter,
+        headerFilter: "input",
         headerSort: false,
     }));
     new Tabulator(tableElement, {
         columns: tabulatorColumns,
-        ajaxURL: "unused-but-required",
+        filterMode: "remote",
         progressiveLoad: "scroll",
         progressiveLoadScrollMargin: 0,
         paginationSize: limit,
+        ajaxURL: "unused-but-required",
         ajaxRequestFunc: async (_, __, params) => {
-            const offset = (params.page - 1) * limit;
             try {
-                const data = await getContent(columns, offset, params.size);
+                const data = await getContent(dataset, params);
                 return { data };
             } catch (e) {
                 showMessage("Failed to retrieve scroll data", e);
