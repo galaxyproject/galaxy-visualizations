@@ -4,7 +4,8 @@ import { TabulatorFull as Tabulator } from "tabulator-tables";
 import "tabulator-tables/dist/css/tabulator_simple.css";
 
 // Number of rows per request
-const LIMIT = 20;
+const DELAY = 100;
+const LIMIT = 30;
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -66,6 +67,7 @@ async function getContent(dataset, params) {
     const offset = (params.page - 1) * params.size;
     const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
     const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${LIMIT}`;
+    console.debug(`[TABULATOR] ${url}`);
     const { data } = await getData(url);
     return data.map((row) => Object.fromEntries(columnTypes.map((_, i) => [i, row[i]])));
 }
@@ -104,6 +106,7 @@ async function render(dataset) {
         columns: tabulatorColumns,
         filterMode: "remote",
         progressiveLoad: "scroll",
+        progressiveLoadDelay: DELAY,
         progressiveLoadScrollMargin: 0,
         paginationSize: LIMIT,
         ajaxURL: "unused-but-required",
