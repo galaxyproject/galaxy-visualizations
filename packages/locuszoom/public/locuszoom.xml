@@ -88,10 +88,9 @@
             <type>integer</type>
             <value>10</value>
         </input>
-
     </settings>
     <requirements>
-        <requirement type="npm" version="MY_NPM_PACKAGE_VERSION" package="MY_NPM_PACKAGE_NAME"/>
+        <requirement type="npm" version="0.0.3" package="@galaxyproject/locuszoom"/>
     </requirements>
     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
 </visualization>
