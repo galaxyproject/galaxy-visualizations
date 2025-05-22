@@ -39,6 +39,10 @@ function render() {
     const is_neg_log_pvalue = props.settings.is_neg_log_pvalue;
     const beta_col = props.settings.beta_col;
     const stderr_beta_col = props.settings.stderr_beta_col;
+    if (!id) {
+        errorMessage.value = "Please select a Tabix file.";
+        return;
+    }
     if (endIn - startIn > MAX_RANGE) {
         errorMessage.value = "We cannot output more than 10Mb at a time!";
         return;
