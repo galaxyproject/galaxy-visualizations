@@ -8,6 +8,9 @@ import { plotUpdatesUrl, plotWatchesUrl } from "locuszoom/esm/ext/lz-dynamic-url
 
 LocusZoom.use(LzTabixSource);
 
+window.nowrap = false;
+window.mode = false;
+
 const COLOR = "#E30A17";
 const MAX_RANGE = 10000000;
 const SIZE = 40;
