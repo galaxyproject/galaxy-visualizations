@@ -10,7 +10,7 @@
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
-        "test": "vitest",
+        "test": "vitest --run",
         "test:watch": "vitest --watch",
         "test:ui": "vitest --ui"
     },
