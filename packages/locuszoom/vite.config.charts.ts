@@ -3,8 +3,8 @@ import { defineConfig } from "vite";
 const env = {
     GALAXY_DATASET_ID: "",
     GALAXY_HISTORY_ID: "",
-    GALAXY_KEY: "a2b9011787229ae03861f0de224ffc6b",
-    GALAXY_ROOT: "http://localhost:8080/",
+    GALAXY_KEY: "",
+    GALAXY_ROOT: "http://127.0.0.1:8081/",
 };
 
 Object.keys(env).forEach((key) => {
