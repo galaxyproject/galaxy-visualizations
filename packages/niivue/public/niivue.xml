@@ -1,68 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Niivue">
-    <description>WebGL2 based medical image viewer</description>
+<visualization name="Niivue" embeddable="true">
+    <description>Interactive viewer for medical and neuroimaging data</description>
+    <tags>
+        <tag>Medical Imaging</tag>
+        <tag>Neuroimaging</tag>
+        <tag>NIfTI</tag>
+    </tags>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
-            <test test_attr="ext" result_type="datatype">gii</test>
-            <test test_attr="ext" result_type="datatype">hdr</test>
-            <test test_attr="ext" result_type="datatype">img</test>
-            <test test_attr="ext" result_type="datatype">mgz</test>
-            <test test_attr="ext" result_type="datatype">mgh</test>
-            <test test_attr="ext" result_type="datatype">nii</test>
-            <test test_attr="ext" result_type="datatype">nii.gz</test>
-            <test test_attr="ext" result_type="datatype">nii1.gz</test>
-            <test test_attr="ext" result_type="datatype">obj</test>
-            <test test_attr="ext" result_type="datatype">ply</test>
-            <test test_attr="ext" result_type="datatype">stl</test>
-            <test test_attr="ext" result_type="datatype">vtk</test>
-            <to_param param_attr="id">dataset_id</to_param>
+            <test test_attr="ext">nii1</test>
+            <test test_attr="ext">nii1.gz</test>
         </data_source>
     </data_sources>
     <params>
-        <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
+        <param required="true">dataset_id</param>
     </params>
     <requirements>
-        <requirement type="npm" version="0.0.7" package="@galaxyproject/niivue"/>
+        <requirement type="npm" version="0.0.16" package="@galaxyproject/niivue"/>
     </requirements>
     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
     <settings>
-    <input>
-        <label>Colorbar</label>
-        <help>Display a gradient color bar legend.​</help>
-        <name>is_colorbar</name>
-        <type>boolean</type>
-    </input>
-    <input>
-        <label>Colormap</label>
-        <help>Select the color mapping used to render the volume</help>
-        <name>colormap</name>
-        <type>select</type>
-        <value>gray</value>
-        <data>
-            <data><label>Autumn</label><value>autumn</value></data>
-            <data><label>Blue</label><value>blue</value></data>
-            <data><label>Bone</label><value>bone</value></data>
-            <data><label>Copper</label><value>copper</value></data>
-            <data><label>Cool</label><value>cool</value></data>
-            <data><label>Glasbey</label><value>glasbey</value></data>
-            <data><label>Gray</label><value>gray</value></data>
-            <data><label>Green</label><value>green</value></data>
-            <data><label>Hot</label><value>hot</value></data>
-            <data><label>HSV</label><value>hsv</value></data>
-            <data><label>Inferno</label><value>inferno</value></data>
-            <data><label>Jet</label><value>jet</value></data>
-            <data><label>Magma</label><value>magma</value></data>
-            <data><label>Parula</label><value>parula</value></data>
-            <data><label>Plasma</label><value>plasma</value></data>
-            <data><label>Red</label><value>red</value></data>
-            <data><label>Spring</label><value>spring</value></data>
-            <data><label>Summer</label><value>summer</value></data>
-            <data><label>Turbo</label><value>turbo</value></data>
-            <data><label>Viridis</label><value>viridis</value></data>
-            <data><label>Winter</label><value>winter</value></data>
-        </data>
+        <input>
+            <label>Colorbar</label>
+            <help>Display a gradient color bar legend.​</help>
+            <name>is_colorbar</name>
+            <type>boolean</type>
+        </input>
+        <input>
+            <label>Colormap</label>
+            <help>Select the color mapping used to render the volume</help>
+            <name>colormap</name>
+            <type>select</type>
+            <value>gray</value>
+            <data>
+                <data><label>Autumn</label><value>autumn</value></data>
+                <data><label>Blue</label><value>blue</value></data>
+                <data><label>Bone</label><value>bone</value></data>
+                <data><label>Copper</label><value>copper</value></data>
+                <data><label>Cool</label><value>cool</value></data>
+                <data><label>Glasbey</label><value>glasbey</value></data>
+                <data><label>Gray</label><value>gray</value></data>
+                <data><label>Green</label><value>green</value></data>
+                <data><label>Hot</label><value>hot</value></data>
+                <data><label>HSV</label><value>hsv</value></data>
+                <data><label>Inferno</label><value>inferno</value></data>
+                <data><label>Jet</label><value>jet</value></data>
+                <data><label>Magma</label><value>magma</value></data>
+                <data><label>Parula</label><value>parula</value></data>
+                <data><label>Plasma</label><value>plasma</value></data>
+                <data><label>Red</label><value>red</value></data>
+                <data><label>Spring</label><value>spring</value></data>
+                <data><label>Summer</label><value>summer</value></data>
+                <data><label>Turbo</label><value>turbo</value></data>
+                <data><label>Viridis</label><value>viridis</value></data>
+                <data><label>Winter</label><value>winter</value></data>
+            </data>
         </input>
         <input>
             <label>Gamma</label>
@@ -89,4 +83,28 @@
             <max>1</max>
         </input>
     </settings>
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/nifti.nii1.gz" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the Niivue Viewer?
+
+Niivue Viewer enables you to explore 3D and 4D medical imaging datasets like NIfTI files interactively in your browser.
+
+After selecting a dataset, you can adjust visualization settings like colormaps, gamma, opacity, and interpolation to fine-tune how the volume appears.
+
+## Key Features
+
+- **Volume Rendering**: Display and explore 3D/4D neuroimaging data.
+- **Colormap Options**: Choose from a wide range of scientific color scales.
+- **Customization**: Adjust gamma, opacity, and interpolation settings for best visualization.
+- **Interactive Tools**: Pan, zoom, and slice through the volume easily.
+
+This tool is ideal for radiology, neuroscience, and any research working with medical imaging data in NIfTI format.
+
+To learn more about Niivue, visit:
+[https://niivue.github.io/niivue/](https://niivue.github.io/niivue/)
+    ]]></help>
 </visualization>
