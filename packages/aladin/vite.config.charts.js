@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 
 const env = {
   GALAXY_DATASET_ID: "",
-  GALAXY_HISTORY_ID: "",
   GALAXY_KEY: "",
   GALAXY_ROOT: "http://127.0.0.1:8080",
 };
@@ -36,7 +35,6 @@ export const viteConfigCharts = defineConfig({
       env.GALAXY_KEY ? "omit" : "include",
     ),
     "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
-    "process.env.history_id": JSON.stringify(env.GALAXY_HISTORY_ID),
   },
   resolve: {
     alias: {

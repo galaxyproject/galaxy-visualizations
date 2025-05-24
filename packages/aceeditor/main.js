@@ -45,7 +45,7 @@ appElement.appendChild(messageElement);
 function exportData(urlPaste, metaData) {
     const upload_data = {
         tool_id: "upload1",
-        history_id: process.env.history_id,
+        history_id: metaData.history_id,
         inputs: {
             file_count: 1,
             file_type: "auto",
