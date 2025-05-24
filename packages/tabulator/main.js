@@ -73,7 +73,7 @@ async function getContent(dataset, params) {
         const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${LIMIT}`;
         console.debug(`[TABULATOR] ${url}`);
         const { data } = await getData(url);
-        hasCompleted = data.length !== 0;
+        hasCompleted = data.length === 0;
         return data.map((row) => Object.fromEntries(columnTypes.map((_, i) => [i, row[i]])));
     } else {
         return [];
