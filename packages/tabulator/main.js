@@ -6,6 +6,7 @@ import "tabulator-tables/dist/css/tabulator_simple.css";
 // Number of rows per request
 const DELAY = 100;
 const LIMIT = 50;
+const LINES = 99999;
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -36,6 +37,7 @@ const root = incoming.root;
 
 /* Wether the first row is containig column names or not */
 let hasNames = false;
+let hasCompleted = false;
 
 /* Build the data request url. Modify the API route if necessary. */
 const metaUrl = `${root}api/datasets/${datasetId}`;
@@ -64,13 +66,18 @@ async function create() {
 }
 
 async function getContent(dataset, params) {
-    const columnTypes = dataset.metadata_column_types;
-    const offset = (params.page - 1) * params.size;
-    const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
-    const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${LIMIT}`;
-    console.debug(`[TABULATOR] ${url}`);
-    const { data } = await getData(url);
-    return data.map((row) => Object.fromEntries(columnTypes.map((_, i) => [i, row[i]])));
+    if (!hasCompleted) {
+        const columnTypes = dataset.metadata_column_types;
+        const offset = (params.page - 1) * params.size;
+        const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
+        const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${LIMIT}`;
+        console.debug(`[TABULATOR] ${url}`);
+        const { data } = await getData(url);
+        hasCompleted = data.length !== 0;
+        return data.map((row) => Object.fromEntries(columnTypes.map((_, i) => [i, row[i]])));
+    } else {
+        return [];
+    }
 }
 
 async function getData(url) {
@@ -97,7 +104,8 @@ function getColumns(dataset) {
 
 async function render(dataset) {
     const columns = getColumns(dataset);
-    const last_page = Math.ceil(dataset.metadata_data_lines / LIMIT);
+    const lineCount = dataset.metadata_data_lines || LINES;
+    const last_page = Math.ceil(lineCount / LIMIT);
     const tabulatorColumns = columns.map((col, index) => ({
         title: `${index + 1}: ${col}`,
         field: String(index),
