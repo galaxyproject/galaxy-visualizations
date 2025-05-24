@@ -30,11 +30,10 @@ const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
  * In production, this data will be provided by Galaxy.
  */
 const datasetId = incoming.visualization_config.dataset_id;
-const datasetUrl = incoming.visualization_config.dataset_url;
 const root = incoming.root;
 
 /* Build the data request url. Modify the API route if necessary. */
-const url = datasetUrl || `${root}api/datasets/${datasetId}/display`;
+const url = `${root}api/datasets/${datasetId}/display`;
 
 /* Build and attach message element */
 const messageElement = document.createElement("div");
@@ -48,7 +47,6 @@ function exportData(urlPaste, metaData) {
         history_id: metaData.history_id,
         inputs: {
             file_count: 1,
-            file_type: "auto",
             "files_0|file_type": "auto",
             "files_0|url_paste": urlPaste,
             "files_0|NAME": `${metaData.name} (modified)`,
