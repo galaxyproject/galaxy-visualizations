@@ -17,10 +17,7 @@
     <params>
         <param required="true">dataset_id</param>
     </params>
-    <requirements>
-        <requirement type="npm" version="0.0.16" package="@galaxyproject/niivue"/>
-    </requirements>
-    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <settings>
         <input>
             <label>Colorbar</label>
@@ -35,12 +32,10 @@
             <type>select</type>
             <value>gray</value>
             <data>
-                <data><label>Autumn</label><value>autumn</value></data>
                 <data><label>Blue</label><value>blue</value></data>
                 <data><label>Bone</label><value>bone</value></data>
                 <data><label>Copper</label><value>copper</value></data>
                 <data><label>Cool</label><value>cool</value></data>
-                <data><label>Glasbey</label><value>glasbey</value></data>
                 <data><label>Gray</label><value>gray</value></data>
                 <data><label>Green</label><value>green</value></data>
                 <data><label>Hot</label><value>hot</value></data>
@@ -48,14 +43,10 @@
                 <data><label>Inferno</label><value>inferno</value></data>
                 <data><label>Jet</label><value>jet</value></data>
                 <data><label>Magma</label><value>magma</value></data>
-                <data><label>Parula</label><value>parula</value></data>
                 <data><label>Plasma</label><value>plasma</value></data>
                 <data><label>Red</label><value>red</value></data>
-                <data><label>Spring</label><value>spring</value></data>
-                <data><label>Summer</label><value>summer</value></data>
                 <data><label>Turbo</label><value>turbo</value></data>
                 <data><label>Viridis</label><value>viridis</value></data>
-                <data><label>Winter</label><value>winter</value></data>
             </data>
         </input>
         <input>
