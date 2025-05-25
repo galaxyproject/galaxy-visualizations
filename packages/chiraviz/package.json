@@ -2,9 +2,7 @@
     "name": "@galaxyproject/chiraviz",
     "version": "0.0.0",
     "type": "module",
-    "files": [
-        "static/dist"
-    ],
+    "files": ["static"],
     "main": "index.js",
     "license": "MIT",
     "scripts": {
