@@ -1,6 +1,6 @@
 {
   "name": "@galaxyproject/h5web",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "keywords": [
     "galaxy",
@@ -13,10 +13,7 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "files": [
-    "static/dist/index.js",
-    "static/dist/index.css"
-  ],
+  "files": ["static"],
   "dependencies": {
     "@h5web/app": "^12.0.1",
     "buffer": "^6.0.3",
