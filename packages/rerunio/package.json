@@ -1,0 +1,18 @@
+{
+    "name": "@galaxyproject/rerunio",
+    "version": "0.0.0",
+    "type": "module",
+    "files": ["static"],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --config ./prettier.config.js --write 'package.json' '**/*.{js,jsx,ts,tsx,json,css,md,vue}'"
+    },
+    "devDependencies": {
+        "@rerun-io/web-viewer": "0.23.3",
+        "prettier": "^3.5.3",
+        "vite": "^5.4.11",
+        "vite-plugin-static-copy": "^2.3.1"
+    }
+}
