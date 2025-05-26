@@ -19,7 +19,7 @@ Object.keys(env).forEach((key) => {
 // https://vitejs.dev/config/
 export const viteConfigCharts = defineConfig({
   build: {
-    outDir: "./static/dist",
+    outDir: "./static",
     emptyOutDir: true,
     rollupOptions: {
       output: {
@@ -31,9 +31,7 @@ export const viteConfigCharts = defineConfig({
     },
   },
   define: {
-    "process.env.credentials": JSON.stringify(
-      env.GALAXY_KEY ? "omit" : "include",
-    ),
+    "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
     "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
   },
   resolve: {

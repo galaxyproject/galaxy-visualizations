@@ -1,11 +1,8 @@
 {
     "name": "@galaxyproject/plyr",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "type": "module",
-    "files": [
-        "static/dist/index.js",
-        "static/dist/index.css"
-    ],
+    "files": ["static"],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
