@@ -13,8 +13,7 @@
     </params>
     <settings>
         <input>
-            <label>Add tabix file for your primary dataset</label>
-            <help>Can be created with tabix</help>
+            <label>Add tabix file</label>
             <name>tabix</name>
             <type>data</type>
             <extension>gwas_tabix.gz</extension>
