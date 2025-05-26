@@ -4,7 +4,6 @@ import "locuszoom/dist/locuszoom.css";
 import LocusZoom from "locuszoom/esm";
 import LzTabixSource from "locuszoom/esm/ext/lz-tabix-source";
 import { makeGWASParser } from "locuszoom/esm/ext/lz-parsers";
-import { plotUpdatesUrl, plotWatchesUrl } from "locuszoom/esm/ext/lz-dynamic-urls";
 
 LocusZoom.use(LzTabixSource);
 
@@ -71,7 +70,6 @@ function render() {
             overfetch: 0,
         },
     ]);
-    let stateUrlMapping = { chr: "chrom", start: "start", end: "end", ldrefvar: "ld_variant" };
     let association_data_layer_mods = {
         id: "associationpvalues_",
         name: "association",
@@ -96,14 +94,12 @@ function render() {
     const panel = LocusZoom.Layouts.get("panel", "association", {
         data_layers: [data_layer],
     });
-    let plot = LocusZoom.populate("#lz-plot", data_sources, {
+    LocusZoom.populate("#lz-plot", data_sources, {
         state: { chr: chrIn, start: startIn, end: endIn },
         responsive_resize: true,
         panels: [panel],
         toolbar: LocusZoom.Layouts.get("toolbar", "standard_plot"),
     });
-    plotUpdatesUrl(plot, stateUrlMapping);
-    plotWatchesUrl(plot, stateUrlMapping);
 
     // manually set size of svg container
     document.querySelector("#lz-plot_svg").style.height = "calc(100vh - 50px)";

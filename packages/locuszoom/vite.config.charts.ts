@@ -17,7 +17,7 @@ Object.keys(env).forEach((key) => {
 // https://vitejs.dev/config/
 export const viteConfigCharts = defineConfig({
     build: {
-        outDir: "./static/dist",
+        outDir: "./static",
         emptyOutDir: true,
         rollupOptions: {
             output: {

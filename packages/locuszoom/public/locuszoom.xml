@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="LocusZoom" embeddable="true">
-    <description>LocusZoom Manhattan Plot</description>
+    <description>Genome-Wide Association Study Plot</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
@@ -38,7 +38,7 @@
             <name>end</name>
             <type>integer</type>
             <min>1</min>
-            <value>999999</value>
+            <value>1000000</value>
         </input>
         <input>
             <label>Are the p-values in -log10?</label>
@@ -89,10 +89,7 @@
             <value>10</value>
         </input>
     </settings>
-    <requirements>
-        <requirement type="npm" version="0.0.3" package="@galaxyproject/locuszoom"/>
-    </requirements>
-    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <tests>
         <test>
             <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.gwas_bgzip" ftype="gwas_bgzip" />

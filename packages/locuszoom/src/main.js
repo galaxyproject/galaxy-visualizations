@@ -11,13 +11,10 @@ async function main() {
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             visualization_config: {
-                dataset_id: "1cd8e2f6b131e891", // id of primary_dataset.bgzip
+                dataset_id: "b620c45fba703209", // id of primary_dataset.bgzip
                 // Placeholder for additional visualization settings
                 settings: {
-                    tabix: { id: "ebfb8f50c6abde6d" }, // id of secondary_dataset.tbi
-                    chromosome: "1",
-                    start: "1",
-                    end: "999999",
+                    tabix: { id: "abd164196b68b912" }, // id of secondary_dataset.tbi
                 },
             },
             // Parse and load the visualization XML configuration
