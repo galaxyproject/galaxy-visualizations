@@ -37,7 +37,7 @@
             <name>end</name>
             <type>integer</type>
             <min>1</min>
-            <value>1000000</value>
+            <value>99999</value>
         </input>
         <input>
             <label>Are the p-values in -log10?</label>
