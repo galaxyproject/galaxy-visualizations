@@ -23,8 +23,6 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: "human.vtp",
-            dataset_extension: "vtpbinary",
         },
     };
 
@@ -40,13 +38,10 @@ const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
  * In production, this data will be provided by Galaxy.
  */
 const datasetId = incoming.visualization_config.dataset_id;
-const datasetExtension = incoming.visualization_config.dataset_extension;
-const datasetUrl = datasetId ? undefined : incoming.visualization_config.dataset_url;
-
 const root = incoming.root;
 
 /* Build the data request url. Modify the API route if necessary. */
-const url = datasetUrl || `${root}api/datasets/${datasetId}/display`;
+const url = `${root}api/datasets/${datasetId}/display`;
 
 /** VTK.js */
 const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
