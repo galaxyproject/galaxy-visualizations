@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<visualization name="MVP Application">
+<visualization name="MVP Application" embeddable="true">
+    <description>Mass Spectrometry</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
