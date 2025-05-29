@@ -10,4 +10,17 @@
         <param required="true">dataset_id</param>
     </params>
     <entry_point entry_point_type="script" src="script.js" />
+    <help format="markdown"><![CDATA[
+# What is the MVP Application?
+
+The Galaxy-based **MVP (Multi-omics Visualization Platform)** plugin enables interactive exploration of results produced from workflows integrating genomic sequencing data with mass spectrometry (MS)-based proteomics data—an approach commonly referred to as **proteogenomics**.
+
+MVP is a multi-functional visualization tool designed to:
+
+- Organize and filter large, complex datasets
+- Assess the quality of tandem mass spectrometry (MS/MS) data matched to peptide sequences
+- Visualize data at both the **protein** and **gene** levels
+
+With a user-friendly interface, researchers can filter and sort through large datasets with just a few keystrokes to isolate relevant findings.
+    ]]></help>
 </visualization>
