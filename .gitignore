@@ -1,6 +1,8 @@
 node_modules
 **/dist/
 **/package-lock.json
+**/.parcel-cache
 .cache
-lerna-debug.log
 .DS_Store
+lerna-debug.log
+packages/**/static
