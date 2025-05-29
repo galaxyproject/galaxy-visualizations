@@ -88,7 +88,7 @@ async function create() {
         const config = {
             datasetID: datasetId,
             dataName: dataset.name,
-            dbkey: dataset.dbkey || "?",
+            dbkey: dataset.metadata_dbkey || "?",
             href: root,
             historyID: dataset.history_id,
             tableRowCount: { ...dataset.metadata_table_row_count },
