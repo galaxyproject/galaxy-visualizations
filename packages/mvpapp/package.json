@@ -6,6 +6,7 @@
   "scripts": {
     "build": "webpack --mode production"
   },
+  "files": ["static"],
   "author": "Thomas McGowan <mcgo0092@umn.edu>",
   "license": "MIT",
   "devDependencies": {
