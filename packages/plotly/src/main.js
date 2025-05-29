@@ -24,8 +24,6 @@ async function main() {
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             visualization_config: {
-                // Placeholder for dataset URL (can be replaced during actual development)
-                dataset_url: "MY_DATASET_URL",
                 // Placeholder for dataset ID
                 dataset_id: process.env.dataset_id,
                 // Placeholder for additional visualization settings
