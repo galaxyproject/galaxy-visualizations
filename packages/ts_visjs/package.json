@@ -1,12 +1,9 @@
 {
     "name": "@galaxyproject/ts_visjs",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "license": "MIT",
     "type": "module",
-    "files": [
-        "static/dist/index.js",
-        "static/dist/index.css"
-    ],
+    "files": ["static"],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
