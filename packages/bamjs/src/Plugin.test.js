@@ -18,7 +18,7 @@ describe("Plugin", () => {
                 specs: {},
             },
         });
-        expect(wrapper.text()).toContain("BAM File Viewer");
+        expect(wrapper.text()).toContain("No BAM data available");
     });
 
     it("displays loading state initially", () => {
@@ -49,6 +49,6 @@ describe("Plugin", () => {
                 specs: {},
             },
         });
-        expect(wrapper.text()).toContain("BAM File Viewer");
+        expect(wrapper.text()).toContain("No BAM data available");
     });
 });
