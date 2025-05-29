@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="Cytoscape" embeddable="true">
     <description>Graph viewer from http://js.cytoscape.org</description>
     <tags>
@@ -16,10 +15,7 @@
     <params>
         <param required="true">dataset_id</param>
     </params>
-    <requirements>
-        <requirement type="npm" version="0.0.7" package="@galaxyproject/cytoscape"/>
-    </requirements>
-    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <settings>
         <input>
             <label>Curve style</label>
@@ -94,7 +90,7 @@
         <input>
             <label>Graph algorithms</label>
             <name>search_algorithm</name>
-            <help>Select a search algorithm. For Breadth First Search and Depth First Search, please click on any node of the graph. For A*, please click on two nodes, one for the root and another for the destination.</help>
+            <help>Select a search algorithm.</help>
             <type>select</type>
             <display>radio</display>
             <data>
@@ -195,6 +191,8 @@ After selecting a graph dataset, the network will be displayed visually. You can
 - **Algorithms**: Run graph algorithms like Breadth First Search, Depth First Search, Minimum Spanning Tree, or A*.
 - **Traversal Tools**: Find successors, predecessors, roots, and leaves with just a click.
 - **Customization**: Set colors for nodes, edges, and highlights to better visualize relationships.
+
+Note: For Breadth First Search and Depth First Search, please click on any node of the graph. For A*, please click on two nodes, one for the root and another for the destination.
 
 Ideal for visualizing networks such as biological pathways, social graphs, or data relationships.
 

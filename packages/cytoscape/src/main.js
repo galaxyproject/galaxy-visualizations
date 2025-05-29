@@ -19,11 +19,8 @@ async function main() {
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             visualization_config: {
-                // Placeholder for dataset URL (can be replaced during actual development)
-                dataset_url:
-                    "https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/refs/heads/master/cytoscape.json",
                 // Placeholder for dataset ID
-                dataset_id: "MY_DATASET_ID",
+                dataset_id: process.env.dataset_id,
                 // Placeholder for additional visualization settings
                 settings: {},
             },
