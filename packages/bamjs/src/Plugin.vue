@@ -316,3 +316,45 @@ onMounted(() => {
         <div v-else class="loading">No BAM data available</div>
     </div>
 </template>
+
+<style scoped>
+.bam-viewer {
+    text-align: left;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    background-color: #fff;
+    color: #333;
+}
+
+.bam-records {
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    flex: 1;
+    overflow-y: auto;
+    color: #333;
+    padding: 16px;
+    margin: 0;
+}
+
+.error {
+    color: #d32f2f;
+    padding: 16px;
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 4px;
+    margin: 16px;
+}
+
+.loading {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+</style>
