@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="BAM Viewer">
+    <description>A BAM file viewer that displays a plaintext representation of BAM records using bam-js library.</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext" result_type="datatype">bam</test>
+            <to_param param_attr="id">dataset_id</to_param>
+        </data_source>
+    </data_sources>
+    <params>
+        <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
+    </params>
+    <requirements>
+        <requirement type="npm" version="1.2.26" package="@gmod/bam"/>
+    </requirements>
+    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <settings>
+        <input>
+            <label>Maximum Records to Display</label>
+            <name>max_records</name>
+            <help>Maximum number of BAM records to display (default: 100)</help>
+            <type>integer</type>
+            <value>100</value>
+            <min>1</min>
+            <max>1000</max>
+        </input>
+        <input>
+            <label>Region Start Position</label>
+            <name>region_start</name>
+            <help>Start position for region to display (0-based, default: 0)</help>
+            <type>integer</type>
+            <value>0</value>
+            <min>0</min>
+        </input>
+        <input>
+            <label>Region End Position</label>
+            <name>region_end</name>
+            <help>End position for region to display (default: 10000)</help>
+            <type>integer</type>
+            <value>10000</value>
+            <min>1</min>
+        </input>
+    </settings>
+</visualization>
