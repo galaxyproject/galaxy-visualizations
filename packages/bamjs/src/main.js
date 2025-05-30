@@ -120,10 +120,15 @@ class BamViewer {
         this.error = null;
         this.render();
 
+        console.log("Loading BAM file from URL:", this.datasetUrl);
+        console.log("Is development mode:", import.meta.env.DEV);
+
         try {
-            if (this.datasetUrl.startsWith("http")) {
+            if (import.meta.env.DEV && this.datasetUrl.startsWith("https://raw.githubusercontent.com")) {
+                console.log("Using HTTP BAM file loader for development");
                 await this.loadHttpBamFile();
             } else {
+                console.log("Using Galaxy BAM file loader for production");
                 await this.loadGalaxyBamFile();
             }
         } catch (err) {
@@ -208,11 +213,31 @@ class BamViewer {
     }
 
     async loadGalaxyBamFile() {
-        const response = await axios.get(this.datasetUrl);
+        // We already have the dataset ID and root from data-incoming
+        const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+        const datasetId = incoming.visualization_config?.dataset_id;
+        const root = incoming.root || "/";
 
-        if (response.data.download_url) {
+        console.log("Galaxy data incoming:", incoming);
+        console.log("Dataset ID:", datasetId);
+        console.log("Root URL:", root);
+
+        if (!datasetId) {
+            throw new Error("No dataset ID provided by Galaxy");
+        }
+
+        // Construct proper Galaxy API URLs
+        const bamUrl = `${root}api/datasets/${datasetId}/display?to_ext=bam`;
+        const baiUrl = `${root}api/datasets/${datasetId}/metadata_file?metadata_file=bam_index`;
+
+        console.log("BAM URL:", bamUrl);
+        console.log("BAI URL:", baiUrl);
+
+        try {
+            // Try with index first
             const bamFile = new BamFile({
-                bamFilehandle: new RemoteFile(response.data.download_url),
+                bamFilehandle: new RemoteFile(bamUrl),
+                baiFilehandle: new RemoteFile(baiUrl),
             });
 
             this.headerInfo = await bamFile.getHeader();
@@ -222,14 +247,47 @@ class BamViewer {
                 const firstRef = refSeqs[0];
                 const endPos = Math.min(this.settings.region_end, firstRef.length);
 
-                const bamRecords = await bamFile.getRecordsForRange(firstRef.name, this.settings.region_start, endPos, {
-                    maxRecords: this.settings.max_records,
-                });
+                try {
+                    const bamRecords = await bamFile.getRecordsForRange(
+                        firstRef.name,
+                        this.settings.region_start,
+                        endPos,
+                        { maxRecords: this.settings.max_records }
+                    );
 
-                this.records = bamRecords;
+                    this.records = bamRecords;
+
+                    if (bamRecords.length === 0) {
+                        // Try a broader range if no records found
+                        const broaderRecords = await bamFile.getRecordsForRange(
+                            firstRef.name,
+                            0,
+                            Math.min(100000, firstRef.length),
+                            { maxRecords: this.settings.max_records }
+                        );
+                        this.records = broaderRecords;
+                    }
+                } catch (rangeError) {
+                    console.warn("Could not get records for range:", rangeError.message);
+                    this.records = [];
+                }
+            } else {
+                this.records = [];
             }
-        } else {
-            throw new Error("Unable to get BAM file download URL");
+        } catch (bamError) {
+            console.warn("BAM file loading with index failed, trying without index:", bamError.message);
+
+            // Try without index
+            try {
+                const bamFile = new BamFile({
+                    bamFilehandle: new RemoteFile(bamUrl),
+                    // No baiFilehandle = no index
+                });
+                this.headerInfo = await bamFile.getHeader();
+                this.records = [];
+            } catch (noIndexError) {
+                throw noIndexError;
+            }
         }
     }
 
