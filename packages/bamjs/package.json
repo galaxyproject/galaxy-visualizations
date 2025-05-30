@@ -19,24 +19,17 @@
     },
     "devDependencies": {
         "@types/node": "^22.9.0",
-        "@vitejs/plugin-vue": "^5.0.5",
         "@vitest/ui": "^3.1.4",
-        "@vue/test-utils": "^2.4.6",
-        "autoprefixer": "^10.4.19",
-        "galaxy-charts": "^0.0.73",
-        "galaxy-charts-xml-parser": "^1.0.3",
         "jsdom": "^26.1.0",
-        "postcss": "^8.4.40",
         "prettier": "^3.3.3",
-        "tailwindcss": "^4.1.8",
         "typescript": "^5.5.4",
         "vite": "^6.3.5",
-        "vitest": "^3.1.4",
-        "vue": "^3.4.31"
+        "vitest": "^3.1.4"
     },
     "dependencies": {
         "@gmod/bam": "^6.0.4",
-        "axios": "^1.7.7"
+        "axios": "^1.7.7",
+        "generic-filehandle2": "^2.0.2"
     },
     "repository": {
         "type": "git",
@@ -46,7 +39,7 @@
         "bam",
         "galaxy",
         "visualization",
-        "vue",
+        "vanilla-js",
         "vite"
     ]
 }
