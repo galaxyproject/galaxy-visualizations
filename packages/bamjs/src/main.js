@@ -205,7 +205,8 @@ class BamViewer {
                     bamFilehandle: new RemoteFile(bamUrl),
                     // No baiFilehandle = no index
                 });
-                this.headerInfo = await bamFile.getHeader();
+                const rawHeader = await bamFile.getHeader();
+                this.headerInfo = this.parseHeader(rawHeader);
                 this.records = [];
             } catch (noIndexError) {
                 throw noIndexError;
@@ -450,7 +451,8 @@ class BamViewer {
 
                     console.log("Getting BAM header with downloaded file...");
                     try {
-                        this.headerInfo = await bamFile.getHeader();
+                        const rawHeader = await bamFile.getHeader();
+                        this.headerInfo = this.parseHeader(rawHeader);
                         console.log("BAM header loaded successfully:", this.headerInfo);
                     } catch (headerError) {
                         console.error("Error getting header:", headerError);
@@ -473,81 +475,178 @@ class BamViewer {
                 });
 
                 console.log("Getting BAM header with RemoteFile...");
-                this.headerInfo = await bamFile.getHeader();
+                const rawHeader = await bamFile.getHeader();
+                this.headerInfo = this.parseHeader(rawHeader);
                 console.log("BAM header loaded:", this.headerInfo);
             }
 
-            // Debug the header structure to understand how to access reference sequences
-            console.log("Full header info:", this.headerInfo);
-            console.log("Header properties:", Object.keys(this.headerInfo));
-            if (this.headerInfo.references) {
-                console.log("References found:", this.headerInfo.references);
-            } else {
-                console.log("No references property, checking for SQ records...");
-                const sqRecords = this.headerInfo.filter((record) => record.tag === "SQ");
-                console.log("SQ records:", sqRecords);
-                if (sqRecords.length > 0) {
-                    console.log("First SQ record details:", sqRecords[0]);
-                    console.log("SQ record data:", sqRecords[0].data);
-                }
-            }
-
-            // Extract reference sequences from SQ records if references property doesn't exist
-            let refSeqs = this.headerInfo.references;
-            if (!refSeqs || refSeqs.length === 0) {
-                const sqRecords = this.headerInfo.filter((record) => record.tag === "SQ");
-                if (sqRecords.length > 0) {
-                    console.log("Extracting references from SQ records...");
-                    refSeqs = sqRecords.map((sq) => {
-                        // Extract name and length from SQ record data
-                        const sqData = sq.data;
-                        const nameField = sqData.find((field) => field.tag === "SN");
-                        const lengthField = sqData.find((field) => field.tag === "LN");
-
-                        return {
-                            name: nameField ? nameField.value : "unknown",
-                            length: lengthField ? parseInt(lengthField.value) : 1000000,
-                        };
-                    });
-                    console.log("Extracted references:", refSeqs);
-                }
-            }
-
+            // The header is now properly parsed, so references should be available
+            const refSeqs = this.headerInfo.references;
+            console.log("Parsed header references:", refSeqs);
             if (refSeqs && refSeqs.length > 0) {
-                const firstRef = refSeqs[0];
-                const endPos = Math.min(this.settings.region_end, firstRef.length);
+                console.log(
+                    "First 5 references:",
+                    refSeqs.slice(0, 5).map((ref) => `${ref.name}:${ref.length}`)
+                );
+            } else {
+                console.log("No reference sequences found in header");
+            }
 
-                console.log(`Attempting to get records for ${firstRef.name}:${this.settings.region_start}-${endPos}`);
+            // Try to get first available reads efficiently
+            console.log("Searching for BAM records...");
 
-                try {
-                    const bamRecords = await bamFile.getRecordsForRange(
-                        firstRef.name,
-                        this.settings.region_start,
-                        endPos,
-                        { maxRecords: this.settings.max_records }
-                    );
-
-                    console.log(`Retrieved ${bamRecords.length} records`);
-                    this.records = bamRecords;
-
-                    if (bamRecords.length === 0) {
-                        console.log("No records found, trying broader range");
-                        // Try a broader range if no records found
-                        const broaderRecords = await bamFile.getRecordsForRange(
-                            firstRef.name,
-                            0,
-                            Math.min(100000, firstRef.length),
-                            { maxRecords: this.settings.max_records }
-                        );
-                        console.log(`Retrieved ${broaderRecords.length} records with broader range`);
-                        this.records = broaderRecords;
+            // Check BAM index to identify chromosomes with data
+            let chromosomesWithData = [];
+            try {
+                if (bamFile.index || bamFile.bai) {
+                    const index = bamFile.index || bamFile.bai;
+                    if (index.blocksForRange) {
+                        for (const ref of refSeqs) {
+                            try {
+                                const blocks = await index.blocksForRange(ref.name, 0, ref.length);
+                                if (blocks && blocks.length > 0) {
+                                    chromosomesWithData.push(ref);
+                                    console.log(`${ref.name}: ${blocks.length} data blocks found`);
+                                }
+                            } catch (e) {
+                                // Continue checking other chromosomes
+                            }
+                        }
                     }
-                } catch (rangeError) {
-                    console.warn("Could not get records for range:", rangeError.message);
+                }
+            } catch (indexError) {
+                console.log("Could not inspect index, will try all chromosomes");
+            }
+
+            try {
+                let allRecords = [];
+
+                // Try chromosomes with data first, then strategic fallbacks
+                if (refSeqs && refSeqs.length > 0) {
+                    let chromosomesToTry;
+
+                    if (chromosomesWithData.length > 0) {
+                        console.log(`Found ${chromosomesWithData.length} chromosomes with data, searching those first`);
+                        chromosomesToTry = chromosomesWithData;
+                    } else {
+                        console.log("No index data available, trying strategic chromosomes");
+                        chromosomesToTry = [
+                            ...refSeqs.slice(0, 3), // First 3 from the list
+                            ...refSeqs.filter((r) => r.name === "MT" || r.name === "chrM"), // Mitochondrial
+                            ...refSeqs.filter((r) => r.name === "X" || r.name === "chrX"), // X chromosome
+                            ...refSeqs.filter((r) => r.name === "Y" || r.name === "chrY"), // Y chromosome
+                            ...refSeqs.slice(-3), // Last 3 from the list
+                        ].filter((r, i, arr) => arr.findIndex((x) => x.name === r.name) === i); // Remove duplicates
+                    }
+
+                    for (const ref of chromosomesToTry) {
+                        try {
+                            // Try reading from the start of the chromosome
+                            const records = await bamFile.getRecordsForRange(
+                                ref.name,
+                                0,
+                                Math.min(1000000, ref.length),
+                                { maxRecords: this.settings.max_records }
+                            );
+
+                            if (records && records.length > 0) {
+                                console.log(`Found ${records.length} records in ${ref.name}`);
+                                allRecords = records;
+                                break;
+                            }
+
+                            // If no records at start, try other regions
+                            const regions = [
+                                { start: Math.floor(ref.length * 0.1), end: Math.floor(ref.length * 0.1) + 1000000 },
+                                { start: Math.floor(ref.length * 0.5), end: Math.floor(ref.length * 0.5) + 1000000 },
+                                { start: Math.max(0, ref.length - 5000000), end: ref.length },
+                            ];
+
+                            for (const region of regions) {
+                                try {
+                                    const regionRecords = await bamFile.getRecordsForRange(
+                                        ref.name,
+                                        region.start,
+                                        Math.min(region.end, ref.length),
+                                        { maxRecords: this.settings.max_records }
+                                    );
+
+                                    if (regionRecords && regionRecords.length > 0) {
+                                        console.log(
+                                            `Found ${regionRecords.length} records in ${ref.name}:${region.start}-${region.end}`
+                                        );
+                                        allRecords = regionRecords;
+                                        break;
+                                    }
+                                } catch (regionError) {
+                                    // Continue to next region
+                                }
+                            }
+
+                            if (allRecords.length > 0) break;
+                        } catch (refError) {
+                            // Continue to next chromosome
+                        }
+                    }
+                }
+
+                // Fallback: try global iterator if available
+                if (allRecords.length === 0 && bamFile.getRecords) {
+                    console.log("Trying global record iterator...");
+                    try {
+                        const recordIterator = bamFile.getRecords();
+                        let count = 0;
+                        const startTime = Date.now();
+                        const timeout = 30000; // 30 second timeout
+
+                        for await (const record of recordIterator) {
+                            allRecords.push(record);
+                            count++;
+                            if (count >= this.settings.max_records || Date.now() - startTime > timeout) {
+                                break;
+                            }
+                        }
+
+                        if (count > 0) {
+                            console.log(`Found ${count} records via global iterator`);
+                        }
+                    } catch (iteratorError) {
+                        console.log("Global iterator failed:", iteratorError.message);
+                    }
+                }
+
+                // Last resort: full chromosome scan
+                if (allRecords.length === 0 && refSeqs && refSeqs.length > 0) {
+                    console.log("Last resort: scanning full chromosome...");
+                    const firstRef = refSeqs[0];
+                    try {
+                        const records = await bamFile.getRecordsForRange(firstRef.name, 0, firstRef.length, {
+                            maxRecords: this.settings.max_records,
+                        });
+
+                        if (records && records.length > 0) {
+                            console.log(`Found ${records.length} records in ${firstRef.name} (full scan)`);
+                            allRecords = records;
+                        }
+                    } catch (lastResortError) {
+                        console.log("Full chromosome scan failed:", lastResortError.message);
+                    }
+                }
+
+                console.log(`Final result: ${allRecords.length} records retrieved`);
+                this.records = allRecords;
+
+                if (allRecords.length > 0) {
+                    const firstRecord = allRecords[0];
+                    const formatted = this.formatRecord(firstRecord);
+                    console.log(`Successfully retrieved ${allRecords.length} BAM records`);
+                    console.log(`First record: ${formatted.name} at ${formatted.refName}:${formatted.start}`);
+                } else {
+                    console.log("No BAM records found");
                     this.records = [];
                 }
-            } else {
-                console.log("No reference sequences found");
+            } catch (recordError) {
+                console.warn("Error retrieving records:", recordError.message);
                 this.records = [];
             }
         } catch (bamError) {
