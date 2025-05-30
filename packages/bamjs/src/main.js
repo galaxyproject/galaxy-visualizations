@@ -236,14 +236,151 @@ class BamViewer {
         try {
             // Try with index first
             console.log("Attempting to load with BAI index");
-            const bamFile = new BamFile({
-                bamFilehandle: new RemoteFile(bamUrl),
-                baiFilehandle: new RemoteFile(baiUrl),
-            });
-
-            console.log("Getting BAM header...");
-            this.headerInfo = await bamFile.getHeader();
-            console.log("BAM header loaded:", this.headerInfo);
+            
+            // Log the actual file size if possible
+            try {
+                const response = await fetch(bamUrl, { method: 'HEAD' });
+                const contentLength = response.headers.get('content-length');
+                console.log("BAM file size:", contentLength, "bytes");
+                
+                if (contentLength && parseInt(contentLength) < 100000) {
+                    console.log("Small BAM file detected, trying full download approach");
+                    
+                    // Download both BAM and BAI files entirely
+                    const bamResponse = await fetch(bamUrl);
+                    const bamData = await bamResponse.arrayBuffer();
+                    console.log("Downloaded entire BAM file:", bamData.byteLength, "bytes");
+                    
+                    const baiResponse = await fetch(baiUrl);
+                    const baiData = await baiResponse.arrayBuffer();
+                    console.log("Downloaded entire BAI file:", baiData.byteLength, "bytes");
+                    
+                    // Create a filehandle that works with the downloaded buffer
+                    // Try to match RemoteFile interface more closely
+                    const bamFilehandle = {
+                        async read(buffer, offset = 0, length, position = 0) {
+                            console.log("Custom read called:", { buffer, offset, length, position });
+                            
+                            // Handle the case where buffer is a number (length)
+                            if (typeof buffer === 'number') {
+                                const requestedLength = buffer;
+                                const start = position || 0;
+                                const end = Math.min(start + requestedLength, bamData.byteLength);
+                                const actualLength = end - start;
+                                
+                                if (actualLength <= 0) {
+                                    return { bytesRead: 0, buffer: new Uint8Array(0) };
+                                }
+                                
+                                // Return the actual slice of data
+                                const result = new Uint8Array(bamData, start, actualLength);
+                                console.log("Returning slice:", actualLength, "bytes, type:", result.constructor.name);
+                                return { bytesRead: actualLength, buffer: result };
+                            }
+                            
+                            // Handle normal buffer case
+                            const start = position || 0;
+                            const requestedLength = length || buffer.length;
+                            const end = Math.min(start + requestedLength, bamData.byteLength);
+                            const actualLength = end - start;
+                            
+                            if (actualLength <= 0) {
+                                return { bytesRead: 0, buffer };
+                            }
+                            
+                            const slice = new Uint8Array(bamData, start, actualLength);
+                            buffer.set(slice, offset);
+                            
+                            console.log("Read into provided buffer:", actualLength, "bytes");
+                            return { bytesRead: actualLength, buffer };
+                        },
+                        async stat() {
+                            return { size: bamData.byteLength };
+                        },
+                        async readFile() {
+                            return new Uint8Array(bamData);
+                        },
+                        async close() {
+                            // No-op for in-memory file
+                        }
+                    };
+                    
+                    // Create a similar filehandle for the BAI file
+                    const baiFilehandle = {
+                        async read(buffer, offset = 0, length, position = 0) {
+                            console.log("Custom BAI read called:", { buffer, offset, length, position });
+                            
+                            // Handle the case where buffer is a number (length)
+                            if (typeof buffer === 'number') {
+                                const requestedLength = buffer;
+                                const start = position || 0;
+                                const end = Math.min(start + requestedLength, baiData.byteLength);
+                                const actualLength = end - start;
+                                
+                                if (actualLength <= 0) {
+                                    return { bytesRead: 0, buffer: new Uint8Array(0) };
+                                }
+                                
+                                // Return the actual slice of data
+                                const result = new Uint8Array(baiData, start, actualLength);
+                                console.log("Returning BAI slice:", actualLength, "bytes, type:", result.constructor.name);
+                                return { bytesRead: actualLength, buffer: result };
+                            }
+                            
+                            // Handle normal buffer case
+                            const start = position || 0;
+                            const requestedLength = length || buffer.length;
+                            const end = Math.min(start + requestedLength, baiData.byteLength);
+                            const actualLength = end - start;
+                            
+                            if (actualLength <= 0) {
+                                return { bytesRead: 0, buffer };
+                            }
+                            
+                            const slice = new Uint8Array(baiData, start, actualLength);
+                            buffer.set(slice, offset);
+                            
+                            console.log("Read BAI into provided buffer:", actualLength, "bytes");
+                            return { bytesRead: actualLength, buffer };
+                        },
+                        async stat() {
+                            return { size: baiData.byteLength };
+                        },
+                        async readFile() {
+                            return new Uint8Array(baiData);
+                        },
+                        async close() {
+                            // No-op for in-memory file
+                        }
+                    };
+                    
+                    const bamFile = new BamFile({
+                        bamFilehandle,
+                        baiFilehandle,
+                    });
+                    
+                    console.log("Getting BAM header with downloaded file...");
+                    this.headerInfo = await bamFile.getHeader();
+                    console.log("BAM header loaded:", this.headerInfo);
+                } else {
+                    throw new Error("File too large for workaround");
+                }
+            } catch (e) {
+                console.log("Full download approach failed, falling back to RemoteFile:", e.message);
+                
+                // Fallback to original approach
+                const bamFilehandle = new RemoteFile(bamUrl);
+                const baiFilehandle = new RemoteFile(baiUrl);
+                
+                const bamFile = new BamFile({
+                    bamFilehandle,
+                    baiFilehandle,
+                });
+                
+                console.log("Getting BAM header with RemoteFile...");
+                this.headerInfo = await bamFile.getHeader();
+                console.log("BAM header loaded:", this.headerInfo);
+            }
 
             const refSeqs = this.headerInfo.references;
             if (refSeqs && refSeqs.length > 0) {
