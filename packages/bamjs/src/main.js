@@ -1,6 +1,7 @@
 import { BamFile } from "@gmod/bam";
 import { RemoteFile } from "generic-filehandle2";
 import axios from "axios";
+import pako from "pako";
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -233,31 +234,103 @@ class BamViewer {
         console.log("BAM URL:", bamUrl);
         console.log("BAI URL:", baiUrl);
 
+        let bamFile; // Declare bamFile at function scope
+
         try {
             // Try with index first
             console.log("Attempting to load with BAI index");
-            
+
             // Log the actual file size if possible
             try {
-                const response = await fetch(bamUrl, { method: 'HEAD' });
-                const contentLength = response.headers.get('content-length');
+                const response = await fetch(bamUrl, { method: "HEAD" });
+                const contentLength = response.headers.get("content-length");
                 console.log("BAM file size:", contentLength, "bytes");
-                
+
                 if (contentLength && parseInt(contentLength) < 100000) {
                     console.log("Small BAM file detected, trying full download approach");
-                    
+
                     // Download both BAM and BAI files entirely
                     const bamResponse = await fetch(bamUrl);
                     const bamData = await bamResponse.arrayBuffer();
                     console.log("Downloaded entire BAM file:", bamData.byteLength, "bytes");
-                    
+
+                    // Check if the BAM file is gzip compressed
+                    const bamView = new Uint8Array(bamData);
+                    const headerBytes = bamView.slice(0, Math.min(32, bamView.length));
+                    const headerString = Array.from(headerBytes.slice(0, 4))
+                        .map((b) => String.fromCharCode(b))
+                        .join("");
+                    console.log("BAM header signature:", headerString, "Should be 'BAM\\x01'");
+                    console.log(
+                        "First 32 bytes:",
+                        Array.from(headerBytes)
+                            .map((b) => b.toString(16).padStart(2, "0"))
+                            .join(" ")
+                    );
+
+                    // Check for gzip magic bytes (0x1f 0x8b)
+                    const isGzipped = bamView[0] === 0x1f && bamView[1] === 0x8b;
+                    console.log("File is gzipped:", isGzipped);
+
+                    let decompressedBamData;
+                    if (isGzipped) {
+                        console.log("Decompressing gzipped BAM file with pako...");
+                        try {
+                            // Use pako for more reliable gzip decompression
+                            const compressed = new Uint8Array(bamData);
+                            const decompressed = pako.inflate(compressed);
+                            decompressedBamData = decompressed.buffer.slice(
+                                decompressed.byteOffset,
+                                decompressed.byteOffset + decompressed.byteLength
+                            );
+                            console.log("Decompressed BAM file:", decompressedBamData.byteLength, "bytes");
+
+                            // Verify the decompressed header
+                            const decompressedView = new Uint8Array(decompressedBamData);
+                            const decompressedHeader = Array.from(decompressedView.slice(0, 4))
+                                .map((b) => String.fromCharCode(b))
+                                .join("");
+                            console.log("Decompressed header signature:", decompressedHeader);
+
+                            if (decompressedHeader !== "BAM\x01") {
+                                console.warn("Decompressed file doesn't have BAM signature, got:", decompressedHeader);
+                            }
+                        } catch (decompressError) {
+                            console.error("Pako decompression failed:", decompressError.message);
+                            throw new Error(`Failed to decompress BAM file: ${decompressError.message}`);
+                        }
+                    } else {
+                        decompressedBamData = bamData;
+                    }
+
                     const baiResponse = await fetch(baiUrl);
                     const baiData = await baiResponse.arrayBuffer();
                     console.log("Downloaded entire BAI file:", baiData.byteLength, "bytes");
-                    
-                    // Create a filehandle that works with the downloaded buffer
-                    // Try to match RemoteFile interface more closely
-                    const bamFilehandle = {
+
+                    // Alternative approach: create a blob URL and use RemoteFile
+                    // Try with original compressed data since BAM has internal block compression
+                    console.log("Creating blob URL from original compressed data...");
+                    const bamBlob = new Blob([bamData], { type: "application/octet-stream" });
+                    const bamBlobUrl = URL.createObjectURL(bamBlob);
+                    console.log("Created BAM blob URL:", bamBlobUrl);
+
+                    const baiBlob = new Blob([baiData], { type: "application/octet-stream" });
+                    const baiBlobUrl = URL.createObjectURL(baiBlob);
+                    console.log("Created BAI blob URL:", baiBlobUrl);
+
+                    // Use standard RemoteFile with blob URLs
+                    const bamFilehandle = new RemoteFile(bamBlobUrl);
+                    const baiFilehandle = new RemoteFile(baiBlobUrl);
+
+                    // Clean up blob URLs after a delay (they'll be used async)
+                    setTimeout(() => {
+                        URL.revokeObjectURL(bamBlobUrl);
+                        URL.revokeObjectURL(baiBlobUrl);
+                    }, 30000); // 30 second cleanup
+
+                    /*
+                    // Keep the old custom filehandle approach as backup
+                    const bamFilehandle_OLD = {
                         async read(buffer, offset = 0, length, position = 0) {
                             console.log("Custom read called:", { buffer, offset, length, position });
                             
@@ -265,40 +338,51 @@ class BamViewer {
                             if (typeof buffer === 'number') {
                                 const requestedLength = buffer;
                                 const start = position || 0;
-                                const end = Math.min(start + requestedLength, bamData.byteLength);
+                                const end = Math.min(start + requestedLength, decompressedBamData.byteLength);
                                 const actualLength = end - start;
                                 
                                 if (actualLength <= 0) {
                                     return { bytesRead: 0, buffer: new Uint8Array(0) };
                                 }
                                 
-                                // Return the actual slice of data
-                                const result = new Uint8Array(bamData, start, actualLength);
+                                // Return the actual slice of data - copy to avoid reference issues  
+                                const source = new Uint8Array(decompressedBamData, start, actualLength);
+                                const result = new Uint8Array(source); // Create a copy
+                                
+                                // Add extra debugging and properties to help diagnose the issue
                                 console.log("Returning slice:", actualLength, "bytes, type:", result.constructor.name);
+                                console.log("Has subarray:", typeof result.subarray, "Has slice:", typeof result.slice);
+                                console.log("Buffer details:", {
+                                    length: result.length,
+                                    byteLength: result.byteLength,
+                                    buffer: !!result.buffer,
+                                    BYTES_PER_ELEMENT: result.BYTES_PER_ELEMENT
+                                });
+                                
                                 return { bytesRead: actualLength, buffer: result };
                             }
                             
                             // Handle normal buffer case
                             const start = position || 0;
                             const requestedLength = length || buffer.length;
-                            const end = Math.min(start + requestedLength, bamData.byteLength);
+                            const end = Math.min(start + requestedLength, decompressedBamData.byteLength);
                             const actualLength = end - start;
                             
                             if (actualLength <= 0) {
                                 return { bytesRead: 0, buffer };
                             }
                             
-                            const slice = new Uint8Array(bamData, start, actualLength);
+                            const slice = new Uint8Array(decompressedBamData, start, actualLength);
                             buffer.set(slice, offset);
                             
                             console.log("Read into provided buffer:", actualLength, "bytes");
                             return { bytesRead: actualLength, buffer };
                         },
                         async stat() {
-                            return { size: bamData.byteLength };
+                            return { size: decompressedBamData.byteLength };
                         },
                         async readFile() {
-                            return new Uint8Array(bamData);
+                            return new Uint8Array(decompressedBamData);
                         },
                         async close() {
                             // No-op for in-memory file
@@ -306,7 +390,7 @@ class BamViewer {
                     };
                     
                     // Create a similar filehandle for the BAI file
-                    const baiFilehandle = {
+                    const baiFilehandle_OLD = {
                         async read(buffer, offset = 0, length, position = 0) {
                             console.log("Custom BAI read called:", { buffer, offset, length, position });
                             
@@ -321,9 +405,11 @@ class BamViewer {
                                     return { bytesRead: 0, buffer: new Uint8Array(0) };
                                 }
                                 
-                                // Return the actual slice of data
-                                const result = new Uint8Array(baiData, start, actualLength);
+                                // Return the actual slice of data - copy to avoid reference issues
+                                const source = new Uint8Array(baiData, start, actualLength);
+                                const result = new Uint8Array(source); // Create a copy
                                 console.log("Returning BAI slice:", actualLength, "bytes, type:", result.constructor.name);
+                                console.log("BAI has subarray:", typeof result.subarray, "Has slice:", typeof result.slice);
                                 return { bytesRead: actualLength, buffer: result };
                             }
                             
@@ -353,36 +439,80 @@ class BamViewer {
                             // No-op for in-memory file
                         }
                     };
-                    
-                    const bamFile = new BamFile({
+                    */
+
+                    console.log("Creating BamFile with blob URL filehandles...");
+                    bamFile = new BamFile({
                         bamFilehandle,
                         baiFilehandle,
                     });
-                    
+                    console.log("BamFile created successfully");
+
                     console.log("Getting BAM header with downloaded file...");
-                    this.headerInfo = await bamFile.getHeader();
-                    console.log("BAM header loaded:", this.headerInfo);
+                    try {
+                        this.headerInfo = await bamFile.getHeader();
+                        console.log("BAM header loaded successfully:", this.headerInfo);
+                    } catch (headerError) {
+                        console.error("Error getting header:", headerError);
+                        console.error("Header error stack:", headerError.stack);
+                        throw new Error(`Header loading failed: ${headerError.message}`);
+                    }
                 } else {
                     throw new Error("File too large for workaround");
                 }
             } catch (e) {
                 console.log("Full download approach failed, falling back to RemoteFile:", e.message);
-                
+
                 // Fallback to original approach
                 const bamFilehandle = new RemoteFile(bamUrl);
                 const baiFilehandle = new RemoteFile(baiUrl);
-                
-                const bamFile = new BamFile({
+
+                bamFile = new BamFile({
                     bamFilehandle,
                     baiFilehandle,
                 });
-                
+
                 console.log("Getting BAM header with RemoteFile...");
                 this.headerInfo = await bamFile.getHeader();
                 console.log("BAM header loaded:", this.headerInfo);
             }
 
-            const refSeqs = this.headerInfo.references;
+            // Debug the header structure to understand how to access reference sequences
+            console.log("Full header info:", this.headerInfo);
+            console.log("Header properties:", Object.keys(this.headerInfo));
+            if (this.headerInfo.references) {
+                console.log("References found:", this.headerInfo.references);
+            } else {
+                console.log("No references property, checking for SQ records...");
+                const sqRecords = this.headerInfo.filter((record) => record.tag === "SQ");
+                console.log("SQ records:", sqRecords);
+                if (sqRecords.length > 0) {
+                    console.log("First SQ record details:", sqRecords[0]);
+                    console.log("SQ record data:", sqRecords[0].data);
+                }
+            }
+
+            // Extract reference sequences from SQ records if references property doesn't exist
+            let refSeqs = this.headerInfo.references;
+            if (!refSeqs || refSeqs.length === 0) {
+                const sqRecords = this.headerInfo.filter((record) => record.tag === "SQ");
+                if (sqRecords.length > 0) {
+                    console.log("Extracting references from SQ records...");
+                    refSeqs = sqRecords.map((sq) => {
+                        // Extract name and length from SQ record data
+                        const sqData = sq.data;
+                        const nameField = sqData.find((field) => field.tag === "SN");
+                        const lengthField = sqData.find((field) => field.tag === "LN");
+
+                        return {
+                            name: nameField ? nameField.value : "unknown",
+                            length: lengthField ? parseInt(lengthField.value) : 1000000,
+                        };
+                    });
+                    console.log("Extracted references:", refSeqs);
+                }
+            }
+
             if (refSeqs && refSeqs.length > 0) {
                 const firstRef = refSeqs[0];
                 const endPos = Math.min(this.settings.region_end, firstRef.length);
