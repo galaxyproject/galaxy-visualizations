@@ -25,7 +25,7 @@ if (import.meta.env.DEV && appElement) {
 class BamViewer {
     constructor(container, options = {}) {
         this.container = container;
-        this.datasetUrl = options.datasetUrl || "mock://test.bam";
+        this.datasetUrl = options.datasetUrl;
         this.settings = {
             max_records: 100,
             region_start: 0,
@@ -121,54 +121,7 @@ class BamViewer {
         this.render();
 
         try {
-            if (this.datasetUrl.startsWith("mock://")) {
-                // Fallback to mock data
-                this.headerInfo = {
-                    version: "1.6",
-                    sortOrder: "coordinate",
-                    references: [
-                        { name: "chr1", length: 248956422 },
-                        { name: "chr2", length: 242193529 },
-                        { name: "chrX", length: 156040895 },
-                    ],
-                    readGroups: [{ id: "HG001", sample: "NA12878", library: "lib_HG001", platform: "ILLUMINA" }],
-                    programs: [
-                        {
-                            id: "bwa",
-                            name: "bwa",
-                            version: "0.7.17",
-                            commandLine: "bwa mem -M -t 16 GRCh38.fa input.fastq",
-                        },
-                    ],
-                };
-
-                this.records = [
-                    {
-                        name: "HWI-D00119:50:H7AP8ADXX:1:1101:1234:2000",
-                        refName: "chr1",
-                        start: 69091,
-                        end: 69141,
-                        cigar: "50M",
-                        seq: "ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC",
-                        qual: "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",
-                        flags: 99,
-                        mapq: 60,
-                        tags: { AS: 50, XS: 10, NM: 0, MD: "50" },
-                    },
-                    {
-                        name: "HWI-D00119:50:H7AP8ADXX:1:1101:1234:2000",
-                        refName: "chr1",
-                        start: 69141,
-                        end: 69191,
-                        cigar: "50M",
-                        seq: "CGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT",
-                        qual: "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIJ",
-                        flags: 147,
-                        mapq: 60,
-                        tags: { AS: 50, XS: 8, NM: 0, MD: "50" },
-                    },
-                ];
-            } else if (this.datasetUrl.startsWith("http")) {
+            if (this.datasetUrl.startsWith("http")) {
                 await this.loadHttpBamFile();
             } else {
                 await this.loadGalaxyBamFile();
@@ -553,8 +506,11 @@ if (import.meta.env.DEV) {
     // In development, use direct URL to BAM file
     datasetUrl = "https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/srma_out2.bam";
 } else {
-    // In production, use Galaxy API or fallback to mock
-    datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : "mock://test.bam";
+    // In production, Galaxy must provide a dataset ID
+    if (!datasetId) {
+        throw new Error("No dataset ID provided by Galaxy");
+    }
+    datasetUrl = `${root}api/datasets/${datasetId}/display`;
 }
 
 // Initialize the viewer when the DOM is ready

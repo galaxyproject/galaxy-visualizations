@@ -58,7 +58,7 @@ describe("BamViewer", () => {
 
     it("renders properly with mock data", async () => {
         const viewer = new BamViewer(container, {
-            datasetUrl: "mock://test.bam",
+            datasetUrl: "http://example.com/test.bam",
             settings: {
                 max_records: 100,
                 region_start: 0,
@@ -84,7 +84,7 @@ describe("BamViewer", () => {
 
     it("handles missing settings gracefully", async () => {
         const viewer = new BamViewer(container, {
-            datasetUrl: "mock://test.bam",
+            datasetUrl: "http://example.com/test.bam",
         });
 
         // Wait for the viewer to finish loading
@@ -95,7 +95,7 @@ describe("BamViewer", () => {
 
     it("formats records correctly", async () => {
         const viewer = new BamViewer(container, {
-            datasetUrl: "mock://test.bam",
+            datasetUrl: "http://example.com/test.bam",
         });
 
         // Test formatRecord method directly
@@ -124,7 +124,7 @@ describe("BamViewer", () => {
 
     it("formats header correctly", async () => {
         const viewer = new BamViewer(container, {
-            datasetUrl: "mock://test.bam",
+            datasetUrl: "http://example.com/test.bam",
         });
 
         const mockHeader = {
