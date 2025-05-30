@@ -235,17 +235,22 @@ class BamViewer {
 
         try {
             // Try with index first
+            console.log("Attempting to load with BAI index");
             const bamFile = new BamFile({
                 bamFilehandle: new RemoteFile(bamUrl),
                 baiFilehandle: new RemoteFile(baiUrl),
             });
 
+            console.log("Getting BAM header...");
             this.headerInfo = await bamFile.getHeader();
+            console.log("BAM header loaded:", this.headerInfo);
 
             const refSeqs = this.headerInfo.references;
             if (refSeqs && refSeqs.length > 0) {
                 const firstRef = refSeqs[0];
                 const endPos = Math.min(this.settings.region_end, firstRef.length);
+
+                console.log(`Attempting to get records for ${firstRef.name}:${this.settings.region_start}-${endPos}`);
 
                 try {
                     const bamRecords = await bamFile.getRecordsForRange(
@@ -255,9 +260,11 @@ class BamViewer {
                         { maxRecords: this.settings.max_records }
                     );
 
+                    console.log(`Retrieved ${bamRecords.length} records`);
                     this.records = bamRecords;
 
                     if (bamRecords.length === 0) {
+                        console.log("No records found, trying broader range");
                         // Try a broader range if no records found
                         const broaderRecords = await bamFile.getRecordsForRange(
                             firstRef.name,
@@ -265,6 +272,7 @@ class BamViewer {
                             Math.min(100000, firstRef.length),
                             { maxRecords: this.settings.max_records }
                         );
+                        console.log(`Retrieved ${broaderRecords.length} records with broader range`);
                         this.records = broaderRecords;
                     }
                 } catch (rangeError) {
@@ -272,22 +280,12 @@ class BamViewer {
                     this.records = [];
                 }
             } else {
+                console.log("No reference sequences found");
                 this.records = [];
             }
         } catch (bamError) {
-            console.warn("BAM file loading with index failed, trying without index:", bamError.message);
-
-            // Try without index
-            try {
-                const bamFile = new BamFile({
-                    bamFilehandle: new RemoteFile(bamUrl),
-                    // No baiFilehandle = no index
-                });
-                this.headerInfo = await bamFile.getHeader();
-                this.records = [];
-            } catch (noIndexError) {
-                throw noIndexError;
-            }
+            console.error("BAM file loading with index failed:", bamError.message);
+            throw bamError;
         }
     }
 
