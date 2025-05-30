@@ -27,9 +27,10 @@
         "vitest": "^3.1.4"
     },
     "dependencies": {
-        "@gmod/bam": "^6.0.4",
+        "@gmod/bam": "^5.0.0",
         "axios": "^1.7.7",
-        "generic-filehandle2": "^2.0.2"
+        "generic-filehandle2": "^2.0.2",
+        "pako": "^2.1.0"
     },
     "repository": {
         "type": "git",

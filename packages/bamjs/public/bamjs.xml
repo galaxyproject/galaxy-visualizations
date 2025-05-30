@@ -12,9 +12,6 @@
     <params>
         <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
     </params>
-    <requirements>
-        <requirement type="npm" version="1.2.26" package="@gmod/bam"/>
-    </requirements>
     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
     <settings>
         <input>
