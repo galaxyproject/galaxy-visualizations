@@ -11,7 +11,10 @@ if (import.meta.env.DEV && appElement) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: process.env.dataset_id || "test-bam-dataset",
+            dataset_id: import.meta.env.VITE_DATASET_ID || "test-bam-dataset",
+            max_records: "50",
+            region_start: "0",
+            region_end: "10000",
         },
     };
 
@@ -42,6 +45,10 @@ class BamViewer {
         this.container.className = "bam-viewer";
         this.container.innerHTML = "";
         this.addStyles();
+
+        // Log the settings being used
+        console.info("BAM Viewer settings:", this.settings);
+
         this.loadBamFile();
     }
 
@@ -532,8 +539,23 @@ const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
 const datasetId = incoming.visualization_config?.dataset_id;
 const root = incoming.root || "/";
 
+// Extract settings from Galaxy configuration
+const config = incoming.visualization_config || {};
+const settings = {
+    max_records: parseInt(config.max_records) || 100,
+    region_start: parseInt(config.region_start) || 0,
+    region_end: parseInt(config.region_end) || 10000,
+};
+
 // Build the data request URL
-const datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : "mock://test.bam";
+let datasetUrl;
+if (import.meta.env.DEV) {
+    // In development, use direct URL to BAM file
+    datasetUrl = "https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/srma_out2.bam";
+} else {
+    // In production, use Galaxy API or fallback to mock
+    datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : "mock://test.bam";
+}
 
 // Initialize the viewer when the DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
@@ -541,11 +563,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const options = {
         datasetUrl: datasetUrl,
-        settings: {
-            max_records: 50,
-            region_start: 0,
-            region_end: 10000,
-        },
+        settings: settings,
     };
 
     new BamViewer(container, options);
