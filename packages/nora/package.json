@@ -1,6 +1,6 @@
 {
-  "name": "@galaxyproject/nora",
-  "version": "1.2.0",
+  "name": "@reisertm/nora_galaxy_plugin",
+  "version": "1.1.1",
   "keywords": [
     "galaxy",
     "visualization",

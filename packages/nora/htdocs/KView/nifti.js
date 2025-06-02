@@ -203,6 +203,10 @@ parse = function (buffer_org) {
       var cal_min = view.getFloat32(128, littleEndian)
       var slice_duration = view.getFloat32(132, littleEndian)
       var toffset = view.getFloat32(136, littleEndian)
+/*
+      var glmax = view.getFloat32(124+16, littleEndian)
+      var glmin = view.getFloat32(128+16, littleEndian)
+*/
 
       var descrip = ab2str(buf8.subarray(148, 228))
       var aux_file = String.fromCharCode.apply(null, buf8.subarray(228, 252))
@@ -283,6 +287,8 @@ parse = function (buffer_org) {
   ret.endian = littleEndian ? 'little' : 'big'
   ret.sizes = dim.slice(1) // Note that both NRRD and NIfTI use the convention that the fastest axis comes first!
 
+  if (isNaN(scl_inter)) scl_inter = 0;
+  if (isNaN(scl_slope)) scl_slope = 0;
   if (scl_slope == 0) scl_slope = 1;
 
   ret.cal_max = cal_max;
@@ -296,16 +302,39 @@ parse = function (buffer_org) {
 
 
   // this is for convenience use
-  ret.datascaling = 
-  {
-    slope:scl_slope,
-    offset:scl_inter,
-    id: function() {return (this.slope==1 & this.offset==0) },
-    e: function(v) { return v*this.slope+this.offset },
-    ie: function (v) { return (v-this.offset)/this.slope }
-  };
   
-  
+   ret.datascaling = {
+        slope: scl_slope,
+        offset: scl_inter,
+        id: function() {
+            return ( scl_slope == 1 & scl_inter == 0)
+        },
+        e: function(v) {
+
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push(v[k] * scl_slope + scl_inter)
+              return ret; 
+          }
+          else
+              return v * scl_slope + scl_inter
+        },
+        ie: function(v) {
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push( (v[k] - scl_inter) / scl_slope )
+              return ret; 
+          }
+          else
+              return (v - scl_inter) / scl_slope
+        }
+    };
+
+
 
   if (xyzt_units !== undefined) {
     ret.spaceUnits = xyzt_units
@@ -355,10 +384,10 @@ parse = function (buffer_org) {
       prefq = false;
       console.warn("qform prefered, but qform_code=0, switching back to sform")      
   }
-  prefq = prefq & qform_code!=0;
+  prefq = prefq & qform_code>0;
 
 
-  if ((sform_code != 0 && !prefq) || ret.spaceDirections == undefined)
+  if ((sform_code > 0 && !prefq) || ret.spaceDirections == undefined)
   { // "method 3"
     ret.space = "right-anterior-superior" // Any method for orientation (except for "method 1") uses this, apparently.
     ret.form = 'sform';
@@ -461,6 +490,28 @@ function parseNIfTIRawData(buffer, type, dim, options,hdroffs) {
     // Don't do anything special, just return the slice containing all blocks.
     return buffer.slice(hdroffs,totalLen*options.blockSize)
   } else if (type == 'int8' || type == 'uint8' || endianness == systemEndianness) {
+
+    function unevenBufferCorrection16(TypArr)
+    {
+        if (totalLen > buffer.byteLength)
+          return new TypArr(buffer,hdroffs);
+        else
+        {
+          if (hdroffs%2 == 0)
+              return new TypArr(buffer,hdroffs);
+          else
+          {
+              var tmp = new Uint8Array(buffer)
+              var len = buffer.byteLength+1
+              len = len + (len%2);
+              var x = new Uint8Array(len)
+              x.set(tmp,1)
+              return new TypArr(x.buffer,hdroffs+1);
+          }
+        }
+    }
+
+
     switch(type) {
     case "int8":
       checkSize(1)
@@ -470,16 +521,22 @@ function parseNIfTIRawData(buffer, type, dim, options,hdroffs) {
       return new Uint8Array(buffer,hdroffs);
     case "int16":
       checkSize(2)
-      return new Int16Array(buffer,hdroffs);
+      return unevenBufferCorrection16(Int16Array);
     case "uint16":
       checkSize(2)
-      if (totalLen > buffer.byteLength)
-        return new Uint16Array(buffer,hdroffs);
-      else
-        return new Uint16Array(buffer,hdroffs,totalLen);
+      return unevenBufferCorrection16(Uint16Array);
     case "int32":
       checkSize(4)
-      return new Int32Array(buffer,hdroffs);
+        if (hdroffs%4 == 0)
+            return new Int32Array(buffer,hdroffs);      
+        else
+        {
+            var tmp = new Uint8Array(buffer)
+            var x = new Uint8Array(buffer.byteLength+4)
+            x.set(tmp,4-hdroffs%4)
+            return new Int32Array(x.buffer,hdroffs+(4-hdroffs%4));
+        }
+      
     case "uint32":
       checkSize(4)
       return new Uint32Array(buffer,hdroffs);
@@ -765,15 +822,201 @@ function parse_mgh(buffer)
             return ( scl_slope == 1 & scl_inter == 0)
         },
         e: function(v) {
-            return v * scl_slope + scl_inter
+
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push(v[k] * scl_slope + scl_inter)
+              return ret; 
+          }
+          else
+              return v * scl_slope + scl_inter
         },
         ie: function(v) {
-            return (v - scl_inter) / scl_slope
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push( (v[k] - scl_inter) / scl_slope )
+              return ret; 
+          }
+          else
+              return (v - scl_inter) / scl_slope
         }
     };
 
     nifti.pixdim = [nifti.sizes.length]
     nifti.pixdim = nifti.pixdim.concat(nifti.sizes);
+
+
+
+    return nifti;
+
+
+
+}
+
+
+function parse_mif(buffer)
+{
+
+    var nifti = {
+        filetype: 'mif/mrtrix'
+    };
+
+    var chars = new Uint8Array(buffer);
+    var s = "";
+    var l = chars.length;
+    var lines = [];
+    for (var i = 0; i < l; i++)
+    {
+        if (chars[i] == 10)
+        {
+            lines.push(s)
+            if (s.substring(0,3)=="END")
+              break;
+            s = "";
+            continue;
+        }
+        s += String.fromCharCode(chars[i]);  
+    }
+
+    var obj = {};
+    for (var k = 0; k < lines.length;k++)
+    {
+         var i = lines[k].search("\:");
+         var key = lines[k].substring(0,i);
+         if (obj[key] == undefined)
+            obj[key] = [];
+         var val = lines[k].substring(i+1).trim();
+         if (key == "dim" | key== "transform"  | key== "vox")
+            val = val.split(",").map(parseFloat)
+         if (key == "file")
+            val = parseInt(val.split(" ")[1])
+      
+         obj[key].push(val);
+    }
+console.log(obj)
+    nifti.sizes = obj.dim[0]
+    nifti.sizes.push(1)
+  
+    nifti.type = ({
+        "0": "UCHAR",
+        "4": "SHORT",
+        "1": "INT",
+        "Float32LE": "FLOAT",
+        "Float64LE": "DOUBLE",
+        "Float32BE": "FLOAT",
+        "Float64BE": "DOUBLE"
+    })[obj.datatype[0]];
+
+    nifti.endian = 0;
+    nifti.datatype = obj.datatype[0];
+    if (obj.datatype[0].search("LE") > -1)
+      nifti.endian = 1;
+    //nifti.descrip = obj;
+  
+    if (nifti.type == undefined)
+    {
+      console.error('uknown datatype ' + obj.datatype[0])
+      return;
+    }
+
+  
+    nifti.voxSize = obj.vox[0]
+    var d = nifti.voxSize;
+    var T = obj.transform;
+    nifti.spaceDirections = [[T[0][0] * d[0], T[1][0] * d[0], T[2][0] * d[0]],
+                             [T[0][1] * d[1], T[1][1] * d[1], T[2][1] * d[1]],
+                             [T[0][2] * d[2], T[1][2] * d[2], T[2][2] * d[2]]];
+    var M = nifti.spaceDirections;
+    nifti.spaceOrigin = [ T[0][3],  T[1][3], T[2][3]]
+
+    nifti.buffer = buffer;
+
+    var imgsiz = nifti.sizes[0] * nifti.sizes[1] * nifti.sizes[2] * nifti.sizes[3];
+    var hdroffs = obj.file[0]
+
+
+
+    nifti.nbyte = 1;
+    var view = new DataView(buffer,hdroffs);
+
+
+    if (nifti.type == 'UCHAR')
+    {
+        nifti.nbyte = 1;
+        nifti.data = new Uint8Array(buffer,hdroffs,imgsiz);
+        for (var k = 0; k < imgsiz; k++)
+            nifti.data[k] = view.getUint8(k * nifti.nbyte);
+    }
+    else if (nifti.type == 'SHORT')
+    {
+        nifti.nbyte = 2;
+        nifti.data = new Uint16Array(buffer,hdroffs,imgsiz);
+        for (var k = 0; k < imgsiz; k++)
+            nifti.data[k] = view.getUint16(k * nifti.nbyte);
+    }
+    else if (nifti.type == 'INT')
+    {
+        nifti.nbyte = 4;
+        nifti.data = new Int32Array(buffer,hdroffs,imgsiz);
+        for (var k = 0; k < imgsiz; k++)
+            nifti.data[k] = view.getInt32(k * nifti.nbyte);
+    }
+    else if (nifti.type == 'FLOAT')
+    {
+        nifti.nbyte = 4;
+        nifti.data = new Float32Array(buffer);
+        for (var k = 0; k < imgsiz; k++)
+            nifti.data[k] = view.getFloat32(k * nifti.nbyte,nifti.endian);
+    }
+    else if (nifti.type == 'DOUBLE')
+    {
+        nifti.nbyte = 4;
+        nifti.data = new Float32Array(imgsiz);
+        for (var k = 0; k < imgsiz; k++)
+            nifti.data[k] = view.getFloat64(k * nifti.nbyte*2,nifti.endian);
+    }
+
+
+    var scl_slope = 1;
+    var scl_inter = 0;
+
+    nifti.datascaling = {
+        slope: scl_slope,
+        offset: scl_inter,
+        id: function() {
+            return ( scl_slope == 1 & scl_inter == 0)
+        },
+        e: function(v) {
+
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push(v[k] * scl_slope + scl_inter)
+              return ret; 
+          }
+          else
+              return v * scl_slope + scl_inter
+        },
+        ie: function(v) {
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push( (v[k] - scl_inter) / scl_slope )
+              return ret; 
+          }
+          else
+              return (v - scl_inter) / scl_slope
+        }
+    };
+
+    nifti.pixdim = [1]
+    nifti.pixdim = nifti.pixdim.concat(nifti.voxSize);
 
 
 
@@ -1115,19 +1358,41 @@ nrrd.parse = function (buffer) {
     // Make sure the file satisfies the requirements of the NRRD format
     checkNRRD(ret);
    
+   ret.scl_slope = 1;
+   ret.scl_inter = 0;
 
     // where to get this from???
-    ret.datascaling = 
-    {
-      slope:1,
-      offset:0,
-      id: function() {return (this.slope==1 & this.offset==0) },
-      e: function(v) { return v*this.slope+this.offset },
-      ie: function (v) { return (v-this.offset)/this.slope }
+   ret.datascaling = {
+        slope: 1,
+        offset: 0,
+        id: function() {
+            return ( this.slope == 1 & this.offset == 0)
+        },
+        e: function(v) {
+
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push(v[k] * this.slope + this.offset)
+              return ret; 
+          }
+          else
+              return v * this.slope + this.offset
+        },
+        ie: function(v) {
+          if (Array.isArray(v))
+          {
+              var ret = [];
+              for (var k = 0;k < v.length;k++)
+                 ret.push( (v[k] - this.offset) / this.slope )
+              return ret; 
+          }
+          else
+              return (v - this.offset) / this.slope
+        }
     };
 
-    if (ret.space == "left-posterior-superior")
-      ret; 
 
 
     ret.datatype = ret.type;

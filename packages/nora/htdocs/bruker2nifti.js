@@ -41,6 +41,9 @@ BrukerReader.checkForBrukerData = function (params)
                 }
             }
 
+            for(var k=0;k<params.length;k++)
+                params[k].isbruker = true;
+
 
             return bruker;
         }
@@ -378,7 +381,7 @@ BrukerReader.bruker2nifti = function(hdrfi, databufferfi,methodfi)
             if (wordtype.search('8BIT_SGN_INT') > -1 )
                 datatype = 256;       
             else if (wordtype.search('16BIT_SGN_INT') > -1)
-                datatype = 512;       
+                datatype = 4;       
             else if (wordtype.search('32BIT_SGN_INT') > -1)  // signed int 32
                 datatype = 8;       
 

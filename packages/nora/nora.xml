@@ -26,7 +26,7 @@
     <params>
         <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
     </params>
-    <entry_point entry_point_type="chart" src="dist/script.js"/>
+    <entry_point entry_point_type="script" src="dist/script.js"/>
     <specs>
         <tag>svg</tag>
         <use_panels>both</use_panels>

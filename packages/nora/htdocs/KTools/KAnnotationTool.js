@@ -17,8 +17,14 @@ function KMarkerTool(master,toolname)
   );
  
   that.name = toolname;
-	
-	if( markerProxy == undefined)
+
+
+  that.attach_helper(function(){
+		window.open("https://www.nora-imaging.org/doc/books/nora-documentation/page/marker-tool",'_blank');  	
+    })
+
+  
+  if( markerProxy == undefined)
     	markerProxy = new KMarkerProxy();
   
   // choose the default markerPanel
@@ -27,22 +33,25 @@ function KMarkerTool(master,toolname)
 
   function createMarkerSet(type, name)
   {
-//  		if(name==undefined)
-//  		///
-//			alertify.prompt("Name of marker set:", function(e,str) { if (e)   that.newSet(str,type); }, 'untitled');
-//		else
-			return that.newSet("undefined " + type,type);
+  	    if (name == undefined)
+  	        name = "undefined " + type;
+        var n = that.newSet(name,type);
+        if (type != "electrode")
+            n.setType(type)
+    	return n 
   }
   that.createMarkerSet = createMarkerSet;
 
   var $menu = $("<ul ></ul>");
   $("<li><a>pointset</a></li>").click(function() { createMarkerSet('pointset') } ).appendTo($menu);
   $("<li><a>freeline</a></li>").click(function() { createMarkerSet('freeline') } ).appendTo($menu);
+  $("<li><a>correspondence</a></li>").click(function() { createMarkerSet('correspondence') } ).appendTo($menu);
   $("<li><a>surface</a></li>").click(function() { createMarkerSet('surface') } ).appendTo($menu);
 
   $("<li><a>electrode</a></li>").click(function() { createMarkerSet('electrode') } ).appendTo($menu);
   $("<li><a>pointROI</a></li>").click(function() { createMarkerSet('pointROI') } ).appendTo($menu);
   $("<li><a>rectangles</a></li>").click(function() { createMarkerSet('rectangles') } ).appendTo($menu);
+  $("<li><a>2diameter</a></li>").click(function() { createMarkerSet('2diameter') } ).appendTo($menu);
 
   that.$topRow.append( $("<li class='menu_generic_labelname'><a>MarkerTool</a></li>").append($menu) );
   that.$topRow.append( $("<li><a><i class='fa fa-plus'></i>New</a></li>").append($menu) );
@@ -52,36 +61,17 @@ function KMarkerTool(master,toolname)
   //that.$topRow.append(  $("<li><a><i class='fa fa-plus'></i> New markerset</a></li>").click(function(){ alertify.prompt("Name of marker set:", function(e,str) { if (e)   that.newSet(str); }); }  ) );
   that.$topRow.append(  $("<li><a><i class='fa fa-save'></i> Save</a></li>").click(function(){ 
 
+	  if (KViewer.markerTool.lastMarkerCollName == undefined)
+		  KViewer.markerTool.lastMarkerCollName = "annotations/undefined.ano.json"
+	  
+	  saveDialog("marker collection",
+		  function(name,finfo)
+				{ 
+					markerProxy.save(name,undefined,finfo); 
+					KViewer.markerTool.lastMarkerCollName = name; 
+				} ,KViewer.markerTool.lastMarkerCollName, that.currentFileinfo ) 
 
-      var finfo = patientTableMirror.getCurrentUniquePSID()
-      if (finfo == false)
-          alertify.error('Please select a unique patient for saving')
-      else
-      {
-      	  var strr = "subject " + finfo.patients_id
-      	  if (finfo.studies_id != undefined)
-      	      strr = "study " + finfo.patients_id + finfo.studies_id 
-
-		  alertify.prompt({msg:'Name of marker collection for '+strr+':',opt:finfo.potential_studies, optMsg:"Study to save"},				  
-			  function(e,val)
-					{ 
-					   if (e) { 
-						if (val.option != undefined)
-						{
-							markerProxy.save(val.str,undefined,{piz:finfo.patients_id, study:"#"+val.option}); 
-							KViewer.markerTool.lastMarkerCollName = val.str; 
-
-						}
-						else
-						{                    
-							markerProxy.save(val); 
-							KViewer.markerTool.lastMarkerCollName = val; 
-						}
-					  }
-
-					},KViewer.markerTool.lastMarkerCollName);  
-      }
-   }  ) );
+   }  ));
       					
    that.$topRow.append(  $("<li><a><i class='fa fa-trash'></i> Clear</a></li>").click(function(){ 
 		  function clear() {
@@ -104,15 +94,16 @@ function KMarkerTool(master,toolname)
 	btns.$showall = $("<i class='KViewPort_tool fa fa-refresh'></i>").appendTooltip('show all markers').click(showAll ).appendTo($toolsRow);
 	btns.$locked = $("<i class='KViewPort_tool fa fa-lock'></i>").appendTooltip('lockmarkers').click( function(){ 
 
-		var dest = !markerProxy.currentSet.state.locked;
-		for (var s in markerProxy.markersets)
-			 markerProxy.markersets[s].toggleStateVar('locked',dest);
+	var dest = (markerProxy.currentSet.state.locked+1)%3;
+	for (var s in markerProxy.markersets)
+		 markerProxy.markersets[s].toggleStateVar('locked',dest);
 
 
 	} ).appendTo($toolsRow);
 	btns.$createonclick = $("<i class='KViewPort_tool fa fa-pencil'></i>").appendTooltip('markercreateonclick').click( function(){ markerProxy.currentSet.toggleStateVar('createonclick')} ).appendTo($toolsRow);
 	btns.$cyclecolors = $("<i class='KViewPort_tool KViewPort_tool_enabled fa fa-recycle'></i>").appendTooltip('cyclecolors').click( function(){ markerProxy.currentSet.toggleStateVar('cyclecolors') } ).appendTo($toolsRow);
 	btns.$hoverdetails = $("<i class='KViewPort_tool KViewPort_tool_enabled fa fa-info'></i>").click( function(){ markerProxy.currentSet.toggleStateVar('hoverdetails')} ).appendTooltip('markerdetailsonhover').appendTo($toolsRow);
+	btns.$follow = $("<i class='KViewPort_tool fa fa-crosshairs'></i>").click( function(){ markerProxy.currentSet.toggleStateVar('follow')} ).appendTooltip('follow marker position').appendTo($toolsRow);
 
 
 	function showAll()
@@ -149,6 +140,7 @@ function KMarkerTool(master,toolname)
 
   that.update = function()
   {
+
   	$annotationListDIV.children().remove();
   	var ks = Object.keys(markersets).reverse()
 	for (var i=0;i< ks.length;i++)
@@ -156,7 +148,75 @@ function KMarkerTool(master,toolname)
 	   var k = ks[i];
 	   //setTimeout(function(k) { return function() {
 	   var $setrow = $("<div  id='markerset_uuid_"+ markersets[k].uuid + "' class='markerset_row'></div>")
-	   var $titlerow = $("<div></div>").appendTo($setrow);
+	   var $titlerow = $("<div class='markerset_title'></div>").appendTo($setrow);
+	   var $toggle = $("<i class='togglemarker fa fa-minus fa-1x'></i>").appendTo($titlerow);
+
+       $titlerow.attr("draggable", 'true').on("dragover", function(ev) {
+            ev.preventDefault();
+            return false;
+        }).on("dragstart", function(uid) {
+            return function(ev) {
+                that.dragged = $("div[id='markerset_uuid_"+ uid + "']");
+                that.dragged.addClass("isDragged");
+                ev.originalEvent.dataTransfer.setData("frommarkertool", "yea");
+
+            }
+        }(markersets[k].uuid));
+       $titlerow.on("dragend", function(e) {
+            that.dragged.removeClass("isDragged");
+        });
+       $titlerow.on("drop", function(e) {
+            if (!isDragFromMarkertool(e.originalEvent))
+                return;
+            that.dragged.removeClass("isDragged");
+            $(this).removeClass("isDraggedOver");
+
+        });
+
+       $titlerow.on("dragenter",  function(uid) { return function(e) {
+            if (!isDragFromMarkertool(e.originalEvent))
+                return;
+			var tid = that.dragged.attr("id").split("_")[2];
+	//		console.log(uid +" " + tid)
+            $(this).addClass("isDraggedOver");
+            $(that.dragged).insertBefore($(this).parent());
+			if (tid != uid)
+				moveObjKey(tid,uid,markersets)
+			//console.log(Object.keys(markersets))
+            }
+        }(markersets[k].uuid));
+        $titlerow.on("dragleave", function(e) {
+            $(this).removeClass("isDraggedOver");
+        });
+
+
+
+
+
+
+       $toggle.click(function(set) { return function(e) {
+       	    e.stopPropagation();
+       	    e.preventDefault();
+       	    $toggle = $(this);
+       	    var x = $toggle.parent().parent()
+
+            if ($toggle.hasClass("fa-minus"))
+            {
+            	$toggle.addClass("fa-plus").removeClass("fa-minus")            	           
+                x.find(".markerpointrow").hide()           
+				set.collapsed = true;
+            }
+            else
+            {
+            	$toggle.removeClass("fa-plus").addClass("fa-minus")
+                x.find(".markerpointrow").show()   
+				delete set.collapsed ;				
+            }
+
+
+        } }(markersets[k]))
+
+
 	   var $name = $("<span>" + markersets[k].name + "</span>").appendTo($titlerow);
 	
 	   if (markerProxy.currentSet != undefined && k == markerProxy.currentSet.uuid)
@@ -169,7 +229,7 @@ function KMarkerTool(master,toolname)
 	   	  	markersets[k].markerPanel.updateName();
 	   } }(k));   
 
-	   $titlerow.append( $("<i class='fa fa-trash'></i> ").click(function(k) { return function() {markerProxy.delSet(k); that.update()}}(k)) )
+	   $titlerow.append( $("<i class='fa fa-trash'></i> ").click(function(k) { return function() {markerProxy.delSet(k);}}(k)) )
 	   $titlerow.append( $("<i class='fa fa-eye'></i> ").click(function(k) {
 	   	 return function(ev) {
 	   	 	var $vis = $(this);
@@ -190,18 +250,42 @@ function KMarkerTool(master,toolname)
 	   
 
 	   $titlerow.append( $("<i class='fa fa-copy'></i> ").click(function(k) { return function() {
-				   	
-			var set = createMarkerSet( 	markerProxy.markersets[k].type,	markerProxy.markersets[k].name+"(copy)");
-			var pts = markerProxy.markersets[k].getPoints();
-			for (var j = 0; j < pts.length;j++)
+		  	
+		    var content = {annotations:[markerProxy.markersets[k].objectify()]}
+			var $temp = $("<textarea style='position:absolute; display:block;z-index:99999;top:0px'>" + JSON.stringify(content) + "</textarea>").appendTo($body).select();
+			var successful = document.execCommand('Copy');
+			$.notify(" Copied to clipboard", "success");
+			$temp.remove();
+			return;
+		   
+		   /*
+		  	var set = createMarkerSet( 	markerProxy.markersets[k].type,	markerProxy.markersets[k].name+"(copy)");
+			if (markerProxy.markersets[k].type != "electrode")
 			{
-				var c = pts[j].p.coords;
-				var p = set.addpoint([c[0],c[1],c[2],c[3]]);
-				p.setsize(pts[j].p.size)
+				var pts = markerProxy.markersets[k].getPoints();
+				for (var j = 0; j < pts.length;j++)
+				{
+					var c = pts[j].p.coords;
+					var p = set.addpoint([c[0],c[1],c[2],c[3]]);
+					p.setsize(pts[j].p.size)
 
+				}
+				that.update();
 			}
-			that.update();
-	
+			else
+			{
+
+				var pts = markerProxy.markersets[k].getPoints();
+				var pts_dest = set.getPoints();
+
+				pts_dest[0].movepoint(pts[0].p.coords)
+				pts_dest[1].movepoint(pts[1].p.coords)
+
+
+				markerProxy.updateElectrode(set,markerProxy.markersets[k].elecmodel);
+				that.update();
+			}
+		   */
 
 
 	   }
@@ -212,7 +296,33 @@ function KMarkerTool(master,toolname)
 	   	  $titlerow.append( $("<i class='fa fa-plus'></i> ").click(function(k) { return function() {markerProxy.createMarker(undefined, markersets[k] );  
 	   	  markerProxy.setCurrentSet(k, true); that.update()}}(k)) )
 	   if (markersets[k].type == 'electrode')
-	   	  $titlerow.append( $("<i class='fa fa-mars-stroke-v'></i> ").click(function(k) { return function() {markerProxy.markersets[k].Rectifytransform();}}(k)) )
+	   {
+	   	  $titlerow.append( $("<i class='fa fa-arrows-v'></i> ").click(function(k) { 
+                return function() 
+                {
+                	alertify.prompt("Move electrode along trajectory by (mm)",function(e,str)
+                	{
+                		if (e)
+                		{
+							var set = markerProxy.markersets[k];
+							var arr = set.getPointsAsArray();
+							var e = arr.length-1;
+							var d = [arr[0][0]-arr[e][0],arr[0][1]-arr[e][1],arr[0][2]-arr[e][2]]
+							var dnorm = Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]);
+							var le = parseFloat(str);
+							for (var j = 0;j < arr.length;j++)
+								for (var i = 0; i <3;i++)
+									arr[j][i] += d[i]/dnorm*le; 
+
+  						    set.pointChanged()
+							signalhandler.send("positionChange");
+                		}
+                	},"1");
+	   	  }}(k)).appendTooltip("move electrode along trajectory") )
+	   }
+	   if (markersets[k].type == 'electrode' | markersets[k].type == '2diameter' )
+	   	  $titlerow.append( $("<i class='fa fa-mars-stroke-v'></i> ").appendTooltip("view images along trajectory").click(function(k) { return function() {markerProxy.markersets[k].Rectifytransform();}}(k)) )
+
 	   if (markersets[k].type == 'pointset')
 	   {
 	   	  $titlerow.append( $("<i class='fa fa-cube'></i> ").appendTooltip("defineMCPsystem").click(function(k) { return function() {markerProxy.markersets[k].MCPtransform();}}(k)) )
@@ -221,6 +331,7 @@ function KMarkerTool(master,toolname)
 
 		var colors = KColorSelectorSimple('getcolors');
 
+ 		var dummyobj = {alpha:0}
  		var $colselector = KColorSelector(colors,
         function(c) {
         	if (c.getCSS)
@@ -228,13 +339,20 @@ function KMarkerTool(master,toolname)
         },
         function(k) { return function(col,colidx) {
         	var x =  markerProxy.markersets[k];
-        	for (var j in x.markerpoints)
-        	{
-        		x.markerpoints[j].setcolor(col);
-        	}
+        	if (x.type != "electrode")
+            	for (var j in x.markerpoints)
+            	{
+					if (col == undefined)
+					{
+                        x.markerpoints[j].setcolor(undefined,255*parseFloat(1-dummyobj.alpha));
+					}
+                    else             		
+            		    x.markerpoints[j].setcolor(col);
+            	}
+            x.color = col.color;
         	x.updateLine()
           
-        }}(k),markerProxy.markersets[k]);
+        }}(k),dummyobj,{manual:true,alpha:true});
 
 /*	  
 	  var $colorselector = KColorSelectorSimple($("<div class='markerpointrow_colorselector'></div>"), function() { 
@@ -254,6 +372,7 @@ function KMarkerTool(master,toolname)
 	   							  " <option value='electrode'> electrode </option> " + 
 	   							  " <option value='pointROI'> pointROI </option> " + 
 	   							  " <option value='rectangles'> rectangles </option> " + 
+	   							  " <option value='2diameter'> 2diameter </option> " + 
 	   							  "</select>").appendTo($titlerow).
 	   				on('change',function(k) { return function(e)
 	   				{
@@ -266,13 +385,15 @@ function KMarkerTool(master,toolname)
 
 
 	   var $setinfo;
-	   if (markersets[k].type == 'freeline' || markersets[k].type == 'surface' )
+	   if (markersets[k].type == 'freeline' || markersets[k].type == 'surface'  || markersets[k].type == '2diameter'  || markersets[k].type == 'pointset')
 	   {
-	   	   $setinfo = $("<div class='annotation_info'> ???: </div>").appendTo($setrow);
-		   markersets[k].setInfo = function(text)
+	   	  var $info = $("<i class='fa fa-info KannoInfo'></i> ")
+	   	    $titlerow.append( $info );
+	   	   $setinfo = $("<div class='annotation_info'> ???: </div>").appendTo($info);
+		   markersets[k].setInfo = function($setinfo){ return function(text)
 		   {
 				$setinfo.text(text);
-		   }
+		   }}($setinfo);
 		   markersets[k].computeInfo();
 	   }
 	   else if (markersets[k].type == 'electrode')
@@ -287,21 +408,30 @@ function KMarkerTool(master,toolname)
 		   var $combo = $("<select> "+str +"</select>").appendTo($setinfo).
 	   				click(function(set) { return function(e)
 	   				{
-	   					markerProxy.updateElectrode(set,e.target.value);
-	   					if (set.markerPanel)
-	   						set.markerPanel.update();
+						e.stopPropagation()
+						e.preventDefault();
+						var sets = [set]
+						if (e.shiftKey)
+							sets = markerProxy.markersets
+						for (var k in sets)
+						{
+							var s = sets[k]
+		   					markerProxy.updateElectrode(s,e.target.value);
+		   					if (s.markerPanel)
+		   						s.markerPanel.update();
+		   					s.pointChanged();
+						}
 	   					KViewer.markerTool.update();
-	   					set.pointChanged();
 	   				}}(markersets[k]));
    		   $combo.val( markersets[k].elecmodel);	   					   				
    		   markersets[k].$elecmodel_combo = $combo;
 
 
 		   var $ohm = $("<span>current (mA): </span>").appendTo($setinfo);
-		   $ohm.append($("<input> ").val(markersets[k].electrode_properties.impedance).on("change",function(set) { return function(e)
+		   $ohm.append($("<input> ").val(markersets[k].electrode_properties.current).on("change",function(set) { return function(e)
 		   {
-		   		set.electrode_properties.impedance = parseFloat(e.target.value);
-		   		set.electrode_properties.impedance = parseFloat(e.target.value);
+		   		set.electrode_properties.current = parseFloat(e.target.value);
+		   		set.electrode_properties.current = parseFloat(e.target.value);
 		   }  }(markersets[k]) ));
 
 
@@ -325,13 +455,20 @@ function KMarkerTool(master,toolname)
 	   //markersets[k].markerPanel.$annotationListDIV = $annotationListDIV;
 	   //markersets[k].$titlerow = $titlerow;
 
-	   $titlerow.click(function(k,$name,$titlerow) { return function() {
+	   $titlerow.click(function(k,$name,$titlerow) { return function(e) {
+	   	  if (e.ctrlKey)
+	   	  {                
+			var cset = markersets[k];
+			cset.visible = true;
+			cset.drawAllPoints();	                
+	   	  }
+	   	  else
 	   		setTimeout(function(){ 
 	   		 	if ($name.attr("contentEditable"))
 	   		 		return;
 	   		 	else
 	   		 	{
-	   				markerProxy.setCurrentSet(k, true);  
+	   				markerProxy.setCurrentSet(k, true,true);  
 	   		
 	   		 	}
 	   				},0);  } }(k,$name,$titlerow));
@@ -349,6 +486,10 @@ function KMarkerTool(master,toolname)
 		{
 			thingstoshow = {economy:1, colorsel:0, name:0,id:1, delete:1,search:1,  coords:1};
 		}
+		else if (markersets[k].type == '2diameter')
+		{
+			thingstoshow = {economy:1, colorsel:0, name:0,id:1, search:1,  coords:1};
+		}
 		else if (markersets[k].type == 'surface')
 		{
 			thingstoshow = {economy:1, colorsel:0, name:0,id:1, delete:1,search:1,  coords:1};
@@ -364,15 +505,32 @@ function KMarkerTool(master,toolname)
   			var p = ps[j];
   			if (markersets[k].type == 'electrode')
   			{
-				thingstoshow.active = (j>=2);
-				thingstoshow.radius = (j>=2);
+				var offs = 2;				
+				if (markersets[k].electrode_properties.directional)
+					offs = 3;
+				thingstoshow.active = (j>=offs);
+				thingstoshow.radius = (j>=offs);
+				if (ps[j].p.name.substring(0,2) == 'xx')
+				    thingstoshow.hidden = true;
   			}
-  			var $div = p.createMarkerRepresentation("tool", thingstoshow );
-		    $setrow.append($div )
-		    if (markersets[k].type == 'pointset')
-		      $div.append($("<hr width='100%'> "))	  			
+  			if (thingstoshow.hidden )
+  			    ;
+  			else 
+  			{
+				var $div = p.createMarkerRepresentation("tool", thingstoshow );
+				$setrow.append($div )
+				if (markersets[k].type == 'pointset')
+				  $div.append($("<hr width='100%'> "))	  			
+  			}
   	   }
- 	//  } }(k) ,0);
+
+	   if (markersets[k].collapsed)
+	   {
+			$toggle.addClass("fa-plus").removeClass("fa-minus")            	           
+			$setrow.find(".markerpointrow").hide()           
+		   
+	   }
+		
   	}
   }
 
@@ -400,10 +558,16 @@ function KMarkerTool(master,toolname)
 		params[0].callback = function(fileObject)
 		{        
 		  that.hideSpinner();
-		  if ((fileObject.fileinfo.tag && fileObject.fileinfo.tag.search("ANO") >= 0) | 
-		      (fileObject.fileinfo.Tag && fileObject.fileinfo.Tag.search("ANO") >= 0) | 
-		      fileObject.filename.search("\\.ano.json") != -1 )
-            markerProxy.loadAnnotations(fileObject);
+		  if (fileObject == undefined)
+		  {
+		  	 console.log("drop in markertool: fileObject undefined")
+		  	 return;
+		  }
+		  if (fileObject.fileinfo != undefined)
+			  if ((fileObject.fileinfo.tag && fileObject.fileinfo.tag.search("ANO") >= 0) | 
+				  (fileObject.fileinfo.Tag && fileObject.fileinfo.Tag.search("ANO") >= 0) | 
+				  fileObject.filename.search("\\.ano.json") != -1 )
+				markerProxy.loadAnnotations(fileObject);
 		}
 
 		KViewer.dataManager.loadData(params[0]);
@@ -449,7 +613,26 @@ KMarkerProxy = function()
 	*******************************************************************************/
 	that.updateElectrode = function(set,model)
 	{
-		   while (Object.keys(set.markerpoints).length > 2)
+
+		   var directional = 0;
+		   if (model == 'BostonOctopolarDir')
+			   directional = 1;
+
+
+
+           var color_terms = new KColor([155,155,155,2])
+           var color_contact = new KColor([155,155,155,2])
+           var contact_size = 0.5;
+           var color_line = 4;
+
+
+		   set.color = color_line;
+		   set.electrode_properties = $.extend(true,{},electrodes[model]);
+		   set.electrode_properties.impedance = 1000;
+		   set.electrode_properties.directional = directional;
+		   set.elecmodel = model;
+		
+  		   while (Object.keys(set.markerpoints).length > 2)
 		   {
 		   		var ps = Object.keys(set.markerpoints);
 		   		var key = ps[ps.length-1];
@@ -460,44 +643,58 @@ KMarkerProxy = function()
 		   if (Object.keys(set.markerpoints).length < 2)
 		   {
 				var point = set.addpoint(); 
-				point.movepoint([0,0,80,1])
+			    var sp = KViewer.currentPoint._data;
+				point.movepoint([sp[0],sp[1],sp[2]+50,1])
+   
 				var point2 = set.addpoint();
-				point2.movepoint([0,0,-10,1])
+				point2.movepoint(sp)
+
+		   
 		   }
+		   if (Object.keys(set.markerpoints).length ==  2 & directional)
+			{
+				var point = set.addpoint(); 
+				point.movepoint([0,5,-10,1])
+			}
+
 
 		   var ps = set.getPoints();
 		   var end = ps[0];
 		   var tip = ps[1];
 		   end.p.name = "end";
-		   end.setsize(1);
+		   end.setsize(contact_size);
 		   end.visible = true;
-		   end.setcolor(new KColor([155,0,0,20]));
+		   end.setcolor(color_terms);
    		   end.isElectrodeEnd = tip;
 		   tip.p.name = "tip";
-		   tip.setsize(1);
+		   tip.setsize(contact_size);
 		   tip.visible = true;
-		   tip.setcolor(new KColor([155,0,0,20]));
+		   tip.setcolor(color_terms);
+		   if (directional)
+		   {
+			   var ankle = ps[2];			   
+			   ankle.p.name = "ankle";
+			   ankle.setsize(contact_size);
+			   ankle.visible = true;
+			   ankle.setcolor(color_terms);
+			   
+		   }
 
 
-
-			set.color = 10;
-		   set.electrode_properties = $.extend(true,{},electrodes[model]);
-		   set.electrode_properties.impedance = 1000;
-		   set.elecmodel = model;
 
 		   var contacts = set.electrode_properties.contacts;
 		   var cnt = 1;
-		   while (Object.keys(set.markerpoints).length < contacts.length+2)
+		   while (Object.keys(set.markerpoints).length < contacts.length+2+directional)
 		   {
 				var point = set.addpoint();
 				point.p.name = "contact " + cnt ;
-				point.setsize(1);
+				point.setsize(contact_size);
 				point.visible = true;
 				for (x in point.glmesh)
 					point.glmesh[x].isPickable = false;
 				point.pickable = false;
 				point.isContact = true;
-				point.setcolor(new KColor([50,50,50,0]));
+				point.setcolor(color_contact);
 				cnt++;
 		   }
 		   var ps = set.getPoints();
@@ -607,7 +804,7 @@ KMarkerProxy = function()
 			  }
 		     markerProxy.modified = false;
 		  }
-		  uploadJSON(name,content,$.extend({subfolder:'annotations',tag:'ANO/MCP'},finfo), onsuccess);  	 
+		  uploadJSON(name,content,$.extend({subfolder:subfolder,tag:'ANO'},finfo), onsuccess);  	 
 		  
 
 
@@ -619,6 +816,7 @@ KMarkerProxy = function()
 	*******************************************************************************/
 	that.import = function(a, replaceIntoSet)
 	{
+
 		var current = 0;
 		if (a.length == 0)
 			return replaceIntoSet;
@@ -640,11 +838,19 @@ KMarkerProxy = function()
 		  if (a[k].isCurrent)
 		  	current = k;
 
+		  n.collapsed = a[k].collapsed;
+
 		  if (n.electrode_properties != undefined && a[k].electrode_properties != undefined)
+		  {
 			  n.electrode_properties = $.extend(n.electrode_properties,a[k].electrode_properties)
+			  if (a[k].electrode_properties.color != undefined)
+			      n.color = a[k].electrode_properties.color;
+		  }
 
 		  if(a[k].state !=undefined)
 		  {
+		  	if (a[k].state.keepalive != undefined)
+		  	    a[k].state.keepalive = false;
 		  	n.setState(a[k].state )
 		  }
 
@@ -654,6 +860,8 @@ KMarkerProxy = function()
 		  for(var p=0; p<a[k].points.length; p++)
 		  {
 			var point = n.addpoint(a[k].points[p].coords);
+			if (1)
+			{
 			point.p.name = a[k].points[p].name;
 			point.p.comment = a[k].points[p].comment;
 			if (a[k].color)
@@ -673,11 +881,16 @@ KMarkerProxy = function()
 			if (a[k].points[p].subpoints)
 				point.subpoints = a[k].points[p].subpoints;
 
-	 		if (a[k].points[p].active != undefined && n.electrode_properties != undefined)
-	 		{
-	 			point.active = a[k].points[p].active;
-	 			if (point.active)
-					point.setcolor(new KColor([255,255,0]));     	 			
+		    if (n.electrode_properties != undefined)
+            {
+				if (a[k].points[p].active != undefined)
+				{
+					point.active = a[k].points[p].active;
+					//if (point.active)
+					//	point.setcolor(new KColor([255,255,0]));     	 			
+				}
+				else 
+				    point.active = undefined;
 	 		}
 	 		if (a[k].points[p].voltage != undefined)
 	 			point.p.voltage = a[k].points[p].voltage;
@@ -699,7 +912,9 @@ KMarkerProxy = function()
 			if (a[k].points[p].thresh != undefined )
 			{
 				point.thresh = a[k].points[p].thresh
-				point.onupdate.pointROI()
+				if (point.onupdate.pointROI != undefined)
+				    point.onupdate.pointROI()
+			}
 			}
 
 		  }
@@ -740,11 +955,17 @@ KMarkerProxy = function()
 				  	  n.elecmodel = a[k].elecmodel;
 				  	  if (n.$elecmodel_combo)
 				  	  	n.$elecmodel_combo.val(a[k].elecmodel);
-					  n.pointChanged();
-					  n.markerpoints[Object.keys(n.markerpoints)[0]].p.color.color[3] = 10;
-					  n.markerpoints[Object.keys(n.markerpoints)[1]].p.color.color[3] = 10;
+					  n.pointChanged();					
+					  var alpha = 10;
+					  for (var j in n.markerpoints)
+					      n.markerpoints[j].p.color.color[3] = alpha;
+					  
+					  n.markerpoints[Object.keys(n.markerpoints)[0]].p.color.color[3] = 0;
+					  n.markerpoints[Object.keys(n.markerpoints)[1]].p.color.color[3] = 0;
+					  
+					  /*  
 					  n.markerpoints[Object.keys(n.markerpoints)[0]].p.size = 1
-					  n.markerpoints[Object.keys(n.markerpoints)[1]].p.size = 1
+					  n.markerpoints[Object.keys(n.markerpoints)[1]].p.size = 1*/
 					  //n.setActive();
 					  pts[0].isElectrodeEnd = pts[1];
 				  }
@@ -763,7 +984,7 @@ KMarkerProxy = function()
 				n.pickpanel.load(n.state.pickpanel);
 		  }
 
-		  if (n && n.state && n.state.panel_visible)
+		  if (n && n.state && n.state.panel_visible == true)
 			  n.showPanel();
 
 		  if(n.markerPanel)
@@ -784,30 +1005,45 @@ KMarkerProxy = function()
 	/******************************************************************************
 	  loadAnnotations
 	*******************************************************************************/
-	that.loadAnnotations  = function(fileObject,replaceIntoSet)
+	that.loadAnnotations  = function(fileObject,replaceIntoSet,params,quiet)
 	{
 		var append = false;
-		if (that.markersetIDs.length > 0)		
-			alertify.confirm("Append to existing annotations?",function(e) { 
-				if (e) 
-					append = true;
-				if (!append & markerProxy.modified)
-					alertify.confirm("Are you sure to delete all annotations?",function(e) { if (e) { load(); } })
-				else
-					return load();
-			});
+		if (quiet) 
+		{
+			append = true;
+			load();
+		}
 		else
 		{
-			if (markerProxy.modified)
-				alertify.confirm("Are you sure to delete all annotations?",function(e) { if (e) { load(); } })
+			if (that.markersetIDs.length > 0)		
+				alertify.confirm("Append to existing annotations?",function(e) { 
+					if (e) 
+						append = true;
+					if (!append & markerProxy.modified)
+						alertify.confirm("Are you sure to delete all annotations?",function(e) { if (e) { load(); } })
+					else
+						return load();
+				});
 			else
-				return load();			
+			{
+				if (markerProxy.modified)
+					alertify.confirm("Are you sure to delete all annotations?",function(e) { if (e) { load(); } })
+				else
+					return load();			
+			}
 		}
 	    function load()
 	    {
 			var a = fileObject.content;
 			if (typeof a == "string")
-				a = JSON.parse(a);
+			{
+				if (fileObject.filename.search("\\.fcsv") > -1)
+				{
+                  a = import_fcsv(fileObject)
+				}
+				else
+				  a = JSON.parse(a);
+			}
 			if (a.content != undefined)
 			  a = a.content;
 			if (a.annotations != undefined)
@@ -821,13 +1057,76 @@ KMarkerProxy = function()
             that.hideAll()
 			that.setCurrentSet( that.markersetIDs[0] )
 
-			KViewer.markerTool.lastMarkerCollName = fileObject.filename.replace(".json","").replace(".ano","");
+			var subfolder = "";
+			if (fileObject.fileinfo.SubFolder & fileObject.fileinfo.SubFolder != "")
+				subfolder = fileObject.fileinfo.SubFolder +"/"
+			KViewer.markerTool.lastMarkerCollName = subfolder + fileObject.filename.replace(".json","").replace(".ano","");
+            KViewer.markerTool.currentFileinfo = fileObject.fileinfo;
 
+			if (params.intent && params.intent.intent && params.intent.intent.state)
+			{
+				var state = params.intent.intent.state
+				for (var k in state)
+				   sets.toggleStateVar(k,  state[k]) 
+			}
+
+			if (params.intent && params.intent.color != undefined)
+			{
+				var col = params.intent.color
+				if (!Array.isArray(col))
+				{
+					var colors = KColorSelectorSimple('getcolors');
+					col = colors[col];
+				}
+				for (var j in sets.markerpoints)
+					sets.markerpoints[j].setcolor(col);
+			}
+				
+			
 			return sets;
 		//	if (KViewer.markerTool.isinstance)
 		//		KViewer.markerTool.update();
 
 	    }
+
+	    function import_fcsv(fobj)
+        {
+        	var str = fobj.content;
+            var ls = str.split("\n");
+            var hdr = undefined
+            var content = [];
+            for (var k = 0; k < ls.length;k++)
+            {
+            	if (ls[k].search("columns") > -1)
+                {
+                	var s = ls[k].substring(ls[k].search("=")+1).trim();
+                	var toks = s.split(",")
+                	hdr = {}
+                	for (var j = 0; j < toks.length;j++)
+                	   hdr[toks[j]] = j;
+                	continue;
+                }
+            	if (ls[k].trim()[0] == '#')
+            	    continue;
+            	var toks = ls[k].split(",");
+                content.push(toks);
+  
+            }
+            var points = []
+            for (var k = 0; k < content.length;k++)
+            {
+            	var c = content[k];
+            	if (c.length < 2)
+            	    continue;
+                points.push({ name: c[hdr.label],
+                          coords: [parseFloat(c[hdr.x]),parseFloat(c[hdr.y]),parseFloat(c[hdr.z]),1],
+                          size: 2
+                          })                
+            }
+            var name = fobj.filename.split(".")[0];
+            return [{ name:name, points:points , type:"pointset" } ] 
+
+        }	    
 	}
 
 	/******************************************************************************
@@ -852,10 +1151,33 @@ KMarkerProxy = function()
 
 	    that.markersets[mset.uuid] = mset;
 	    that.markersetIDs = Object.getOwnPropertyNames(markersets);	
+/*
+	    if (mset.type == 'correspondence')
+	    {        
+	        var bbox = getGlobalBBox()
+	    	var s = Math.abs(bbox.bbox_min[0]-bbox.bbox_max[0])/100;
+            mset.addpoint(undefined,undefined,undefined, {size:s,color:2,name:'source'})
+            mset.addpoint(undefined,undefined,undefined, {size:5*s,name:'target'})
+	    }
+*/
+
+
+	    if (mset.type == '2diameter')
+	    {        
+	        var s = mset.state.defaultradius
+	        var p = KViewer.currentPoint._data;
+            mset.addpoint(math.add(p,[-3*s,+3*s,0,0])._data,undefined,undefined, {size:s,color:2,name:'source'})
+            mset.addpoint(math.add(p,[+3*s,-3*s,0,0])._data,undefined,undefined, {size:s,color:2,name:'source'})
+            mset.addpoint(math.add(p,[+3*s,+3*s,0,0])._data,undefined,undefined, {size:s,color:2,name:'source'})
+            mset.addpoint(math.add(p,[-3*s,-3*s,0,0])._data,undefined,undefined, {size:s,color:2,name:'source'})
+	    }
 
 	    
 	    if (mset.type == 'electrode')
+		{
+			mset.setState({'follow':0})
 	     	that.updateElectrode(mset,mset.elecmodel);
+		}
 
 	    if(mset.type !== 'ruler' && !donotsetcurrentset)
 	    	that.setCurrentSet( mset, (args && args.hideOtherPanels),(args && args.dontupdate) );
@@ -886,9 +1208,12 @@ KMarkerProxy = function()
 		delete that.markersets[key];
 
 		that.markersetIDs = Object.getOwnPropertyNames(markersets);	
-
 		if (KViewer.markerTool.isinstance)
-				KViewer.markerTool.update();
+		{
+    			var $row = $("div[id='markerset_uuid_"+ key + "']");
+    			$row.remove();
+//				KViewer.markerTool.update();
+		}
 	}
 
 	/******************************************************************************
@@ -926,6 +1251,18 @@ KMarkerProxy = function()
     }
 
 
+    that.getSetByType = function(type)
+    {
+    	var keys = [];
+		for (var k in that.markersets)
+		{
+			if (that.markersets[k].type == type)
+			   keys.push(k)
+		}
+		return keys;
+    }
+
+
 
 	/******************************************************************************
 	  create a new maker (by click into canvas, or directly)
@@ -955,7 +1292,7 @@ KMarkerProxy = function()
 				var temp = medviewer.getCanvasCoordinates(fpoint.coords);
 				if(math.round(temp.z_mm * 100) == math.round(medviewer.getCurrentSliceInMM()*100 ))
 				{
-					var realworldcoords = medviewer.getRealWorldCoordinatesFromMouseEvent(ev)._data;
+					var realworldcoords = medviewer.getRealWorldCoordinatesFromMouseEvent(ev.clientX,ev.clientY)._data;
 					// find closest segment
 					if(fpoint.isclosed)
 					{
@@ -992,7 +1329,7 @@ KMarkerProxy = function()
 		if( coords==undefined && ev)
 		{
 			if(ev.coords==undefined)
-				coords = medviewer.getRealWorldCoordinatesFromMouseEvent(ev)._data;
+				coords = medviewer.getRealWorldCoordinatesFromMouseEvent(ev.clientX,ev.clientY)._data;
 			else
 				coords = ev.coords;
 		}
@@ -1066,6 +1403,12 @@ KMarkerProxy = function()
 		if (mset == -1)
 			return;
 
+		var $titlerow
+        if (that.currentSet != undefined)
+        {
+			$titlerow = $("div[id='markerset_uuid_"+ that.currentSet.uuid + "']").find(".markerset_title")
+			$titlerow.removeClass("markerset_row_active")
+        }
 
 		if(typeof mset !== "object")
 		{
@@ -1101,6 +1444,11 @@ KMarkerProxy = function()
 		{
 			KViewer.markerTool.update();
 		}
+
+		var $titlerow = $("div[id='markerset_uuid_"+ that.currentSet.uuid + "']").find(".markerset_title")
+		$titlerow.addClass("markerset_row_active")
+
+
  		if(mset.markerPanel)
  		{
  			if(mset.markerPanel.panelvisible)
@@ -1129,6 +1477,16 @@ KMarkerProxy = function()
 
 
 	}
+
+
+   that.getMarkersetsByName = function()
+   {
+        var sets = {}
+		for (var k in that.markersets)
+			sets[that.markersets[k].name] = that.markersets[k];
+	    return sets;
+   }
+
 
 
 	that.showAll = function()
@@ -1171,7 +1529,11 @@ KMarkerProxy = function()
 	{
 		
 			for(var k in markersets)
+			{
 				markersets[k].drawAllPoints();
+				markersets[k].updateLine();
+			}
+
 		
 	});
 
@@ -1329,7 +1691,7 @@ KMarkerPanel_test = function()
 
 KMarkerPanel_2Drulers = function()
 {
-	var mset = markerProxy.newSet({name:'"2Drulers', type: 'ruler', showPanel: 1, state:{hoverdetails:false, createonclick: false, delSetOnPanelClose: true, showresizer: false, keepalive: true, ignoremodified: true} });
+	var mset = markerProxy.newSet({name:'2Drulers', type: 'ruler', showPanel: 1, state:{hoverdetails:false, createonclick: false, delSetOnPanelClose: true, showresizer: false, keepalive: true, ignoremodified: true} });
 }
 
 KMarkerPanel_midplane = function()
@@ -1381,6 +1743,7 @@ In readings and in autoloaders you can use customized Annotation Panels.
 		delSetOnPanelClose: 1, 
 		ignoremodified: 0,
 		keepalive: 1, 
+		follow:1
 		},
 		templates :{
 			"Marker01":{"color":'#AA0000', "radius":40},	
@@ -1492,6 +1855,7 @@ KMarkerPanel = function(markerset_in)
 		createonclick: true,
 		cyclecolors: true,
 		defaultradius: 5,
+		follow:1
 
 	}
 
@@ -1605,7 +1969,7 @@ KMarkerPanel = function(markerset_in)
 	$topRow.append($mover).append($caption).append($("<i class='flexspacer'></i>")).append($close);
 	
 
-	$topRow.mousedown( function(ev) {
+	$topRow.on('pointerdown', function(ev) {
 		 movableWindowMousedownFn(ev, that.$container)
 		 } );
 
@@ -1792,7 +2156,11 @@ KMarkerPanel = function(markerset_in)
 							
 	var $scribbleRow = that.$scribbleRow  = $("<div class='roiTool_panel_flex'></div>").appendTo($container).hide();
 	var $caption   = $("<span class='label'>sLength: </span>").appendTo($scribbleRow);
-	that.scribbleTool.lengthPerSegment = 5;
+	that.scribbleTool.lengthPerSegment = KViewer.defaultFOV_mm/200;
+	if (that.scribbleTool.lengthPerSegment == undefined | isNaN(that.scribbleTool.lengthPerSegment))
+	    that.scribbleTool.lengthPerSegment = 5;
+
+
 	that.scribbleTool.$lps =  $("<input type = 'text' min='1' step=1 value='"+ (that.scribbleTool.lengthPerSegment) +"' /> ").on('change', function (ev) 
 		{ 
 			that.scribbleTool.lengthPerSegment = parseFloat( that.scribbleTool.$lps.val()  ) 
@@ -2182,7 +2550,15 @@ KMarkerPanel = function(markerset_in)
 
 
 
-
+function createContacts(n,dist,offset)
+{
+	var x = [];
+	for (var k = 0; k < n;k++)
+	{
+        x.push(offset+dist*k);		
+	}
+	return x;
+}
 
 var electrodes = 
 {
@@ -2194,7 +2570,15 @@ var electrodes =
 		contacts:[ 2.25, 4.25, 6.25, 8.25],
 		approx_maedler: [ 0.2991,-1.2654 , 0.000341, 0.2784, 0.001217, -6.49E-07]	   
    },
+   BostonCartesia: {
+		contacts:[ 0.7, 2.7, 4.7, 6.7],
+		approx_maedler: [ 0.2991,-1.2654 , 0.000341, 0.2784, 0.001217, -6.49E-07]	   
+   },
    BostonOctopolar: {
+		contacts:[ 2.25, 4.25, 6.25, 8.25, 10.25, 12.25, 14.25, 16.25],
+		approx_maedler: [ 0.2991,-1.2654 , 0.000341, 0.2784, 0.001217, -6.49E-07]	   
+   },
+   BostonOctopolarDir: {
 		contacts:[ 2.25, 4.25, 6.25, 8.25, 10.25, 12.25, 14.25, 16.25],
 		approx_maedler: [ 0.2991,-1.2654 , 0.000341, 0.2784, 0.001217, -6.49E-07]	   
    },
@@ -2202,14 +2586,20 @@ var electrodes =
 			contacts:[ 2.25, 5.25, 8.25, 11.25],
 		approx_maedler: [ 0.2991,-1.2654 , 0.000341, 0.2784, 0.001217, -6.49E-07]	   
    },
-
    Dixi: {
 			contacts:[ 2.25, 5.25, 8.25, 11.25],
 		approx_maedler: [ 0.2991,-1.2654 , 0.000341, 0.2784, 0.001217, -6.49E-07]	   
+   },
+   Atech15: {
+			contacts: createContacts(15,4.5,1)
+   },
+   Dixi15: {
+			contacts: createContacts(15,3.5,1)
+   },
+   dist1mm: {
+			contacts: createContacts(15,1,0.5)
    }
-
 }
-
 
 // ======================================================================================
 // ============= a marker set
@@ -2280,6 +2670,7 @@ function KMarkerset( args  )
 		pointROIthresh: 300,
 		showThroughSlice:true,
 		showOnAllImages:true,
+		follow:1
 
 	}
 
@@ -2314,6 +2705,10 @@ function KMarkerset( args  )
 			$.extend(true,  state, {hoverdetails:false,cyclecolors:false,createonclick:false})
 		else if (that.type == 'freeline')
 			$.extend(true,  state, {hoverdetails:false,cyclecolors:false,defaultradius:2,createonclick:true})
+		else if (that.type == '2diameter')
+			$.extend(true,  state, {fixedsize:true,hoverdetails:false,cyclecolors:false,defaultradius:2,createonclick:false})
+		else if (that.type == 'correspondence')
+			$.extend(true,  state, {hoverdetails:false,cyclecolors:false,defaultradius:2})
 		else if (that.type == 'surface')
 			$.extend(true,  state, {hoverdetails:false,cyclecolors:false,defaultradius:2,createonclick:true})
 		else
@@ -2321,7 +2716,7 @@ function KMarkerset( args  )
 
 		if (that.updateLine_sid != undefined)
 			signalhandler.detach('positionChange',that.updateLine_sid)
-	    if (that.type == 'electrode' | that.type == 'freeline' | that.type == 'surface')
+	    if (that.type == 'electrode' | that.type == 'freeline'  | that.type == '2diameter' | that.type == 'correspondence'| that.type == 'surface')
 			that.updateLine_sid = signalhandler.attach("positionChange",that.updateLine)
 
 		that.broadcastStateVars();
@@ -2334,7 +2729,11 @@ function KMarkerset( args  )
 	*******************************************************************************/
 	that.toggleStateVar = function( x, force, donotsethover )
 	{
-		state[x] =  force==undefined ? (state[x]?false:true):force;
+		if (x == 'locked')
+		    state[x] =  force==undefined ? ((state[x]+1)%3):force;
+		else
+		    state[x] =  force==undefined ? (state[x]?false:true):force;
+
 		var togglefcn = state[x]?"addClass":"removeClass";
 		var btns = [];
 		if (KViewer.markerTool && KViewer.markerTool.isinstance) 
@@ -2350,7 +2749,16 @@ function KMarkerset( args  )
 				if(btn["$"+x].is('input') )
 					btn["$"+x].val( state[x] );
 				else	
-					btn["$"+x][togglefcn]('KViewPort_tool_enabled');
+				{
+					btn["$"+x].removeClass("KViewPort_tool_enabled").removeClass("KViewPort_tool_enabled_alt")
+					if (state[x]>0)
+					{
+						if (state[x] == 1)
+					        btn["$"+x].addClass('KViewPort_tool_enabled');
+						if (state[x] == 2)
+					        btn["$"+x].addClass('KViewPort_tool_enabled_alt');
+					}
+				}
 			}
 		}
 		
@@ -2427,36 +2835,123 @@ function KMarkerset( args  )
 	   }
 	   if (iedges == undefined)
 	   	 return;
-	   var p0 = points[0].coords
-	   var p1 = points[1].coords
 
-	   var diff   = math.add(p1, math.multiply(p0, -1) );
-	   diff._data[3] = 0;
-	   var diffnorm = math.multiply(diff,1/math.norm(diff._data));
-//	   var origin = math.matrix(math.multiply(math.add(p1, p0), 0.5));
-	   var origin = math.matrix(p1);
+  	   iedges = [iedges._data[0].slice(0,3),iedges._data[1].slice(0,3),iedges._data[2].slice(0,3)]
+	   iedges.map((x) => {math.normalize(x); return x;})
+
+	
+       var pcenter;
+
+       if (that.type == 'electrode')
+       {
+		   var p0 = points[0].coords
+		   var p1 = points[1].coords
+
+		   var diff   = math.add(p1, math.multiply(p0, -1) );
+		   diff._data[3] = 0;
+		   var n = math.multiply(diff,1/math.norm(diff._data));
+		   var origin = math.matrix(p1);
+		   var T = math.matrix([ [1, 0, 0, origin._data[0]],[0, 1, 0, origin._data[1]],[0, 0, 1, origin._data[2] ],[0, 0, 0, 1] ]);
+           pcenter = p1;
+
+           var w = math.multiply(iedges,n);
+           var i = math.argmax(w._data.map(math.abs))
+           var rotmat
+           if (w._data[i]>0)
+               rotmat = calcRotmatForVectors(iedges[i],n._data);
+		   else
+		       rotmat = calcRotmatForVectors(n._data,iedges[i]);
+       }
+
+       if (that.type == "2diameter")
+       {
+		   /*
+		     var p0 = points[0].coords
+		     var p1 = points[1].coords
+		     var p2 = points[2].coords
+		     var n = math.cross(math.add(p0,p1,-1),math.add(p0,p2,-1),true)
+
+  		     var w = math.multiply(iedges,n);
+		     var i = math.argmax(w._data.map(math.abs))
+
+             n = math.multiply(n,-math.sign(math.dot(n,iedges[i])))
+		     var rotmat = calcRotmatForVectors(n._data,iedges[i]);
+
+			*/
+		     var p0 = points[0].coords
+		     var p1 = points[1].coords
+		     var p2 = points[2].coords
+		     var p3 = points[3].coords
+		     var d0 = math.add(p0,p1,-1); 
+			 var norm0 = math.norm(d0)
+		     math.normalize(d0)
+		     var d1 = math.add(p2,p3,-1); 
+		     var norm1 = math.norm(d1)
+		     math.normalize(d1)
+
+			 if (norm1 < norm0) // swap
+			 {
+				 var tmp = d0;
+				 d0 = d1; d1=tmp;
+			 }
+
+			 		   
+		     var n0 = math.cross(d0,d1,true)
+		     var n1 = math.cross(n0,d1,true)
+		     var sys = [n0._data,n1._data,[d1._data[0],d1._data[1],d1._data[2]] ]
+		     var perms = [[0,1,2],[1,0,2],[2,1,0],[0,2,1],[1,2,0],[2,0,1]]
+		     var corr = [];
+		     var iedgesT = math.transpose(iedges)._data
+
+			 var mi = 0;
+		     var mc = 0;
+		     for (var k =0;k<6;k++)
+			 {
+				  var p = perms[k]
+				  var c = 0;
+				  for (var j = 0; j < 3;j++)
+					  c+=math.abs(math.dot(sys[p[j]],iedgesT[j]))
+				  if (mc < c)
+				  {
+					  mc = c
+					  mi = k;
+				  }
+			 }
+		     sys = [math.multiply(sys[perms[mi][0]],math.sign(math.dot(sys[perms[mi][0]],iedgesT[0])))._data,
+					math.multiply(sys[perms[mi][1]],math.sign(math.dot(sys[perms[mi][1]],iedgesT[1])))._data,
+					math.multiply(sys[perms[mi][2]],math.sign(math.dot(sys[perms[mi][2]],iedgesT[2])))._data]
+		   
+		     var R = math.multiply(iedges,sys)._data;
+		     var rotmat = [[R[0][0],R[1][0],R[2][0],0],
+						   [R[0][1],R[1][1],R[2][1],0],
+						   [R[0][2],R[1][2],R[2][2],0],
+						   [0,0,0,1]]
 
 
-	   var y_vector =iedges._data[2];
-	   y_vector = math.multiply(y_vector, -Math.sign(y_vector[0]*diff._data[0]+y_vector[1]*diff._data[1]+y_vector[2]*diff._data[2])) 
-	  
+			 pcenter = [0,0,0,1]
+			 for (var k = 0; k < points.length;k++)
+				pcenter = math.add(pcenter,points[k].coords,1/points.length)
+			 pcenter._data[3] = 1;
+		     var T = math.matrix([ [1, 0, 0, pcenter._data[0]],[0, 1, 0, pcenter._data[1]],[0, 0, 1, pcenter._data[2] ],[0, 0, 0, 1] ]);
+		   
+       }
 
-	   
-	   var rotmat = calcRotmatForVectors(diffnorm._data,y_vector);
-	   var T = math.matrix([ [1, 0, 0, origin._data[0]],[0, 1, 0, origin._data[1]],[0, 0, 1, origin._data[2] ],[0, 0, 0, 1] ]);
-	   var E =  math.multiply(T,rotmat);
+       var E = math.multiply(math.multiply(T,rotmat),math.inv(T));
 
-
-
-	   KViewer.currentPoint = math.matrix(p1);
+       if (KViewer.mainViewport == -1)
+    	   KViewer.currentPoint = math.multiply(math.inv(E),math.matrix(pcenter));
+       else
+           KViewer.currentPoint = math.matrix(pcenter);
+          
 	   KViewer.reorientationMatrix.notID = true;
 	   KViewer.reorientationMatrix.matrix =  E;
 
    	   if (KViewer.navigationMode == 0)
 		   KViewer.navigationTool.switchToNavimode(2);
-	   toggleSomeToMain();
+	   if (KViewer.mainViewport == -1)
+	       toggleSomeToMain();
 	   
-		signalhandler.send("reslice positionChange");
+	   signalhandler.send("reslice positionChange");
 
 
    }
@@ -2647,7 +3142,8 @@ function KMarkerset( args  )
 
    	 	}   	 
    	 	var ret = {name:that.name, points:p, type:that.type,  state:that.state};
-
+		ret.collapsed = that.collapsed;
+	   
         if (that.pickpanel)
         {
         	ret.state.pickpanel = that.pickpanel.objectify();
@@ -2666,6 +3162,8 @@ function KMarkerset( args  )
 		}
 		return ret;
    }
+
+
 
 
 
@@ -2767,6 +3265,10 @@ function KMarkerset( args  )
 
 		if (params)
 		{
+			if (params.name)
+				x.p.name = params.name;
+			if (params.color)
+				x.p.color = new KColor(KColor.list[params.color]);
 			if (params.size)
 				x.p.size = params.size;
 			if (params.master)
@@ -2776,7 +3278,7 @@ function KMarkerset( args  )
 		}
 
         if (coords)
-			x.movepoint(coords)
+			x.movepoint([coords[0],coords[1],coords[2],1])
         else
         {
 			{	
@@ -2872,12 +3374,21 @@ function KMarkerset( args  )
 		  var viewport = medViewer.viewport;
 		  if (viewport == undefined)
 		  	return;
-		  if (that.visible && that.state.visible && !medViewer.mosaicview.active && (KViewer.markerTool.enabled != 0  || ( that.markerPanel &&  that.markerPanel.panelvisible ) ))
+		  if (that.visible && that.state.visible && !medViewer.mosaicview.active 
+		      && (that.type == 'correspondence' || KViewer.markerTool.enabled != 0 || 
+		          ( that.markerPanel &&  that.markerPanel.panelvisible ) )
+
+		     )
 		  {
 			  var colors = KColorSelectorSimple('getcolors');
 			  var col;
 			  if (that.color != undefined)
-				col = colors[that.color]
+			  {
+				if (that.color.length == 3 | that.color.length == 4)
+	    			col = new KColor(that.color)
+				else
+    				col = colors[that.color]
+			  }
 
 			  var lid = 'LINE_' + viewport.viewPortID  + "_" + that.uuid ;
 			  if ( medViewer.gl != undefined && medViewer.isGLenabled() )
@@ -2886,8 +3397,10 @@ function KMarkerset( args  )
 				  if (that.glmesh[lid] != undefined)
 					that.glmesh[lid].dispose();
 				  if (that.type == 'electrode')
-					that.glmesh[lid] = medViewer.gl.createTrace(that,{width:1,color:new KColor([1,1,1])});
-				  if ( that.type == 'freeline')
+				  {
+					 that.glmesh[lid] = medViewer.gl.createTrace(that,{width:1,color:new KColor([col.color[0]/10,col.color[1]/10,col.color[2]/5])});
+				  }
+				  if ( that.type == 'freeline' | that.type == 'correspondence' )
 				  {
 				  	var wid = 1;
 				  	if (KViewer.defaultFOV_mm != "")
@@ -2904,7 +3417,7 @@ function KMarkerset( args  )
 			  {
 				   if (that.mesh2d[lid] != undefined)
 						that.mesh2d[lid].remove()
-				  if ((that.type == 'electrode' | that.type == 'freeline' )&& medViewer.nii != undefined)
+				  if ((that.type == 'electrode' | that.type == 'freeline' | that.type == '2diameter' | that.type == 'correspondence' )&& medViewer.nii != undefined)
 					that.mesh2d[lid] = medViewer.createTrace(that,{color:col});
 
 			  }
@@ -2918,7 +3431,8 @@ function KMarkerset( args  )
 		that.disposeLine();
 		that.drawLine(); 
    }
-   if (that.type == 'electrode' | that.type == 'freeline' | that.type == 'surface')
+   if (that.type == 'electrode' | that.type == 'freeline'  | that.type == '2diameter' 
+           | that.type == 'correspondence' | that.type == 'surface')
    {
    		if (that.updateLine_sid == undefined)
    			that.updateLine_sid = signalhandler.attach("positionChange",that.updateLine)
@@ -2951,7 +3465,56 @@ function KMarkerset( args  )
 
     that.computeInfo = function()
     {
-			if (that.type == 'freeline')
+			if (that.type == 'pointset')
+			{
+
+				var points = that.getPoints();
+				var dist = 0;
+				var lastdir;
+				var ang = "";
+				var mean = [0,0,0];
+				var sq = [0,0,0,0,0,0];
+				var N = points.length;
+				if (N < 3)
+				{
+					if (that.setInfo)
+				        that.setInfo("");
+				    return;
+				}
+
+				for (var k =0;k <N;k++)
+				{	
+				    var c = points[k].p.coords;
+				    mean[0] += c[0];
+				    mean[1] += c[1];
+				    mean[2] += c[2];
+				    sq[0] += c[0]*c[0];
+				    sq[1] += c[1]*c[1];
+				    sq[2] += c[2]*c[2];
+				    sq[3] += c[0]*c[1];
+				    sq[4] += c[0]*c[2];
+				    sq[5] += c[1]*c[2];
+				}
+				for (var i = 0;i < 3;i++)
+				    mean[i] /= N 
+				for (var i = 0;i < 6;i++)
+				    sq[i] /= N 
+
+            	var EV = kmath.maxEV3(math.matrix([ [ sq[0] - mean[0]*mean[0] , sq[3] - mean[0]*mean[1], sq[4] - mean[0]*mean[2] ],
+													[ sq[3] - mean[1]*mean[0] , sq[1] - mean[1]*mean[1], sq[5] - mean[1]*mean[2] ],
+									            	[ sq[4] - mean[2]*mean[0] , sq[5] - mean[2]*mean[1], sq[2] - mean[2]*mean[2] ] ]));
+				if (that.setInfo)
+				{
+					var d = (x) => kmath.sqrt(x.ev).toFixed(1) + "(" + x.v[0].toFixed(2) + "," + x.v[1].toFixed(2) + "," + x.v[2].toFixed(2) + ") "
+					var sdev = math.sqrt(EV[0].ev + EV[1].ev + EV[2].ev)
+					var str = "std.dev:" + sdev.toFixed(2) + "mm \n"+
+					          "mean: ("+mean[0].toFixed(2)+","+mean[1].toFixed(2)+","+mean[2].toFixed(2)+")\n"+
+					          "E1:" + d(EV[0]) + "mm \nE2:" + d(EV[1]) + "mm \nE3:"  + d(EV[2]) + "mm" ;
+					that.setInfo(str);
+				}
+			}
+
+			else if (that.type == 'freeline')
 			{
 				var points = that.getPoints();
 				var dist = 0;
@@ -2973,6 +3536,22 @@ function KMarkerset( args  )
 				if (that.setInfo)
 					that.setInfo("length: " + dist.toFixed(1) + " mm  degs:" + ang);
 			}
+			else if (that.type == '2diameter')
+			{
+				var points = that.getPoints();
+				if (points.length == 4)
+				{
+					var d1 = math.norm(math.add(points[0].p.coords,points[1].p.coords,-1))
+					var d2 = math.norm(math.add(points[2].p.coords,points[3].p.coords,-1))
+
+                    var len = 0;
+                    if (that.circumference)
+                        len = that.circumference;
+                    
+					if (that.setInfo)
+						that.setInfo("circumference:"+len.toFixed(1) + "mm d1: " + d1.toFixed(1) + " mm,  " + "d2: " + d2.toFixed(1) + " mm,  ");
+				}
+			}
 			else
 			{
 				if (that.setInfo)
@@ -2980,25 +3559,46 @@ function KMarkerset( args  )
 			}
     }
 
-	that.pointChanged = function()
+	that.pointChanged = function(thepoint)
 	{
 
 		var was_updated = false; // to do not interfere with single point updates for fiberselection
 		if (that.type == 'electrode' && that.electrode_properties != undefined)
 		{
-			var keys = Object.keys(that.markerpoints);
-			if (keys.length >= 2)
+			if (that.electrode_properties.deformed | that.electrode_properties.custom)
+			    ;
+			else
 			{
-				var p1 = that.markerpoints[keys[0]].p.coords;
-				var p2 = that.markerpoints[keys[1]].p.coords;
-				var n = [p1[0]-p2[0],p1[1]-p2[1],p1[2]-p2[2]];
-				var norm = Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
-				n = [n[0]/norm,n[1]/norm,n[2]/norm];
-				for (var k = 2; k < keys.length;k++)
+				var keys = Object.keys(that.markerpoints);
+				if (keys.length >= 2)
 				{
-					var dist = that.electrode_properties.contacts[k-2];
-					that.markerpoints[keys[k]].p.coords = [p2[0]+n[0]*dist,p2[1]+n[1]*dist,p2[2]+n[2]*dist,1];
-					that.markerpoints[keys[k]].drawpoint();
+					var p1 = that.markerpoints[keys[0]].p.coords;
+					var p2 = that.markerpoints[keys[1]].p.coords;
+					var n = [p1[0]-p2[0],p1[1]-p2[1],p1[2]-p2[2]];
+					var norm = Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
+					n = [n[0]/norm,n[1]/norm,n[2]/norm];
+					var offs = 0;
+					if (that.electrode_properties.directional & keys.length >= 3)
+					{
+						offs = 1;
+						var ank = that.markerpoints[keys[2]].p.coords;
+						var d = p2.map((x,i) => ank[i]-x)
+						var dn = kmath.dot(d,n);
+						var d2 = d.map((x,i) => x-dn*n[i]).slice(0,3);
+						kmath.normalize(d2);
+						var f = 5;
+						that.markerpoints[keys[2]].p.coords = [p2[0]+f*d2[0],p2[1]+f*d2[1],p2[2]+f*d2[2],1];
+						that.markerpoints[keys[2]].drawpoint();
+
+						
+						
+					}
+					for (var k = 2+offs; k < keys.length;k++)
+					{
+						var dist = that.electrode_properties.contacts[k-2-offs];
+						that.markerpoints[keys[k]].p.coords = [p2[0]+n[0]*dist,p2[1]+n[1]*dist,p2[2]+n[2]*dist,1];
+						that.markerpoints[keys[k]].drawpoint();
+					}
 				}
 			}
 			var points = that.getPoints();
@@ -3023,128 +3623,60 @@ function KMarkerset( args  )
 			var points = that.getPoints();
 			if (points.length >= 3)
 			{
-
-				var pts = new Float32Array(3*points.length*2)
-				var p2 = [];
-				var phi = [];
-				var cxx = 0;
-				var cyy = 0;
-				var czz = 0;
-				var cxy = 0;
-				var cxz = 0;
-				var cyz = 0;
-				var m = [0,0,0];
-				for (var k = 0; k < points.length;k++)
-				{
-					var q = points[k].p.coords; 
-					m[0]+= q[0];
-					m[1]+= q[1];
-					m[2]+= q[2]
-				}
-				m[0] /= points.length;
-				m[1] /= points.length;
-				m[2] /= points.length;
-				for (var k = 0; k < points.length;k++)
-				{
-					var q = points[k].p.coords; 
-					cxx += (q[0]-m[0])*(q[0]-m[0]);
-					cyy += (q[1]-m[1])*(q[1]-m[1]);
-					czz += (q[2]-m[2])*(q[2]-m[2]);
-					cxy += (q[0]-m[0])*(q[1]-m[1]);
-					cyz += (q[2]-m[2])*(q[1]-m[1]);
-					cxz += (q[0]-m[0])*(q[2]-m[2]);
-				}
-				var ev = math.EV3(math.matrix([[cxx,cxy,cxz],[cxy,cyy,cyz],[cxz,cyz,czz]]));
-				
-				for (var k = 0; k < points.length;k++)
-				{
-					var q = points[k].p.coords; 
-					var x_ =    (q[0]-m[0])*ev[0].v[0] + (q[1]-m[1])*ev[0].v[1] + (q[2]-m[2])*ev[0].v[2];
-					var y_ =  (q[0]-m[0])*ev[1].v[0] + (q[1]-m[1])*ev[1].v[1] + (q[2]-m[2])*ev[1].v[2];
-					var n = Math.sqrt(x_*x_+y_*y_);
-					phi[k] = {d:points[k].p.size,a:[x_,y_],i:k,p: Math.atan2(x_/n,y_/n),q:q.slice(0)};
-
-				}
-                phi.sort(function(a,b) { 
-                return a.p-b.p 
-                });
-                for (var k = 0; k < points.length;k++)
-                {
-                	p2[2*k] = phi[k].a[0];
-                	p2[2*k+1] = phi[k].a[1];
-					pts[3*k] = phi[k].q[0];
-					pts[3*k+1] = phi[k].q[1];
-					pts[3*k+2] = phi[k].q[2];
-                }
-
-				var trigs = earcut(p2,null,2);
-
-
-				var normals = new Float32Array(3*points.length*2)
-				var area = 0;
-				for (var k = 0;k < trigs.length/3;k++)
-				{
-					var a = [pts[3*trigs[3*k]]  ,pts[3*trigs[3*k]+1],pts[3*trigs[3*k]+2]];
-					var b = [pts[3*trigs[3*k+1]],pts[3*trigs[3*k+1]+1],pts[3*trigs[3*k+1]+2]];
-					var d = [pts[3*trigs[3*k+2]],pts[3*trigs[3*k+2]+1],pts[3*trigs[3*k+2]+2]];
-					var n =     [(b[1]-a[1])*(d[2]-a[2]) - (b[2]-a[2])*(d[1]-a[1]), 
-								 (b[2]-a[2])*(d[0]-a[0]) - (b[0]-a[0])*(d[2]-a[2]),
-								 (b[0]-a[0])*(d[1]-a[1]) - (b[1]-a[1])*(d[0]-a[0])];
-					area += Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
-					for (var j=0;j<3;j++)
-					{	
-						normals[3*trigs[3*k+j]+0] += n[0];
-						normals[3*trigs[3*k+j]+1] += n[1];
-						normals[3*trigs[3*k+j]+2] += n[2];
-					}
-
-				}
-
-				var sgc = 0;
-				for (var k = 0; k < points.length;k++)
-				{
-					var no = math.sqrt(normals[3*k]*normals[3*k] +normals[3*k+1]*normals[3*k+1] +normals[3*k+2]*normals[3*k+2]);
-					normals[3*k] /= no;
-					normals[3*k+1] /= no;
-					normals[3*k+2] /= no;
-					sgc += normals[3*k]*ev[2].v[0]+normals[3*k+1]*ev[2].v[1]+normals[3*k+2]*ev[2].v[2];
-
-				}
-				sgc = Math.sign(sgc);
-
-				var offs = points.length*3;
-                for (var k = 0; k < points.length;k++)
-                {
-					var thck =  phi[k].d*0.4;
-					pts[3*k+offs] = pts[3*k] + ev[2].v[0]*thck;
-					pts[3*k+1+offs] = pts[3*k+1] + ev[2].v[1]*thck;
-					pts[3*k+2+offs] = pts[3*k+2] + ev[2].v[2]*thck;
-					pts[3*k] = pts[3*k] - ev[2].v[0]*thck;
-					pts[3*k+1] = pts[3*k+1] - ev[2].v[1]*thck;
-					pts[3*k+2] = pts[3*k+2] - ev[2].v[2]*thck;
-
-					normals[3*k+offs] = sgc*normals[3*k];
-					normals[3*k+1+offs] = sgc*normals[3*k+1];
-					normals[3*k+2+offs] = sgc*normals[3*k+2];
-					normals[3*k] = -sgc*normals[3*k];
-					normals[3*k+1] = -sgc*normals[3*k+1];
-					normals[3*k+2] = -sgc*normals[3*k+2];
-                }
-                var l = trigs.length;
-				for (var k = 0; k < l; k++)
-					trigs[k+l] = trigs[k]+points.length;
-
-
-				that.resorted = phi;
-				that.points =  pts;
-				that.indices = new Float32Array(trigs);
-				that.normals = normals;
-				that.surfacearea = area/2;
+				surfaceAnnotationInfo(points,that)
 			}
 			that.computeInfo()
 
 		}
 		else if (that.type == 'freeline' )
+		{
+			that.computeInfo()
+		}
+		else if (that.type == '2diameter' )
+		{
+				var keys = Object.keys(that.markerpoints);
+
+                var idxm,idxp;
+                var others;
+				if (keys.length == 4)
+				{
+					for (var k = 0; k < keys.length;k++)
+						if (that.markerpoints[keys[k]] == thepoint)
+						{
+							idxm = k;
+							break;
+						}
+					if (idxm == undefined)
+					    return;
+					if (idxm == 0) { idxp = 1;	others = [2,3];}
+					if (idxm == 1) { idxp = 0;	others = [2,3];}
+					if (idxm == 2) { idxp = 3;	others = [0,1];}
+					if (idxm == 3) { idxp = 2;	others = [0,1];}
+
+					var p1 = that.markerpoints[keys[others[0]]].p.coords.slice(0,3);
+					var p2 = that.markerpoints[keys[others[1]]].p.coords.slice(0,3);
+					var m = that.markerpoints[keys[idxm]].p.coords.slice(0,3);
+					var p = that.markerpoints[keys[idxp]].p.coords.slice(0,3);
+					var d1 = [p1[0]-p2[0],p1[1]-p2[1],p1[2]-p2[2]];
+					var d2 = [m[0]-p[0],m[1]-p[1],m[2]-p[2]];
+					var normal = math.cross(d1,d2,true);
+					if (isNaN(normal._data[0]))
+						return;
+                    var p1n = math.add(p1,normal,-math.dot(normal,math.add(p1,p,-1)))
+                    var p2n = math.add(p2,normal,-math.dot(normal,math.add(p2,p,-1)))
+
+					that.markerpoints[keys[others[0]]].p.coords = p1n._data.concat([1])
+					that.markerpoints[keys[others[0]]].drawpoint();
+					that.markerpoints[keys[others[1]]].p.coords = p2n._data.concat([1])
+					that.markerpoints[keys[others[1]]].drawpoint();
+
+
+
+				}
+
+			that.computeInfo()
+		}
+		else if (that.type == 'pointset' )
 		{
 			that.computeInfo()
 		}
@@ -3225,13 +3757,57 @@ function KMarkerset( args  )
 			var nii = roi.content	
 			var points = that.getPoints()
 			var changedPoints = [];
-			for(var k=0; k<points.length; k++)
+
+			if (points.length > 0)
 			{
 
-				var ret = fillPolygon(points[k],roi.content, false);
-				changedPoints = changedPoints.concat(ret.changedPoints)
+				$(document.body).addClass('wait');
+
+				var poly = []
+				for (var k = 0; k < points.length;k++)
+					poly.push({subpoints:points[k].subpoints})
+
+
+				var minir = Math.min(nii.voxSize[0],nii.voxSize[1],nii.voxSize[2])
+				var eobj = {func:"renderpoly",
+							points:poly,
+							inplaneres:[minir*0.5,minir*0.5],
+							nii:{ 
+								data:nii.data,
+								edges:nii.edges,
+								sizes:nii.sizes,
+								wid:nii.wid,
+								widhei:nii.widhei,
+								buffer:nii.buffer
+							},
+							keepOpen:false }
+
+				var worker = executeImageWorker(eobj,[eobj.nii.buffer], function(){},
+				function(e)
+				{
+					nii.buffer = e.execObj.buf;
+					nii.data = e.execObj.data;
+					var changedPoints = e.execObj.changedPoints
+
+					if(changedPoints.length>0)
+					{
+						KViewer.roiTool.history.record('startRecording', undefined, roi,'use_as_last');
+						KViewer.roiTool.history.add(changedPoints, 1, roi);
+						KViewer.roiTool.history.record('stopRecording');
+					}
+					signalhandler.send("positionChange");//,{id:roi.fileID});
+
+
+					$(document.body).removeClass('wait');
+				})
 
 			}
+
+/*
+				var polymask = createRectNiiFromPoly(points,[1,1])
+				changedPoints=rendersubRoiIntoRoi(nii,polymask)
+			}
+
 			if(changedPoints.length>0)
 			{
 				KViewer.roiTool.history.record('startRecording', undefined, roi,'use_as_last');
@@ -3240,7 +3816,7 @@ function KMarkerset( args  )
 			}
 			signalhandler.send("positionChange");//,{id:roi.fileID});
     		$(document.body).removeClass("wait");
-			
+	*/		
         },50);
 	}
 
@@ -3319,7 +3895,6 @@ function KMarkerpoint(parentmarkerset, id)
 
 	var markerPanel = parentmarkerset.markerPanel; 
 
-	var recreateInfoBoxOnHover = false;
 
 	that.type = "point";
 
@@ -3341,6 +3916,32 @@ function KMarkerpoint(parentmarkerset, id)
     that.p.color = new KColor('#FF0000');
 	that.p.parentviewport = 0;
     
+
+    if (parentmarkerset != undefined)
+    {
+        var nom = that.p.name;
+        var names = Object.keys(parentmarkerset.getPointsByName());
+        var isin = function(x)
+        {
+			for (var k = 0; k < names.length;k++)
+			{
+				if (names[k] == nom)
+				    return true;
+			}
+			return false;				   
+        }
+        var cnt = 1;
+        while (isin(nom))
+        {
+           nom = that.p.name + "_" + cnt;
+           cnt++;
+        }
+
+        that.p.name = nom;
+        
+    }
+
+
     if(that.shape == 'sphere')
 		that.p.size = 5; // size in mm. single number for spheres, 3 numbers for box
     else if(that.shape == 'box')
@@ -3361,15 +3962,29 @@ function KMarkerpoint(parentmarkerset, id)
     that.$markers = $markers;
 
 
-    that.movepoint = function(coords, medViewer, ev)
+    that.movepoint = function(coords, medViewer, ev, moveset)
     {
-        that.p.coords = coords; 
-	
-	    that.drawpoint();
+    	if (moveset)
+    	{
+            var ps = that.parentmarkerset.getPoints()
+            var dif = math.add(coords,that.p.coords,-1)
+            for (var k = 0; k < ps.length; k++)
+            {
+                for (var j = 0; j < 3;j++)                
+                    ps[k].p.coords[j] += dif._data[j];
+                ps[k].drawpoint();
+            }
+
+    	}
+    	else
+    	{
+            that.p.coords = coords; 	
+	        that.drawpoint();
+    	}
     
     
     	if (that.parentmarkerset.pointChanged)
-			if (!that.parentmarkerset.pointChanged())
+			if (!that.parentmarkerset.pointChanged(that))
 			{
 			   for (var x in that.onupdate)
 				 that.onupdate[x](medViewer, ev); 			
@@ -3399,8 +4014,9 @@ function KMarkerpoint(parentmarkerset, id)
 		if(that.shape == 'sphere')
 			var newsize = that.p.size + amount
 		else if(that.shape == 'box')
+		{
 			var newsize = [0,0,0,0];  newsize[0] = that.p.size[0]+amount; newsize[1] = that.p.size[1]+amount; newsize[2] = that.p.size[2]+amount;
-
+		}
 		that.setsize(newsize, medViewer);
 	}
 
@@ -3618,9 +4234,23 @@ function KMarkerpoint(parentmarkerset, id)
     }
 
     
-    that.setcolor = function(color)
+    that.setcolor = function(color,alpha)
     {
-        that.p.color = color || that.p.color;
+    	if (color != undefined && that.p.color != undefined && that.p.color.color.length == 4)
+    	{
+    		if (color.color)
+    		    color = color.color;
+            that.p.color.color[0] = color[0];  
+            that.p.color.color[1] = color[1];
+            that.p.color.color[2] = color[2];
+            that.p.color.color[3] = color[3];
+    	}
+    	else if (color != undefined)
+            that.p.color = color;
+
+        if (alpha != undefined)
+            that.p.color.color[3] = alpha;
+
         for(var mid in $markers)
         {
         	var css = that.p.color.getCSS();
@@ -3698,24 +4328,26 @@ function KMarkerpoint(parentmarkerset, id)
 		that.runcallbacks('toggle');
 	}
 
-    that.select = function()
+    that.select = function(idx)
 	{
 		var ps = parentmarkerset.getPoints();
 
-
 		var tcks = KViewer.findAllViews('fibers');
-	//	for (var k = 0 ;k < tcks.length;k++)
-	//		tcks[k].setAnnotationAssoc(parentmarkerset.uuid);
 
-	    that.active = (that.active+2)%3 -1 ;
+		if (idx == undefined)
+		{
+	        if (that.active == undefined)
+	            that.active = 0;
+		    that.active = (that.active+2)%3 -1 ;
+		}
+		else
+		{
+	        if (that.active[idx] == undefined)
+	            that.active = [0,0,0]
+		    that.active[idx] = (that.active[idx]+2)%3 -1 ;
+		}
 	    that.runcallbacks('active');
 
-/*		for (var k = 0; k < ps.length;k++)
-		{
-			ps[k].active = (that==ps[k]);
-			ps[k].runcallbacks('active');
-		}
-*/	
 		if (parentmarkerset.simpanel)
 			parentmarkerset.simpanel.updateActive()
 
@@ -3733,7 +4365,7 @@ function KMarkerpoint(parentmarkerset, id)
 	that.indrawing = -1;
 	that.drawpoint = function()
 	{
-		if (that.parentmarkerset != undefined && Object.keys(that.parentmarkerset.markerpoints).length>10)
+		if (that.parentmarkerset != undefined && Object.keys(that.parentmarkerset.markerpoints).length>20)
 		{
 			if (that.indrawing != -1)
 			{
@@ -3763,6 +4395,7 @@ function KMarkerpoint(parentmarkerset, id)
 							 (KViewer.markerTool.enabled != 0  || ( that.parentmarkerset.markerPanel &&  that.parentmarkerset.markerPanel.panelvisible ) ) 
 						)	
 						|| that.type == 'ruler' 
+						|| that.parentmarkerset.type == 'correspondence' 
 
 					)
 					{
@@ -3826,8 +4459,11 @@ function KMarkerpoint(parentmarkerset, id)
 	
     function drawpoint_2D(medViewer, mid)
     {
-	
-	    var canvascoords = medViewer.getCanvasCoordinates(that.p.coords);
+    	var x = that.p.coords;
+	    if (KViewer.navigationMode == 0)
+			x = math.multiply(KViewer.reorientationMatrix.matrix,x)._data;
+
+	    var canvascoords = medViewer.getCanvasCoordinates(x);
 
         // must create a new marker one if not exists
         if($markers[mid] === undefined )
@@ -3980,16 +4616,6 @@ function KMarkerpoint(parentmarkerset, id)
 	            }
 
 
-
-
-				// version with creation hover elements on demand: perform creation in hover function
-				if( !recreateInfoBoxOnHover)
-				{
-					 var $props = $("<div class='markerpoint_props' style='visibility:hidden'></div>");
-					 var thingstoshow = {colorsel:1, id:1, name:1, toggle:0, search:0, delete:1,  coords:1,comment:1};
-				 	 $props.append( that.createMarkerRepresentation('self' + mid, thingstoshow ) ).appendTo($a);
-					 that.runcallbacks('createinfobox', $props);
-				}
 
 				// ?? sethover_singleVP is also set in createMarker  but probably we need, this, eg if new viewport is created
 				sethover_singleVP($a, {locked: that.parentmarkerset.state.locked, hoverdetails:that.parentmarkerset.state.hoverdetails });
@@ -4212,7 +4838,15 @@ function KMarkerpoint(parentmarkerset, id)
 				var opac = 0.3;
 				var thick = 3;
 	    	}
-
+	    	/*
+	    	var el = $markers[mid][0].style;
+	    	el['left'] = canvascoords.x_pix+'px'
+	    	el['top']=canvascoords.y_pix+'px' 
+			el['borderColor']= that.p.color.getCSS()
+			el['opacity']=opac
+					el['borderWidth']=thick 
+					*/
+					
 			$markers[mid].css( {
 				left:canvascoords.x_pix+'px', 
 				top:canvascoords.y_pix+'px', 
@@ -4220,7 +4854,7 @@ function KMarkerpoint(parentmarkerset, id)
 				opacity:opac, 
 				borderWidth:thick 
 				} );
-			
+
 			// unfortunately, must reset color here every time, due to drawing with timeouts
 			if($markers[mid].$resizerA)
 				$markers[mid].$resizerA.css('background', that.p.color.getCSS());
@@ -4297,7 +4931,9 @@ function KMarkerpoint(parentmarkerset, id)
 		{		
 			function updateInputsC(which)
 			{
-				return function(ev) { updateInputs(which); ev.stopPropagation();return false; }
+				return function(ev) {
+				   updateInputs(which); 
+					ev.stopPropagation();return false; }
 			}
 
 			var $row2;
@@ -4316,7 +4952,16 @@ function KMarkerpoint(parentmarkerset, id)
 				if(that.shape =='sphere')
 				{
 					var sizestring = point.p.size.toFixed(1);
-				 	$innercords.append( $("<div><input type = 'number' value='"+ sizestring +"' /></div>").on('change', updateInputsC(3)) );
+				 	$innercords.append( $("<div><input type = 'number' value='"+ sizestring +"' /></div>").on('change', updateInputsC(3)) )
+						.on("keydown",function(ev){
+							if (ev.keyCode == 13 & ev.shiftKey)
+							{
+								point.parentmarkerset.getPoints().map((x)=>
+									x.setsize(parseFloat(ev.target.value)))
+								point.parentmarkerset.pointChanged();
+							}
+							
+						})
 				}
 				else if(that.shape == 'box')
 				{
@@ -4373,6 +5018,7 @@ function KMarkerpoint(parentmarkerset, id)
 				}
 
 			}
+			point.updateInputs = updateInputs
 
 			point.callbacks.move[targetid] = function()
 			{     
@@ -4489,24 +5135,52 @@ function KMarkerpoint(parentmarkerset, id)
 
 	   if (fields.active)
 		{		
-	        var $active = $("<i class='fa fa-circle-o'></i>").appendTooltip('activepoint')
-	        	.click(  function()
-	        		{
-	        			//that.markerPanel.setCurrentSet(point.parentmarkerset);
-	        	//		markerProxy.setCurrentSet(that.parentmarkerset, true);
-	        			point.select()
 
-	        		}).appendTo($tools);
-			point.callbacks.active[targetid] = function(point)
+			if (parentmarkerset.electrode_properties.directional)
 			{
-				if(point.active == 0)
-					 $active.addClass("fa-circle-o").removeClass("fa-circle").css('color', 'white');
-				else if(point.active == -1)
-					 $active.removeClass("fa-circle-o").addClass("fa-circle").css('color', 'yellow');
-				if(point.active == 1)
-					 $active.removeClass("fa-circle-o").addClass("fa-circle").css('color', 'red');
+
+				var $active = [];
+				for (var t = 0;t<3;t++)
+				{
+					var deg = 120*t;
+			        $active[t] = $("<i style='transform: rotate("+deg+"deg)' class='fa fa-arrow-circle-o-up'></i>").appendTooltip('activepoint')
+		        	.click( function(t) {return function()	{
+		        			point.select(t)
+							point.parentmarkerset.drawLine();
+					}}(t)).appendTo($tools);
+				}
+				point.callbacks.active[targetid] = function(point)
+				{
+					for (var t=0;t<3;t++)
+						{
+						if(point.active[t] == 0)
+							 $active[t].addClass("fa-arrow-circle-o-up").removeClass("fa-arrow-circle-up").css('color', 'white');
+						else if(point.active[t] == -1)
+							 $active[t].removeClass("fa-arrow-circle-o-up").addClass("fa-arrow-circle-up").css('color', 'yellow');
+						if(point.active[t] == 1)
+							 $active[t].removeClass("fa-arrow-circle-o-up").addClass("fa-arrow-circle-up").css('color', 'red');
+						}
+				}
+				point.callbacks.active[targetid](point);
 			}
-			point.callbacks.active[targetid](point);
+			else
+			{
+		        var $active = $("<i class='fa fa-circle-o'></i>").appendTooltip('activepoint')
+	        	.click(  function()	{
+	        			point.select()
+						point.parentmarkerset.drawLine();
+				}).appendTo($tools);
+				point.callbacks.active[targetid] = function(point)
+				{
+					if(point.active == 0)
+						 $active.addClass("fa-circle-o").removeClass("fa-circle").css('color', 'white');
+					else if(point.active == -1)
+						 $active.removeClass("fa-circle-o").addClass("fa-circle").css('color', 'yellow');
+					if(point.active == 1)
+						 $active.removeClass("fa-circle-o").addClass("fa-circle").css('color', 'red');
+				}
+				point.callbacks.active[targetid](point);
+			}
 		}
 
 		if(fields.toggle)
@@ -4527,7 +5201,15 @@ function KMarkerpoint(parentmarkerset, id)
 		if(fields.search)		
         	var $search = $("<i class='fa fa-binoculars'' style='font-size:12px'></i>").appendTooltip("jumptopoint").mousedown( point.jumpToPoint ).appendTo($tools); 
     	if(fields.delete)		
-	        var $delete = $("<i class ='fa fa-trash '></i>").appendTooltip('deletemarkerpoint').click( point.deletepoint   ).appendTo($tools);
+    	{
+	        var $delete = $("<i class ='fa fa-trash '></i>").appendTooltip('deletemarkerpoint').click( 
+            function() {
+                if (that.parentmarkerset.state.locked==0)
+                    point.deletepoint()
+				else
+				    alertify.error("you have to unlock the set to delete points");
+            } ).appendTo($tools);
+    	}
 		 
     	if(point.type =='pointROI')
     	{
@@ -4607,9 +5289,9 @@ function KMarkerpoint(parentmarkerset, id)
           //signalhandler.send("positionChange");
 		  // on right click, center view around point
 		  if(ev.button != 0)
-          	signalhandler.send("positionChange centralize");
-          else
           	signalhandler.send("positionChange");
+          else
+          	signalhandler.send("positionChange centralize");
           
           that.runcallbacks('jumptopoint');
      }
@@ -4638,16 +5320,49 @@ function KMarkerpoint(parentmarkerset, id)
 		if($a.$scribblesvg != undefined )
 			return;
 
+
+		if(that.type == '3druler')
+			var $target = $a.$rulertextInner;
+		else
+			var $target = $a;
+
+
 		var lastScrollEvent 
 		
-		if(state.locked == false)
+		if (state.locked <= 1)
 		{
 			function MouseWheelHandler(ev)
 			{
+				var handler = MouseWheelHandler
+
+				if (handler.speed == undefined)
+				    handler.speed = 0;
+
 				ev = ev.originalEvent || ev;
 				if (!ev.shiftKey | that.parentmarkerset.state.fixedsize)
 					return;
-				var amount = (ev.wheelDelta || -ev.detail ) > 0?1:-1;
+                
+                var incdir = (ev.wheelDelta || -ev.detail ) > 0?1:-1;
+                if (handler.cid != undefined)
+                    clearTimeout(handler.cid);
+                handler.cid = setTimeout(function() {
+                	 handler.speed = 0;
+
+                	 },250);
+                
+                if (math.sign(handler.speed) != incdir)
+                    handler.speed = incdir;
+                else
+                    handler.speed += incdir;
+
+				var amount = handler.speed;
+
+                if (KViewer.lastHoveredViewport)
+                    {
+                    	amount *= KViewer.lastHoveredViewport.nii.voxSize[0]*0.25;
+                    }
+
+
 				that.incsize( amount, $a.medViewer );
 				that.drawpoint();
 				
@@ -4674,7 +5389,9 @@ function KMarkerpoint(parentmarkerset, id)
 			/* move handler to move point */
 			function mousedown(ev) 
 			{
-				if (state.locked == true)
+				if (ev.target.nodeName == "INPUT")
+				    return;
+				if (state.locked == 2)
 				{		
 					KViewer.currentPoint = math.matrix(that.p.coords);
 					signalhandler.send("pointChanged");   
@@ -4697,7 +5414,7 @@ function KMarkerpoint(parentmarkerset, id)
 
 
 				// shift key ==> change point size 
-				if(ev.shiftKey)
+				if (ev.shiftKey & !that.parentmarkerset.state.fixedsize)
 				{
 					  var start = [ev.clientX ,  ev.clientY];
 					  var startsize = that.p.size;
@@ -4717,9 +5434,12 @@ function KMarkerpoint(parentmarkerset, id)
 					
 				}
 				// right click delete
-   			 	if(ev.buttons == 2)	
+   			 	if(ev.buttons == 2 && state.locked == false)	
 				{
-					that.deletepoint();
+					if (that.parentmarkerset.type == 'correspondence')
+					    markerProxy.delSet(that.parentmarkerset.uuid)
+					else					
+					   that.deletepoint();
 					ev.stopPropagation(); 
 					return false;
 				} 
@@ -4731,10 +5451,19 @@ function KMarkerpoint(parentmarkerset, id)
 						if ($a.medViewer.nii)
 						{
 							var p = $a.medViewer.getRealWorldCoordinatesFromMouseEvent(ev2.clientX - startdiff[0]  , ev2.clientY - startdiff[1]);
-							if (that.parentmarkerset.state.showThroughSlice)
+							if (that.parentmarkerset.state.showThroughSlice && worlddiff != undefined)
 								p = math.add(p,worlddiff);
-							that.movepoint( p._data, $a.medViewer, ev2 );
-							 ev2.stopPropagation();return false; 
+
+   							that.movepoint( p._data, $a.medViewer, ev2,ev.ctrlKey);
+                            if (that.parentmarkerset.state.follow)
+                            {
+                                KViewer.setWorldPosition(p,true);
+                                worlddiff = undefined
+                            }
+
+
+
+ 						    ev2.stopPropagation();return false; 
 						}
 					 });
 					 var mouseuphandler =  function(ev2){
@@ -4760,19 +5489,17 @@ function KMarkerpoint(parentmarkerset, id)
 				 }
 			}// mousedown handler	
 
-			$a.find('.markerpoint_props').css('visibility', 'visible');
 			
-			if(that.type == '3druler')
-				var $target = $a.$rulertextInner;
-			else
-				var $target = $a;
 
 			$target.off('mouseenter mousedown mouseup mouseleave mousewheel DOMMouseScroll');
 			$target.css('pointer-events', 'all');
-			$target.on('mouseenter',  that.onHoverEnter );
-			$target.on('mouseleave',  that.onHoverLeave);
+
+
 			$target.on('mousedown',   mousedown);
 			$target.on('dblclick',   function(ev2) {
+				if (ev2.target.nodeName == "INPUT")
+				    return;
+				
 				if (that.parentmarkerset.state.showThroughSlice)
 				{
 						var p = $a.medViewer.getRealWorldCoordinatesFromMouseEvent(ev2.clientX, ev2.clientY);
@@ -4790,58 +5517,69 @@ function KMarkerpoint(parentmarkerset, id)
 
 		} // end state.locked == false
 
-		if(state.locked == true)
+
+		$a.find('.markerpoint_props').css('visibility', 'visible');
+		if(state.locked == 2)
 		{
 			$a.css('pointer-events', 'none');
 			$a.find('.markerpoint_props').css('visibility', 'hidden');
 			$a.off('mouseenter');
 			$a.off('mousedown' );
 		}
-		
-		if(state.hoverdetails == true)
-		{
-			$a.find('.markerpoint_props').css('visibility', 'visible');
-		}
-		
-		if(state.hoverdetails == false)
-		{
-			$a.find('.markerpoint_props').css('visibility', 'hidden');
-		}
+
+//        if (!state.locked)  //that.parentmarkerset.state.hoverdetails)
+        {
+			$target.css('pointer-events', 'all');     
+			$target.off('mouseenter mouseleave');   	
+			$target.on('mouseenter',  that.onHoverEnter );
+			$target.on('mouseleave',  that.onHoverLeave);
+        }
+
 
 	}
 
 
+    markerProxy.HoverCnt=0
     that.onHoverEnter = function()
     {
-        for(var mid in $markers)
-        {
+         for(var mid in $markers)
+         {
 			// version with recreating the objects on each hover --> some strange synchro behaviour
-			if(recreateInfoBoxOnHover)
-			{
-				 var $props = $("<div class = 'markerpoint_props'></div>");
-				 var thingstoshow = {colorsel:1, id:1, name:1, toggle:0, search:0, delete:1,  coords:1,comment:1};
+        	if (that.parentmarkerset.state.hoverdetails)
+        	{    
+				 var $props = $("<div class='markerpoint_props infohover'></div>");
+				 var thingstoshow = {colorsel:1, id:1, name:1, toggle:0, search:0, delete:!that.parentmarkerset.state.locked,  coords:1,comment:0};
 				 $props.append( that.createMarkerRepresentation('self' + mid, thingstoshow ) ).hide().fadeIn(100);
 
 				 $markers[mid].append($props)
 				 that.runcallbacks('createinfobox', $props);
-			}
-
+        	}
            	// glow effect
-           	$markers[mid].addClass('annotation_point_hovered');
+             $markers[mid].addClass('annotation_point_hovered');
+             markerProxy.HoverCnt++;             
+             $markers[mid].css("z-index",1+markerProxy.HoverCnt)
 
-        }
+
+         }
     }
 
     that.onHoverLeave = function(e)
     {
         for(var mid in $markers)
         {
-           if( recreateInfoBoxOnHover )
-            	$markers[mid].find('.markerpoint_props').fadeOut(100, function(){$markers[mid].find('.markerpoint_props').remove()});
-
-           	// remove glow effect
-            	$markers[mid].removeClass('annotation_point_hovered');
+		//	$markers[mid].find('.markerpoint_props').fadeOut(100, function(){$markers[mid].find('.markerpoint_props').remove()});           	
+			$markers[mid].find('.markerpoint_props').remove();
+			
+			$markers[mid].removeClass('annotation_point_hovered');
+			setTimeout(function()
+			{
+    			markerProxy.HoverCnt=0;
+    			if ($markers[mid] != undefined)
+				    $markers[mid].css("z-index",5);
+			},1500);        
         }
+
+
     }                    
 
 
@@ -5056,647 +5794,6 @@ function KMarkerpoint(parentmarkerset, id)
 
 
 
-
-
-
-
-
-function earcut(data, holeIndices, dim) {
-
-    dim = dim || 2;
-
-    var hasHoles = holeIndices && holeIndices.length,
-        outerLen = hasHoles ? holeIndices[0] * dim : data.length,
-        outerNode = linkedList(data, 0, outerLen, dim, true),
-        triangles = [];
-
-    if (!outerNode) return triangles;
-
-    var minX, minY, maxX, maxY, x, y, size;
-
-    if (hasHoles) outerNode = eliminateHoles(data, holeIndices, outerNode, dim);
-
-    // if the shape is not too simple, we'll use z-order curve hash later; calculate polygon bbox
-    if (data.length > 80 * dim) {
-        minX = maxX = data[0];
-        minY = maxY = data[1];
-
-        for (var i = dim; i < outerLen; i += dim) {
-            x = data[i];
-            y = data[i + 1];
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (x > maxX) maxX = x;
-            if (y > maxY) maxY = y;
-        }
-
-        // minX, minY and size are later used to transform coords into integers for z-order calculation
-        size = Math.max(maxX - minX, maxY - minY);
-    }
-
-    earcutLinked(outerNode, triangles, dim, minX, minY, size);
-
-    return triangles;
-
-
-// create a circular doubly linked list from polygon points in the specified winding order
-function linkedList(data, start, end, dim, clockwise) {
-    var i, last;
-
-    if (clockwise === (signedArea(data, start, end, dim) > 0)) {
-        for (i = start; i < end; i += dim) last = insertNode(i, data[i], data[i + 1], last);
-    } else {
-        for (i = end - dim; i >= start; i -= dim) last = insertNode(i, data[i], data[i + 1], last);
-    }
-
-    if (last && equals(last, last.next)) {
-        removeNode(last);
-        last = last.next;
-    }
-
-    return last;
-}
-
-// eliminate colinear or duplicate points
-function filterPoints(start, end) {
-    if (!start) return start;
-    if (!end) end = start;
-
-    var p = start,
-        again;
-    do {
-        again = false;
-
-        if (!p.steiner && (equals(p, p.next) || area(p.prev, p, p.next) === 0)) {
-            removeNode(p);
-            p = end = p.prev;
-            if (p === p.next) return null;
-            again = true;
-
-        } else {
-            p = p.next;
-        }
-    } while (again || p !== end);
-
-    return end;
-}
-
-// main ear slicing loop which triangulates a polygon (given as a linked list)
-function earcutLinked(ear, triangles, dim, minX, minY, size, pass) {
-    if (!ear) return;
-
-    // interlink polygon nodes in z-order
-    if (!pass && size) indexCurve(ear, minX, minY, size);
-
-    var stop = ear,
-        prev, next;
-
-    // iterate through ears, slicing them one by one
-    while (ear.prev !== ear.next) {
-        prev = ear.prev;
-        next = ear.next;
-
-        if (size ? isEarHashed(ear, minX, minY, size) : isEar(ear)) {
-            // cut off the triangle
-            triangles.push(prev.i / dim);
-            triangles.push(ear.i / dim);
-            triangles.push(next.i / dim);
-
-            removeNode(ear);
-
-            // skipping the next vertice leads to less sliver triangles
-            ear = next.next;
-            stop = next.next;
-
-            continue;
-        }
-
-        ear = next;
-
-        // if we looped through the whole remaining polygon and can't find any more ears
-        if (ear === stop) {
-            // try filtering points and slicing again
-            if (!pass) {
-                earcutLinked(filterPoints(ear), triangles, dim, minX, minY, size, 1);
-
-            // if this didn't work, try curing all small self-intersections locally
-            } else if (pass === 1) {
-                ear = cureLocalIntersections(ear, triangles, dim);
-                earcutLinked(ear, triangles, dim, minX, minY, size, 2);
-
-            // as a last resort, try splitting the remaining polygon into two
-            } else if (pass === 2) {
-                splitEarcut(ear, triangles, dim, minX, minY, size);
-            }
-
-            break;
-        }
-    }
-}
-
-// check whether a polygon node forms a valid ear with adjacent nodes
-function isEar(ear) {
-    var a = ear.prev,
-        b = ear,
-        c = ear.next;
-
-    if (area(a, b, c) >= 0) return false; // reflex, can't be an ear
-
-    // now make sure we don't have other points inside the potential ear
-    var p = ear.next.next;
-
-    while (p !== ear.prev) {
-        if (pointInTriangle(a.x, a.y, b.x, b.y, c.x, c.y, p.x, p.y) &&
-            area(p.prev, p, p.next) >= 0) return false;
-        p = p.next;
-    }
-
-    return true;
-}
-
-function isEarHashed(ear, minX, minY, size) {
-    var a = ear.prev,
-        b = ear,
-        c = ear.next;
-
-    if (area(a, b, c) >= 0) return false; // reflex, can't be an ear
-
-    // triangle bbox; min & max are calculated like this for speed
-    var minTX = a.x < b.x ? (a.x < c.x ? a.x : c.x) : (b.x < c.x ? b.x : c.x),
-        minTY = a.y < b.y ? (a.y < c.y ? a.y : c.y) : (b.y < c.y ? b.y : c.y),
-        maxTX = a.x > b.x ? (a.x > c.x ? a.x : c.x) : (b.x > c.x ? b.x : c.x),
-        maxTY = a.y > b.y ? (a.y > c.y ? a.y : c.y) : (b.y > c.y ? b.y : c.y);
-
-    // z-order range for the current triangle bbox;
-    var minZ = zOrder(minTX, minTY, minX, minY, size),
-        maxZ = zOrder(maxTX, maxTY, minX, minY, size);
-
-    // first look for points inside the triangle in increasing z-order
-    var p = ear.nextZ;
-
-    while (p && p.z <= maxZ) {
-        if (p !== ear.prev && p !== ear.next &&
-            pointInTriangle(a.x, a.y, b.x, b.y, c.x, c.y, p.x, p.y) &&
-            area(p.prev, p, p.next) >= 0) return false;
-        p = p.nextZ;
-    }
-
-    // then look for points in decreasing z-order
-    p = ear.prevZ;
-
-    while (p && p.z >= minZ) {
-        if (p !== ear.prev && p !== ear.next &&
-            pointInTriangle(a.x, a.y, b.x, b.y, c.x, c.y, p.x, p.y) &&
-            area(p.prev, p, p.next) >= 0) return false;
-        p = p.prevZ;
-    }
-
-    return true;
-}
-
-// go through all polygon nodes and cure small local self-intersections
-function cureLocalIntersections(start, triangles, dim) {
-    var p = start;
-    do {
-        var a = p.prev,
-            b = p.next.next;
-
-        if (!equals(a, b) && intersects(a, p, p.next, b) && locallyInside(a, b) && locallyInside(b, a)) {
-
-            triangles.push(a.i / dim);
-            triangles.push(p.i / dim);
-            triangles.push(b.i / dim);
-
-            // remove two nodes involved
-            removeNode(p);
-            removeNode(p.next);
-
-            p = start = b;
-        }
-        p = p.next;
-    } while (p !== start);
-
-    return p;
-}
-
-// try splitting polygon into two and triangulate them independently
-function splitEarcut(start, triangles, dim, minX, minY, size) {
-    // look for a valid diagonal that divides the polygon into two
-    var a = start;
-    do {
-        var b = a.next.next;
-        while (b !== a.prev) {
-            if (a.i !== b.i && isValidDiagonal(a, b)) {
-                // split the polygon in two by the diagonal
-                var c = splitPolygon(a, b);
-
-                // filter colinear points around the cuts
-                a = filterPoints(a, a.next);
-                c = filterPoints(c, c.next);
-
-                // run earcut on each half
-                earcutLinked(a, triangles, dim, minX, minY, size);
-                earcutLinked(c, triangles, dim, minX, minY, size);
-                return;
-            }
-            b = b.next;
-        }
-        a = a.next;
-    } while (a !== start);
-}
-
-// link every hole into the outer loop, producing a single-ring polygon without holes
-function eliminateHoles(data, holeIndices, outerNode, dim) {
-    var queue = [],
-        i, len, start, end, list;
-
-    for (i = 0, len = holeIndices.length; i < len; i++) {
-        start = holeIndices[i] * dim;
-        end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
-        list = linkedList(data, start, end, dim, false);
-        if (list === list.next) list.steiner = true;
-        queue.push(getLeftmost(list));
-    }
-
-    queue.sort(compareX);
-
-    // process holes from left to right
-    for (i = 0; i < queue.length; i++) {
-        eliminateHole(queue[i], outerNode);
-        outerNode = filterPoints(outerNode, outerNode.next);
-    }
-
-    return outerNode;
-}
-
-function compareX(a, b) {
-    return a.x - b.x;
-}
-
-// find a bridge between vertices that connects hole with an outer ring and and link it
-function eliminateHole(hole, outerNode) {
-    outerNode = findHoleBridge(hole, outerNode);
-    if (outerNode) {
-        var b = splitPolygon(outerNode, hole);
-        filterPoints(b, b.next);
-    }
-}
-
-// David Eberly's algorithm for finding a bridge between hole and outer polygon
-function findHoleBridge(hole, outerNode) {
-    var p = outerNode,
-        hx = hole.x,
-        hy = hole.y,
-        qx = -Infinity,
-        m;
-
-    // find a segment intersected by a ray from the hole's leftmost point to the left;
-    // segment's endpoint with lesser x will be potential connection point
-    do {
-        if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
-            var x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
-            if (x <= hx && x > qx) {
-                qx = x;
-                if (x === hx) {
-                    if (hy === p.y) return p;
-                    if (hy === p.next.y) return p.next;
-                }
-                m = p.x < p.next.x ? p : p.next;
-            }
-        }
-        p = p.next;
-    } while (p !== outerNode);
-
-    if (!m) return null;
-
-    if (hx === qx) return m.prev; // hole touches outer segment; pick lower endpoint
-
-    // look for points inside the triangle of hole point, segment intersection and endpoint;
-    // if there are no points found, we have a valid connection;
-    // otherwise choose the point of the minimum angle with the ray as connection point
-
-    var stop = m,
-        mx = m.x,
-        my = m.y,
-        tanMin = Infinity,
-        tan;
-
-    p = m.next;
-
-    while (p !== stop) {
-        if (hx >= p.x && p.x >= mx && hx !== p.x &&
-                pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
-
-            tan = Math.abs(hy - p.y) / (hx - p.x); // tangential
-
-            if ((tan < tanMin || (tan === tanMin && p.x > m.x)) && locallyInside(p, hole)) {
-                m = p;
-                tanMin = tan;
-            }
-        }
-
-        p = p.next;
-    }
-
-    return m;
-}
-
-// interlink polygon nodes in z-order
-function indexCurve(start, minX, minY, size) {
-    var p = start;
-    do {
-        if (p.z === null) p.z = zOrder(p.x, p.y, minX, minY, size);
-        p.prevZ = p.prev;
-        p.nextZ = p.next;
-        p = p.next;
-    } while (p !== start);
-
-    p.prevZ.nextZ = null;
-    p.prevZ = null;
-
-    sortLinked(p);
-}
-
-// Simon Tatham's linked list merge sort algorithm
-// http://www.chiark.greenend.org.uk/~sgtatham/algorithms/listsort.html
-function sortLinked(list) {
-    var i, p, q, e, tail, numMerges, pSize, qSize,
-        inSize = 1;
-
-    do {
-        p = list;
-        list = null;
-        tail = null;
-        numMerges = 0;
-
-        while (p) {
-            numMerges++;
-            q = p;
-            pSize = 0;
-            for (i = 0; i < inSize; i++) {
-                pSize++;
-                q = q.nextZ;
-                if (!q) break;
-            }
-            qSize = inSize;
-
-            while (pSize > 0 || (qSize > 0 && q)) {
-
-                if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
-                    e = p;
-                    p = p.nextZ;
-                    pSize--;
-                } else {
-                    e = q;
-                    q = q.nextZ;
-                    qSize--;
-                }
-
-                if (tail) tail.nextZ = e;
-                else list = e;
-
-                e.prevZ = tail;
-                tail = e;
-            }
-
-            p = q;
-        }
-
-        tail.nextZ = null;
-        inSize *= 2;
-
-    } while (numMerges > 1);
-
-    return list;
-}
-
-// z-order of a point given coords and size of the data bounding box
-function zOrder(x, y, minX, minY, size) {
-    // coords are transformed into non-negative 15-bit integer range
-    x = 32767 * (x - minX) / size;
-    y = 32767 * (y - minY) / size;
-
-    x = (x | (x << 8)) & 0x00FF00FF;
-    x = (x | (x << 4)) & 0x0F0F0F0F;
-    x = (x | (x << 2)) & 0x33333333;
-    x = (x | (x << 1)) & 0x55555555;
-
-    y = (y | (y << 8)) & 0x00FF00FF;
-    y = (y | (y << 4)) & 0x0F0F0F0F;
-    y = (y | (y << 2)) & 0x33333333;
-    y = (y | (y << 1)) & 0x55555555;
-
-    return x | (y << 1);
-}
-
-// find the leftmost node of a polygon ring
-function getLeftmost(start) {
-    var p = start,
-        leftmost = start;
-    do {
-        if (p.x < leftmost.x) leftmost = p;
-        p = p.next;
-    } while (p !== start);
-
-    return leftmost;
-}
-
-// check if a point lies within a convex triangle
-function pointInTriangle(ax, ay, bx, by, cx, cy, px, py) {
-    return (cx - px) * (ay - py) - (ax - px) * (cy - py) >= 0 &&
-           (ax - px) * (by - py) - (bx - px) * (ay - py) >= 0 &&
-           (bx - px) * (cy - py) - (cx - px) * (by - py) >= 0;
-}
-
-// check if a diagonal between two polygon nodes is valid (lies in polygon interior)
-function isValidDiagonal(a, b) {
-    return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) &&
-           locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b);
-}
-
-// signed area of a triangle
-function area(p, q, r) {
-    return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
-}
-
-// check if two points are equal
-function equals(p1, p2) {
-    return p1.x === p2.x && p1.y === p2.y;
-}
-
-// check if two segments intersect
-function intersects(p1, q1, p2, q2) {
-    if ((equals(p1, q1) && equals(p2, q2)) ||
-        (equals(p1, q2) && equals(p2, q1))) return true;
-    return area(p1, q1, p2) > 0 !== area(p1, q1, q2) > 0 &&
-           area(p2, q2, p1) > 0 !== area(p2, q2, q1) > 0;
-}
-
-// check if a polygon diagonal intersects any polygon segments
-function intersectsPolygon(a, b) {
-    var p = a;
-    do {
-        if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i &&
-                intersects(p, p.next, a, b)) return true;
-        p = p.next;
-    } while (p !== a);
-
-    return false;
-}
-
-// check if a polygon diagonal is locally inside the polygon
-function locallyInside(a, b) {
-    return area(a.prev, a, a.next) < 0 ?
-        area(a, b, a.next) >= 0 && area(a, a.prev, b) >= 0 :
-        area(a, b, a.prev) < 0 || area(a, a.next, b) < 0;
-}
-
-// check if the middle point of a polygon diagonal is inside the polygon
-function middleInside(a, b) {
-    var p = a,
-        inside = false,
-        px = (a.x + b.x) / 2,
-        py = (a.y + b.y) / 2;
-    do {
-        if (((p.y > py) !== (p.next.y > py)) && p.next.y !== p.y &&
-                (px < (p.next.x - p.x) * (py - p.y) / (p.next.y - p.y) + p.x))
-            inside = !inside;
-        p = p.next;
-    } while (p !== a);
-
-    return inside;
-}
-
-// link two polygon vertices with a bridge; if the vertices belong to the same ring, it splits polygon into two;
-// if one belongs to the outer ring and another to a hole, it merges it into a single ring
-function splitPolygon(a, b) {
-    var a2 = new Node(a.i, a.x, a.y),
-        b2 = new Node(b.i, b.x, b.y),
-        an = a.next,
-        bp = b.prev;
-
-    a.next = b;
-    b.prev = a;
-
-    a2.next = an;
-    an.prev = a2;
-
-    b2.next = a2;
-    a2.prev = b2;
-
-    bp.next = b2;
-    b2.prev = bp;
-
-    return b2;
-}
-
-// create a node and optionally link it with previous one (in a circular doubly linked list)
-function insertNode(i, x, y, last) {
-    var p = new Node(i, x, y);
-
-    if (!last) {
-        p.prev = p;
-        p.next = p;
-
-    } else {
-        p.next = last.next;
-        p.prev = last;
-        last.next.prev = p;
-        last.next = p;
-    }
-    return p;
-}
-
-function removeNode(p) {
-    p.next.prev = p.prev;
-    p.prev.next = p.next;
-
-    if (p.prevZ) p.prevZ.nextZ = p.nextZ;
-    if (p.nextZ) p.nextZ.prevZ = p.prevZ;
-}
-
-function Node(i, x, y) {
-    // vertice index in coordinates array
-    this.i = i;
-
-    // vertex coordinates
-    this.x = x;
-    this.y = y;
-
-    // previous and next vertice nodes in a polygon ring
-    this.prev = null;
-    this.next = null;
-
-    // z-order curve value
-    this.z = null;
-
-    // previous and next nodes in z-order
-    this.prevZ = null;
-    this.nextZ = null;
-
-    // indicates whether this is a steiner point
-    this.steiner = false;
-}
-
-// return a percentage difference between the polygon area and its triangulation area;
-// used to verify correctness of triangulation
-earcut.deviation = function (data, holeIndices, dim, triangles) {
-    var hasHoles = holeIndices && holeIndices.length;
-    var outerLen = hasHoles ? holeIndices[0] * dim : data.length;
-
-    var polygonArea = Math.abs(signedArea(data, 0, outerLen, dim));
-    if (hasHoles) {
-        for (var i = 0, len = holeIndices.length; i < len; i++) {
-            var start = holeIndices[i] * dim;
-            var end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
-            polygonArea -= Math.abs(signedArea(data, start, end, dim));
-        }
-    }
-
-    var trianglesArea = 0;
-    for (i = 0; i < triangles.length; i += 3) {
-        var a = triangles[i] * dim;
-        var b = triangles[i + 1] * dim;
-        var c = triangles[i + 2] * dim;
-        trianglesArea += Math.abs(
-            (data[a] - data[c]) * (data[b + 1] - data[a + 1]) -
-            (data[a] - data[b]) * (data[c + 1] - data[a + 1]));
-    }
-
-    return polygonArea === 0 && trianglesArea === 0 ? 0 :
-        Math.abs((trianglesArea - polygonArea) / polygonArea);
-};
-
-function signedArea(data, start, end, dim) {
-    var sum = 0;
-    for (var i = start, j = end - dim; i < end; i += dim) {
-        sum += (data[j] - data[i]) * (data[i + 1] + data[j + 1]);
-        j = i;
-    }
-    return sum;
-}
-
-
-}
-
-
-// turn a polygon in a multi-dimensional array form (e.g. as in GeoJSON) into a form Earcut accepts
-earcut.flatten = function (data) {
-    var dim = data[0][0].length,
-        result = {vertices: [], holes: [], dimensions: dim},
-        holeIndex = 0;
-
-    for (var i = 0; i < data.length; i++) {
-        for (var j = 0; j < data[i].length; j++) {
-            for (var d = 0; d < dim; d++) result.vertices.push(data[i][j][d]);
-        }
-        if (i > 0) {
-            holeIndex += data[i - 1].length;
-            result.holes.push(holeIndex);
-        }
-    }
-    return result;
-};
 
 
 
@@ -6950,13 +7047,129 @@ KMarkerScribble_interpolate_slices = function( mset )
 /******************************************************************
 fill a polygon (or a list of polygons) to a ROI
 ******************************************************************/
+
+function createRectNiiFromPoly(polygons,inplaneres)
+{
+	var poly = polygons[0].subpoints;
+	var sums = [0,0,0]
+	for(var k=0;k<poly.length; k++)
+	{
+		var p1 = poly[k];
+		var p2 = poly[(k+1)%poly.length];
+		var p3 = poly[(k+2)%poly.length];
+
+		sums[0] += (p1[2]-p2[2])*(p2[1]-p3[1]) - (p1[1]-p2[1])*(p2[2]-p3[2]);
+		sums[1] += (p1[0]-p2[0])*(p2[2]-p3[2]) - (p1[2]-p2[2])*(p2[0]-p3[0])
+		sums[2] += (p1[1]-p2[1])*(p2[0]-p3[0]) - (p1[0]-p2[0])*(p2[1]-p3[1])
+		break;
+	}
+
+
+    var norm = math.sqrt(sums[0]*sums[0]+sums[1]*sums[1]+sums[2]*sums[2])
+    var nz = [sums[0]/norm,sums[1]/norm,sums[2]/norm]
+    var nx = math.cross([1,0.1,0.1],nz,true)._data;
+    var ny = math.cross(nx,nz,true)._data;
+
+    
+    var aligned =[];
+    var mini = [Infinity,Infinity,Infinity]
+    var maxi = [-Infinity,-Infinity,-Infinity]
+    var mindist = 5;
+	for (var j = 0; j < polygons.length;j++)
+	{
+    	var poly = polygons[j].subpoints;
+    	var p = [];
+    	aligned.push(p)
+    	for (var k = 0; k < poly.length;k++)
+    	{
+    	  var c = [poly[k][0]*nx[0]+poly[k][1]*nx[1]+poly[k][2]*nx[2],
+    	           poly[k][0]*ny[0]+poly[k][1]*ny[1]+poly[k][2]*ny[2],
+    	           poly[k][0]*nz[0]+poly[k][1]*nz[1]+poly[k][2]*nz[2] ]
+    	  p.push(c)
+    	  for (var r = 0; r < 3;r++)
+    	  {
+    	      mini[r] = math.min(mini[r],c[r])
+    	      maxi[r] = math.max(maxi[r],c[r])
+		  }
+    	}
+    	if (j>0)
+    	    mindist=math.min(mindist,math.abs(aligned[j][0][2]-aligned[j-1][0][2]))
+	}
+	mini;
+	maxi;
+	var or = [ mini[0]*nx[0] + mini[1]*ny[0] + mini[2]*nz[0],
+	           mini[0]*nx[1] + mini[1]*ny[1] + mini[2]*nz[1],
+	           mini[0]*nx[2] + mini[1]*ny[2] + mini[2]*nz[2] ]
+
+	            
+
+    var vsz = [inplaneres[0],inplaneres[1],mindist]
+    var edges = [[vsz[0]*nx[0],vsz[1]*ny[0],vsz[2]*nz[0],or[0]], 
+                 [vsz[0]*nx[1],vsz[1]*ny[1],vsz[2]*nz[1],or[1]], 
+                 [vsz[0]*nx[2],vsz[1]*ny[2],vsz[2]*nz[2],or[2]], 
+                 [0,0,0,1]];
+    
+    var shape = [];
+    for (var k = 0; k < 3;k++)
+       shape[k] = math.ceil((maxi[k]-mini[k])/vsz[k])+1;
+    
+    var nii = { edges: math.matrix(edges),  bbox: undefined, voxSize: vsz, sizes: shape, pixdim: [3,vsz[0],vsz[1],vsz[2]] ,
+                wid:shape[0],widhei:shape[1]*shape[0],permutationOrder:[0,1,2],
+                data: new Uint8Array(shape[0]*shape[1]*shape[2]) }
+
+
+    for (var k =0; k< aligned.length;k++)
+    {
+        var p = aligned[k];
+        var poly = []
+        for (var j = 0 ; j < p.length;j++)
+            poly.push( math.round((p[j][0]-mini[0])/vsz[0]) , math.round((p[j][1]-mini[1])/vsz[1]) );
+        poly.push(poly[0],poly[1])
+    	var idx = math.round((p[0][2]-mini[2])/vsz[2])*shape[0]*shape[1];
+        var f = PolyK.ContainsPointFast(poly);
+		for (var y = 0; y < shape[1];y++)
+            for (var x = 0; x < shape[0];x++)
+            	if (f(x,y))
+            	{
+            		nii.data[x+shape[0]*y+idx] = 1;
+            	}
+    }
+
+    return nii;
+}
+
+function rendersubRoiIntoRoi(nii,polymask)
+{
+	var e = math.multiply(math.inv(polymask.edges),nii.edges)._data;
+	var s0 = polymask.sizes[0]            
+	var s1 = polymask.sizes[1]
+	var s2 = polymask.sizes[2]
+	var changedPoints = [];
+	for (var z = 0; z < nii.sizes[2];z++)
+	  for (var y = 0; y < nii.sizes[1];y++)
+		 for (var x = 0; x < nii.sizes[0];x++)
+		 {
+			 var i = math.round(e[0][0]*x + e[0][1]*y + e[0][2]*z + e[0][3])
+			 var j = math.round(e[1][0]*x + e[1][1]*y + e[1][2]*z + e[1][3])
+			 var k = math.round(e[2][0]*x + e[2][1]*y + e[2][2]*z + e[2][3])
+			 if (i>=0 & j>=0 & k>=0 & i < s0 & j < s1 & k < s2 & polymask.data[i+j*polymask.wid + k *polymask.widhei]>0)
+				 {
+					var idx = x+y*nii.wid+z*nii.widhei
+					nii.data[idx] = 1;
+					changedPoints.push(idx)
+				 }
+		 }
+    return changedPoints
+}
+
 function fillPolygon(point,nii, addToHistory)
 {
 
-	var poly = point.subpoints;
+	var poly = point.subpoints || point;
 
 	// for blocking mode, we need the medviewer to calculate other rois
 	//if(point.$markers.length > 0 )
+	if(point.$markers)
 		var medViewer = point.$markers[Object.getOwnPropertyNames(point.$markers)[0]].medViewer;
 // 	else
 // 		var medViewer = undefined

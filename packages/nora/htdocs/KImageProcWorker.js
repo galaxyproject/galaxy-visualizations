@@ -1,7 +1,15 @@
-
-importScripts('KMiscFuns.js');
-importScripts('KView/KMedImageViewer.js');
-importScripts('kmath.js');
+try {
+	importScripts('DPX_sharedBackendFuns.js');
+	importScripts('KMiscFuns.js');
+	importScripts('KView/KMedImageViewer.js');
+	importScripts('kmath.js');
+	importScripts('KTools/KAtlasTool.js');
+	
+}
+catch (err)
+{
+	
+}
 
 
 self.addEventListener('message', function(e) {
@@ -28,8 +36,13 @@ self.addEventListener('message', function(e) {
 	}
 	else if (execObj.func == 'atlasToRoi')
 	{
-		atlasToRoi(execObj,function(perc){self.postMessage({msg:'rendering isosurface '+(100*perc).toFixed(0)+"%"}) })
+		atlasToRoi(execObj,function(perc){self.postMessage({msg:'rendering '+(100*perc).toFixed(0)+"%"}) })
 		self.postMessage({msg:'done',execObj:{buffer:execObj.img.buffer}},[execObj.img.buffer]);
+	}
+	else if (execObj.func == 'RoiToAtlas')
+	{
+		RoiToAtlas(execObj,function(perc){self.postMessage({msg:'rendering '+(100*perc).toFixed(0)+"%"}) })
+		self.postMessage({msg:'done',execObj:{buffer:execObj.atlas.buffer}},[execObj.atlas.buffer]);
 	}
 	else if (execObj.func == 'fillholes')
 	{
@@ -104,11 +117,157 @@ self.addEventListener('message', function(e) {
 		var res = bwconncomp(execObj.data, execObj.size, function(x) { return x>0 }, execObj.clustthres)
 		self.postMessage({msg:'done',execObj:res},[res.labels.buffer]);
 	}
+	else if (execObj.func == 'warpimg')
+	{
+		warpImage(execObj.def,execObj.Adef,execObj.nii,execObj.interpType)
+		self.postMessage({msg:'done',execObj:execObj.nii.data},[]);
+	}
+	else if (execObj.func == 'renderwarp')
+	{
+		var data = renderWarp(execObj.matches,execObj.edges,execObj.sizes,execObj.def_ext)
+		self.postMessage({msg:'done',execObj:data},[]);
+	}
+	else if (execObj.func == 'renderpoly')
+	{
+
+		var polymask = createRectNiiFromPoly(execObj.points,execObj.inplaneres)
+		var changedPoints=rendersubRoiIntoRoi(execObj.nii,polymask)
+
+		self.postMessage({msg:'done',
+		    execObj:{buf:execObj.nii.buffer,data:execObj.nii.data,changedPoints:changedPoints}},[execObj.nii.buffer]);		
+
+	}
 
 	if (!execObj.keepOpen)
   		self.close();
 
 }, false);
+
+function renderWarp(matches,edges,sizes,def_ext)
+{
+	  var sigma = 0.5;
+	  var sigma2 = 1/(sigma*sigma);
+
+	  var matrix = [];
+	  var target = [];
+	  for (var j = 0; j < matches.length;j++)
+	  {
+		  var x = matches[j].r[0]
+		  var y = matches[j].r[1]
+		  var z = matches[j].r[2]
+		  var row = [];
+		  target.push(matches[j].dif)
+		  for (var k = 0; k < matches.length;k++)
+		  {
+			  var s = [(x-matches[k].r[0]),(y-matches[k].r[1]),(z-matches[k].r[2])]
+			  var d2 = s[0]*s[0]+s[1]*s[1]+s[2]*s[2];
+			  row.push(Math.exp(-d2*sigma2*matches[k].s))
+		  }
+		  matrix.push(row)
+	  }
+
+	  if (target.length > 0)
+	  {
+		  target = math.Transpose(math.matrix(target))
+		  matrix = math.matrix(matrix)
+		  var dif = []
+		  for(var i=0;i < 3;i++)
+		  {
+			  dif.push(math.mdiv(matrix,math.matrix(target._data[i]))._data)
+		  }
+		  dif = math.Transpose(math.matrix(dif))._data
+	  }
+
+
+	  var e = edges._data
+	  var tot = sizes[0]*sizes[1]*sizes[2];
+	  var data = new Float32Array(tot*3)
+
+	  if (def_ext)
+	  {
+		  var tred = math.multiply(math.inv(def_ext.edges),edges)._data;
+		  var defdef = def_ext;
+		  var defdef_whd = def_ext.widheidep
+	  }
+
+
+
+	  var f = [];
+	  var d = [];
+	  for (var x=0;x < sizes[0];x++)
+	  for (var y=0;y < sizes[1];y++)
+	  for (var z=0;z < sizes[2];z++)
+	  {
+		  var idx = x+sizes[0]*y+sizes[0]*sizes[1]*z
+
+		  for (var k = 0; k < matches.length;k++)
+		  {
+			  var s = [(x-matches[k].r[0]),(y-matches[k].r[1]),(z-matches[k].r[2])]
+			  var d2 = s[0]*s[0]+s[1]*s[1]+s[2]*s[2];
+			  d[k] = s;
+			  f[k] = Math.exp(-d2*sigma2*matches[k].s)
+		  }
+		  for (var i = 0; i < 3; i++)
+		  {
+			 if (def_ext)
+				 data[idx+i*tot] = trilinInterp(defdef,x,y,z,tred,defdef_whd*i);
+			 else
+				 data[idx+i*tot] = e[i][0]*x + e[i][1]*y + e[i][2]*z + e[i][3] 	
+			 for (var k = 0;k < matches.length;k++)
+			 {
+				if (matches[k].dif)
+					data[idx+i*tot] += f[k]*dif[k][i];
+				else
+					data[idx+i*tot] -= 1*f[k]*d[k][i]*voxsz[0];
+			 }
+		  }
+
+	  }
+
+	  return data;
+}
+
+
+
+function warpImage(def,Adef,nii,interpType)
+{
+
+	var A = math.inv(nii.edges)._data
+
+	if (interpType == "roi")
+		getVal = function(nii,p,A,j)
+		{
+		   return trilinInterp(nii,p[0],p[1],p[2],A,nii.widheidep*j)>0.5;
+		}
+	else if (interpType == "atlas")
+		getVal = function(nii,p,A,j)
+		{
+		   return NNInterp(nii,p[0],p[1],p[2],A,nii.widheidep*j);
+		}
+	else
+		getVal = function(nii,p,A,j)
+		{
+		   return trilinInterp(nii,p[0],p[1],p[2],A,nii.widheidep*j);
+		}
+
+	var data = nii.data
+	nii.data = data.slice();
+	var sz = nii.sizes;
+	for (var z=0;z<sz[2];z++)
+	for (var y=0;y<sz[1];y++)
+	for (var x=0;x<sz[0];x++)
+	{
+		var p = [trilinInterp(def,x,y,z,Adef,def.widheidep*0),
+				trilinInterp(def,x,y,z,Adef,def.widheidep*1),
+				trilinInterp(def,x,y,z,Adef,def.widheidep*2)]
+		var idx = x+nii.wid*y+nii.widhei*z;
+		for (var j=0;j<sz[3];j++)
+		   data[idx + j*nii.widheidep] = getVal(nii,p,A,j)
+	}
+	nii.data = data;
+
+
+}
 
 
 
@@ -269,20 +428,80 @@ function floodfill(data, vol, size, seed, v)
 
 function atlasToRoi(data,progress,done)
 {
-
-	importScripts('KTools/KAtlasTool.js');
 	
 	
-	var w2key = KAtlasTool.updateGetPixelFun(data.atlas,data.img,undefined,undefined,data.deffield)
 	var sizes = data.img.sizes;
 	if (typeof data.key == "object")
+	{
+
+		{
+			
+	    	var w2key = KAtlasTool.updateGetPixelFun(data.atlas,data.img,undefined,undefined,data.deffield)
+			for (var z = 0; z < sizes[2];z++)
+				for (var y = 0; y < sizes[1];y++)
+				  for (var x = 0; x < sizes[0];x++)
+				  {
+						if (data.key[w2key(x,y,z)])
+							data.img.data[x+sizes[0]*y + sizes[0]*sizes[1]*z] = 1;
+					    else 
+							data.img.data[x+sizes[0]*y + sizes[0]*sizes[1]*z] = 0;
+				  }   
+		}
+	}
+	else
+	{
+		if (sameGeometry(data.img,data.atlas) && data.deffield == undefined)
+		{
+			var im = data.img.data;
+			var tsz = data.img.widheidep;
+			var k = data.key;
+			var src = data.atlas.data;
+			for (var i = 0;i < tsz;i++)
+				if (src[i]==k)
+					im[i] = 1;
+				else
+					im[i] = 0;
+		}
+		else
+		{
+			var w2key = KAtlasTool.updateGetPixelFun(data.atlas,data.img,data.key,undefined,data.deffield)
+	    	for (var z = 0; z < sizes[2];z++)
+				for (var y = 0; y < sizes[1];y++)
+				  for (var x = 0; x < sizes[0];x++)
+				  {
+						if (w2key(x,y,z)>0)
+							data.img.data[x+sizes[0]*y + sizes[0]*sizes[1]*z] = 1;
+						else
+							data.img.data[x+sizes[0]*y + sizes[0]*sizes[1]*z] = 0;
+				  }   
+		}
+	}     
+
+}
+
+
+
+
+
+function RoiToAtlas(data,progress,done)
+{
+
+	
+	var sizes = data.img.sizes;
+	if (data.typ == 'block')
 	{
 		for (var z = 0; z < sizes[2];z++)
 			for (var y = 0; y < sizes[1];y++)
 			  for (var x = 0; x < sizes[0];x++)
 			  {
-					if (data.key[w2key(x,y,z)])
-						data.img.data[x+sizes[0]*y + sizes[0]*sizes[1]*z] = 1;
+				  var idx = x+sizes[0]*y + sizes[0]*sizes[1]*z;
+				  if (data.img.data[idx] > 0)
+				  {
+				  	  if (data.atlas.data[idx]<=0)
+					      data.atlas.data[idx] = data.key;
+				  }
+				  else if (data.atlas.data[idx] == data.key)
+					  data.atlas.data[idx] = 0;
 			  }   
 
 	}
@@ -292,11 +511,14 @@ function atlasToRoi(data,progress,done)
 			for (var y = 0; y < sizes[1];y++)
 			  for (var x = 0; x < sizes[0];x++)
 			  {
-					if (w2key(x,y,z) == data.key)
-						data.img.data[x+sizes[0]*y + sizes[0]*sizes[1]*z] = 1;
+				  var idx = x+sizes[0]*y + sizes[0]*sizes[1]*z;
+				  if (data.img.data[idx] > 0)
+					  data.atlas.data[idx] = data.key;
+				  else if (data.atlas.data[idx] == data.key)
+					  data.atlas.data[idx] = 0;
 			  }   
-	}     
 
+    }
 }
 
 
@@ -329,26 +551,14 @@ function createFiberVisitMap(data,progress)
 	var wh = size[0]*size[1];
 	var w = size[0];
 	var steps = math.floor(subsetlen/20);
-	for (var l = 0; l < subsetlen; l++) {
-		if (l%steps == 0)
-			progress(l/subsetlen);
 
-
-		var points = wholebrain?lines[l]:lines[subset[l]];
+    function render(points)
+    {
 		var plen = points.length/3-1;
 		var last0 = points[0];
 		var last1 = points[1];
 		var last2 = points[2];
-		var start = (ep>0); // for ep rendering
 		for (var index = 0; index < plen; index++) {
-			if (start)
-			{
-				if (index > ep) // jump over central part
-				{
-					index = plen-ep;
-					start = false;
-				}
-			}
 
 			for (var k = 0 ; k < osamp ; k++)
 			{
@@ -382,6 +592,63 @@ function createFiberVisitMap(data,progress)
 				buffer[idx+1+w+wh] += (f0)*(f1)*(f2)*weight;
 			}
 		}
+
+    }
+
+    var terms
+	if (ep > 0)
+	   terms = [];
+
+
+	for (var l = 0; l < subsetlen; l++) {
+		if (l%steps == 0)
+			progress(l/subsetlen);
+
+
+		var points = wholebrain?lines[l]:lines[subset[l]];
+        if (ep > 0)
+        {
+        	var L = points.length/3;
+        	var d0 = points[3] - points[0];
+        	var d1 = points[3+1] - points[1];
+        	var d2 = points[3+2] - points[2];
+            for (var k = 0;k < ep;k++)            
+            {
+
+                terms[3*k]   = points[0]+d0*(k-ep);
+                terms[3*k+1] = points[1]+d1*(k-ep);
+                terms[3*k+2] = points[2]+d2*(k-ep);
+
+                //terms[3*(ep+k)] = points[3*k];
+                //terms[3*(ep+k)+1] = points[3*k+1];
+                //terms[3*(ep+k)+2] = points[3*k+2];
+
+            }
+            render(terms);
+
+        	var t0 = points[3*(L-2)] - points[3*(L-1)+0];
+        	var t1 = points[3*(L-2)+1] - points[3*(L-1)+1];
+        	var t2 = points[3*(L-2)+2] - points[3*(L-1)+2];
+            for (var k = 0;k < ep;k++)            
+            {
+
+                terms[3*k]   = points[3*(L-1)+0]+t0*(k-ep);
+                terms[3*k+1] = points[3*(L-1)+1]+t1*(k-ep);
+                terms[3*k+2] = points[3*(L-1)+2]+t2*(k-ep);
+
+                //terms[3*(ep+k)] = points[3*(L-k-1)];
+                //terms[3*(ep+k)+1] = points[3*(L-k-1)+1];
+                //terms[3*(ep+k)+2] = points[3*(L-k-1)+2];
+
+            }
+
+			render(terms);
+
+        }
+        else
+		    render(points);
+
+
 	}
 }
 
@@ -460,12 +727,12 @@ function computeIsoSurf(nii)
 
 
 	var dataAt;
-	if (sizes[3] == 3)
+	/*if (sizes[3] == 3)
 		dataAt = function(idx)
 		{
 			return Math.sqrt(data[idx]*data[idx]+data[idx+whd]*data[idx+whd]+data[idx+2*whd]*data[idx+2*whd]);
 		}
-	else
+	else*/
 		dataAt = function(idx)
 		{
 			return data[idx+offset];
@@ -551,6 +818,7 @@ function computeIsoSurf(nii)
 		verts[3*i+1] = v[1];
 		verts[3*i+2] = v[2];
 	}
+
 
     verts = smooth(verts,trigs);
  	verts = smooth(verts,trigs);
@@ -643,6 +911,8 @@ output: obj = {labels,clusterSize , changedPoints}
        clusterSize - sizes array of clusters
        changedPoints - if target given the voxels that switched to zero */
 
+
+
 function bwconncomp(data, size, comp, clustthres, target)
 {
 
@@ -657,127 +927,190 @@ function bwconncomp(data, size, comp, clustthres, target)
 
     var map = {}
 
-    var cur_label = 2147483648;
+    var max = 2147483648
+    var cur_label = max;
     for (var z = 0; z < size[2]; z++)
+    {
+        var wh_ = wh;
+        if (z==0)
+            wh_  = 0;
+
         for (var y = 0; y < size[1]; y++)
+        {
+            var w_ = w;
+            if (y==0)
+                w_  = 0;
             for (var x = 0; x < size[0]; x++)
             {
                 var idx = x+w*y+wh*z;
                 if (comp(data[idx]))
                 {
-                    var l = 0
-                    if (labels[idx - 1] == 0 && labels[idx - w] == 0 && labels[idx - wh] == 0)
+                    var e_ = 1;
+                    if (x==0)
+                        e_  = 0;
+
+                    if (labels[idx - e_] == 0 && labels[idx - w_] == 0 && labels[idx - wh_] == 0)
                     {
                         labels[idx] = cur_label--;
                         continue;
                     }
 
 
-                    mmi(1,w,wh)
-                    mmi(w,1,wh)
-                    mmi(wh,1,w)
-                    
+                    if (!mmi(e_,w_,wh_))
+                    if (!mmi(w_,e_,wh_))
+                         mmi(wh_,e_,w_)
+
                     function mmi(a,b,c)
                     {
-                        if (labels[idx - a] >= labels[idx - b]  && labels[idx - a] >= labels[idx - c])
+                        var A = labels[idx - a] 
+                        var B = labels[idx - b] 
+                        var C = labels[idx - c] 
+                        if (A >= B  && A >= C)
                         {
-                            l = labels[idx - a];
-                            labels[idx] = l;
-                            if (labels[idx - b] > 0 && l != labels[idx - b])
+                            labels[idx] = A;
+                            if (B > 0 && A != labels[idx - b])
                             {
-                                map[labels[idx - b]] = l;
-                                labels[idx - b] = l;
+                                setref(B,A)
+                                labels[idx - b] = A;
                             }
-                            if (labels[idx - c] > 0 && l != labels[idx - c])
+                            if (C > 0 && A != C)
                             {
-                                map[labels[idx - c]] = l;                            
-                                labels[idx - c] = l; 
+                                setref(C,A)
+                                labels[idx - c] = A;
                             }
                             return true;
                         }
                     }
 
-        
+
+
+                    function setref(x,y)
+                    {
+
+                        if (map[x] == undefined)
+                            map[x] = y;
+                        else
+                        {
+                            if (map[x] == y)
+                             return;
+
+                            // x < y 
+                            var r = map[x];
+                            if (y < r) // x < y < r
+                            {
+                                map[x] = y;
+                                setref(y,r)
+                            }
+                            else
+                            {
+                                if (x > r)  // r<x<y
+                                {
+                                  setref(r,x)
+                                   map[x] = y;
+                                }
+                                else   // x<r<y
+                                {
+                                   setref(x,r)
+                                   setref(r,y)
+                                }
+                            }
+
+                        }
+                    }
+
 
                 }
             }
+        }
+    }
 
-            var keys = Object.keys(map);
-            function look(a)
+    var keys = Object.keys(map);
+    function look(a)
+    {
+        if (map[a] == undefined)
+            return a;
+        else
+        {
+            var x = look(map[a]); 
+            map[a] = x;
+            return x;
+        }
+    }
+
+    for (var k = 0; k < keys.length;k++)
+        map[keys[k]] = look(keys[k]);
+
+    var clustsize = {};
+    var cog = {};
+    var firstpoint = {};
+    for (var z = 0; z < whd; z++)
+        if (comp(data[z]))
+        {
+            var k = map[labels[z]];
+            if (k == undefined)
+                k = labels[z];
+            labels[z] = k;
+            if (clustsize[k] == undefined)
             {
-                if (map[a] == undefined)
-                    return a;
-                else 
-                    return look(map[a]);
+                clustsize[k] = 1;
+                cog[k] = [z%w,Math.floor(z/w)%h,Math.floor(z/wh)%d]
+                firstpoint[k] = [z%w,Math.floor(z/w)%h,Math.floor(z/wh)%d]
             }
-            for (var k = 0; k < keys.length;k++)
-                map[keys[k]] = look(keys[k]);
-
-            var clustsize = {};
-            var cog = {};
-            for (var z = 0; z < whd; z++)
-                if (comp(data[z]))
-                {
-                    var k = map[labels[z]];
-                    if (k == undefined)
-                        k = labels[z];
-                    labels[z] = k;
-                    if (clustsize[k] == undefined)
-                    {
-                        clustsize[k] = 1;
-                        cog[k] = [z%w,Math.floor(z/w)%h,Math.floor(z/wh)%d]
-                    }
-                    else
-                    {
-                        clustsize[k]++;
-                        cog[k][0] += z%w
-                        cog[k][1] += Math.floor(z/w)%h
-                        cog[k][2] += Math.floor(z/wh)%d;
-                    }
-
-                }
-                       
-            var clusts = Object.keys(clustsize);
-            var indic = {};
-            var clusterSize = {};
-            var centerOfGrav ={}
-            var cnum = 1;
-            for (var k = 0 ; k < clusts.length;k++)
+            else
             {
-                if (clustsize[clusts[k]] > clustthres)
-                {
-
-                    clusterSize[cnum] = clustsize[clusts[k]];
-                    var v = [ cog[clusts[k]][0]/clustsize[clusts[k]],
-                              cog[clusts[k]][1]/clustsize[clusts[k]],
-                              cog[clusts[k]][2]/clustsize[clusts[k]] ];
-                    centerOfGrav[cnum] = v;
-                    indic[clusts[k]] = cnum;
-                    cnum++;
-                }
+                clustsize[k]++;
+                cog[k][0] += z%w
+                cog[k][1] += Math.floor(z/w)%h
+                cog[k][2] += Math.floor(z/wh)%d;
             }
 
+        }
 
-            for (var z = 0; z < whd; z++)
-                if (comp(data[z]))
-                {
+    var clusts = Object.keys(clustsize);
+    var indic = {};
+    var clusterSize = {};
+    var centerOfGrav ={}
+    var firstPoint ={}
+    var cnum = 1;
+    for (var k = 0 ; k < clusts.length;k++)
+    {
+        if (clustsize[clusts[k]] > clustthres)
+        {
 
-                    if (!indic[labels[z]])
-                    {
-                        if (target != undefined)
-                            target[z] = 0;
-                        labels[z] = 0;
-                        changedPoints.push(z);
-                    }
-                    else
-                        labels[z] = indic[labels[z]];
-                }
-                else
-                    if (target != undefined)
-                        target[z] = 0;
+            clusterSize[cnum] = clustsize[clusts[k]];
+            centerOfGrav[cnum] = [ cog[clusts[k]][0]/clustsize[clusts[k]],
+                      cog[clusts[k]][1]/clustsize[clusts[k]],
+                      cog[clusts[k]][2]/clustsize[clusts[k]] ];
+            firstPoint[cnum] = [ firstpoint[clusts[k]][0],
+                      firstpoint[clusts[k]][1],
+                      firstpoint[clusts[k]][2] ];
+            indic[clusts[k]] = cnum;
+            cnum++;
+        }
+    }
 
-         
-           return {centerOfGrav:centerOfGrav,changedPoints:changedPoints,labels:labels,clusterSize:clusterSize};
 
-  
+    for (var z = 0; z < whd; z++)
+        if (comp(data[z]))
+        {
+
+            if (!indic[labels[z]])
+            {
+                if (target != undefined)
+                    target[z] = 0;
+                labels[z] = 0;
+                changedPoints.push(z);
+            }
+            else
+                labels[z] = indic[labels[z]];
+        }
+        else
+            if (target != undefined)
+                target[z] = 0;
+
+
+   return {firstpoint:firstPoint,centerOfGrav:centerOfGrav,changedPoints:changedPoints,labels:labels,clusterSize:clusterSize};
+
+
 }
+

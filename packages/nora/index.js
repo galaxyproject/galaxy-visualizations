@@ -6,10 +6,10 @@ import "script-loader!./htdocs/jquery-1.11.2.min.js";
 import "script-loader!./htdocs/dicom/daikon.js";
 import "script-loader!./htdocs/dicom/dicomReader.js";
 
+import "script-loader!./htdocs/jquery.js";
 import "./htdocs/alertify.core.css";
 import "./htdocs/alertify.default.css";
-import "./htdocs/styles_main.css";import "script-loader!./htdocs/dicom/daikon.js";
-import "script-loader!./htdocs/dicom/dicomReader.js";
+import "./htdocs/styles_main.css";
 
 import "./htdocs/alertify.core.css";
 import "./htdocs/alertify.default.css";
@@ -92,13 +92,12 @@ console.log(window.location.href);
 
 stateManager.setDefaultState(); 
 
-var Datasets = window.bundleEntries.chartUtilities.Datasets;
 
 _.extend(window.bundleEntries || {}, {
     load: function(options) {
         var chart = options.chart;
 
-			var $t = $(document.getElementById( options.target ))
+			var $t = $(document.getElementById( options.targets[ 0 ]))
 
 			var KViewer = new KView($t.parent());
 			$t.remove();

@@ -12,6 +12,7 @@ self.addEventListener('message', function(e) {
 
 	// pack the file as blob
 	var x = new Uint8Array(buffer);
+	console.log(obj)
 	if (obj.deflate)
 	{
  	   self.postMessage({msg:'packing ' + finfo.Filename});

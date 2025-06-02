@@ -13,14 +13,13 @@ function KAtlasTool(master)
    * @class 
    * @alias KAtlasTool
    * @augments KToolWindow
-   */
+   */   
   var that = new KToolWindow(master,
   $("<div class='KView_tool '><i class='fa fa-cubes fa-1x'></i></div>")
   .append( $("<ul ></ul>").append($("<li><a>Atlas</a></li>")) ) );
   var fibertool = master.obj3dTool;
 
   that.name = 'Atlas';
-  that.point = master.currentPoint;
   
   that.$topRow.addClass("AtlasTool_topmenu")
   
@@ -204,46 +203,68 @@ function KAtlasTool(master)
    *  object management
    ****************************************************************************************/
 
- 
+  that.prepAtlas = function (fobj)
+  {
+	   if ( fobj.content.extension != undefined &&  fobj.content.labels == undefined)
+	   {
+		   var labelshtml = fobj.content.extension.content.getElementsByTagName('Label');
+		   var labels = {};
+		   for (var k = 0; k < labelshtml.length;k++)
+		   {
+				var x = labelshtml[k];
+				var col = math.round([255*parseFloat(x.getAttribute('Red')),255*parseFloat(x.getAttribute('Green')),255*parseFloat(x.getAttribute('Blue'))]);
+				labels[x.getAttribute('Key')] =  { key:x.getAttribute('Key'),name:x.textContent, color:col  };
+		   }
+		   fobj.content.labels = labels;
+	   }
+	   else if ((fobj.filename.search("\\.mgz") > -1 || fobj.filename.search("\\.mgh") > -1) &&  fobj.content.labels == undefined)
+	   {
+			fobj.content.labels = static_info.FSLUT;
+	   }
+	   else
+	   {
+
+	   }
+	   return computeBBoxes(fobj.content);
+  }
+	
   that.addAtlas = function (fobj)
   {
        if (fobj.contentType == 'nii')
        {
-		   if (!that.enabled)
-			  that.show();
-		   if (fobj.content.sizes[3] == 3 | fobj.content.sizes[4] == 3)
+           // henriks flatmap
+		   if (0) //fobj.content.sizes[3] == 4)
+		   {
+              that.invdefField = fobj;
+		   }
+		   
+		   if (fobj.content.datatype == 'float' & (fobj.content.sizes[3] == 3 | fobj.content.sizes[4] == 3)) // a warp field
 		   {
 			  that.defField = fobj;
+			  signalhandler.send("positionChange");
 		   }
 		   else
 		   {
+
+			   if (that.prepAtlas(fobj) === false)
+			   {
+					return;				   
+			   }
+
+			   if (fobj.project != undefined && (typeof currentModule != "undefined" && fobj.project != currentModule))
+			   {
+				   fobj.fileinfo = {Filename:fobj.fileinfo.Filename}
+			   }
+			   
 		   	   if (that.objs[fobj.fileID] != undefined)
 					return that.objs[fobj.fileID];
 			   that.objs[fobj.fileID] = fobj;
+			   
 			   fobj.content.alpha = 0.7;
-			   if ( fobj.content.extension != undefined &&  fobj.content.labels == undefined)
-			   {
-				   var labelshtml = fobj.content.extension.content.getElementsByTagName('Label');
-				   var labels = {};
-				   for (var k = 0; k < labelshtml.length;k++)
-				   {
-						var x = labelshtml[k];
-						var col = math.round([255*parseFloat(x.getAttribute('Red')),255*parseFloat(x.getAttribute('Green')),255*parseFloat(x.getAttribute('Blue'))]);
-						labels[x.getAttribute('Key')] =  { key:x.getAttribute('Key'),name:x.textContent, color:col  };
-				   }
-				   fobj.content.labels = labels;
-			   }
-			   else if ((fobj.filename.search("\\.mgz") > -1 || fobj.filename.search("\\.mgh") > -1) &&  fobj.content.labels == undefined)
-			   {
-			   		fobj.content.labels = static_info.FSLUT;
-			   }
-			   else
-			   {
 
-			   }
-			   computeBBoxes(fobj.content);
 		   }
-		   signalhandler.send('positionChange');
+		   that.update();
+	//	   signalhandler.send('positionChange');
        }
 
        return fobj;
@@ -265,16 +286,30 @@ function KAtlasTool(master)
   }
 
 
+  that.toggleAllLabels = function (obj,on)
+  {
+
+		    if (obj.panel == undefined)
+		    {
+				obj.panel = KAtlasPanel(obj);
+			    obj.panel.toggle();
+		    }
+		    if (Object.keys(obj.panel.persistentLabels).length >0 || !on)
+                obj.panel.hideAll()
+		    else
+                obj.panel.showAll()
+
+  }
+
+
   /***************************************************************************************
    *  table updater 
    ****************************************************************************************/
 
-  that.update = function()
+  that.update = function(atpoint)
   {
     $table.children().remove();
     $deffield.children().remove();
-
-
 
 	var $wrap = $("<div>").appendTo($deffield);
     var $row = $("<tr ><td> Template mapping (iy)</td></tr>").appendTo($wrap);
@@ -300,7 +335,7 @@ function KAtlasTool(master)
 		 that.$mnicoord.text(str);
 
 	     $row.append(that.$mnicoord);
-         $row.append($("<td> <i class='fa  fa-close'></td>").click(function() { that.defField = undefined;  signalhandler.send('positionChange'); } ));
+         $row.append($("<td> <i class='fa  fa-close'></td>").click(function() { that.defField = undefined; that.update();  signalhandler.send('positionChange'); } ));
 	}
 	else	
 	     $row.append($("<td> none </td>"));
@@ -319,10 +354,19 @@ function KAtlasTool(master)
     	$table.append($("<span> select an atlas from menu or drop a custom one </span>"));
     }
 
+    var descrip = ""
 	var $tbody = $("<tbody>").appendTo($table);
     for  (var k in that.objs)
     {
 	   var id = that.objs[k].fileID;
+	   var point = that.objs[k].currentPoint
+	   if (that.defField == undefined)
+	       point = KViewer.currentPoint;
+
+       if (point == undefined) 
+           point = math.matrix([0,0,0,1]);
+       if (atpoint != undefined)
+	       point = atpoint;
 
 	   
        function drophandler(fobj,dropevent)
@@ -347,18 +391,20 @@ function KAtlasTool(master)
        		$row.append($("<td >" + that.objs[k].filename + "</td>"));
        else
        		$row.append($("<td >" + that.objs[k].filename + " (no label info) </td>"));
-       $row.append($("<td> <i class='tablebutton fa fa-fw fa-wrench'></td>").click(function(k_) { return function() { 
+       $row.append($("<td> <i class='tablebutton fa fa-fw fa-building-o'></td>").click(function(k_) { return function() { 
 		   if (that.objs[k_].panel == undefined)
 				that.objs[k_].panel = KAtlasPanel(that.objs[k_]);
 			else
 				that.objs[k_].panel.toggle();
+			} }(k) ));
+       $row.append($("<td> <i class='tablebutton fa fa-fw fa-eye'></td>").click(function(k_) { return function() { 
+            that.toggleAllLabels(that.objs[k_])
 			} }(k) ));
        $row.append($("<td> <i class='tablebutton fa fa-fw fa-close'></td>").click(function(k_) { return function() { delete that.objs[k_]; that.update(); } }(k) ));
 
        var $row = $("<tr " + dragstuff + "></tr>").appendTo($table).on("drop",loadFromDrop(drophandler));
 
 	   var key = 0;
-	   var point = that.point;
 
 	   if (that.defField != undefined)
 	   {
@@ -371,14 +417,20 @@ function KAtlasTool(master)
            if (ps[0] != undefined & ps[0] != undefined & ps[0] != undefined)
            {
 			   ps =math.round(math.multiply(math.inv(nii.edges),ps)._data);
-			   key = nii.data[nii.sizes[0]*nii.sizes[1]*ps[2] + ps[1]*nii.sizes[0] + ps[0]];
+			   if (  (ps[0] >= 0 && ps[0] < nii.sizes[0] &&
+				      ps[1] >= 0 && ps[1] < nii.sizes[1] &&
+				      ps[2] >= 0 && ps[2] < nii.sizes[2]) )
+    			   key = nii.data[nii.sizes[0]*nii.sizes[1]*ps[2] + ps[1]*nii.sizes[0] + ps[0]];
            }
 	   }
 	   else
 	   {
   	       var einv = math.inv(nii.edges);
  	       var p = math.round(math.multiply(einv,point)._data);
-	       if (p[0] != undefined & p[0] != undefined & p[0] != undefined)
+	       if (p[0] != undefined & p[1] != undefined & p[2] != undefined & 
+	          (p[0] >= 0 && p[0] < nii.sizes[0] &&
+	           p[1] >= 0 && p[1] < nii.sizes[1] &&
+	           p[2] >= 0 && p[2] < nii.sizes[2]) )
            {
 		 	   key = nii.data[nii.sizes[0]*nii.sizes[1]*p[2] + p[1]*nii.sizes[0] + p[0]];
            }
@@ -390,6 +442,7 @@ function KAtlasTool(master)
 		   {
 			   $row.append($("<td style='background-color:"+RGB2HTML(label.color[0],label.color[1],label.color[2])+";'  ></td>"));
 			   $row.append($("<td > " + label.name + " (" + key + ")</td>"));
+			   descrip += label.name + " (" + key + ")<br>";
 			   that.objs[k].currentLabel = nii.labels[key]; 
 		   }
 		   else
@@ -406,7 +459,7 @@ function KAtlasTool(master)
 		   $row.append($("<td > key=" + key + "</td>"));
 		   var idx = (parseInt(key)*32)%256;
 		   var col = [KColormap.jet[0][idx],KColormap.jet[1][idx],KColormap.jet[2][idx]];
-		   that.objs[k].currentLabel = {key:key, name:"key="+key, color:col};	   	   
+		   that.objs[k].currentLabel = {key:key, name:"("+key+")", color:col};	   	   
 	   }       
 
 	   if (that.objs[k].panel)
@@ -417,24 +470,24 @@ function KAtlasTool(master)
 
     }     
     that.attachTableOperator($table.parent());
+    return descrip;
    
   }
 
   that.update();
-  that.updatePoint = function()
+  that.updatePoint = function(p,viewer)
   {
-		that.point = master.currentPoint;
-		that.update();
-		
+
+		that.update();		
 
   }
-
-  signalhandler.attach('positionChange',function()
+/*
+  signalhandler.attach('positionChange',function(e)
   {
 	if (master.crosshairMode)  	
   	 	that.updatePoint();
   });
-  
+*/  
 
   function computeBBoxes(atlas_nii)
   {
@@ -444,8 +497,11 @@ function KAtlasTool(master)
 
         var edges = atlas_nii.edges;
         var e = edges._data;
-        var sz = atlas_nii.sizes;
+
+	    var sz = atlas_nii.sizes;
+	    var lcnt = 0;
         for (var z = 0; z < sz[2]; z++)
+		{
             for (var y = 0; y < sz[1]; y++)
                 for (var x = 0; x < sz[0]; x++)
                 {
@@ -457,6 +513,7 @@ function KAtlasTool(master)
                     	{
                     		b = { max: [-100000, -100000, -100000],  min:[100000, 100000, 100000]};
                     		bboxes[key] = b;
+							lcnt++;
                     	}
                         //var p = math.multiply(edges, [x, y, z, 1]);
                        	var X = e[0][0]*x + e[0][1]*y +e[0][2]*z + e[0][3];
@@ -476,10 +533,22 @@ function KAtlasTool(master)
                             b.min[2] = Z;
                     }
                 }
+
+			if (lcnt > 5000)
+			{
+				alertify.error('too many labels for an common label image/atlas, stopping')
+				return false;
+			}
+		}
+
+		atlas_nii.present_labels = {}
+
 		if (atlas_nii.labels != undefined)
 			for (var k in atlas_nii.labels)
 			{
 				atlas_nii.labels[k].bbox = bboxes[k];
+
+				atlas_nii.present_labels[k] = atlas_nii.labels[k];
 			}
 		else
 		{
@@ -489,10 +558,12 @@ function KAtlasTool(master)
 			    var idx = (parseInt(k)*32)%256;
 			    var col = [KColormap.jet[0][idx],KColormap.jet[1][idx],KColormap.jet[2][idx]];
 				
-				atlas_nii.labels[k] = {bbox:bboxes[k], key:k , name:"key="+k , color:col}
+				atlas_nii.labels[k] = {bbox:bboxes[k], key:k , name:"("+k+")" , color:col}
+				atlas_nii.present_labels[k] = atlas_nii.labels[k];
 			}
 
 		}
+		
 		return;
 
 
@@ -550,6 +621,21 @@ function KAtlasTool(master)
 				fobj.fileinfo.patients_id = that.defField.fileinfo.patients_id;
 				fobj.fileinfo.studies_id = that.defField.fileinfo.studies_id;
 			}
+            else if (KViewer.navigationTool.isinstance && 
+                (( master.navigationTool.movingObjs[obj.fileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ) )
+            {
+				if (KViewer.navigationTool.deffield_extern != undefined)
+				{
+				    deffield = KViewer.navigationTool.deffield_extern
+					fobj.fileinfo.patients_id = KViewer.navigationTool.deffield_extern.fileinfo.patients_id;
+					fobj.fileinfo.studies_id  = KViewer.navigationTool.deffield_extern.fileinfo.studies_id;
+				}
+				else (KViewer.reorientationMatrix != undefined && KViewer.reorientationMatrix.deffield != undefined)
+				{
+				    deffield = KViewer.reorientationMatrix.deffield			
+				}
+				
+			}
 			else
 			{
 				if (typeof patientTableMirror != "undefined")
@@ -571,7 +657,11 @@ function KAtlasTool(master)
 						   img:ready4Clone(img,true), key:val },[img.buffer],that.progressSpinner,
 				function(e)
 				{
+					fobj.buffer = e.execObj.buffer
 					fobj.content = prepareMedicalImageData(parse(e.execObj.buffer), fobj);
+					if (fobj.fileinfo && fobj.fileinfo.surfreference)
+						fobj.fileinfo.surfreference.content.nifti = fobj.content 
+
 					done(fobj);
 					KViewer.cacheManager.update();
 					KViewer.roiTool.update();
@@ -579,7 +669,25 @@ function KAtlasTool(master)
 				);
 		}
 
+	    function renderROIintoAtlas(obj,fobj,val,typ,done)
+		{
+			var img = fobj.content;
 
+			that.progressSpinner("rendering volume");
+		
+			executeImageWorker({func:'RoiToAtlas', 
+						   atlas:ready4Clone(obj.content,true),
+						   img:ready4Clone(img), key:val,typ:typ },[obj.content.buffer],that.progressSpinner,
+				function(e)
+				{
+					var tmp = prepareMedicalImageData(parse(e.execObj.buffer), obj);
+					obj.content.data = tmp.data;
+					obj.content.buffer = e.execObj.buffer;
+					signalhandler.send("updateFilelink",{id:obj.fileID});
+					done()
+				}
+				);
+		}
 
 		function createISOfromLabel(atlas,label,ondone)
 		{
@@ -690,16 +798,31 @@ function KAtlasTool(master)
 	 	  var fid = "ROI_ATLAS_" + atlas.fileID + "_" +key;
 		  var roi = KViewer.dataManager.getFile(fid);
 		  if (roi != undefined)
-			callback(roi);
+		  {
+			  function tryit()
+				  {
+					  if (roi.rendering_in_progress)
+						  setTimeout(tryit,100)
+					  else 
+						  callback(roi);
+				  }
+			  tryit();
+		  }
 		  else
 		  {
 				bgndcontrast.intendedROIid = fid;	                                         	
 				master.roiTool.pushROI(bgndcontrast.fileID,name,undefined,function(roi)
-				{          			  	  
+				{          
+					 roi.rendering_in_progress = true
+					 delete bgndcontrast.intendedROIid;
 					 progress("rendering ROI");
-					 renderROIfromLabel(atlas,roi,parseInt(key),function()
+					 if (typeof key == "string")
+					     key = parseInt(key);
+					 renderROIfromLabel(atlas,roi,key,function()
 					 {
+						 delete roi.rendering_in_progress;
 						 callback(roi);
+						 signalhandler.send("updateFilelink",{id:fid});
 						 progress();
 					 });
 
@@ -722,47 +845,268 @@ function KAtlasTool(master)
 					color:0	};
 
 
+
+        var objname = obj.atlas.filename.replace(".nii.gz","").replace(".nii","")
 	   /***************************************************************************************
 		* the subviews toolbar
 		****************************************************************************************/  
-		var $captiondiv,$dragdiv,$createIso,$createOutlines;
+		var $captiondiv,$dragdiv,$createIso,$createOutlines,$panel,$editing,$save;
 		obj.divs = [ $("<br style='clear:both' />"),
 					 $("<div  class='KViewPort_tool atlas persistent'>  <i class='fa fa-close fa-1x'></i></div>").click( close  ).mousedown(viewer.viewport.closeContextMenu(obj)),
-					 $createIso = $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-1x'><span>3D</span></i></div>").appendTooltip("isosurfatlas"),
-                     $createOutlines = $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-1x'><span>outline</span></i></div>").appendTooltip("isosurfatlas").hide(),
-                     $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-pencil fa-1x'> </div>")
+					 $save = $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-save'></i></div>").appendTooltip("save").click(function() { 
+
+                        if (obj.atlas.editing_label == undefined)
+						{
+							
+                            saveAtlas(obj.atlas,function(){
+
+								KViewer.iterateMedViewers(function(m)
+								{
+									for (var k = 0; k < m.atlas.length; k++)
+										if (obj.atlas.fileID == m.atlas[k].atlas.fileID)
+											m.atlas[k].$savediv.removeClass("notsaved")											                                           	
+									$(document.body).removeClass("wait");                        	                    
+	
+								});          
+								
+                            });
+						}
+                        else
+			  	          alertify.error("close first editing mode");
+
+          			 }),
+					 $createIso = $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-1x'><span>3D</span></i></div>").appendTooltip("isosurfatlas").hide(),
+                     $createOutlines = $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-1x'><span> <i class='fa fa-lemon-o fa-1x'></i></span></i></div>").appendTooltip("multioutlines"),     
+                     $panel = $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-building-o fa-1x'></i></div>").appendTooltip("open panel")
+              			 .click(function() {
+							   if (obj.atlas.panel == undefined)
+									obj.atlas.panel = KAtlasPanel(obj.atlas);
+								else
+									obj.atlas.panel.toggle();
+              			 }),
+                     $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-eye fa-1x'> </div>")
+          			 .click(function() { 
+							if (obj.atlas.panel == undefined)
+							{
+								obj.atlas.panel = KAtlasPanel(obj.atlas);
+								obj.atlas.panel.toggle();
+							}
+							if (Object.keys(obj.atlas.panel.persistentLabels).length >0)
+								obj.atlas.panel.hideAll()
+							else
+								obj.atlas.panel.showAll(true)
+
+          			 }),
+                     $("<div  class='KViewPort_tool atlas'>  <i class='fa fa-plus fa-1x'> </div>").appendTooltip("create ROI from atlas region")
           			 .click(function(viewer) { return function() { 
 
-						that.getROIfromSinglelabel(obj.atlas,obj.atlas.currentLabel.key,obj.atlas.currentLabel.name,viewer.content,
+					    var name = obj.atlas.currentLabel.name;
+						var atlaskeys = obj.atlas.currentLabel.key
+						if (obj.atlas.panel != undefined && Object.keys(obj.atlas.panel.persistentLabels).length > 0)
+						{
+							atlaskeys =Object.keys(obj.atlas.panel.persistentLabels);
+							name = "collection"
+						}
+						if (atlaskeys == -1)
+						{
+							alertify.error('no labels selected; select some labels in the panel or point to a label via the crosshair')
+							return;
+						}
+						 
+						that.getROIfromSinglelabel(obj.atlas,atlaskeys,name,viewer.content,
 								function(roi) { viewer.viewport.setContent(roi,{}) },viewer.viewport.progressSpinner);
 
 
           			   }}(viewer)),
-  					 $captiondiv = $("<div  class='KViewPort_tool atlas caption' contenteditable='true'> "+obj.atlas.filename+"</div>"),
+                    $editing=$("<div  class='KViewPort_tool atlas'>  <i class='fa fa-pencil fa-1x'> </div>").appendTooltip("edit atlas region")
+          			 .click(function(viewer) { return function(e) { 
+
+
+                        if (obj.atlas.editing_label != undefined)
+                        {
+                             editing_contextmenu(e)
+                        }
+                        else
+                        {
+
+							function edit(label)
+							{
+								 $(document.body).addClass("wait");                        	                    
+								 that.getROIfromSinglelabel(obj.atlas,label.key,label.name,obj.atlas,
+									function(roi) { 
+	
+										obj.atlas.editing_label = {key:label.key,roiid:roi.fileID};
+	
+										KViewer.iterateMedViewers(function(m)
+										{
+	
+											for (var k = 0; k < m.atlas.length; k++)
+												if (obj.atlas.fileID == m.atlas[k].atlas.fileID)
+												{
+													m.atlas[k].editing_div.addClass("active")
+													m.viewport.setContent(roi,{intent:{nosave:true,color:label.color}}) 
+												}
+	
+										});            
+										KViewer.roiTool.makeCurrentGlobal(roi.fileID)
+									 //   that.toggleAllLabels(obj.atlas,false)
+										$(document.body).removeClass("wait");                        	                    
+	
+	
+	
+									},viewer.viewport.progressSpinner);
+							}							
+                        	if (obj.atlas.currentLabel.key <= 0)
+							{
+								var labels = [];
+								var dict = {}
+								for (var k in obj.atlas.content.labels)
+									{
+										var q = obj.atlas.content.labels[k].name + " (" + k +")"
+									    dict[q] = obj.atlas.content.labels[k]
+										labels.push(q)
+									}
+									
+								var prompt = {msg:"Create new or edit existing", opt:["NEW"].concat(labels) , optMsg:"Labels:"}
+								alertify.prompt(prompt, function(e,str)
+								{
+									if(e)			
+									{	
+										if (str.option == "NEW")
+										{
+											var newl = 0
+											while (obj.atlas.content.labels[++newl] != undefined);
+
+											var NewL = {key:newl,name:str.str,color:[0,0,255]}
+											obj.atlas.content.labels[newl] =NewL
+											obj.atlas.content.present_labels[newl] =NewL
+											edit(NewL)
+											obj.atlas.panel.update()
+
+										}
+										else
+										{										
+											edit(dict[str.option])
+										}
+										
+									}
+								},"newregion");
+					
+									
+							}
+                        	else		                        	
+                        	{		    
+								edit(obj.atlas.currentLabel)
+							}
+						
+                        	
+                        }
+
+
+          			   }}(viewer)),
+  					 $captiondiv = $("<div  class='KViewPort_tool atlas caption'> "+obj.atlas.filename+"</div>"),
 					 $dragdiv = $("<div  class='KViewPort_tool draganddrop'>  <i class='fa fa-hand-paper-o fa-1x'></i></div>")
 				   ];
-
+        obj.editing_div = $editing
+		obj.$savediv = $save;
 
 		$dragdiv.attr("draggable",'true');
 		$dragdiv.on("dragstart", dragstarter({ type:'file', tag: '/mask/', mime: 'nii', filename: obj.atlas.filename, intent:'atlas:true', close:close,fileID: obj.atlas.fileID }));
 
 		viewer.toolbar.append(obj.divs,'atlas');
 
+
+
+		var editing_contextmenu  = KContextMenu(
+			function() {
+
+				var $menu = $("<ul class='menu_context'>")
+				.append($("<li onchoice='overwrite' > overwrite </li>"))
+				.append($("<li onchoice='block' > block </li>"))
+				.append($("<li onchoice='cancel' > cancel </li>"));
+
+				return $menu;
+
+			},
+			function(str, ev)
+			{
+                     function unedit()
+                     {
+							obj.atlas.modified = true
+							viewer.viewport.delAllObjs("ROIs",undefined,{roi:roi},"this");
+							KViewer.roiTool.makeCurrentGlobal();
+							KViewer.dataManager.delFile(obj.atlas.editing_label.roiid);
+							KViewer.cacheManager.update();
+							KViewer.iterateMedViewers(function(m)
+							{
+								for (var k = 0; k < m.atlas.length; k++)
+									if (obj.atlas.fileID == m.atlas[k].atlas.fileID)
+									{
+										m.atlas[k].editing_div.removeClass("active")
+										if (str != "cancel")
+											m.atlas[k].$savediv.addClass("notsaved")
+										                                           
+
+									}
+
+							});          
+							obj.atlas.editing_label = undefined;  
+
+                     }
+
+					 var roi = KViewer.dataManager.getFile(obj.atlas.editing_label.roiid);
+                     if (str != undefined & str != "cancel")
+						 renderROIintoAtlas(obj.atlas,roi,obj.atlas.editing_label.key,str,unedit);
+                     else if (str == "cancel")
+                         unedit();
+
+
+			}, undefined,false);
+
 		function update()
 		{	
 			if (obj.atlas.currentLabel != undefined)
-				$captiondiv.text(obj.atlas.currentLabel.name); 			
+				$captiondiv.html(objname+": <b>"+obj.atlas.currentLabel.name+" ("+((obj.atlas.currentLabel.key==-1)?0:obj.atlas.currentLabel.key)+")</b>"); 			
 		}
-        obj.updateid = signalhandler.attach('labelChange',update);
-        obj.updateid = signalhandler.attach('positionChange',update);
+        obj.updateid_lc = signalhandler.attach('labelChange',update);
+        obj.updateid = signalhandler.attach('atlasLabelUpdate',update);
 
 
-		$createOutlines.click(function(ev) {
-			if (obj.outlines == undefined)
-				obj.outlines = Outlines(obj)
-			obj.outlines.update(viewer);
+        obj.clearMultiOutlines = function()
+        {
+            if (obj.multi_outlines != undefined)
+			{
+				for (var j = 0; j < obj.multi_outlines.length;j++)
+					obj.multi_outlines[j].close();
+			}
+			obj.multi_outlines = undefined;
+        }
 
-		});
+        obj.multi_outline_state = 0;
+        obj.draw_multioutline = function(ev) {
+			if (obj.multi_outlines) 
+			    obj.multi_outline_state = (obj.multi_outline_state +1 )%2;
+			obj.clearMultiOutlines()
+			var labs = obj.atlas.panel.persistentLabels;
+			obj.multi_outlines = []
+
+            var sim = Outlines(obj);
+            var vis_labels = sim.compOutline(viewer,true);
+            vis_labels = intersect(labs,vis_labels)
+			for (var k in vis_labels)			
+			{
+				var m = Outlines(obj,labs[k]);
+				if (obj.multi_outline_state==1)
+				    m.no_labels = true;
+				else
+				    m.no_labels = false;
+				m.update(viewer)
+				obj.multi_outlines.push(m);
+			}
+		
+
+		}
+		$createOutlines.click(obj.draw_multioutline);
 
 
 
@@ -863,7 +1207,56 @@ function KAtlasTool(master)
 
 		}
 
+        function saveAtlas(atlas,done)
+        {
+ 
+				if (electron | userinfo.username == guestuser)
+				{
+					if (atlas.modified)
+					{
+						saveNiftilocal(atlas);
+						atlas.modified = undefined;
+						KViewer.cacheManager.update()
+					}
+					else
+						alertify.error("no changes, not saving ...")
+					return;	
+				}
 
+				var zipped = true;
+
+				if (atlas.fileinfo && 
+					atlas.fileinfo.Filename)
+				{ 
+					if (atlas.fileinfo.Filename.search("\\.gz") == -1)
+						zipped = false;
+					if (atlas.fileinfo.SubFolder != "" | atlas.fileinfo.SubFolder != undefined)
+						that.lastSaveName = atlas.fileinfo.SubFolder + "/" + atlas.fileinfo.Filename;
+					else
+						that.lastSaveName = atlas.fileinfo.Filename;
+				}
+				if (atlas.notzipped)
+					zipped = false;
+
+				saveDialog("atlas/labelimage",function(name,finfo) {
+							$(document.body).addClass("wait");                        	                    
+					 		atlas.filename = spliceSubFolder(name,finfo)
+						    $captiondiv.text(atlas.filename)
+							finfo.Tag = atlas.fileinfo.Tag;
+                            updateTag(finfo,['atlas'], userinfo.username);
+					
+							uploadUnregisteredBinary(atlas,finfo , that.progressSpinner,
+									function(newid, id) {
+										$(document.body).removeClass("wait");                        	                    
+										done();
+										that.update();
+									},zipped,{dontremoveoldinstance:true,askonOverwrite:true});								
+			  
+				},that.lastSaveName,atlas.fileinfo,{askonOverwrite:true})
+		
+
+    
+			}
 
 
 		function updateGetPixelFunction(nii,R)
@@ -875,16 +1268,27 @@ function KAtlasTool(master)
 			 if (obj.atlas.currentLabel)
 				 if (obj.atlas.currentLabel.key != "0")
 				 	Labels[obj.atlas.currentLabel.key] = obj.atlas.currentLabel;
-
+			 if (obj.atlas.editing_label != undefined)
+			 {
+				 Labels[obj.atlas.editing_label.key] = undefined;
+			 }
 
 			if (Object.keys(Labels).length == 0)
 				obj.getPixel = function () { return [0,0,0,0];}
 			else
 			{
-	 			if (that.defField != undefined)
+	 			if (that.defField != undefined)				    
 	 				obj.getPixel = KAtlasTool.updateGetPixelFun(obj.atlas.content,nii,Labels,R,that.defField.content);
+				else if (KViewer.navigationTool.isinstance && 
+                   (( master.navigationTool.movingObjs[obj.atlas.fileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ) )
+                {
+	        		if (KViewer.reorientationMatrix.deffield)
+				        obj.getPixel = KAtlasTool.updateGetPixelFun(obj.atlas.content,nii,Labels,R,KViewer.reorientationMatrix.deffield);
+					else
+					    obj.getPixel = KAtlasTool.updateGetPixelFun(obj.atlas.content,nii,Labels,R);
+                }
 	 			else
-	 				obj.getPixel = KAtlasTool.updateGetPixelFun(obj.atlas.content,nii,Labels,R);
+	 				obj.getPixel = KAtlasTool.updateGetPixelFun(obj.atlas.content,nii,Labels,undefined);
 			}
 	 		return obj.getPixel ;
 		}
@@ -895,9 +1299,20 @@ function KAtlasTool(master)
 	   /***************************************************************************************
 		* close the view
 		****************************************************************************************/  
-		function close()
+		function close(force)
 		 {             	  
-		      signalhandler.detach('positionChange',obj.updateid);
+
+			  if (obj.atlas.editing_label != undefined  & force != undefined)
+			  {
+			  	  alertify.error("close first editing mode");
+			      return;
+			  }
+
+		      signalhandler.detach('labelChange',obj.updateid_lc);
+		      signalhandler.detach('close', obj.close_id );
+		      
+              if (obj.clearMultiOutlines)
+                  obj.clearMultiOutlines();
 
 			  for (var k = 0; k< obj.divs.length;k++)
 				 obj.divs[k].remove();
@@ -938,7 +1353,7 @@ function KAtlasTool(master)
 			  viewer.drawSlice({mosaicdraw:true});	
 		 }
 		 obj.close = close;
-		 signalhandler.attach("close",close);
+		 obj.close_id = signalhandler.attach("close",close);
 	
 	 	 if (intent!=undefined & intent.hasPanel != undefined & obj.atlas.panel == undefined)
 			obj.atlas.panel = KAtlasPanel(obj.atlas,intent.hasPanel );
@@ -954,7 +1369,7 @@ function KAtlasTool(master)
 
 
 
-    $menu.append($("<li><a>Statistics</a> </i></li>").click(function() {
+    that.$topRow.append($("<li style='margin-left:5px; padding-left:5px; border-left:1px solid gray'><a>Statistics</a> </i></li>").click(function() {
          that.statdlg.toggle();
          that.statdlg.dostats(); }
     ));
@@ -996,7 +1411,7 @@ function KAtlasTool(master)
 					{
 						if (stats[lab] == undefined)
 						{
-							stats[lab] = {m:0,m2:0,cnt:0};
+							stats[lab] = {m:0,m2:0,cnt:0,totcnt:0};
 						}
 						var v = img.data[x+img.sizes[0]*y + img.sizes[0]*img.sizes[1]*z];
 
@@ -1006,7 +1421,11 @@ function KAtlasTool(master)
 							stats[lab].m += v;
 							stats[lab].m2 += v*v;
 							stats[lab].cnt++;
+							stats[lab].totcnt++;
 						}
+						else
+							stats[lab].totcnt++;
+						
 					}
 			  }         
 
@@ -1038,13 +1457,13 @@ function KAtlasTool(master)
         var that = new dialog_generic();
         that.$frame.hide();
         $("<li><a>Atlas statistics</a></li>").appendTo(that.$menu)
-//              .append( $("<ul></ul>") .append($("<li>Send kill signal</li>").click( ))
-//                                      .append($("<li>Clear errorenous jobs</li>").click(  ) )
-//                      );
-        $("<li><a> <i class='fa fa-refresh'></i> </a>  </li>").click(dostats  ).appendTo(that.$menu);
+        $("<li><a> <i class='fa fa-refresh'></i> </a>  </li>").click(dostats).appendTo(that.$menu);        
+        $("<li><a> <i class='fa fa-copy'></i>copy table to clipboard </a>  </li>").click(function() { copyTableToClipboard($table.get(0)); } ).appendTo(that.$menu);
+
 
         //that.$container.append($("<div id='roistatsdialog'></div>"));
 
+        var $table
 
 		function dostats(which)
 		{
@@ -1062,11 +1481,18 @@ function KAtlasTool(master)
 
 
            var _imgs = {};
+           var rois = {};
            for (var k = 0; k< KViewer.viewports.length;k++)
                if (KViewer.viewports[k] != undefined && KViewer.viewports[k].medViewer != undefined && KViewer.viewports[k].medViewer.nii != undefined)
                {
                   var v = KViewer.viewports[k].getCurrentViewer();
-                  _imgs[v.currentFileID] = KViewer.viewports[k].getCurrentViewer();
+                  _imgs[v.currentFileID] = v;
+                  for (var j = 0; j < v.ROIs.length;j++)
+                  {
+                     _imgs[v.ROIs[j].roi.fileID] = v.ROIs[j].roi;
+                     rois[v.ROIs[j].roi.fileID] = 1;
+                  }
+
 
                }
 
@@ -1077,10 +1503,10 @@ function KAtlasTool(master)
 		   that.$container.find(".KRoistat").remove();
 
 
-           for (var k = 0; k < ats.length; k++)
+           for (var kk = 0; kk < ats.length; kk++)
            {
                 
-                var atl = atlass[ats[k]];
+                var atl = atlass[ats[kk]];
                 var $sdiv = $("<div class='KRoistat'> <h2>"+atl.filename+"</h2></div>").appendTo(that.$container);
 				
 				var r = atl.content;
@@ -1090,10 +1516,16 @@ function KAtlasTool(master)
 
                 for (var j=0;j< imgs.length;j++)
                 {
-					    $("<h3>" + _imgs[imgs[j]].currentFilename + "</h3>").appendTo($idiv);			
+                        var name;
+                        if (_imgs[imgs[j]].currentFilename != undefined)
+                            name = _imgs[imgs[j]].currentFilename
+                        else
+                            name = _imgs[imgs[j]].filename
+
+					    $("<h3>" + name + "</h3>").appendTo($idiv);			
 
 					    var $div = $("<div class='KViewPort_tableViewer_outerDiv'>").appendTo($idiv);
-					    var $table =  $("<table class='KViewPort_tableViewer' ></table>").appendTo($div);
+					    $table =  $("<table class='KViewPort_tableViewer' ></table>").appendTo($div);
 						var $head = $("<thead>")
 						var $body = $("<tbody>")
 
@@ -1103,17 +1535,30 @@ function KAtlasTool(master)
 						$row.append($("<td></td>").append($span));	
 						var $span = $("<span> Size (mm) </span>");
 						$row.append($("<td></td>").append($span));	
-						var $span = $("<span> mean </span>");
-						$row.append($("<td></td>").append($span));	
-						var $span = $("<span> stdev </span>");
-						$row.append($("<td></td>").append($span));	
-						var $span = $("<span> z </span>");
-						$row.append($("<td></td>").append($span));	
+						if (!rois[imgs[j]])
+						{
+							var $span = $("<span> mean </span>");
+							$row.append($("<td></td>").append($span));	
+							var $span = $("<span> stdev </span>");
+							$row.append($("<td></td>").append($span));	
+							var $span = $("<span> z </span>");
+							$row.append($("<td></td>").append($span));	
+						}
+						else
+						{
+							var $span = $("<span> overlap </span>");
+							$row.append($("<td></td>").append($span));								
+							var $span = $("<span> dice </span>");
+							$row.append($("<td></td>").append($span));								
+						}
 
-
-
-						var stats = computeStats(atl,_imgs[imgs[j]].nii);
-						var scale = _imgs[imgs[j]].nii.datascaling.e;
+                        var nii
+                        if (_imgs[imgs[j]].nii != undefined)
+                            nii = _imgs[imgs[j]].niiOriginal
+                        else
+                            nii = _imgs[imgs[j]].content;
+						var stats = computeStats(atl,nii);
+						var scale = nii.datascaling.e;
 						var keys = Object.keys(stats);
 						for (var k = 0; k <keys.length;k++)
 						{
@@ -1124,17 +1569,30 @@ function KAtlasTool(master)
 
 
 							var s = stats[keys[k]];
-
-							var $span = $("<span> "+ s.label.name+"</span>");
+                            if (s.label)
+							    var $span = $("<span> "+ s.label.name+"</span>");							    
+							else
+                                var $span = $("<span> undefined</span>");    							
 							$row.append($("<td></td>").append($span));		    
-							var $span = $("<span> "+ niceFormatNumber(s.cnt*r.voxSize[0]*r.voxSize[1]*r.voxSize[2]) +"</span>");
+							var vvol = r.voxSize[0]*r.voxSize[1]*r.voxSize[2];
+							var $span = $("<span> "+ niceFormatNumber(s.cnt*vvol) +"</span>");
 							$row.append($("<td></td>").append($span));		    
-							var $span = $("<span> "+ niceFormatNumber(s.mean) + " / " + niceFormatNumber(scale(s.mean)) +"</span>");
-							$row.append($("<td></td>").append($span));		    
-							var $span = $("<span> "+  niceFormatNumber(s.std) + " / " + niceFormatNumber(scale(s.std))+"</span>");
-							$row.append($("<td></td>").append($span));		    
-							var $span = $("<span> "+  niceFormatNumber(s.std/s.mean) +"</span>");
-							$row.append($("<td></td>").append($span));		    
+							if (!rois[imgs[j]])
+							{
+								var $span = $("<span> "+ niceFormatNumber(s.mean) + " / " + niceFormatNumber(scale(s.mean)) +"</span>");
+								$row.append($("<td></td>").append($span));		    
+								var $span = $("<span> "+  niceFormatNumber(s.std) + " / " + niceFormatNumber(scale(s.std))+"</span>");
+								$row.append($("<td></td>").append($span));		    
+								var $span = $("<span> "+  niceFormatNumber(s.std/s.mean) +"</span>");
+								$row.append($("<td></td>").append($span));		    
+							}
+							else
+							{
+								var $span = $("<span> "+ niceFormatNumber(s.mean*100) +"% </span>");
+								$row.append($("<td></td>").append($span));		    
+								var $span = $("<span> "+ niceFormatNumber(0.5*s.mean/(s.cnt + s.totcnt)) +"</span>");
+								$row.append($("<td></td>").append($span));		    
+							}
 
 						}
 
@@ -1173,28 +1631,66 @@ function KAtlasTool(master)
 
 KAtlasTool.isAtlas = function(fobj)
 {
-	if (fobj.content.extension != undefined)
+	if (fobj.content.extension != undefined && fobj.content.datatype != "float")
 	{
 		if (fobj.content.extension.content.contentType == "application/xml" | fobj.content.extension.content.contentType ==  "text/xml")
 		{
 			if (fobj.content.extension.content.getElementsByTagName('Label').length > 0)
 				return true;
 		}
-
 	}
 
 	if (fobj.fileinfo && fobj.fileinfo.Tag && fobj.fileinfo.Tag.search("/atlas/")>-1)
 		return true;
-
 	return false;
 }
 
 
+KAtlasTool.isFlatMap = function(fobj)
+{
+	if (fobj.content.extension != undefined)
+	{
+		if (fobj.content.extension.content.contentType == "application/xml" | fobj.content.extension.content.contentType ==  "text/xml")
+		{
+			if (fobj.content.extension.content.getElementsByTagName('FlatMap').length > 0)
+				return true;
+		}
+	}
+
+	if (fobj.fileinfo && fobj.fileinfo.Tag && fobj.fileinfo.Tag.search("/flatmap/")>-1)
+		return true;
+	return false;
+}
+KAtlasTool.center = function(fobj)
+{
+
+	var maxi = [-Infinity,-Infinity,-Infinity];
+	var mini = [Infinity,Infinity,Infinity];
+	for (var k in fobj.content.labels)
+	{
+		maxi =	maxi.map((x,y)=> Math.max(fobj.content.labels[k].bbox.max[y],x))
+		mini =	mini.map((x,y)=> Math.min(fobj.content.labels[k].bbox.min[y],x))
+	}
+	
+	signalhandler.send("setBBox",{max:maxi,min:mini});
+
+		
+}
 
 
 
 KAtlasTool.updateGetPixelFun = function(atlas_nii,nii,Labels,R,def,fromWorld)
   {
+
+/*
+         if (typeof Labels == "number")
+         {
+		     var Labels_ = {} ;
+			 Labels_[Labels] = atlas_nii.labels[Labels];
+			 Labels = Labels_
+
+         }
+	*/
 
 		 var edges;
 		 if (fromWorld)
@@ -1202,6 +1698,11 @@ KAtlasTool.updateGetPixelFun = function(atlas_nii,nii,Labels,R,def,fromWorld)
 		 else
 			edges = nii.edges;
 
+	    var offset=0;
+
+		if (nii != undefined && nii.currentTimePoint != undefined && nii.currentTimePoint.t < atlas_nii.sizes[3])	  
+		   offset=nii.currentTimePoint.t*atlas_nii.widheidep;
+	  
 	
 		 if (def != undefined)
 		  {
@@ -1212,13 +1713,15 @@ KAtlasTool.updateGetPixelFun = function(atlas_nii,nii,Labels,R,def,fromWorld)
 			   if (R == undefined)
 				   A = ( math.multiply(def.invedges, edges ) )._data;
 			   else
-				   A = (math.multiply(math.multiply( math.multiply(def.invedges, master.reorientationMatrix.matrix), edges ),R) )._data;
+				   A = (math.multiply(math.multiply( math.multiply(def.invedges, KViewer.reorientationMatrix.matrix), edges ),R) )._data;
 			
 			   var B;
 			   if (atlas_nii.invedges)			   
-				   B = atlas_nii.invedges;
+				   B = atlas_nii.invedges._data;
 			   else
 			   	   B = math.inv(atlas_nii.edges)._data;
+			   
+			   atlas_nii.A = A
 			   if (Labels == undefined)
 			   {
 				   return function(px,py,pz)
@@ -1226,9 +1729,19 @@ KAtlasTool.updateGetPixelFun = function(atlas_nii,nii,Labels,R,def,fromWorld)
 					  var ps = [0,0,0,1];
 					  for (var j=0;j<3;j++ )
 						 ps[j] = trilinInterp(def,px,py,pz,A,def.sizes[0]*def.sizes[1]*def.sizes[2]*j); 
-					  return NNInterp(atlas_nii,ps[0],ps[1],ps[2],B,0); 
+					  return NNInterp(atlas_nii,ps[0],ps[1],ps[2],B,offset); 
 				   }  	
 			   }
+ 			   else if (typeof Labels == "number")
+ 			   {
+			  	 return function(px,py,pz)
+				  {
+					  var ps = [0,0,0,1];
+					  for (var j=0;j<3;j++ )
+						 ps[j] = trilinInterp(def,px,py,pz,A,def.sizes[0]*def.sizes[1]*def.sizes[2]*j); 
+					  return trilinInterp_MAP(atlas_nii,ps[0],ps[1],ps[2],B,offset,Labels); 
+				  }
+			   }			   
 			   else if (Object.keys(Labels).length > 0)
 			   {
 				   
@@ -1237,8 +1750,7 @@ KAtlasTool.updateGetPixelFun = function(atlas_nii,nii,Labels,R,def,fromWorld)
 					  var ps = [0,0,0,1];
 					  for (var j=0;j<3;j++ )
 						 ps[j] = trilinInterp(def,px,py,pz,A,def.sizes[0]*def.sizes[1]*def.sizes[2]*j); 
-					  //return trilinInterp_MAP(atlas_nii,ps[0],ps[1],ps[2],B,0,label); 
-					  return trilinInterp_atlas(atlas_nii,ps[0],ps[1],ps[2],B,0,Labels);     
+					  return trilinInterp_atlas(atlas_nii,ps[0],ps[1],ps[2],B,offset,Labels);     
 				   }
 			   }
 			   else
@@ -1252,36 +1764,45 @@ KAtlasTool.updateGetPixelFun = function(atlas_nii,nii,Labels,R,def,fromWorld)
 		  {
 			  var A;
 			  if (R == undefined)
-				  A = ( math.multiply(math.inv(atlas_nii.edges), edges ) )._data;
+			  {
+				  A = ( math.multiply(math.inv(atlas_nii.edges), edges ) )._data;                   
+			  }
 			  else
 				  A = (math.multiply(math.multiply( math.multiply(math.inv(atlas_nii.edges), KViewer.reorientationMatrix.matrix), edges ),R) )._data;
 			
 
+			  if (isIdentity(A))
+			      A = math.eye(4)._data;
+
+
+			   atlas_nii.A = A
 
 			  if (Labels == undefined)
 			  {
 			  	 return function(px,py,pz)
 				  {
-
-                     return NNInterp(atlas_nii,px,py,pz,A,0);     
-    				        
+                     return NNInterp(atlas_nii,px,py,pz,A,offset);         				        
 				  }
 			  }
 			  else if (typeof Labels == "number")
 			  {
 			  	 return function(px,py,pz)
 				  {
-
-                      return trilinInterp_MAP(atlas_nii,px,py,pz,A,0,Labels);     
-    				        
+                      return trilinInterp_MAP(atlas_nii,px,py,pz,A,offset,Labels);         				        
 				  }
 			  }
 			  else if (Object.keys(Labels).length > 0)
 			  {
+			  	if (isIdentity(A))
+				  return function(px,py,pz)
+				  {
+                     return NNInterp_atlas(atlas_nii,Math.round(px),Math.round(py),Math.round(pz),offset,Labels);         				        
+				  }
+			  	else
 				  return function(px,py,pz)
 				  {
 
-                     return trilinInterp_atlas(atlas_nii,px,py,pz,A,0,Labels);     
+                     return trilinInterp_atlas(atlas_nii,px,py,pz,A,offset,Labels);     
     				        
 				  }
 			  }
@@ -1304,52 +1825,49 @@ KAtlasTool.updateGetPixelFun = function(atlas_nii,nii,Labels,R,def,fromWorld)
 function KAtlasPanel(atlas,state)
 {
 
-    var panel = KPanel($(document.body),atlas.filename,"Atlas: " + atlas.filename.replace(".nii","").replace(".gz",""));
+    var panel = KPanel($(document.body),atlas.fileID,"Atlas: " + atlas.filename.replace(".nii","").replace(".gz",""));
  	panel.closeOnCloseAll = true
  	panel.persistentLabels={};
+    panel.$container.addClass("panel_floatable_simple_resize");
+    panel.$container.css('height','300px')
+
 
 	panel.getState = function()
 	{
-		return {persistentLabels:panel.persistentLabels};
+        var state = { 
+                visible:panel.visible,
+			    alpha:atlas.content.alpha,
+			    persistentLabels:panel.persistentLabels};
+		return state
+		
 	}
 
-	
-
-    //////// compute centroids
-	var hasCentroids = false;
- 	for (var k in atlas.content.labels)
-    {
-    	var label =  atlas.content.labels[k];
-    	if (label.centroid)
-    	{
-    		hasCentroids = true
-    		break;
-    	}
-    }
-	if (!hasCentroids)
+	panel.computeCentroids = function(nii)
 	{
-		var nii = atlas.content;
 		for (var z = 0; z < nii.sizes[2]; z++)
 		for (var y = 0; y < nii.sizes[1]; y++)
 		for (var x = 0; x < nii.wid; x++)
 		{
 			var l = nii.data[x+nii.wid*y+nii.widhei*z];
-			if (nii.labels[l])
+			if (l>0)
 			{
-				if (nii.labels[l].centroid == undefined)
+				if (nii.labels[l])
 				{
-					nii.labels[l].centroid = [0,0,0];
-					nii.labels[l].firstvoxel = [x,y,z];
-					nii.labels[l].size = 0;
+					if (nii.labels[l].centroid == undefined)
+					{
+						nii.labels[l].centroid = [0,0,0];
+						nii.labels[l].firstvoxel = [x,y,z];
+						nii.labels[l].size = 0;
+					}
+					nii.labels[l].centroid[0] += x;
+					nii.labels[l].centroid[1] += y;
+					nii.labels[l].centroid[2] += z;
+					nii.labels[l].size++;
 				}
-				nii.labels[l].centroid[0] += x;
-				nii.labels[l].centroid[1] += y;
-				nii.labels[l].centroid[2] += z;
-				nii.labels[l].size++;
 			}
 		}
 
-		for (var x in nii.labels)
+		for (var x in nii.present_labels)
 		{
 			if (nii.labels[x].centroid  != undefined)
 			{
@@ -1362,7 +1880,7 @@ function KAtlasPanel(atlas,state)
 				
 				nii.labels[x].centroid  = math.multiply(nii.edges,		
 						[nii.labels[x].centroid[0],nii.labels[x].centroid[1],nii.labels[x].centroid[2],1])._data;
-				nii.labels[x].size = nii.labels[x].size*nii.voxSize[0]*nii.voxSize[1]*nii.voxSize[2];
+				nii.labels[x].size = nii.labels[x].size*nii.voxSize[0]*nii.voxSize[1]*nii.voxSize[2]/1000;
 			}
 			else
 				delete nii.labels[x];
@@ -1371,30 +1889,64 @@ function KAtlasPanel(atlas,state)
 	}
 
 
+    //////// compute centroids
+	var hasCentroids = false;
+ 	for (var k in atlas.content.present_labels)
+    {
+    	var label =  atlas.content.labels[k];
+    	if (label.centroid)
+    	{
+    		hasCentroids = true
+    		break;
+    	}
+    }
+	if (!hasCentroids)
+	{
+		panel.computeCentroids(atlas.content)
+	}
+
+
 
 	panel.setPersistent = function (labels)
 	{		
 			panel.persistentLabels = {};
+			var larr = [];
 			for (x in labels)
-				panel.persistentLabels[x] = atlas.content.labels[x];
+			{
+				var l =  atlas.content.labels[x];
+				larr.push(l.name)
+				panel.persistentLabels[x] = l;
+			}
+			console.log(larr.join(", "))
 			updatePersistentLabels(false);
 //			signalhandler.send('positionChange');
 	    	signalhandler.send("updateImage",{id:atlas.fileID});
+	}
+	panel.showAll = function(all)
+	{
+		    panel.persistentLabels = {};
+			$body.find("tr").map(function() { 
+			        var key = $(this).attr("value");
+                    if ($(this).is(":visible") | all)       
+			            panel.persistentLabels[key] = atlas.content.labels[key]; });
+			updatePersistentLabels(false);
+	    	signalhandler.send("updateImage",{id:atlas.fileID});
+		
+	}
+	panel.hideAll = function()
+	{
+		$hideAll.trigger("click")
 	}
 
     var $fileRow = $("<div class='roiTool_panel_flex_persistent'></div>").appendTo(panel.$container);
     var $showAll = $("<a class='KViewPort_tool'><span> Show all </span></a>").appendTooltip("show all regions permanently").click(
 		function(e)
 		{
-			panel.persistentLabels = {};
-			$body.find("tr:visible").map(function() { var key = $(this).attr("value"); panel.persistentLabels[key] = atlas.content.labels[key]; });
-			updatePersistentLabels(false);
-			atlas;
-//	    	signalhandler.send('positionChange');
-	    	signalhandler.send("updateImage",{id:atlas.fileID});
+			panel.showAll();
 		}
     )
     $fileRow.append($showAll).append($("<i class='flexspacer'></i>"));
+
     var $hideAll = $("<a class='KViewPort_tool'><span> Hide all </span></a>").appendTooltip("hide all regions").click(
 		function(e)
 		{
@@ -1405,6 +1957,57 @@ function KAtlasPanel(atlas,state)
 		}
     )
     $fileRow.append($hideAll).append($("<i class='flexspacer'></i>"));
+
+
+    var $outlines = $("<a class='KViewPort_tool'><span> Outlines </span></a>").appendTooltip("show outlines and labeling").click(
+		function(e)
+		{
+	    	signalhandler.send("updateImage",{id:atlas.fileID,outlines:true});
+		}
+    )
+    $fileRow.append($outlines).append($("<i class='flexspacer'></i>"));
+
+    var $center = $("<a class='KViewPort_tool'><span> center </span></a>").appendTooltip("center atlas").click(
+		function(e)
+		{
+	    	KAtlasTool.center(atlas);
+		}
+    )
+    $fileRow.append($center).append($("<i class='flexspacer'></i>"));
+	
+  var $flipLR = $("<a class='KViewPort_tool'><span> flipLR </span></a>").click(
+		function(e)
+		{
+			var np = {};
+			var map = {}
+			var a = [["_L","_R"]];
+			for (var j in atlas.content.labels)
+				{
+					map[atlas.content.labels[j].name] = atlas.content.labels[j];
+				}
+			for (var k in panel.persistentLabels)
+				{
+					var n = panel.persistentLabels[k].name;
+					var j = 0;
+					var s = n.replace(a[j][0],a[j][1]);
+					if (map[s] != undefined)
+						np[map[s].key] = map[s];
+					
+				}		
+
+			var oldkey = "ROI_ATLAS_" + atlas.fileID + "_" + Object.keys(panel.persistentLabels).join(",")
+
+			panel.persistentLabels = np;
+			updatePersistentLabels(false);
+	    	signalhandler.send("updateImage",{id:atlas.fileID});
+
+			if (KViewer.roiTool.getCurrentGlobal() && KViewer.roiTool.getCurrentGlobal().fileID == oldkey)
+				updateAtlasLabelSet(atlas,KViewer.roiTool.getCurrentGlobal())
+			
+		}
+    )
+    $fileRow.append($flipLR).append($("<i class='flexspacer'></i>"));
+
 /*
     var $showISO = $("<a class='KViewPort_tool'><span> 3D </span></a>").appendTooltip("show3d").click(
 		function(e)
@@ -1422,6 +2025,7 @@ function KAtlasPanel(atlas,state)
 		}
     )
     $fileRow.append($showISO).append($("<i class='flexspacer'></i>"));*/
+    /*
     var $toROI = $("<a class='KViewPort_tool'><span> toROI </span></a>").appendTooltip("toroi").click(
 		function(e)
 		{
@@ -1464,6 +2068,18 @@ function KAtlasPanel(atlas,state)
 		}
     )
     $fileRow.append($toROI).append($("<i class='flexspacer'></i>"));
+  
+    */
+
+
+	if (state != undefined)
+    {
+    	if (state.alpha != undefined)
+    	    atlas.content.alpha = state.alpha;
+    }
+
+
+
 
     var $stats = $("<a class='KViewPort_tool'><span> Stats </span></a>").appendTooltip("compute statistics over contrasts").click(function(){ 
     	 KViewer.atlasTool.statdlg.toggle();
@@ -1475,7 +2091,9 @@ function KAtlasPanel(atlas,state)
 	var $input = $alpha.find("input");
 	$input.on("change",function(){
 		atlas.content.alpha = parseFloat($input.val())
-		signalhandler.send("positionChange");
+		signalhandler.send("updateImage",{id:atlas.fileID});
+
+		//signalhandler.send("positionChange");
 	});
 
 
@@ -1496,7 +2114,7 @@ function KAtlasPanel(atlas,state)
     $row.append($("<td class='fixedwidth' fixedwidth='6'><i class='fa fa-fw '></i> </td>"));
 	var $span = $("<span> Name </span>");
 	$row.append($("<td ></td>").append($span));	
-	var $span = $("<span> Size </span>");
+	var $span = $("<span> Size (mL) </span>");
 	$row.append($("<td ></td>").append($span));	
 
 	
@@ -1510,7 +2128,7 @@ function KAtlasPanel(atlas,state)
 			$body.find(".selected").removeClass("selected");
 			var $row = $body.find("tr[value="+k+"]")
 			$row.addClass("selected");	
-			if (scrollTo && panel.currentLabel != k)
+			if ($row.length > 0 && scrollTo && panel.currentLabel != k)
 			{
 				panel.currentLabel = k;
 				if ($row.position().top != 0)
@@ -1550,67 +2168,100 @@ function KAtlasPanel(atlas,state)
 
 
 
-    for (var k in atlas.content.labels)
+	if (state != undefined)
     {
-    	var label =  atlas.content.labels[k];
-    	
+    	if (state.persistentLabels)
+    		for (var k in state.persistentLabels)
+    		{
+    		    if (atlas.content.labels[k] != undefined)    		    
+    			    atlas.content.labels[k].color = state.persistentLabels[k].color    	
+    		}
+    }	
 
-       var dragstuff = "draggable='true' data-type='file' data-mime='nii' data-tag='/roi/' data-intent='labelname:\""+label.name+"\",atlaskey:"+label.key+"'  data-fileID='"+atlas.fileID+"' data-filename='"+atlas.filename+":"+label.name+"' ";
-       dragstuff = dragstuff + " ondragstart='setdragstart(event);' ondragend='setdragend(event);' ondblclick='loadDataOndblClick(event);'";
 
-    	
-		var $row = $("<tr  "+dragstuff+" value="+k+"></tr>");
-		$row.click(function(k,$row) { return  function(e){
-		
-		    if (e.ctrlKey)
-		    {
-		    	if (panel.persistentLabels[k])
-		    		delete panel.persistentLabels[k];
-		    	else
-		    		panel.persistentLabels[k] = atlas.content.labels[k];
-		    	updatePersistentLabels(true);
-				signalhandler.send("updateImage",{id:atlas.fileID});
-
-	//	    	signalhandler.send('positionChange');
-		    }
-		    else if (e.shiftKey)
-		    {
-				$row.prevUntil(".selected").addBack().each(function(x,y) {
-					var a = $(y).attr('value');
-					if (panel.persistentLabels[a])
-						delete panel.persistentLabels[a];
-					else
-						panel.persistentLabels[a] =atlas.content.labels[a];
-				 } )
-				 updatePersistentLabels(true);
-		    	signalhandler.send("updateImage",{id:atlas.fileID});
-
-	//			 signalhandler.send('positionChange');
-		    }
-		    else
-		    {
-				setCurrentLabel(k)
-				var label = atlas.content.labels[k]
-				KViewer.currentPoint = math.matrix(label.centroid);
-				
-				signalhandler.send('positionChange');
-				signalhandler.send('labelChange');								
-		    }
-
-		} }(k,$row));
+	panel.update = function()
+	{
+		$body.children().remove()
+	    for (var k in atlas.content.present_labels)
+	    {
+	    	var label =  atlas.content.labels[k];
+	    	if (label == undefined)
+	    	    continue;
 	
-		$row.appendTo($body);
-	    $row.append($("<td style='background-color:"+RGB2HTML(label.color[0],label.color[1],label.color[2])+";'  ></td>"));
+	       var dragstuff = "class='atlasdrag' draggable='true' data-type='file' data-mime='nii' data-tag='/roi/' data-intent='labelname:\""+label.name+"\",atlaskey:"+label.key+"'  data-fileID='"+atlas.fileID+"' data-filename='"+atlas.filename+":"+label.name+"' ";
+	       dragstuff = dragstuff + " ondragstart='setdragstart(event);' ondragend='setdragend(event);' ondblclick='loadDataOndblClick(event);'";
+	
+	    	
+			var $row = $("<tr  "+dragstuff+" value="+k+"></tr>");
+			$row.click(function(k,$row) { return  function(e){
+			
+			    if (e.ctrlKey)
+			    {
+			    	if (panel.persistentLabels[k])
+			    		delete panel.persistentLabels[k];
+			    	else
+			    		panel.persistentLabels[k] = atlas.content.labels[k];
+			    	updatePersistentLabels(true);
+					signalhandler.send("updateImage",{id:atlas.fileID});
+	
+		//	    	signalhandler.send('positionChange');
+			    }
+			    else if (e.shiftKey)
+			    {
+					$row.prevUntil(".selected").addBack().each(function(x,y) {
+						var a = $(y).attr('value');
+						if (($(y).is(":visible")))
+						{
+							if (panel.persistentLabels[a])
+								delete panel.persistentLabels[a];
+							else
+								panel.persistentLabels[a] =atlas.content.labels[a];
+						}
+					 } )
+					 updatePersistentLabels(true);
+			     	 signalhandler.send("updateImage",{id:atlas.fileID});
+			    }
+			    else
+			    {
+					setCurrentLabel(k)
+					var label = atlas.content.labels[k]
+					atlas.currentLabel = label; 
+					KViewer.currentPoint = math.matrix(label.centroid);
+	       		    KViewer.atlasTool.update();		
+	
+					signalhandler.send('labelChange positionChange');								
+			    }
+	
+			} }(k,$row));
+		
+			$row.appendTo($body);
+	
+			var $colselector = KColorSelector(KColor.list,	
+				 function(c) {	
+				 return "background:"+RGB2HTML(c[0],c[1],c[2])+";"; },
+				 function(label) { return function (col)
+				 {
+					label.color =  KColor.list[label.color];
+	
+	    	    	signalhandler.send("updateImage",{id:atlas.fileID});
+	
+				 } }(label),
+				 label);
+	
+			$colselector.removeClass("KViewPort_tool_cmap");
+	
+		    $row.append($colselector);
+	//	    $row.append($("<td style='background-color:"+RGB2HTML(label.color[0],label.color[1],label.color[2])+";'  ></td>"));
+	
+			var $span = $("<span> "+label.name+" ("+label.key+") </span>");
+			$row.append($("<td></td>").append($span));	
+			var $span = $("<span> "+label.size+" </span>");
+			$row.append($("<td></td>").append($span));	
+	
+	    }
+	}	
 
-		var $span = $("<span> "+label.name+" </span>");
-		$row.append($("<td></td>").append($span));	
-		var $span = $("<span> "+label.size+" </span>");
-		$row.append($("<td></td>").append($span));	
-
-    }
-
-
-
+    panel.update()
 
     $table.append($head);
 	$table.append($body);
@@ -1623,10 +2274,20 @@ function KAtlasPanel(atlas,state)
     	if (state.persistentLabels)
     	{
     		panel.persistentLabels = state.persistentLabels;
+    		for (var k in panel.persistentLabels)
+    		{
+    			if (atlas.content.labels[k] != undefined)    			
+    			    atlas.content.labels[k].color = panel.persistentLabels[k].color
+    		}
     		updatePersistentLabels(false);
     	}
+    	if (state.visible != undefined)
+    	{
+    	    if (!state.visible)	
+    	        panel.hide();
+    	}
+    	
     }
-
 
 	return panel;
 

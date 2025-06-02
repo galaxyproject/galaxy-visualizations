@@ -1,4 +1,3 @@
-
 // ======================================================================================
 // ======================================================================================
 // ============= KFormViewer
@@ -94,14 +93,23 @@ function KFormViewer(viewport, master)
 	function setPatientStudy(psid)
 	{
 		$info.empty();
-		if(psid == false || psid.studies_id == undefined)
+		var found = false;
+		while(true)
 		{
-			//var $p = $("<div class='' style='color:yellow'><span>No patient/study set.<br> Drag this tag to left panel to set.</span></div>").appendTo($info); 
-			//var $p = $("<div class='' style='color:yellow'><span>No patient/study set.<br> Drop a patient/study here to select.</span></div>").appendTo($info); 
-			$info.css('color', 'yellow').html("No unique patient/study set for this form.<br>Hold CTRL and drop a study to select.");
-		}
-		else
-		{
+			if(psid == false)
+			    break;
+            var sid;
+            if (psid.studies_id != undefined)
+                sid = psid.studies_id;
+            else
+            {
+				if (psid.potential_studies != undefined && psid.potential_studies.length > 0)
+                    sid = "#"+psid.potential_studies[0].split("#")[1];
+				else
+				    break;
+            }
+
+
 			var name; // = tempObjectInfo[0].namecat.trim();
 			$info.css('color', 'white');
 			var $pline = $("<div></div>").appendTo($info); 
@@ -110,11 +118,20 @@ function KFormViewer(viewport, master)
 				finfo = " (" + psid.filename + ")"; 
 			$pline.append( $("<span > Form:"+ that.currentform.name +finfo + " <br> </span>") );
 			$pline.append( $("<span > Subject: "+ psid.patients_id +" </span>") );
-			$pline.append( $("<span > "+ psid.studies_id +" </span>") );
-			that.psid = {patients_id:psid.patients_id, studies_id:psid.studies_id};
+			$pline.append( $("<span > "+ sid +" </span>") );
+			that.psid = {patients_id:psid.patients_id, studies_id:sid};
 
 			that.currentFileinfo =  $.extend(that.currentFileinfo,that.psid);
+			found = true;
+			break;
 		}
+        if (!found)
+		{
+			//var $p = $("<div class='' style='color:yellow'><span>No patient/study set.<br> Drag this tag to left panel to set.</span></div>").appendTo($info); 
+			//var $p = $("<div class='' style='color:yellow'><span>No patient/study set.<br> Drop a patient/study here to select.</span></div>").appendTo($info); 
+			$info.css('color', 'yellow').html("No unique patient/study set for this form.<br>Hold CTRL and drop a study to select.");
+		}
+
 	}
 
 
@@ -232,10 +249,8 @@ function KFormViewer(viewport, master)
 	function saveCurrentForm()
 	{
 	   var fm = master.formManager;
-	   uploadJSON.askonOverwrite = false;
 	   uploadJSON.quiet = true;
 	   fm.save(that.currentform.name, that.formcontent, that.currentFileinfo, function(fobj) { 
-		   uploadJSON.askonOverwrite = true;
 		   uploadJSON.quiet = false;
 		   that.toolbar.$save.removeClass('notsaved');
 		});
@@ -320,6 +335,12 @@ KForm.createForm = function (form0,content0,$targetdiv0,onchange,isPreview)
 			console.warn("bug in form creation");
 			return;
 		}
+		if (content == "")
+		{
+			console.warn("bug in form creation");
+			return;
+		}
+
 
 		attachUpdater(content, onchange );
 
@@ -378,7 +399,8 @@ KForm.createForm = function (form0,content0,$targetdiv0,onchange,isPreview)
 			else if (x.type == "customelement")
 			{
 				$c = x.val(content);
-				$c.addClass('KFormItem');
+				if ($c != undefined)
+					$c.addClass('KFormItem');
 			}
 			else if (x.type == "form")
 			{
@@ -768,9 +790,15 @@ KForm.createForm = function (form0,content0,$targetdiv0,onchange,isPreview)
 				{
 					var style = "text"
 					if (x.style == 'password')
-					 style = "password";
+					   style = "password";
+					if (x.style == 'date')
+					   style = "date";
+                    var changeevent = "keyup"
+                    if (x.changeevent != undefined)
+                        changeevent = x.changeevent
+
 					$input =$("<input type='"+style+"'  name='"+x.name+"' "+attr+">").appendTo($c).val(content[x.name])
-					.on('keyup',function(i,x) { return function(e){
+					.on(changeevent,function(i,x) { return function(e){
 						 content[i] = $(e.currentTarget).val();
 						 content.modified = true;
 						 content.update(x.name);        					 
@@ -950,6 +978,8 @@ KForm.createForm = function (form0,content0,$targetdiv0,onchange,isPreview)
 				var valchanged = function($div) {return function(val, t)
 				{
 				// uncheck all, and then set the one with val
+				    if ($div[t] == undefined)
+				        return;
 					$div[t].find('input').prop('checked', false);
 					$div[t].find("input[value='"+val[t]+"']").prop('checked', true);
 				}}(rows)
@@ -995,6 +1025,15 @@ KForm.createForm = function (form0,content0,$targetdiv0,onchange,isPreview)
 				{
 					$c.addClass(x.class);
 					$c.children().addClass(x.class);
+				}
+				if (x.ondrop)
+				{
+					  $c[0].ondrop = function(f,c) { return function(e)
+					  {
+					  	f(e,c)
+					  } }(x.ondrop,content)
+					  $c.on("dragover",function(e)  { 	return false; });					
+					
 				}
 
 				if (form.items)
@@ -1225,21 +1264,20 @@ KForm.getFormContent = function(form,obj)
 			else // a native type
 			{
 				var dval = form.layout[k].defaultval;
-				if( dval != undefined )
+				// rating, convert to struct
+				if(form.layout[k].type == "rating")
 				{
-					// rating, convert to struct
-					if(form.layout[k].type == "rating")
+					obj[form.layout[k].name] = {};
+					if (dval != undefined)
 					{
-						obj[form.layout[k].name] = {};
 						for(var u=0; u<dval.length; u++)
-						{
 							obj[form.layout[k].name][form.layout[k].items[u]] = dval[u];
-						}
 					}
-					else
-					{
-						obj[form.layout[k].name] = dval;
-					}
+				}
+				else
+				{
+					if (dval != undefined)					
+					    obj[form.layout[k].name] = dval;
 				}
 				
 				// conditional default val (mostly for readings etc )
@@ -1387,6 +1425,14 @@ function KFormManager(master)
 
     that.$topRow.addClass("FormTool_topmenu");
 
+
+    if (state.viewer.forms_autosave == undefined)
+        state.viewer.forms_autosave = true;
+
+    if (state.viewer.forms_user_specific == undefined)
+        state.viewer.forms_user_specific = true;
+
+
 	var formman = master.formManager;
 
 	var $menu = $("<ul></ul>");
@@ -1395,10 +1441,20 @@ function KFormManager(master)
 		$autosave.find(".fa").toggleClass("fa-dot-circle-o").toggleClass("fa-circle-o");
 		state.viewer.forms_autosave = !state.viewer.forms_autosave
 	}  ).appendTo($menu);
+
+
 	var sel = state.viewer.forms_user_specific_naming?"-dot":"";
 	var $userspecname = $("<li> <a> User specific naming </a> <i class='fa fa"+sel+"-circle-o'></i></li>").click(function(){
-		$userspecname.find(".fa").toggleClass("fa-dot-circle-o").toggleClass("fa-circle-o");
-		state.viewer.forms_user_specific_naming = !state.viewer.forms_user_specific_naming
+		if (state.viewer.forms_user_specific_naming)
+		{
+			state.viewer.forms_user_specific_naming = false;
+			$userspecname.find(".fa").removeClass("fa-dot-circle-o").addClass("fa-circle-o");	
+		}
+		else
+		{
+			state.viewer.forms_user_specific_naming = true;
+			$userspecname.find(".fa").addClass("fa-dot-circle-o").removeClass("fa-circle-o");	
+		}
 
 	}  ).appendTo($menu);
 
@@ -1477,6 +1533,8 @@ function KFormManager(master)
 						{id:"X03", iswritable:false, content: psidforms[2]}  ];
 
         var cnt = 4;
+        that.forms = [];
+        cnt = 1;
 		for (var key in static_info.forms)
 		  {
 			
@@ -1576,7 +1634,7 @@ function KFormManager(master)
 		$row.append($("<td>id </td>"));
 		$row.append($("<td>name </td>"));
 		//$row.append($("<td>iswritable</td>"));
-		$row.append($("<td>project</td>"));
+		$row.append($("<td>owner</td>"));
 		$row.append($("<td class='fixedwidth' data-fixedwidth='6'></td>"));
 
 		var $tbody = $("<tbody>").appendTo($table);
@@ -1597,21 +1655,22 @@ function KFormManager(master)
 			$row.append($("<td>" + forms[k].id + "</td>"));
 			$row.append($("<td>" + forms[k].content.name + "</td>"));
 			//$row.append($("<td>" + forms[k].iswritable + "</td>"));
-			$row.append($("<td>" + forms[k].content.project + "</td>"));
+			$row.append($("<td>" + forms[k].content.owner + "</td>"));
 
 			var addstyle = (forms[k].iswritable == true)?(""):("style='color:hsl(0,0%,80%)'")
-			$row.append($("<td> <i "+addstyle+"class='tablebutton fa fa-fw  fa-wrench'></td>").click(function(k) { return function(e) 
-			{ 
-				if(forms[k].iswritable != true)
-				{
-					alertify.error('You do not have the permission to change this form.');
-					return false;
-				}
-				else
-				{
-					new KFormDesigner(forms[k]);
-				}
-			} }(k) ) ).appendTooltip('changeFormDesign');
+			//if (forms[k].iswritable)
+				$row.append($("<td> <i "+addstyle+"class='tablebutton fa fa-fw  fa-wrench'></td>").click(function(k) { return function(e) 
+				{ 
+					if(forms[k].iswritable != true)
+					{
+						alertify.error('You do not have the permission to change this form.');
+						return false;
+					}
+					else
+					{
+						new KFormDesigner(forms[k]);
+					}
+				} }(k) ) ).appendTooltip('changeFormDesign');
 
 		}    
 		that.attachTableOperator($table.parent());
@@ -1646,6 +1705,8 @@ function KFormManager(master)
 	  else 
 	  {	  
 		  delete content.modified;
+		  if (content.content)
+		      delete content.content.modified
 		  var finfo = {subfolder:'',tag:'/FORM/',subfolder:'forms'};
 		  if (fileinfo)
 		  	finfo = $.extend(finfo,fileinfo);
@@ -1806,7 +1867,10 @@ function myJSONStringify(obj,indent,level)
 				if( typeof obj[k] === "function")
 					continue;
 				count++;
-				str += (count!=1?newline:"") +indent + k + ":" + myJSONStringify(obj[k],indent,1) + ",";
+                var k_ = k;
+                if (k_.search(/[\W]+/) != -1)
+                    k_ = '"' + k_ + '"';
+				str += (count!=1?newline:"") +indent + k_ + ":" + myJSONStringify(obj[k],indent,1) + ",";
 			}
 			str = str.substring(0,str.length-1);
 			//str += newline;

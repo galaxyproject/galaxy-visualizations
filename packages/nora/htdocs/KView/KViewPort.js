@@ -39,8 +39,8 @@ function KFreeView(master,$parent)
 KPanelView.runningID = 0;
 function KPanelView(master,name,options)
 {
-     if (name == undefined)
-     name = "Viewport";
+     if (name == undefined || name == "")
+	     name = "Viewport";
 
      if (options == undefined)
      {
@@ -51,8 +51,24 @@ function KPanelView(master,name,options)
 
 
 	 var panel = KPanel($(document.body),'viewportpanel'+(KPanelView.runningID++), name);
-	 panel.$container.height("500px")
-     panel.$container.width("500px")
+
+	 var width = options.width;
+	 if (width == undefined)
+		 width = 500;
+	 var height = options.height;
+	 if (height == undefined)
+		 height = 500;
+	 	
+	 panel.$container.height(height)
+     panel.$container.width(width)
+
+
+	if (options.top != undefined)
+		panel.$container.css('top',options.top)
+	if (options.left != undefined)
+		panel.$container.css('left',options.left)
+
+	
      panel.closeOnHide = true;
 
 
@@ -76,6 +92,13 @@ function KPanelView(master,name,options)
 
 	 }
 
+	 that.getProperties = function () {
+		  return { width: panel.$container.width(),
+				   height: panel.$container.height(),
+				   top:panel.$container.css("top"),
+				   left:panel.$container.css("left"),
+				 }
+	 }
 
 	 that.onsetContent = function()
 	 {
@@ -87,6 +110,11 @@ function KPanelView(master,name,options)
 	 		that.medViewer.$infobar.hide();
 	 		that.medViewer.$infobar.hidden = true;
 
+	 	}
+	 	var v = that.getCurrentViewer();
+	 	if (v != undefined)
+	 	{
+	    	panel.setTitle(v.viewerType+": "+v.currentFilename);
 	 	}
 	 }
 
@@ -127,6 +155,11 @@ function KViewPort(master, viewPortID)
 
 
   /** @inner */ that.viewPortID = viewPortID;   
+  that.setID = function(id)
+	{
+		that.viewPortID = id; 
+		viewPortID = id;
+	}
 
 
   /** @inner  */
@@ -215,6 +248,8 @@ function KViewPort(master, viewPortID)
 				 	vi.toolbar.hide()
 				 if (vi.layoutbar != undefined)
 					 vi.layoutbar.hide()
+			     if (vi.renderOutlines)
+			         vi.renderOutlines("close")
 				 vi.hiddenHisto = true;
 				 $("#patientThumbContainer").append(vp.$container)
       	  	 }
@@ -363,6 +398,13 @@ function KViewPort(master, viewPortID)
  
   that.progressSpinner = theSpinner($spinner);
  
+  that.setInfoText = function(txt)
+  {
+  	if (currentViewer != undefined)
+  		currentViewer.setInfoText(txt)
+  }
+
+
   that.setContent = setContent;
   /** depending on fileObject activates a certain viewer and sets its content
    *  to fileObject 
@@ -385,10 +427,10 @@ function KViewPort(master, viewPortID)
     if (fileObject == undefined)
        return;
 
-    if (fileObject.content == false)
+    if (fileObject.content === false)
        return;
 
-    if (that.visible != undefined && that.visible == false)
+    if (that.visible != undefined && that.visible == false && fileObject.contentType != "json")
         return;
 
     if (params.intent == undefined)
@@ -399,7 +441,7 @@ function KViewPort(master, viewPortID)
     {
 		
 		// ************ convert a single slice RGB nifti to bmp **********
-		if( !state.viewer.loadBitmapAsNifti & (fileObject.content.datatype == 'rgb24' && fileObject.content.sizes[2] == 1) )
+		if( !state.viewer.loadBitmapAsNifti & (fileObject.content.datatype == 'rgb24' && fileObject.content.sizes[2] == 1 && fileObject.content.sizes.length < 4) )
 		{
         	bmpViewer.setContent(fileObject,params);
 		}
@@ -410,8 +452,10 @@ function KViewPort(master, viewPortID)
 			  if (fileObject.fileinfo.Tag.search("/mask/") != -1)
 			  {
 			//            master.roiTool.pushROI(fileObject.fileID,"untitled","frommaskfile");
-				if (params.intent == undefined) params.intent = {};
-				params.intent.ROI = true;
+				if (params.intent == undefined) 
+					params.intent = {};
+				if (params.intent.surfcol == undefined)
+					params.intent.ROI = true;
 				medViewer.setContent(fileObject,params);
 			  }
 			  else
@@ -421,6 +465,7 @@ function KViewPort(master, viewPortID)
 			{
 			  medViewer.setContent(fileObject,params);
 			}
+			medViewer.postsetContent()
 		}
 
     }
@@ -440,6 +485,21 @@ function KViewPort(master, viewPortID)
     {
       ViewerJS.setContent(fileObject,params);
     }
+    else if(fileObject.contentType == 'pdf')
+    {
+		
+         ViewerJS.setContent(fileObject,params);
+/*		
+		  var blob = new Blob([fileObject.content], {type: 'application/pdf'});
+		  var a = document.createElement("a");
+		  a.style = "display: none";
+		  document.body.appendChild(a);
+		  var url = URL.createObjectURL(blob);
+		  a.href = url; 
+		  a.target = "_blank_";
+		  a.click();
+		  */
+	}
     else if(fileObject.contentType == 'txt')
     {
       txtViewer.setContent(fileObject,params);
@@ -447,36 +507,33 @@ function KViewPort(master, viewPortID)
     else if(fileObject.contentType == 'json')
     {
        var tag = " " + fileObject.fileinfo.Tag;
-       if (params.intent == undefined) params.intent = {};
-       if (!params.intent.asjson && (tag.search("FORM") >= 0 | params.intent.patientedit |             
-            params.intent.studyedit | (fileObject.filename || "").search("\\.form\\.json") != -1))
-       {
-          formViewer.setContent(fileObject,params);
-       }
-       else if (tag.search("RO") >= 0 | fileObject.filename.search("\\.transform\\.json") != -1)
-       {
-          master.setReorientationMatrix(fileObject);
-       }
-// moved to datamanager       
-/*       else if (tag.search("ANO") >= 0 | fileObject.filename.search("\\.ano\\.json") != -1 )
-       {
-          markerProxy.loadAnnotations(fileObject);
-
-          // only show markerTool if no panel / panel not visible
-          if(markerProxy.currentSet &&  markerProxy.currentSet.markerPanel && markerProxy.currentSet.markerPanel.panelvisible)
-          {
-				// do nothing ( no show )
-          }
-          else
-          {
-          	if ( !KViewer.markerTool.enabled )
-	          	 KViewer.markerTool.toggle();
-          }
-       }*/
-       else if (fileObject.filename.search("\\.cc.json") != -1)
-       {
-		  medViewer.setContent(fileObject,params);     	
-       }
+       if (params.intent == undefined) 
+		   params.intent = {};
+       if (!params.intent.asjson)
+	   { 
+		   if ((tag.search("FORM") >= 0 | params.intent.patientedit |             
+	            params.intent.studyedit | (fileObject.filename || "").search("\\.form\\.json") != -1))
+	       {
+	          formViewer.setContent(fileObject,params);
+	       }
+	       else if (tag.search("RO") >= 0 | 
+	                 fileObject.filename.search("\\.transform\\.json") != -1 | 
+	                 fileObject.filename.search("GenericAffine\\.json") != -1 | 
+	                 fileObject.filename.search("coreginfo\\.json") != -1)
+	       {
+	          master.setReorientationMatrix(fileObject);
+			  alertify.success('affine reorientation loaded')
+	
+	       }
+	       else if (fileObject.filename.search("\\.cc.json") != -1)
+	       {
+			  medViewer.setContent(fileObject,params);     	
+	       }
+	       else
+	       {
+	         jsonViewer.setContent(fileObject,params);
+	       }
+	   }
        else
        {
          jsonViewer.setContent(fileObject,params);
@@ -490,12 +547,17 @@ function KViewPort(master, viewPortID)
 
     if (that.onsetContent)
     {
-    	setTimeout(function() {that.onsetContent(fileObject,params)},0);
+    	setTimeout(function() {
+    		that.onsetContent(fileObject,params)},0);
     }
     	
 
 
    }
+
+   
+
+   
 
    var isFiberVol = false;
 
@@ -511,30 +573,32 @@ function KViewPort(master, viewPortID)
 	   var isOrthoDropper = true; //viewPortID === 0 | viewPortID == 4 ;
 	   var orthodrop = "";
 
-
 	   if (isOrthoDropper)
-		  orthodrop = "<div droptag='orthooverlay'> as orthoview </div>";
+		  orthodrop = (x) => "<div droptag='ortho"+x+"'> as orthoview </div>";
 
 	   that.dragster = {};
+	   that.dragster.ortho = $("<div droptag='orthoview'>drop image as orthoview</div>").hide();
+	   if(isOrthoDropper)
+		   that.dragster.ortho.appendTo(that.$dropIndicator);
 	   that.dragster.notpossible =  $("<div> not possible</div>").hide().appendTo(that.$dropIndicator);
 	   that.dragster.loadworkspace =  $("<div>load workspace</div>").hide().appendTo(that.$dropIndicator);
 	   that.dragster.tool =  $("<div>drop tool</div>").hide().appendTo(that.$dropIndicator);
 	   that.dragster.doc =  $("<div>drop document</div>").hide().appendTo(that.$dropIndicator);
-	   that.dragster.roi =  $("<div>drop ROI "+orthodrop+" </div>").hide().appendTo(that.$dropIndicator);
-	   that.dragster.fibers =  $("<div droptag='fibers'>drop fibers</div>").hide().appendTo(that.$dropIndicator);
+	   that.dragster.fibers =  $("<div class='fiberdrop' droptag='fibers'>drop fibers</div>").hide().appendTo(that.$dropIndicator);
 	   that.dragster.asjson =  $("<div droptag='asjson'> drop as json</div>").hide().appendTo(that.$dropIndicator);
+	   that.dragster.switch =  $("<div droptag='switch'>switch/drop viewport(s)</div>").hide().appendTo(that.$dropIndicator);
 	   that.dragster.obj3D =  $("<div>drop 3D object</div>").hide().appendTo(that.$dropIndicator);
-	   that.dragster.surfacecol =  $("<div  droptag='surfcol'>drop as surface coloring</div>").hide().appendTo(that.$dropIndicator);
-	   that.dragster.image =  $("<div droptag='image'>drop image</div>").hide().appendTo(that.$dropIndicator);
-	   that.dragster.ortho = $("<div droptag='orthoview'>drop as orthoview</div>").hide();
-	   if(isOrthoDropper)
-		   that.dragster.ortho.appendTo(that.$dropIndicator);
-	   that.dragster.overlay = $("<div droptag='overlay'>drop as overlay "+orthodrop+" </div>").hide().appendTo(that.$dropIndicator); 
+	   that.dragster.image =  $("<div droptag='image'>drop as image</div>").hide().appendTo(that.$dropIndicator);
+	   that.dragster.atlas =  $("<div class='atlasdrop' droptag='atlas'>drop  Atlas "+orthodrop("atlas")+" </div>").hide().appendTo(that.$dropIndicator);
+	   that.dragster.roi =  $("<div class='roidrop' droptag='roi'>drop  ROI "+orthodrop("roi")+" </div>").hide().appendTo(that.$dropIndicator);
+	   that.dragster.surfacecol =  $("<div class='surfcol'  droptag='surfcol'>drop as surface coloring</div>").hide().appendTo(that.$dropIndicator);
+	   that.dragster.overlay = $("<div class='ovldrop'  droptag='overlay'>drop  overlay "+orthodrop("overlay")+" </div>").hide().appendTo(that.$dropIndicator); 
 	   that.dragster['default'] = $("<div> drop content</div>").hide().appendTo(that.$dropIndicator);
 
+	   
 	   $dropIndicator.children().each(function(k,e){ 
 			$(e).on('dragover',  function(ev){ $(e).css('background', 'rgba(0,139,139,0.6)');}) 
-			$(e).on('dragleave', function(ev){ $(e).css('background', 'rgba(139, 0, 0, 0.6)');}) 
+			$(e).on('dragleave', function(ev){ $(e).css('background', '');}) 
 			});
 
 	  } }($container,that),100);
@@ -556,31 +620,66 @@ function KViewPort(master, viewPortID)
 	  		return;
 	  	}
 
+		if (e.ctrlKey)
+		{
+			if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.length>1)
+				;
+			else
+			{
+				that.dragster.switch.show();	
+		  		$dropIndicator.fadeIn(150)	
+				return;
+			}
+		}
+
 		if (tempObjectInfo != undefined && tempObjectInfo.length > 0)
 		{
+			var roi = false
+			var atlas =false
+			var any = false
 			if (KViewer.zoomedViewport != -1 && !that.isZoomed() )
 				that.dragster['notpossible'].show();				
-			else if ((tempObjectInfo[0].tag || "").search("/mask/") > -1)
+			if (tempObjectInfo[0].intent == "atlas:true" | ((tempObjectInfo[0].tag || "").search("/atlas/") > -1))
+			{
+				that.dragster.atlas.show();
+				atlas = true;
+				any = true;
+			}
+			if ((tempObjectInfo[0].tag || "").search("/mask/") > -1)
 			{
 				that.dragster.roi.show();
+			    //that.dragster.image.show();
+
+				roi = true;
+				any = true;
+
 			}
-			else if ((tempObjectInfo[0].tag || "").search("/WORKSPACE/") > -1)
+			if ((tempObjectInfo[0].tag || "").search("/WORKSPACE/") > -1)
 			{
 				that.dragster.loadworkspace.show();
+				any = true;
 			}
-			else if ((tempObjectInfo[0].filename || "").search("\\.gii") > -1)
+			if ((tempObjectInfo[0].filename || "").search("\\.gii") > -1)
 			{
 				that.dragster.obj3D.show();
+				any = true;
 			}
-			else if (tempObjectInfo[0].mime == 'nii')
+			if (tempObjectInfo[0].mime == 'nii')
 			{
-				that.dragster.image.show();
-				that.dragster.ortho.show();
-				that.dragster.overlay.show();
+				any = true;
+				if (!roi & !atlas)
+				{
+    				that.dragster.roi.show();			
+				    that.dragster.atlas.show();
+				    that.dragster.ortho.show();
+				    that.dragster.overlay.show();
+				}
 				if (that.medViewer != undefined && that.medViewer.hasContent('surf') != undefined)
 				 	that.dragster.surfacecol.show();
  				if ((tempObjectInfo[0].filename || "").search("cosl") > -1 |
  				    (tempObjectInfo[0].filename || "").search("rgb") > -1 |
+ 				    (tempObjectInfo[0].filename || "").search("col") > -1 |
+ 				    (tempObjectInfo[0].filename || "").search("mdir") > -1 |
  				    (tempObjectInfo[0].tag || "").search("tck") > -1 )	
  				{		 	
 					that.dragster.fibers.show();
@@ -588,19 +687,24 @@ function KViewPort(master, viewPortID)
  				}
 
 			}
-			else if ((tempObjectInfo[0].filename || "").search("\\.tck") > -1)
+			if ((tempObjectInfo[0].filename || "").search("\\.tck") > -1)
 			{
+				any = true;
 				that.dragster.fibers.show();
 			}
-			else if (tempObjectInfo[0].mime == 'json' | tempObjectInfo[0].mime == 'form')
+			if (tempObjectInfo[0].mime == 'json' | tempObjectInfo[0].mime == 'form' | tempObjectInfo[0].mime == 'ano')
 			{
+				any = true;
 				that.dragster.asjson.show();
 			}
-			else if (tempObjectInfo[0].mime == 'pdf')
+			if (tempObjectInfo[0].mime == 'pdf')
+			{
+				any = true;
 				that.dragster.doc.show();
-			else if (tempObjectInfo[0].type == 'markertemplate')
-				1
-			else
+			}
+			if (tempObjectInfo[0].type == 'markertemplate')
+				any = true;
+			if (!any)
 				that.dragster['default'].show();
 		}
 		else if (KToolWindow.dragTool != undefined)
@@ -639,7 +743,7 @@ function KViewPort(master, viewPortID)
 	  	if (ev.originalEvent)
 		    ev = ev.originalEvent;
 		that.$dropIndicator.fadeOut(150);
-		that.$dropIndicator.children().each(function(k,e){$(e).css('background', 'rgba(139, 0, 0, 0.6)') });
+		that.$dropIndicator.children().each(function(k,e){$(e).css('background', '') });
 		
 		ev.preventDefault();
 		ev.stopPropagation();
@@ -670,10 +774,23 @@ function KViewPort(master, viewPortID)
 			return;
 		}
 
+
 		var droptag = $(ev.target).attr('droptag');
 		
 		var params = getloadParamsFromDrop(ev,{});
 		var dt = ev.dataTransfer;
+
+		  
+		if (ev.ctrlKey)
+		{
+			if (tempObjectInfo[0].fromViewPort != undefined)
+			{
+				KViewer.flipViewport(tempObjectInfo[0].fromViewPort,that.viewPortID)
+				return;
+			}
+		}
+		  
+		  
 		if(dt && dt.items && dt.items[0] && dt.items.length > 0 && dt.items[0].webkitGetAsEntry() && dt.items[0].webkitGetAsEntry().isDirectory)
 		{
 			alertify.error("You cannot drop folders here. <br> Drop on left panel instead to read folder content.")
@@ -730,6 +847,8 @@ function KViewPort(master, viewPortID)
 				 var menu = KContextMenu(
 				  function() {
 					var $menu = $("<ul class='menu_context'>");
+					$menu.append($("<li onchoice='all' > All </li>"));
+					  
 					for(var k = 0; k < surfs.length;k++)
 						$menu.append($("<li onchoice='"+surfs[k].surf.fileID+"' > "+surfs[k].surf.filename+" ("+surfs[k].surf.fileID+")</li>"));
 					return  $menu;                									  
@@ -774,6 +893,35 @@ function KViewPort(master, viewPortID)
 			}
 			initiateLoadData(params);
 		}
+		else if(droptag=='atlas' | droptag == 'orthoatlas')
+		{
+			for (var k = 0; k < params.length;k++)
+			{
+				if (params[k].intent == undefined)
+					params[k].intent = {atlas:true};
+				else
+					params[k].intent.atlas = true;
+			}
+			if (droptag == "orthoatlas")
+				for (var k = 0; k < params.length;k++)		
+					loadOrthoview(params[k],viewPortID)
+			else
+				initiateLoadData(params);
+		}
+		else if(droptag=='roi'| droptag == 'orthoroi')
+		{
+			for (var k = 0; k < params.length;k++)
+			{
+				if (params[k].intent == undefined)
+					params[k].intent = {roi:true};
+				else
+					params[k].intent.roi = true;
+			}
+			if (droptag == "orthoroi")
+				for (var k = 0; k < params.length;k++)		
+					loadOrthoview(params[k],viewPortID)
+			else
+				initiateLoadData(params);		}
 		else 
 		{
 			if(params.type == 'markertemplate')
@@ -822,6 +970,8 @@ function KViewPort(master, viewPortID)
 				 params[k].intent.asjson = true;
 			}
 
+			if (params[0].intent == undefined)
+				params[0].intent = {};
             params[0].intent.drop = true;
 			initiateLoadData(params);
 			
@@ -933,7 +1083,6 @@ function KViewPort(master, viewPortID)
 				if (KViewer.viewports[that.right_neighbor] == undefined)
 					return;
 
-
 				if (Math.abs(ev.originalEvent.clientX-$container.offset().left-$container.width()) < 5)
 				{	
 					var wid = KViewer.$viewportContainer.width();
@@ -1012,6 +1161,11 @@ function KViewPort(master, viewPortID)
 			  return;
 		  }
 		
+          if (that.progressSpinner.abort_loader != undefined)
+          {
+          	  that.progressSpinner.abort_loader();
+          	  console.log("aborter loader");    		  
+          }
 
 		  params.callback = function(ev){
 		  	  if (ev != undefined)
@@ -1029,6 +1183,49 @@ function KViewPort(master, viewPortID)
 	  that.openFile = initiateLoadData;
 
 
+      function delAllObjs(type,subtype,from,str)
+				 {
+				 	function closeit(x)
+				 	{
+                            if (str == "this")
+							{
+								if (from.currentFileID)
+								{
+								    if (x.currentFileID == from.currentFileID)
+									    x.close();	                                        
+								}
+								if (from.roi)
+								{
+								    if (x.roi.fileID == from.roi.fileID)
+									    x.close();	                                        									
+								}
+								if (from.fibers)
+								{
+								    if (x.fibers.fileID == from.fibers.fileID)
+									    x.close();	                                        									
+								}
+							}
+							else
+								x.close();	
+				 	}
+
+				 	KViewer.iterateMedViewers(function (mv){
+						var objs = mv[type].slice();
+						for (var j = 0 ; j < objs.length;j++)
+						{
+							if (subtype != undefined)
+							{
+								if (objs[j][subtype] != undefined)
+									closeit(objs[j])
+							}
+							else
+								closeit(objs[j])
+						}
+					});
+				 }
+      that.delAllObjs = delAllObjs;
+
+
       that.closeContextMenu = function(from) { 
 
       return KContextMenu(
@@ -1037,7 +1234,22 @@ function KViewPort(master, viewPortID)
               	if (from != undefined)
 					suffix = '('+from.type+')';
               		
-              	var $menu = $("<ul class='menu_context'>").append($("<li onchoice='all' > close all "+suffix+" </li>"));
+              	var $menu = $("<ul class='menu_context'>")
+
+              	var filename;
+              	if (from != undefined)
+              	{
+              	    if (from.fileinfo)
+              	        filename = from.fileinfo.Filename
+              	    if (from.roi )
+              	        filename = from.roi.filename
+              	    if (from.fibers )
+              	        filename = from.fibers.filename
+              	
+              	    if (filename != undefined)
+              	      $menu.append($("<li onchoice='this' > close all ("+filename+") </li>"))
+              	}
+              	$menu.append($("<li onchoice='all' > close all "+suffix+" </li>"))
               	
                 return  $menu;                									  
                 
@@ -1046,25 +1258,9 @@ function KViewPort(master, viewPortID)
               { 
 
 				
-				 function delAllObjs(type,subtype)
-				 {
-				 	KViewer.iterateMedViewers(function (mv){
-						var objs = mv[type].slice();
-						for (var j = 0 ; j < objs.length;j++)
-						{
-							if (subtype != undefined)
-							{
-								if (objs[j][subtype] != undefined)
-									objs[j].close();	
-							}
-							else
-								objs[j].close();									
-								}
-					});
-				 }
+				
 
-
-              	if (str == "all")
+              	if (str == "all" | str == "this")
                 {
                 	if (from == undefined)
                 	{
@@ -1082,15 +1278,15 @@ function KViewPort(master, viewPortID)
 						return;
                 	}
                 	else if (from.type == 'overlay')
-                		delAllObjs("overlays");
+                		delAllObjs("overlays",undefined,from,str);
                 	else if (from.type == 'surface')
-                		delAllObjs("objects3D","surf");
+                		delAllObjs("objects3D","surf",from,str);
                 	else if (from.type == 'fiber')
-                		delAllObjs("objects3D","fibers");
+                		delAllObjs("objects3D","fibers",from,str);
                 	else if (from.type == 'roi')
-                		delAllObjs("ROIs");
+                		delAllObjs("ROIs",undefined,from,str);
                 	else if (from.type == 'atlas')
-                		delAllObjs("atlas");
+                		delAllObjs("atlas",undefined,from,str);
                 
                 }
               	else if (str == "ortho")
@@ -1112,10 +1308,6 @@ function KViewPort(master, viewPortID)
 				 that.setCurrentViewer();		 	
 		 }
 	  }
-
-	//  var medViewer  = new KMedViewer(that, master);
-	//  that.medViewer =  medViewer;
-
 
 	  function dummyViewer(which,constr)
 	  {
@@ -1146,3 +1338,19 @@ function KViewPort(master, viewPortID)
 }
 
 
+KViewPort.getViewerByFileID = function(fid) 
+{
+	var vps = [];
+    for (var k = 0; k < KViewer.viewports.length;k++)
+    {
+    	if (KViewer.viewports[k] != undefined)
+    	{
+    		var v = KViewer.viewports[k].getCurrentViewer()
+    		if (v != undefined)
+    		    if (v.currentFileID == fid)
+    		        vps.push(v);
+    	}
+    }
+    return vps;
+
+}

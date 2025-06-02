@@ -1,5 +1,9 @@
+try {
 importScripts('KView/pako.js');
 importScripts('KMiscFuns.js');
+}
+catch(err)
+{}
 
 self.addEventListener('message', function(e) {
 	try

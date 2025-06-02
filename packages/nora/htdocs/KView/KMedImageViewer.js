@@ -1,5 +1,7 @@
 
 
+
+
 // ======================================================================================
 // ======================================================================================
 // ============= KMedViewer
@@ -34,6 +36,9 @@ function KMedViewer(viewport, master)
      */
     that.transfactor = 1;
     that.histoManager = histoManager;
+    that.visible = true;
+    that.isFlatMap = false;
+
     histoManager.blending = undefined;
     histoManager.posnegsym = undefined;
     histoManager.blocky = undefined;
@@ -112,10 +117,48 @@ function KMedViewer(viewport, master)
                 }
     }
 
+    that.toggle = function(e)
+    {
+        var vis = !that.visible;
+        if (!e.shiftKey)
+        {
+            master.iterateMedViewers(function(m)
+            {
+                    if (that.currentFileID == m.currentFileID)
+                    {
+                        m.setVisibility(vis)
+                    }
+
+            });            
+        }
+        else
+            that.setVisibility(vis)
+    }
+
+    that.setVisibility = function(visible)
+        {
+            if (!visible)
+            {
+                that.visible = false;
+                toolbar.$eye.css('color', 'red');
+            }
+            else
+            {
+                that.visible = true;
+                toolbar.$eye.css('color', '');
+            }
+            that.drawSlice({
+                mosaicdraw: true
+            });
+        }
+
+
+
+
     that.viewContextMenu = new KContextMenu(
     function() {
         var $menu = $("<ul class='menu_context'>");
-        var name = ['Saggital', 'Coronal', 'Transversal'];
+        var name = ['Sagittal', 'Coronal', 'Transversal'];
 
         $menu.append($("<hr width='100%'> "));
         $menu.append($("<span> &nbsp View</span>"));
@@ -268,6 +311,7 @@ function KMedViewer(viewport, master)
     toolbar.$info = $("<div  class='KViewPort_tool'>  <i class='fa fa-info-circle fa-1x'> </div>").click(infomenu);
     toolbar.$lock = $("<div  class='KViewPort_tool'>  <i class='fa fa-lock fa-1x'> </div>").click(changeWorldLock);
     toolbar.$view = $("<div  class='KViewPort_tool'>  <i class='fa fa-photo fa-1x'> </div>").click(that.viewContextMenu);
+    toolbar.$eye = $("<div  class='KViewPort_tool'>  <i class='fa fa-eye fa-1x'> </div>").click(that.toggle);
     toolbar.$createIso = $("<div  class='KViewPort_tool'>  <i class='fa fa-play fa-1x'> </div>");
     
    
@@ -278,7 +322,7 @@ function KMedViewer(viewport, master)
     toolbar.$slicingDim = $("<div class='KViewPort_tool KViewPort_tool_slicingDim'></div>").click(toggleSlicingDim).appendTooltip("changeslicing")
     toolbar.$sliceCubes = KIcon('planecube',toolbar.$slicingDim);
 
-    toolbar.attach(toolbar.$cmapReset).attach(toolbar.$cmap).attach(toolbar.$info).attach(toolbar.$quiver).attach(toolbar.$toggle3D).attach(toolbar.$lock).attach(toolbar.$view).attach(toolbar.$slicingDim);
+    toolbar.attach(toolbar.$cmapReset).attach(toolbar.$cmap).attach(toolbar.$info).attach(toolbar.$quiver).attach(toolbar.$toggle3D).attach(toolbar.$lock).attach(toolbar.$view).attach(toolbar.$eye).attach(toolbar.$slicingDim);
 
     var layoutbar = that.layoutbar;
     layoutbar.$slicing = $("<div class='KViewPort_tool_layout'><i class='fa  fa-1x'></i></div>").click(toggleSlicingDim).appendTooltip("changeslicing")
@@ -295,7 +339,7 @@ function KMedViewer(viewport, master)
     }
     layoutbar.$sliceCubes = KIcon('planecube',layoutbar.$slicing);
     layoutbar.$center = $("<div class='KViewPort_tool_layout'><i class='fa fa-dot-circle-o fa-1x'></i></div>").click(
-            function() { signalhandler.send("centralize"); }
+            function() { signalhandler.send("centralize",{viewer:that}); }
     ).appendTooltip("centerview");
 
     layoutbar.attach(layoutbar.$slicing);
@@ -318,15 +362,18 @@ function KMedViewer(viewport, master)
     attachMouseSlider(layoutbar.$slidezoom, 
         {
             mousedown: function()
-            { 
-                return { startzoomFac: that.zoomFac, startMosaicZoom: that.mosaicview.zoom} 
+            {         
+                return { startzoomFac: that.zoomFac, startBox: that.mosaicview.clipratio,
+                       currentpos: getCanvasCoordinates(getWorldPosition()),
+                       } 
             }, 
             mousemove:function(ev,dx,dy,mousedownvar, lastdx, lastdy) 
             {
                 if (gl_enabled)
                 {
-                    var zoominc = 1 - lastdy*0.004;
+                    var zoominc = 1 - lastdy*0.001;
                     var maxex = that.computeMaxExtentFac()
+
                     that.gl.camera.inertialRadiusOffset -= maxex * (1 - zoominc);
                     if (isNaN(that.gl.camera.inertialRadiusOffset))
                         that.gl.camera.inertialRadiusOffset = 1;
@@ -338,9 +385,24 @@ function KMedViewer(viewport, master)
                 }
                 else if (that.mosaicview.active)
                 {
-                    that.mosaicview.zoom  =  mousedownvar.startMosaicZoom + dy*10;
-                    if (that.mosaicview.zoom > 1)
-                        that.mosaicview.zoom = 1;
+                    var sbox = mousedownvar.startBox;
+                    var cpos = mousedownvar.currentpos;
+                    var zoomy = 1+0.1*dy;
+                    sbox[0] = (sbox[0]-cpos.x_norm)*zoomy + cpos.x_norm;
+                    sbox[2] = (sbox[2]-cpos.x_norm)*zoomy + cpos.x_norm;
+                    sbox[1] = (sbox[1]-cpos.y_norm)*zoomy + cpos.y_norm;
+                    sbox[3] = (sbox[3]-cpos.y_norm)*zoomy + cpos.y_norm;
+                    if (sbox[0]<0) sbox[0] = 0;
+                    if (sbox[1]<0) sbox[1] = 0;
+                    if (sbox[2]>1) sbox[2] = 1;
+                    if (sbox[3]>1) sbox[3] = 1;
+                    if (sbox[2]-sbox[0] < 0.0001 | sbox[3]-sbox[1]  < 0.0001 )
+                     {
+                        sbox = [0,0,1,1];
+                        alertify.error("are you nuts")
+                    }
+                    that.mosaicview.clipratio = sbox;
+  
                     if (KViewer.mainViewport != -1)
                         signalhandler.send("mosaic_changelayout",that.mosaicview);
                     else
@@ -353,15 +415,16 @@ function KMedViewer(viewport, master)
                 {
                     var zoominc = 1 - lastdy*0.01;
                     $(".markerpoint,.markerruler").css('display','none')
-                    if (worldLockedToMaster & master.globalCoordinates)
+                    if (worldLockedToMaster & master.globalCoordinates &
+                        !ev.shiftKey & !that.isFlatMap)
                     {                    
                         signalhandler.send("setZoom", zoominc );
-                        signalhandler.send("positionChange", {nosliceupdate:true},that.positionChanger); // why this ...markers?
+                        signalhandler.send("positionChange", {nosliceupdate:true},that.positionChanger);
                     }
                     else
                     {
                         setZoom(zoominc);
-                        signalhandler.send("positionChange", {nosliceupdate:true},that.positionChanger); // why this ...markers?
+                        signalhandler.send("positionChange", {nosliceupdate:true},that.positionChanger); 
                     }
 
                 }
@@ -369,6 +432,9 @@ function KMedViewer(viewport, master)
 
             }, 
             mouseup: function(){ 
+
+                signalhandler.send("positionChange", {},that.positionChanger); 
+                
             } 
         },
         {hideCurrentval:true}
@@ -381,7 +447,16 @@ function KMedViewer(viewport, master)
     layoutbar.attach(layoutbar.$slidezoom)
 
     layoutbar.$resetzoom  = $("<span class='KViewPort_tool_layout'> <i class='fa fa-reply fa-1x'></i> </span>");
-    layoutbar.$resetzoom.mousedown(function(ev){ KViewer.resetCrossHair()  })
+    layoutbar.$resetzoom.mousedown(function(ev){ 
+            var p = niiOriginal.centerWorld
+            if (that.isFlatMap)
+            {
+               customPoint = p;
+               p = mapFlatMapCoordinate(p)
+            }
+            KViewer.resetCrossHair(ev,p) 
+
+         })
     layoutbar.attach(layoutbar.$resetzoom)
 
 
@@ -526,6 +601,27 @@ function KMedViewer(viewport, master)
             $(e).addClass('KViewPort_tool_enabled');
     }
 
+    function setGLprops(props)
+    {
+        var cid = setInterval(tryit,300)
+        var cnt = 0;
+        function tryit()
+        {
+            cnt++;
+            if (that.gl != undefined)
+            {
+                that.gl.setprops(props)
+                clearInterval(cid)
+            }
+            else if (cnt > 10)
+                clearInterval(cid)
+                
+        }
+    }
+    that.setGLprops = setGLprops
+
+  
+
     layoutbar.$leftrot.click(function() {
         ani3D(this, +1)
     });
@@ -616,7 +712,8 @@ function KMedViewer(viewport, master)
                 "<li onchoice='type_rgbinterpret_RGB' > RGB <i onchoice='lock' class='fa fa-"+((type=="RGB") ? 'check-' : '')+"circle-o'></i> </li>" +
                 "<li onchoice='type_rgbinterpret_BRG' > BRG <i onchoice='lock' class='fa fa-"+((type=="BRG") ? 'check-' : '')+"circle-o'></i> </li>" +
                 "<li onchoice='type_rgbinterpret_GBR' > GBR <i onchoice='lock' class='fa fa-"+((type=="GBR") ? 'check-' : '')+"circle-o'></i> </li>" +
-                "<li onchoice='type_rgbinterpret_GRB' > GRB <i onchoice='lock' class='fa fa-"+((type=="GRB") ? 'check-' : '')+"circle-o'></i> </li>"));
+                "<li onchoice='type_rgbinterpret_GRB' > GRB <i onchoice='lock' class='fa fa-"+((type=="GRB") ? 'check-' : '')+"circle-o'></i> </li>" +
+                "<li onchoice='type_rgbinterpret_SOS' > SOS <i onchoice='lock' class='fa fa-"+((type=="SOS") ? 'check-' : '')+"circle-o'></i> </li>"));
 
             }
 
@@ -631,21 +728,49 @@ function KMedViewer(viewport, master)
             else
                 $menu.append($("<li onchoice='iso' > create isosurface </li>"));
 
-            if (_that.outlines == undefined)
-                $menu.append($("<li onchoice='outline' > show contours </li>"));
-            else
-            { 
-                $menu.append($("<li onchoice='outline' > hide contours </li>"));
-                $menu.append($("<li onchoice='contcol' > > contour color  </li>"));
-            }
 
+            if (_that.type != "mainview")
+            {
+                if (_that.outlines == undefined)
+                    $menu.append($("<li onchoice='outline' > show contours </li>"));
+                else
+                { 
+                    $menu.append($("<li onchoice='outline' > hide contours </li>"));
+                    $menu.append($("<li onchoice='contcol' > > contour color  </li>"));
+                }
+            }
 
 
             if (_that.nii.sizes[3]%3 == 0)
                 $menu.append($("<li onchoice='tracking' >create fiber tracking </li>"));
-
-            $menu.append($("<li onchoice='refetch' > refetch file </li>"));
             
+            $menu.append($("<li onchoice='refetch' > refetch file </li>"));
+
+            $menu.append($("<hr width='100%'> "))
+
+            $menu.append($("<li onchoice='reslice' > reformat/reslice image </li>"));            
+            if (KViewer.reorientationMatrix.notID)
+                $menu.append($("<li onchoice='burnin' > burnin current affine </li>"));
+            $menu.append($("<li onchoice='download_header_info' > download header info </li>"));
+            $menu.append($("<li onchoice='centermatrix' > center matrix to current position </li>"));
+            
+
+
+            var ROIs = KViewer.roiTool.ROIs
+            var rois = Object.keys(ROIs);
+            if (rois.length > 0)
+            {
+
+                var $submenu = $("<ul> </ul>") 
+                var $item = $("<li  onchoice='...' >crop/mask<i  onchoice='lock' class='fa fa-caret-right'></i>").appendTo($menu)
+                $item.append($submenu)
+
+                 for (var k = 0; k < rois.length;k++)
+                    $submenu.append($("<li onchoice='mask_ROI_"+rois[k]+"'  >"+ROIs[rois[k]].filename+" </li>"));
+
+            }
+
+			            
             if (_that.content && _that.content.refvisit_tck)
                 $menu.append($("<li onchoice='unlinktck' > unlink fiber visits </li>"));
 
@@ -679,17 +804,7 @@ function KMedViewer(viewport, master)
 
             if (str == "unlinktck")
             {
-                if (_that.content.refvisit_tck.visitworker != undefined)
-                {
-                    _that.content.refvisit_tck.visitworker.kill();
-                    _that.content.refvisit_tck.visitworker = undefined;
-                }
-                if (_that.content.refvisit_tck.visitworker_terms != undefined)
-                {
-                    _that.content.refvisit_tck.visitworker_terms.kill();
-                    _that.content.refvisit_tck.visitworker_terms = undefined;
-                }                
-                _that.content.refvisit_tck = undefined;
+                unlinktck(_that)
             }
             else if (str.substring(0,5) == "upper" | str.substring(0,5) == "lower" )            
             {
@@ -767,7 +882,9 @@ function KMedViewer(viewport, master)
                 function createfibview()
                 {
                     var filename = _that.currentFilename.replace(".nii","").replace(".gz","") + ".tck";
-                    var imageStruct = {filename:filename,content:{tracts:[  ]} }     ;     
+                    var imageStruct = { fileinfo: { patients_id: that.currentFileinfo.patients_id,
+                                        studies_id: that.currentFileinfo.studies_id },
+                                        filename:filename,content:{tracts:[  ]} } ;     
                     var fv = master.obj3dTool.createFiberView(imageStruct,that,{ dirvolref: _that,isParentView:true });
                     that.objects3D.push(fv);
                 }
@@ -782,6 +899,7 @@ function KMedViewer(viewport, master)
                     var ev_ = ev;
                     master.iterateMedViewers(function(m)
                     {
+                        
                         for (var k = 0; k < m.overlays.length; k++)
                             if (_that.currentFileID == m.overlays[k].currentFileID)
                             {
@@ -802,6 +920,122 @@ function KMedViewer(viewport, master)
             {
                 KViewer.dataManager.refetchFile(_that.currentFileinfo, that.viewport.progressSpinner)
             }
+            else if (str == "reslice")
+            {
+                
+                alertify.prompt("New resolution of image in mm:", function(e, str) {
+                    if (e)
+                    {       
+                        
+                        var fac = eval(str);
+                        
+                        var fi = KViewer.dataManager.getFile(_that.currentFileID)
+                        var vsz = fi.content.voxSize
+                        resliceNifti(fi,[fac[0]/vsz[0],fac[1]/vsz[1],fac[2]/vsz[2]]);
+
+                        var sp = fi.filename.split(".")
+                        sp[0] = sp[0] + '_reformated';
+                        fi.filename = sp.join(".");
+                        if (fi.fileinfo && fi.fileinfo.Filename)
+                            fi.fileinfo.Filename = fi.filename;
+
+                        fi.editable = true;
+                        fi.modified = true;
+                        KViewer.cacheManager.update();
+
+                        KViewer.setViewPortLayout()
+                    }
+                 },"[2,2,2]");
+            
+
+            }
+            else if (str == "burnin")
+            {
+                    var fi = KViewer.dataManager.getFile(_that.currentFileID)
+                
+                    resliceNifti_affine(fi,(KViewer.reorientationMatrix.matrix));
+                    var sp = fi.filename.split(".")
+                    sp[0] = sp[0] + '_reformated';
+                    fi.filename = sp.join(".");
+                    if (fi.fileinfo && fi.fileinfo.Filename)
+                        fi.fileinfo.Filename = fi.filename;
+    
+                    fi.editable = true;
+                    fi.modified = true;
+                    KViewer.navigationTool.resetTransform();
+                    KViewer.cacheManager.update();            
+                    KViewer.setViewPortLayout()
+      
+            }                
+            else if (str == "centermatrix")
+            {
+                if (Object.keys(KViewer.navigationTool.movingObjs).length > 0)
+                    alertify.confirm("There are already moving images defined in the navigation. When you proceed, all navigation information will be discarded.",
+                                    function(e) {
+                                        if (e)
+                                            centermatrix()
+                                    })
+                else
+                    centermatrix();
+
+                function centermatrix()
+                {
+                    var fi = KViewer.dataManager.getFile(_that.currentFileID)     
+                    for (var k in KViewer.navigationTool.movingObjs) delete KViewer.navigationTool.movingObjs[k];
+            		KViewer.navigationTool.movingObjs[fi.fileID] = fi;
+    				KViewer.navigationTool.updateMoving();
+                    var csz = fi.content.sizes.slice(0,3).map((x)=>x*0.5-0.5).concat([1])
+                    var center = kmath.multiply(fi.content.edges, csz)
+                    var dif = kmath.add(KViewer.currentPoint,center,-1);
+                    KViewer.reorientationMatrix.matrix._data[0][3] = -dif._data[0];
+                    KViewer.reorientationMatrix.matrix._data[1][3] = -dif._data[1];
+                    KViewer.reorientationMatrix.matrix._data[2][3] = -dif._data[2];
+                    signalhandler.send("positionChange")
+                }
+
+            }            
+            else if (str == "download_header_info")
+            {
+                var fi = _that.currentFileinfo
+                var nii = _that.nii
+                var hdr = {edges:nii.edges._data, 
+                            voxSize:nii.voxSize,
+                            sizes:nii.sizes,
+                           extension:nii.extension}
+                initiateDownload(JSON.stringify(hdr), fi.Filename.replace(".gz","").replace(".nii","") + "_header.json");		
+            }            
+            else if (str.substring(0,9) == "mask_ROI_")
+            {
+                var roiid = str.substring(9);
+                var fi = KViewer.dataManager.getFile(_that.currentFileID)
+                var roi = KViewer.dataManager.getFile(roiid)
+                maskContrastWithROI(fi,roi)
+                signalhandler.send("updateImage", { 
+                    id:  fi.fileID,
+                });
+                fi.editable = true;
+                fi.modified = true;
+                KViewer.cacheManager.update();
+
+
+                function maskContrastWithROI(cobj,roiobj)
+                {
+                    var nii = cobj.content                    
+                    var roi = roiobj.content;
+                    roi.A = (math.multiply(math.inv(roi.edges), nii.edges))._data;
+                    for (var k = 0;k < nii.sizes[3];k++)
+                    for (var z = 0; z < nii.sizes[2]; z++)
+                        for (var y = 0; y < nii.sizes[1]; y++)
+                            for (var x = 0; x < nii.sizes[0]; x++)
+                            {
+                                var v = trilinInterp(roi, x, y, z, roi.A, 0);
+                                nii.data[nii.widheidep*k + nii.sizes[1] * nii.sizes[0] * z + nii.sizes[0] * y + x] *= v;
+                                
+                            }
+
+
+                }
+            }
             else if (str == "contcol")
             {
         
@@ -816,6 +1050,23 @@ function KMedViewer(viewport, master)
        
     }
 
+
+
+    function unlinktck(_that)
+    {
+        if (_that.content.refvisit_tck.visitworker != undefined)
+        {
+            _that.content.refvisit_tck.visitworker.kill();
+            _that.content.refvisit_tck.visitworker = undefined;
+        }
+        if (_that.content.refvisit_tck.visitworker_terms != undefined)
+        {
+            _that.content.refvisit_tck.visitworker_terms.kill();
+            _that.content.refvisit_tck.visitworker_terms = undefined;
+        }                                    
+        _that.content.refvisit_tck = undefined;
+    }
+    that.unlinktck = unlinktck;
 
     that.quivers = [];
 
@@ -947,7 +1198,7 @@ function KMedViewer(viewport, master)
     }    
 
     var $timeinput = $("<input class='KViewPort_tool KViewPort_tool_movie_slider' type='range' min=0 max=100 value=0>");
-    var $timeCurrent = $("<span class='KViewPort_movie_tool' style='width:20px; background: none;color:white;'>0</span>");
+    var $timeCurrent = $("<span class='KViewPort_movie_tool'>0</span>");
     var $timediv = $("<div class='KViewPort_toolbar KTimeRangeSlider'> </div>").appendTo($container)
     .append($timeCurrent).append($timeinput).append(toolbar.$movie).append($timeinput_fps).append($setMovieGlobalMode)
     .hide();
@@ -1011,7 +1262,7 @@ function KMedViewer(viewport, master)
         var newval =  parseInt($timeinput.val()) + amount;
         if(newval >= 0)
         {
-            setCurrentTimePoint(newval)
+            setCurrentTimePoint(newval,e)
         }
         e.preventDefault();
         e.stopPropagation();
@@ -1020,14 +1271,18 @@ function KMedViewer(viewport, master)
 
     
     // set the current time global/local from gui or from an iteration loop
-    function setCurrentTimePoint(val)
+    function setCurrentTimePoint(val,e)
     {
-        if(that.movieGlobalMode)
+        var global = that.movieGlobalMode;
+        if (e != undefined && e.shiftKey)
+            global = false;
+            
+        if (global)
         {   
             master.movie.currentTimePoint = val;
             master.iterateMedViewers(function(m)
             {
-                if (m.nii !=undefined & m.movieGlobalMode)
+                if (m.nii !=undefined & m.movieGlobalMode & global)
                 {
                     m.updateCurrentTimePoint(val);
                 }
@@ -1043,6 +1298,42 @@ function KMedViewer(viewport, master)
 
     that.updateCurrentTimePoint = function(val)
     {
+
+
+
+        var ovls = that.overlays;
+        for (var k = 0; k < that.objects3D.length;k++)
+            if (that.objects3D[k].overlays && that.objects3D[k].overlays.length > 0)
+                ovls = ovls.concat(that.objects3D[k].overlays)
+        for (var k = 0; k < ovls.length; k++)
+        {
+            var xnii = ovls[k].nii;
+            if (xnii.numTimePoints > 1 && xnii.numTimePoints >= val)
+            {
+                xnii.currentTimePoint.t = val;
+                ovls[k].$timeinput.val(val);
+                signalhandler.send("overlay_climChange", { 
+                    id:  ovls[k].currentFileID,
+                    val: ovls[k].histoManager.clim        
+                });
+
+            }
+        }
+        
+        for (var k = 0; k < that.ROIs.length; k++)
+        {
+            var xnii = that.ROIs[k].nii;
+            if (xnii.numTimePoints > 1 && xnii.numTimePoints >= val)
+            {
+                xnii.currentTimePoint.t = val;
+                if (that.ROIs[k].$timeinput != undefined)
+                    that.ROIs[k].$timeinput.val(val);
+                signalhandler.send("updateImage", { 
+                    id:  that.ROIs[k].roi.fileID,
+                });
+            }
+        }
+        
         if ($timediv.maxt <= 1)
             return;
         
@@ -1056,35 +1347,29 @@ function KMedViewer(viewport, master)
         if (that.nii.numTimePoints > 1 && val < that.nii.numTimePoints )
             that.nii.currentTimePoint.t = val;
 
+        if (that.nii.extension && that.nii.extension.content && that.nii.timePointDescrip !== false)
+        {
+            that.nii.timePointDescrip = false;
+            if (typeof that.nii.extension.content == "string")
+            {
+                 var dates = that.nii.extension.content.split(" ")
+                 if (dates.length == that.nii.numTimePoints)
+                     that.nii.timePointDescrip = dates;
+            }
+
+        }
+
+
+
         $timeinput.val(  val );
         $timeCurrent.text( val );
 
-        for (var k = 0; k < that.overlays.length; k++)
+        if (that.nii.timePointDescrip)
         {
-            var xnii = that.overlays[k].nii;
-            if (xnii.numTimePoints > 1 && xnii.numTimePoints >= val)
-            {
-                xnii.currentTimePoint.t = val;
-                that.overlays[k].$timeinput.val(val);
-                signalhandler.send("overlay_climChange", { 
-                    id:  that.overlays[k].currentFileID,
-                    val: that.overlays[k].histoManager.clim        
-                });
+            $timeCurrent.text(that.nii.timePointDescrip[val] + " (" + val + ")");
+        }
 
-            }
-        }
-        for (var k = 0; k < that.ROIs.length; k++)
-        {
-            var xnii = that.ROIs[k].nii;
-            if (xnii.numTimePoints > 1 && xnii.numTimePoints >= val)
-            {
-                xnii.currentTimePoint.t = val;
-                that.ROIs[k].$timeinput.val(val);
-                signalhandler.send("updateImage", { 
-                    id:  that.ROIs[k].roi.fileID,
-                });
-            }
-        }
+
 
 
         // seems to be simpelst way to initiate all updates
@@ -1227,7 +1512,10 @@ function KMedViewer(viewport, master)
 
     function getWorldPosition()
     {
-        if (worldLockedToMaster & master.globalCoordinates)
+        if (that.isFlatMap)
+            return customPoint;
+
+        if (worldLockedToMaster & KViewer.globalCoordinates)
             return master.currentPoint;
         else
             return customPoint;
@@ -1237,15 +1525,58 @@ function KMedViewer(viewport, master)
 
     function setWorldPosition(p)
     {
-        if (worldLockedToMaster & master.globalCoordinates )
-            master.currentPoint = p;
-        else
-            customPoint = p;
 
+
+        // CONGRU
+        if (KViewer.mainViewport == -1)
+        {
+
+  //          if (KViewer.navigationTool.isinstance && 
+//                (( master.navigationTool.movingObjs[that.currentFileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ))
+            if (isBackgroundMoving() | KViewer.navigationMode == 2 )
+                {
+                    p = math.multiply(math.inv(master.reorientationMatrix.matrix), p);
+                    KViewer.currentPoint = p;
+                } 
+        }
+
+
+        customPoint = p;
+        if (that.isFlatMap)
+        {
+            KViewer.currentPoint = mapFlatMapCoordinate(p)
+            return;
+        }
+        if ( (worldLockedToMaster & KViewer.globalCoordinates) | KViewer.mainViewport != -1)
+        {      
+            KViewer.currentPoint = p;
+        }
+        else
+        {
+
+
+
+        }
     }
     that.setWorldPosition = setWorldPosition;
 
 
+    that.postsetContent = function()
+    {          
+
+    }
+
+
+
+    function mapFlatMapCoordinate(p)
+    {
+        var df = KViewer.atlasTool.invdefField.content
+        var v = math.round(math.multiply(math.inv(df.edges),p)._data);
+        var idx = v[0]+v[1]*df.wid+v[2]*df.widhei;
+        return math.matrix([ df.data[idx+df.widheidep],
+                          df.data[idx+df.widheidep*2],
+                          df.data[idx+df.widheidep*3],1 ]);
+    }
 
 
     var worldLockedToMaster = true;
@@ -1361,6 +1692,7 @@ function KMedViewer(viewport, master)
     haircross.C.$circle = $("<div class='haircrossFocus_new'></div>").appendTo($canvascontainer);
     haircross.C.$circle_center = $("<i class='fa fa-3x fa-refresh'></i>").appendTo(haircross.C.$circle).append($("<i class='fa fa-3x fa-arrows'></i>"));
     haircross.C.$circle_rotIndicator = $("<div class=''></div>").appendTo(haircross.C.$circle);
+    haircross.C.$circle_scaleDot = $("<i class='fa fa-3x fa-circle-o'></i>").appendTo(haircross.C.$circle);
 
     haircross.X.lineN = new KHaircross(); haircross.X.lineN.$main.appendTo($canvascontainer)
     haircross.Y.lineN = new KHaircross(); haircross.Y.lineN.$main.appendTo($canvascontainer);
@@ -1399,9 +1731,14 @@ function KMedViewer(viewport, master)
     // sizes for the canvases
     var csx, csy, voxSize_x, voxSize_y, wid_cm, hei_cm, wid_px, hei_px;
 
+    that.subsample_factor_x = 1;
+    that.subsample_factor_y = 1;
     //    var embedfac_height,embedfac_width;
 
     var sliceData;
+
+    var mip_slab = 5;
+    var avg_slab = 15;
     // =  ctx.createImageData(10, 10);
 
     var currentSlice = 0;
@@ -1437,6 +1774,13 @@ function KMedViewer(viewport, master)
             icontainer.addEventListener("mousewheel", MouseWheelHandler_, false);
         //       var mousewheelevt=(/Firefox/i.test(navigator.userAgent))? "DOMMouseScroll" : "mousewheel" //FF doesn't recognize mousewheel as of FF3.x
         //     icontainer.addEventListener(mousewheelevt,MouseWheelHandler,false);
+        icontainer.addEventListener("mouseleave",function()
+        {
+                    if (KViewer.roiTool.isinstance)
+                        KViewer.roiTool.hidePen(that);
+            
+            }, false);
+
     }
     else
     {
@@ -1469,6 +1813,10 @@ function KMedViewer(viewport, master)
 
     function toggle3D(ev, callback)
     {
+        that.old_hc_pos_x = undefined
+        that.old_hc_pos_y = undefined
+
+        
         if (webgl_detect())
         {
             toolbar.$toggle3D.toggleClass('KViewPort_tool_enabled');
@@ -1504,13 +1852,17 @@ function KMedViewer(viewport, master)
                     gl_enabled = true;
                     that.viewport.progressSpinner();
                     layoutbar.showLayout3D();
-
+                    that.subsample_factor_x = 1;
+                    that.subsample_factor_y = 1;
                     setCanvasLayout();
 
                     if (KViewer.roiTool.isinstance)
                         KViewer.roiTool.hidePen(that);
-                    //resliceOnMaster(); 
+                     
                     $scrollAccelerator.hide();
+                    for (var k = 0; k < that.ROIs[k];k++)
+                        KViewer.roiTool.update3D(that.ROIs[k].roi);
+
                     drawSlice();
                     if (callback)
                         callback();
@@ -1532,10 +1884,45 @@ function KMedViewer(viewport, master)
 
     function toggleSlicingDim(ev)
     {
+
+        
         if (!gl_enabled)
         {
-            setSlicingDimOfWorld('toggle');
             
+            if (that.nii != undefined) // save old crosshair position
+            {
+                var old_hc_pos_x
+                var old_hc_pos_y
+                var x = getCanvasCoordinates(getWorldPosition());
+                var cpos = that.$canvas.offset();
+                cpos.top -= that.$container.offset().top;
+                cpos.left -= that.$container.offset().left;
+                old_hc_pos_x = x.x_pix + cpos.left
+                old_hc_pos_y = x.y_pix + cpos.top
+
+                if (old_hc_pos_x <0 | old_hc_pos_x > that.$container.width()
+                   | old_hc_pos_y <0 | old_hc_pos_y > that.$container.height())
+                {
+                    old_hc_pos_x = that.$container.width()/2;
+                    old_hc_pos_y = that.$container.height()/2;
+                }
+
+                setSlicingDimOfWorld('toggle');
+
+                var coords = getCanvasCoordinates(getWorldPosition());
+                var dy = coords.y_pix+that.heioffs_px*that.zoomFac-old_hc_pos_y
+                var dx = coords.x_pix+that.widoffs_px*that.zoomFac-old_hc_pos_x;
+                setZoomLims([that.zoomFac, dy, dx]);
+
+
+            }
+            else
+              setSlicingDimOfWorld('toggle');
+
+
+
+/*
+
             //// if crosshair is out view,then center view
             var coords = getCanvasCoordinates(getWorldPosition());
             var absy = (that.heioffs_px * that.zoomFac - that.zoomOriginY +coords.y_pix);
@@ -1550,7 +1937,7 @@ function KMedViewer(viewport, master)
                  var dx = coords.x_pix+that.widoffs_px*that.zoomFac-$container.width()/2;
                  setZoomLims([that.zoomFac, undefined,dx]);            
             }
-
+*/
             drawHairCross();
         }
         else
@@ -1569,11 +1956,18 @@ function KMedViewer(viewport, master)
 
         that.toolbar.show();
         that.layoutbar.show();
-        if (gl_enabled)
+        if (gl_enabled)        
+        {
             layoutbar.showLayout3D();
+            signalhandler.send("picto3dmodel_show");            
+        }
         else
             layoutbar.hideLayout3D();
 
+        if (that.mosaicview.active)
+            that.mosaicview.showControls();
+
+        
 
         $timediv.update();
 
@@ -1644,6 +2038,18 @@ function KMedViewer(viewport, master)
             if(whichcontrols.timediv)
                  $timediv.hide();
         }
+        
+        if (that.mosaicview.active)
+            that.mosaicview.hideControls();
+
+       
+        if (gl_enabled)        
+        {
+            layoutbar.showLayout3D();
+        //    signalhandler.send("picto3dmodel_hide");
+
+        }
+
         // why? we do not want to see that
         //layoutbar.showLayout3D();
         
@@ -1659,8 +2065,25 @@ function KMedViewer(viewport, master)
         drawHairCross();
     }
 
+    function close_and_check_unsaved()
+    {
+        var unsaved = unsavedChanges();
+        if (unsaved != "")
+        {
+            alertify.confirm("Are you sure to close this view, there are unsaved " + unsaved + " somewhere!",function(e)
+    		{ 
+                if (e) close();
+            });
+			return;
+        }
+        close();
+    }
+    that.close_and_check_unsaved = close_and_check_unsaved;
+    
     function close()
     {
+        that.$container.css('background','#000000')
+
         toolbar.hide();
 
         $timediv.hide();
@@ -1695,6 +2118,7 @@ function KMedViewer(viewport, master)
         that.currentFilename = undefined;
         that.currentFileinfo = undefined;
         that.content = undefined;
+        that.visible = true;
 
         clearInterval(timerId);
         movieIsPlayed = false;
@@ -1734,13 +2158,23 @@ function KMedViewer(viewport, master)
 
         that.ROIs.splice(0);
 
+        var tmp = that.atlas.slice(0);
+        for (var k = 0; k < tmp.length;k++)
+            tmp[k].close(true);
+         that.atlas.splice(0);
+    
+
         viewport.close();
 
     }
     that.close = close;
 
-
-    toolbar.$screenshot.mousedown(KContextMenu(
+    toolbar.$screenshot.click(function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        screenshot_contextmenu(e);
+    })
+    var screenshot_contextmenu  = (KContextMenu(
     function() {
 
         var $menu = $("<ul class='menu_context'>")
@@ -1786,6 +2220,8 @@ function KMedViewer(viewport, master)
                 }
             }
 
+            updateSubsamplingFactor(true);
+
             var nii = fobj.content;
             var tmp_slW = slicingDimOfWorld;
 
@@ -1829,8 +2265,12 @@ function KMedViewer(viewport, master)
                             fobj.content = prepareMedicalImageData(parse(fobj.buffer), fobj, {});
                             fobj.fileID = 'REN' + (ovlcnt++);
                             fobj.fileinfo.permission = "rwp";
+                            fobj.fileinfo.Tag = "";
                             KViewer.dataManager.setFile(fobj.fileID, fobj);
 
+
+                            updateTag(fobj.fileinfo,[], userinfo.username);
+                            
                             uploadUnregisteredBinary(fobj, {}, that.viewport.progressSpinner, function() {});
 
                         }
@@ -1844,7 +2284,7 @@ function KMedViewer(viewport, master)
         }
 
         if (str == 'normal')
-            toolbar.$screenshot.trigger("click");
+            that.takeScreenshot();
         else if (str != undefined && str.substring(0,6) == "3dview")
         {
 
@@ -1982,7 +2422,7 @@ function KMedViewer(viewport, master)
 
         }
 
-    }, false));
+    }, undefined,false));
 
 
 
@@ -1996,11 +2436,41 @@ function KMedViewer(viewport, master)
     /////////////////////////////////////////////////////////////////////////////////
 
 
-
-
-
-    function center()
+    function setBBox(bbox)
     {
+            if (that.nii == undefined)
+                return;
+        
+            var center = bbox.max.map((x,y) => (x+bbox.min[y])*0.5);   center.push(1)        
+            var wid = kmath.max(bbox.max.map((x,y) => (x-bbox.min[y])))
+            var zfac = that.$container.width()/wid;
+            setZoomLims([zfac]);
+            var coords = getCanvasCoordinates(kmath.matrix(center));
+            var dy = coords.y_pix+that.heioffs_px*that.zoomFac-$container.height()/2;
+            var dx = coords.x_pix+that.widoffs_px*that.zoomFac-$container.width()/2;
+            setZoomLims([that.zoomFac, dy, dx]);
+            setWorldPosition(center);            
+            signalhandler.send('positionChange');
+        
+            drawHairCross();
+
+    }
+    signalhandler.attach("setBBox",setBBox);
+
+
+    function center(e)
+    {
+
+        if (e != undefined && e.viewer)
+        {
+            if (e.viewer.isFlatMap != that.isFlatMap)
+                return;
+
+            if (!(worldLockedToMaster & master.globalCoordinates)
+              & e.viewer != that)
+               return;                   
+        }
+
         if (!gl_enabled && that.nii != undefined)
         {
             var coords = getCanvasCoordinates(getWorldPosition());
@@ -2008,7 +2478,7 @@ function KMedViewer(viewport, master)
             var dx = coords.x_pix+that.widoffs_px*that.zoomFac-$container.width()/2;
             setZoomLims([that.zoomFac, dy, dx]);
             
-            setCanvasLayout();
+         //   setCanvasLayout();
             drawHairCross();
         }
 
@@ -2070,7 +2540,7 @@ function KMedViewer(viewport, master)
         var nii = that.nii;
         if (nii == undefined)
         {
-            return KViewer.defaultFOV_mm;
+            return that.FOV_mm;
         }
         var ext = [nii.sizes[0] * nii.voxSize[0], nii.sizes[1] * nii.voxSize[1], nii.sizes[2] * nii.voxSize[2]];
         var max_extent_perc = Math.max.apply(null , ext);
@@ -2079,7 +2549,11 @@ function KMedViewer(viewport, master)
     that.computeMaxExtentFac = computeMaxExtentFac;
 
 
-
+    function isBackgroundMoving()
+    {
+        return KViewer.isMoving(that.currentFileID)
+    }
+    that.isBackgroundMoving = isBackgroundMoving;
 
 
     function getReorientMat(matrix_on_start, point_on_start)
@@ -2090,37 +2564,44 @@ function KMedViewer(viewport, master)
             point_on_start = [0,0,0,1];
 
 
-        if (master.viewports[master.mainViewport].medViewer == undefined || master.viewports[master.mainViewport].medViewer.nii == undefined)
+        var mv ;
+        if (master.viewports[master.mainViewport] == undefined)
+            mv = KViewer.findMedViewer(function(mv) { return mv.viewport.hasMouse });
+        else
+            mv = master.viewports[master.mainViewport].medViewer;
+
+        if (mv == undefined || mv.nii == undefined)        
             return math.diag([1,1,1,1]);
 
-        var mnii = master.viewports[master.mainViewport].medViewer.nii
+        var mnii = mv.nii
         var edges = mnii.edges;
 
         var sg = -1;
 
-
-        var t = 1;
+        var t0 = 1;
+        var t1 = 1;
+        var t2 = 1;
         if (KViewer.currentTilts_(2, 0).v > 90 | KViewer.currentTilts_(2, 0).v < -90 | 
-            KViewer.currentTilts_(1, 0).v > 90 | KViewer.currentTilts_(1, 0).v < -90 |
-            KViewer.currentTilts_(2, 1).v > 90 | KViewer.currentTilts_(2, 1).v < -90 |
-            KViewer.currentTilts_(0, 0).v > 90 | KViewer.currentTilts_(0, 0).v < -90 |
-            KViewer.currentTilts_(0, 1).v > 90 | KViewer.currentTilts_(0, 1).v < -90 |
+            KViewer.currentTilts_(1, 0).v > 90 | KViewer.currentTilts_(1, 0).v < -90)
+           t0=-1;
+        if (KViewer.currentTilts_(2, 1).v > 90 | KViewer.currentTilts_(2, 1).v < -90 |
+            KViewer.currentTilts_(0, 0).v > 90 | KViewer.currentTilts_(0, 0).v < -90 )
+           t1=-1;
+        if ( KViewer.currentTilts_(0, 1).v > 90 | KViewer.currentTilts_(0, 1).v < -90 |
             KViewer.currentTilts_(1, 1).v > 90 | KViewer.currentTilts_(1, 1).v < -90)
-           t=-1;
-
+           t2=-1;
 
         var xy = sg * Math.sin(-KViewer.currentTilts_(2, 0).v / 180 * Math.PI);
         var xz = sg * Math.sin(-KViewer.currentTilts_(1, 0).v / 180 * Math.PI);
-        // 1er + 0er flipped !!!!
-        var xx = t*Math.sqrt(1 - xy * xy - xz * xz);
+        var xx = t0*Math.sqrt(1 - xy * xy - xz * xz);
 
         var yx = sg * Math.sin(KViewer.currentTilts_(2, 1).v / 180 * Math.PI);
         var yz = sg * Math.sin(-KViewer.currentTilts_(0, 0).v / 180 * Math.PI);
-        var yy = t*Math.sqrt(1 - yx * yx - yz * yz);
+        var yy = t1*Math.sqrt(1 - yx * yx - yz * yz);
 
         var zy = sg * Math.sin(KViewer.currentTilts_(0, 1).v / 180 * Math.PI);
         var zx = sg * Math.sin(KViewer.currentTilts_(1, 1).v / 180 * Math.PI);
-        var zz = t*Math.sqrt(1 - zy * zy - zx * zx);
+        var zz = t2*Math.sqrt(1 - zy * zy - zx * zx);
     
 
         var R = math.transpose(math.matrix([[xx, xy, xz, 0], [yx, yy, yz, 0], [zx, zy, zz, 0], [0, 0, 0, 1]]));
@@ -2153,17 +2634,25 @@ function KMedViewer(viewport, master)
             }
              
 
-            if ( ( (ev.ctrlKey || type == 'rotator') & master.mainViewport === -1) & !ev.shiftKey)
+            if ( ( (ev.ctrlKey || type == 'rotator' || type == 'scale') & master.mainViewport === -1) & !ev.shiftKey)
             {
-                master.toggleMainViewport(that.viewport.viewPortID);
+                if (KViewer.navigationMode == 2)
+                    master.toggleMainViewport(that.viewport.viewPortID);
                 //$.notify("Tilting of image only possible if you choose one viewport as master (m)", "error")
             }
 
-            if ( (ev.ctrlKey || type == 'rotator') & master.mainViewport !== -1) // only in coupled mode tilted views are possible
+            if ( (ev.ctrlKey || type == 'rotator' || type == 'scale') ) // & master.mainViewport !== -1) // only in coupled mode tilted views are possible
             {
+
+
 
                 var matrix_on_start = math.multiply(1, KViewer.reorientationMatrix.matrix);
                 var point_on_start = math.multiply(1, getWorldPosition());
+                var onset_point = getRealWorldCoordinatesFromMouseEvent(ev.clientX, ev.clientY)
+                var dif = [point_on_start._data[0]-onset_point._data[0],
+                           point_on_start._data[1]-onset_point._data[1],
+                           point_on_start._data[2]-onset_point._data[2]];
+                var dif_norm = math.sqrt(dif[0]*dif[0]+dif[1]*dif[1]+dif[2]*dif[2])
 
                 ev.preventDefault();
                 ev.stopPropagation();
@@ -2196,6 +2685,8 @@ function KMedViewer(viewport, master)
                 var rad = 2*(Math.sqrt( haircross.start.dx*haircross.start.dx + haircross.start.dy*haircross.start.dy));
                 haircross.C.$circle_rotIndicator.show().width(rad ).height(rad);
 
+                signalhandler.send("clearMultiOutlines")
+
                 /// mousemove event
                 $container.on("mousemove", moveUnlagger(function(ev) {
 
@@ -2203,33 +2694,7 @@ function KMedViewer(viewport, master)
                     var dx = ev.clientX - haircross.centerPoint.X;
                     var deg2 = -Math.atan2(dy, dx) / Math.PI * 180;
                     
-                    if(1) // new method, more generic)
-                    {
-                        deg2 = deg2 - haircross.start.deg
-                    }
-                    else
-                    {
-                        // find out what was grepped: L / R , Top bottom of haircross. 
-                        // must keep track of start tilt, this indicates whether to swap (abs(angle) > 90 deg)
-                        var dxneg = (haircross.start.dx < 0);
-                        var dyneg = (haircross.start.dy > 0);
-                        var isswapped = (math.abs(haircross.starttilt.Y) > 90);
-
-                        var isrightgrep = dxneg ? isswapped : !isswapped;
-                        var isbottompgrep = dyneg ? isswapped : !isswapped;
-
-                        if (Z.t == "Y" & !isrightgrep)
-                            // left grep
-                            deg2 = deg2 - 180;
-
-                        if (Z.t == "X")
-                        {
-                            deg2 = (deg2 - 90);
-                            if (!isbottompgrep)
-                                // grep at top
-                                deg2 = -(180 - deg2) + 360;
-                        }
-                    }
+                    deg2 = deg2 - haircross.start.deg
 
                     // put to interval -180 ...  180
                     if (deg2 > 180)
@@ -2237,8 +2702,6 @@ function KMedViewer(viewport, master)
                     if (deg2 < -180)
                         deg2 = (deg2 + 360);
                     
-                //    console.log(deg2);
-
 
                     haircross.X.tilt = deg2;
                     haircross.Y.tilt = deg2;
@@ -2258,7 +2721,42 @@ function KMedViewer(viewport, master)
 
                     if (KViewer.navigationMode == 0 | KViewer.navigationMode == 2 )
                     {
-                        KViewer.reorientationMatrix.matrix = getReorientMat(matrix_on_start, point_on_start);
+                        if (type == 'rotator')
+                            KViewer.reorientationMatrix.matrix = getReorientMat(matrix_on_start, point_on_start);
+                        else
+                        {
+
+                            var cp = getRealWorldCoordinatesFromMouseEvent(ev.clientX, ev.clientY,undefined,matrix_on_start)
+                            var d  = [point_on_start._data[0]-cp._data[0],
+                                        point_on_start._data[1]-cp._data[1],
+                                        point_on_start._data[2]-cp._data[2]]
+
+                            var T = [[1,0,0,point_on_start._data[0]],
+                                    [0,1,0,point_on_start._data[1]],
+                                    [0,0,1,point_on_start._data[2]],
+                                    [0,0,0,1]]
+                            var Ti = [[1,0,0,-point_on_start._data[0]],
+                                    [0,1,0,-point_on_start._data[1]],
+                                    [0,0,1,-point_on_start._data[2]],
+                                    [0,0,0,1]]
+
+                            var nd = math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2])
+                            d[0] /= nd; d[1] /= nd; d[2] /= nd;
+                            var a = math.pow(dif_norm/nd,0.2);
+                            var dd = [  [1-(1-a)*d[0]*d[0] ,-(1-a)*d[0]*d[1]   ,-(1-a)*d[0]*d[2], 0],
+                                        [-(1-a)*d[1]*d[0]   ,1-(1-a)*d[1]*d[1] ,-(1-a)*d[1]*d[2], 0],
+                                        [-(1-a)*d[2]*d[0]   ,-(1-a)*d[2]*d[1]   ,1-(1-a)*d[2]*d[2], 0 ],
+                                        [0,0,0,1] ]
+                            var S = math.multiply(T,math.multiply(dd,Ti));
+                                        
+                            KViewer.reorientationMatrix.matrix = math.multiply(S,matrix_on_start);
+
+
+
+
+
+
+                        }
                         KViewer.reorientationMatrix.notID = true;
                     }
 
@@ -2280,8 +2778,10 @@ function KMedViewer(viewport, master)
 
                     if (KViewer.navigationMode == 0 | KViewer.navigationMode == 2 )
                     {
-
-                        KViewer.reorientationMatrix.matrix = getReorientMat(matrix_on_start, point_on_start);
+                        if (type == 'rotator')
+                        {
+                            KViewer.reorientationMatrix.matrix = getReorientMat(matrix_on_start, point_on_start);
+                        }
                         KViewer.currentTilts(0, 0).v = 0;
                         KViewer.currentTilts(0, 1).v = 0;
                         KViewer.currentTilts(1, 0).v = 0;
@@ -2289,11 +2789,11 @@ function KMedViewer(viewport, master)
                         KViewer.currentTilts(2, 0).v = 0;
                         KViewer.currentTilts(2, 1).v = 0;
 
-
+            
                         if (KViewer.mainViewport == 'world') // to update boundix box in worldview
                         {
-                            KViewer.navigationTool.worldMaster();
-                            KViewer.toggleMainViewport('world');
+                        //    KViewer.navigationTool.worldMaster();
+                        //    KViewer.toggleMainViewport('world');
                         }
 
 
@@ -2301,6 +2801,8 @@ function KMedViewer(viewport, master)
                     signalhandler.send("positionChange", {
                         mosaicdraw: true
                     },that.positionChanger);
+
+
 
                 });
             }
@@ -2397,6 +2899,9 @@ function KMedViewer(viewport, master)
     haircrossfocusmousehandler = function() {
         return function(ev)
         {
+
+
+            
 //            if (master.mainViewport !== -1 & ev.ctrlKey ) // only in coupled mode tilted views are possible
             if (ev.ctrlKey ) // only in coupled mode tilted views are possible
             {
@@ -2499,12 +3004,13 @@ function KMedViewer(viewport, master)
     //haircross.C.$circle.on("mousedown", haircrossfocusmousehandler());
     
     haircross.C.$circle.on("mousedown", haircrossmousehandler({}, 'rotator') );
+    haircross.C.$circle_scaleDot.on("mousedown", haircrossmousehandler({}, 'scale') );
     haircross.C.$circle_center.on("mousedown", haircrossfocusmousehandler());
 
     function hairfocus_receive_event()
     {
-        if (!KViewer.MouseInViewport)
-            return;
+      //  if (1) //!KViewer.MouseInViewport)
+       //     return;
         if(markerProxy.currentSet && markerProxy.currentSet.type == 'scribble' && markerProxy.currentSet.state.createonclick)
         {   
             markerProxy.currentSet.markerPanel.toggleModifyScribble(1);
@@ -2600,7 +3106,15 @@ function KMedViewer(viewport, master)
 
             var edges = that.nii.edges;
 
-            var coords = getCanvasCoordinates(getWorldPosition());
+            var wp = getWorldPosition();
+
+            // CONGRU
+            if ((isBackgroundMoving() & KViewer.mainViewport == -1) | (KViewer.navigationMode == 2 & KViewer.mainViewport == -1) ) 
+  //          if (KViewer.navigationTool.isinstance && 
+//                (( master.navigationTool.movingObjs[that.currentFileID] != undefined & KViewer.navigationMode == 0) & KViewer.mainViewport == -1))
+                     wp = math.multiply(master.reorientationMatrix.matrix, wp);
+            
+            var coords = getCanvasCoordinates(wp);
 
             var x = coords.x_pix;
             var y = coords.y_pix;
@@ -2698,7 +3212,7 @@ function KMedViewer(viewport, master)
         {
             var R = getTiltMat(slicingDimOfArray);
             var M;
-            var cacheid = master.reorientationMatrix.matrix._data.toString() + R.toString();
+            var cacheid = master.reorientationMatrix.matrix._data.toString() + R.toString() + that.nii.edges._data.toString();
             if (that.matrixcache.id != cacheid)
             {
                 M = math.multiply(math.inv(R), math.multiply(math.inv(that.nii.edges), math.inv(master.reorientationMatrix.matrix)));
@@ -2762,8 +3276,9 @@ function KMedViewer(viewport, master)
             var x = nv % that.mosaicview.nx;
             var y = Math.floor(nv / that.mosaicview.nx);
 
-            c_norm[0] = (c_norm[0] - 0.5) / (1 - that.mosaicview.clipratio) + 0.5;
-            c_norm[1] = (c_norm[1] - 0.5) / (1 - that.mosaicview.clipratio) + 0.5;
+            var cp =  that.mosaicview.clipratio            
+            c_norm[0] = (c_norm[0] - cp[0])/(cp[2]-cp[0])
+            c_norm[1] = (c_norm[1] - cp[1])/(cp[3]-cp[1])
 
             return {
                 x_pix: (x + c_norm[0]) * that.mosaicview.csx_ * $canvas.width() / ctx.canvas.width,
@@ -2794,11 +3309,10 @@ function KMedViewer(viewport, master)
     }
 
     that.getRealWorldCoordinatesFromMouseEvent = getRealWorldCoordinatesFromMouseEvent;
-    function getRealWorldCoordinatesFromMouseEvent(clientX, clientY, structuredOutput) // calculates the real world coords from pixel coordinates. 
+    function getRealWorldCoordinatesFromMouseEvent(clientX, clientY, structuredOutput,reorientationMatrix) // calculates the real world coords from pixel coordinates. 
     {
         clientY += window.pageYOffset;
         clientX += window.pageXOffset;
-
         // 1/2 pixel correction
         if (swapXY)        
         {
@@ -2829,8 +3343,10 @@ function KMedViewer(viewport, master)
             var vy = Math.floor(Y / wy);
             x_norm = X / wx - vx;
             y_norm = Y / wy - vy;
-            x_norm = (x_norm - 0.5) * (1 - that.mosaicview.clipratio) + 0.5;
-            y_norm = (y_norm - 0.5) * (1 - that.mosaicview.clipratio) + 0.5;
+            
+            var cp =  that.mosaicview.clipratio            
+            x_norm = x_norm*(cp[2]-cp[0]) + cp[0]
+            y_norm = y_norm*(cp[3]-cp[1]) + cp[1]
 
 
             voxelCoordinates[slicingDimOfArray]
@@ -2862,21 +3378,17 @@ function KMedViewer(viewport, master)
         else
             pi = [0, 1, 2];
 
-        if (x_norm)
-        {
-            voxelCoordinates[pi[0]] = (that.nii.arrayReadDirection[pi[0]] == 1) ? ((1 - x_norm - offX) * that.nii.sizes[pi[0]]) : ((x_norm - offX) * that.nii.sizes[pi[0]]) ;
-        }
-        if (y_norm)
-        {
-            voxelCoordinates[pi[1]] = (that.nii.arrayReadDirection[pi[1]] == 1) ? ((1 - y_norm - offY) * that.nii.sizes[pi[1]]) : ((y_norm - offY) * that.nii.sizes[pi[1]]);
-        }
+        voxelCoordinates[pi[0]] = (that.nii.arrayReadDirection[pi[0]] == 1) ? ((1 - x_norm - offX) * that.nii.sizes[pi[0]]) : ((x_norm - offX) * that.nii.sizes[pi[0]]) ;
+        voxelCoordinates[pi[1]] = (that.nii.arrayReadDirection[pi[1]] == 1) ? ((1 - y_norm - offY) * that.nii.sizes[pi[1]]) : ((y_norm - offY) * that.nii.sizes[pi[1]]);
 
         var realWorldCoordinates;
         if (master.mainViewport !== -1)
         {
+            if (reorientationMatrix == undefined)
+              reorientationMatrix = master.reorientationMatrix.matrix
             var R =  (getTiltMat(slicingDimOfArray));
             realWorldCoordinates = math.multiply(that.nii.edges, math.multiply(R, voxelCoordinates));
-            realWorldCoordinates = math.multiply(master.reorientationMatrix.matrix, realWorldCoordinates);
+            realWorldCoordinates = math.multiply(reorientationMatrix, realWorldCoordinates);
         }
         else
         {
@@ -2942,6 +3454,9 @@ function KMedViewer(viewport, master)
         histoman.gamma = 1;
         histoman.blending = true;
         histoman.posnegsym = false;
+        histoman.dither = 0;
+        histoman.slab_projection_type = "mip";
+        histoman.slab = 0;
         histoman.blocky = false;
         histoman.cmapindex = 0;
         histoman.onclimchange = undefined;
@@ -2951,14 +3466,55 @@ function KMedViewer(viewport, master)
         histoman.getManuallyEnteredClim = function(force)
         {
             if (force | histoman.clim_manually_modified)
-                return [parseFloat(histoman.clim[0].toFixed(2)), parseFloat(histoman.clim[1].toFixed(2))];
+            {
+                var clim0 = histoman.nii.datascaling.e(histoman.clim[0])
+                var clim1 = histoman.nii.datascaling.e(histoman.clim[1])                
+                return [clim0,clim1];
+            }
             else
                 return undefined;
         }
 
 
+        histoman.whichSettings = ["cmapindex","blocky","blending","dither","gamma","posnegsym","clim","transfactor"]
+        histoman.saveSettings = function()
+        {
+            if (KMedViewer.histoSettings == undefined)
+                KMedViewer.histoSettings = {};
+            
+            var settings = KMedViewer.histoSettings;
+            
+            var id = histoman.parentviewbar.currentFileID + histoman.parentviewbar.type;
+            settings[id] = {}
+            for (var k in histoman.whichSettings)
+                {
+                    var fname = histoman.whichSettings[k]
+                    settings[id][fname] = histoman[fname]
+                }
+        }
+        
+        histoman.loadSettings = function(imageStruct)
+        {
+            if (KMedViewer.histoSettings == undefined)
+                KMedViewer.histoSettings = {};
+            
+            var settings = KMedViewer.histoSettings;
+            var id = histoman.parentviewbar.currentFileID + histoman.parentviewbar.type;
+
+            if (settings[id] != undefined)
+            {
+                for (var k in histoman.whichSettings)
+                {
+                    var fname = histoman.whichSettings[k]
+                    histoman[fname] = settings[id][fname];
+                }                
+            }
+            
+        }
+
         var $histogramdiv = $("<div class='histogram'><div class='histoname'><div></div></div><svg height=40 width=120>" +
-        " <polygon points='' style='fill:yellow;stroke:purple;stroke-width:1' />sdkldk</svg></div>")
+        " <polygon points='' style='fill:yellow;stroke:purple;stroke-width:1' />   "+
+        " <line stroke='black'/>  </svg></div>")
 
         var $histoname = $($histogramdiv.find(".histoname").children()[0]);
         if ($topRow.find(".histogram").length > 0)
@@ -2999,7 +3555,7 @@ function KMedViewer(viewport, master)
         function() {
             var $menu = $("<ul class='menu_context small'>");
             $menu.append($("<hr width='100%'> "));
-            if (!histoman.parentviewbar.showcolored)
+            if ((!histoman.parentviewbar.showcolored | histoman.parentviewbar.showcolored_type == "SOS"))
             {
                 $menu.append($("<span> &nbsp Colormapping  </span>"));
                 $menu.append($("<hr width='100%'> "));
@@ -3015,7 +3571,7 @@ function KMedViewer(viewport, master)
             $menu.append($("<hr>"));
             }
 
-             if (histoman.parentviewbar.nii.sizes[3]%3 == 0)
+             if (histoman.parentviewbar.nii && histoman.parentviewbar.nii.sizes[3]%3 == 0)
             {
                 var sel = histoman.parentviewbar.showcolored ? 'check-' : '';
                 var type = histoman.parentviewbar.showcolored_type;
@@ -3025,10 +3581,33 @@ function KMedViewer(viewport, master)
                 "<li onchoice='type_rgbinterpret_RGB' > RGB <i onchoice='lock' class='fa fa-"+((type=="RGB") ? 'check-' : '')+"circle-o'></i> </li>" +
                 "<li onchoice='type_rgbinterpret_BRG' > BRG <i onchoice='lock' class='fa fa-"+((type=="BRG") ? 'check-' : '')+"circle-o'></i> </li>" +
                 "<li onchoice='type_rgbinterpret_GBR' > GBR <i onchoice='lock' class='fa fa-"+((type=="GBR") ? 'check-' : '')+"circle-o'></i> </li>" +
-                "<li onchoice='type_rgbinterpret_GRB' > GRB <i onchoice='lock' class='fa fa-"+((type=="GRB") ? 'check-' : '')+"circle-o'></i> </li>"));
+                "<li onchoice='type_rgbinterpret_GRB' > GRB <i onchoice='lock' class='fa fa-"+((type=="GRB") ? 'check-' : '')+"circle-o'></i> </li>" +
+                "<li onchoice='type_rgbinterpret_SOS' > SOS <i onchoice='lock' class='fa fa-"+((type=="SOS") ? 'check-' : '')+"circle-o'></i> </li>"));
 
             }
 
+
+            var clim0 = histoman.nii.datascaling.e(histoman.clim[0])
+            var clim1 = histoman.nii.datascaling.e(histoman.clim[1])
+
+
+            var step = (clim1-clim0)/50;
+            var $clim_L = $("<input class='inputclim_contextmenu' onchoice='preventSelection' type='number' step='"+step+"'>").val(clim0).
+                     on('change', function(ev) {
+                            var $input = $(ev.target);
+                            histoman.clim[0] = histoman.nii.datascaling.ie($input.val());
+                            histoman.onclimchange(ev);
+                   });
+            var $clim_R = $("<input  class='inputclim_contextmenu' onchoice='preventSelection' type='number' step='"+step+"'>").val(clim1).
+                     on('change', function(ev) {
+                            var $input = $(ev.target);
+                            histoman.clim[1] = histoman.nii.datascaling.ie($input.val());
+                            histoman.onclimchange(ev);                
+                   });
+            $menu.append($("<li  onchoice='preventSelection'> col. limits: </li>").append($clim_L).append($clim_R));
+            
+
+            $menu.append($("<hr width='100%'> "));
 
             if (histoman.blending != undefined)
             {
@@ -3046,6 +3625,8 @@ function KMedViewer(viewport, master)
                               that.drawSlice({
                             mosaicdraw: true
                             });
+                            histoman.saveSettings();
+                                 
                            });
                     $menu.append($("<li  onchoice='preventSelection'> opacity: </li>").append($factor));
 
@@ -3061,6 +3642,22 @@ function KMedViewer(viewport, master)
                     $menu.append($("<li onchoice='noposnegsym' > For Z/T-values  <i class='fa fa-check-square-o'></i> </li>"));
             }
 
+            if (histoman.dither != undefined)
+            {
+    
+               var $dither = $("<input onchoice='preventSelection' type='number' step='0.02' min='0' max='1'>").val(histoman.dither).
+                     on('change', function(ev) {
+                    var $input = $(ev.target);
+                    histoman.dither = $input.val();
+                      that.drawSlice({
+                    mosaicdraw: true
+                    });
+                    histoman.saveSettings();
+                   });
+               $menu.append($("<li  onchoice='preventSelection'> dither: </li>").append($dither));
+
+            }
+
             
             var $gamma = $("<input onchoice='preventSelection' type='number' step='0.05' min='0' max='10'>").val(histoman.gamma).
                      on('change', function(ev) {
@@ -3069,10 +3666,39 @@ function KMedViewer(viewport, master)
                       that.drawSlice({
                     mosaicdraw: true
                     });
+                    histoman.saveSettings();
+                         
                    });
-              $menu.append($("<li  onchoice='preventSelection'> gamma: </li>").append($gamma));
+            $menu.append($("<li  onchoice='preventSelection'> gamma: </li>").append($gamma));
 
-
+            if (histoman.parentviewbar.type == "mainview")
+            {
+                var $slabopt = $(" <span>&nbsp&nbsp avg:</span><input onchoice='preventSelection' type='checkbox'>").
+                         on('change', function(ev) {
+                         var $input = $(ev.target);
+                         if ($input[0].checked)
+                             histoman.slab_projection_type = "avg"
+                         else
+                             histoman.slab_projection_type = "mip"                         
+                         that.drawSlice({  mosaicdraw: true    });
+                         histoman.saveSettings();
+                            
+                       });
+                
+                if (histoman.slab_projection_type == "avg")
+                    $slabopt[1].checked = 1;
+                var $slab = $("<input onchoice='preventSelection' type='number' step='1' min='0' max='20'>").val(histoman.slab).
+                         on('change', function(ev) {
+                        var $input = $(ev.target);
+                        histoman.slab = $input.val();
+                          that.drawSlice({
+                          mosaicdraw: true
+                        });
+                        histoman.saveSettings();
+                             
+                       });
+                $menu.append($("<li  onchoice='preventSelection'> slab size: </li>").append($slab).append($slabopt));
+            }
             if (histoman.blocky != undefined)
             {
                 if (histoman.blocky)
@@ -3080,6 +3706,8 @@ function KMedViewer(viewport, master)
                 else
                     $menu.append($("<li onchoice='noblocky' > Trilinear interpolation <i class='fa fa-check-square-o'></i> </li>"));
             }
+
+
 
 
             $menu.append($("<hr width='100%'> "));
@@ -3160,7 +3788,9 @@ function KMedViewer(viewport, master)
                             histoman.setCmap(parseInt(str));
 
                     }
-                    if (histoman.oncmapchange)
+                    histoman.saveSettings();
+                    
+                    if (!ev.shiftKey & histoman.oncmapchange != undefined)
                         histoman.oncmapchange();
                 }
                 that.drawSlice({
@@ -3429,18 +4059,22 @@ function KMedViewer(viewport, master)
 
         function setCmap(cmap)
         {
-            if (typeof (cmap) == "string")
+            if (typeof (cmap) == "string" | cmap >=100) 
             {
-                if (cmap.substring(0,3) == "uni")
+                if (typeof (cmap) == "string" && cmap.substring(0,3) == "uni")
                 {
-                    histoman.cmapindex = 100 + parseInt(cmap.substring(3));  
+                    histoman.parentviewbar.color = parseInt(cmap.substring(3));  
+                    histoman.cmapindex = 100 + histoman.parentviewbar.color                    
                     histoman.mode = 0;                 
                     updateHistogramClim();
                     return;
 
                 }
                 else
+                {
+                    histoman.parentviewbar.color = cmap-100;
                     cmap = colormap.mapIndex(cmap);
+                }
 
             }
 
@@ -3705,6 +4339,19 @@ function KMedViewer(viewport, master)
                     var histoheight = $histogramdiv.height();
                     var histowidth = $histogramdiv.width();
 
+                    var $line = $histogramdiv.find("line");
+                    if (histoman.nii.histogram.min < 0 & histoman.nii.histogram.max > 0)
+                    {
+                        var x = -histoman.nii.histogram.min/(histoman.nii.histogram.max-histoman.nii.histogram.min)
+                        $line.attr("x1",histowidth*x)
+                        $line.attr("x2",histowidth*x)
+                        $line.attr("y1",0)
+                        $line.attr("y2",histoheight)                        
+                        $line.show()
+                        
+                    }
+                    else
+                        $line.hide()
                     var $poly = $histogramdiv.find("polygon");
                     var pstr = "";
                     if( histoman.nii.histogram.accus.maxfreq )
@@ -3798,12 +4445,13 @@ function KMedViewer(viewport, master)
 
     mouseManager.mouseleave_default = function(ev)
     {
-        KViewer.MouseInViewport = false;
+        if (!ev.ctrlKey)
+            KViewer.MouseInViewport = false;
 
         // roi Tool painter will take care to hide circle
         if (that.currentROI != undefined)
         {
-            master.roiTool.hidePen(that);
+            //master.roiTool.hidePen(that);
             if(master.roiTool.livepreview)
             {
                 ROIpreviewUpdate();
@@ -3817,11 +4465,12 @@ function KMedViewer(viewport, master)
     {
         if (!$(ev.target).hasClass('KViewPort_canvas') &&  KViewer.MouseInViewport)
         {
-             mouseManager.mouseleave_default();
+             mouseManager.mouseleave_default(ev);
              return;
         }
-
+        
         KViewer.MouseInViewport = true;
+        KViewer.lastHoveredViewport = that;
 
         if (that.currentROI != undefined && !that.isGLenabled() )
         {
@@ -3836,12 +4485,19 @@ function KMedViewer(viewport, master)
                             ROIpreviewUpdate();
                         master.roiTool.modifyRoi(ev, that,function(changedPoints){                    
 
-                            signalhandler.send("updateImage",{id:that.currentROI.fileID,no3d:true,lazy:false},that.imageupdater);
-                            ROIpreviewUpdate.tobecleaned = true;
-                            master.roiTool.lastPreviewPoints = changedPoints;
-                            //ROIpreviewUpdate();
-                         
-                        });
+                                if (!that.viewport.hasMouse)
+                                {
+                                    master.roiTool.lastPreviewPoints = changedPoints;                                    
+                                    ROIpreviewUpdate();
+                                    signalhandler.send("updateImage",{id:that.currentROI.fileID,no3d:true,lazy:false},that.imageupdater);                                    
+                                }
+                                else
+                                {
+                                    signalhandler.send("updateImage",{id:that.currentROI.fileID,no3d:true,lazy:false},that.imageupdater);
+                                    ROIpreviewUpdate.tobecleaned = true;
+                                    master.roiTool.lastPreviewPoints = changedPoints;                               
+                                }
+                            });
                     }
                 }
                 else
@@ -3858,6 +4514,18 @@ function KMedViewer(viewport, master)
         }
     });
 
+
+    function IsMarkerOnClickCreate(ev)
+    {
+        return (!ev.shiftKey && !ev.ctrlKey && 
+                            markerProxy && 
+                            markerProxy.currentSet && 
+                            markerProxy.currentSet.state.createonclick && 
+                            markerProxy.currentSet.state.visible  &&
+                            !markerProxy.currentSet.state.locked)
+    }
+
+
     mouseManager.mousedown = function(ev)
     {
         if (KViewer.on_viewport_resizing)
@@ -3872,17 +4540,16 @@ function KMedViewer(viewport, master)
             mouseManager.whichbutton = ev.button;
             mouseManager.whichbuttons = ev.buttons;
 
-            var markerOnClickCreate = (!ev.shiftKey && !ev.ctrlKey && markerProxy && markerProxy.currentSet && markerProxy.currentSet.state.createonclick && markerProxy.currentSet.state.visible )
+            var markerOnClickCreate =IsMarkerOnClickCreate(ev)
 
 
-
-            if (!markerOnClickCreate & that.currentROI != undefined & !ev.ctrlKey & !ev.shiftKey)
+            if (!markerOnClickCreate & that.currentROI != undefined &  !ev.shiftKey & !ev.altKey)
             {
                 ROIpreviewUpdate();
                 master.roiTool.history.record('startRecording', that);
                 master.roiTool.modifyRoi(ev, that,function()
                 {
-                    signalhandler.send("updateImage",{id:that.currentROI.fileID},that.imageupdater);
+                    signalhandler.send("updateImage",{id:that.currentROI.fileID,roidraw:true},that.imageupdater);
                 });
             }
             else if ((ev.button == 0 & !ev.ctrlKey & !ev.shiftKey) | (ev.button == 0 && that.currentROI != undefined && (ev.shiftKey||ev.ctrlKey)))
@@ -3895,15 +4562,21 @@ function KMedViewer(viewport, master)
                 {
                     signalhandler.send("updateImage",{id:that.currentROI.fileID},that.imageupdater);
                     ROIpreviewUpdate();
-                }                
+                }             
+
+// ERDO                   
                 var voxelCoordinates = rwc.voxelCoordinates;
-                if( voxelCoordinates[slicingDimOfArray] < 0 |  voxelCoordinates[slicingDimOfArray] >  that.nii.sizes[slicingDimOfArray])
+                if( voxelCoordinates[slicingDimOfArray] < 0 |  voxelCoordinates[slicingDimOfArray] >  that.nii.sizes[slicingDimOfArray]-0.50001)
                 {
                     voxelCoordinates[slicingDimOfArray] = that.nii.centerVoxel._data[slicingDimOfArray];
                     var realWorldCoordinates = (math.multiply((that.nii.edges), voxelCoordinates));
                     if (master.mainViewport !== -1)
                     {
                         realWorldCoordinates = math.multiply(master.reorientationMatrix.matrix, realWorldCoordinates);
+                    }
+                    else
+                    {
+                        
                     }
                 }
                 else
@@ -3912,10 +4585,15 @@ function KMedViewer(viewport, master)
 
                 }
                 setWorldPosition( realWorldCoordinates );
+                
                 /*************/
+                signalhandler.send("positionChange",{respectSliceChange: that.atlas.length==0},that.positionChanger);
+                
+                if (KViewer.atlasTool != undefined && KViewer.atlasTool.isinstance)
+                     KViewer.atlasTool.updatePoint();
+                signalhandler.send("labelChange")
 
                 //setWorldPosition(getRealWorldCoordinatesFromMouseEvent(ev.clientX, ev.clientY));
-                signalhandler.send("positionChange",{respectSliceChange: that.atlas.length==0},that.positionChanger);
             } // right click 
             if (ev.button == 2 && that.currentROI == undefined)
             {
@@ -3945,8 +4623,6 @@ function KMedViewer(viewport, master)
                 }
             }
 
-            if (KViewer.atlasTool != undefined && KViewer.atlasTool.isinstance)
-                KViewer.atlasTool.updatePoint();
 
             if (ev.button == 0 & ev.ctrlKey & ev.shiftKey & that.nii.sizes[3] > 1)
             {
@@ -3958,12 +4634,14 @@ function KMedViewer(viewport, master)
             {
                 if(KViewer.markerTool.enabled != 0  || ( markerProxy.currentSet.markerPanel &&  markerProxy.currentSet.markerPanel.panelvisible ) )
                 { 
-                    markerProxy.setDraggedPoint(  markerProxy.createMarker(ev, markerProxy.currentSet, that ), true );
+                    if (markerProxy.currentSet.type != "electrode" && !markerProxy.currentSet.state.locked)                
+                        markerProxy.setDraggedPoint(  markerProxy.createMarker(ev, markerProxy.currentSet, that ), true );
                 }
             }
 
-            $(document).on("mousemove", mouseManager.mousemove);
-            $(document).on("mouseup mouseleave", mouseManager.mouseup);
+            $(document).off("mousemove pointermove");
+            $(document).on("pointermove", mouseManager.mousemove);
+            $(document).on("pointerup mouseleave", mouseManager.mouseup);
 
             mouseManager.didMove = false;
             mouseManager.shift = ev.shiftKey;
@@ -3983,6 +4661,10 @@ function KMedViewer(viewport, master)
             mouseManager.referenceZoomOriginY = function() {
                 return that.zoomOriginY
             }();
+
+            if (KViewer.atlasTool != undefined && KViewer.atlasTool.isinstance)
+                KViewer.atlasTool.updatePoint()
+
         }
   
   
@@ -3998,24 +4680,31 @@ function KMedViewer(viewport, master)
 
         }
        
-        var markerOnClickCreate = (!ev.shiftKey && !ev.ctrlKey && markerProxy && markerProxy.currentSet && markerProxy.currentSet.state.createonclick && markerProxy.currentSet.state.visible )
+        var markerOnClickCreate =IsMarkerOnClickCreate(ev)
 
         mouseManager.didMove = true;
         ev.preventDefault();
         var stretchFacX = -(mouseManager.lasteClickedPoint[0] - ev.clientX);
         var stretchFacY = (mouseManager.lasteClickedPoint[1] - ev.clientY);
         var increment = [mouseManager.lasteMovedPoint[0] - ev.clientX, mouseManager.lasteMovedPoint[1] - ev.clientY];
-        if (stretchFacX % 3 == 0 || stretchFacY % 3 == 0)
-        {
 
-            if (!markerOnClickCreate && master.roiTool.isinstance && master.roiTool.penEnabled & that.currentROI != undefined & !ev.ctrlKey & !ev.shiftKey)
+        var roi_painting = (!markerOnClickCreate && master.roiTool.isinstance && master.roiTool.penEnabled & that.currentROI != undefined);
+        if (1) //stretchFacX % 3 == 0 || stretchFacY % 3 == 0)
+        {
+            if (roi_painting  & !ev.shiftKey & !ev.altKey)
             {
+
                 master.roiTool.drawPen(ev, that);
                 master.roiTool.modifyRoi(ev, that,function(){
-                    signalhandler.send("updateImage",{id:that.currentROI.fileID,frommove:true},that.imageupdater);
+                    signalhandler.send("updateImage",{id:that.currentROI.fileID,frommove:true,roidraw:true},that.imageupdater);
                 });
 
                 return;
+            }
+            else if (!markerOnClickCreate && master.roiTool.isinstance & !ev.ctrlKey & !ev.shiftKey & ev.altKey)
+            {
+                ev.myScrollAmount = -increment[0];
+                master.roiTool.pensizechange(ev, "radius", that);
             }
 
             if (mouseManager.whichbutton == 2) // right click 
@@ -4095,11 +4784,11 @@ function KMedViewer(viewport, master)
 
             }
 
-            if (mouseManager.whichbutton == 2 & !ev.ctrlKey & !ev.shiftKey)
+            if (mouseManager.whichbutton == 2 & !ev.ctrlKey & ev.shiftKey)
             {
                 var dy = mouseManager.referenceZoomOriginY + stretchFacY;
                 var dx = mouseManager.referenceZoomOriginX - stretchFacX;
-                if (worldLockedToMaster & master.globalCoordinates)                    
+                if (worldLockedToMaster & master.globalCoordinates & !that.isFlatMap)                    
                 {
                     signalhandler.send("setZoomLimsRelative", {
                         zoomfac: that.zoomFac,
@@ -4113,18 +4802,34 @@ function KMedViewer(viewport, master)
                 }
             }
 
-            if (mouseManager.whichbutton == 2 & !ev.ctrlKey & ev.shiftKey)
+            if (mouseManager.whichbutton == 2 & !ev.ctrlKey & !ev.shiftKey)
             {
-                
-                var dy = mouseManager.referenceZoomOriginY + stretchFacY;
-                var dx = mouseManager.referenceZoomOriginX - stretchFacX;
-                setZoomLims([that.zoomFac, dy, dx]);
+                if (that.mosaicview.active)
+                {              
+                    var sbox =  that.mosaicview.clipratio;
+                    var cpos =  getCanvasCoordinates(getWorldPosition());
+                    var dx = increment[0]/that.wid_px;
+                    var dy = increment[1]/that.hei_px;
+                    sbox[0] = sbox[0]+dx;
+                    sbox[2] = sbox[2]+dx;
+                    sbox[1] = sbox[1]+dy;
+                    sbox[3] = sbox[3]+dy;
+                    that.mosaicview.clipratio = sbox;                
+                    setCanvasLayout();
+                    drawHairCross();                    
+                }
+                else
+                {
+                    var dy = mouseManager.referenceZoomOriginY + stretchFacY;
+                    var dx = mouseManager.referenceZoomOriginX - stretchFacX;
+                    setZoomLims([that.zoomFac, dy, dx]);
+                }
             }
 
             if (mouseManager.whichbutton == 0) // pan all images
             {
 
-                if (ev.ctrlKey & !ev.shiftKey)
+                if (!roi_painting & ev.ctrlKey & !ev.shiftKey)
                 {
                     var dy = mouseManager.referenceZoomOriginY + stretchFacY;
                     var dx = mouseManager.referenceZoomOriginX - stretchFacX;
@@ -4164,7 +4869,16 @@ function KMedViewer(viewport, master)
                 else // move haircross
                 {
                     setWorldPosition(getRealWorldCoordinatesFromMouseEvent(ev.clientX, ev.clientY));
+
+                    
+
                     signalhandler.send("positionChange",{respectSliceChange:that.atlas.length==0},that.positionChanger);
+
+
+                    if (KViewer.atlasTool != undefined && KViewer.atlasTool.isinstance)
+                        KViewer.atlasTool.updatePoint();
+                    signalhandler.send("labelChange")
+    
 
                     if (markerProxy && markerProxy.draggedPoint !=undefined)
                     {
@@ -4182,8 +4896,11 @@ function KMedViewer(viewport, master)
     });
 
 
+    
     mouseManager.mouseup = function(ev, resetHandlersOnly)
     {
+
+        
         if (mouseManager.cid_roipicker != undefined)
         {
             clearTimeout(mouseManager.cid_roipicker)
@@ -4191,11 +4908,10 @@ function KMedViewer(viewport, master)
         }
 
 
-        $(document).off("mousemove mouseup mouseleave");
-        $(mouseManager.dom).off('mousemove mouseup mouseleave');
+        $(document).off("pointermove mousemove pointerup pointerleave mouseleave");
+        $(mouseManager.dom).off('pointermove mousemove pointerup pointerleave  mouseleave');
         $(mouseManager.dom).on('mousemove',mouseManager.mousemove_default);
-        $(mouseManager.dom).on('mouseleave', mouseManager.mouseleave_default);
-
+        $(mouseManager.dom).on('pointerleave', mouseManager.mouseleave_default);
         createTSeriesPinViewer('close');
         
         if(resetHandlersOnly)
@@ -4206,18 +4922,19 @@ function KMedViewer(viewport, master)
               KViewer.roiTool.contextPicker(ev,that)
         }            
         else 
-        if (that.currentROI != undefined & !ev.ctrlKey & !ev.shiftKey)
+        if (that.currentROI != undefined & !ev.shiftKey & !ev.altKey)
         {
             ev.buttons = mouseManager.whichbuttons;
             
             master.roiTool.modifyRoi(ev, that,function()
             {
-                KViewer.roiTool.update3D(that.currentROI)
+             //   KViewer.roiTool.update3D(that.currentROI)
                 signalhandler.send("updateImage",{id:that.currentROI.fileID},that.imageupdater);
             });
         }
         else
-        if ((mouseManager.whichbutton == 0 | (mouseManager.whichbutton == 2 && master.roiTool.isinstance && master.roiTool.enabled && master.roiTool.penEnabled)) & !ev.shiftKey & !ev.ctrlKey)
+       // if ((mouseManager.whichbutton == 0 | (mouseManager.whichbutton == 2 && master.roiTool.isinstance && master.roiTool.enabled && master.roiTool.penEnabled)) & !ev.shiftKey & !ev.ctrlKey)
+        if (mouseManager.whichbutton == 0 & !ev.shiftKey & !ev.ctrlKey)
             if (mouseManager.didMove)
             {
                 setWorldPosition(getRealWorldCoordinatesFromMouseEvent(ev.clientX, ev.clientY));
@@ -4235,6 +4952,7 @@ function KMedViewer(viewport, master)
 
         }
 
+
     }
 
 
@@ -4244,9 +4962,9 @@ function KMedViewer(viewport, master)
     $(mouseManager.dom).on('contextmenu', function() {
         return false;
     });
-    $(mouseManager.dom).on('mousedown', mouseManager.mousedown);
+    $(mouseManager.dom).on('pointerdown', mouseManager.mousedown);
     $(mouseManager.dom).on('mousemove', mouseManager.mousemove_default);
-    $(mouseManager.dom).on('mouseleave', mouseManager.mouseleave_default);
+    $(mouseManager.dom).on('pointerleave', mouseManager.mouseleave_default);
 
     function containerWidth()
     {
@@ -4266,88 +4984,92 @@ function KMedViewer(viewport, master)
 
     function setZoom(fac)
     {
-        if (that.nii == undefined)
+        if (that.nii == undefined | gl_enabled)
             return;
-        if (!gl_enabled)
-        {
 
-            var coords = getCanvasCoordinates(getWorldPosition());
-            var cx = coords.x_pix+math.round(that.widoffs_px * that.zoomFac - that.zoomOriginX);
-            var cy = coords.y_pix+math.round(that.heioffs_px * that.zoomFac - that.zoomOriginY);
-  
-            that.zoomFac = fac * that.zoomFac;
+        var coords = getCanvasCoordinates(getWorldPosition());
+        var cx = coords.x_pix+math.round(that.widoffs_px * that.zoomFac - that.zoomOriginX);
+        var cy = coords.y_pix+math.round(that.heioffs_px * that.zoomFac - that.zoomOriginY);
 
-            that.zoomOriginY = (that.zoomOriginY + cy) * fac - cy;
-            that.zoomOriginX = (that.zoomOriginX + cx) * fac - cx;
-            setGlobalZoomsLims();
+        that.zoomFac = fac * that.zoomFac;
 
- 
-            setCanvasContainerPos();
-            drawHairCross();
-
-            renderOutlines("draw")
+        that.zoomOriginY = (that.zoomOriginY + cy) * fac - cy;
+        that.zoomOriginX = (that.zoomOriginX + cx) * fac - cx;
+        setGlobalZoomsLims();
 
 
-            if (that.largeContent() | (that.lastPaint_lowres &&  !that.useLowres()  ))
-                drawSlice();
+        setCanvasContainerPos();
+        drawHairCross();
 
-            that.lastPaint_lowres = that.useLowres();
+        renderOutlines("draw")
+        for (var k = 0; k < that.atlas.length;k++)
+            that.atlas[k].clearMultiOutlines()
 
-
-        }
     }
-    signalhandler.attach("setZoom", setZoom);
+    signalhandler.attach("setZoom", function(fac){
+        if (!that.isFlatMap)
+            setZoom(fac)
+    });
 
     function setZoomLimsRelative(zl)
     {
-        if (!gl_enabled)
+
+        if (that.nii == undefined | gl_enabled)
+            return;
+
+        var mapdelta = zl.delta;
+        if (slicingDimOfWorld != zl.sender)
         {
-            var mapdelta = zl.delta;
-            if (slicingDimOfWorld != zl.sender)
+            if (zl.sender == 0)
             {
-                if (zl.sender == 0)
-                {
-                    if (slicingDimOfWorld == 1)
-                        mapdelta = [0, zl.delta[1]];
-                    else
-                        mapdelta = [0, 0];
-                }
-                if (zl.sender == 1)
-                {
-                    if (slicingDimOfWorld == 2)
-                        mapdelta = [zl.delta[0], 0];
-                    else
-                        mapdelta = [0, zl.delta[1]];
-                }
-                if (zl.sender == 2)
-                {
-                    if (slicingDimOfWorld == 1)
-                        mapdelta = [zl.delta[0], 0];
-                    else
-                        mapdelta = [0, 0];
-                }
+                if (slicingDimOfWorld == 1)
+                    mapdelta = [0, zl.delta[1]];
+                else
+                    mapdelta = [0, 0];
             }
-
-
-            that.zoomFac = zl.zoomfac;
-            that.zoomOriginX = that.zoomOriginX + mapdelta[0];
-            that.zoomOriginY = that.zoomOriginY + mapdelta[1];
-            setGlobalZoomsLims();
-
-            setCanvasContainerPos();
-            drawHairCross();
-
-
-            if (that.largeContent())
-                drawSlice();            
+            if (zl.sender == 1)
+            {
+                if (slicingDimOfWorld == 2)
+                    mapdelta = [zl.delta[0], 0];
+                else
+                    mapdelta = [0, zl.delta[1]];
+            }
+            if (zl.sender == 2)
+            {
+                if (slicingDimOfWorld == 1)
+                    mapdelta = [zl.delta[0], 0];
+                else
+                    mapdelta = [0, 0];
+            }
         }
+
+
+        that.zoomFac = zl.zoomfac;
+        that.zoomOriginX = that.zoomOriginX + mapdelta[0];
+        that.zoomOriginY = that.zoomOriginY + mapdelta[1];
+        setGlobalZoomsLims();
+
+        setCanvasContainerPos();
+        drawHairCross();
+
+
+        if (that.largeContent())
+            drawSlice();            
     }
-    signalhandler.attach("setZoomLimsRelative", setZoomLimsRelative);
+    signalhandler.attach("setZoomLimsRelative",
+    function(e)
+    {
+        if (!that.isFlatMap)
+            setZoomLimsRelative(e);
+
+    });
 
 
     function setGlobalZoomsLims()
     {
-        master.zoomLims[slicingDimOfWorld] = [that.zoomFac, that.zoomOriginY, that.zoomOriginX];
+        for (var k = 0; k < 3;k++)
+            master.zoomLims[k] = [that.zoomFac, that.zoomOriginY, that.zoomOriginX];
+//        master.zoomLims[slicingDimOfWorld] = [that.zoomFac, that.zoomOriginY, that.zoomOriginX];
     }
 
     function largeContent()
@@ -4369,33 +5091,34 @@ function KMedViewer(viewport, master)
     }
     that.largeContent = largeContent;
 
-    function useLowres()
-    {   
-        if (that.nii.datatype == 'rgb24' || that.isGLenabled())
-            return false;     
-        else
-            return that.$canvas.width()/csx < 1.2;
-    }
-    that.useLowres = useLowres;
-
-
     function setZoomLims(zl,local)
     {
-        if (!gl_enabled)
+        if ((gl_enabled | that.nii == undefined) && zl != "reset")
+            return;
+        
+        if (zl == "reset")
         {
-            that.zoomFac = zl[0];
-            if (zl[1] != undefined)
-                that.zoomOriginY = zl[1];
-            if (zl[2] != undefined)
-                that.zoomOriginX = zl[2];
-            if (!(local != undefined & local))
-                setGlobalZoomsLims();
-
-            setCanvasContainerPos();
-            drawHairCross();
-            if (that.largeContent())
-                drawSlice();            
+            zl = [1,0,0]
+            local = true
+            that.mosaicview.reset();
+            setCanvasLayout();
         }
+
+
+        that.zoomFac = zl[0];
+        if (zl[1] != undefined)
+            that.zoomOriginY = zl[1];
+        if (zl[2] != undefined)
+            that.zoomOriginX = zl[2];
+        if (!(local != undefined & local))
+            setGlobalZoomsLims();
+
+        setCanvasContainerPos();
+        drawHairCross();
+        if (that.largeContent())
+            drawSlice();    
+        else        
+            renderOutlines("update");
     }
     signalhandler.attach("setZoomLims", setZoomLims);
 
@@ -4420,9 +5143,25 @@ function KMedViewer(viewport, master)
         {
             if (that.mosaicview.active)
             {
-                that.mosaicview.zoom += ((amount > 0) ? -1 : 1) * 0.3 * scrollSpeed * master.static.mousespeed_zoom;
-                if (that.mosaicview.zoom > 1)
-                    that.mosaicview.zoom = 1;
+
+                var zo = ((amount > 0) ? -1 : 1) * 0.3 * scrollSpeed * master.static.mousespeed_zoom;
+                var sbox =  that.mosaicview.clipratio;
+                var cpos =  getCanvasCoordinates(getWorldPosition());
+                var zoomy = 1+0.1*zo;
+                sbox[0] = (sbox[0]-cpos.x_norm)*zoomy + cpos.x_norm;
+                sbox[2] = (sbox[2]-cpos.x_norm)*zoomy + cpos.x_norm;
+                sbox[1] = (sbox[1]-cpos.y_norm)*zoomy + cpos.y_norm;
+                sbox[3] = (sbox[3]-cpos.y_norm)*zoomy + cpos.y_norm;
+                if (sbox[0]<0) sbox[0] = 0;
+                if (sbox[1]<0) sbox[1] = 0;
+                if (sbox[2]>1) sbox[2] = 1;
+                if (sbox[3]>1) sbox[3] = 1;
+                if (sbox[2]-sbox[0] < 0.0001 | sbox[3]-sbox[1]  < 0.0001 )
+                 {
+                    sbox = [0,0,1,1];
+                    alertify.error("are you nuts")
+                }                
+                that.mosaicview.clipratio = sbox;                
                 setCanvasLayout();
                 drawHairCross();
 
@@ -4441,8 +5180,27 @@ function KMedViewer(viewport, master)
                 if (that.zoomFac * fac < 0.3)
                     return;
                 $(".markerpoint,.markerruler").css('display','none')                    
-                if (worldLockedToMaster & master.globalCoordinates)                    
+                if (worldLockedToMaster & master.globalCoordinates & !that.isFlatMap)                    
+                {
                     signalhandler.send("setZoom", fac);
+                    if (fac > 1)
+                        signalhandler.send("positionChange", {nosliceupdate:true},that.positionChanger); 
+                    else
+                    {
+                        if (that.wheelzoom_cid)
+                            clearTimeout(that.wheelzoom_cid)
+                        that.wheelzoom_cid = 
+                            setTimeout(function() {
+                                signalhandler.send("positionChange", {nosliceupdate:false},that.positionChanger); // why this ...markers?
+                                that.wheelzoom_cid = undefined;
+                            },100);
+
+                    }
+         //           signalhandler.send("positionChange",{respectSliceChange:true},that.positionChanger);
+
+            
+
+                }
                 else
                     setZoom(fac);
        //         signalhandler.send("positionChange", {nosliceupdate:true});
@@ -4451,7 +5209,7 @@ function KMedViewer(viewport, master)
         }
         else if (e.shiftKey)
         {
-            if (master.roiTool.enabled) // shift +scroll in roi mode == change pencil size
+            if (that.currentROI != undefined) // shift +scroll in roi mode == change pencil size
             {
                 e.myScrollAmount = master.static.mousespeed_roipensize * scrollSpeed * math.sign(e.wheelDelta || -e.detail);
                 master.roiTool.pensizechange(e, "radius", that);
@@ -4462,10 +5220,10 @@ function KMedViewer(viewport, master)
                     if (master.roiTool.lastPreviewPoints != undefined)
                         ROIpreviewUpdate();
                     master.roiTool.modifyRoi(e, that,function(changedPoints){                    
-                        signalhandler.send("updateImage",{id:that.currentROI.fileID,no3d:true,lazy:false},that.imageupdater);
-                        ROIpreviewUpdate.tobecleaned = true;
-                        master.roiTool.lastPreviewPoints = changedPoints;
-                        ROIpreviewUpdate();
+                            signalhandler.send("updateImage",{id:that.currentROI.fileID,no3d:true,lazy:false},that.imageupdater);
+                            ROIpreviewUpdate.tobecleaned = true;
+                            master.roiTool.lastPreviewPoints = changedPoints;
+                            ROIpreviewUpdate();
 
                     });
                 }
@@ -4593,6 +5351,18 @@ function KMedViewer(viewport, master)
     }
 
 
+/*
+
+    that.setSubsampling = function(f)
+    {
+        that.subsample_factor = f;
+        //setCanvasContainerPos();
+        applySlicingDimOfWorld(slicingDimOfWorld);
+        setCanvasLayout()
+        that.drawSlice();
+    }
+
+*/
 
     ////////////////////////////// canvas//imaging layout //////////////////////////
 
@@ -4625,7 +5395,7 @@ function KMedViewer(viewport, master)
         setCanvasLayout();
 
     
-        drawSlice();
+        drawSlice({eagerDrawActive:true});
 
     }
 
@@ -4676,6 +5446,10 @@ function KMedViewer(viewport, master)
         xflip = xdir == 1 ? 0 : 1;
         yflip = ydir == 1 ? 0 : 1;
 
+        sx = Math.ceil(sx / that.subsample_factor_x);
+        sy = Math.ceil(sy / that.subsample_factor_y);
+
+
 
         var asx, asy;
         asx = swapXY ? sy : sx;
@@ -4703,6 +5477,51 @@ function KMedViewer(viewport, master)
 
 
 
+
+    function save_old_hc_pos()
+    {
+
+        var old_hc_pos_x
+        var old_hc_pos_y
+        if (that.nii != undefined)
+        {
+
+
+            // CONGRU
+            var wp = getWorldPosition()
+
+//            if (KViewer.navigationTool.isinstance && 
+  //              (( master.navigationTool.movingObjs[that.currentFileID] != undefined & KViewer.navigationMode == 0)))
+            if (isBackgroundMoving())
+                {
+                    if (KViewer.mainViewport == -1)
+                        wp = math.multiply((master.reorientationMatrix.matrix), wp);
+                    //else
+                    //    wp = math.multiply(math.inv(master.reorientationMatrix.matrix), wp);
+
+                }
+                    
+              
+            var x = getCanvasCoordinates(wp);
+            var cpos = that.$canvas.offset();
+            cpos.top -= that.$container.offset().top;
+            cpos.left -= that.$container.offset().left;
+            old_hc_pos_x = x.x_pix + cpos.left
+            old_hc_pos_y = x.y_pix + cpos.top
+
+            if (old_hc_pos_x <0 | old_hc_pos_x > that.$container.width()
+               | old_hc_pos_y <0 | old_hc_pos_y > that.$container.height())
+            {
+                old_hc_pos_x = that.$container.width()/2;
+                old_hc_pos_y = that.$container.height()/2;
+            }
+        }
+        that.old_hc_pos_x = old_hc_pos_x;
+        that.old_hc_pos_y = old_hc_pos_y;
+
+    }
+    signalhandler.attach("save_old_hc_pos",save_old_hc_pos)
+    
     ///////////////////// mosaic ////////////////////////////////////////////////////
 
     that.mosaicview = KMosaicView(that);
@@ -4724,27 +5543,27 @@ function KMedViewer(viewport, master)
             $canvas.addClass('KViewPort_canvas_pixelated');
         else
             $canvas.removeClass('KViewPort_canvas_pixelated');
+        if (ViewerSettings.canvasborder)
+            $canvas.addClass('KViewPort_canvas_border');
+        else
+            $canvas.removeClass('KViewPort_canvas_border');
 
         if (that.nii != undefined)
         {
             var nii = that.nii;
-            if (master.defaultFOV_mm == "")
-            {
-                var ext = [nii.sizes[0] * nii.voxSize[0], nii.sizes[1] * nii.voxSize[1], nii.sizes[2] * nii.voxSize[2]];
-                master.defaultFOV_mm = Math.max.apply(null , ext);
-            }
-            
-            /* this should go somewhere else, best into nifti conversion
-            if (that.nii.singleSlice)
-            {
-                that.nii.singleSlice = true;
-                $canvas.css('transform', 'scale(1, -1)');
-            }
+            var ext = [nii.sizes[0] * nii.voxSize[0], nii.sizes[1] * nii.voxSize[1], nii.sizes[2] * nii.voxSize[2]];
+            var FOV_mm =  Math.max.apply(null , ext);
+
+            if (that.isFlatMap)
+                that.FOV_mm = FOV_mm
             else
             {
-                $canvas.css('transform', 'scale(1, 1)');
+                if (master.defaultFOV_mm == "")                
+                    master.defaultFOV_mm = FOV_mm;
+                that.FOV_mm = master.defaultFOV_mm;
             }
-            */
+
+
         }
 
 
@@ -4753,6 +5572,11 @@ function KMedViewer(viewport, master)
         {
             gl = new KMedImg3D(that,$canvas3D);
             that.gl = gl;
+
+            if (that.nii && that.nii.dummy)
+            {
+                gl.setPlanesVisibility([0,0,0]);
+            }
         }
 
 
@@ -4792,9 +5616,9 @@ function KMedViewer(viewport, master)
 
 
             if ($container[0].offsetWidth < $container[0].offsetHeight)
-                fac = $container[0].offsetWidth / master.defaultFOV_mm;
+                fac = $container[0].offsetWidth / that.FOV_mm;
             else
-                fac = $container[0].offsetHeight / master.defaultFOV_mm;
+                fac = $container[0].offsetHeight / that.FOV_mm;
 
             that.wid_px = wid_cm * fac;
             that.hei_px = hei_cm * fac;
@@ -4807,7 +5631,7 @@ function KMedViewer(viewport, master)
                 var facY = $container[0].offsetHeight / container_height_old;
                 that.zoomOriginX *= facX;
                 that.zoomOriginY *= facY
-                if (master.zoomLims[slicingDimOfWorld] != undefined && (that.zoomOriginX != 0 || that.zoomOriginX != 0))
+                if (0) //master.zoomLims[slicingDimOfWorld] != undefined && (that.zoomOriginX != 0 || that.zoomOriginX != 0))
                 {
                     if (facX != 1 | facY != 1)
                     {
@@ -4831,7 +5655,9 @@ function KMedViewer(viewport, master)
 
             that.embedrelfac = fac;
 
-            var orig = math.multiply(math.inv(nii.edges), master.viewcenter);
+            //var center = master.viewcenter;
+            var center = nii.centerWorld
+            var orig = math.multiply(math.inv(nii.edges), center);
             var origin = math.matrix([((nii.arrayReadDirection[0] == 1) ? (nii.sizes[0] - orig._data[0] - 0.5) : (0.5 + orig._data[0])) * nii.voxSize[0],
             ((nii.arrayReadDirection[1] == 1) ? (nii.sizes[1] - orig._data[1] - 0.5) : (0.5 + orig._data[1])) * nii.voxSize[1],
             ((nii.arrayReadDirection[2] == 1) ? (nii.sizes[2] - orig._data[2] - 0.5) : (0.5 + orig._data[2])) * nii.voxSize[2]]);
@@ -4858,9 +5684,6 @@ function KMedViewer(viewport, master)
                 that.widoffs_px = -origin._data[idx[0]] * fac + $container.width() / 2;
                 that.heioffs_px = -origin._data[idx[1]] * fac + $container.height() / 2;
             }
-
-
-
             if (that.mosaicview.active)
             {
                 that.mosaicview.showControls();
@@ -4878,13 +5701,9 @@ function KMedViewer(viewport, master)
                 that.mosaicview.current_readDir = -that.nii.arrayReadDirection[perm[2]];
 
                 var vasp = that.nii.voxSize[perm[0]] / that.nii.voxSize[perm[1]];
-
-
-                that.mosaicview.clipratio = 0.1 * (1 - that.mosaicview.zoom);
-
-                var csx_ = math.floor((1 - that.mosaicview.clipratio) * csx);
-                var csy_ = math.floor((1 - that.mosaicview.clipratio) * csy);
-
+                
+                var csx_ = math.floor((that.mosaicview.clipratio[2]-that.mosaicview.clipratio[0]) * csx);
+                var csy_ = math.floor((that.mosaicview.clipratio[3]-that.mosaicview.clipratio[1]) * csy);
                 that.mosaicview.csx_ = csx_;
                 that.mosaicview.csy_ = csy_;
 
@@ -4916,7 +5735,7 @@ function KMedViewer(viewport, master)
 
 
                 var top = $container.height() / ctx.canvas.height *
-                (ctx.canvas.height - nrow * csy_) / 2;
+                (ctx.canvas.height - nrow * csy_) * 0.4;
                 if (top < 0)
                     top = 0;
 
@@ -4936,13 +5755,29 @@ function KMedViewer(viewport, master)
                         clearInterval(that.mosaicview.interval);
 
 
+                    var $colselector= KColorSelector(['hide',[0,0,0],[255,255,255]].concat(KColor.list), function (c) {
+                        return "background:" + RGB2HTML(c[0], c[1], c[2]) + ";";
+                        },
+                        function(c,k) { 
+                             that.mosaicview.number_color = c;
+                             if (c=='hide')
+                                 that.$topRow.find(".mosaiclabels").css('display','none')
+                             else
+                             {
+                                 that.$topRow.find(".mosaiclabels").css('color', RGB2HTML(c[0], c[1], c[2]))
+                                 that.$topRow.find(".mosaiclabels").css('opacity', 1)
+                             }
+                        }, {}) ;
 
 
                     that.$topRow.find(".mosaiclabels").remove();
                     var z = that.mosaicview.z0;
                     for (var y = 0; y < that.mosaicview.ny; y++)
+                    {
                         for (var x = 0; x < that.mosaicview.nx; x++)
                         {
+                            if (z>sz_-1)
+                                break;
                             var p = [0,0,0,1];
                             if (that.mosaicview.current_readDir == -1)
                                 p[perm[2]] = sz_ - z;
@@ -4950,12 +5785,31 @@ function KMedViewer(viewport, master)
                                 p[perm[2]] = z;
                             p = math.multiply(that.nii.edges,p)._data;
 
+                            
                             var $d = $("<div class='mosaiclabels'> "+ Math.round(p[slicingDimOfWorld]) +" </div>");
                             $d.css('left',10+x/that.mosaicview.nx*$container.width());
                             $d.css('top',10+top+ y*csy_* $container.height() / ctx.canvas.height);
+                            $d.on('contextmenu', $colselector.themenu);
                             that.$topRow.append($d);
+                            if (that.mosaicview.number_color == 'hide')
+                            {
+                                if (x!=0)
+                                  $d.css('display','none')                                
+                                else
+                                  $d.css('opacity',0.2)                                
+                                    
+                            }
+                            else
+                            {
+                                var c = that.mosaicview.number_color
+                                if (c != undefined)
+                                    $d.css('color',RGB2HTML(c[0], c[1], c[2]))
+                            }
+                            
+
                             z+=that.mosaicview.dz;
                         }
+                    }
 
 
 
@@ -5000,6 +5854,12 @@ function KMedViewer(viewport, master)
 
                     function iterateOverMosaic()
                     {
+                        if (csx_ <= 0 | csy_ <=0)
+                        {
+                            clearInterval(that.mosaicview.interval);
+                            that.mosaicview.interval = -1;
+                            return                       
+                        }
                         sliceData = ctx.createImageData(csx_, csy_);
                         var dir = that.nii.arrayReadDirection[that.getSlicingDimOfArray()] == -1;
                         if (that.mosaicview.mosaic_direction)
@@ -5007,7 +5867,7 @@ function KMedViewer(viewport, master)
                         if (dir)
                             slicedrawer(Math.round(z), that.mosaicview.clipratio);
                         else
-                            slicedrawer(Math.round(sz_-z), that.mosaicview.clipratio);
+                            slicedrawer(Math.round(sz_-z-1), that.mosaicview.clipratio);
                         z += that.mosaicview.dz;
                         ctx.putImageData(sliceData, x * csx_, y * csy_);
 
@@ -5071,17 +5931,12 @@ function KMedViewer(viewport, master)
                 if (ctx.canvas.width != csx)
                     ctx.canvas.width = csx;
 
-//qwe
-/*
-                if (ctx.canvas.height != csy/2)
-                    ctx.canvas.height = csy/2;
-                if (ctx.canvas.width != csx/2)
-                    ctx.canvas.width = csx/2;
-*/
-     
 
-               drawHairCross();
+
+                drawHairCross();
                 setCanvasContainerPos()
+
+
             }
 
             // set the distances of the mover / rotator lines
@@ -5095,8 +5950,27 @@ function KMedViewer(viewport, master)
     
             $canvas.show();
             signalhandler.send("canvasLayoutChanged", that.viewport);
+            if (that.old_hc_pos_x != undefined)
+            {
+                // CONGRU
+                var wp = getWorldPosition()
+  //              if (KViewer.navigationTool.isinstance && 
+//                    (( master.navigationTool.movingObjs[that.currentFileID] != undefined & KViewer.navigationMode == 0)))
+                if (isBackgroundMoving())                    
+                    {
+                        if (KViewer.mainViewport == -1)
+                            wp = math.multiply((master.reorientationMatrix.matrix), wp);
 
-	
+                    }
+
+                var coords = getCanvasCoordinates(wp);
+                var dy = coords.y_pix+that.heioffs_px*that.zoomFac-that.old_hc_pos_y
+                var dx = coords.x_pix+that.widoffs_px*that.zoomFac-that.old_hc_pos_x;
+                setZoomLims([that.zoomFac, dy, dx]);
+                that.old_hc_pos_x = undefined
+                that.old_hc_pos_y = undefined
+            }	
+            
 
         }
         histoManager.layoutHistogram();
@@ -5115,11 +5989,18 @@ function KMedViewer(viewport, master)
         {
 
 //qwe
+            var subx =  that.subsample_factor_x
+            var suby =  that.subsample_factor_y
+            if (swapXY)
+            {
+               subx =  that.subsample_factor_y 
+               suby =  that.subsample_factor_x                
+            }
             
             quiver.draw();
             $canvascontainer.css({
-                height: math.round(that.hei_px * that.zoomFac ) + 'px',
-                width: math.round(that.wid_px * that.zoomFac ) + 'px',
+                height: math.round(that.hei_px * that.zoomFac * suby) + 'px',
+                width: math.round(that.wid_px * that.zoomFac* subx) + 'px',
                 top: math.round(that.heioffs_px * that.zoomFac - that.zoomOriginY) + 'px',
                 left: math.round(that.widoffs_px * that.zoomFac - that.zoomOriginX) + 'px'
             });
@@ -5138,16 +6019,20 @@ function KMedViewer(viewport, master)
             visible: true,
             showcolored: false,
             
-            showcolored_type :"RGB",
+            showcolored_type :"raw",
             currentFilename: imageStruct.filename,
             currentFileinfo: imageStruct.fileinfo,
             fileinfo: imageStruct.fileinfo,
             currentFileID: imageStruct.fileID,
         };
+
         ovl.histoManager = createHistoManager(ovl);
+
         ovl.toggle = function(e)
         {
             var vis = !ovl.visible;
+            ovl.setVisibility(vis)
+            
             if (!e.shiftKey)
             {
                 master.iterateMedViewers(function(m)
@@ -5161,8 +6046,6 @@ function KMedViewer(viewport, master)
 
                 });            
             }
-            else
-                ovl.setVisibility(vis)
         }
 
         ovl.setVisibility = function(visible)
@@ -5233,7 +6116,8 @@ function KMedViewer(viewport, master)
             var colors = KColor.list;
 
             function colencode(c) {
-                return "background:" + RGB2HTML(c[0], c[1], c[2]) + ";";
+                if (c != undefined)
+                    return "background:" + RGB2HTML(c[0], c[1], c[2]) + ";";
                 }
               var $colselector = KColorSelector(colors, colencode,
                 function() { 
@@ -5285,6 +6169,10 @@ function KMedViewer(viewport, master)
  
             }
 
+            that.FOV_mm = undefined;
+
+            signalhandler.detach("overlay_climChange",ovl.histoManager.climchange_id);
+            signalhandler.detach("overlay_climChange",ovl.histoManager.cmapchange_id);
 
             if (ovl.outlines != undefined)
               {
@@ -5324,7 +6212,7 @@ function KMedViewer(viewport, master)
          
         }
         var filenameToShow;
-        if (ovl.currentFileinfo.SubFolder==undefined)
+        if (ovl.currentFileinfo.SubFolder==undefined || ovl.currentFileinfo.SubFolder)
             filenameToShow = "<b>" + ovl.currentFilename + "</b>";
         else
             filenameToShow = ovl.currentFileinfo.SubFolder+ "/<b>" + ovl.currentFilename + "</b>";
@@ -5401,10 +6289,12 @@ function KMedViewer(viewport, master)
         });
 
 
+
+        ovl.createFiberTrackingFromOvl = undefined;
+
         if (interpretAsColoredVolume(ovl.nii,ovl))
         {
-            ovl.showcolored = true;
-            $createFib.click(function(ev) {  
+            ovl.createFiberTrackingFromOvl = function() { return function(intent) {
                 if (that.isGLenabled())
                     createfibview()
                 else
@@ -5412,12 +6302,16 @@ function KMedViewer(viewport, master)
                 function createfibview()
                 {
                     var filename = ovl.currentFilename.replace(".nii","").replace(".gz","") + ".tck";
-                    var imageStruct = {filename:filename,content:{tracts:[  ]} }     ;     
-                    var fv = master.obj3dTool.createFiberView(imageStruct,that,{ dirvolref: ovl,isParentView:true });
+                    var imageStruct = {filename:filename,content:{tracts:[  ]} }     ;  
+                    intent.dirvolref = ovl;
+                    intent.isParentView = true;  
+                    var fv = master.obj3dTool.createFiberView(imageStruct,that,intent);
                     that.objects3D.push(fv);
                 }
+            } }();
 
-            });
+            ovl.showcolored = true;
+            $createFib.click( function() { ovl.createFiberTrackingFromOvl({}) });
         }
         else
         {
@@ -5425,9 +6319,15 @@ function KMedViewer(viewport, master)
                ovl.showcolored = false;
         }
 
+        if (intent && intent.createTracking && ovl.createFiberTrackingFromOvl)
+        {
+            setTimeout(function() { ovl.createFiberTrackingFromOvl(intent.createTracking) },50);
+        }
 
 
-         $createIso.click(function(ev) {            
+
+
+        $createIso.click(function(ev) {            
             if ($createIso.onhold)
             {
                 $createIso.onhold = undefined;
@@ -5475,7 +6375,7 @@ function KMedViewer(viewport, master)
                         filename: imageStruct.filename,
                         fileID: imageStruct.fileID
                     }];
-                    KViewer.cacheManager.uploadFiles(that.viewport.progressSpinner, 'usenativeID');
+                    KViewer.cacheManager.uploadFiles(that.viewport.progressSpinner, undefined);
 
                 }
             }(ovl));
@@ -5527,6 +6427,7 @@ function KMedViewer(viewport, master)
         ovl.histoManager.nii = ovl.nii;
         ovl.histoManager.setColorMapLims = function(clim)
         {
+            ovl.histoManager.saveSettings();
             ovl.histoManager.clim = clim.slice(0);
             ovl.histoManager.updateHistogramClim();
             that.drawSlice({
@@ -5560,23 +6461,28 @@ function KMedViewer(viewport, master)
             });
         }
 
-        signalhandler.attach("overlay_climChange",
+        ovl.histoManager.climchange_id = signalhandler.attach("overlay_climChange",
         function(event)
         {
             if (event.id == ovl.currentFileID)
             {
+                
                 ovl.histoManager.setColorMapLims(event.val);
-                ovl.histoManager.clim_manually_modified = true;          
+                ovl.histoManager.clim_manually_modified = true; 
+                if (ovl.surfacecolref)
+                    ovl.surfacecolref.update();
             }
         });
 
-        ovl.histoManager.oncmapchange =
+        ovl.histoManager.cmapchange_id = ovl.histoManager.oncmapchange =
         function(ev)
         {
             signalhandler.send("overlay_cmapChange", {
                 id: ovl.currentFileID,
                 blend: ovl.histoManager.blending,
                 cval: ovl.histoManager.cmapindex,
+                showcolored : ovl.showcolored,
+                showcolored_type : ovl.showcolored_type,
                 ev: ev
             });
         }
@@ -5600,8 +6506,40 @@ function KMedViewer(viewport, master)
                         mosaicdraw: true
                     });
                 }
+                if (ovl.showcolored_type != event.showcolored_type)
+                {
+                    ovl.showcolored_type = event.showcolored_type;
+                    that.drawSlice({
+                        mosaicdraw: true
+                    });
+                }
+                if (ovl.showcolored != event.showcolored)
+                {
+                    ovl.showcolored = event.showcolored;
+                    that.drawSlice({
+                        mosaicdraw: true
+                    });
+                }
+                if (ovl.surfacecolref)
+                    ovl.surfacecolref.update();
+
             }
         });
+
+
+        if (imageStruct.mostRecentView != undefined)
+        {
+            var view = imageStruct.mostRecentView;
+            ovl.showcolored = view.showcolored
+            ovl.showcolored_type = view.showcolored_type
+            ovl.histoManager.clim = view.histoManager.clim
+            ovl.histoManager.cmapindex = view.histoManager.cmapindex
+            ovl.histoManager.transparent = view.histoManager.transparent
+            ovl.histoManager.posnegsym = view.histoManager.posnegsym
+            ovl.histoManager.blocky = view.histoManager.blocky
+        }    
+        imageStruct.mostRecentView = ovl
+
 
         ovl.close = close;
         return ovl;
@@ -5611,12 +6549,24 @@ function KMedViewer(viewport, master)
 
     function appendObject3D(imageStruct, intent)
     {
+
+            for (var k = 0; k < that.objects3D.length; k++) // avoid double insertion
+            {
+                var obj3d = that.objects3D[k];
+                if ((obj3d.fibers && obj3d.fibers == imageStruct && intent.select == undefined))
+                        return;
+            }
+
         var fv = master.obj3dTool.createView(imageStruct, that, intent);
+        if (!fv)
+            return;
         that.objects3D.push(fv);
         KViewer.obj3dTool.addObject(imageStruct);
 
         if (imageStruct.contentType == 'gii')
-            signalhandler.send('surfcoldrop_' + that.viewport.viewPortID);
+        {
+            signalhandler.send('surfcoldrop_' + that.viewport.viewPortID, {id:imageStruct.fileID});
+        }
 
 
         return fv;
@@ -5661,6 +6611,9 @@ function KMedViewer(viewport, master)
                         var surfView = viewer.appendObject3D(fobj,intent_iso);
                             
                         curRoiView.refSurfView = surfView;
+                        if (intent && intent.toolbarAttached)
+                            viewer.toolbar.append(surfView.divs,'surface')
+
                         surfView.refRoiView = curRoiView;
                     }
                 }
@@ -5744,15 +6697,26 @@ function KMedViewer(viewport, master)
     
             if (!that.toolbar.issticky)
                 that.toolbar.hide_addons();
+            
+
 
             if (typeof KAtlasTool != "undefined")
-            if ((KAtlasTool.isAtlas(imageStruct) | params.intent.atlas) & !params.intent.overlay)
+            if ((KAtlasTool.isAtlas(imageStruct) | params.intent.atlas) & !params.intent.overlay & !params.intent.surfcol)
             {
 
                     if (params.intent.atlaskey != undefined) // this is auto roi convert
                     {
-                       KViewer.atlasTool.getROIfromSinglelabel(imageStruct,params.intent.atlaskey,params.intent.labelname,imageStruct,function(roi){
-                             that.viewport.setContent(roi,{});
+                       var bgnd = imageStruct;
+                       if (that.content != undefined & !that.nii.dummy)
+                       {
+                           if (math.abs(math.det(imageStruct.content.edges))
+                               < math.abs(math.det(that.content.content.edges)))
+                               bgnd = that.content;
+                       }
+                       KViewer.atlasTool.getROIfromSinglelabel(imageStruct,params.intent.atlaskey,params.intent.labelname,
+                                                               bgnd, // on this matrix the roi is rendered
+                                                               function(roi){
+                             that.viewport.setContent(roi,params);
                        }, that.viewport.progressSpinner)                        
                        return;
                     }
@@ -5760,6 +6724,8 @@ function KMedViewer(viewport, master)
                     {
 
                         imageStruct = KViewer.atlasTool.addAtlas(imageStruct);
+                        if (imageStruct == undefined)
+                            return;
                         if (params.intent.atlasiso != undefined)
                         {
                              KViewer.atlasTool.attachSurf(imageStruct,imageStruct.content.labels[params.intent.atlasiso],that);
@@ -5772,26 +6738,54 @@ function KMedViewer(viewport, master)
                                 if (that.atlas[k].atlas.fileID == imageStruct.fileID)
                                     return;
                             }
-                            if (that.currentFileID == undefined)
-                            {
-                                alertify.error('Please drop a background image first');
-                                viewport.setCurrentViewer();
-                                return;
-                            }
 
-                            var av = master.atlasTool.createView(imageStruct, that,params.intent);
+                            var av = KViewer.atlasTool.createView(imageStruct, that,params.intent);
 
                             if (params.intent.surfcol)
                             {
-                                var sviews = hasContent('surf');
-                                if (sviews != undefined)
-                                {
-                                    var thesurfview = sviews[0];
-                                    av.surfacecolref = thesurfview;
-                                    thesurfview.overlays.push(av);
-                                    thesurfview.update();
 
+                                function closure(params,av,imageStruct)
+                                {
+                                    function attachAtlasCol(id)
+                                    {
+                                        var sviews = hasContent('surf');
+                                        if (sviews == undefined)
+                                        {
+                                            return false;
+                                        }
+
+                                        var thesurfview
+                                        for (var k = 0; k < sviews.length;k++)
+                                        {
+                                            if (sviews[k].surf.fileID == id)
+                                            {
+                                                thesurfview = sviews[k];
+                                                break;
+                                            }
+                                        }
+                                        if (thesurfview == undefined)
+                                        {
+                                            return false;
+                                        }
+                                        av.surfacecolref = thesurfview;
+                                        thesurfview.overlays.push(av);
+                                        thesurfview.update();                                    
+                                        return true
+                                    }                             
+
+
+                                    if (!attachAtlasCol(params.intent.surfcol))
+                                    {
+                                        var sid = signalhandler.attach('surfcoldrop_' + that.viewport.viewPortID,function(e)
+                                        {
+                                                if (attachAtlasCol(params.intent.surfcol))
+                                                   signalhandler.detach('surfcoldrop_' + that.viewport.viewPortID,sid);
+    //                                                setTimeout(function() { signalhandler.detach('surfcoldrop_' + that.viewport.viewPortID,'all'); },0);
+                                        }); 
+                                    }   
                                 }
+                                closure(params,av,imageStruct)
+                                return;                         
                             }
                             else
                             {
@@ -5800,8 +6794,14 @@ function KMedViewer(viewport, master)
                                 that.drawSlice({
                                     mosaicdraw: true
                                 });
+
                             }
-                            return;
+                            if (that.currentFileID != undefined)
+                                return;
+                            else
+                            {
+                                KViewer.atlasTool.toggleAllLabels(imageStruct,true);
+                            }
                         }
                     }
             }
@@ -5824,7 +6824,11 @@ function KMedViewer(viewport, master)
             {
                 if (that.content == undefined)
                 {
-                    that.nii = createDummyNifti([100,100,100],imageStruct.content.max,imageStruct.content.min,[0,1,2],[1,1,1]);
+                    if (KViewer.lastDummyNifti == undefined)
+                    {
+                        KViewer.lastDummyNifti = createDummyNifti([100,100,100],imageStruct.content.max,imageStruct.content.min,[0,1,2],[1,1,1]);
+                    }
+                    that.nii = KViewer.lastDummyNifti;
                     that.content = {content:that.nii};
                     niiOriginal = that.nii;
                 }
@@ -5842,27 +6846,40 @@ function KMedViewer(viewport, master)
                         if (params.intent == undefined)
                             params.intent = {};
 
-                        if (imageStruct.content.selections != undefined & params.intent.select == 'allselections')
+                        if (imageStruct.content.selections != undefined & 
+                            (params.intent.subset_to_open != undefined | params.intent.select == 'allselections'))
                         {
 
 
                             var list_to_sort = []
                             for (var j = 0; j < imageStruct.content.selections.length;j++)
-                                list_to_sort.push({id:j,name:imageStruct.content.selections[j].name})
+                                {
+                                    var add = true;
+                                    if (params.intent.subset_to_open != undefined && params.intent.subset_to_open[0] != "allselections")
+                                    {
+                                        if (params.intent.subset_to_open.filter((x)=> x==imageStruct.content.selections[j].name).length == 0)
+                                            continue;
+                                    }
+                                    list_to_sort.push({id:j,name:imageStruct.content.selections[j].name})
+                                }
 
                             list_to_sort.sort(function(a,b) {return (a.name > b.name)?-1:1 })
 
-                            for (var j_ = 0; j_ < imageStruct.content.selections.length;j_++)
+                            for (var j_ = 0; j_ < list_to_sort.length;j_++)
                             {
                                 var k = list_to_sort[j_].id;
 
                                 var col = k;
                                 if (imageStruct.content.selections[k].color != undefined)
                                     col = imageStruct.content.selections[k].color;
-                                appendObject3D(imageStruct, {
-                                    select: k,
-                                    color: col
-                                });
+                                var intent = { select: k, color: col};
+                                if (params.intent.color != undefined)
+                                    intent.color = params.intent.color;
+                                if (params.intent.visible != undefined)
+                                    intent.visible = params.intent.visible;
+                                if (params.intent.colmode != undefined)
+                                    intent.colmode = params.intent.colmode;
+                                appendObject3D(imageStruct, intent);
                             }
                         }
                         else
@@ -5879,17 +6896,22 @@ function KMedViewer(viewport, master)
                             else
                                 appendObject3D(imageStruct, params.intent);
                         }
-                        that.showControls();
+                        if (KViewer.areControlsVisible())
+                            that.showControls();
                         setCanvasLayout();
                         resliceOnMaster();
                     }
                     if (!gl_enabled)
+                    {
+                        if (KViewer.areControlsVisible())
+                            that.showControls();
                         toggle3D(undefined,function() {
-                            that.gl.setprops(params.intent.gl_props);
                             if (that.viewport.onsetContent)
                                 that.viewport.onsetContent();
                             load3DObject()
+                            that.gl.setprops(params.intent.gl_props);
                         })
+                    }
                     else
                         load3DObject();
 
@@ -5901,10 +6923,19 @@ function KMedViewer(viewport, master)
 
 
 
+//	position:[ -3.1,4.6,-3.2]
 
 
             if (params.intent)
             {
+                if (params.intent.position)
+                {
+                    var p = params.intent.position
+                    setTimeout(function(){
+                            setWorldPosition(math.matrix([p[0],p[1],p[2],1]))
+                            signalhandler.send("centralize")             },0);
+                }
+
 
                 if (params.intent.createFiberTracking)
                 {
@@ -5972,6 +7003,8 @@ function KMedViewer(viewport, master)
 
                 }
 
+
+
                 if (params.intent.ROI | params.intent.roi)
                 {
                     for (var k = 0; k < that.ROIs.length; k++)
@@ -5996,6 +7029,16 @@ function KMedViewer(viewport, master)
                     {
                         var fv = master.roiTool.createView(fobj, that, params.intent);
                        
+                        if (params.intent && params.intent.ccanalysis && fobj.ccanalysis == undefined) 
+                            createConnCompAnalysis(fobj);
+
+                        if (params.intent && params.intent.moving == 1)
+                        {
+                            KViewer.navigationTool.movingObjs[fobj.fileID] = fobj;
+                            KViewer.navigationTool.updateMoving();                        
+                        }
+
+
                         if (notzipped)
                             fobj.notzipped = true;
 
@@ -6011,11 +7054,16 @@ function KMedViewer(viewport, master)
                     }
 
                     var notzipped = false
-                    if (imageStruct.fileID.substring(0,3) != "ROI" && imageStruct.filename.search("\\.gz") == -1)
-                        notzipped = true
+                    if (imageStruct.fileID.substring(0,3) != "ROI")
+                    {
+                        
+                        if (imageStruct.fileinfo.Filename == undefined)
+                            notzipped = true;
+                        else if (imageStruct.fileinfo.Filename.search("\\.gz") == -1)
+                            notzipped = true;
+                    }
 
-
-                    if (params.intent.roilim | imageStruct.content.datatype != 'uint8')
+                    if (params.intent.roilim | imageStruct.content.datatype != 'uint8' | imageStruct.content.filetype == 'nrrd')
                     {
                         var threshold = params.intent.roilim
                         if (threshold == undefined)
@@ -6024,16 +7072,32 @@ function KMedViewer(viewport, master)
                             alertify.error('nifti cloned, mask need uint8 datatype')
                         }
                         var name  = imageStruct.filename.replace("\.nii","").replace("\.gz","")
+                        if (name.search("\.nrrd") != -1 | name.search("\.mgh") != -1| name.search("\.mgz") != -1)
+                            notzipped = false;
+     
+
+                        name = name.replace("\.nrrd","").replace("\.mgh","").replace("\.mgz","")
                         imageStruct.intendedROIid = imageStruct.fileID;
                         master.roiTool.pushROI(imageStruct.fileID, name, "upper" + imageStruct.content.datascaling.ie(threshold),
                         function(fobj) {
                             fobj.fileinfo.SubFolder = imageStruct.fileinfo.SubFolder;
+                            fobj.fileinfo.Filename = imageStruct.fileinfo.Filename;
                             doit(fobj);
 
                             },undefined,{sametdim:true});
                     }
                     else
-                        master.roiTool.pushROI(imageStruct.fileID, "untitled", "frommaskfile",doit);
+                    {
+
+                        if (KViewer.roiTool.ROIs[imageStruct.fileID] != undefined )
+                        {
+                            doit(KViewer.roiTool.ROIs[imageStruct.fileID])
+                            if (!goOnAndloadasBackground)
+                                return;
+                        }
+                        else
+                            master.roiTool.pushROI(imageStruct.fileID, "untitled", "frommaskfile",doit);
+                    }
 
 
                     if(goOnAndloadasBackground == undefined)
@@ -6054,6 +7118,9 @@ function KMedViewer(viewport, master)
                    
                     newovl.histoManager.clim = [newovl.nii.histogram.min + 0.5 * (newovl.nii.histogram.max - newovl.nii.histogram.min),
                                                 newovl.nii.histogram.max - 0.1 * (newovl.nii.histogram.max - newovl.nii.histogram.min)];
+
+                    newovl.histoManager.loadSettings(imageStruct)
+                    
                     if (KViewer.defaults.overlay)
                     {
                         var d = KViewer.defaults.overlay;                        
@@ -6074,11 +7141,18 @@ function KMedViewer(viewport, master)
 
                     if (params.intent.clim != undefined)
                         newovl.histoManager.clim = params.intent.clim;
+                    if (params.intent.windowing != undefined)
+                        newovl.histoManager.clim = newovl.histoManager.nii.datascaling.ie(params.intent.windowing)
                     if (params.intent.visible != undefined)
                     {
                         newovl.visible = params.intent.visible;
                         if (!newovl.visible)
-                            newovl.divs[4].css('color', 'red');
+                            newovl.eye.css('color', 'red');
+                    }
+                    if (params.intent.moving == 1)
+                    {
+	                    KViewer.navigationTool.movingObjs[fobj.fileID] = fobj;
+						KViewer.navigationTool.updateMoving();                        
                     }
                     if (params.intent.cmap != undefined)
                         newovl.histoManager.setCmap(params.intent.cmap);
@@ -6101,9 +7175,10 @@ function KMedViewer(viewport, master)
                         }
                     }
 
-                    if (params.intent.isosurf || newovl.fileinfo.surfreference )                                            
+                    if (params.intent.isosurf)// || newovl.fileinfo.surfreference )                                            
+                    {
                         that.attachSurfaceRef(newovl,imageStruct, undefined,params.intent.isosurf );
-
+                    }
                     if (params.intent.quiver_params)
                           newovl.nii.quiver_params = params.intent.quiver_params;
 
@@ -6124,7 +7199,7 @@ function KMedViewer(viewport, master)
                         }
                     }
 
-
+                    
 
 
 
@@ -6140,107 +7215,168 @@ function KMedViewer(viewport, master)
                 if (params.intent.surfcol)
                 {
 
-                    var sviews = hasContent('surf');
-                    if (sviews != undefined)
-                        createSurfColoring(sviews,params.intent.surfcol,imageStruct);
-                    else
+                    function closure(imageStruct,params)
                     {
-                        signalhandler.attach('surfcoldrop_' + that.viewport.viewPortID,function()
+
+                        var sviews = hasContent('surf');
+                        if (!createSurfColoring(sviews,params.intent.surfcol,imageStruct))
                         {
-                                setTimeout(function() { signalhandler.detach('surfcoldrop_' + that.viewport.viewPortID,'all'); },10);
-                                var sviews = hasContent('surf');
-                                if (sviews != undefined)
-                                    createSurfColoring(sviews,params.intent.surfcol,imageStruct);                            
-                        });
-/*                        
-                        var cnt = 0;
-
-                        function tryAgain(){
-                            if (cnt < 4)
+                            var sid = signalhandler.attach('surfcoldrop_' + that.viewport.viewPortID,function(e)
                             {
-                                var sviews = hasContent('surf');
-                                if (sviews != undefined)
-                                    createSurfColoring(sviews,params.intent.surfcol,imageStruct);                            
-                                else 
-                                    setTimeout(tryAgain,500)
-                                cnt++;
-                            }
+                                    if (createSurfColoring(sviews,params.intent.surfcol,imageStruct))                      
+                                        signalhandler.detach('surfcoldrop_' + that.viewport.viewPortID,sid);
+                            });
                         }
-                        tryAgain();*/
-                    }
 
-                    function createSurfColoring(sviews,surfid,imageStruct)
-                    {
+                        function createSurfColoring(sviews,surfid,imageStruct)
+                        {
 
-                        var newovl = createOverlay(imageStruct);
+                            var sviews = hasContent('surf');
+                            if (sviews == undefined)
+                                return false;
 
-                        var thesurfview = sviews[0];
-                        for (var k = 0; k < sviews.length;k++)
-                            if (sviews[k].surf.fileID == surfid)
+                            var surfviews;
+                            if (surfid == "all")
                             {
-                                thesurfview = sviews[k]
-                                break;
+                                surfviews = sviews;
                             }
+                            else
+                            {
+            
+                                var thesurfview_ = undefined
+                                for (var k = 0; k < sviews.length;k++)
+                                    if (sviews[k].surf.fileID == surfid)
+                                    {
+                                        thesurfview_ = sviews[k]
+                                        break;
+                                    }
+                                if (thesurfview_ == undefined)
+                                    return false;
+                                surfviews = [thesurfview_];
+                            }
+
                             
-                        newovl.surfacecolref = thesurfview;
-
-
-                        thesurfview.overlays.push(newovl);
-
-
-                        newovl.histoManager.clim = [newovl.nii.histogram.min + 0.5 * (newovl.nii.histogram.max - newovl.nii.histogram.min),
-                        newovl.nii.histogram.max - 0.1 * (newovl.nii.histogram.max - newovl.nii.histogram.min)];
-
-                         if (KViewer.defaults.overlay)
-                                        {
-                                            var d = KViewer.defaults.overlay;                        
-                                            if (d.clim != undefined)            
-                                                 newovl.histoManager.clim = [imageStruct.content.datascaling.ie(d.clim[0]),imageStruct.content.datascaling.ie(d.clim[1])];
-                                        }                        
-
+                            for (var k = 0; k < surfviews.length;k++) 
+                            {
+                                ((thesurfview) => {
+                                var newovl = createOverlay(imageStruct);
+                                
+                                newovl.surfacecolref = thesurfview;
     
-                        if (imageStruct.content.descrip && imageStruct.content.descrip.clim)
-                            newovl.histoManager.clim = [imageStruct.content.descrip.clim[0],imageStruct.content.descrip.clim[1]];
+    
+                                thesurfview.overlays.push(newovl);
+    
+    
+                                newovl.histoManager.clim = [newovl.nii.histogram.min + 0.5 * (newovl.nii.histogram.max - newovl.nii.histogram.min),
+                                newovl.nii.histogram.max - 0.1 * (newovl.nii.histogram.max - newovl.nii.histogram.min)];
 
+                                newovl.histoManager.loadSettings(imageStruct)
 
-
-                        if (params.intent.clim)
-                            newovl.histoManager.clim = params.intent.clim;
-                        if (params.intent.cmap != undefined)
-                            newovl.histoManager.setCmap(params.intent.cmap);
-                        if (params.intent.cuts != undefined)
-                            thesurfview.cuts = params.intent.cuts; 
-                        newovl.histoManager.onclimchange = function(ev)
+                                if (KViewer.defaults.overlay)
                                 {
+                                    var d = KViewer.defaults.overlay;                        
+                                    if (d.clim != undefined)            
+                                         newovl.histoManager.clim = [imageStruct.content.datascaling.ie(d.clim[0]),imageStruct.content.datascaling.ie(d.clim[1])];
+                                }                        
+    
+    
+                                if (imageStruct.content.descrip && imageStruct.content.descrip.clim)
+                                    newovl.histoManager.clim = [imageStruct.content.descrip.clim[0],imageStruct.content.descrip.clim[1]];
+    
+    
+    
+                                if (params.intent.posnegsym)
+                                    newovl.histoManager.posnegsym = params.intent.posnegsym;
+                                if (params.intent.clim)
+                                    newovl.histoManager.clim = params.intent.clim;
+                                if (params.intent.windowing != undefined)
+                                    newovl.histoManager.clim = newovl.histoManager.nii.datascaling.ie(params.intent.windowing)
+    
+                                if (params.intent.cmap != undefined)
+                                    newovl.histoManager.setCmap(params.intent.cmap);
+                                if (params.intent.cuts != undefined)
+                                    thesurfview.cuts = params.intent.cuts; 
+                                newovl.histoManager.onclimchange = 
+                                 function(ev)
+                                    {
+                                        signalhandler.send("overlay_climChange", {
+                                            id: newovl.currentFileID,
+                                            val: newovl.histoManager.clim,
+                                            ev: ev
+                                        });
+                                        thesurfview.update();
+                                        newovl.histoManager.saveSettings()
+    
+                                    }
+                                newovl.histoManager.oncmapchange = function(ev)
+                                        {
+                                           signalhandler.send("overlay_cmapChange", {
+                                                        id: newovl.currentFileID,
+                                                        blend: newovl.histoManager.blending,
+                                                        cval: newovl.histoManager.cmapindex,
+                                                        showcolored : newovl.showcolored,
+                                                        showcolored_type : newovl.showcolored_type,
+                                                        ev: ev
+                                              });
+                                            thesurfview.update();
+                                            newovl.histoManager.saveSettings()
+                                                
+                                        }
+                                newovl.customClose = function()
+                                {
+                                    for (var k = 0; k < thesurfview.overlays.length; k++)
+                                        if (this == thesurfview.overlays[k])
+                                        {
+                                            thesurfview.overlays.splice(k, 1);
+                                            break;
+                                        }
+                                    thesurfview.colors_mapped = undefined;
                                     thesurfview.update();
+    
                                 }
-                        newovl.histoManager.oncmapchange = function(ev)
-                                {
-                                    thesurfview.update();
-                                }
-                        newovl.customClose = function()
-                        {
-                            for (var k = 0; k < thesurfview.overlays.length; k++)
-                                if (this == thesurfview.overlays[k])
-                                {
-                                    thesurfview.overlays.splice(k, 1);
-                                    break;
-                                }
-                            thesurfview.colors_mapped = undefined;
-                            thesurfview.update();
-
+                                thesurfview.update();
+    
+                                signalhandler.send("layoutHisto");
+                             })(surfviews[k])
+                            }
+                            return true;
                         }
-                        thesurfview.update();
+                        return;
 
-                        signalhandler.send("layoutHisto");
                     }
+                    closure(imageStruct,params);
                     return;
-                    
                 }
 
 
             }
 
+            var cpoint = getWorldPosition(); 
+
+            var old_hc_pos_x
+            var old_hc_pos_y
+            if (that.nii != undefined) // save old crosshair position
+            {
+                var x = getCanvasCoordinates(cpoint);
+                var cpos = that.$canvas.offset();
+                cpos.top -= that.$container.offset().top;
+                cpos.left -= that.$container.offset().left;
+                old_hc_pos_x = x.x_pix + cpos.left
+                old_hc_pos_y = x.y_pix + cpos.top
+
+                if (old_hc_pos_x <0 | old_hc_pos_x > that.$container.width()
+                   | old_hc_pos_y <0 | old_hc_pos_y > that.$container.height())
+                {
+                    old_hc_pos_x = that.$container.width()/2;
+                    old_hc_pos_y = that.$container.height()/2;
+                }
+
+            }
+
+            if (that.nii && that.nii.dummy && that.gl != undefined)
+            {
+                that.gl.setPlanesVisibility([1,1,1])
+            }
 
 
             that.nii = imageStruct.content;
@@ -6280,9 +7416,12 @@ function KMedViewer(viewport, master)
                      setTimeout(function(){  that.attachSurfaceRef(that,that.content,undefined,params.intent.isosurf);    });
             }
 
+            if (params.intent != undefined & params.mosaic == undefined)
+                params.mosaic = params.intent.mosaic;
             if (params.mosaic)
             {
                 that.mosaicview = $.extend(that.mosaicview,params.mosaic);
+                that.mosaicview.clipratio.mosaic = true;
                 that.switchToMosaic()
             }
 
@@ -6294,8 +7433,12 @@ function KMedViewer(viewport, master)
                 that.toolbar.$quiver.show();
             }
 
+            if (!KViewer.areControlsVisible())
+               params.intent.hideControls = true;
+
+
             if(params.intent && params.intent.hideControls)
-                that.hideControls(params.intent.hideControls);
+                that.hideControls(params.intent.hideControls);  
             else
                 that.showControls();
 
@@ -6307,8 +7450,10 @@ function KMedViewer(viewport, master)
                     mime: 'nii',
                     filename: that.currentFilename,
                     fileID: that.currentFileID,
+                    fromViewPort : that.viewport.viewPortID,
                     intent: {
-                        clim: that.histoManager.clim
+                        clim: that.histoManager.clim,
+                        hcpos:getCanvasCoordinates(getWorldPosition())
                     },
                     close: that.close
                 }
@@ -6322,7 +7467,7 @@ function KMedViewer(viewport, master)
             if( nii.sizes[0] == 1 || nii.sizes[1] == 1 || nii.sizes[2] == 1)
             {
                 applySlicingDimOfArray( nii.sizes.indexOf(1) )
-                worldLockedToMaster = false;
+                worldLockedToMaster = true;
             }
             else
                 worldLockedToMaster = true;            
@@ -6346,30 +7491,41 @@ function KMedViewer(viewport, master)
 
             // remember center point as custom point 
             customPoint  = math.matrix(nii.centerWorld);
-
             
-            // the new image might not become visible at once.
-            // so, set the current voxel and check if we are inside the view. Otherwise jump to center of this nifti.
-
             var cpoint = getWorldPosition(); // if global coordinates off, this will return the local center, as it was set above with "customPoint"
-
             if (cpoint == undefined || cpoint.reset)
             {
+                cpoint = customPoint;
+                if ($container.height() > 0)
+                {
+                    old_hc_pos_x = $container.width()/2;
+                    old_hc_pos_y = $container.height()/2;
+                }
                 setWorldPosition(customPoint)
-                var cpoint = getWorldPosition();
             }
+
+            var reset = false;
+
+
+            var flatmap = KAtlasTool.isFlatMap(imageStruct);
+            if (flatmap != that.isFlatMap)            
+                reset = true;
+            that.isFlatMap = flatmap;
 
             if (master.mainViewport !== -1)
                     cpoint = math.multiply(math.inv(master.reorientationMatrix.matrix), cpoint);
             
             // check if image is outside: if yes set the global point to the center of this nifti
             var curV_ = math.multiply(math.inv(nii.edges), cpoint)._data;
-            if(curV_[0]<-0.001 || curV_[1]<-0.001 || curV_[2]<-0.001 || curV_[0]>=nii.sizes[0]+0.001 || curV_[1]>=nii.sizes[1]+0.001 || curV_[2]>=nii.sizes[2]+0.001 )
+            if(reset || curV_[0]<-0.001 || curV_[1]<-0.001 || curV_[2]<-0.001 || curV_[0]>=nii.sizes[0]+0.001 || curV_[1]>=nii.sizes[1]+0.001 || curV_[2]>=nii.sizes[2]+0.001 )
             {
                 if (!goOnAndloadasBackground)
                 {
                     setWorldPosition(customPoint);
-                    signalhandler.send('positionChange');
+                    old_hc_pos_x = undefined;
+                    old_hc_pos_y = undefined;
+                    signalhandler.send("positionChange");
+                 //   center();
                 }
             }
             else
@@ -6384,19 +7540,113 @@ function KMedViewer(viewport, master)
                   master.viewcenter = math.multiply(nii.edges, currentVoxel);
             }
 
+            if (that.toolbar.$mainViewportSelector.hasClass("KViewPort_tool_enabled"))
+            {
+                master.toggleMainViewport(-1);                
+                master.toggleMainViewport(that.viewport.viewPortID);                
+            }
+
+
+             if (params.intent)
+            {
+                
+                if (params.intent.clim != undefined)
+                    var tempClim = params.intent.clim;
+                if (params.intent.windowing != undefined)
+                    var tempClim = histoManager.nii.datascaling.ie(params.intent.windowing)
+                    
+                if (params.intent.cmap != undefined & !params.intent.overlay)
+                    histoManager.setCmap(params.intent.cmap);
+            }
+
+
+            { // clim handling 
+                    if (tempClim) // intent had the clim set. now check if it was absolute or in percent for histogram, for auto windowing from histogram.
+                    {
+                        for (var z = 0; z < 2; z++)
+                        {
+                            if (typeof (tempClim[z]) == "string") // is a string
+                            {
+                                if (tempClim[z].search("%") !== -1) // string an with percent --> percantage of histos
+                                {
+                                    var pp = parseFloat(tempClim[z]) / 100;
+                                    if (z == 0)
+                                        // lower bound
+                                        histoManager.clim[z] = nii.histogram.min + pp * (nii.histogram.max - nii.histogram.min);
+                                    else
+                                        // upper
+                                        histoManager.clim[z] = nii.histogram.max - pp * (nii.histogram.max - nii.histogram.min);
+                                }
+                            }
+                            else
+                                histoManager.clim[z] = parseFloat(tempClim[z]);
+                            // else, absolute values given
+                        }
+
+                    }
+                    // default windowing might be set in nifti 
+                    else if(nii.cal_max && (nii.cal_max!=nii.cal_min))
+                    {
+                        histoManager.clim = [nii.datascaling.ie(nii.cal_min), nii.datascaling.ie(nii.cal_max)];
+                    }
+                    else // no clim set. Take standard auto windowing from histogram
+                    {
+                        if (nii.descrip.clim)
+                            histoManager.clim = [nii.descrip.clim[0],nii.descrip.clim[1]];
+                        else
+                        {
+                            var minPerc = 0;
+                            var maxPerc = 0.05;
+
+                            var lowerlim = nii.histogram.min + minPerc * (nii.histogram.max - nii.histogram.min);
+                            // set lowerlim always to zero ( account the intercept in nii)
+                            //if( nii.scl_inter < 0 && nii.scl_slope != 0)
+                            //    lowerlim = -nii.scl_inter/nii.scl_slope;
+                            //else
+                            //    lowerlim = 0;
+
+                            if (interpretAsColoredVolume(that.nii,that))
+                                lowerlim = 0;
+
+
+                            var upperlim = nii.histogram.max - maxPerc * (nii.histogram.max - nii.histogram.min);
+
+                            histoManager.clim = [lowerlim, upperlim];
+                            histoManager.loadSettings(imageStruct)
+
+
+                        }
+                    }
+
+                    if (params.intent.transfactor != undefined)
+                        that.transfactor = params.intent.transfactor;
+
+                    setColorMapLims(histoManager.clim);
+            }
+
+
+
             resliceOnMaster();
-            setCanvasLayout();
 
+            var coords = getCanvasCoordinates(getWorldPosition());
 
- 
-//             if (nii.intent_code > 0)
-//                     histoManager.setCmap(nii.intent_code);
+            if (old_hc_pos_x != undefined)
+            {
+                var dy = coords.y_pix+that.heioffs_px*that.zoomFac-old_hc_pos_y
+                var dx = coords.x_pix+that.widoffs_px*that.zoomFac-old_hc_pos_x;
+                setZoomLims([that.zoomFac, dy, dx]);
+
+            }
+
 
             if (nii.descrip.cmap > 0)
                     histoManager.setCmap(nii.descrip.cmap);
  
-            if (params.intenet && params.intent.initialTimePoint != undefined)
-                that.nii.currentTimePoint.t = parseInt(params.intent.initialTimePoint);
+            if (params.intent && params.intent.initialTimePoint != undefined)
+            {
+                if(that.nii.numTimePoints > parseInt(params.intent.initialTimePoint))
+                    that.nii.currentTimePoint.t = parseInt(params.intent.initialTimePoint);
+            }
             else
             {
                 if (that.nii.numTimePoints > KViewer.movie.currentTimePoint)
@@ -6406,74 +7656,9 @@ function KMedViewer(viewport, master)
                     $timeCurrent.text(  that.nii.currentTimePoint.t );                    
                 }
             }
-            if (params.intent)
-            {
-                if (params.intent.clim != undefined)
-                    var tempClim = params.intent.clim;
-                if (params.intent.cmap != undefined & !params.intent.overlay)
-                    histoManager.setCmap(params.intent.cmap);
-            }
-
-            if (tempClim) // intent had the clim set. now check if it was absolute or in percent for histogram, for auto windowing from histogram.
-            {
-                for (var z = 0; z < 2; z++)
-                {
-                    if (typeof (tempClim[z]) == "string") // is a string
-                    {
-                        if (tempClim[z].search("%") !== -1) // string an with percent --> percantage of histos
-                        {
-                            var pp = parseFloat(tempClim[z]) / 100;
-                            if (z == 0)
-                                // lower bound
-                                histoManager.clim[z] = nii.histogram.min + pp * (nii.histogram.max - nii.histogram.min);
-                            else
-                                // upper
-                                histoManager.clim[z] = nii.histogram.max - pp * (nii.histogram.max - nii.histogram.min);
-                        }
-                    }
-                    else
-                        histoManager.clim[z] = parseFloat(tempClim[z]);
-                    // else, absolute values given
-                }
-
-            }
-            // default windowing might be set in nifti 
-            else if(nii.cal_max && (nii.cal_max!=nii.cal_min))
-            {
-                histoManager.clim = [nii.datascaling.ie(nii.cal_min), nii.datascaling.ie(nii.cal_max)];
-            }
-            else // no clim set. Take standard auto windowing from histogram
-            {
-                if (nii.descrip.clim)
-                    histoManager.clim = [nii.descrip.clim[0],nii.descrip.clim[1]];
-                else
-                {
-                    var minPerc = 0;
-                    var maxPerc = 0.05;
-
-                    var lowerlim = nii.histogram.min + minPerc * (nii.histogram.max - nii.histogram.min);
-                    // set lowerlim always to zero ( account the intercept in nii)
-                    //if( nii.scl_inter < 0 && nii.scl_slope != 0)
-                    //    lowerlim = -nii.scl_inter/nii.scl_slope;
-                    //else
-                    //    lowerlim = 0;
-
-                    if (interpretAsColoredVolume(that.nii,that))
-                        lowerlim = 0;
+     
 
 
-                    var upperlim = nii.histogram.max - maxPerc * (nii.histogram.max - nii.histogram.min);
-
-                    histoManager.clim = [lowerlim, upperlim];
-
-                                        
-                }
-            }
-
-            if (params.intent.transfactor != undefined)
-                that.transfactor = params.intent.transfactor;
-
-            setColorMapLims(histoManager.clim);
 
             if (KViewer.roiTool && KViewer.roiTool.isinstance && KViewer.roiTool.roiPanel)
                 KViewer.roiTool.roiPanel.update();
@@ -6492,8 +7677,29 @@ function KMedViewer(viewport, master)
             }
             else
             {
+                var zlims = [1,0,0]
                 if (master.zoomLims[slicingDimOfWorld] != undefined)
-                    that.setZoomLims(master.zoomLims[slicingDimOfWorld],true);
+                {
+                    zlims = master.zoomLims[slicingDimOfWorld]
+                   //thishere
+                    var cx = coords.x_pix+math.round(that.widoffs_px * that.zoomFac - that.zoomOriginX);
+                    var cy = coords.y_pix+math.round(that.heioffs_px * that.zoomFac - that.zoomOriginY);
+                    var fac = zlims[0]/that.zoomFac;      
+                    var zlims2 = [fac * that.zoomFac, (that.zoomOriginY + cy) * fac - cy,(that.zoomOriginX + cx) * fac - cx]
+                    that.setZoomLims(zlims2,true);
+                    return;
+                }
+                else
+                {
+                    for (var k = 0; k < 3; k++)
+                        if (master.zoomLims[k] != undefined)
+                        {
+                            setZoom(master.zoomLims[k][0])
+                            return;
+                        }
+                }
+
+                
             }
 
 
@@ -6528,6 +7734,8 @@ function KMedViewer(viewport, master)
                                 tag: '',
                                 mime: 'nii',
                                 filename: that.currentFilename,
+                                fromViewPort : that.viewport.viewPortID,
+                                
                                 fileID: that.currentFileID,
                                 intent: {
                                     clim: that.histoManager.clim,
@@ -6547,15 +7755,30 @@ function KMedViewer(viewport, master)
                             var value;
                             if (val != undefined)
                             {
-                                if (!(nii.datascaling.id()))
+                                if (Array.isArray(val))
                                 {
-                                    value = (nii.datascaling.e(val)).toFixed(4);
-                                    value += " (" + val.toFixed(4) + ")";
+                                    value = "[";
+                                    for (var i in val)
+                                    {
+                                        if (i>0)
+                                            value += " "
+                                        value += nii.datascaling.e(val[i]).toFixed(2);
+                                    }
+                                    value = value.trim() + "]"
                                 }
                                 else
-                                    value = val.toFixed(4);
+                                {
+
+                                    if (!(nii.datascaling.id()))
+                                    {
+                                        value = (nii.datascaling.e(val)).toFixed(4);
+                                        value += " (" + val.toFixed(4) + ")";
+                                    }
+                                    else
+                                        value = val.toFixed(4);
+                                }
                                 if (nii.descrip && nii.descrip.unit)
-                                    value += " " + nii.descrip.unti.slice(5);
+                                    value += " " + nii.descrip.unit.slice(5);
 
                             }
                             else
@@ -6614,6 +7837,7 @@ function KMedViewer(viewport, master)
 
                         txt += "</span>";
                         txt += "<span style='font-size:3px;line-height:3px'><br></span>";
+
 
 
                         txt +=  "voxsize: " + nii.voxSize[0].toFixed(2) + '&nbsp;&nbsp;' + nii.voxSize[1].toFixed(2) + '&nbsp;&nbsp;' + nii.voxSize[2].toFixed(2)
@@ -6693,6 +7917,7 @@ function KMedViewer(viewport, master)
 
         function setColorMapLims(clim_in)
         {
+            histoManager.saveSettings()
             if (clim_in != undefined)
                 histoManager.clim = clim_in.slice(0);
             histoManager.updateHistogramClim();
@@ -6706,16 +7931,26 @@ function KMedViewer(viewport, master)
 
         function createTrace(obj)
         {
-             var p = obj.getPoints();
-             if (p.length < 2)
+              var p = obj.getPoints();
+              if (p.length < 2)
                 return;
 
                 
-             var flines = "";
-             var quant = 10;
-             var col = [255,0,0];
-             var col2 = [0,255,0];
-                     var op = 0.3;
+              var flines = "";
+              var quant = 10;
+              var col = [255,0,0];
+              var col2 = [0,255,0];
+              var op = 0.5;
+
+
+              if (obj.color != undefined)
+              {                  
+                  if (obj.color.length == 3)
+                    col = obj.color;
+                  else
+                    col = KColor.list[obj.color]
+              }
+
 
               function addline(col,op,x0,y0,x1,y1)
               {
@@ -6723,13 +7958,41 @@ function KMedViewer(viewport, master)
               }
 
 
-             var last  = that.getCanvasCoordinates(p[0].p.coords);
+             var offs = 0;
+             if (obj.type == "electrode" && obj.electrode_properties && obj.electrode_properties.deformed)
+                offs = 1;
+             var range = Array.from({length: p.length-offs-1}, (x, i) => i+offs+1);
+             var range_last = Array.from({length: p.length-offs-1}, (x, i) => (i+offs+p.length)%p.length);;
+             if (obj.type == "2diameter")
+             {
+                  if (p.length == 4)
+                  {
+                      range = [0,2];
+                      range_last = [1,3]
+                  }
+             }
+
+
+
              var cur = getCanvasCoordinates(getWorldPosition());
              var cur_z = cur.z_mm;
 
-             for (var k = 1 ; k < p.length;k++)
+
+             for (var j = 0; j < range.length;j++)
              {
-                 var c = that.getCanvasCoordinates(p[k%p.length].p.coords);
+                 var k = range[j];
+                 var c,last;
+                 if (KViewer.navigationMode == 0)
+                 {
+                    c = that.getCanvasCoordinates(math.multiply(KViewer.reorientationMatrix.matrix,p[k%p.length].p.coords)._data);
+                    last  = that.getCanvasCoordinates(math.multiply(KViewer.reorientationMatrix.matrix,p[range_last[j]].p.coords)._data);
+                 }
+                 else
+                 {
+                    c = that.getCanvasCoordinates(p[k%p.length].p.coords);
+                    last  = that.getCanvasCoordinates(p[range_last[j]].p.coords);
+
+                 }       
 
 
                  if (Math.abs(c.z_mm - cur_z)<1 && Math.abs(last.z_mm - cur_z)<1) // (last.z_mm > cur_z && c.z_mm < cur_z) | (last.z_mm < cur_z && c.z_mm > cur_z))
@@ -6779,10 +8042,49 @@ function KMedViewer(viewport, master)
                  last = c;
              }
 
+
+             var bezier = ""
+             if (obj.type == "2diameter")
+             {
+                  if (p.length == 4)
+                  {
+                        var c = []
+                        c[0] = that.getCanvasCoordinates(p[0].p.coords);
+                        c[1] = that.getCanvasCoordinates(p[2].p.coords);
+                        c[2] = that.getCanvasCoordinates(p[1].p.coords);
+                        c[3] = that.getCanvasCoordinates(p[3].p.coords);
+                        var f = 0.27;
+                        bezier =  " M " + c[0].x_pix + " " + c[0].y_pix;
+                        for (var k = 0; k < 4;k++)
+                        {
+                            var i0 = k;
+                            var i1 = (k+1)%4;
+                            var i2 = (k+2)%4;
+                            var i3 = (k+3)%4;
+                            bezier += " C " +
+                                (c[i0].x_pix + (c[i1].x_pix-c[i3].x_pix)*f) + " " + (c[i0].y_pix + (c[i1].y_pix-c[i3].y_pix)*f) + " " +
+                                (c[i1].x_pix - (c[i2].x_pix-c[i0].x_pix)*f) + " " + (c[i1].y_pix - (c[i2].y_pix-c[i0].y_pix)*f) + " " +
+                                 c[i1].x_pix + " " + c[i1].y_pix ;
+                        }
+                        bezier = '<path style="stroke-width:3px;stroke:rgba('+col[0]+','+col[1]+','+col[2]+','+op+')"  d="'+bezier+'" stroke="black" fill="transparent"/>'
+
+
+                  }
+             }
+
+
              var w = that.$canvascontainer.width();
              var h = that.$canvascontainer.height();
-             var $lines = $("<svg  style='pointer-events:none;width:"+w+"px;height:"+h+"px;z-index:5;position:absolute;'>" + flines + "</svg>");
+             var $lines = $("<svg  style='pointer-events:none;width:"+w+"px;height:"+h+"px;z-index:5;position:absolute;'>" + flines + bezier + "</svg>");
 	  
+             if (obj.type == "2diameter")
+             {
+                 try {
+                 var l = $lines.find("path")[0].getTotalLength()/c[0].x_pixPerMM;
+                 obj.circumference = l;
+                 } catch(err) {}
+             }
+
              that.$canvascontainer.append($lines);
 
 
@@ -6792,18 +8094,86 @@ function KMedViewer(viewport, master)
 
 
 
+        function updateSubsamplingFactor(highres,params)
+        {
+
+            var quality = 4;
+            if (state.viewer.viewing_quality2D != undefined)
+                quality = state.viewer.viewing_quality2D
+
+            if (state.viewer.viewing_quality2D_roi != undefined)
+                if (that.currentROI != undefined && params != undefined && params.roidraw)
+                    quality = state.viewer.viewing_quality2D_roi
+
+            
+            var sx_,sy_;
+            if (slicingDimOfArray == 0)
+            {
+                sx_ = that.nii.sizes[1];
+                sy_ = that.nii.sizes[2];
+            }
+            if (slicingDimOfArray == 1)
+            {
+                sx_ = that.nii.sizes[0];
+                sy_ = that.nii.sizes[2];
+            }
+            if (slicingDimOfArray == 2)
+            {
+                sx_ = that.nii.sizes[0];
+                sy_ = that.nii.sizes[1];
+            }
+
+
+
+            var matx = Math.round(that.$canvascontainer.width()*quality/4);
+            var maty = Math.round(that.$canvascontainer.height()*quality/4);
+
+            if (matx < 256) matx = 256;
+            if (maty < 256) maty = 256;
+            
+            var rx = Math.max(sx_/matx+0.5 ,1);
+            var ry = Math.max(sy_/maty+0.5 ,1);
+            //rx = Math.floor(rx);
+            //ry = Math.floor(ry);
+            rx = Math.round((rx-1)/2)*2+1;
+            ry = Math.round((ry-1)/2)*2+1;
+            if (rx == Infinity)
+                rx = 1;
+            if (ry == Infinity)
+                ry = 1;
+
+            if (highres)
+            {
+                rx=1;
+                ry=1;
+            }
+
+            var ret = false;
+            if (that.subsample_factor_x != rx)
+                ret = true;
+            if (that.subsample_factor_y != ry)
+                ret = true;
+            that.subsample_factor_x = rx;
+            that.subsample_factor_y = ry;
+
+            //console.log(that.subsample_factor_x + " , " + that.subsample_factor_y);
+
+            return ret;
+        }
+
+
         function drawSlice(params)
         {
-                // do not draw on hidden viewports during zoom
-            if (master.zoomedViewport != -1 && master.zoomedViewport != that.viewport.viewPortID)
-                return;
-
             if (that.nii == undefined)
                 return;
-
+/*           
+            // do not draw on hidden viewports during zoom
+            if (master.zoomedViewport != -1 && master.zoomedViewport != that.viewport.viewPortID)
+                return;
+ 
             if (params && params.nosliceupdate != undefined && params.nosliceupdate == true)
                 return
-
+*/
             if (params && params.point)
                 customPoint = params.point;
 
@@ -6818,44 +8188,25 @@ function KMedViewer(viewport, master)
             var sliceChanged = setCurrentVoxel();
             var respectSlCh = (params != undefined && params.respectSliceChange);
 
+            if (that.slice_out_of_range)
+            {
+                that.$canvas.css('opacity',0.3)
+                return;
+            }
+            else 
+                that.$canvas.css('opacity',1)
+
             if (params && params.preferred == false)
                 params.lazy = true;
 
+            mip_slab = 0;
+            avg_slab = 0; 
+            if (that.histoManager.slab_projection_type == 'mip')
+                mip_slab = that.histoManager.slab;
+            if (that.histoManager.slab_projection_type == 'avg')
+                avg_slab = that.histoManager.slab;
 
-
-
-            function getClipBox()
-            {
-
-                    var canvas_offs = that.$canvas.offset();
-                    var contai_offs = that.$container.offset();
-                    var canvas_wid = that.$canvas.width();
-                    var canvas_hei = that.$canvas.height();
-                    var contai_wid = that.$container.width();
-                    var contai_hei = that.$container.height();
-
-                    var clip = [0,0,1,1];
-
-                    var dw =  (canvas_offs.left-contai_offs.left );
-                    if (dw < 0)
-                        clip[0] = -dw / that.$canvas.width() ;
-                    dw = canvas_wid-contai_wid + dw;
-                    if (dw> 0)
-                       clip[2] = 1-dw/canvas_wid;
-
-                    var dh =  (canvas_offs.top-contai_offs.top );
-                    if (dh < 0)
-                        clip[1] = -dh / that.$canvas.height() ;
-                    dh = canvas_hei-contai_hei + dh
-                    if (dh> 0)
-                       clip[3] = 1-dh/canvas_hei;
-
-                    return clip;
-            }
-
-
-
-
+   
 
             function eagerDraw3D(arr,fun,done)
             {
@@ -6899,20 +8250,26 @@ function KMedViewer(viewport, master)
 
             function lazyDraw2D(fun)
             {
-                  var t = 25;
-                  if (params && !params.preferred)
-                     t = master.static.lazydraw_timeout || 150;
+                  var t = 0;
+                  var to = 150;
+                  if (state.viewer.viewing_timeout)
+                     to = state.viewer.viewing_timeout;
+                  if ((params && !params.preferred) | params == undefined)
+                     t = to
                   if (that.cid != undefined)
                         clearTimeout(that.cid);
                   that.cid = setTimeout(function() {
                         if (that.nii != undefined)
-                            fun();
+                            fun(params);
                         clearTimeout(that.cid);
                         that.cid = undefined;
                     },t);
             }
             
-            if(master.static.lazydraw_timeout == 0 || typeof eagerDrawActive != "undefined" || (master.movie.isPlayed))
+            if(master.static.lazydraw_timeout == 0 || 
+               typeof eagerDrawActive != "undefined" ||
+                (master.movie.isPlayed) ||
+                (params && params.eagerDrawActive))
             {
                 var draw3D = eagerDraw3D;
                 var draw2D = eagerDraw2D;
@@ -7020,18 +8377,33 @@ function KMedViewer(viewport, master)
                     if (!respectSlCh || sliceChanged)
                     {
                      
-                        draw2D(function()
+                        draw2D(function(params)
                         {
+
+                            if (updateSubsamplingFactor(undefined,params))
+                            {
+                                applySlicingDimOfWorld(slicingDimOfWorld)
+                                setCanvasLayout()
+                            }
 
                             sliceData = ctx.createImageData(csx, csy);
                             var clip;
                             if (that.largeContent())
                                 clip = getClipBox();
-                            sliceDrawer(undefined,clip);
+
+                            var tmp = currentSlice;
+                            var slab = Math.max(mip_slab,avg_slab)
+                            for (var i = -slab; i <= slab;i++)
+                            {
+                                currentSlice = tmp+1*i;
+                                sliceDrawer(undefined,clip);
+                            }
+                            currentSlice = tmp;
+                            
                             ctx.putImageData(sliceData, 0, 0);
 
                             renderOutlines("update",params)
-                        
+      
 
                         });
 
@@ -7054,17 +8426,52 @@ function KMedViewer(viewport, master)
 
         }
 
+        function getClipBox()
+        {
+
+                var canvas_offs = that.$canvas.offset();
+                var contai_offs = that.$container.offset();
+                var canvas_wid = that.$canvas.width();
+                var canvas_hei = that.$canvas.height() ;
+                var contai_wid = that.$container.width();
+                var contai_hei = that.$container.height();
+                var clip = [0,0,1,1];
+
+                var dw =  (canvas_offs.left-contai_offs.left );
+                if (dw < 0)
+                    clip[0] = -dw / that.$canvas.width() ;
+                dw = canvas_wid-contai_wid + dw;
+                if (dw> 0)
+                   clip[2] = 1-dw/canvas_wid;
+
+                var dh =  (canvas_offs.top-contai_offs.top );
+                if (dh < 0)
+                    clip[1] = -dh / that.$canvas.height() ;
+                dh = canvas_hei-contai_hei + dh
+                if (dh> 0)
+                   clip[3] = 1-dh/canvas_hei;
+
+                return clip;
+        }
+        that.getClipBox = getClipBox;
+
+
 
 
         function renderOutlines(type,params)
         {
                 if (params != undefined && params.frommove) // during roi-painting => do not update outlins
                     return;
-
+/*
                 for (var k = 0; k < that.atlas.length;k++)
+                {
                     if (that.atlas[k].outlines != undefined)
-                        that.atlas[k].outlines[type](that);
-                
+                    {
+                            that.atlas[k].outlines[type](that);
+                    }
+
+                }
+  */              
                 if (that.outlines != undefined)
                     that.outlines[type]();
 
@@ -7089,7 +8496,7 @@ function KMedViewer(viewport, master)
         }
 
 
-
+        that.renderOutlines = renderOutlines;
 
 
         var quiver = FiberQuiver(that);
@@ -7099,6 +8506,12 @@ function KMedViewer(viewport, master)
         that.drawSlice = drawSlice;
         that.positionChanger = signalhandler.attach("positionChange", drawSlice);
         signalhandler.attach("drawSlices", drawSlice);
+
+
+        signalhandler.attach("clearMultiOutlines", function(){
+            for (var k = 0; k < that.atlas.length;k++)
+                that.atlas[k].clearMultiOutlines()
+        });
 
 
         ///////////////////////// painting ///////////////////////////////////////////////
@@ -7116,7 +8529,7 @@ function KMedViewer(viewport, master)
 
             if (master.mainViewport !== -1)
             {
-                var niin = master.viewports[master.mainViewport].medViewer.nii;
+                var niin = master.viewports[master.mainViewport].medViewer.niiOriginal;
                 if (niin == undefined)
                 {
                     master.toggleMainViewport(-1);
@@ -7182,6 +8595,7 @@ function KMedViewer(viewport, master)
 
             setSlicingDimOfWorld(slicingDimOfWorld);
             setCurrentVoxel();
+            signalhandler.send('clearMultiOutlines')
             //drawSlice();
         }
 
@@ -7195,6 +8609,12 @@ function KMedViewer(viewport, master)
 
             if (clipratio == undefined)
                 clipratio = 0;
+            if (state.viewer.background_color)
+            {
+                background_color2D = new KColor(state.viewer.background_color).color
+                that.$container.css('background',state.viewer.background_color);
+            }
+
             //  console.log('in drawSlice_interpolate');
 
            // currentSlice = currentVoxel._data[slicingDimOfArray];
@@ -7217,21 +8637,6 @@ function KMedViewer(viewport, master)
             else
                 R = getTiltMat(slicingDimOfArray);
 
-
-            // prep the overlays
-        /*    var overlay_visible = false;
-            for (var k = 0; k < that.overlays.length; k++)
-            {
-                var ovl = that.overlays[k];
-                ovl.tOffset_ovl = ovl.nii.currentTimePoint.t * ovl.nii.sizes[0] * ovl.nii.sizes[1] * ovl.nii.sizes[2];
-                var reorient = math.diag([1, 1, 1, 1]);
-                if (KViewer.navigationTool.isinstance && KViewer.navigationTool.movingObjs[ovl.currentFileID] != undefined & KViewer.navigationMode == 0)
-                    reorient = KViewer.reorientationMatrix.matrix;
-                ovl.A = (math.multiply(math.multiply(math.multiply(math.inv(ovl.nii.edges), reorient), that.nii.edges), R))._data;
-                overlay_visible = ovl.visible;
-  
-            }
-        */
 
           // prep the overlays
             prepOverlays(true);
@@ -7268,25 +8673,8 @@ function KMedViewer(viewport, master)
 
             // prep the rois
             while (that.ROIs_temp.length > 0) {
-                that.ROIs_temp.pop();
-            }
-            // empty the temp roi array for drawing;
-            for (var k = 0; k < that.ROIs.length; k++)
-            {
-                var reorient = math.diag([1, 1, 1, 1]);
-                if (KViewer.navigationTool.isinstance && 
-                   ((KViewer.navigationTool.movingObjs[that.ROIs[k].roi.fileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ) )
-                    reorient = KViewer.reorientationMatrix.matrix;
-                that.ROIs[k].A =(math.multiply(math.multiply(math.multiply(math.inv((that.ROIs[k].roi.content.edges)), reorient), that.nii.edges), R))._data;
-
-                if (that.ROIs[k].visible)
-                {
-                    that.ROIs_temp.push(that.ROIs[k]);
-                    that.ROIs[k].tOffset = that.ROIs[k].nii.currentTimePoint.t  * that.ROIs[k].roi.content.widheidep;
-
-                }
-            }
-            that.ROIs_temp.finalLength = that.ROIs_temp.length;
+                that.ROIs_temp.pop();       }
+            prepROIs();
 
 
             // prep the atlass
@@ -7297,28 +8685,79 @@ function KMedViewer(viewport, master)
 
             // the(!) coordinate mapping
             var reorient = math.diag([1, 1, 1, 1]);
+            var mapCoords = undefined
+            var R_isIdentity = true;
+            
 
 
             if (KViewer.navigationTool.isinstance && 
                 (( master.navigationTool.movingObjs[that.currentFileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ) )
-                reorient = KViewer.reorientationMatrix.matrix;
-            R = math.multiply((math.multiply(math.inv(niiOriginal.edges), math.multiply(reorient, that.nii.edges))), R)._data;
+            {
+                if (KViewer.reorientationMatrix.deffield)
+                {
+                      var def = KViewer.reorientationMatrix.deffield;
+                      var def_edges_inv = math.inv(KViewer.reorientationMatrix.deffield.edges);
+                      R = math.inv(niiOriginal.edges)._data
+                      reorient = KViewer.reorientationMatrix.matrix;
+                    
+                      var Adef = math.multiply(math.multiply(def_edges_inv, reorient), that.nii.edges)._data;
 
+                      mapCoords = function (x,y,z)
+                      {
+                           return [trilinInterp(def,x,y,z,Adef,def.widheidep*0),
+                                   trilinInterp(def,x,y,z,Adef,def.widheidep*1),
+                                   trilinInterp(def,x,y,z,Adef,def.widheidep*2)]
+                      }
+
+                      R_isIdentity = false;
+                }
+                else
+                {
+                    reorient = KViewer.reorientationMatrix.matrix;
+                    R = math.multiply((math.multiply(math.inv(niiOriginal.edges), math.multiply(reorient, that.nii.edges))), R)._data;
+                    R_isIdentity = isIdentity(R);
+                }
+            }
+            else
+            {
+                R = math.multiply((math.multiply(math.inv(niiOriginal.edges), math.multiply(reorient, that.nii.edges))), R)._data;
+                R_isIdentity = isIdentity(R);
+            }
             function renderVal(k, px, py, pz)
             {
-
-                var cval = trilinInterp(niiOriginal, px, py, pz, R, tOffset);
+                var px_ = px;
+                var py_ = py;
+                var pz_ = pz;
+                var cval = -9999999999;
+                if (that.visible)
+                {
+                    if (R_isIdentity)
+                    {
+                        var ind = niiOriginal.widhei * Math.round(pz) + Math.round(py) * niiOriginal.wid + Math.round(px);
+                        cval = niiOriginal.data[ind + tOffset];
+                    }
+                    else
+                    {
+                         if(mapCoords != undefined)
+                         {
+                            var ps = mapCoords(px,py,pz)
+                            px = ps[0];
+                            py = ps[1];
+                            pz = ps[2];
+                         }
+                         cval = trilinInterp(niiOriginal, px, py, pz, R, tOffset);
+                    }
+                }
 
                 if (cval == undefined)
-                   cval = 0;
+                   cval = -9999999999;
 
                 if (cval != undefined)
                 {
 
-
                    for (var j = 0; j < that.overlays.length; j++)
                         if (that.overlays[j].getPixel)
-                           that.overlays[j].val = that.overlays[j].getPixel(px,py,pz);
+                           that.overlays[j].val = that.overlays[j].getPixel(px_,py_,pz_);
 
                     if (colVol)
                     {
@@ -7362,7 +8801,7 @@ function KMedViewer(viewport, master)
 
                 }
                 if (that.ROIs_temp.finalLength > 0 |  plotAtlas) 
-                    putRoiPixel(px, py, pz, k,undefined,putVoxel);
+                    putRoiPixel(px_, py_, pz_, k,undefined,putVoxel);
 
             }
 
@@ -7384,10 +8823,15 @@ function KMedViewer(viewport, master)
                 var sy_ =  that.nii.sizes[1]; 
                 var renderVal_ = function(k,a,b) { return renderVal(k,a,b,currentSlice); }
             }
-                       
+
             var cr = clipratio
             if (swapXY)
+            {
                 cr = [clipratio[1],clipratio[0],clipratio[3],clipratio[2]];
+                mapValtoRGBVol.sx_ = sy_ // for dither
+            }
+            else
+                mapValtoRGBVol.sx_ = sx_
 
 
             if (clipratio.length == 4)
@@ -7413,14 +8857,34 @@ function KMedViewer(viewport, master)
                     var starty = Math.floor(sy_* (cr[1]));
                     var endy = Math.floor(sy_ * (cr[3]));
                 }
-
+        
+                if (clipratio.mosaic)  
+                {
+                    var sxclipped = Math.floor(sx*Math.abs(cr[2]-cr[0]));
+                    var syclipped = Math.floor(sy*Math.abs(cr[3]-cr[1]));
+                    var sx_clipped = Math.floor(sx_*Math.abs(cr[2]-cr[0]));
+                    var sy_clipped = Math.floor(sy_*Math.abs(cr[3]-cr[1]));
+                    var offsx = startx;
+                    var offsy = starty;                        
+                }
+                else 
+                {    
+                    var sxclipped = Math.floor(sx);
+                    var syclipped = Math.floor(sy); 
+                    var sx_clipped = Math.floor(sx_);
+                    var sy_clipped = Math.floor(sy_);
+                    var offsx = 0;
+                    var offsy = 0;
+                }
+            
+/*
                 var sxclipped = Math.floor(sx);// *  (clipratio[2]-clipratio[0]));
                 var syclipped = sy; //Math.floor(sy *  (clipratio[2]-clipratio[0]));
                 var sx_clipped = Math.floor(sx_);//* (clipratio[2]-clipratio[0]));
                 var sy_clipped = sy_ //Math.floor(sy_* (clipratio[2]-clipratio[0]));
                 var offsx = 0;
                 var offsy = 0;
-
+*/
             }
             else
             {
@@ -7439,34 +8903,24 @@ function KMedViewer(viewport, master)
                 var sy_clipped = Math.floor(sy_ * (1 - clipratio))
             }
 
-            var lowres =  that.useLowres();
-            var putVoxel;
-            var delta = 1;
-            if (lowres)
-            {
-                delta = 2;
-                putVoxel = putQuad;
-            }
-            else
-                putVoxel = putSingle;
+            var delta_x = that.subsample_factor_x;
+            var delta_y = that.subsample_factor_y;
+
+            var half_x = Math.floor(delta_x*0.5);
+            var half_y = Math.floor(delta_y*0.5);
+
+            startx = Math.floor(startx/delta_x)*delta_x;
+            starty = Math.floor(starty/delta_y)*delta_y;
+
 
             var k;
-            for (var x = startx; x < endx; x++)
-                for (var y = starty; y <endy; y++)
-                {   
+            for (var x = startx; x < endx; x+=delta_x)
+                for (var y = starty; y <endy; y+=delta_y)
+                {                   
                     if (swapXY)
-                        k = ((sx_clipped * xflip + xdir * (x - offsx) - xflip) * syclipped + yflip * sy_clipped + ydir * (y - offsy) - yflip) * 4;
+                        k = ((sxclipped * xflip + xdir * Math.round((x - offsx)/delta_x) - xflip) * syclipped + yflip * syclipped + ydir * Math.round((y - offsy)/delta_y) - yflip) * 4;
                     else
-                        k = ((sy_clipped * yflip + ydir * (y - offsy) - yflip) * sxclipped + xflip * sx_clipped + xdir * (x - offsx) - xflip) * 4;
-
-                    if (lowres)
-                    {
-                        if (swapXY)
-                            k = [k,k+4,k+4+4*syclipped,k+4*sy_clipped];
-                        else
-                            k = [k,k+4,k+4+4*sxclipped,k+4*sx_clipped];
-                    }
-
+                        k = ((syclipped * yflip + ydir * Math.round((y - offsy)/delta_y) - yflip) * sxclipped + xflip * sxclipped + xdir * Math.round((x - offsx)/delta_x) - xflip) * 4;
 
                    renderVal_(k, x,y);
 
@@ -7593,10 +9047,18 @@ function KMedViewer(viewport, master)
             if (!isNaN(cVal))
             {
                 var currentVal = histoManager.mapVal(cVal);
+                if (currentVal < 0)
+                    return [background_color2D[0],
+                            background_color2D[1],
+                            background_color2D[2],
+                            0]
                 return colormap.mapVal(currentVal, histoManager.cmapindex);
             }
             else
-                return [0, 0, 0, 0];
+                return [background_color2D[0],
+                        background_color2D[1],
+                        background_color2D[2],
+                        0]
         }
 
 
@@ -7605,10 +9067,16 @@ function KMedViewer(viewport, master)
         function mapRGBval(cVal, ktoplot, mapper, ovl_num,putVoxel)
         {
                 var rgba = mapValtoRGBVol(cVal, mapper, ovl_num,ktoplot);
-                putVoxel(ktoplot,rgba);
+                if (avg_slab > 0)              
+                    putVoxel(ktoplot,rgba,(x,y) => y+x/(2*avg_slab+1));
+                else if (mip_slab > 0)              
+                    putVoxel(ktoplot,rgba,Math.max);
+                else
+                    putVoxel(ktoplot,rgba);
 
         }
-        function putSingle(k,rgba,f)
+
+        function putVoxel(k,rgba,f)
         {
              if (f == undefined)
              {
@@ -7622,105 +9090,63 @@ function KMedViewer(viewport, master)
                 sliceData.data[k + 0] = f(rgba[0],sliceData.data[k + 0]);
                 sliceData.data[k + 1] = f(rgba[1],sliceData.data[k + 1]);
                 sliceData.data[k + 2] = f(rgba[2],sliceData.data[k + 2]);
-                sliceData.data[k + 3] = rgba[3];
+                sliceData.data[k + 3] = f(rgba[3],sliceData.data[k + 3]);
 
-             }
+             }          
         }
-
-        function putQuad(ktoplot,rgba,f)
-        {
-
-             if (f == undefined)
-             {
-                sliceData.data[ktoplot[0] + 0] = rgba[0];
-                sliceData.data[ktoplot[0] + 1] = rgba[1];
-                sliceData.data[ktoplot[0] + 2] = rgba[2];
-                sliceData.data[ktoplot[0] + 3] = rgba[3];
-
-                sliceData.data[ktoplot[1] + 0] = rgba[0];
-                sliceData.data[ktoplot[1] + 1] = rgba[1];
-                sliceData.data[ktoplot[1] + 2] = rgba[2];
-                sliceData.data[ktoplot[1] + 3] = rgba[3];
-
-                sliceData.data[ktoplot[2] + 0] = rgba[0];
-                sliceData.data[ktoplot[2] + 1] = rgba[1];
-                sliceData.data[ktoplot[2] + 2] = rgba[2];
-                sliceData.data[ktoplot[2] + 3] = rgba[3];
-
-                sliceData.data[ktoplot[3] + 0] = rgba[0];
-                sliceData.data[ktoplot[3] + 1] = rgba[1];
-                sliceData.data[ktoplot[3] + 2] = rgba[2];
-                sliceData.data[ktoplot[3] + 3] = rgba[3];
-             }
-             else
-             {
-                var a= f(rgba[0],sliceData.data[ktoplot[0] + 0]);
-                var b= f(rgba[1],sliceData.data[ktoplot[0] + 1]);
-                var c= f(rgba[2],sliceData.data[ktoplot[0] + 2]);
-
-                sliceData.data[ktoplot[0] + 0] = a
-                sliceData.data[ktoplot[0] + 1] = b
-                sliceData.data[ktoplot[0] + 2] = c
-                sliceData.data[ktoplot[0] + 3] = rgba[3];
-
-                sliceData.data[ktoplot[1] + 0] = a
-                sliceData.data[ktoplot[1] + 1] = b
-                sliceData.data[ktoplot[1] + 2] = c
-                sliceData.data[ktoplot[1] + 3] = rgba[3];
-
-                sliceData.data[ktoplot[2] + 0] = a
-                sliceData.data[ktoplot[2] + 1] = b
-                sliceData.data[ktoplot[2] + 2] = c
-                sliceData.data[ktoplot[2] + 3] = rgba[3];
-
-                sliceData.data[ktoplot[3] + 0] = a
-                sliceData.data[ktoplot[3] + 1] = b
-                sliceData.data[ktoplot[3] + 2] = c
-                sliceData.data[ktoplot[3] + 3] = rgba[3];
-
-             }
-        }
-
 
         function mapValtoRGBVol(cVal, mapper, ovl_num,k)
         {
-
             var currentVal = 0;
-            var rgba = mapper(cVal, rgba);
+            var rgba;
+            rgba = mapper(cVal, rgba);
 
             if (ovl_num > 0)
             {
                 var rgba_ovl = [0, 0, 0, 0];
+                var vis = false;
                 for (var j = 0; j < ovl_num; j++)
                 {
                     var ovl = that.overlays[j];
                     if (ovl.visible)
                     {
                         var v = ovl.val;
+                        if (ovl.dither)
+                        {
+                            var a = math.round(ovl.dither*((k/4)%mapValtoRGBVol.sx_))
+                            var b = math.round(ovl.dither*(k/4/mapValtoRGBVol.sx_))
+                            if ((a%2==0 & b%2==1)|(a%2==1 & b%2==0))
+                                continue;
+                        }
+
+
                         if (v[0] > 0 )
                         {
                             for (var i = 0; i < 4; i++)
                                 rgba_ovl[i] += v[i+1];
+                            vis =true;
                         }
                     }
-                }
+                }                
+                if (vis)
+                {
 
-                if (ovl.histoManager.blending)
-                {
-                    var fad = (rgba_ovl[0]+rgba_ovl[1]+rgba_ovl[2])/3/255;
-                    if (fad > 1) fad = 1;
-                    fad = Math.sqrt(fad)*that.transfactor;
-                    for (var i = 0; i < 4; i++)
-                        rgba[i] = rgba[i]*(1-fad) +that.transfactor*rgba_ovl[i];
-                }
-                else
-                {
-                    if (rgba_ovl[0]+rgba_ovl[1]+rgba_ovl[2] > 0)
+                    if (ovl.histoManager.blending)
+                    {
+                        var fad = (rgba_ovl[0]+rgba_ovl[1]+rgba_ovl[2])/3/255;
+                        if (fad > 1) fad = 1;
+                        fad = Math.sqrt(fad)*that.transfactor;
                         for (var i = 0; i < 4; i++)
-                            rgba[i] = rgba_ovl[i];
+                            rgba[i] = rgba[i]*(1-fad) +that.transfactor*rgba_ovl[i];
+                    }
+                    else
+                    {
+                        if (rgba_ovl[0]+rgba_ovl[1]+rgba_ovl[2] > 0)
+                            for (var i = 0; i < 4; i++)
+                                rgba[i] = rgba_ovl[i];
 
+                    }
                 }
-
 /*
                 var rgba_ovl = [0, 0, 0, 0];
                 for (var j = 0; j < ovl_num; j++)
@@ -7819,22 +9245,28 @@ function KMedViewer(viewport, master)
             {
                 var roi = that.ROIs_temp[r].roi.content;
                 var v;
-                if (that.ROIs_temp[r].A == undefined)
+                if (that.ROIs_temp[r].A == undefined || that.ROIs_temp[r].A_isIdentity)
                 {
                     if (idx == undefined)
-                        idx = roi.widhei * pz + py * roi.wid + px;
+                        idx = roi.widhei * Math.round(pz) + Math.round(py) * roi.wid + Math.round(px);
                     v = roi.data[idx + that.ROIs_temp[r].tOffset];
                 }
                 else
                 {
-                    v = trilinInterp(roi, px, py, pz, that.ROIs_temp[r].A, that.ROIs_temp[r].tOffset);
-                //    v = NNInterp(roi, px, py, pz, that.ROIs_temp[r].A, that.ROIs_temp[r].tOffset);
+                    if (that.ROIs_temp[r].mapCoords)
+                    {
+                        var ps = that.ROIs_temp[r].mapCoords(px,py,pz)
+                        v = trilinInterp(roi, ps[0], ps[1], ps[2], that.ROIs_temp[r].A, that.ROIs_temp[r].tOffset);
+                    }
+                    else
+//                        v = NNInterp(roi, px, py, pz, that.ROIs_temp[r].A, that.ROIs_temp[r].tOffset);
+                        v = trilinInterp(roi, px, py, pz, that.ROIs_temp[r].A, that.ROIs_temp[r].tOffset);
                     
                 }
-                if (v > 0.5)
+                if (v >= 0.5)
                 {
-                    var c = master.roiTool.colors[that.ROIs_temp[r].color];
-                    putVoxel(k, [c[0],c[1], c[2],255] ,  (a,b) => a*(1-state.viewer.roiTransparency) + b*state.viewer.roiTransparency );
+                    var c = that.ROIs_temp[r].color_mapped;
+                    putVoxel(k, [c[0],c[1], c[2],100000] ,  (a,b) => a*(1-state.viewer.roiTransparency) + b*state.viewer.roiTransparency );
                     ison = true;
                 }
               
@@ -7843,11 +9275,110 @@ function KMedViewer(viewport, master)
             {
                 for (var r = 0; r < that.atlas.length; r++)
                 {
-                    var rgb = that.atlas[r].getPixel(px, py, pz);
-                    var alp = rgb[3]
-                    putVoxel(k, [rgb[0],rgb[1],rgb[2],255] ,  (a,b) => a * alp*that.atlas[r].atlas.content.alpha + b * (1-that.atlas[r].atlas.content.alpha*alp ) );                    
+
+                 //   if (that.atlas[r].atlas.editing_label == undefined)
+                    {
+                        var rgb = that.atlas[r].getPixel(px, py, pz);
+                        var alp = rgb[3]
+                        putVoxel(k, [rgb[0],rgb[1],rgb[2],255] ,  (a,b) => a * alp*that.atlas[r].atlas.content.alpha + b * (1-that.atlas[r].atlas.content.alpha*alp ) );                    
+                    }
                 }
             }
+        }
+
+
+        function prepROIs()
+        {
+
+            var R;
+            if (KViewer.navigationMode == 0 | KViewer.navigationMode == 2 )
+                R = math.diag([1, 1, 1, 1]);
+            else
+                R = getTiltMat(slicingDimOfArray);
+
+            for (var k = 0; k < that.ROIs.length; k++)
+            {
+                var reorient = math.diag([1, 1, 1, 1]);
+                that.ROIs[k].A =(math.multiply(math.multiply(math.multiply(math.inv((that.ROIs[k].roi.content.edges)), reorient), that.nii.edges), R))._data;
+                that.ROIs[k].mapCoords = undefined;
+                that.ROIs[k].A_isIdentity = sameGeometry(that.ROIs[k].roi.content,that.nii);
+
+                
+                if (that.ROIs[k].nii.data_original)
+                {             
+                    var def = KViewer.roiTool.tmpWarp       
+                    var def_edges_inv = math.inv(def.edges);
+                    
+                    that.ROIs[k].A = math.inv(that.ROIs[k].roi.content.edges)._data
+                    that.ROIs[k].Adef = math.multiply(math.multiply(def_edges_inv, that.nii.edges), R)._data;
+
+                    that.ROIs[k].mapCoords = function (x,y,z)
+                    {
+                       var r = this;
+                       return [trilinInterp(def,x,y,z,r.Adef,def.widheidep*0),
+                               trilinInterp(def,x,y,z,r.Adef,def.widheidep*1),
+                               trilinInterp(def,x,y,z,r.Adef,def.widheidep*2)]
+                    }
+                    that.ROIs[k].A_isIdentity = false;
+
+                    
+                }
+                
+
+
+                if (KViewer.navigationTool.isinstance && 
+                   ((KViewer.navigationTool.movingObjs[that.ROIs[k].roi.fileID] != undefined & KViewer.navigationMode == 0) | 
+                   (KViewer.navigationMode == 2 & KViewer.mainViewport != -1) ) )
+                {
+                      if (KViewer.reorientationMatrix.deffield)
+                      {
+                           
+                              var def = KViewer.reorientationMatrix.deffield
+                              var def_edges_inv = math.inv(def.edges);
+                              var reorient = KViewer.reorientationMatrix.matrix;
+
+                              that.ROIs[k].A = math.inv(that.ROIs[k].roi.content.edges)._data
+                              that.ROIs[k].Adef = math.multiply(math.multiply(math.multiply(def_edges_inv, reorient), that.nii.edges), R)._data;
+
+                              var r = that.ROIs[k];
+                              that.ROIs[k].mapCoords = function (x,y,z)
+                              {
+                                   return [trilinInterp(def,x,y,z,r.Adef,def.widheidep*0),
+                                           trilinInterp(def,x,y,z,r.Adef,def.widheidep*1),
+                                           trilinInterp(def,x,y,z,r.Adef,def.widheidep*2)]
+                              }
+                              that.ROIs[k].A_isIdentity = false;
+                      }
+                      else                      
+                      {
+                        that.ROIs[k].mapCoords = undefined;
+                        reorient = KViewer.reorientationMatrix.matrix;
+                        that.ROIs[k].A =(math.multiply(math.multiply(math.multiply(math.inv((that.ROIs[k].roi.content.edges)), reorient), that.nii.edges), R))._data;
+                        that.ROIs[k].A_isIdentity = isIdentity(that.ROIs[k].A) ;
+
+                      }
+
+
+                }
+
+
+                if (Array.isArray(that.ROIs[k].color))
+                   that.ROIs[k].color_mapped = that.ROIs[k].color
+                else if (that.ROIs[k].color.constructor.name == "KColor")
+                   that.ROIs[k].color_mapped = that.ROIs[k].color.color                    
+                else 
+                   that.ROIs[k].color_mapped = master.roiTool.colors[that.ROIs[k].color];
+
+
+                if (that.ROIs[k].visible  & (that.ROIs[k].refSurfView == undefined | !that.isGLenabled()))
+                {
+                    that.ROIs_temp.push(that.ROIs[k]);
+                    that.ROIs[k].tOffset = that.ROIs[k].nii.currentTimePoint.t  * that.ROIs[k].roi.content.widheidep;
+
+                }
+            }
+            that.ROIs_temp.finalLength = that.ROIs_temp.length;
+
         }
 
         function prepOverlays(noNativeSlicing)
@@ -7869,17 +9400,53 @@ function KMedViewer(viewport, master)
                 ovl.totsz = totsz;
 
                 var reorient = math.diag([1, 1, 1, 1]);
-                if (KViewer.navigationTool.isinstance && 
-                       ((KViewer.navigationTool.movingObjs[ovl.currentFileID] != undefined & KViewer.navigationMode == 0) | (noNativeSlicing & KViewer.navigationMode == 2) ) )
-                    reorient = KViewer.reorientationMatrix.matrix;
-
-            
                 var ovledges = (ovl.nii.edges);
                 ovl.A = (math.multiply(math.multiply(math.multiply(math.inv(ovledges), reorient), that.nii.edges), R))._data;
+                ovl.mapCoords = undefined;
+                ovl.A_isIdentity = isIdentity(ovl.A);
+
+                if (KViewer.navigationTool.isinstance && 
+                       ((KViewer.navigationTool.movingObjs[ovl.currentFileID] != undefined & KViewer.navigationMode == 0) | (noNativeSlicing & KViewer.navigationMode == 2) ) )
+                       {
+                           reorient = KViewer.reorientationMatrix.matrix;
+
+                           if (KViewer.reorientationMatrix.deffield)
+                           {
+                              var def = KViewer.reorientationMatrix.deffield
+                              var def_edges_inv = math.inv(def.edges);
+                              ovl.Adef = (math.multiply(math.multiply(math.multiply(def_edges_inv, reorient), that.nii.edges), R))._data;
+
+                              ovl.A = math.inv(ovledges)._data;
+
+
+                              ovl.mapCoords = function (x,y,z)
+                              {
+                                   var ovl = this;
+                                   return [trilinInterp(def,x,y,z,ovl.Adef,def.widheidep*0),
+                                           trilinInterp(def,x,y,z,ovl.Adef,def.widheidep*1),
+                                           trilinInterp(def,x,y,z,ovl.Adef,def.widheidep*2)]
+                              }
+
+                           }
+                           else
+                           {
+                              ovl.A = (math.multiply(math.multiply(math.multiply(math.inv(ovledges), reorient), that.nii.edges), R))._data;
+                           }
+
+                       }
+            
+            
 
                 if (ovl.visible)
                 {
-                    if (ovl.nii.sizes[3]%3 == 0 && ovl.showcolored)
+
+                    if (ovl.histoManager.dither > 0)
+                       ovl.dither = ovl.histoManager.dither;
+                    else 
+                       ovl.dither = undefined;
+
+
+                    if (ovl.nii.sizes[3]%3 == 0 && ovl.showcolored && ovl.showcolored_type != "SOS")
                     {
 
 
@@ -7898,6 +9465,14 @@ function KMedViewer(viewport, master)
 
                            ovl.getPixel = function(px,py,pz) { 
                                 var ovl = this;
+                                if (ovl.mapCoords)
+                                {
+                                    var ps = ovl.mapCoords(px,py,pz)
+                                    px = ps[0]
+                                    py = ps[1]
+                                    pz = ps[2]
+                                }
+
                                 var c =  trilinInterp3_signcorrected(ovl.nii, px, py, pz, ovl.A,ovl.totsz); 
                                 if (c != undefined)
                                 {
@@ -7916,6 +9491,16 @@ function KMedViewer(viewport, master)
                     {
                         ovl.getPixel = function(px,py,pz) 
                         {
+                            var ovl = this;
+                            
+                            if (ovl.mapCoords)
+                            {
+                                var ps = ovl.mapCoords(px,py,pz)
+                                px = ps[0]
+                                py = ps[1]
+                                pz = ps[2]
+                            }
+
                             var c =  trilinInterp_rgbnii(ovl.nii, px, py, pz, ovl.A, ovl.tOffset_ovl) || [0,0,0,0];
                             var s = (c[0]+c[1]+c[2])/(3*255) *2 ;
                             //s = .6;
@@ -7926,13 +9511,37 @@ function KMedViewer(viewport, master)
                     {
                         var interpfun;
                         var currentVal = 0; // an ancient remain ... 
-                        if (!ovl.histoManager.blocky)
-                            ovl.interpfun = trilinInterp;
-                        else 
+                        if (ovl.histoManager.blocky | ovl.A_isIdentity)
                             ovl.interpfun = NNInterp;
+                        else 
+                            ovl.interpfun = trilinInterp;
+ 
+                        var aggregate = 0;
+                        if (ovl.showcolored_type == "SOS")
+                            aggregate = 1;
                         ovl.getPixel = function(px,py,pz) { 
                                 var ovl = this;
-                                var val =  ovl.interpfun(ovl.nii, px, py, pz, ovl.A, ovl.tOffset_ovl); 
+
+                                if (ovl.mapCoords)
+                                {
+                                    var ps = ovl.mapCoords(px,py,pz)
+                                    px = ps[0]
+                                    py = ps[1]
+                                    pz = ps[2]
+                                }
+
+
+                                var val;
+                                if (aggregate == 1)
+                                {
+                                    val = 0;
+                                    var v = trilinInterp3_signcorrected(ovl.nii, px, py, pz, ovl.A, 0);
+                                    if (v == undefined)    
+                                        return [0,0,0];
+                                    val = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+                                }
+                                else
+                                    val =  ovl.interpfun(ovl.nii, px, py, pz, ovl.A, ovl.tOffset_ovl); 
                                 if (isNaN(val))
                                      return [0];
                                 if (!ovl.histoManager.posnegsym)
@@ -7983,10 +9592,16 @@ function KMedViewer(viewport, master)
         *******************************************************************************************************************************************/
 
      
+        var background_color2D = [0,0,0,255]
         function drawSlice_normal(curSl, clipratio, nanrender)
         {
             if (clipratio == undefined)
                 clipratio = 0;
+            if (state.viewer.background_color)
+            {
+                background_color2D = new KColor(state.viewer.background_color).color
+                that.$container.css('background',state.viewer.background_color);
+            }
 
             var nii = that.nii;
 
@@ -8027,34 +9642,21 @@ function KMedViewer(viewport, master)
             // prep the overlays
             prepOverlays(false);
 
-
-
-
             // prep the rois
-
             while (that.ROIs_temp.length > 0) {
                 that.ROIs_temp.pop();
             }
-            // empty the temp roi array for drawing;
-            for (var k = 0; k < that.ROIs.length; k++)
-            {
-                if (nii.edges._data.toString() == that.ROIs[k].roi.content.edges._data.toString())
-                    that.ROIs[k].A = undefined;
-                else
-                   that.ROIs[k].A = ((math.multiply(math.inv((that.ROIs[k].roi.content.edges)), nii.edges)))._data;
-
-                if (that.ROIs[k].visible)
-                {
-                    that.ROIs_temp.push(that.ROIs[k]);
-                    that.ROIs[k].tOffset = that.ROIs[k].nii.currentTimePoint.t  * that.ROIs[k].roi.content.widheidep;
-                }
-            }
-            that.ROIs_temp.finalLength = that.ROIs_temp.length;
-
+            prepROIs()
 
             // prep the atlass
             for (var k = 0; k < that.atlas.length; k++)
-                that.atlas[k].updateGetPixelFunction(nii);
+            {
+                if (KViewer.navigationTool.isinstance && 
+                   (( master.navigationTool.movingObjs[that.atlas[k].atlas.fileID] != undefined & KViewer.navigationMode == 0)) )             
+                    that.atlas[k].updateGetPixelFunction(nii,getTiltMat(slicingDimOfArray));
+                else
+                    that.atlas[k].updateGetPixelFunction(nii);
+            }
 
             var sx_, sy_;
             if (slicingDimOfArray == 0)
@@ -8072,6 +9674,12 @@ function KMedViewer(viewport, master)
                 sx_ = that.nii.sizes[0];
                 sy_ = that.nii.sizes[1];
             }
+
+
+            if (swapXY) // for dither 
+                mapValtoRGBVol.sx_ = sy_
+            else
+                mapValtoRGBVol.sx_ = sx_
 
 
             var colVol = false;
@@ -8129,21 +9737,9 @@ function KMedViewer(viewport, master)
                 return
             }*/
 
-            // special single case case end
-
-
-            var lowres = (that.useLowres() && !that.isGLenabled());
-            var delta = 1;
-            var putVoxel;
-            
-            if (lowres)
-            {
-                delta = 2;
-                putVoxel = putQuad;
-            }
-            else
-                putVoxel = putSingle;
-
+// ERDO
+            if (nii.sizes[slicingDimOfArray] == 1 & (currentSlice >=0.5 | currentSlice < 0))
+                currentSlice = 0;
 
             if (currentSlice < nii.sizes[slicingDimOfArray] & currentSlice >= 0)
             {
@@ -8158,7 +9754,7 @@ function KMedViewer(viewport, master)
                     if (xflip != 0)
                     {
                         var startx = Math.floor(sx_ * (1-cr[2]));
-                        var endx = Math.floor(sx_ * (1-cr[0]));
+                        var endx = Math.floor(sx_ * (1-cr[0])); //work
                     }
                     else
                     {
@@ -8174,15 +9770,27 @@ function KMedViewer(viewport, master)
                     else
                     {
                         var starty = Math.floor(sy_* (cr[1]));
-                        var endy = Math.floor(sy_ * (cr[3]));
+                        var endy = Math.floor(sy_ * (cr[3])); //work
                     }
 
-                    var sxclipped = sx;
-                    var syclipped = sy; 
-                    var sx_clipped = sxclipped;
-                    var sy_clipped = syclipped;
-                    var offsx = 0;
-                    var offsy = 0;
+                    if (clipratio.mosaic)  
+                    {
+                        var sxclipped = Math.floor(sx*Math.abs(cr[2]-cr[0]));
+                        var syclipped = Math.floor(sy*Math.abs(cr[3]-cr[1]));
+                        var sx_clipped = Math.floor(sx_*Math.abs(cr[2]-cr[0]));
+                        var sy_clipped = Math.floor(sy_*Math.abs(cr[3]-cr[1]));
+                        var offsx = startx;
+                        var offsy = starty;                        
+                    }
+                    else 
+                    {    
+                        var sxclipped = sx;
+                        var syclipped = sy; 
+                        var sx_clipped = sxclipped;
+                        var sy_clipped = syclipped;
+                        var offsx = 0;
+                        var offsy = 0;
+                    }
 
                 }
                 else
@@ -8203,48 +9811,61 @@ function KMedViewer(viewport, master)
 
                 var deltak;
                 if (swapXY)
-                    deltak = 4*ydir*delta;
+                    deltak = 4*ydir;
                 else
-                    deltak = 4*ydir*sxclipped*delta;
+                    deltak = 4*ydir*sxclipped;
 
-                
-                for (var x = startx; x < endx; x+=delta)
+                var delta_x = that.subsample_factor_x;
+                var delta_y = that.subsample_factor_y;
+
+                var half_x =  (delta_x*0.5);
+                var half_y =  (delta_y*0.5);
+
+                startx = Math.floor(startx/delta_x)*delta_x;
+                starty = Math.floor(starty/delta_y)*delta_y;
+
+                endx -= delta_x;
+                endy -= delta_y;
+
+                for (var x = startx; x < endx; x+=delta_x)
                 {
             
                     if (swapXY)
-                        k = ((sx_clipped * xflip + xdir * (x - offsx) - xflip) * syclipped + yflip * sy_clipped + ydir * (starty - offsy) - yflip) * 4;
+                        k = ((sxclipped * xflip + xdir * (x - offsx)/delta_x - xflip) * syclipped + yflip * syclipped + ydir * Math.round((starty - offsy)/delta_y) - yflip) * 4;
                     else
-                        k = ((sy_clipped * yflip + ydir * (starty - offsy) - yflip) * sxclipped + xflip * sx_clipped + xdir * (x - offsx) - xflip) * 4;
+                        k = ((syclipped * yflip + ydir * Math.round((starty - offsy)/delta_y) - yflip) * sxclipped + xflip * sxclipped + xdir * (x - offsx)/delta_x - xflip) * 4;
 
-                    for (var y = starty; y < endy; y+=delta)
+                    for (var y = starty; y < endy; y+=delta_y)
                     {
 
                         if (slicingDimOfArray == 0) {
                             px = currentSlice;
-                            py = x;
-                            pz = y;
+                            py = Math.floor(x+half_x);
+                            pz = Math.floor(y+half_y)
                         }
                         if (slicingDimOfArray == 1) {
-                            px = x;
+                            px = Math.floor(x+half_x);
                             py = currentSlice;
-                            pz = y;
+                            pz = Math.floor(y+half_y);
                         }
                         if (slicingDimOfArray == 2) {
-                            px = x;
-                            py = y;
+                            px = Math.floor(x+half_x);
+                            py = Math.floor(y+half_y);
                             pz = currentSlice;
                         }
 
-                         var ind = nii.widhei * pz + py * nii.wid + px;
+                         var ind = nii.widhei * Math.round(pz) + Math.round(py) * nii.wid + Math.round(px);
 
                         var v = nii.data[ind + tOffset];
+                            
                         if (isNaN(v))
                         {
                             k+= deltak;                          
                             continue;
                         }
-
-
+                        
+                        if (!that.visible)
+                            v = -999999999;
 
                         for (var j = 0; j < ovl_num; j++)
                             if (that.overlays[j].getPixel)
@@ -8252,20 +9873,11 @@ function KMedViewer(viewport, master)
 
                          var ktoplot = k;
 
-                         if (lowres)
-                         {
-                            if (swapXY)
-                               ktoplot = [k,k+4,k+4+4*syclipped,k+4*sy_clipped];
-                            else
-                               ktoplot = [k,k+4,k+4+4*sxclipped,k+4*sx_clipped];                               
-                         }
-
-
                          if (that.nii.datatype == 'rgb24')
                          {
                              // for rgb, data is stored as triplets, so we have to calc the indexing differently
-                               var ind = 3*( ind + tOffset);
-                               mapRGBval( [ nii.data[ind + 0], nii.data[ind+1], nii.data[ind+2]], ktoplot, rgbmapper, ovl_num ,putVoxel);
+                               var ind_ = 3*( ind + tOffset);
+                               mapRGBval( [ nii.data[ind_ + 0], nii.data[ind_+1], nii.data[ind_+2]], ktoplot, rgbmapper, ovl_num ,putVoxel);
                          }
                          else if (colVol)
                          {
@@ -8337,9 +9949,12 @@ function KMedViewer(viewport, master)
 
             for (var k = 0; k < that.atlas.length;k++)
             {
-                 if (that.atlas[0].atlas.fileID == ev.id)
+                 if (that.atlas[k].atlas.fileID == ev.id)
                  {
                      drawSlice(ev);
+                     if (ev.outlines)
+                        that.atlas[k].draw_multioutline()
+
                      return;
                  }
             }
@@ -8349,8 +9964,12 @@ function KMedViewer(viewport, master)
                 if (that.ROIs[k].roi.fileID == ev.id)
                 {
                     drawSlice(ev);
-                    if (that.isGLenabled() && !ev.no3d)
-                        KViewer.roiTool.update3D(that.ROIs[k].roi);
+                   // if (that.isGLenabled() && !ev.no3d)
+                    {
+                        setTimeout(function() {
+                            KViewer.roiTool.update3D(that.ROIs[k].roi);
+                        },0);
+                    }
                     return;
                 }
             }
@@ -8414,7 +10033,6 @@ function KMedViewer(viewport, master)
                 that.niiOriginal = niiOriginal;
                 
                 update();
-                return;
             }
 
 
@@ -8424,7 +10042,8 @@ function KMedViewer(viewport, master)
                 {
                     var fileObject = KViewer.dataManager.getFile(ev.id);
 
-                    if(1)// must re-create the view, if 4D roi
+                    if(0)// must re-create the view, if 4D roi
+                    // but code below confuses color and view order
                     {
                         var robj =that.ROIs[k];
                         for (var r = 0; r < robj.divs.length; r++)
@@ -8439,6 +10058,7 @@ function KMedViewer(viewport, master)
                     }
 
                     that.ROIs[k].nii = fileObject.content;
+                    that.ROIs[k].roi.content = fileObject.content;
                     KViewer.roiTool.update3D(that.ROIs[k].roi);
 
                     update();
@@ -8460,6 +10080,26 @@ function KMedViewer(viewport, master)
                 }
             }
 
+
+         
+            for (var k = 0; k < that.atlas.length;k++)
+            {
+                if (that.atlas[k].atlas.fileID == ev.id)
+                {
+                    var fileObject = KViewer.dataManager.getFile(ev.id);
+                    fileObject.content.alpha = that.atlas[k].atlas.content.alpha;
+                    that.atlas[k].atlas.content = fileObject.content;
+                    KViewer.atlasTool.prepAtlas(fileObject)
+                    if (that.atlas[k].atlas.panel != undefined)
+                        that.atlas[k].atlas.panel.computeCentroids(that.atlas[k].atlas.content)
+                    //if (that.overlays[k].quiver)
+                    //    that.quivernii.nii = fileObject.content;
+                    update();
+                    return;
+                }
+            }
+
+            
             for (var k = 0; k < that.objects3D.length;k++)
             {
                 if (that.objects3D[k].fibers && that.objects3D[k].fibers.fileID == ev.id)
@@ -8540,7 +10180,7 @@ function KMedViewer(viewport, master)
                      val =  NNInterp(niiOriginal, point._data[0], point._data[1], point._data[2], math.inv(that.niiOriginal.edges)._data, tOffset);
               }
               else
-                return 1;
+                  val = undefined
 
               if (val != undefined)
               {
@@ -8567,15 +10207,28 @@ function KMedViewer(viewport, master)
         function setCurrentVoxel()
         {
 
+
+
             var sliceChanged = false;
             if (that.nii) // && !that.nii.dummy)
             {
 
+
                 var nii = that.nii;
                 var point = getWorldPosition();
+
                 if (master.mainViewport !== -1)
                 {
                     point = math.multiply(math.inv(master.reorientationMatrix.matrix), point);
+                }
+                else
+                {
+                     // CONGRU
+        //            if (KViewer.navigationTool.isinstance && 
+          //              (( master.navigationTool.movingObjs[that.currentFileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ))
+                    if (isBackgroundMoving() | KViewer.navigationMode == 2)                        
+                          point = math.multiply(master.reorientationMatrix.matrix, point);
+
                 }
                 var curV = math.multiply(math.inv(nii.edges), point);
 
@@ -8584,22 +10237,44 @@ function KMedViewer(viewport, master)
                 var totsz = niiOriginal.sizes[0] * niiOriginal.sizes[1] * niiOriginal.sizes[2]; 
 
                 
-                var c = math.round(currentVoxel._data[slicingDimOfArray]+0.000001);
+                var c = currentVoxel._data[slicingDimOfArray] + 0.000001;
 
                 if (c != currentSlice)
                     sliceChanged = true;
 
+
+// ERDO
+                if (nii.sizes[slicingDimOfArray] == 1 && c>=0.5 && c < 1)
+                    that.slice_out_of_range = true;
+                else
+
+                if (!(c>=0 && c < nii.sizes[slicingDimOfArray]) && nii.sizes[slicingDimOfArray] != 0)
+                {
+                    sliceChanged = false;
+                    that.slice_out_of_range = true;
+                }
+                else
+                    that.slice_out_of_range = false;
+
                 currentSlice = c;
 
 
-                var trafoMatrix = (math.multiply(math.inv(niiOriginal.edges), math.multiply(master.reorientationMatrix.matrix, that.nii.edges)));
 
 
                 var tOffset = 0;
                 if (nii.currentTimePoint)
                    tOffset = nii.currentTimePoint.t * niiOriginal.sizes[0] * niiOriginal.sizes[1] * niiOriginal.sizes[2];
                 if (master.mainViewport !== -1)
-                    currentValue = trilinInterp(niiOriginal, point._data[0], point._data[1], point._data[2], math.multiply(trafoMatrix, math.inv(nii.edges))._data, tOffset);
+                {
+                    let trafoMatrix;
+                    if (KViewer.navigationTool.isinstance &&  
+                         (KViewer.navigationTool.movingObjs[that.currentFileID] != undefined | KViewer.navigationMode == 2))
+                        trafoMatrix = (math.multiply(math.inv(niiOriginal.edges), master.reorientationMatrix.matrix));
+                    else
+                        trafoMatrix = math.inv(niiOriginal.edges)
+                    currentValue = trilinInterp(niiOriginal, point._data[0], point._data[1], point._data[2], trafoMatrix._data, tOffset);
+
+                }
                 else
                 {
                     if (niiOriginal.data)
@@ -8609,7 +10284,7 @@ function KMedViewer(viewport, master)
                             var px = NNInterp(niiOriginal, point._data[0], point._data[1], point._data[2], math.inv(nii.edges)._data, 0);
                             var py = NNInterp(niiOriginal, point._data[0], point._data[1], point._data[2], math.inv(nii.edges)._data, totsz);
                             var pz = NNInterp(niiOriginal, point._data[0], point._data[1], point._data[2], math.inv(nii.edges)._data, 2*totsz)
-                            currentValue = Math.sqrt(px*px+py*py+pz*pz);
+                            currentValue = [px,py,pz];// Math.sqrt(px*px+py*py+pz*pz);
                         }
                         else
                             currentValue = NNInterp(niiOriginal, point._data[0], point._data[1], point._data[2], math.inv(nii.edges)._data, tOffset);
@@ -8617,15 +10292,40 @@ function KMedViewer(viewport, master)
                 }
 
 
+                for (var k = 0; k < that.atlas.length; k++)
+                {
+                    that.atlas[k].atlas.currentPoint = point;
+                }
+
+
                 for (var k = 0; k < that.overlays.length; k++)
                 {
                     var ovl = that.overlays[k];
-                    if (ovl.A)
-                        ovl.currentValue = NNInterp(ovl.nii, currentVoxel._data[0], currentVoxel._data[1], currentVoxel._data[2], ovl.A, ovl.tOffset_ovl)
+                    if (ovl.A)               
+                    {
+                        if (ovl.nii.sizes[3] <= 3 & ovl.nii.sizes[3] > 1)
+                        {
+                            ovl.currentValue = [];
+                            for (var ki = 0; ki < ovl.nii.sizes[3];ki++)
+                                ovl.currentValue[ki] = trilinInterp(ovl.nii, currentVoxel._data[0], currentVoxel._data[1], currentVoxel._data[2], ovl.A, ki*ovl.nii.widheidep)
+                        }
+                        else
+                            ovl.currentValue = trilinInterp(ovl.nii, currentVoxel._data[0], currentVoxel._data[1], currentVoxel._data[2], ovl.A, ovl.tOffset_ovl)
+                    }
 
                 }
 
             }
+
+            if (sliceChanged)
+            {
+                updateInfoBar();
+                
+                for (var k = 0; k < that.atlas.length;k++)
+                    that.atlas[k].clearMultiOutlines()
+            }
+
+
             return sliceChanged;
         }
 
@@ -8977,6 +10677,27 @@ function prepareMedicalImageData(nii_in, fobj, intent)
 
 
 
+
+    var wsD = math.diag([1,1,1])
+    if (nii.space != undefined)
+    {
+        switch(nii.space.toLowerCase()) {
+        case "right-anterior-superior":
+        case "ras":
+              wsD = math.diag([1,1,1]); break;
+        case "left-anterior-superior":
+        case "las":
+              wsD = math.diag([-1,1,1]); break;
+        case "left-posterior-superior":
+        case "lps":
+             wsD = math.diag([-1,-1,1]); break;
+        }
+
+        wsD = wsD._data;
+        nii.spaceDirections = math.multiply(math.matrix(nii.spaceDirections),wsD)._data;
+        nii.spaceOrigin = math.multiply(wsD,nii.spaceOrigin)._data;
+    }
+
     // permutationOrder gives the order in which the real world is stored in the array
 
     nii.applyReordering  = function(id)
@@ -9068,19 +10789,35 @@ function prepareMedicalImageData(nii_in, fobj, intent)
           nii_in.pixdim[3]/nii.voxSize[2] > r0 & nii_in.pixdim[3]/nii.voxSize[2] < r1  
     ))
     {
-        console.warn('warning: nifti voxelsizes inconsistent,' + nii_in.pixdim.toString());
+        if (nii.voxSize[0] < 0.0000001 & nii.voxSize[1] < 0.0000001 & nii.voxSize[2] < 0.0000001)
+        {
+           nii.voxSize[0] = nii_in.pixdim[1];
+           nii.voxSize[1] = nii_in.pixdim[2];
+           nii.voxSize[2] = nii_in.pixdim[3];
+           nii.edges = math.matrix([[nii.voxSize[0],0,0,0],[0,nii.voxSize[1],0,0],[0,0,nii.voxSize[2],0],[0,0,0,1]])
+
+        }
+        else
+            console.warn('warning: nifti voxelsizes inconsistent,' + nii_in.pixdim.toString());
     }
 
     if(fobj && fobj.fileinfo)
     {
-        var psid = fobj.fileinfo.patients_id + fobj.fileinfo.studies_id;
-        var coreginfo = KViewer.dataManager.coregInfos[psid];
+        var coreginfo = KViewer.dataManager.coregInfos[fobj.fileinfo.ID] || 
+                        KViewer.dataManager.coregInfos[fobj.fileinfo.patients_id + fobj.fileinfo.studies_id];
+                        
         
+        //if(coreginfo && coreginfo.matrix && nii.descrip !== "mni") // can lead to conflicts if mni is set in descrip but overwritten with cmap
         if(coreginfo && coreginfo.matrix)
         {
             var coregmat = coreginfo.matrix;
+            nii.original_edges = nii.nii;
+            nii.coreginfo = coreginfo;
             nii.edges = math.multiply(math.matrix(coregmat), nii.edges );
-            console.log("Coregmat found, transforming " + coreginfo)
+            if (!coreginfo.IDspecific)
+                console.log("Coregmat found, transforming study")
+            else
+                console.log("Coregmat found, transforming img " + coreginfo.filepath_target)
         }
     }
 
@@ -9175,29 +10912,39 @@ function prepareMedicalImageData(nii_in, fobj, intent)
     nii.histogram = comphisto(min, max, nbins, nii.data, n, numsamples)
 
 
-    var EPSILON = 0.01;
-
-    var i = 0;
-    var sum = 0;
-    while (sum <= 3)
-        sum += nii.histogram.accus[i++];
-    min = nii.histogram.min + (nii.histogram.max - nii.histogram.min) * (i - 1) / nbins;
-    sum = 0;
-
-    i = 0;
-    while (sum <= 97)
-        sum += nii.histogram.accus[i++];
-    max = nii.histogram.min + (nii.histogram.max - nii.histogram.min) * (i - 1) / nbins;
-
-    min = min - EPSILON;
-    // add -eps to max. important.
-    max = max + EPSILON;
-    // add eps to max. important.
-
-    if (nii.descrip.hlim)
+    if (nii.histogram.accus.maxfreq > 0)
     {
-        min = nii.descrip.hlim[0];
-        max = nii.descrip.hlim[1];
+        var EPSILON = 0.01;
+
+        var i = 0;
+        var sum = 0;
+        while (sum <= 3)
+            sum += nii.histogram.accus[i++];
+        min = nii.histogram.min + (nii.histogram.max - nii.histogram.min) * (i - 1) / nbins;
+        sum = 0;
+
+        i = 0;
+        while (sum <= 97)
+            sum += nii.histogram.accus[i++];
+        max = nii.histogram.min + (nii.histogram.max - nii.histogram.min) * (i - 1) / nbins;
+
+        min = min - EPSILON;
+        // add -eps to max. important.
+        max = max + EPSILON;
+        // add eps to max. important.
+    }
+    else
+    {
+        min = nii.histogram.min;
+        max = nii.histogram.max;
+    }
+
+
+
+    if (nii.descrip.hlim != undefined)
+    {
+        min = nii.datascaling.ie(nii.descrip.hlim[0]);
+        max = nii.datascaling.ie(nii.descrip.hlim[1]);
     }
 
 
@@ -9293,6 +11040,8 @@ function KColormap()
     var cold = KColormap.cold;
     var rsp  = KColormap.rsp;
     var btr  = KColormap.btr;
+    var syngo1  = KColormap.syngo1;
+    var syngo2  = KColormap.syngo2;
     /* MATLAB code to generate colormps
     x = jet(256);
 
@@ -9306,8 +11055,8 @@ function KColormap()
     */
 
     var that = {};
-    that.names = ["gray", "hot", "jet", "cold", "rsp", "btr", "unicolor","upperThres", "lowerThres"];
-    that.maps = [cgray, hot, jet, cold, rsp, btr];
+    that.names = ["gray", "hot", "jet", "cold", "rsp", "btr", "syngo1", "syngo2", "unicolor","upperThres", "lowerThres"];
+    that.maps = [cgray, hot, jet, cold, rsp, btr, syngo1, syngo2];
     that.mapVal = mapVal;
     that.mapValOvl = mapValOvl;
     that.numCmaps = that.names.length;
@@ -9331,6 +11080,8 @@ function KColormap()
 
     function mapIndex(name)
     {
+        if (name >= 100)
+            return name
         for (var k = 0; k < that.numCmaps; k++)
         {
             if (that.names[k].search(name) != -1)
@@ -9477,6 +11228,16 @@ KColormap.btr =
 ,[ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,8,12,16,20,24,28,32,36,40,44,48,52,55,59,63,67,71,75,79,82,86,90,93,97,101,104,107,111,114,117,120,123,126,129,132,134,136,139,141,143,144,146,147,148,149,150,150,151,151,150,150,149,148,147,146,144,142,140,137,135,132,129,125,120,114,109,103,98,92,86,81,76,70,65,60,55,50,46,41,37,32,29,25,21,18,15,12,10,7,5,4,2,1,1,0,0,0,1,1,2,4,5,7,10,12,15,18,21,25,29,32,37,41,46,50,55,60,65,70,76,81,86,92,98,103,109,114,118,121,124,127,130,133,135,137,139,141,142,143,144,144,145,145,144,144,144,143,142,140,139,137,136,134,131,129,127,124,122,119,116,113,110,106,103,100,96,93,89,86,82,78,75,71,67,63,59,55,51,48,44,40,36,32,28,24,20,16,12,8,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ]
 ,[ 131,135,139,143,147,151,155,159,163,167,171,175,179,183,187,191,195,199,203,207,211,215,219,223,227,231,235,239,243,247,251,255,255,255,255,255,255,255,255,254,254,254,254,254,254,254,253,253,253,252,252,251,251,250,250,249,248,247,247,246,244,243,242,241,239,237,236,234,232,230,227,225,222,220,217,214,211,208,204,200,197,193,189,185,180,176,171,167,162,157,152,147,141,136,131,125,118,111,104,97,90,83,77,71,65,59,54,49,44,39,35,31,27,23,20,17,14,12,10,8,6,4,3,2,1,1,0,0,0,0,0,1,1,2,2,3,3,4,5,6,6,7,8,8,9,9,9,9,9,9,9,9,8,8,7,6,5,3,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ]]
 
+KColormap.syngo1 = 
+[[0,16,32,48,64,65,67,68,70,71,73,74,76,77,79,80,82,83,85,86,88,90,92,94,96,94,92,90,88,86,85,83,82,80,79,77,76,74,73,71,70,68,67,65,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,65,66,66,67,68,69,69,70,71,72,73,74,74,75,76,77,77,78,79,80,81,82,82,83,84,85,85,86,87,88,89,90,90,91,92,93,93,94,95,96,97,98,98,99,100,101,101,102,102,103,104,105,106,106,107,108,109,109,110,111,112,113,114,114,115,116,117,117,118,119,120,121,122,122,123,124,125,125,126,127,129,131,132,134,136,138,139,141,143,145,147,149,150,152,154,156,157,159,161,163,165,167,168,170,172,174,175,177,179,181,183,185,186,187,189,191,193,194,196,198,200,202,204,205,207,209,211,212,214,216,218,220,222,223,225,227,229,230,232,234,236,238,240,241,243,245,247,248,250,252,255,253,252,251,250,248,247,246,245,243,242,240,239,238,237,235,234,233,232,230,229,227,226,225,225]
+,[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,7,10,13,16,20,23,26,29,32,36,39,42,45,49,52,55,58,61,63,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,65,68,70,73,75,77,79,82,84,87,89,92,94,97,99,101,103,106,108,111,113,116,118,121,123,125,127,130,132,135,137,140,142,145,147,149,151,154,156,159,161,164,166,169,171,173,175,178,180,182,185,187,190,192,195,197,199,201,204,206,209,211,214,216,219,221,223,225,228,230,233,235,238,240,243,245,247,249,252,254,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,254,244,235,225,216,206,197,187,178,168,159,149,140,131,122,112,103,93,84,74,65,55,46,41,37]
+,[0,16,32,48,64,65,67,68,70,71,73,74,76,77,79,80,82,83,85,86,88,90,92,94,96,97,99,100,102,103,105,106,108,109,111,112,114,115,117,118,120,122,124,126,128,130,134,137,141,144,148,151,155,158,162,165,169,172,176,179,183,186,190,193,197,200,204,207,211,214,218,221,225,228,232,235,239,242,246,250,254,253,250,246,243,240,237,233,230,227,224,221,218,214,211,208,205,202,198,195,192,189,186,183,179,176,173,170,166,163,160,157,154,151,147,144,141,138,134,131,128,125,122,119,115,112,109,106,102,100,97,94,91,87,84,81,78,74,71,68,65,62,59,55,52,49,46,42,39,36,33,30,27,23,20,17,14,10,7,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,4,5,6,8,9,10,11,13,14,16,17,18,19,21,22,23,24,26,27,29,30,31]]
+
+KColormap.syngo2 =
+[[0,96,191,190,188,186,184,182,180,178,176,174,172,169,167,165,163,161,159,157,155,153,151,149,147,145,143,141,139,137,135,133,131,128,126,124,122,120,118,116,114,112,110,108,106,104,102,100,98,96,94,92,90,88,85,83,81,79,77,75,73,71,69,67,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74,78,82,86,90,94,98,102,106,110,114,118,122,126,129,133,137,141,145,149,153,157,161,165,169,173,177,181,185,189,193,197,201,205,209,213,217,221,225,229,233,237,241,245,249,252,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
+,[0,0,0,1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,53,54,55,56,57,58,59,60,61,62,63,63,64,66,69,72,75,78,81,84,87,90,93,96,99,102,105,108,111,114,117,120,123,126,129,132,135,138,141,144,147,150,153,156,159,162,165,168,171,174,177,180,183,186,189,192,195,198,201,204,207,210,213,216,219,222,225,228,231,234,237,240,243,246,249,251,254,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,254,250,246,242,238,233,229,225,221,217,213,209,205,201,197,192,188,184,180,176,172,168,164,160,156,151,147,143,139,135,131,127,124,120,115,111,107,103,99,95,91,87,83,79,75,70,66,62,58,54,50,46,42,38,34,29,25,21,17,13,9,6,3]
+,[0,96,191,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,252,248,244,240,236,232,228,224,220,216,212,208,204,200,196,192,188,184,180,176,172,168,164,160,156,152,148,144,140,136,132,128,125,121,117,113,109,105,101,97,93,89,85,81,77,73,69,65,61,57,53,49,45,41,37,33,29,25,21,17,13,9,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+
 // ======================================================================================
 
 
@@ -9553,6 +11314,8 @@ KColormap.btr =
         if (w._data)
             w = w._data;
         var s = math.norm(w);
+        if (math.abs(s) < 0.00001)
+            return math.eye(4);
         var c = math.sqrt(1 - s * s);
         var a = 1 - c
         w = math.multiply(w, 1 / s)._data;
@@ -9596,7 +11359,7 @@ KColormap.btr =
         var yf = ys - yi;
         var zf = zs - zi;
         var currentVal = 0;
-        if (zi < thenii.sizes[2] - 1 && zi >= 0 && yi < thenii.sizes[1] - 1 && yi >= 0 && xi < thenii.sizes[0] - 1 && xi >= 0)
+        if (zi < thenii.sizes[2]  && zi >= 0 && yi < thenii.sizes[1] - 1 && yi >= 0 && xi < thenii.sizes[0] - 1 && xi >= 0)
         {
             currentIndex000 = thenii.sizes[0] * thenii.sizes[1] * zi + yi * thenii.sizes[0] + xi + offs;
             currentIndex100 = thenii.sizes[0] * thenii.sizes[1] * zi + (yi + 1) * thenii.sizes[0] + xi + offs;
@@ -9620,8 +11383,128 @@ KColormap.btr =
 
     }
 
+    function __trilinInterp_atlas(thenii, px, py, pz, A, offs, labels)
+    {
+
+        var x = NNInterp(thenii, px, py, pz, A, offs)
+        var a = labels[x];
+        var rgb = [0,0,0,0]
+        if (a) {
+             rgb[0] += a.color[0];
+             rgb[1] += a.color[1];
+             rgb[2] += a.color[2];
+             rgb[3] += 1;
+        }                    
+        return rgb
+
+    }
 
     function trilinInterp_atlas(thenii, px, py, pz, A, offs, labels)
+    {
+        function argMax(array) {
+          return array.map((x, i) => [x, i]).reduce((r, a) => (a[0] > r[0] ? a : r))[1];
+        }
+        var tmp = {}
+
+        function acc(idx,w)
+        {
+            if (w<=0)
+                return;
+            var a = thenii.data[idx];
+
+            if (tmp[a] != undefined)
+                tmp[a] += w;
+             else
+                tmp[a] = w;
+        }
+
+        var xs = A[0][0] * px + A[0][1] * py + A[0][2] * pz + A[0][3];
+        var ys = A[1][0] * px + A[1][1] * py + A[1][2] * pz + A[1][3];
+        var zs = A[2][0] * px + A[2][1] * py + A[2][2] * pz + A[2][3];
+        var xi = math.floor(xs);
+        var yi = math.floor(ys);
+        var zi = math.floor(zs);
+        var xf = xs - xi;
+        var yf = ys - yi;
+        var zf = zs - zi;
+        var currentVal = 0;
+        var rgb = [0,0,0,0]
+        if (zi < thenii.sizes[2]-1  && zi >= 0 && yi < thenii.sizes[1] - 1 && yi >= 0 && xi < thenii.sizes[0] - 1 && xi >= 0)
+        {
+
+            var index;
+            index = thenii.sizes[0] * thenii.sizes[1] * zi + yi * thenii.sizes[0] + xi + offs;
+            acc(index,(1 - xf) * (1 - yf) * (1 - zf))
+            index =  thenii.sizes[0] * thenii.sizes[1] * zi + (yi + 1) * thenii.sizes[0] + xi + offs;
+            acc(index,(1 - xf) * (yf) * (1 - zf) )
+
+            index =  thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + yi * thenii.sizes[0] + xi + offs;
+                         acc(index, (1 - xf) * (1 - yf) * (zf) )
+
+            index =  thenii.sizes[0] * thenii.sizes[1] * zi + yi * thenii.sizes[0] + (xi + 1) + offs;
+                            acc(index,(xf) * (1 - yf) * (1 - zf) )
+
+            index =  thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + (yi + 1) * thenii.sizes[0] + xi + offs;
+                  acc(index, (1 - xf) * (yf) * (zf) )
+
+            index =  thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + yi * thenii.sizes[0] + (xi + 1) + offs;
+                  acc(index,(xf) * (1 - yf) * (zf) )
+
+            index =  thenii.sizes[0] * thenii.sizes[1] * zi + (yi + 1) * thenii.sizes[0] + (xi + 1) + offs;
+               acc(index,(xf) * (yf) * (1 - zf) )
+
+            index =  thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + (yi + 1) * thenii.sizes[0] + (xi + 1) + offs;
+            acc(index, (xf) * (yf) * (zf))
+
+            var m  = 0;
+            var z = 0;
+            for (var k in tmp)
+            {
+                if (tmp[k]>m)
+                {
+                    m = tmp[k]
+                    z = k
+                }
+            }
+        
+            if (m>0.5)
+            {
+                var a = labels[z];
+                if (a) {
+                     rgb[0] = a.color[0];
+                     rgb[1] = a.color[1];
+                     rgb[2] = a.color[2];
+                     rgb[3] = 1;
+                }                    
+            }
+          }
+
+          return rgb;
+        }
+
+
+    function NNInterp_atlas(thenii, px, py, pz, offs, labels)
+    {
+        var rgb = [0,0,0,0]
+        if (pz < thenii.sizes[2] && pz >= 0 && py < thenii.sizes[1]  && py >= 0 && px < thenii.sizes[0]  && px >= 0)
+        {
+            var idx = thenii.sizes[0] * thenii.sizes[1] * pz + py * thenii.sizes[0] + px + offs;
+            var v = thenii.data[idx];
+            var a = labels[v];
+
+            if (a) {
+                 rgb[0] = a.color[0];
+                 rgb[1] = a.color[1];
+                 rgb[2] = a.color[2];
+                 rgb[3] = 1;
+            }                    
+    
+        }
+        return rgb;
+    
+    }
+/*
+    function __trilinInterp_atlas(thenii, px, py, pz, A, offs, labels)
     {
 
 
@@ -9638,20 +11521,20 @@ KColormap.btr =
         var currentVal = 0;
         if (zi < thenii.sizes[2] - 1 && zi >= 0 && yi < thenii.sizes[1] - 1 && yi >= 0 && xi < thenii.sizes[0] - 1 && xi >= 0)
         {
-            currentIndex000 = thenii.sizes[0] * thenii.sizes[1] * zi + yi * thenii.sizes[0] + xi + offs;
-            currentIndex100 = thenii.sizes[0] * thenii.sizes[1] * zi + (yi + 1) * thenii.sizes[0] + xi + offs;
-            currentIndex010 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + yi * thenii.sizes[0] + xi + offs;
-            currentIndex001 = thenii.sizes[0] * thenii.sizes[1] * zi + yi * thenii.sizes[0] + (xi + 1) + offs;
-            currentIndex110 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + (yi + 1) * thenii.sizes[0] + xi + offs;
-            currentIndex011 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + yi * thenii.sizes[0] + (xi + 1) + offs;
-            currentIndex101 = thenii.sizes[0] * thenii.sizes[1] * zi + (yi + 1) * thenii.sizes[0] + (xi + 1) + offs;
-            currentIndex111 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + (yi + 1) * thenii.sizes[0] + (xi + 1) + offs;
+            var currentIndex000 = thenii.sizes[0] * thenii.sizes[1] * zi + yi * thenii.sizes[0] + xi + offs;
+            var currentIndex100 = thenii.sizes[0] * thenii.sizes[1] * zi + (yi + 1) * thenii.sizes[0] + xi + offs;
+            var currentIndex010 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + yi * thenii.sizes[0] + xi + offs;
+            var currentIndex001 = thenii.sizes[0] * thenii.sizes[1] * zi + yi * thenii.sizes[0] + (xi + 1) + offs;
+            var currentIndex110 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + (yi + 1) * thenii.sizes[0] + xi + offs;
+            var currentIndex011 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + yi * thenii.sizes[0] + (xi + 1) + offs;
+            var currentIndex101 = thenii.sizes[0] * thenii.sizes[1] * zi + (yi + 1) * thenii.sizes[0] + (xi + 1) + offs;
+            var currentIndex111 = thenii.sizes[0] * thenii.sizes[1] * (zi + 1) + (yi + 1) * thenii.sizes[0] + (xi + 1) + offs;
 
         
             var rgb = [0,0,0,0];
             function acc(currentIndex,fac)
             {
-                a = labels[thenii.data[currentIndex]];
+                var a = labels[thenii.data[currentIndex]];
                 if (a) {
                      rgb[0] += fac*a.color[0];
                      rgb[1] += fac*a.color[1];
@@ -9677,6 +11560,7 @@ KColormap.btr =
     }
 
 
+*/
     function trilinInterp_rgbnii(thenii, px, py, pz, A, offs)
     {
         var xs = A[0][0] * px + A[0][1] * py + A[0][2] * pz + A[0][3] ;
@@ -10118,6 +12002,7 @@ function FiberQuiver(that)
         params.type = 't';
         params.color = 0;
         params.lengthfac = 1;
+        params.width = 1;
         params.sign = 0;
         params.visible = false;
         
@@ -10235,7 +12120,7 @@ function FiberQuiver(that)
         if (typeof qs.descrip == "string" && qs.descrip.substring(0,6).toLowerCase() == "mrtrix")
         {
             e2 = math.multiply(e2,math.multiply(math.diag([qs.voxSize[0],qs.voxSize[1],qs.voxSize[2],1]),math.inv(qs.edges)));                        
-            e2 = math.multiply(e2,math.diag([-qs.detsign,1,1,1]));                        
+         //   e2 = math.multiply(e2,math.diag([-qs.detsign,1,1,1]));                        
           //  e2 = math.multiply(e2,math.diag([1,-1,1,1]));                        
         }
 
@@ -10264,7 +12149,6 @@ function FiberQuiver(that)
         var pos_random = 1;
         var len_random = 1.3;
         var col_random = 100;
-        var swidth = 1;
         var opacs = [1, 0.8, 0.3];
         var stepquality = [8, 5, 3];
 
@@ -10278,6 +12162,8 @@ function FiberQuiver(that)
             stepquality = [14, 12, 10];
         }
 
+        if (quiver_params.width == undefined)
+            quiver_params.width = 1;
         if (quiver_params.gamma == undefined)
             quiver_params.gamma = 1;
         if (quiver_params.sign == undefined)
@@ -10286,13 +12172,14 @@ function FiberQuiver(that)
 
         var cfac = 127 / quiver_source.clim[1];
 
+        var swidth = quiver_params.width;
 
         var opac = opacs[quiver_params.density];
 
         var step = stepquality[quiver_params.density];
 
         //var scfac = 0.05*that.zoomFac;
-        var scfac = 4*quiver_params.lengthfac * math.sqrt(that.zoomFac) / nii.histogram.max;
+        var scfac = 4*quiver_params.lengthfac * math.sqrt(that.zoomFac) / nii.histogram.max * Math.pow(20,1-quiver_params.gamma);
 
         var numchunks = 40;
 
@@ -10479,7 +12366,13 @@ function FiberQuiver(that)
             var te_ = that.nii.edges._data;
             if (KViewer.mainViewport !== -1)
                 te_ = EI._data;
+
+
+            var offsetT = 0;
+            if (nii.currentTimePoint && nii.currentTimePoint.t)
+                offsetT = nii.currentTimePoint.t*3;
                 
+            
             for (var i = offs; i < size + offs && i < totnum; i++)
             {
                 var ir = rperm[i];
@@ -10519,18 +12412,19 @@ function FiberQuiver(that)
                 realWorldCoordinates =  [ te_[0][0]*voxelCoordinates[0] + te_[0][1]*voxelCoordinates[1] + te_[0][2]*voxelCoordinates[2] + te_[0][3],
                                               te_[1][0]*voxelCoordinates[0] + te_[1][1]*voxelCoordinates[1] + te_[1][2]*voxelCoordinates[2] + te_[1][3],
                                               te_[2][0]*voxelCoordinates[0] + te_[2][1]*voxelCoordinates[1] + te_[2][2]*voxelCoordinates[2] + te_[2][3],1];
-                
+
+
 
                 var point = realWorldCoordinates;
                 var v;
                 if (interp_type == 0)
-                   v = NNInterp3_n(nii, point[0], point[1], point[2], invedges._data, volsz,ndir*volsz*3,3);
+                   v = NNInterp3_n(nii, point[0], point[1], point[2], invedges._data, volsz,ndir*(volsz*3+offsetT),3);
                 else if (interp_type == 1)
-                   v = trilinInterp3_signcorrected(nii , point[0], point[1], point[2], invedges._data,volsz); 
+                   v = trilinInterp3_signcorrected(nii , point[0], point[1], point[2], invedges._data,volsz,volsz*offsetT); 
                 else 
-                   v = [trilinInterp(nii, point[0], point[1], point[2], invedges._data, volsz*0),
-                         trilinInterp(nii, data[0], point[1], point[2], invedges._data, volsz*1),
-                         trilinInterp(nii, data[0], point[1], point[2], invedges._data, volsz*2)];
+                   v = [trilinInterp(nii, point[0], point[1], point[2], invedges._data, volsz*(0+offsetT)),
+                         trilinInterp(nii, point[0], point[1], point[2], invedges._data, volsz*(1+offsetT)),
+                         trilinInterp(nii, point[0], point[1], point[2], invedges._data, volsz*(2+offsetT))];
                 if (v)
                 {
                     if (quiver_params.gamma != 1)
@@ -10560,7 +12454,7 @@ function FiberQuiver(that)
         else
             quiver_params = obj.nii.quiver_params;
             
-        var $menu = $("<ul class='menu_context'>");
+        var $menu = $("<ul class='menu_context small'>");
 
         $menu.append($("<hr width='100%'> "));
         $menu.append($("<span> &nbsp Quiver</span>"));
@@ -10596,20 +12490,30 @@ function FiberQuiver(that)
                 quiver_params.lengthfac = 1;
             var $lengthfac = $("<input onchoice='preventSelection' type='number' step='0.1' min='0' max='100'>").val(quiver_params.lengthfac).
                  on('change', function(ev) {
-            var $input = $(ev.target);
-                quiver_params.lengthfac = parseFloat($input.val());
-                 signalhandler.send('drawQuiver');               
+                    var $input = $(ev.target);
+                    quiver_params.lengthfac = parseFloat($input.val());
+                    signalhandler.send('drawQuiver');               
                });
              $menu.append($("<li  onchoice='preventSelection'> Length: </li>").append($lengthfac));
         
+            if (quiver_params.width == undefined)
+                quiver_params.width = 1;
+            var $width = $("<input onchoice='preventSelection' type='number' step='0.1' min='0.1' max='10'>").val(quiver_params.width).
+                 on('change', function(ev) {
+                    var $input = $(ev.target);
+                    quiver_params.width = parseFloat($input.val());
+                    signalhandler.send('drawQuiver');               
+               });
+            $menu.append($("<li  onchoice='preventSelection'> Width: </li>").append($width));
             var $gamma = $("<input onchoice='preventSelection' type='number' step='0.1' min='0' max='2'>").val(quiver_params.gamma).
                  on('change', function(ev) {
-            var $input = $(ev.target);
-                quiver_params.gamma = parseFloat($input.val());
-                 signalhandler.send('drawQuiver');               
+                    var $input = $(ev.target);
+                    quiver_params.gamma = parseFloat($input.val());
+                    signalhandler.send('drawQuiver');               
                });
             $menu.append($("<li  onchoice='preventSelection'> Gamma: </li>").append($gamma));
-             $menu.append($("<hr width='100%'> "));
+            
+            $menu.append($("<hr width='100%'> "));
 
 	        var signed = ['positive','no','negative'];
             $menu.append($("<li  onchoice='sign' > signed ("+signed[ quiver_params.sign+1]+") </li>"));
@@ -10738,6 +12642,7 @@ function KMosaicView(that)
         border: 0.2,
         start: 0.2,
         end: 0.8,
+        clipratio: [0,0,1,1],
         mosaic_direction: false,
     };
     mosaic.active = (that.viewport.viewPortID > 14 && that.viewport.viewPortID < 18) ? true : false;
@@ -10746,6 +12651,15 @@ function KMosaicView(that)
     mosaic.$leftdrag = $("<div class='mosaicdragleft'></div>").appendTo(mosaic.$window);
     mosaic.$rightdrag = $("<div class='mosaicdragright'></div>").appendTo(mosaic.$window);
 
+    function reset()
+        {
+            mosaic.clipratio = [0,0,1,1]
+            mosaic.clipratio.mosaic = true;
+        }
+    mosaic.reset = reset;
+    reset();
+    
+    
     function crop(v, l, u)
     {
         v = (v > u) ? u : v;
@@ -10762,6 +12676,8 @@ function KMosaicView(that)
     // 
     mosaic.showControls = function()
     {
+        if (!KViewer.areControlsVisible())
+            return;        
         that.layoutbar.$moszoomin.show();
         that.layoutbar.$moszoomout.show();
         that.mosaicview.$sliderdiv.show()
@@ -10929,12 +12845,12 @@ function KHaircross()
 }
 
 
-function Outlines(that)
+function Outlines(that,atlas_label)
 {
-     var outlines = {};
+     var outlines = {};     
      outlines.gen2DContour = function(viewer)  
      {
-        var ras = true;
+        var ras = false;
         
         var sg = 1;
         if (ras)
@@ -10945,7 +12861,7 @@ function Outlines(that)
 
 
         var e;
-        if (KViewer.mainViewport !== -1)
+        if (0) //KViewer.mainViewport !== -1)
         {
             var e = viewer.nii.edges;
             e = math.multiply(KViewer.reorientationMatrix.matrix, e);
@@ -10958,6 +12874,7 @@ function Outlines(that)
         var sz = viewer.nii.sizes;
 
         var wp = viewer.getWorldPosition()._data
+        wp = math.multiply(math.inv(KViewer.reorientationMatrix.matrix) ,wp)._data;
         var s = viewer.getSlicingDimOfWorld()
         var pos = wp[s];
 
@@ -11019,18 +12936,21 @@ function Outlines(that)
 
      }
 
-     outlines.compOutline = function(viewer)  
+     outlines.compOutline = function(viewer,simulateAtlas)  
      {
              if (viewer == undefined)
                 viewer = that;
 
+            var clipbox = viewer.getClipBox();
+
             var nii = that.nii;
 
             var slicingDimOfArray = viewer.getSlicingDimOfArray()
-            var curSl = viewer.getCurrentSlice();
+            var curSl = Math.round(viewer.getCurrentSlice());
 
             var data = nii.data;
             var sizes = viewer.nii.sizes;
+            var vsz = viewer.nii.voxSize;
             var label = nii.label;
 
             var w = sizes[0];
@@ -11060,9 +12980,14 @@ function Outlines(that)
                     }
 
             var label,thres;
-            if (that.atlas != undefined && that.atlas.content != undefined)
+            if (atlas_label != undefined)
+            {                
+              label = atlas_label.key;
+            }
+            else if (that.atlas != undefined && that.atlas.content != undefined)
             {              
-              label = that.atlas.currentLabel.key;
+               if (that.atlas.currentLabel)
+                  label = that.atlas.currentLabel.key;
             }
             else
             {
@@ -11072,7 +12997,7 @@ function Outlines(that)
                     thres = 0.5;
             }
             var compfun = function(x) { return x>thres }
-            var negcompfun = function(x) { return x<=thres }
+            var negcompfun = function(x) { return x==undefined | x<=thres }
             if (label)
             {
                 if (label.threshold)
@@ -11087,10 +13012,12 @@ function Outlines(that)
                 else
                 {
                     compfun = function(x) {
-                        return x==label;
+                        //return x==label;
+                        return x>0.5;
                     }
                     negcompfun = function(x) {
-                        return x!=label;
+                        //return x!=label;
+                        return x <=0.5;
                     }
                 }
             }
@@ -11098,12 +13025,14 @@ function Outlines(that)
         var idxfun,subst;
         var lims;
         var pi;
+        var voxsz;
 
         if (slicingDimOfArray == 0)
             {
                 idxfun = function (a,b) { return curSl + a*w + b * wh };
                 subst = function(f) { return function(a,b) { return  f(curSl,a,b) }     };                
                 lims = [sizes[1],sizes[2]];
+                voxsz = [vsz[1],vsz[2]]
                 pi = [1,2]
             }
         else if (slicingDimOfArray == 1)
@@ -11111,32 +13040,84 @@ function Outlines(that)
                 idxfun = function (a,b) { return a + curSl*w + b * wh };
                 subst = function(f) { return function(a,b) { return  f(a,curSl,b) }     };
                 lims = [sizes[0],sizes[2]];
+                voxsz = [vsz[0],vsz[2]]
                 pi = [0,2]
             }
         else if (slicingDimOfArray == 2)
             {
-                idxfun = function (a,b) { return a + b*w + curSl * wh };
+                idxfun = function (a,b) { return a + (b)*w + curSl * wh };
                 subst = function(f) { return function(a,b) { return  f(a,b,curSl) }     };
                 lims = [sizes[0],sizes[1]];
+                voxsz = [vsz[0],vsz[1]]
                 pi = [0,1]                
             }
 
-        var flip;
+        var start = [];
+        var end = [];
+        var cr = clipbox;
         var arrayReadDirection = viewer.nii.arrayReadDirection;
         if (viewer.swapXY)
+            cr = [clipbox[1],clipbox[0],clipbox[3],clipbox[2]];
+
+
+
+        if (arrayReadDirection[pi[0]]>0)
+        {
+            start[0] = Math.floor(lims[0] * (1-cr[2]));
+            end[0] = Math.floor(lims[0] * (1-cr[0]));
+        }
+        else
+        {
+            start[0] = Math.floor(lims[0] * cr[0]);
+            end[0] = Math.floor(lims[0] * cr[2]);
+        }
+
+        if (arrayReadDirection[pi[1]]>0)
+        {
+            start[1] = Math.floor(lims[1]* (1-cr[3]));
+            end[1]= Math.floor(lims[1] * (1-cr[1]));
+        }
+        else
+        {
+            start[1] = Math.floor(lims[1]* (cr[1]));
+            end[1] = Math.floor(lims[1]* (cr[3]));
+        }
+
+
+
+
+        var flip;
+        var unflip;
+        if (viewer.swapXY)
+        {
              flip = function(x,y){
                     x = x/lims[0]; y = y/lims[1];
                     x = (arrayReadDirection[pi[0]]<0)?x:(1-x);
                     y = (arrayReadDirection[pi[1]]<0)?y:(1-y);
                     return [y,x];
                 }
+             unflip = function(y,x){
+                    x = (arrayReadDirection[pi[0]]<0)?x:(1-x);
+                    y = (arrayReadDirection[pi[1]]<0)?y:(1-y);
+                    x = x*lims[0]; y = y*lims[1];
+                    return [x,y]               
+                }
+        }
         else
+        {
              flip = function(x,y){
                     x = x/lims[0]; y = y/lims[1];
                     x = (arrayReadDirection[pi[0]]<0)?x:(1-x);
                     y = (arrayReadDirection[pi[1]]<0)?y:(1-y);
                     return [x,y];
                 }
+             unflip = function(x,y){
+                    x = (arrayReadDirection[pi[0]]<0)?x:(1-x);
+                    y = (arrayReadDirection[pi[1]]<0)?y:(1-y);
+                    x = x*lims[0]; y = y*lims[1];
+                    return [x,y];
+                }
+        }
         var getPixel;
 
 
@@ -11148,75 +13129,160 @@ function Outlines(that)
             tOffset = nii.currentTimePoint.t * nii.sizes[0]* nii.sizes[1]* nii.sizes[2];
         }
 
-        if (viewer.nii.edges._data.toString() == that.nii.edges._data.toString() && KViewer.mainViewport == -1)
+        var ismoving = false;
+        if (KViewer.navigationTool && KViewer.navigationTool.movingObjs)
+        {
+             ismoving = KViewer.navigationTool.movingObjs[viewer.currentFileID] != undefined;
+             if (that.roi)
+                ismoving = ismoving | (KViewer.navigationTool.movingObjs[that.roi.fileID]!=undefined)
+        }
+
+
+        if (!that.atlas && sameGeometry(viewer.nii,that.nii) && KViewer.mainViewport == -1 && !ismoving)
+//        if (!that.atlas && 
+ //            viewer.nii.edges._data.toString() == that.nii.edges._data.toString() &&
+ //            KViewer.mainViewport == -1 && (that.A_isIdentity | that.A_isIdentity==undefined))
             getPixel = function(x,y) { return data[ idxfun(x,y) + tOffset] }        
         else
         {
+
             if (that.atlas)
             {
-                var getPixel3d = KAtlasTool.updateGetPixelFun(that.atlas.content,viewer.nii,undefined,math.diag([1,1,1,1]),undefined);
-                getPixel = subst(getPixel3d);
+                var defield = undefined;
+
+                if (KViewer.atlasTool.defField != undefined)
+                {
+                    defield = KViewer.atlasTool.defField.content
+
+                }
+                else if (KViewer.navigationTool.isinstance && 
+                    (( KViewer.navigationTool.movingObjs[that.atlas.fileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ) )
+                {
+                    if (KViewer.reorientationMatrix.deffield)
+                    {
+                        defield = KViewer.reorientationMatrix.deffield
+                    }
+                }
+
+                if (simulateAtlas)
+                {
+                   var getPixel3d =  KAtlasTool.updateGetPixelFun(that.atlas.content,viewer.nii,undefined,math.diag([1,1,1,1]),defield);
+    //                var A = that.atlas.content.A;
+      //              var getPixel3d = function(x,y,z) { return  NNInterp(that.nii, x, y, z, A, tOffset); }
+                    getPixel = subst(getPixel3d);
+
+                }
+                else 
+                {
+                    if (KViewer.mainViewport==-1)
+                       var getPixel3d = KAtlasTool.updateGetPixelFun(that.atlas.content,viewer.nii,parseInt(label),undefined,defield);
+                    else
+                      var getPixel3d = KAtlasTool.updateGetPixelFun(that.atlas.content,viewer.nii,parseInt(label),math.diag([1,1,1,1]),defield);
+                    getPixel = subst(getPixel3d);
+                }
             }
             else
             {
-                var getPixel3d = function(x,y,z) { return  trilinInterp(that.nii, x, y, z, that.A, tOffset); }
+                if (that.mapCoords)
+                {
+                    var getPixel3d = function(x,y,z) { 
+                        var ps = that.mapCoords(x,y,z);
+                        return  trilinInterp(that.nii,ps[0], ps[1], ps[2], that.A, tOffset); 
+                        }
+                }
+                else
+                {
+                    if (that.A == undefined)
+                    {
+                        that.A = math.diag([1,1,1,1])._data;
+                        console.warn("where is this coming from??")
+                    }
+                    var getPixel3d = function(x,y,z) { return  trilinInterp(that.nii, x, y, z, that.A, tOffset); }                    
+                }
                 getPixel = subst(getPixel3d);
             }
         }
 
-
-
-        for (var y = 1; y < lims[1]-1;y++)
-        for (var x = 1; x < lims[0]-1;x++)
+        outlines.getPixelSVGcoord = function(x,y)
         {
-            var idx2 = x+lims[0]*y;
+            var a = unflip(x,y)
+            return getPixel(Math.round(a[0]),Math.round(a[1]));
+        }
+
+
+        if (simulateAtlas)
+        {
+            var labels = {};
+            for (var y = start[1]+1; y < end[1]-1;y++)
+            for (var x = start[0]+1; x < end[0]-1;x++)
+            {
+                var idx2 = x+lims[0]*y;
+                labels[getPixel(x,y)] = 1;
+            }
+            return labels;
+        }
+
+        var deltax = viewer.subsample_factor_x;
+        var deltay = viewer.subsample_factor_y;
+        var wid = lims[0]
+        var wid_deltay = wid*deltay;
+        var totpixel = 0;
+        for (var y = start[1]+deltay; y < end[1]-deltay;y+=deltay)
+        for (var x = start[0]+deltax; x < end[0]-deltax;x+=deltax)
+        {
+            var idx2 = x+wid*y;
             if (compfun(getPixel(x,y)))
             {
+                totpixel++;
                 var i0,i1;
-                if (negcompfun(getPixel(x-1,y) ))
+                if (negcompfun(getPixel(x-deltax,y)) )
                 {
                     i0 = addVert(idx2);
-                    i1 = addVert(idx2+lims[0]);
+                    i1 = addVert(idx2+wid_deltay);
                     addLine(i0,i1);
                 } 
 
-                if (negcompfun(getPixel(x+1,y) ))
+                if (negcompfun(getPixel(x+deltax,y) ))
                 {
-                    i0 = addVert(idx2+1);
-                    i1 = addVert(idx2+1+lims[0]);
+                    i0 = addVert(idx2+deltax);
+                    i1 = addVert(idx2+deltax+wid_deltay);
                     addLine(i0,i1);
                 }
 
-                if (negcompfun(getPixel(x,y-1)))
+                if (negcompfun(getPixel(x,y-deltay)) )
                 {
                     i0 = addVert(idx2);
-                    i1 = addVert(idx2+1);
+                    i1 = addVert(idx2+deltax);
                     addLine(i0,i1);			    
                 } 
-                if (negcompfun(getPixel(x,y+1)))
+                if (negcompfun(getPixel(x,y+deltay)) )
                 {
-                    i0 = addVert(idx2+lims[0]);
-                    i1 = addVert(idx2+1+lims[0]);
+                    i0 = addVert(idx2+wid_deltay);
+                    i1 = addVert(idx2+deltax+wid_deltay);
                     addLine(i0,i1);			    
                 }
             }
 
         }
-
 
 
         var pts = Object.keys(vertsIDX);
         var verts = new Float32Array(pts.length*2);
         for (var k = 0; k < pts.length;k++)
         {
-            var p = flip(pts[k]%lims[0], math.floor(pts[k]/lims[0]));
+            var p = flip(pts[k]%wid -deltax+1, math.floor(pts[k]/wid)-deltay+1 );
             var i = vertsIDX[pts[k]];
             verts[2*i] = p[0];
             verts[2*i+1] = p[1];
         }
 
-        smooth();
-        smooth();
+
+        
+        if (state.viewer.smoothedOutline==undefined | state.viewer.smoothedOutline==true | !nii.isROI)
+        {
+            smooth();
+            smooth();
+        }
 
         function smooth()
         {
@@ -11245,7 +13311,7 @@ function Outlines(that)
 
 
 
-        return {lines:lines,verts:verts};
+        return {lines:lines,verts:verts,area:totpixel*voxsz[0]*voxsz[1]};
 
 
 
@@ -11261,6 +13327,7 @@ function Outlines(that)
           if (outlines.$lines != undefined)
           {
                 outlines.$lines.remove();
+                outlines.$label.remove();
                 outlines.$lines = undefined;
           }
      }
@@ -11282,18 +13349,77 @@ function Outlines(that)
          if (outlines.current != undefined)
          {
              var l = outlines.current 
+             if (l.lines.length == 0)
+             {
+                 if (outlines.$lines != undefined)
+                 {
+                     var path = outlines.$lines.find("path");
+                     path.attr("d","")
+                     var text = outlines.$label
+                     text.text("")   
+                 }
+                return;
+             }
              var pstr = "";
              var fac_x = viewer.$canvas.width() * viewer.embedfac_width;
              var fac_y = viewer.$canvas.height() * viewer.embedfac_height;
-             
-             if(that.color !=undefined)
+
+             var color; 
+
+             if (atlas_label != undefined)
+                 color = atlas_label.color
+             else  if (that.atlas != undefined)
              {
-                var color = KColor.list[that.color];
-                color = "rgba("+ color.join(',') + "," + "1)"; 
+                 if (that.atlas.currentLabel != undefined)
+                     color = that.atlas.currentLabel.color;
+             }
+             else if (that.color != undefined && that.color.constructor.name == "KColor") 
+                color = [that.color.color[0],that.color.color[1],that.color.color[2]];
+             else if (Array.isArray(that.color))
+                color = [that.color[0],that.color[1],that.color[2]];
+             else if(that.color !=undefined)
+                color = KColor.list[that.color];
+
+             var bright_color;
+             if (color != undefined &&  that.type != 'overlay')
+             {
+                 bright_color = color.map((x) => x+100);
+                 bright_color = "rgba("+ bright_color.join(',') + "," + "1)"; 
+                 color = "rgba("+ color.join(',') + "," + "1)"; 
+
              }
              else
-                color = "rgba(255,0,0,1)"; 
+             {
+                if (that.type == "overlay" && color != undefined)
+                {
+                    color = "rgba("+ color.join(',') + "," + "1)";                   
+                    bright_color = color;
+                }
+                else
+                {
+                    color = "rgba(255,0,0,1)"; 
+                    bright_color = "rgba(255,255,255,1)";                     
+                }
+             }
 
+             var text_label = undefined;
+             if (atlas_label != undefined & !outlines.no_labels)
+             {
+                 text_label = atlas_label.name
+                 text_label = text_label.replace(/right/i,"")
+                 text_label = text_label.replace(/left/i,"")
+             }
+             else if (state.viewer.showArea & !that.atlas)
+                 text_label = (l.area.toFixed(1) + "mm²");
+             else if (state.viewer.showAreaOutlinesOverlay & that.type == 'overlay')
+             {
+              
+                 text_label = (l.area.toFixed(1) + "mm²");
+             }
+
+             var l_x = [];
+             var l_y = [];
+             var ll = [];
              for (var k = 0 ; k < l.lines.length/2;k++)
              {
                   var p1_x = l.verts[2*l.lines[2*k]]*fac_x;
@@ -11301,8 +13427,13 @@ function Outlines(that)
                   var p2_x = l.verts[2*l.lines[2*k+1]]*fac_x;
                   var p2_y = l.verts[2*l.lines[2*k+1]+1]*fac_y;
                   pstr += "M "+ p1_x + " " + p1_y + " L " + p2_x + " " + p2_y + " ";
-
+                  l_x.push(p1_x);
+                  l_y.push(p1_y);
+                  ll.push(p1_x)
+                  ll.push(p1_y)
              }
+             avg_x = median(l_x)
+             avg_y = median(l_y)
 
              // hmm this not the right solution, but w/h of canvas does not match
              var w = 1000000; viewer.$canvascontainer.width();
@@ -11312,16 +13443,41 @@ function Outlines(that)
              if (outlines.$lines == undefined)
              {
               
-                 outlines.$lines =  $("<svg  style='pointer-events:none;width:"+w+"px;height:"+h+"px;z-index:1;position:absolute;stroke-width:2px'> " + 
-                            "<path style='fill:none;stroke:red;stroke-width:2' />  </svg>");
-                             viewer.$canvascontainer.append( outlines.$lines);
+                 outlines.$lines =  $("<svg  style='pointer-events:none;width:"+w+"px;height:"+h+"px;z-index:1;position:absolute;stroke-width:2px'> " +                             
+                            "<path style='fill:none;stroke:red;stroke-width:2' /> "+
+                        //    "<text class='atlas_labels_svg'></text>" +
+                            " </svg>");                        
+                 viewer.$canvascontainer.append( outlines.$lines);
+                 outlines.$label = $("<span class='outline_label'> </span");
+                 viewer.$canvascontainer.append( outlines.$label);
+                 
              }
+
              var path = outlines.$lines.find("path");
              path.attr("d",pstr)
              path.css('stroke',color);
 
 
-             //outlines.$lines = $("<svg  style='pointer-events:none;width:"+w+"px;height:"+h+"px;z-index:1;position:absolute;stroke-width:2px'>" + flines + "</svg>");
+             var text = outlines.$label
+             text.text("")   
+
+             if (text_label != undefined)
+             {
+                 var isin =  outlines.getPixelSVGcoord(avg_x/fac_x, avg_y/fac_y)
+                 if (!isin)
+                 {
+                    var p = PolyK.ClosestPoint(ll,avg_x,avg_y);                    
+                    avg_x = p.x;
+                    avg_y = p.y;
+                 }
+                 text.css("top",avg_y)
+                 text.css("left",avg_x)
+                 text.css("color",bright_color)
+                 text.text(text_label);              
+             }
+
+
+
 
          }
      }
@@ -11331,6 +13487,106 @@ function Outlines(that)
      return outlines;
 
 }
+
+var median = arr => {
+  const mid = Math.floor(arr.length * 1/2),
+    nums = [...arr].sort((a, b) => a - b);
+  return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+};
+
+
+
+
+
+
+function create3DViewPort(edges,sz,voxsz,nii,id,$toggle,fileID)
+{
+
+    KViewer.viewports[id] = function()
+    { 
+      var that = {};
+      that.getCurrentViewer = function() { return that };
+      that.viewPortID = id;
+      that.medViewer = {dummyViewer:true};
+      that.medViewer.currentFilename = id;
+      that.medViewer.isBackgroundMoving = function () { return KViewer.isMoving(fileID) }
+	  that.medViewer.toolbar = {$mainViewportSelector: $toggle };
+
+
+      var bbox = getGlobalBBox()
+      var bbox_min = bbox.bbox_min;
+      var bbox_max = bbox.bbox_max;
+
+      var vbounds = math.multiply(math.inv(edges),bbox.bbox_max.concat([1]))._data[2] -
+          math.multiply(math.inv(edges),bbox.bbox_min.concat([1]))._data[2];
+      var numslice = Math.round(Math.abs(vbounds));
+      if ((numslice%2) == 0)
+        numslice++;
+      edges = math.multiply(edges,[
+          [1,0,0,0],
+          [0,1,0,0],
+          [0,0,1,-(numslice-1)/2+0.01],
+          [0,0,0,1]
+          ])
+      that.medViewer.nii = {
+          edges: edges,
+          voxSize: voxsz,
+          pixdim: [1,voxsz[0],voxsz[1],voxsz[2]],
+          sizes: [sz[0],sz[1],numslice,sz[3]],
+          permutationOrder:nii.permutationOrder,
+          arrayReadDirection: nii.arrayReadDirection,
+          detsign:math.sign(math.det(edges))
+       }
+       that.medViewer.niiOriginal = that.medViewer.nii;
+       return that;    
+    }();    
+
+}
+
+
+
+function getGlobalBBox()
+{
+
+      var navtool = KViewer.navigationTool;
+
+
+      var bbox_max = [-Infinity,-Infinity,-Infinity];
+      var bbox_min = [Infinity,Infinity,Infinity];
+
+      var files = KViewer.dataManager.getFileList();
+      if (files.length == 0)
+        return;
+      for (var k = 0;k<files.length;k++)
+      {
+      	 var obj = KViewer.dataManager.getFile(files[k]);
+		 if (obj.contentType == 'nii')
+		 {
+			var edges = obj.content.edges;
+
+            if (( KViewer.navigationMode == 0 && navtool.movingObjs && navtool.movingObjs[files[k]] ) | KViewer.navigationMode == 2)
+            {
+            	edges = math.multiply(math.inv(KViewer.reorientationMatrix.matrix),edges);
+            }
+            
+
+			var sz = obj.content.sizes;
+			var corners  = [[0,0,0,1],[sz[0]-1,0,0,1],[0,sz[1]-1,0,1],[0,0,sz[2]-1,1],
+							[sz[0]-1,sz[1]-1,0,1],[sz[0]-1,0,sz[2]-1,1],[0,sz[1]-1,sz[2]-1,1], [sz[0]-1,sz[1]-1,sz[2]-1,1]];
+
+			var wcorners = math.multiply(edges,math.transpose(corners));
+			for (var i =0;i < 3;i++)
+			{
+				bbox_max[i] = math.max([bbox_max[i],math.max(wcorners._data[i])]);
+				bbox_min[i] = math.min([bbox_min[i],math.min(wcorners._data[i])]);
+			}
+		 }
+
+      }
+
+    return {bbox_min:bbox_min,bbox_max:bbox_max};
+}    
+
 
 
 
@@ -11344,7 +13600,8 @@ function interpretAsColoredVolume(nii,that)
 
 
     return (nii.sizes[3]%3 == 0 &&  ( 
-       fname.match(/col/i)!=null 
+       fname.match(/tensor/i)!=null 
+    || fname.match(/col/i)!=null 
     || fname.match(/fod/i)!=null 
     || fname.match(/rgb/i)!=null 
     || fname.match(/_mdir/i)!=null 
@@ -11422,38 +13679,50 @@ function showInfoContextNifti(that,ev)
                     psid = "";
 
                 var txt = "<span style='font-size:12px;line-height:13px'><b>";
-                if (that.currentFileinfo.SubFolder != undefined && that.currentFileinfo.SubFolder !="")
-                     txt +=  that.currentFileinfo.SubFolder + '/' + that.currentFilename + '<br>'   ;
-                else
-                     txt +=  that.currentFilename + '<br>'   ;
-
+                if (that.currentFileinfo)
+                {
+                    if (that.currentFileinfo.SubFolder != undefined && that.currentFileinfo.SubFolder !="")
+                         txt +=  that.currentFileinfo.SubFolder + '/' + that.currentFilename + '<br>'   ;
+                    else
+                         txt +=  that.currentFilename + '<br>'   ;
+                }
                 txt += "</b>" + psid;
                 txt += "</span>";
                 txt += "<span style='font-size:3px;line-height:3px'><br></span>";
                 txt += "<br>";
 
-                txt +=  "voxsize: " + nii.voxSize[0].toFixed(2) + '&nbsp;&nbsp;' + nii.voxSize[1].toFixed(2) + '&nbsp;&nbsp;' + nii.voxSize[2].toFixed(2)
+                txt +=  "voxsize: " + nii.voxSize[0].toFixed(3) + '&nbsp;&nbsp;' + nii.voxSize[1].toFixed(3) + '&nbsp;&nbsp;' + nii.voxSize[2].toFixed(3)
                     + "<br> <span>" + msz  + "</span>";
 
                 txt += "<br> <br> sform_code: "+nii.sform_code+"  <span>";
                 txt += "<br>  qform_code: "+nii.qform_code+"   <span>";
+                if (nii.pixdim)
+                    txt += "<br> pixdim: "+nii.pixdim.map((x) => Math.round(1000*x)/1000) +"  <span>";
+                txt += "<br> sizes: "+nii.sizes +"  <span>";
                 txt += "<br> <br> edges ("+nii.form+"): <br> <span>";
                 for (var k = 0; k < 3;k++)
-                    txt += "&nbsp;&nbsp;" + nii.edges._data[k][0].toFixed(2) + "&nbsp;&nbsp;" +  
-                                            nii.edges._data[k][1].toFixed(2) + "&nbsp;&nbsp;" + 
-                                            nii.edges._data[k][2].toFixed(2) + "&nbsp;&nbsp;" + 
-                                            nii.edges._data[k][3].toFixed(2) + "&nbsp;&nbsp; <br> " ;
+                    txt += "&nbsp;&nbsp;" + nii.edges._data[k][0].toFixed(3) + "&nbsp;&nbsp;" +  
+                                            nii.edges._data[k][1].toFixed(3) + "&nbsp;&nbsp;" + 
+                                            nii.edges._data[k][2].toFixed(3) + "&nbsp;&nbsp;" + 
+                                            nii.edges._data[k][3].toFixed(3) + "&nbsp;&nbsp; <br> " ;
 
-                txt +=  "<br>value: y=" + nii.datascaling.slope.toFixed(2) + '*x + ' +nii.datascaling.offset.toFixed(2) + "<br>";
+                txt +=  "<br>value: y=" + nii.datascaling.slope.toFixed(2) + '*x + ' +nii.datascaling.offset.toFixed(3) + "<br>";
                 txt +=  "datatype: " + nii.datatype + "<br>";
                 txt +=  "endian: " + nii.endian + "<br>";
                 txt +=  "encoding: " + nii.encoding + "<br>";
                 txt +=  "filetype: " + nii.filetype + "<br>";
                 txt +=  "space: " + nii.space + "<br>";
+                if (nii.descrip)
+                    txt +=  "descrip: " + JSON.stringify(nii.descrip) + "<br>";
+                if (nii.extension != undefined &&
+                     nii.extension.content != undefined
+                     && typeof nii.extension.content == "string")
+                    txt += "exthdr: " + nii.extension.content.substring(0,20) + "..."
 
                 txt += "</span>";
 
                         var $menu = $("<ul class='menu_context'>").append($(txt));
+
 
                         return $menu;
 

@@ -112,13 +112,16 @@ function attachNameDivHandler(fobj, $captiondiv, cb)
             fobj.fileinfo = {}
         if (subf != "" | subf_given)
             fobj.fileinfo.SubFolder = subf;
-
+        fobj.fileinfo.Filename = name;
         if (fobj.namedivs != undefined)
+        {
+            fobj.namedivs = fobj.namedivs.filter( function(x) { return document.contains(x[0]) });
             for (var i = 0; i < fobj.namedivs.length; i++)
             {
                 if ($captiondiv != fobj.namedivs[i])
                     fobj.namedivs[i].text(fobj.filename);
             }
+        }
         cb();
 
     });
@@ -227,7 +230,7 @@ function KToolWindow(master, $toggle)
         if (th_upper != undefined)
             h_upper = th_upper.$container.height();
 
-        $(document.body).on("mousemove", function(ev)
+        $(document.body).on("pointermove", function(ev)
         {
             //if (s-ev.clientY < maxdelta & 
             if (h + s - ev.clientY > 50)
@@ -239,9 +242,9 @@ function KToolWindow(master, $toggle)
                 setPatientTableLayout();
             }
         });
-        $(document.body).on("mouseup", function()
+        $(document.body).on("pointerup", function()
         {
-            $(document.body).off("mousemove mouseup");
+            $(document.body).off("pointermove pointerup");
             saveSizesPt();
         });
     }
@@ -256,7 +259,7 @@ function KToolWindow(master, $toggle)
     that.hideSpinner = function() {  that.$spinner.hide(); }
 
 
-    var $resizer = $("<div class='annotion_tool_resizer'><div><div></div></div></div>").appendTo($container).on("mousedown", that.onresize);
+    var $resizer = $("<div class='annotion_tool_resizer'><div><div></div></div></div>").appendTo($container).on("pointerdown", that.onresize);
 
     var $topDiv = $("<div>").appendTo($container);
 
@@ -276,8 +279,19 @@ function KToolWindow(master, $toggle)
     $topRow.append($("<li  style='float:right'> <a><i class='fa fa-close close_button' ></i></a></li>").appendTooltip("closetool").click(function() {
         that.toggle(false);
     }));
-    
 
+    var $helper_button = $("<li  style='float:right'> <a><i class='fa fa-question' ></i></a></li>").appendTooltip("help")
+    $topRow.append($helper_button);
+    $helper_button.hide();
+
+
+    that.attach_helper = function(fun)
+    {
+        $helper_button.click(fun)        
+        $helper_button.show();
+    }
+
+  
     that.$leftToolistDiv =$("<div class='KTool_leftdiv'></div>").appendTo($container); 
 
     
@@ -412,7 +426,7 @@ function KToolWindow(master, $toggle)
             top: that.tstate.udsize[1]
         }).width(that.tstate.udsize[2]).height(that.tstate.udsize[3]);
         //setPatientTableLayout();
-        $topRow.mousedown(function(ev) {
+        $topRow.on('pointerdown',function(ev) {
             movableWindowMousedownFn(ev, $container, saveSizesUndocked, 'fa')
         });
         $resizeTriangle.show();
@@ -488,20 +502,31 @@ function KToolWindow(master, $toggle)
 
         // no target specified, try to restore from remembered state
         if (target == undefined)
-            target = that.tstate.target;
+        {
+            if (that.tstate.target >= 0)
+            {
+                if (KViewer.viewports[that.tstate.target].getCurrentViewer() != undefined)
+                {
+                    target = -2;
+                    that.tstate.target = -2;                    
+                }
+                target = that.tstate.target;
+                
+            }
+            else
+                target = that.tstate.target;
+        }
 
         // translate vp to vpID
         if (target.viewPortID != undefined)
             target = target.viewPortID;
 
         // ******************* check where this item was last
+
         if (that.tstate.target >= 0 && that.enabled != 0)
             KViewer.viewports[that.tstate.target].setCurrentViewer();
-        else if (that.tstate.target == -2)
-        {
-        //saveSizesPt(); //don't do this! otherwise will be overwritten on reload
-        }
 
+        var childs = $("#patientTableLowerContainer").children();
 
         //***********************  undock ******************************
         if ($.isNumeric(target) && target == -1)
@@ -511,10 +536,9 @@ function KToolWindow(master, $toggle)
         }
 
         //***********************  ptable at end ******************************
-        else if ($.isNumeric(target) && target == -2)
+        else if ($.isNumeric(target) && target == -2 && childs.length>0)
         {
             setdocked();
-            var childs = $("#patientTableLowerContainer").children();
 
             var above;
             if (userinfo.username == guestuser)
@@ -884,6 +908,7 @@ KToolWindow.toolicons = {
 
 KToolWindow.getToolsState = function()
 {
+
     var toolstate = [];
     for (var k = 0; k < ktoolslist.length; k++)
     {

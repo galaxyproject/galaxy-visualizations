@@ -23,6 +23,7 @@
 //   in PostScript Level 2, Technical Note #5116
 //   (partners.adobe.com/public/developer/en/ps/sdk/5116.DCT_Filter.pdf)
 
+        
 var ColorSpace = {Unkown: 0, Grayscale: 1, AdobeRGB: 2, RGB: 3, CYMK: 4};
 var JpegImage = (function jpegImage() {
     "use strict";
@@ -13364,6 +13365,10 @@ daikon.Dictionary.dict = {
     "0062" : {
         "0002" : ["OT", "brainlab"],
     },
+    "0042" : {
+        "0011" : ["OB", "EncapsulatedDocument"],
+        "0012" : ["LO", "MIMETypeOfEncapsulatedDocument"],
+    },
     "0002" : {
         "0001" : ["OB", "FileMetaInformationVersion"],
         "0002" : ["UI", "MediaStoredSOPClassUID"],
@@ -13447,6 +13452,7 @@ daikon.Dictionary.dict = {
         "1032" : ["SQ", "ProcedureCodeSequence"],
         "103E" : ["LO", "SeriesDescription"],
         "103F" : ["SQ", "SeriesDescriptionCodeSequence"],
+        "1090" : ["LO", "ManufacturerModelName"],
         "1140" : ["SQ", "ReferencedImageSequence"],
         "1150" : ["SQ", "ReferencedSOPClassUID"],
         "1155" : ["SQ", "ReferencedSOPInstanceUID"],
@@ -13776,8 +13782,16 @@ daikon.Dictionary.dict = {
         "9171" : ["CS", "RespiratorySignalSource"],
         "9172" : ["CS", "BulkMotionCompensationTechnique"],
         "9173" : ["CS", "BulkMotionSignalSource"],
-  "A003" : ["ST", "ContributionDescription"]
-    },
+        "A003" : ["ST", "ContributionDescription"] },        
+    "0019" : {
+        "100C" : ["OW", "DiffusionGradientValue"],
+        "100D" : ["CS", "DiffusionGradientBMATRIX"],
+        "100E" : ["IS", "DiffusionGradientDirection"], 
+        "10BB" : ["FD", "DiffusionGradientDirectionX"], 
+        "10BC" : ["FD", "DiffusionGradientDirectionY"], 
+        "10BD" : ["FD", "DiffusionGradientDirectionZ"], 
+        "1027" : ["FD", "DiffusionInfo"], 
+        "1024" : ["DS", "MidScanTime"] },
     "0020" : {
         "000D" : ["UI", "StudyInstanceUID"],
         "000E" : ["UI", "SeriesInstanceUID"],
@@ -14085,8 +14099,11 @@ daikon.Dictionary.dict = {
 //        "1020" : ["UN", "CSASeriesHeaderInfo"] // Mosaic info is here. Type UN is unknown.
     },
 
-    "0040" : // structured report SR stuff
+    "0040" : // structured report and other SR stuff
     {                  
+        "9224" : ["FD", "RealWorldValueIntercept"],  
+        "9225" : ["FD", "RealWorldValueSlope"],  
+        
         "A730" : ["SQ", "ContentSequence"],
         "A010" : ["CS", "RelationshipType"],
         "A040" : ["CS", "ValueType"],
@@ -14099,7 +14116,7 @@ daikon.Dictionary.dict = {
         "A168" : ["SQ", "SRConceptCodeSequence"],  
         
         "A491" : ["CS", "CompletionFlag"],  
-        "A493" : ["CS", "VerificationFlag"],  
+        "A493" : ["CS", "VerificationFlag"],
     },
 
 
@@ -14326,7 +14343,27 @@ daikon.Dictionary.dict = {
         "00C4" :	["CS", "FrameOfReferenceTransformType"],	 
         "00C6" :	["DS", "FrameOfReferenceTransformMatrix"],	 
         "00C8" :	["LO", "FrameOfReferenceTransformComment"]	 
-        }
+        },
+    "6000" : {
+        "0010" : ["US", "OverlayRows"],
+        "0011" : ["US", "OverlayColumns"],
+        "0015" : ["IS", "NumberOfFramesInOverlay"],
+        "0022" : ["LO", "OverlayDescription"],
+        "0040" : ["CS", "OverlayType"],
+        "0045" : ["LO", "OverlaySubtype"],
+        "0050" : ["SS", "OverlayOrigin"],
+        "0051" : ["US", "ImageFrameOrigin"],
+        "0100" : ["US", "OverlayBitsAllocated"],
+        "0102" : ["US", "OverlayBitPosition"],
+        "1001" : ["CS", "OverlayActivationLayer"],
+        "1301" : ["IS", "ROIArea"],
+        "1302" : ["DS", "ROIMean"],
+        "1303" : ["DS", "ROIStandardDeviation"],
+        "1500" : ["LO", "OverlayLabel"],
+        "3000" : ["OW", "OverlayData"],
+    },
+    // there could be mor overlays,  group 6001, 6002 etc
+
     };
 
 
@@ -14464,12 +14501,13 @@ var DICOMDICT_defaultTags =
 {
     // could define standard values
     
-    "PatientID":           "no_patient_id",
+    "PatientID":           "nopatientid",
     "ProtocolName":        "no_protocol_name",
     "SeriesDescription":   "no_protocol_name",
     
 }
 
+daikon.DICOMDICT_defaultTags = DICOMDICT_defaultTags 
 
 daikon.Image.prototype.gettag = function(tag)
 {
@@ -16046,7 +16084,7 @@ daikon.Image.prototype.toString = function () {
         }
     }
 
-    str = str.replace(/\n\s*\n/g, '\n');  // replace mutli-newlines with single newline
+    str = str.replace(/\n\s*\n/g, '\n');  // replace multi-newlines with single newline
     str = str.replace(/(?:\r\n|\r|\n)/g, '<br />');  // replace newlines with <br>
 
     return str;
@@ -16371,8 +16409,8 @@ daikon.Parser.verbose = false;
 
 daikon.Parser.MAGIC_COOKIE_OFFSET = 128;
 daikon.Parser.MAGIC_COOKIE = [68, 73, 67, 77];
-daikon.Parser.VRS = ["AE", "AS", "AT", "CS", "DA", "DS", "DT", "FL", "FD", "IS", "LO", "LT", "OB", "OD", "OF", "OW", "PN", "SH", "SL", "SS", "ST", "TM", "UI", "UL", "UN", "US", "UT"];
-daikon.Parser.DATA_VRS = ["OB", "OW", "OF", "SQ", "UT", "UN"];
+daikon.Parser.VRS = ["AE", "AS", "AT", "CS", "DA", "DS", "DT", "FL", "FD", "IS", "LO", "LT", "OB", "OD", "OF", "OW", "PN", "SH", "SL", "SS", "ST", "TM", "UC", "UI", "UL", "UN", "US", "UT"];
+daikon.Parser.DATA_VRS = ["OB", "OW", "OF", "SQ", "UC", "UT", "UN"];
 daikon.Parser.RAW_DATA_VRS = ["OB", "OD", "OF", "OW", "UN"];
 daikon.Parser.TRANSFER_SYNTAX_IMPLICIT_LITTLE = "1.2.840.10008.1.2";
 daikon.Parser.TRANSFER_SYNTAX_EXPLICIT_LITTLE = "1.2.840.10008.1.2.1";
@@ -16410,6 +16448,12 @@ daikon.Parser.isMagicCookieFound = function (data) {
 
 
 daikon.Parser.prototype.parseRDA = function (data) {
+
+    if (typeof module != "undefined" && !electron)
+    {
+        if (typeof KissFFT == "undefined")  
+                  KissFFT = require("../../htdocs/imgproc/kissFFT_main.js");
+    }
 
     var image = new daikon.Image();
     image.fromRDA = true;
@@ -16542,7 +16586,7 @@ daikon.Parser.prototype.parse = function (data) {
     
             // Elias Kellner: only remeber tags in the modified dictionary, otherwise heap will explode
             // NB: Tag will be of type other binary "OB" if not in the dictionary
-            if( tag.isPixelData() || daikon.Dictionary.getVR(tag.group, tag.element) !== 'OB'   )
+            if( tag.isPixelData() || (daikon.Dictionary.dict[tag.group_hex] != undefined && daikon.Dictionary.dict[tag.group_hex][tag.element_hex] != undefined) || daikon.Dictionary.getVR(tag.group, tag.element) !== 'OB'   )
                 image.putTag(tag);
            // else
             //    delete tag.value;
@@ -16740,6 +16784,10 @@ daikon.Parser.prototype.getNextTag = function (data, offset, testForTag, prevent
     }
 
     offsetValue = offset;
+    if(0 && (daikon.Utils.dec2hex(group) + "," + daikon.Utils.dec2hex(element))=="0018,9089")
+    {
+        console.log("reading tag: " + daikon.Utils.dec2hex(group) + "," + daikon.Utils.dec2hex(element) + " " + daikon.Dictionary.getDescription(daikon.Utils.dec2hex(group),daikon.Utils.dec2hex(element)) + " " + Math.round(offset/1024/1024) + " "  + length)  
+    }
 
     if (vr === 'SQ' && !preventSublistParsing) 
     {
@@ -16765,10 +16813,6 @@ daikon.Parser.prototype.getNextTag = function (data, offset, testForTag, prevent
     offset += length;
     tag = new daikon.Tag(group, element, vr, value, offsetStart, offsetValue, offset, this.littleEndian);
 
-    if(0 && vr === 'SQ')
-    {
-        console.log("reading tag: " + daikon.Utils.dec2hex(group) + "," + daikon.Utils.dec2hex(element) + " " + daikon.Dictionary.getDescription(daikon.Utils.dec2hex(group),daikon.Utils.dec2hex(element)) + " " + Math.round(offset/1024/1024) + " "  + length)  
-    }
 
     if (tag.isTransformSyntax()) {
         if (tag.value[0] === daikon.Parser.TRANSFER_SYNTAX_IMPLICIT_LITTLE) {
@@ -17518,12 +17562,642 @@ daikon.Series.prototype.matchesSeries = function (image) {
  */
 daikon.Series.prototype.buildSeries = function () 
 {
-  return this.buildSeries2();    
+  return this.buildSeries3();    
 
 };
 
 
 
+
+/**
+ * Orders and organizes the images in this series.
+ */
+daikon.Series.prototype.buildSeries3 = function () 
+{
+
+    var logmsg = [];
+    // helper function to add vecors, one scaled by s
+    function vsum(a,b,s)
+    {
+        if(a == null || b == null)
+            return [0, 0, 0];
+        else
+            return [a[0] + s*b[0], a[1] + s*b[1], a[2] + s*b[2]];
+    }
+    
+    if (this.images[0].getPixelData() == undefined) 
+        return "noimage";
+    this.isMosaic = this.images[0].isMosaic();
+    
+    if (this.isMosaic)
+        this.NumberOfImagesInMosaic = this.images[0].NumberOfImagesInMosaic;
+
+    this.isElscint = this.images[0].isElscint();
+    this.isCompressed = this.images[0].isCompressed();
+
+    // check for multi-frame
+    this.numberOfFrames = this.images[0].getNumberOfFrames();
+    this.numberOfFramesInFile = this.images[0].getNumberOfImplicitFrames(); // this is typically the same as getNumberOfFrames!?
+    this.isMultiFrame = (this.numberOfFrames > 1) || (this.isMosaic && (this.images[0].length > 1));
+    this.isMultiFrameVolume = false;
+    this.isMultiFrameTimeseries = false; 
+    
+
+    // =========== true multiframe file ==> all images stored in one dicom
+    if (this.isMultiFrame) 
+    {
+        var hasFrameTime = (this.images[0].getFrameTime() > 0);
+        if (this.isMosaic) 
+        {
+            this.isMultiFrameTimeseries = true;
+        } 
+        else 
+        {
+            if (hasFrameTime) 
+            {
+                this.isMultiFrameTimeseries = true;
+            } 
+            else if (this.numberOfFramesInFile > 1) 
+            {
+                this.isMultiFrameTimeseries = true;
+                this.numberOfFrames = this.images.length; //???
+            } 
+            else 
+            {
+                this.isMultiFrameVolume = true;
+            }
+        }
+    }
+
+    // =========== normal case: Multiple DICOM Files. can be single volume, time series, multiple acquisitions
+
+    // diffusion or multicoil is also handled as timeseries
+    this.isImplicitTimeseries = false;
+
+    /*********************************************
+    find the relevant time tag and calc slicetimes
+    *********************************************/
+
+    var timetag = 'AcquisitionTime';
+    var mfact = this.images[0].gettag('Manufacturer');
+
+    if(mfact) 
+    {
+        if(mfact.toLowerCase() == 'philips' || mfact.toLowerCase() == 'toshiba' )   
+        {
+            timetag = 'ContentTime';
+        }
+		else if( mfact.toLowerCase().includes('ge')  ) // GE can be special
+		{
+			// if AcquisitionTime tag is present and it is not set to one value for all slices => could use AcquisitionTime??
+			// MidScanTime seems to be default for GE CTP
+			if(this.images[0].gettag('MidScanTime') != undefined)
+				timetag = "MidScanTime"
+			else
+				timetag = "ContentTime"
+		}
+    }
+
+    /*
+      speciality: scan over midnight. Unclear whether AcquisitionDate changes correclty for all manufacturers
+      therefore, safer method us to find large time step and use module 24h if necessary
+      following would be the way with Acq Date: 
+            var tdate  = this.images[k].gettag('AcquisitionDate') || "00000000";
+            var tstamp = Date.parse(tdate.slice(0,4)+"-"+tdate.slice(4,6)+"-"+tdate.slice(6,8)+"T"+ttime.slice(0,2)+":"+ttime.slice(2,4)+":"+ttime.slice(4,99)) / 1000;
+    */
+    var timestamps = [];
+    var mintime, maxtime;
+    if(this.images[0].gettag(timetag) != undefined)
+    {
+        for(var k=0; k< this.images.length; k++)
+        {
+            this.images[k].initialindex = k;
+            var ttime  = this.images[k].gettag(timetag); 
+            if(timetag == "MidScanTime") // MidScanTime is already in seconds
+                var tstamp = ttime;
+            else
+                var tstamp = parseFloat(ttime.substr(0,2))*3600 + parseFloat(ttime.substr(2,2))*60 + parseFloat(ttime.substr(4,2)) + parseFloat("0." + ttime.substr(7))
+            
+            this.images[k].timestamp = tstamp;
+            timestamps.push(tstamp)
+        }
+        
+        // correct for measurement time around midnight: diff smaller than X hours?
+        mintime = Math.min.apply(null, timestamps);
+        maxtime = Math.max.apply(null, timestamps);
+        if(maxtime != undefined && maxtime > mintime + 12*3600)
+        {
+            // adjust times modulo 24
+            for(var k=0; k< this.images.length; k++)
+            {
+                if(this.images[k].timestamp  >  mintime + 12*3600)
+                {
+                    this.images[k].timestamp -= 24*3600;
+                    timestamps[k] = this.images[k].timestamp;
+                }
+            }
+            mintime = Math.min.apply(null, timestamps);
+            maxtime = Math.max.apply(null, timestamps);
+        }
+    }
+    
+    /*********************************************
+    first primary sorting 
+    *********************************************/
+    // here we might need further options and firstby, thenby
+    var sortkey = "InstanceNumber";
+    if(this.images[0].gettag(sortkey) != undefined)
+        this.images.sort(function(a,b) { return a.gettag(sortkey)>b.gettag(sortkey)?1:-1 })
+
+    var sortkey = "AcquisitionNumber";
+    if(this.images[0].gettag(sortkey) != undefined)
+        this.images.sort(function(a,b) { return a.gettag(sortkey)>b.gettag(sortkey)?1:-1 })
+
+    /*********************************************
+    then sort by timestamp if non-constant
+    *********************************************/
+    if(maxtime != undefined && maxtime != mintime) // only sort by time if different tags
+    {
+        this.images.sort(function(a,b) { return a["timestamp"]>b["timestamp"]?1:-1 })
+    }
+
+    // now, organise by slices    
+    var slices = {}; // struct with information about slices found
+    for(var k=0; k< this.images.length; k++)
+    {
+        var img = this.images[k];        
+        var imagePos = img.getImagePosition() || [0,0,0];
+        img.ImagePosition = imagePos;
+        if( slices[imagePos] == undefined)
+            slices[imagePos] = {index:k, pos: imagePos, imgs: [img] };
+        else
+            slices[imagePos].imgs.push( img );
+    }
+
+    var posvec = Object.keys(slices);
+    
+    var multislice = posvec.length > 1 && slices[posvec[1]].pos !== null // won't be the case for mosaic or 2D images like xray
+
+    // define the normal vector, positivley oriented in all dimensions
+    if(posvec.length == 1) // single slice only
+    {
+        var d = [0,0,0];        
+    }
+    else
+    {
+        var firstSlice = slices[posvec[0]];
+        var nextSlice  = multislice?slices[posvec[1]]:firstSlice;
+        var d = vsum(nextSlice.pos, firstSlice.pos, -1);
+        d =  math.multiply( d, -1/math.norm(d) )._data;
+        d[0] = Math.abs(d[0]); d[1] = Math.abs(d[1]); d[2] = Math.abs(d[2]);
+    }
+        
+    // create new object called 'tlices', this time with the scalar slice pos as index instead of 3D value
+    var tlices = {};
+    for(var k=0; k< posvec.length; k++)
+    {
+        let x = slices[posvec[k]].pos; 
+        let sliceLocation = x[0]*d[0] + x[1]*d[1] +x[2]*d[2];
+        slices[posvec[k]].sliceLocation = sliceLocation;
+        tlices[sliceLocation] = slices[posvec[k]];
+    }
+    
+    // sort slice locations ascending 
+    var sliceLocations = Object.keys(tlices).sort(function(a,b) { return parseFloat(a)>parseFloat(b)?1:-1 });;
+
+    // gather further info
+    var ntimeframesarray = [];
+    var sliceDistances = [];
+    var sliceNormalVectors = [];
+    for(var k=0; k< sliceLocations.length; k++)
+    {
+        ntimeframesarray.push(tlices[sliceLocations[k]].imgs.length);
+        if(k<sliceLocations.length-1)
+        {
+            sliceDistances.push(sliceLocations[k+1] - sliceLocations[k]);
+            let sliceVec = vsum(tlices[sliceLocations[k+1]].pos, tlices[sliceLocations[k]].pos, -1);
+            sliceVec = math.multiply( sliceVec, 1/math.norm(sliceVec) )._data;
+            sliceNormalVectors.push(sliceVec);
+            // check consistency of slice normal vectors
+            if(k>0)
+            {
+                var tangle = Math.acos(sliceNormalVectors[k][0]*sliceNormalVectors[k-1][0] + sliceNormalVectors[k][1]*sliceNormalVectors[k-1][1] + sliceNormalVectors[k][2]*sliceNormalVectors[k-1][2])*(180/Math.PI);
+                if(Math.abs(tangle) > 5 )
+                {
+                    logmsg.push('WARN: great variations in slice normal vector, angle: ' + tangle)
+                    // console.log('WARNING: great variations in slice normal vector, angle: ' + tangle)
+                    // what to do??
+                }
+            }
+        }
+    }
+
+    if(multislice)
+    {
+        this.sliceVec = sliceNormalVectors[0];
+    }
+    
+    if(this.isMultiFrame)
+    {
+        if(this.images[0].ktags.ImagePositionPatient != undefined && this.images[0].ktags.ImagePositionPatient.multival )
+        {
+            // phlips multiframe problem: A file with numberOfFrames=190 might have 380 entries for ImagePositionPatient (maybe contains dummy slices)
+            // use first and last slice to calc slice thickness
+            var v = this.images[0].ktags.ImagePositionPatient.multival;
+            var sliceVec = vsum(v[0], v[v.length-1],-1); // from first to last slice
+            if(math.norm(sliceVec) > 0) // in 4D, single slice this does not make sense
+            {
+                this.sliceVec = math.multiply( sliceVec, -1/math.norm(sliceVec) )._data;
+                this.MultiFrameSliceThickness = math.norm(sliceVec) / this.images[0].getNumberOfFrames();
+            }
+        }
+              
+    }    
+    var maxnumtimeframes = Math.max.apply(null, ntimeframesarray);
+    var minnumtimeframes = Math.min.apply(null, ntimeframesarray);
+
+    var numtimeframes = maxnumtimeframes
+    var numslices = sliceLocations.length;
+    
+    /*********************************************
+    check integrity
+    *********************************************/
+    //   same number of timeframes for all slices? if not, stack es large 3D, or try to create 4D volume with available images
+    var isValidVolume = 1;
+    if(maxnumtimeframes > 1)
+    {
+        logmsg.push('INFO: 4D dataset and "' + mfact + '" scanner, using "' + timetag + '" for timing information');
+        var allEqual = ntimeframesarray.every(val => val === ntimeframesarray[0]);
+        if(allEqual)
+        {
+            this.isImplicitTimeseries = true;
+            this.numberOfFrames = maxnumtimeframes;
+        }
+        else
+        {
+            logmsg.push('WARN: 4D data, but inconsistent number of timeframes for each slice, maybe some images missing?')
+            if(0) // restrict to available number of frames.
+            {
+                logmsg.push('INFO: Min/max num timeframes is ' +  minnumtimeframes + '/' + maxnumtimeframes + ' incorporating only first ' + minnumtimeframes + ' timepoints')                
+                this.isImplicitTimeseries = true;
+                this.numberOfFrames = minnumtimeframes;
+            }
+            else // stack as single slice timeseries
+            {
+                logmsg.push('INFO: cannot build meaningful 4D series, stacking as single slice timeseries')
+                this.numberOfFrames = this.images.length;
+                this.isImplicitTimeseries = 1;
+                this.sliceVec = undefined;
+                isValidVolume = 0;
+                numtimeframes = 1;
+            }
+        }
+    }
+
+    if(this.isMultiFrame && sliceLocations.length ==1)
+    {
+        isValidVolume = false; // probably not a volumetric but single slice, multi-tiempoints multiframe
+        numslices = this.numberOfFrames;
+    }    
+    
+    /*********************************************
+    major sorting: run over time index, then over slice
+    *********************************************/
+    var orderedImages = [];
+    if(isValidVolume)
+    {
+        for(var t=0; t<numtimeframes; t++)
+        {
+            for(var k=0; k<numslices; k++)
+            {
+                let timg = tlices[sliceLocations[k]].imgs[t];
+                timg.sliceLocation = sliceLocations[k];
+                orderedImages.push(timg);
+            }
+        }
+    }
+    else
+    {
+        for(var k=0; k<numslices; k++)
+        {
+            for(var t=0; t<ntimeframesarray[k]; t++)
+            {
+                let timg = tlices[sliceLocations[k]].imgs[t];
+                timg.sliceLocation = [0,0,0];
+                orderedImages.push(timg);
+            }
+        }
+        
+    }
+
+
+    
+    /*********************************************
+    check slice distance consistency, interpolate if required
+    *********************************************/
+    var maxdist = Math.max.apply(null, sliceDistances);
+    var mindist = Math.min.apply(null, sliceDistances);
+    
+    // check for slice distance tolerance (1% )
+    if( (maxdist-mindist) / maxdist > 0.01 )
+    {
+        logmsg.push("WARN: Inconsistent slice distances. Missing frames or non-equidist spacing, rounded values: " + sliceDistances.map(x=>x.toFixed(2)) );
+   
+        // for inconsistenct slice distances: interpolate to median distance using neares neighbour
+        if(1 && this.isImplicitTimeseries == false)
+        {
+            var list = orderedImages;
+            // use median distance
+            var tdist = math.median(sliceDistances);
+            logmsg.push("INFO: Interpolating to median distance " + tdist );
+            var firstslicepos = list[0].ImagePosition;
+            var lastslicepos  = list[numslices-1].ImagePosition;
+            var sliceVec = vsum(firstslicepos, lastslicepos,-1); 
+            sliceVec = math.multiply( sliceVec, -1/math.norm(sliceVec)*tdist )._data;
+            var list2 = [];
+            for(var k=0; k<list.length*1000; k++)
+            {
+                var targetpos = vsum(list[0].ImagePosition, sliceVec , k);
+                var d1 =  math.norm(vsum(targetpos, list[0].ImagePosition, -1));
+                var bestmatch = 0;
+                for(var j=1; j<list.length; j++)
+                {
+                    var d2 =  math.norm(vsum(targetpos, list[j].ImagePosition, -1));
+                    if(math.abs(d2) < math.abs(d1))
+                    {
+                        d1 = d2;
+                        bestmatch = j;
+                    }
+                }
+                list2.push(list[bestmatch]);
+                if(bestmatch == list.length-1)
+                    break
+            }
+            // set new slice distance
+            this.averageSliceDistance = tdist;
+            
+            orderedImages = list2;
+        }
+        else
+        {
+            logmsg.push("WARN: Time series with inconsistent slice differences, do not know how to interpolate yet" );
+        }
+    }
+
+    this.sliceTimes = [];
+    this.imageInfo = { bMatrix:[], bDirections:[],    bValue:[]     };
+    
+    for(var k=0; k< orderedImages.length; k++)
+    {
+        var siemens = orderedImages[k].gettag('CSAImageHeaderInfo');
+
+        
+        if(!this.isMosaic)
+        {
+            if(maxtime != undefined)
+            {
+                var relativetime = math.round((orderedImages[k].timestamp - orderedImages[0].timestamp) *1000);
+                this.sliceTimes.push( relativetime );
+            }
+        }
+        else // for mosaic perfusion, must re-establish a .time file
+        {
+            if(   (this.images[0].getSeriesDescription() && (this.images[0].getSeriesDescription().search('perf') > -1 || this.images[0].getSeriesDescription().search('cmrr') > -1) )
+                ||(this.images[0].gettag('SequenceName') && this.images[0].gettag('SequenceName').search('B.Poser') > -1) // SMS VSI sequence
+                )
+            {
+                if(typeof siemens == "string"  && siemens.match(/MosaicRefAcqTimes=([-\d.\s]+)\n/) )
+                {
+                    var sn = siemens.match(/MosaicRefAcqTimes=([-\d.\s]+)\n/);
+                    if (sn && sn.length > 1)
+                    {
+                        var tr = this.images[0].gettag('RepetitionTime');
+                        var dummy = sn[1].split(" ").slice(0,this.NumberOfImagesInMosaic).map(function(x){return (k*tr + parseInt(x))});
+                        this.sliceTimes = this.sliceTimes.concat(dummy);
+                    }                
+                }
+                else // Hack: for mosaics, guess the slice times from the total TR. Assume first slice is second top slice ...
+                {
+                    var tr = this.images[0].gettag('RepetitionTime');
+                    let n = this.NumberOfImagesInMosaic;
+                    var dt = tr/(n-0);
+                    if(tr)
+                    {
+                        
+                        for(var u=0; u<n; u++)
+                        //for(var u=n-1; u>=0; u--)
+                        {
+                           if(u%2 == 1)
+                            this.sliceTimes.push(tr*k + math.round(u/2*dt )); 
+                           else
+                            this.sliceTimes.push(tr*k + math.round( (u-1)/2*dt + n/2*dt ) ); 
+                        }
+                    }
+                }
+            }
+        }
+
+        if(typeof siemens == "string" )
+        {
+            var sn = siemens.match(/DiffusionGradientDirection=([-\d.\s]+)\n/);
+            var bdir;
+            var bmat;
+            var bv = 0;
+            if (sn && sn.length > 1)
+            {
+                bdir = sn[1].split(" ");
+                this.imageInfo.diffusion = true;
+                var bval = siemens.match(/B_value=([-\d.\s]+)\n/);
+                if (bval && bval.length > 1)
+                     bv = parseFloat(bval[1].trim());
+                var bmat_ = siemens.match(/B_matrix=([-\d.\s]+)\n/);
+                if (bmat_ != null)
+                {
+                  bmat_ = bmat_[1].split(" ");
+                  bmat = [[parseFloat(bmat_[0].trim()),parseFloat(bmat_[1].trim()),parseFloat(bmat_[2].trim())],
+                      [parseFloat(bmat_[1].trim()),parseFloat(bmat_[3].trim()),parseFloat(bmat_[4].trim())],
+                      [parseFloat(bmat_[2].trim()),parseFloat(bmat_[4].trim()),parseFloat(bmat_[5].trim())]];
+                }
+                else
+                  bmat = [];
+            }
+            else
+            {
+                bdir = ["0","0","0"];
+            }
+
+
+            // for mosaic, store every bval/vec, for non-mosaic, only take bval/vec of one slice per volume (first slice)
+            if(this.isMosaic || orderedImages[k].sliceLocation == orderedImages[0].sliceLocation)   
+            {
+                    
+                this.imageInfo.bMatrix.push(undefined);                
+                this.imageInfo.bDirections.push(bdir);                
+                this.imageInfo.bValue.push(bv);
+            }
+
+            //var sn = siemens.match(/FlowVenc=([-\d.\s]+)\n/);
+            //console.log(sn);
+
+        }                                
+        else if (orderedImages[k].ktags.DiffusionGradientValue != undefined  &&
+                 (orderedImages[k].ktags.DiffusionGradientDirection == undefined || !isNaN(orderedImages[k].ktags.DiffusionGradientDirection.value[0])))
+        {
+
+           // ----------------------------- need these inline function here ---------
+            function getFloat64(rawData, littleEndian) {
+                var data, mul, ctr;
+                mul = rawData.byteLength / 8;
+                data = [];
+                for (ctr = 0; ctr < mul; ctr += 1) {
+                    data[ctr] = rawData.getFloat64(ctr * 8, littleEndian);
+                }
+                return data;
+            };
+
+            function getFloat32(rawData, littleEndian) {
+                var data, mul, ctr;
+
+                mul = rawData.byteLength / 4;
+                data = [];
+                for (ctr = 0; ctr < mul; ctr += 1) {
+                    data[ctr] = rawData.getFloat32(ctr * 4, littleEndian);
+                }
+
+                return data;
+            };
+
+            var zval = orderedImages[k].ktags.DiffusionGradientValue.value;
+            // must differentiate between FL and FD, 32 and 64 bit .
+            // vendors are not consistent
+
+
+            if(zval.byteLength == 4)
+                zval = getFloat32(zval, orderedImages[k].littleEndian);
+            else if(zval.byteLength == 8)
+                zval = getFloat64(zval, orderedImages[k].littleEndian);
+            else if (Array.isArray(zval))
+                zval = zval[0];
+            else
+                zval = 0;
+
+            var bv = parseInt(zval);
+            var bmat = undefined;
+
+            
+            if (orderedImages[k].ktags.DiffusionGradientDirection != undefined)
+                var bdir = orderedImages[k].ktags.DiffusionGradientDirection.value;
+            else
+                var bdir = [0,0,0]
+
+            if (bdir == undefined)
+            {
+                if(this.isMosaic || orderedImages[k].sliceLocation == orderedImages[0].sliceLocation)   
+                {
+                    this.imageInfo.bMatrix.push(undefined);                
+                    this.imageInfo.bDirections.push([NaN,NaN,NaN]);                
+                    this.imageInfo.bValue.push(bv);
+                }
+            }
+            else if(bdir.length == 3)
+            {
+                var bv = parseInt(orderedImages[k].ktags.DiffusionGradientValue.value);
+                var bmat = undefined
+                if (isNaN(bv))
+                    bv = 0;
+   
+                this.imageInfo.diffusion = true;
+
+
+                // for mosaic, store every bval/vec, for non-mosaic, only take bval/vec of one slice per volume (first slice)
+                if(this.isMosaic || orderedImages[k].sliceLocation == orderedImages[0].sliceLocation)   
+                {
+                    this.imageInfo.bMatrix.push(undefined);                
+                    this.imageInfo.bDirections.push(bdir);                
+                    this.imageInfo.bValue.push(bv);
+                }
+            }
+        }
+        else if (orderedImages[k].ktags.DiffusionGradientBMATRIX != undefined && orderedImages[k].ktags.DiffusionGradientBMATRIX.value != undefined && orderedImages[k].ktags.DiffusionGradientBMATRIX.value[0] == 'BMATRIX')
+        {
+           // for mosaic, store every bval/vec, for non-mosaic, only take bval/vec of one slice per volume (first slice)
+            if(this.isMosaic || orderedImages[k].sliceLocation == orderedImages[0].sliceLocation)   
+            {                
+               var bmat =  orderedImages[k].tags['00191027'].value 
+               this.imageInfo.bMatrix.push([[bmat[0],bmat[1],bmat[2]],
+                                            [bmat[1],bmat[3],bmat[4]],
+                                            [bmat[2],bmat[4],bmat[5]]])
+               this.imageInfo.bValue.push(bmat[0]+bmat[3]+bmat[5])
+               this.imageInfo.bDirections.push(undefined);                                
+            }
+                
+        }                
+  
+        else if (orderedImages[k].ktags.DiffusionGradientDirectionX != undefined && (mfact && mfact.search("GE") != -1)) // this is GE 
+        {
+           var bv,bdir;
+           if (orderedImages[k].ktags.DiffusionBValue == undefined)
+           {
+              bv = 0;
+              bdir = [0,0,0];
+           }
+           else
+           {
+              bv = orderedImages[k].ktags.DiffusionBValue.value[0]
+              bdir =  [orderedImages[k].ktags.DiffusionGradientDirectionX.value[0],
+                        orderedImages[k].ktags.DiffusionGradientDirectionY.value[0],
+                        orderedImages[k].ktags.DiffusionGradientDirectionZ.value[0]]
+           }
+           if(this.isMosaic
+                ||  ( k==0 || (list != undefined && list[k] != undefined && list[k].SliceLocation_calculated == list[0].SliceLocation_calculated))   )
+           {
+                this.imageInfo.bDirections.push(bdir);                
+                this.imageInfo.bValue.push(bv);
+                this.imageInfo.diffusion = true;
+
+           }                       
+                       
+        }
+        else if (orderedImages[k].ktags.DiffusionGradientOrientation != undefined && orderedImages[k].ktags.DiffusionBValue != undefined) // && (mfact && mfact.search("Nifti2Dicom") != -1)) // this is GE 
+        {
+            bv = orderedImages[k].ktags.DiffusionBValue.value[0]
+            bdir = orderedImages[k].ktags.DiffusionGradientOrientation.value
+            this.imageInfo.bDirections.push(bdir);                
+            this.imageInfo.bValue.push(bv);
+            this.imageInfo.diffusion = true;
+                
+        }       
+        else if (orderedImages[k].ktags.DiffusionBValue != undefined) 
+        {
+            bv = orderedImages[k].ktags.DiffusionBValue.value[0]
+            bdir = [0,0,0]
+            this.imageInfo.bDirections.push(bdir);                
+            this.imageInfo.bValue.push(bv);
+            this.imageInfo.diffusion = true;
+            
+        }
+            
+    }
+    
+    // calculate the average time per slice (in ms)
+    this.sliceDuration = ( math.max( this.sliceTimes ) - math.min( this.sliceTimes) ) / this.images.length;
+    this.sliceDuration = math.round(this.sliceDuration*100)/100;
+    this.volumeDuration = this.sliceDuration * posvec.length;
+    this.volumeDuration = math.round(this.volumeDuration*100)/100 ;
+
+    // could also implement here: make edges roation by checking detsign and flipping image order and slice vector
+
+    this.imagesOriginalOrder = this.images;
+    this.images = orderedImages;
+
+    if(logmsg.length > 0)
+    {
+        console.log('----- SERIES: ' + this.images[0].getSeriesDescription() + ' with ' + this.images.length +  ' images');
+        for(var k=0; k<logmsg.length; k++)
+            console.log(logmsg[k]);
+    }
+
+}
 
 /**
  * Orders and organizes the images in this series.
@@ -17669,15 +18343,13 @@ daikon.Series.prototype.buildSeries2 = function ()
     d[0] = Math.abs(d[0]); d[1] = Math.abs(d[1]); d[2] = Math.abs(d[2]);
     var h = vsum(firstSlice.pos, d, 10000); // auxilary reference point for distances
         
-    // first slice run: calc slice positions 
+    // calculate slice locations
     var x,y,dist = 0;
     for(var k=0; k< posvec.length; k++)
     {
-            //dist =  math.norm( vsum(slices[posvec[k]].pos, h, -1) );
             // simple by inner product
             x = slices[posvec[k]].pos;
             dist = x[0]*d[0] + x[1]*d[1] +x [2]*d[2];
-
             slices[posvec[k]].dist = dist;
             pa.push([dist, k, posvec[k]]);
     }
@@ -17698,6 +18370,14 @@ daikon.Series.prototype.buildSeries2 = function ()
     {
         this.isImplicitTimeseries = true;
         this.numberOfFrames = nimgs1;
+
+        // for  timeseries: check that we have equal number of images (repetitions) per slice location !!!
+        // can have errors if some slices are missing
+        for(var k=0; k< posvec.length; k++)
+        {
+            if(nimgs1 != slices[pa[k][2]].imgs.length)
+                console.log('WARNING: volume inconsistencies in time series, probably some images missing!')
+        }
     }
 
     var d1 =math.norm( vsum(nextSlice.pos, firstSlice.pos, -1) );
@@ -17705,11 +18385,13 @@ daikon.Series.prototype.buildSeries2 = function ()
 
     var timeerr = [];
     var disterr =  [];
+
     for(var k=0; k< posvec.length; k++)
     {
             // create a time index for each slice position
             var tslice = slices[pa[k][2]];
             var imgs = tslice.imgs;
+
             // InstanceCreationTime is important for example for SWI, where all images of same coils have same InstanceNumber
             // However, note InstanceCreationTime not always present (--> MR yes, CT no)
             imgs.sort( firstBy("InstanceNumber").thenBy("InstanceCreationTime") );
@@ -17773,12 +18455,18 @@ daikon.Series.prototype.buildSeries2 = function ()
     }
 
     // Now, do the major sorting: 
-    // We have a major problem here: Whole body PET images might be blockwise messed up. (Kellner 08/2019)
-    // This should be thoroughly investigated. For now, sepeare PET and others
-    if(this.images[0].gettag('Modality') != "PT")
+    // We have a major problem here: Whole body PET and CT images might be blockwise messed up. (Kellner 08/2019 + 03/2021)
+    // This should be thoroughly investigated. For now, sepeare PET,CT and others
+    // EK 2024-09: for time series, we need that sorting
+    if(this.isImplicitTimeseries && this.images[0].gettag('Modality') == "CT")
+    {
+        var s = firstBy("AcquisitionNumber").thenBy("TimeIndex").thenBy("SliceLocation_calculated");
+    }
+    else if(this.images[0].gettag('Modality') != "CT" || this.images[0].gettag('Modality') != "PT")
     {
         // this is the way we did it so far. leads to problems with PET
-        var s = firstBy("AcquisitionNumber").thenBy("TimeIndex").thenBy("SliceLocation_calculated");
+        //var s = firstBy("AcquisitionNumber").thenBy("TimeIndex").thenBy("SliceLocation_calculated");
+        var s = firstBy("TimeIndex").thenBy("SliceLocation_calculated");
     }
     else
     {
@@ -17787,27 +18475,85 @@ daikon.Series.prototype.buildSeries2 = function ()
     
     //var s = firstBy("AcquisitionNumber").thenBy("SliceLocation")
     list.sort(s);
+
+
+    // for inconsistenct slice distances: interpolate to median distance using neares neighbour
+    if(1 && !this.isImplicitTimeseries && disterr.length > 0)
+    {
+        // resample to max distance
+        var tdist = math.median(distances);
+        console.log( "Inconsistent slice distances, interpolating to nearest neighbour at distance " + tdist );
+        var firstslicepos = list[0].ImagePosition;
+        var lastslicepos  = list[list.length-1].ImagePosition;
+        var sliceVec = vsum(firstslicepos, lastslicepos,-1); 
+        sliceVec = math.multiply( sliceVec, -1/math.norm(sliceVec)*tdist )._data;
+        var list2 = [];
+        for(var k=0; k<list.length*1000; k++)
+        {
+            var targetpos = vsum(list[0].ImagePosition, sliceVec , k);
+            var d1 =  math.norm(vsum(targetpos, list[0].ImagePosition, -1));
+            var bestmatch = 0;
+            for(var j=1; j<list.length; j++)
+            {
+                var d2 =  math.norm(vsum(targetpos, list[j].ImagePosition, -1));
+                if(math.abs(d2) < math.abs(d1))
+                {
+                    d1 = d2;
+                    bestmatch = j;
+                }
+            }
+            list2.push(list[bestmatch]);
+            if(bestmatch == list.length-1)
+                break
+        }
+        list = list2;
+        // set slice distance
+        this.averageSliceDistance = tdist;
+    }
+
     
     /*********************************************
     finally, order the images
     *********************************************/
     // further, calculate the relative timing (needed for timeseries (Perfusion CT/MR, fMRI))
-    if( this.images[0].gettag('Manufacturer') && 
-	(this.images[0].gettag('Manufacturer').toLowerCase() == 'philips' || this.images[ 0 ].gettag('Manufacturer').toLowerCase() == 'toshiba' )   
-	)
+
+    var timetag = 'AcquisitionTime';
+
+    var mfact = this.images[0].gettag('Manufacturer');
+
+    if(mfact) 
     {
-        var timetag = 'ContentTime';
-        console.log('This is a ' + this.images[0].gettag('Manufacturer') + '  scanner,  use DICOM tag "ContentTime" ...')
+        if(mfact.toLowerCase() == 'philips' || mfact.toLowerCase() == 'toshiba' )   
+        {
+            timetag = 'ContentTime';
+            console.log('This is a ' + mfact + ' scanner, use DICOM tag "ContentTime" ...')
+        }
+		else if( mfact.toLowerCase().includes('ge')  )
+		{
+			// if AcquisitionTime tag is present and it is not set to one value for all slices - use AcquisitionTime
+			// MidScanTime seems to be default for GE CTP
+			if(this.images[0].gettag('MidScanTime') != undefined)
+			{
+				timetag = "MidScanTime"
+                console.log('This is a ' + mfact + ' scanner, use DICOM tag "MidScanTime" ...')
+			}
+			else
+			{
+				timetag = "ContentTime"
+                console.log('This is a ' + mfact + ' scanner, use DICOM tag "ContentTime" ...')
+			}
+		}
     }
-    else
-    {
-        var timetag = 'AcquisitionTime';
-    }
+
+
+
     
     function calcTime(y)
     {
-         if(y==undefined)
+        if(y==undefined)
              return 0;
+        if(timetag == "MidScanTime") // this is already in seconds
+            return y
             
         var hmsf = y.split('.');
         var hsm = hmsf[0];
@@ -17824,10 +18570,10 @@ daikon.Series.prototype.buildSeries2 = function ()
 
     this.imageInfo = { bMatrix:[], bDirections:[],    bValue:[]     };
 
-    for(var k=0; k< this.images.length; k++)
+    for(var k=0; k< list.length; k++)
     {
         orderedImages.push(this.images[ list[k].initialindex ] );
-        
+
         var relativetime = calcTime(this.images[ list[k].initialindex ].gettag(timetag));
         
         // correct for measurement time around midnight: diff smaller than 4 hours?
@@ -17886,7 +18632,6 @@ daikon.Series.prototype.buildSeries2 = function ()
             }
         }
 
-        
         if(typeof siemens == "string" )
         {
             var sn = siemens.match(/DiffusionGradientDirection=([-\d.\s]+)\n/);
@@ -17910,16 +18655,11 @@ daikon.Series.prototype.buildSeries2 = function ()
                 }
                 else
                   bmat = [];
-
-
-
             }
             else
             {
                 bdir = ["0","0","0"];
             }
-
-          
 
 
             // for mosaic, store every bval/vec, for non-mosaic, only take bval/vec of one slice per volume (first slice)
@@ -17927,7 +18667,7 @@ daikon.Series.prototype.buildSeries2 = function ()
             ||  ( k==0 || list[k].SliceLocation_calculated == list[0].SliceLocation_calculated)   )
             {
                     
-                this.imageInfo.bMatrix.push(bmat);                
+                this.imageInfo.bMatrix.push(undefined);                
                 this.imageInfo.bDirections.push(bdir);                
                 this.imageInfo.bValue.push(bv);
             }
@@ -17935,11 +18675,155 @@ daikon.Series.prototype.buildSeries2 = function ()
             //var sn = siemens.match(/FlowVenc=([-\d.\s]+)\n/);
             //console.log(sn);
 
+        }                                
+        else if (orderedImages[k].ktags.DiffusionGradientValue != undefined  &&
+                 (orderedImages[k].ktags.DiffusionGradientDirection == undefined || !isNaN(orderedImages[k].ktags.DiffusionGradientDirection.value[0])))
+        {
+
+           // ----------------------------- need these inline function here ---------
+            function getFloat64(rawData, littleEndian) {
+                var data, mul, ctr;
+                mul = rawData.byteLength / 8;
+                data = [];
+                for (ctr = 0; ctr < mul; ctr += 1) {
+                    data[ctr] = rawData.getFloat64(ctr * 8, littleEndian);
+                }
+                return data;
+            };
+
+            function getFloat32(rawData, littleEndian) {
+                var data, mul, ctr;
+
+                mul = rawData.byteLength / 4;
+                data = [];
+                for (ctr = 0; ctr < mul; ctr += 1) {
+                    data[ctr] = rawData.getFloat32(ctr * 4, littleEndian);
+                }
+
+                return data;
+            };
+
+            var zval = orderedImages[k].ktags.DiffusionGradientValue.value;
+            // must differentiate between FL and FD, 32 and 64 bit .
+            // vendors are not consistent
+
+
+            if(zval.byteLength == 4)
+                zval = getFloat32(zval, orderedImages[k].littleEndian);
+            else if(zval.byteLength == 8)
+                zval = getFloat64(zval, orderedImages[k].littleEndian);
+            else if (Array.isArray(zval))
+                zval = zval[0];
+            else
+                zval = 0;
+
+            var bv = parseInt(zval);
+            var bmat = undefined;
+
+            
+            if (orderedImages[k].ktags.DiffusionGradientDirection != undefined)
+                var bdir = orderedImages[k].ktags.DiffusionGradientDirection.value;
+            else
+                var bdir = [0,0,0]
+
+            if (bdir == undefined)
+            {
+                if(this.isMosaic
+                ||  ( k==0 || list[k].SliceLocation_calculated == list[0].SliceLocation_calculated)   )
+                {
+                    this.imageInfo.bMatrix.push(undefined);                
+                    this.imageInfo.bDirections.push([NaN,NaN,NaN]);                
+                    this.imageInfo.bValue.push(bv);
+                }
+            }
+            else if(bdir.length == 3)
+            {
+                var bv = parseInt(orderedImages[k].ktags.DiffusionGradientValue.value);
+                var bmat = undefined
+                if (isNaN(bv))
+                    bv = 0;
+   
+                this.imageInfo.diffusion = true;
+
+
+                // for mosaic, store every bval/vec, for non-mosaic, only take bval/vec of one slice per volume (first slice)
+                if(this.isMosaic
+                ||  ( k==0 || list[k].SliceLocation_calculated == list[0].SliceLocation_calculated)   )
+                {
+                    this.imageInfo.bMatrix.push(undefined);                
+                    this.imageInfo.bDirections.push(bdir);                
+                    this.imageInfo.bValue.push(bv);
+                }
+            }
         }
+        else if (orderedImages[k].ktags.DiffusionGradientBMATRIX != undefined && orderedImages[k].ktags.DiffusionGradientBMATRIX.value != undefined && orderedImages[k].ktags.DiffusionGradientBMATRIX.value[0] == 'BMATRIX')
+        {
+           // for mosaic, store every bval/vec, for non-mosaic, only take bval/vec of one slice per volume (first slice)
+            if(this.isMosaic
+            ||  ( k==0 || list[k].SliceLocation_calculated == list[0].SliceLocation_calculated)   )
+            {                
+               var bmat =  orderedImages[k].tags['00191027'].value 
+               this.imageInfo.bMatrix.push([[bmat[0],bmat[1],bmat[2]],
+                                            [bmat[1],bmat[3],bmat[4]],
+                                            [bmat[2],bmat[4],bmat[5]]])
+               this.imageInfo.bValue.push(bmat[0]+bmat[3]+bmat[5])
+               this.imageInfo.bDirections.push(undefined);                                
+            }
+                
+        }                
+    
+        else if (orderedImages[k].ktags.DiffusionGradientOrientation != undefined && (mfact && mfact.search("Nifti2Dicom") != -1)) // this is GE 
+        {
+            bv = orderedImages[k].ktags.DiffusionBValue.value[0]
+            bdir = orderedImages[k].ktags.DiffusionGradientOrientation.value
+            this.imageInfo.bDirections.push(bdir);                
+            this.imageInfo.bValue.push(bv);
+            this.imageInfo.diffusion = true;
+                
+        }       
+        else if (orderedImages[k].ktags.DiffusionGradientDirectionX != undefined && (mfact && mfact.search("GE") != -1)) // this is GE 
+        {
+           var bv,bdir;
+           if (orderedImages[k].ktags.DiffusionBValue == undefined)
+           {
+              bv = 0;
+              bdir = [0,0,0];
+           }
+           else
+           {
+              bv = orderedImages[k].ktags.DiffusionBValue.value[0]
+              bdir =  [orderedImages[k].ktags.DiffusionGradientDirectionX.value[0],
+                        orderedImages[k].ktags.DiffusionGradientDirectionY.value[0],
+                        orderedImages[k].ktags.DiffusionGradientDirectionZ.value[0]]
+           }
+           if(this.isMosaic
+                ||  ( k==0 || list[k].SliceLocation_calculated == list[0].SliceLocation_calculated)   )
+           {
+                this.imageInfo.bDirections.push(bdir);                
+                this.imageInfo.bValue.push(bv);
+                this.imageInfo.diffusion = true;
 
-
-
-
+           }                       
+                       
+        }
+        else if (orderedImages[k].ktags.DiffusionGradientOrientation != undefined) // && (mfact && mfact.search("Nifti2Dicom") != -1)) // this is GE 
+        {
+            bv = orderedImages[k].ktags.DiffusionBValue.value[0]
+            bdir = orderedImages[k].ktags.DiffusionGradientOrientation.value
+            this.imageInfo.bDirections.push(bdir);                
+            this.imageInfo.bValue.push(bv);
+            this.imageInfo.diffusion = true;
+                
+        }       
+        else if (orderedImages[k].ktags.DiffusionBValue != undefined) 
+        {
+            bv = orderedImages[k].ktags.DiffusionBValue.value[0]
+            bdir = [0,0,0]
+            this.imageInfo.bDirections.push(bdir);                
+            this.imageInfo.bValue.push(bv);
+            this.imageInfo.diffusion = true;
+            
+        }
 
     }
     
@@ -17948,7 +18832,6 @@ daikon.Series.prototype.buildSeries2 = function ()
     this.sliceDuration = math.round(this.sliceDuration*100)/100;
     this.volumeDuration = this.sliceDuration * posvec.length;
     this.volumeDuration = math.round(this.volumeDuration*100)/100 ;
-
 
 
     // calculate the slice normal vector from the positions. Necessary for correct calculation of getbestTransform (edges)
@@ -17969,11 +18852,12 @@ daikon.Series.prototype.buildSeries2 = function ()
     {
         if(this.images[0].ktags.ImagePositionPatient != undefined && this.images[0].ktags.ImagePositionPatient.multival)
         {
+            // phlips multiframe problem: A file with numberOfFrames=190 might have 380 entries for ImagePositionPatient (maybe contains dummy slices)
+            // use first and last slice to calc thickness
             var v = this.images[0].ktags.ImagePositionPatient.multival;
-            var sliceVec = vsum(v[0], v[v.length-1],-1);
-            sliceVec = math.multiply( sliceVec, -1/math.norm(sliceVec) )._data;
-            this.sliceVec = sliceVec;
-            this.MultiFrameSliceThickness = math.norm(vsum(v[0], v[1],-1) ) ;
+            var sliceVec = vsum(v[0], v[v.length-1],-1); // from first to last slice
+            this.sliceVec = math.multiply( sliceVec, -1/math.norm(sliceVec) )._data;
+            this.MultiFrameSliceThickness = math.norm(sliceVec) / this.images[0].getNumberOfFrames();
         }
               
     }
@@ -17984,8 +18868,6 @@ daikon.Series.prototype.buildSeries2 = function ()
     this.imagesOriginalOrder = this.images;
     this.images = orderedImages;
 }
-
-
 
 
 /**
@@ -18026,6 +18908,7 @@ daikon.Series.prototype.concatenateImageData = function (progressMeter, onFinish
         console.log("error in concatenateImageData, byte length not defined.");
         return;
     }
+    //console.log("allocating buffer of size " + (length * this.images.length)/2**20 + "M")
     buffer = new Uint8Array(new ArrayBuffer(length * this.images.length));
     buffer.set(new Uint8Array(data, 0, length), 0);
     this.concatenateNextImageData(buffer, length, progressMeter, index+1, onFinishedImageRead);
@@ -18064,7 +18947,7 @@ daikon.Series.prototype.concatenateNextImageData = function (buffer, frameSize, 
         {
             length = data.byteLength;
 
-            this.images[index].clearPixelData();
+            //this.images[index].clearPixelData();
             try {
                 buffer.set(new Uint8Array(data, 0, length), (frameSize * index));
             }
@@ -18617,7 +19500,7 @@ daikon.Tag.getSignedInteger32 = function (rawData, littleEndian) {
 daikon.Tag.getUnsignedInteger32 = function (rawData, littleEndian) {
     var data, mul, ctr;
 
-    mul = rawData.byteLength / 4;
+    mul = Math.floor(rawData.byteLength / 4);
     data = [];
     for (ctr = 0; ctr < mul; ctr += 1) {
         data[ctr] = rawData.getUint32(ctr * 4, littleEndian);
@@ -18977,7 +19860,13 @@ daikon.Tag.convertValue = function (vr, rawData, littleEndian) {
     } else if (vr === 'FL') {
         data = daikon.Tag.getFloat32(rawData, littleEndian);
     } else if (vr === 'FD') {
-        data = daikon.Tag.getFloat64(rawData, littleEndian);
+        if (rawData.byteLength%4!=0)
+        {
+            data = 0;
+            console.warn("double buffer not multiple of 4")
+        }
+        else
+            data = daikon.Tag.getFloat64(rawData, littleEndian);
     } else if (vr === 'FE') {  // special Elscint double (see dictionary)
         data = daikon.Tag.getDoubleElscint(rawData, littleEndian);
     } else if (vr === 'IS') {
@@ -19770,8 +20659,18 @@ papaya.volume.dicom.HeaderDICOM.prototype.getImageDimensions = function () {
         imageDimensions = new papaya.volume.ImageDimensions(this.series.images[0].getCols(),
             this.series.images[0].getRows(), this.series.numberOfFrames, 1);
     } else if (this.series.isMultiFrameTimeseries) {
-        imageDimensions = new papaya.volume.ImageDimensions(this.series.images[0].getCols(),
-            this.series.images[0].getRows(), this.series.numberOfFramesInFile, this.series.numberOfFrames);
+        if (this.series.isMultiFrameVolume)
+            imageDimensions = new papaya.volume.ImageDimensions(this.series.images[0].getCols(),
+                this.series.images[0].getRows(), this.series.numberOfFramesInFile, this.series.numberOfFrames);
+        else 
+        {
+            if (this.series.numberOfFramesInFile > 1)
+                imageDimensions = new papaya.volume.ImageDimensions(this.series.images[0].getCols(),
+                    this.series.images[0].getRows(),this.series.numberOfFramesInFile, this.series.numberOfFrames);
+            else
+                imageDimensions = new papaya.volume.ImageDimensions(this.series.images[0].getCols(),
+                    this.series.images[0].getRows(),1, this.series.numberOfFrames);
+        }
     } else if (this.series.isImplicitTimeseries) {
         imageDimensions = new papaya.volume.ImageDimensions(this.series.images[0].getCols(),
             this.series.images[0].getRows(), parseInt(this.series.images.length / this.series.numberOfFrames),
@@ -19800,7 +20699,23 @@ papaya.volume.dicom.HeaderDICOM.prototype.getImageDimensions = function () {
 papaya.volume.dicom.HeaderDICOM.prototype.getVoxelDimensions = function () {
     var voxelDimensions, sliceSpacing, sliceDis, pixelSpacing;
 
-    pixelSpacing = (this.series.images[0].getPixelSpacing() || [0, 0]);
+    pixelSpacing = this.series.images[0].getPixelSpacing();
+    // for some DX devices, only ImagerPixelSpacing might be present, see DICOM doc, 
+    // this tag is physical spacing of receptor, so might NOT reflect the true distance, keep this in mind!
+    // distance measurements are wrong in this case!!!! 
+
+    // allow workaround only for PX OPG Project
+    if(pixelSpacing == null && ( this.series.images[0].gettag("Modality") == "PX" || this.series.images[0].gettag("Modality") == "OT") ) 
+    {
+        pixelSpacing = [.076, .076];
+    }
+    
+    if(pixelSpacing == null)
+        pixelSpacing = this.series.images[0].gettag("ImagerPixelSpacing");
+
+    if (pixelSpacing == null)
+        pixelSpacing = [0,0];
+
 
     // kellnere this was / is wrong !!!
     //sliceSpacing = Math.max(this.series.images[0].getSliceGap(), this.series.images[0].getSliceThickness());
@@ -19823,6 +20738,7 @@ papaya.volume.dicom.HeaderDICOM.prototype.getVoxelDimensions = function () {
     {
             var ip1 = that.series.images[0].getImagePosition();
             var ip2 = that.series.images[1].getImagePosition();
+        
             if(ip1 != undefined && ip2 != undefined)
                 var sliceDis =  math.norm( [ ip2[0]- ip1[0],ip2[1]- ip1[1],ip2[2]- ip1[2] ])  ;
             else
@@ -19840,7 +20756,10 @@ papaya.volume.dicom.HeaderDICOM.prototype.getVoxelDimensions = function () {
     {
         if (this.series.images.length > 1)  // multi images. Can get slice dist also from distance of individual slices
         {
-               fallback(this);
+            if(this.series.averageSliceDistance)
+                sliceSpacing = this.series.averageSliceDistance
+            else
+                fallback(this);
         }
         else
         {
@@ -19860,8 +20779,10 @@ papaya.volume.dicom.HeaderDICOM.prototype.getVoxelDimensions = function () {
             var thick =  this.series.images[0].getSliceThickness() || 0;
             //sliceSpacing = sgap + thick;
             
-            sliceSpacing = this.series.MultiFrameSliceThickness || sgap + thick;
+            sliceSpacing = this.series.MultiFrameSliceThickness || sgap + thick*0;
         }
+        else if (this.series.images[0].gettag('SpacingBetweenSlices') != undefined)
+            sliceSpacing = this.series.images[0].gettag('SpacingBetweenSlices');
     }
    
    
@@ -20245,6 +21166,8 @@ papaya.volume.dicom.HeaderDICOM.prototype.getBestTransform = function ()
 
         // the affine offset
         var of = this.series.images[0].getImagePosition();
+        if(of == null)
+                of = [0,0,0];
         
 
         

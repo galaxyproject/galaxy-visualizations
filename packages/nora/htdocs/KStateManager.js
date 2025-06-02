@@ -67,7 +67,6 @@ function StateManager()
 	that.saveCurrentState = function(whendone,force)
 	{	
 
-
 		if (typeof sharedLink != "undefined" && sharedLink != undefined)
 		{
 			console.log("state not saved, it's a shared link");
@@ -194,7 +193,6 @@ return that;
 			,ids: ["rememberState", "rememberPreset", "tryUsingStandard"], defaultval:"rememberState"}
 		,{name:"updateInterval" 	    , type: 'input',  	 defaultval:60   , title:'Update interval of subject table(in seconds)'}
 		,{name:"updateInterval_gridstat", type: 'input',  	 defaultval:30   , title:'Update interval of gridengine statistics (in seconds)'}
-		,{name:"localstoragesizeMB"     , type: 'input',  	 defaultval:0    , title:'Size of local hard disk cache, use this if you are remote (in MB)'   }
 
 
 	]
@@ -209,8 +207,8 @@ return that;
 	layout: 
 	[
 	 	      {name:"enabled"	    	, type: 'check',     defaultval:true, class:"autoloaderitem" }
-	 	     ,{name:"viewportID"	    , type: 'input',     defaultval:"0" , class:"autoloaderitem"  }
-	         ,{name:"pattern"	    	, type: 'textarea',     defaultval:"FFilename:"  , class:"autoloaderitem"  }
+	 	     ,{name:"viewportID"	    , type: 'input',     defaultval:"0" , class:"autoloaderitem viewportID"  }
+	         ,{name:"pattern"	    	, type: 'textarea',  defaultval:"Filename:"  , class:"autoloaderitem" }
 	 	     ,{name:"intent"	    	, type: 'json',     defaultval:""  , class:"autoloaderitem"  }
 	]
    }
@@ -232,11 +230,21 @@ return that;
 			title: "",
 			type: 'formarray',
 			createbutton:'Add image loader',
-			altcreatebuttons:[{text:"Add annotation loader",fun:addanno}],
+			altcreatebuttons:[{text:"Add annotation loader",fun:addanno},{text:"Add form loader",fun:addform}],
 			layout: 
 			[
-				 {name:"pattern"	  , type: 'textarea',  defaultval:"FFilename:"  , class:"autoloaderitem"  }
-				 ,{name:"viewportID"  , type: 'input',     defaultval:"0" , class:"autoloaderitem" ,element:"span"}
+				 {name:"pattern"	  , type: 'textarea',  defaultval:"FFilename:"  , class:"autoloaderitem" ,
+			      ondrop:function(e,content)
+				  {
+					content.pattern = tempObjectInfo[0].filename;
+                    content.update("pattern");
+					content.intent = {}
+                    if (tempObjectInfo[0].mime == "form")
+                        content.intent = {defaultform:1}
+					content.update("intent");                        
+				  }
+                 }
+				 ,{name:"viewportID"  , type: 'input',     defaultval:"0" , class:"autoloaderitem viewportID" ,element:"span"}
 				 ,{name:"enabled"	  , type: 'check',     defaultval:true, class:"autoloaderitem" ,element:"span"}
 				 ,{name:"intent"	  , type: 'json',      defaultval:{}  , class:"autoloaderitem"  , class:"intentfield" ,   onchange: intentchange}
 
@@ -263,6 +271,15 @@ return that;
     ]};
 
 
+   	function addform(content)
+   	{
+        content.intent.defaultform=1
+		content.pattern = "FFilename:yourform.form.json\nFSubfolder:forms"
+        content.update("intent");
+
+        content.update("pattern");
+   	}
+
    	function addanno(content)
    	{
         content.intent.autocreate_ano =
@@ -287,6 +304,11 @@ return that;
 
 	function variableOptions(x)
 	{
+		if (x.intent && x.intent.defaultform)
+		{
+			return;
+		}
+		
 		var $div = $("<div class='autoloadvaroption' ></div>")
 
 		var $autoroi= $('<span class="Kautocreateroi"><input type="checkbox" name="autocreateroi" ' + (x.intent.autocreateroi != undefined?'checked':'') + 
@@ -330,13 +352,31 @@ return that;
 
         var defcol = {color:0};
         if (x.intent.color != undefined)
-            defcol = {color:(x.intent.color.length>0?x.intent.color[0]:x.intent.color)}
+		{
+			if (Array.isArray(x.intent.color))
+			{
+				if (typeof x.intent.color[0] == "string")
+		            defcol = {color:x.intent.color[0].split(",")}
+				else
+					defcol = {color:x.intent.color[0]}
+			}
+			else
+			{
+				if (typeof x.intent.color == "string")
+		            defcol = {color:x.intent.color.split(",")}
+				else
+					defcol = {color:x.intent.color}
+			}
+		}
 		var colors = KColor.list;
  	    var $colselector = KColorSelector(colors,function colencode(c) {
-                                return "background:" + RGB2HTML(c[0], c[1], c[2]) + ";";
+        
+				return "background:" + RGB2HTML(c[0], c[1], c[2]) + ";";
                                 },
 		 function(c,i) {      
 		    x.intent.color=i;
+		    if (x.intent.isosurf)
+		        x.intent.isosurf.color = i;
         	x.update("intent")
 
 		}, defcol);
@@ -360,6 +400,11 @@ return that;
    		    $parent = $(target).parent().parent();
 		var $x = $parent.find('.Kautocreateroi,.optioncolsel')
 		var $y = $parent.find('.notroi')
+		var $vid = $parent.find('.viewportID')
+   		if (intent.defaultform)
+		{
+			$vid.hide();
+		}
    		if (intent.roi)
    		{
    			$x.show();
@@ -373,10 +418,12 @@ return that;
    		}
 
 		$x = $parent.find('input[name=overlay]');
-	    $x[0].checked = (intent.overlay > 0)
+		if ($x.length > 0)
+		    $x[0].checked = (intent.overlay > 0)
 
 		$x = $parent.find('select[name=colmaps]');
-	    $x[0].selectedIndex = intent.cmap;
+		if ($x.length > 0)
+		    $x[0].selectedIndex = intent.cmap;
 
    	}
 
@@ -432,12 +479,17 @@ return that;
 		,{name:"worldVoxelsize" 	, type: 'input',     defaultval:"[1.5,1.5,1.5]" ,  title:'Voxelsize of worldcoordinates (mm)'  }
 		,{name:"defaultsizemarker" 	, type: 'input',     defaultval:5 ,  title:'Defaultsize of Marker (mm)'  }
 		,{type: 'separator'}
-		,{name:"quality3D"			, type: 'input',     defaultval:7  ,  title:'Quality 3D'  }
+		,{name:"viewing_timeout"	, type: 'input',     defaultval:100  ,  title:'Drawing timeout in ms (GUI/GFX responsiveness)'  }
+		,{name:"viewing_quality2D"	, type: 'input',     defaultval:8  ,  title:'Drawing quality 2D'  }
+		,{name:"viewing_quality2D_roi"	, type: 'input',     defaultval:4  ,  title:'Drawing quality 2D during ROIpaint'  }
+		,{name:"background_color"			, type: 'input',     defaultval:"#000000"  ,  title:'Background Color'  }
+		,{name:"canvasborder"			, type: 'check',     defaultval:false  ,  title:'Image border'  }
+		,{name:"quality3D"			, type: 'input',     defaultval:7  ,  title:'Drawing quality 3D'  }
 		,{name:"background3D"			, type: 'input',     defaultval:"#111111"  ,  title:'Background Color in 3D'  }
 		,{name:"fiberAlpha"			, type: 'check',     defaultval:false ,  title:'Transparency on Fibers'  }
 		,{name:"picto3D"			, type: 'option',  title:'Pose pictogram' ,
-										  style:"radio vert",  choices: ["none","Male Body", "Girl", "Minion","Head"],
-										   ids: [-1,0,1,2,3],
+										  style:"radio vert",  choices: ["none","Male Body", "Girl", "Minion","Head","Monkey"],
+										   ids: [-1,0,1,2,3,4],
 		    							   defaultval:1}
 		,{type: 'separator'}
 		,{name:"sizeTablePercent"		, type: 'input',     defaultval:20   ,  title:'Size of table in percent'  }  
@@ -460,6 +512,12 @@ return that;
 		,{name:"roiTransparency"   			, type: 'input',     defaultval:.5  ,  title:'Transparency of ROIs'  }
 		,{name:"showOutlines"   			, type: 'check',     defaultval:true  ,  title:'Show ROI/Atlas outlines by default'  }
 		,{name:"showOutlinesOverlay"   			, type: 'check',     defaultval:false  ,  title:'Show overlay outlines by default'  }
+		,{name:"showAreaOutlinesOverlay"   			, type: 'check',     defaultval:false  ,  title:'Show area of outlines'  }
+		
+		,{type: 'separator'}
+		,{name:"forms_autosave"   			, type: 'check',     defaultval:true  ,  title:'Autosave for Form saving'  }
+		,{name:"forms_user_specific_naming"   			, type: 'check',     defaultval:true  ,  title:'User Specific Naming for Form saving'  }
+
 	] };
 
    var presetForm_ptable = 
@@ -470,11 +528,7 @@ return that;
 	layout: 
 	[
 	 { type: 'title', val: "Patient Table"}
-		,{name:"numberDisplayedItems"   , type: 'input',     defaultval:100       }
 		,{name:"displayOffset"     		, type: 'input',     defaultval:0   ,css:['display','none']    }
-		,{name:"selectionMode"   	    , type: 'option',    style:"radio vert",  choices: ["Working/Patient", "Working/Study", "Patient" , "Study"],
-										   ids: ["wp","ws","mp","ms"],
-		    							   defaultval:"ms"}
 
 		,{name:"sortOrder"   	        , type: 'option',    style:"radio vert",  
 		  choices: ["Patientname", "Date"],
@@ -489,10 +543,26 @@ return that;
 		,{name:"treeAutoExpand"   	    , type: 'option',    style:"radio vert",  choices: ["Expand nothing", "Expand first", "Expand everything" ],
 											ids: ["expandNothing","expandFirstStudy","expandEverything"],
 											defaultval:"expandFirstStudy"} 
+		,{name:"selectionMode"   	    , type: 'option',    style:"radio vert",  choices: ["Working/Patient", "Working/Study", "Patient" , "Study"],
+										   ids: ["wp","ws","mp","ms"],
+		    							   defaultval:"ms"}
 		,{name:"defaultTags"   , type: 'input',     defaultval:"mask,atlas", title: 'Tag suggestions'      }
+		,{name:"numberDisplayedItems"   , type: 'input',     defaultval:100       }
+		,{name:"numberDisplayedItemsFileTable"   , type: 'input',     defaultval:1000       }
+		,{name:"historySize" 	, type: 'input',     defaultval:30    ,  title:'Size of search history'   }
+		
  	    ,{ type: 'separator' }
 		,{name:"physrename" 	, type: 'check',     defaultval:true ,  title:'Physical rename'  }
 		,{name:"physdelete" 	, type: 'check',     defaultval:false ,  title:'Physical delete'  }
+ 	    ,{ type: 'separator' }		
+	 ,{ type: 'title', val: "CSV table export"}
+    	,{name:"header_type" , title:"table type"	,  type: 'option',    style:"radio vert", 
+		  choices: ["wide, header full (single line)", "wide, header tree (multi line)", "wide, header sparse (multi line)","long"],
+										   ids: ["full","tree","sparse","long"],
+		    							   defaultval:"sparse" }
+		,{name:"csv_type" 	,  title:"data type" , type: 'option',    style:"radio vert",  choices: ["ger", "eng"],
+										   ids: ["ger","eng"],
+		    							   defaultval:"eng" }
 
 	]};
 
@@ -591,12 +661,16 @@ function SettingsDialog()
 	/***************************************************************************************
 	Choose a tab from outside
 	****************************************************************************************/
-	that.selectDialog = function selectDialog(activeID)
+	that.selectDialog = function selectDialog(activeID,subID)
 	{
+
 		if(activeID == 'projectManagement' | activeID == 'presets')
 		{
 			MList.activeID = activeID;
 			MList.updateOrSelectByID(MList.activeID);
+			if (subID != undefined)
+			    projectSettingsDialog.updateOrSelectByID(subID)
+			    
 		}
 	}
 
@@ -920,9 +994,25 @@ function PresetManager()
 					//if(KViewer != undefined)
 					//	KViewer.autoloader_updateList();
 				}
+                if (field == 'background_color')
+                {
+				    signalhandler.send('positionChange');
+                }
+                if (field == 'background3D')
+                {
+				    signalhandler.send('backgroundcolor3Dchange');
+                }
 				if (field == 'picto3D')
 				{
 					signalhandler.send('picto3dmodel_changed');
+				}
+
+				if (field == 'canvasborder')
+				{
+					if (val)
+                        $(".KViewPort_canvas").addClass("KViewPort_canvas_border")
+                    else
+                        $(".KViewPort_canvas").removeClass("KViewPort_canvas_border")
 				}
 
 			}
@@ -1134,19 +1224,16 @@ function PresetManager()
 		{
 			//$.extend(true, ajaxList[k], genericpreset);
 			// generic as basis
+			var tt = ajaxList[k]
 			var base = $.extend(true, {}, genericpreset.content);
-			presetList[ajaxList[k].id] = 
+			presetList[tt.id] = 
 			{
-				id:ajaxList[k].id, 
-				content:  $.extend(true, base,  ajaxList[k] ),
-				forms: forms_preset 
+				id:tt.id, 
+				content:  $.extend(true, base,  tt ),
+				forms: forms_preset,
+				// unfortunately, must re-do iswritable here, see jsonTable_formatResult
+				iswritable: ((tt.owner == undefined || tt.owner == userinfo.username) || (tt.rights !== undefined && (tt.rights.substr(1,1) == 'w') ) )
 			};
-
-			// check if writable
-			var preset = presetList[ajaxList[k].id];
-			preset.iswritable = ( (preset.content.rights.substr(1,1) == 'w') | preset.content.owner == userinfo.username ) ;
-			//preset.iswritable  = false;
-
 		}
 	}
 
@@ -1229,6 +1316,7 @@ function PresetManager()
 		state.viewer.nVisibleBarports =  preset.content.nVisibleBarports;
 		state.viewer.autoloaders = $.extend(true, [], preset.content.autoloaders );
 		state.viewer.autoloaderLevel = preset.content.autoloaderLevel;
+		state.viewer.calcpanel = preset.content.calcpanel;
 	
 		if( typeof KViewer !== "undefined" ) 
 			KViewer.applyNewViewportLayout();
@@ -1311,6 +1399,9 @@ function PresetManager()
 		else
 		{
 			alertify.success('Snapshot taken.');
+
+			ViewerSettings.mainViewport = KViewer.mainViewport;
+			
 			function extendtoArray(dest,src,field)
 			{
 				if( src[field] == undefined) // do not set undefined values !!!
@@ -1329,6 +1420,9 @@ function PresetManager()
 				if (items[k].intent.gl)
 					items[k].intent.slicing = 'gl';
 
+				if (items[k].intent.color != undefined && Array.isArray(items[k].intent.color))
+					items[k].intent.color = items[k].intent.color.join(",")
+				
 				if (params[items[k].id] != undefined)
 				{
 
@@ -1358,7 +1452,7 @@ function PresetManager()
 					var id =  params[k].id;
 					if(idlist[id] != undefined)
 					{
-						if(oldloaders[idlist[id]].pattern !=undefined && oldloaders[idlist[id]].pattern.trim() !="")
+						if(oldloaders[idlist[id]].pattern !=undefined && oldloaders[idlist[id]].pattern.trim() !="" & notsmart != 2 )
 							loader.pattern = oldloaders[idlist[id]].pattern;
 						else
 							loader.pattern = guessFilePattern(notsmart);
@@ -1371,6 +1465,39 @@ function PresetManager()
 					function guessFilePattern(notsmart)
 					{
 						var fobj = KViewer.dataManager.getFile(params[k].fileID);
+
+						// find tag based?
+						if(notsmart == 2 && fobj.fileinfo.Tag && fobj.fileinfo.Tag.length > 0)
+						{
+							var str = ''
+							var tlist = fobj.fileinfo.Tag.split('/');
+							for(j=0;j<tlist.length; j++) 
+							{
+								var ttag = tlist[j].trim();
+								if(ttag.length>0 && ttag != 'mask' && ttag.search("\\$") == -1)
+									str += ("FTAG:" + ttag + " ");
+							}
+							if(str.length>0)
+								return str
+						}
+
+						
+                        if (fobj == undefined)
+                        {
+                            if (params[k].URLType == 'form' | params[k].URLType == 'formNA')
+                            {
+         						 params[k].intent.defaultform = true;
+         						 if (state.viewer.forms_user_specific_naming)
+									 return "FFilename:" + params[k].fileID + ".$USER.form.json"+
+											 "\nFSubFolder:forms";
+								 else
+									 return "FFilename:" + params[k].fileID + ".form.json"+
+											 "\nFSubFolder:forms";
+                            }
+                            return "";
+                        }
+
+
 						var finfo = fobj.fileinfo;
 						var pattern;
 
@@ -1378,8 +1505,13 @@ function PresetManager()
 						if(filename == undefined)
 							filename = fobj.filename +".nii.gz";
 
-						if(filename == undefined)
-							return "";
+				
+						if (fobj.fileID.substring(0,3) == "ROI")
+						{
+							filename = filename + ".nii.gz"
+							if (finfo.Filename != undefined)
+								finfo.Filename = filename;
+						}
 
 						var extpos = filename.search("\\.");
 						var fname = filename.substring(0,extpos);
@@ -1387,12 +1519,9 @@ function PresetManager()
 
 						if (finfo.SubFolder == "forms" |  (finfo.Tag != undefined && finfo.Tag.search("/FORM/") > -1))
 						{
-							pattern =  "FFilename:"  + filename.split(".")[0] + ".form.json";
+							pattern =  "FFilename:"  + filename.split(".")[0] + "*.form.json" +
+							           "\nFSubFolder:forms";
 							params[k].intent.defaultform = true;
-						}
-						else if(notsmart)
-						{
-							pattern =  "FFilename:"  + filename;
 						}
 						else
 						{
@@ -1409,13 +1538,33 @@ function PresetManager()
 								pattern =  "FFilename:"  + filename;
 							}
 						}
-						if (finfo.patients_id == 'ANALYSIS')
-							pattern = "PPIZ:ANALYSIS\nSStudyID:" + finfo.studies_id + "\n" + pattern;
 
 						var subf = finfo.SubFolder;
 						if (subf != "" & subf != undefined)
-							pattern += "\nFSubFolder:" + subf.substring(0,5) + "*";
-						
+							pattern += "\nFSubFolder:" + subf.substring(0,5) + "*";						
+
+						if (finfo.patients_id == 'ANALYSIS')
+							return "PPIZ:ANALYSIS\nSStudyID:" + finfo.studies_id + "\n" + pattern;
+
+                        if (notsmart)
+                        {
+                        	if (finfo.Filename != undefined)
+                        	{
+                        		if (finfo.SubFolder != "" && finfo.SubFolder != undefined)
+                                    pattern = finfo.SubFolder + "/" + finfo.Filename;
+								else
+                                    pattern = finfo.Filename;								
+                        	}
+                            else
+							{
+								pattern = "FFilename:" + filename;                                	
+								if (finfo.SubFolder != undefined)
+									pattern += "\nFSubFolder:" + finfo.SubFolder					
+
+							}
+                        }
+
+
 						return pattern;
 					}
 
@@ -1438,12 +1587,21 @@ function PresetManager()
 							delete params[k].intent[intent_keys[j]];
 					}
 
+					if (params[k].mosaic)
+						params[k].intent.mosaic = params[k].mosaic;
 
 					if( params[k].fileID.substr(0,3) == "ROI")
 					{
 						params[k].intent.autocreateroi = "0";
 					}
-
+					
+					var fobj = KViewer.dataManager.getFile(params[k].fileID)
+					if (fobj != undefined && fobj.content != undefined)
+					{
+						if(fobj.content.currentTimePoint)
+					        params[k].intent.initialTimePoint = fobj.content.currentTimePoint.t;
+					}
+					
 					delete params[k].intent.gl;
 
 					loader.intent = params[k].intent;
@@ -1456,6 +1614,7 @@ function PresetManager()
 
 	return that;
 }
+
 
 
 

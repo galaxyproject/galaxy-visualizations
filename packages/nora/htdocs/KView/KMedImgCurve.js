@@ -43,11 +43,16 @@ function KMedImgCurve(medviewer)
       $curvecontainer.height(hei-that.$container.find('.KToolsTopMenu').height());
       
  	 }
+ 	 that.customToggle = function()
+ 	 {
+ 	 	updateCurveListHandlers();
+ 	 }
 	var $target = that.$container;
 
     that.tstate.target = -1;
 
     that.name = 'CurveTool';
+	that.fmri = {};
  
 
 
@@ -57,30 +62,57 @@ function KMedImgCurve(medviewer)
 	*******************************************************************************/
 	var $modesel = $("<ul></ul>").appendTo( $("<li><a><i class='fa fa-list-ul'></i>Mode  </a></li>").appendTo(that.$topRow)  );
 		 $("<li myid='tseries'><a>Time Series</a></li>").appendTo($modesel).click( function(){  setstate('mode', 'tseries') })  ;
+		 $("<li myid='fMRI'><a>fMRI</a></li>" ).appendTo($modesel).click( function(){  setstate('mode', 'fmri') })  ;
 		 $("<li myid='vsi'><a>VSI Spiral</a></li>" ).appendTo($modesel).click( function(){  setstate('mode', 'vsi') })  ;
-		 $("<li myid='dce_patlak'><a>DCE Patlak</a></li>" ).appendTo($modesel).click( function(){  setstate('mode', 'dce_patlak') })  ;
+		 //$("<li myid='dce_patlak'><a>DCE Patlak</a></li>" ).appendTo($modesel).click( function(){  setstate('mode', 'dce_patlak') })  ;
 		 $("<li myid='histogram'><a>Histograms</a></li>" ).appendTo($modesel).click( function(){  setstate('mode', 'histogram') })  ;
 	
 	var $normalise = $("<ul></ul>").appendTo( $("<li><a><i class='fa fa-arrows-v'></i>Scaling </a></li>").appendTo(that.$topRow)  );
-		 $("<li myid='noscaling'><a>No scaling</a></li>" ).appendTo($normalise).click( function(){  setstate('normalise', 'noscaling') })  ;
-		 $("<li myid='individual_max'><a>Individually to min_max </a></li>").appendTo($normalise).click( function(){  setstate('normalise', 'individual_max') })  ;
-		 $("<li myid='individual_area'><a>Individually to area</a></li>").appendTo($normalise).click( function(){  setstate('normalise', 'individual_area') })  ;
-		 $("<li myid='individual_lastpoint'><a>Individually to last point</a></li>").appendTo($normalise).click( function(){  setstate('normalise', 'individual_lastpoint') })  ;
-		  $normalise.append($("<hr width='100%'> ")); 			
-	 var $yscaling = $("<li myid='yscaling'><a>Y-Scaling <input value='1'> </a></li>").appendTo($normalise).change( function(e){		 	 
-		 	 state.yscaling = $yscaling.find('input').val();
-		 	 drawAllCurves();
-		 	   })  ;
-	 var $xscaling = $("<li myid='yscaling'><a>X-Scaling <input value='1'> </a></li>").appendTo($normalise).change( function(e){		 	 
+		 $("<li myid='noscaling'><a>No scaling</a></li>" ).appendTo($normalise).click( function(){  
+             state.yscaling_min = "min"
+             state.yscaling_max = "max"        
+		     setstate('normalise', 'noscaling') })  ;
+		 $("<li myid='individual_max'><a>Min/Max </a></li>").appendTo($normalise).click( function(){ 
+             state.yscaling_min = "min"
+             state.yscaling_max = "max"        
+		     setstate('normalise', 'individual_max') })  ;
+		 $("<li myid='individual_area'><a>Divide by mean</a></li>").appendTo($normalise).click( function(){  
+             state.yscaling_min = "0"
+             state.yscaling_max = "2"        
+		     setstate('normalise', 'individual_area') })  ;
+		 $("<li myid='individual_firstpoint'><a>Divide by first point</a></li>").appendTo($normalise).click( function(){  
+             state.yscaling_min = "0"
+             state.yscaling_max = "1.05"        
+		     setstate('normalise', 'individual_firstpoint') })  ;
+		 $("<li myid='individual_lastpoint'><a>Divide by last point</a></li>").appendTo($normalise).click( function(){  
+             state.yscaling_min = "1"
+             state.yscaling_max = "max"        
+		     setstate('normalise', 'individual_lastpoint') })  ;
+		 var str = "1*y+0"
+		 var $custom_norm = $("<li myid='custom'><a>custom <input value='"+str+"'> </a></li>").appendTo($normalise).click( 
+			 function(e){  
+					 var val  = $custom_norm.find("input").val()
+					 state.yscaling_min = "min"
+					 state.yscaling_max = "max"        
+					 setstate('normalise', 'custom:' + val)
+					  })  ;
+
+		 $custom_norm.find("input").on("change",function(e)
+		 {		 	
+		    setstate('normalise', 'custom:' + this.value)		 
+            updateCurveData_main();
+		    drawAllCurves();		 	
+		 });
+		  
+
+
+		 $normalise.append($("<hr width='100%'> ")); 			
+		 
+         var $xscaling = $("<li myid='yscaling'><a>X-Scaling <input value='1'> </a></li>").appendTo($normalise).change( function(e){		 	 
 		 	 state.xscaling = $xscaling.find('input').val();
 		 	 drawAllCurves();
-		 	   })  ;
+		 	   })  ;		 
 	
-	var $baselinelength = $("<ul></ul>").appendTo( $("<li><a><i class='fa fa-window-minimize'></i>Baseline </a></li>").appendTo(that.$topRow)  );
-		 $("<li myid='off'><a>None</a></li>" ).appendTo($baselinelength).click( function(){  setstate('baselinelength', 'off') })  ;
-		 $("<li myid='1'><a>First point</a></li>" ).appendTo($baselinelength).click( function(){  setstate('baselinelength', 1) })  ;
-		 $("<li myid='8'><a>First 8 points</a></li>").appendTo($baselinelength).click( function(){  setstate('baselinelength', 8) })  ;
-
 
 	/*************************************
 	download curves
@@ -111,32 +143,77 @@ function KMedImgCurve(medviewer)
 
 	var state = 
 	{
-		normalise: 'individual_max',
-		baselinelength: 0,
+		normalise: 'noscaling',
 		mode: 'tseries',
 	}
 	var $state = 
 	{
 		normalise: $normalise,
-		baselinelength: $baselinelength,
 		mode: $modesel,
 	}
+
+	function mapScalingFunction(type)
+	{
+       if (type == undefined)
+           type = state.normalise;
+
+        if (type.substr(0,7) == "custom:")
+            return type.substr(7)
+		else if (type == "noscaling")
+			return "1*y+0"
+		else if (type == "individual_max")
+			return "(y-ymin)/(ymax-ymin)"
+		else if (type == "individual_lastpoint")
+			return "y/ylast"
+		else if (type == "individual_firstpoint")
+			return "y/y0"
+		else if (type == "individual_area")
+			return "y/area"
+	}
+
+
+    function setScalingFun(type)
+    {
+	 
+	        for(var k in mainList )
+	        {
+				var obj = mainList[k].curveobj;
+				obj.scaling_function = mapScalingFunction(type);
+			}
+			for(var k in roiList)
+			{
+				var obj = roiList[k].curveobj;
+				obj.scaling_function = mapScalingFunction(type);
+			}
+    }
 	
 	function setstate(which, value)
 	{
 		state[which] = value;
+		if ($state[which] == undefined)
+		    return;
 		$state[which].children().css('font-weight', '');
-		$state[which].find("[myid="+value+"]").css('font-weight', 'bold');
+
+        var valueid = value;
+        if (value.substr(0,7) == "custom:")
+            valueid = "custom";
+
+		$state[which].find("[myid="+valueid+"]").css('font-weight', 'bold');
 
 		if (which == "mode")
 			updateCurveListHandlers();
-	    if (which == "yscaling")
-	    	$yscaling.find('input').val(value);
-	    if (which == "xscaling")
-	    	$xscaling.find('input').val(value);
+
+        if (which == "normalise")
+        {
+        	setScalingFun(value)
+        }
+        
+        updateCurveData_main();
+        updateCurveData_rois();
 
 		drawAllCurves();
 	}
+	that.setstate = setstate;
 
 	that.setState = function(st)
 	{
@@ -146,12 +223,16 @@ function KMedImgCurve(medviewer)
 			if ($state[k] != undefined)
 			{
 				$state[k].children().css('font-weight', '');
-				$state[k].find("[myid="+st[k]+"]").css('font-weight', 'bold');							
+				var valueid = st[k];
+				if (valueid.substr(0,7) == "custom:")
+				{
+				    $state[k].find("[myid=custom]").css('font-weight', 'bold');							
+                    $state[k].find('input').val(st[k].substr(7));
+
+				}
+				else
+				    $state[k].find("[myid="+st[k]+"]").css('font-weight', 'bold');							
 			}
-			if (k == "yscaling")
-	    		$yscaling.find('input').val(st[k]);
-			if (k == "xscaling")
-	    		$xscaling.find('input').val(st[k]);
 		}
 
 		updateCurveListHandlers();
@@ -226,6 +307,106 @@ function KMedImgCurve(medviewer)
 
     var $ylabel = $("<div class='' style='position:absolute;text-align:right; left:-60px; transform:rotate(-90deg); top:50%' >no ylabel</div>").appendTo($isvgcontainer);
     var $xlabel = $("<div class='' style='position:absolute;text-align:right; left:50%; bottom:-35px' >no xlabel</div>").appendTo($isvgcontainer);
+	
+
+    $ylabel.click(function(){
+
+               return KContextMenu(function() {    
+                    var $menu = $("<ul class='menu_context'>")
+
+                    $menu.append($("<hr width='100%'> "));
+                    $menu.append($("<span> &nbsp y-axis </span>"));
+                    $menu.append($("<hr width='100%'> "));
+
+                    var $max = $("<input type=string onchoice='preventSelection'  >");
+                    $max.val(state.yscaling_max);
+                    $max.on("keyup change", function() {
+                        state.yscaling_max = $max.val()
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> maximum </li>").append($max))
+
+                    var $min = $("<input type=string onchoice='preventSelection'  >");
+                    $min.val(state.yscaling_min);
+                    $min.on("keyup change", function() {
+                        state.yscaling_min = $min.val()
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> minimum </li>").append($min))
+
+                    var $label = $("<input type=string onchoice='preventSelection'  >");
+                    $label.val(state.yscaling_label);
+                    $label.on("keyup change", function() {
+                        state.yscaling_label = $label.val()
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> label </li>").append($label))
+
+                    //$menu.append($("<li onchoice='preserve_logs'> preserve logs  <i onchoice='preserve_logs' class='fa fa-" + sel + "square-o'></i> </li>"))
+
+                    return $menu;
+                },
+                function(str, ev) {
+                    if (str != undefined) {
+                      
+                        }
+
+                    
+                }, undefined, true);
+
+
+    }())
+
+
+    $xlabel.click(function(){
+
+               return KContextMenu(function() {    
+                    var $menu = $("<ul class='menu_context'>")
+
+                    $menu.append($("<hr width='100%'> "));
+                    $menu.append($("<span> &nbsp x-axis </span>"));
+                    $menu.append($("<hr width='100%'> "));
+/*
+                    var $max = $("<input type=string onchoice='preventSelection'  >");
+                    $max.val(state.yscaling_max);
+                    $max.on("keyup change", function() {
+                        state.yscaling_max = $max.val()
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> maximum </li>").append($max))
+
+                    var $min = $("<input type=string onchoice='preventSelection'  >");
+                    $min.val(state.yscaling_min);
+                    $min.on("keyup change", function() {
+                        state.yscaling_min = $min.val()
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> minimum </li>").append($min))
+*/
+                    var $label = $("<input type=string onchoice='preventSelection'  >");
+                    $label.val(state.xscaling_label);
+                    $label.on("keyup change", function() {
+                        state.xscaling_label = $label.val()
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> label </li>").append($label))
+
+                    //$menu.append($("<li onchoice='preserve_logs'> preserve logs  <i onchoice='preserve_logs' class='fa fa-" + sel + "square-o'></i> </li>"))
+
+                    return $menu;
+                },
+                function(str, ev) {
+                    if (str != undefined) {
+                      
+                        }
+
+                    
+                }, undefined, true);
+
+
+    }())
+
+
+
+
+
+
+
+
 	/******************************************************************************
 	gridlines
 	*******************************************************************************/
@@ -371,7 +552,10 @@ function KMedImgCurve(medviewer)
 		curve.linewidth = 2;
 		curve.pstr = "";
 		curve.type = 'singlevox';
+		curve.limits = 'auto'
+		curve.nbins = 'auto';
 		curve.dasharray = "none";
+		curve.scaling_function = mapScalingFunction();
 
 		$.extend(true, curve, props)
 
@@ -440,6 +624,24 @@ function KMedImgCurve(medviewer)
 						colorcount++;	
  					}
  				}
+			}
+			if (tfile.filename == "melodic.json")
+			{
+				var fid = tfile.fileID;
+  			    if(mainList[fid] == undefined)
+ 					{
+ 						newfound = true;
+						var cobj = createCurve( {type:"tmode",color: colorcount%KColor.list.length })
+					    cobj.currentT = 0;
+						mainList[fid] = {
+							fileobj:  tfile,
+							isTmode: 1,
+							curveobj: cobj
+							};
+						colorcount++;	
+ 					}
+ 				
+				
 			}
 		}
 		
@@ -595,6 +797,8 @@ function KMedImgCurve(medviewer)
 		var $srow = $("<div class='KViewPort_curvecontainer_listTitle'></div>").appendTo($rois);
 
 		if (state.mode == 'histogram')
+			var $title = $("<div class=''><b>Modes</b></div>").appendTo($srow);
+		else if (state.mode == 'histogram')
 			var $title = $("<div class=''><b>Histogram over</b></div>").appendTo($srow);
 		else
 			var $title = $("<div class=''><b>Mean curve over</b></div>").appendTo($srow);
@@ -624,8 +828,13 @@ function KMedImgCurve(medviewer)
 			//var name = fobj.fileinfo.Filename;
 			var name = fobj.filename;
 
-		
-			$mastersel.append( $("<option value='"+k+"'>"+ name+" </option>") )
+		    if (state.mode == "fMRI")
+			{
+				if (name.substring(0,7) == "melodic")				
+					$mastersel.append( $("<option value='"+k+"'>"+ name+" </option>") )
+			}
+			else
+				$mastersel.append( $("<option value='"+k+"'>"+ name+" </option>") )
 
 			var $row1  = $("<div class='KViewPort_curvecontainer_item'></div>").appendTo($main);
 
@@ -633,6 +842,7 @@ function KMedImgCurve(medviewer)
 			var $div   = $("<div class=''>"+name+ "</div>").appendTo($row1);
 			$("<div class='flexspacer'></div>").appendTo($row1);
 
+            attachNameDivHandler(fobj,$div);
 
 // 			var tswitch = new KSwitch()
 // 							.setCallback( function(k){ return function(s){ toggle_singleVoxelCurve(k)  } }(k))
@@ -690,6 +900,8 @@ function KMedImgCurve(medviewer)
 				var	$colorselector = KColorSelectorSimple($("<div class='' style='width:18px;'></div>"),  setcolor(roiList[k]), roiList[k].curveobj).appendTo($row1);
 
 				var $div = $("<div class='KViewPort_curvecontainer_name'>"+name+ "</div>").appendTo($row1);
+
+                attachNameDivHandler(fobj,$div);
 
 				$("<div class='flexspacer'></div>").appendTo($row1);
 				var $eye = $("<i class='fa'></i>").appendTo( $row1 );
@@ -765,8 +977,8 @@ function KMedImgCurve(medviewer)
 
 		if(obj.curveobj.visible)
 			calcCurveData(obj.curveobj, obj.fileobj.content);
-		else
-			drawAllCurves();
+		
+		drawAllCurves();
 	}
 
 	/******************************************************************************
@@ -826,15 +1038,22 @@ function KMedImgCurve(medviewer)
 	/******************************************************************************
 	extract the data for the single voxel curves
 	*******************************************************************************/
-	function updateCurveData_main()
+	function updateCurveData_main(currentT)
 	{
 		if (state.mode != 'histogram')
 		{
 			for(var k in mainList)
 			{
 				var obj = mainList[k];
+				if (obj.isTmode )
+				{
+					if (typeof currentT == "number")
+						obj.curveobj.currentT = currentT
+				    calcCurveData(obj.curveobj, obj.fileobj.content);
+				}
 				if (obj.isTSeries)
 				    calcCurveData(obj.curveobj, obj.fileobj.content);
+			
 			}
 
 			if(state.mode == 'vsi')
@@ -928,25 +1147,22 @@ function KMedImgCurve(medviewer)
 				break;
 			}
     	}
-    	    
+    	    /*
 		var yscaling = parseFloatEval(state.yscaling,seqinfo);
 		if (isNaN(yscaling))
 			yscaling = 1;
+            */
+
+        var xscaling=1;
 		var xscaling = parseFloatEval(state.xscaling,seqinfo);
 		if (isNaN(xscaling))
 			xscaling = 1;
-		if (typeof state.yscaling == "string")
-		{
-			var labeling = state.yscaling.split(" ");
-			if (labeling[1] != undefined)
-				$ylabel.text(labeling[1])
-		}
-		if (typeof state.xscaling == "string")
-		{
-			var labeling = state.xscaling.split(" ");
-			if (labeling[1] != undefined)
-				$xlabel.text(labeling[1])
-		}
+
+        var yscaling=1;
+
+	    $ylabel.text(state.yscaling_label)
+	    $xlabel.text(state.xscaling_label)
+
 
 
 		// find the max / min off all curves
@@ -1001,12 +1217,6 @@ function KMedImgCurve(medviewer)
 		}
 
 
-
-
-
-
-
-
 	// we have to clean all svg curves first ... not so nice but necessary
  		$curves.attr("points", "");		
 
@@ -1025,7 +1235,88 @@ function KMedImgCurve(medviewer)
 		var curveindex = 0;
 		
 		//******** main
-		if (state.mode != "histogram")
+
+
+		var changescaling = function(curveobj)
+		{
+               return KContextMenu(function() {    
+                    var $menu = $("<ul class='menu_context'>")
+
+                    $menu.append($("<hr width='100%'> "));
+                    $menu.append($("<span> &nbsp scaling function </span>"));
+                    $menu.append($("<hr width='100%'> "));
+
+
+                    var $gridparams = $("<textarea onchoice='preventSelection'  >");
+                    $gridparams.val(curveobj.scaling_function);
+                    $gridparams.on("keyup", function() {
+                        curveobj.scaling_function =  $gridparams.val();
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> </li>").append($gridparams))
+
+                    //$menu.append($("<li onchoice='preserve_logs'> preserve logs  <i onchoice='preserve_logs' class='fa fa-" + sel + "square-o'></i> </li>"))
+
+                    return $menu;
+                },
+                function(str, ev) {
+                    if (str != undefined) {
+                      
+                        }
+
+                    
+                }, undefined, true);
+		}		
+
+		var changescalingHisto = function(roi)
+		{
+               return KContextMenu(function() {    
+                    var $menu = $("<ul class='menu_context'>")
+
+                    $menu.append($("<hr width='100%'> "));
+                    $menu.append($("<span> &nbsp limits </span>"));
+                    $menu.append($("<hr width='100%'> "));
+
+//					updateCurveData_rois({id:roi.fileobj.fileID})
+	//			   return;
+                    var $limits = $("<input onchoice='preventSelection'  >");
+                    $limits.val(roi.curveobj.limits);
+                    $limits.on("keyup", function(e) {
+						if (e.keyCode != 13)
+							return;
+                        roi.curveobj.limits =  $limits.val().split(",").map(parseFloat);
+						if ( roi.curveobj.limits.length != 2)
+							roi.curveobj.limits = "auto";
+						updateCurveData_rois({id:roi.fileobj.fileID})
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> limits: </li>").append($limits))
+
+                    var $nbins = $("<input onchoice='preventSelection'  >");
+                    $nbins.val(roi.curveobj.nbins);
+                    $nbins.on("keyup", function(e) {
+						if (e.keyCode != 13)
+							return;
+                        roi.curveobj.nbins =  $nbins.val().split(",").map(parseFloat);
+						if ( roi.curveobj.nbins.length != 1)
+							roi.curveobj.nbins = "auto";
+						updateCurveData_rois({id:roi.fileobj.fileID})
+                    });
+                    $menu.append($("<li class=''  onchoice='preventSelection'> nbins: </li>").append($nbins))
+				   
+                    //$menu.append($("<li onchoice='preserve_logs'> preserve logs  <i onchoice='preserve_logs' class='fa fa-" + sel + "square-o'></i> </li>"))
+
+                    return $menu;
+                },
+                function(str, ev) {
+                    if (str != undefined) {
+                      
+                        }
+
+                    
+                }, undefined, true);
+		}		
+
+
+		if ( state.mode != "histogram")
 			for(var k in mainList)
 			{
 				drawcurve(curveindex++,  mainList[k].curveobj);
@@ -1035,10 +1326,15 @@ function KMedImgCurve(medviewer)
 					var top = 10+ 25*cnt++;
 
 					if (mainList[k].curveobj.ymin != undefined)			
-						$curvecontainer.append($("<div class='Kcurveinfo' style='top:"+top+"px;border-color:" +csscol+ "'>"
+					{
+						var $x = $("<div class='Kcurveinfo' style='top:"+top+"px;border-color:" +csscol+ "'>"
 						 +(yscaling*mainList[k].curveobj.ymin).toFixed(2) + "/ "+(yscaling*mainList[k].curveobj.ymax).toFixed(2) +
 						 "/ "+(yscaling*xscaling*mainList[k].curveobj.auc).toFixed(2) +
-							 " </div> "));
+							 " </div> ")
+
+					    $x.append($("<div class='curvesetting'> <i class='fa fa-bars'> </i> </div>").click(changescaling(mainList[k].curveobj)))
+						$curvecontainer.append($x);
+					}
 
 				}				
 			}
@@ -1055,11 +1351,16 @@ function KMedImgCurve(medviewer)
 				var top = 10+ 25*cnt++;
 				if (state.mode == "histogram")
 				{
-					if (roiList[k].curveobj.mean != undefined)			
-						$curvecontainer.append($("<div class='Kcurveinfo' style='top:"+top+"px;border-color:" +csscol+ "'>"
+					if (roiList[k].curveobj.mean != undefined)	
+					{
+						var $x = $("<div class='Kcurveinfo' style='top:"+top+"px;border-color:" +csscol+ "'>"
 						 +roiList[k].curveobj.mean.toFixed(2) + "/ "+roiList[k].curveobj.stddev.toFixed(2) +
 						 "/ "+roiList[k].curveobj.count +
-							 " </div> "));
+							 " </div> ");
+					    $x.append($("<div class='curvesetting'> <i class='fa fa-bars'> </i> </div>").click(changescalingHisto(roiList[k])))
+						$curvecontainer.append($x)
+						
+					}
 				}
 				else
 				{
@@ -1074,8 +1375,12 @@ function KMedImgCurve(medviewer)
 		}
 
 
-        ymaxtot *= yscaling;
-        ymintot *= yscaling;
+        {
+        	let max = ymaxtot
+			ymaxtot = eval(state.yscaling_max)
+        	let min = ymintot
+			ymintot = eval(state.yscaling_min)
+        }
 
 		//******** adjust the x / y lims
 		// viewbox reference size is 100, 100
@@ -1120,6 +1425,8 @@ function KMedImgCurve(medviewer)
 			var xscaling = parseFloatEval(state.xscaling,seqinfo);
 			if (isNaN(xscaling))
 				xscaling = 1;
+
+//			var xscaling = 1;
 			
 			var t = getTicks(minnumtimepoints*xscaling, maxnumtimepoints*xscaling);
 	        for(var k=0; k<$gridlinesvert.length; k++)
@@ -1127,7 +1434,8 @@ function KMedImgCurve(medviewer)
 
 	        	if(k < t.ticks.length)
 	        	{
-	        		var yy = k/(t.ticks.length-1)*100;
+	        		//var yy = k/(t.ticks.length-1)*100;
+					var yy = (t.ticks[k]-minnumtimepoints)/(maxnumtimepoints-minnumtimepoints)*100
 	        		if(yy==Infinity)
 	        			yy = k/(t.ticks.length-1)*100;
 					$($gridlinesvert[k]).attr('x1', yy).attr('x2', yy);
@@ -1182,12 +1490,20 @@ function KMedImgCurve(medviewer)
 				 xlabel = (labeling[1])
 		}
 
+		var maxT = 0;
+		
+		for (var k in mainList)
+			maxT = Math.max(mainList[k].curveobj.xdata.length,maxT);
+		for (var k in roiList)
+			maxT = Math.max(roiList[k].curveobj.xdata.length,maxT);
+			
+		
 		var tcurves = [];
 
 		var coltp = [];
 		tcurves.push(coltp);
 		coltp.push("index("+ xlabel +")");				
-		for(var t=0; t<maxnumtimepoints ; t++)
+		for(var t=0; t<maxT ; t++)
 			coltp.push((t*xscaling).toString());
 
 
@@ -1256,6 +1572,8 @@ function KMedImgCurve(medviewer)
 		{
 			$currenttimeline.attr('x1', val/maxnumtimepoints*100);
 			$currenttimeline.attr('x2', val/maxnumtimepoints*100);
+			if (state.mode == "fMRI")
+				updateCurveData_main(val);
 		}
 		else
 		{
@@ -1336,9 +1654,12 @@ function KMedImgCurve(medviewer)
 			
 			vy *= yscaling;
 
-			if(state.mode == 'tseries' | state.mode == 'dce_test')
+			if(state.mode == 'tseries' | state.mode == 'dce_test' | state.mode == 'fMRI')
 			{
-				vx = ( i / (obj.ydata.length));
+				if(!obj.xdata_custom)
+					vx = ( i / (obj.ydata.length));
+				else
+					vx = obj.xdata_custom[i] / obj.xdata_custom_max;
 			}
 			else if(state.mode == 'vsi')
 			{
@@ -1369,48 +1690,10 @@ function KMedImgCurve(medviewer)
 		}
 
 
-		// if baseline corrected, must take min is already 0
-		if(state.baselinelength > 0)
-		{			
-			//max = max -min;
-			//min = 0;
-		}
-
 		if(max == min)	
 			max = min + 0.00000001;
 
-			
-        if(state.normalise == 'noscaling')
-		{
-			$curve.attr('transform'," scale(1,1 ) translate(0,0) ");
-		
-		}
-		else
-		{
-			if(state.normalise == 'individual_max')
-				var yscale = 1/(max - min);
-			else if(state.normalise == 'individual_area')
-				var yscale = 1/(ysum)/5;
-			else if(state.normalise == 'individual_lastpoint')
-				var yscale = 1/vy/5; // last point
-
-
-			var yshift = -min
-
-			if(isNaN(yscale))
-				yscale = 1;
-			if(isNaN(yshift))
-				yshift = 0;
-			xscale = 1;
-
-// 			if(state.mode == 'vsi')
-// 				xscale = 1/max/5;
-
-			$curve.attr('transform'," scale("+xscale+", " + yscale + ") translate(0, "+ yshift + ") ");
-			obj.ymax	= 1;
-			obj.ymin	= 0;
-			
-		}
+		$curve.attr('transform'," scale(1,1 ) translate(0,0) ");
 
         $curve.attr("points", pstr);
         $curve.css("stroke", 'rgb('+ color.join(',') +')');
@@ -1431,6 +1714,13 @@ function KMedImgCurve(medviewer)
 	function calcCurveData(curveobj, niiOriginal, roiobj,callback)
 	{
 
+		var ymin,ymax;
+		var map = function(y)
+		{
+			return eval(curveobj.scaling_function);
+		}
+
+
 		
 		if(niiOriginal == undefined)
 		{
@@ -1442,7 +1732,26 @@ function KMedImgCurve(medviewer)
 		var sizeroi;
 		var point_vox = [];
 
-		if(roiobj == undefined)
+        if (curveobj.type == "tmode")
+		{
+			var content = niiOriginal
+			if (niiOriginal.content)
+			{
+				var tmodes = (niiOriginal.content.Tmodes)
+				if (tmodes.length > curveobj.currentT)
+				{
+					curveobj.xdata = [...Array(tmodes[0].length).keys()];
+					curveobj.ydata = tmodes[curveobj.currentT];
+					ymin = math.min(curveobj.ydata) ;
+					ymax = math.max(curveobj.ydata) ;
+					curveobj.ydata = curveobj.ydata.map(map)
+					curveobj.ymin = math.min(curveobj.ydata) ;
+					curveobj.ymax = math.max(curveobj.ydata) ;
+				}
+			}
+			return;
+		}
+		else if(roiobj == undefined && niiOriginal != undefined)
 		{
 			var point  = KViewer.currentPoint;	
 			// in non-global coordinate mode, points can be different ...
@@ -1633,11 +1942,14 @@ function KMedImgCurve(medviewer)
 					return;
 
 
-//			    var nbins = 1000;
-				// fine histo to compute quantiles
-//				var histogram = comphisto(min, max, nbins, vals, vals.length, 500)
-
 				var nbins = 30;
+				if (curveobj.nbins != 'auto')
+					nbins = curveobj.nbins;
+				if (curveobj.limits != 'auto')
+				{
+					min = curveobj.limits[0];
+					max = curveobj.limits[1];
+				}
 
 				var nsamps = vals.length;
 				if (nsamps > 20000)
@@ -1660,41 +1972,73 @@ function KMedImgCurve(medviewer)
 			else
 			{
 
+			    ymax = -100000000;
+			    ymin = 100000000;
+			    var y0;
+			    var ylast;
 
-			    var ymax = -100000000;
-			    var ymin = 100000000;
+			    var len = niiOriginal.sizes[3]
+
 				var auc = 0;
+				var area = 0;
 				// run over timepoints
-				for (var k = 0; k < niiOriginal.sizes[3]; k++)
-					chunkStep();
-
-				function chunkStep()
-				{
-					var v = 0;
-					// run over roi points
-					for(var p=0; p < count; p++)
+				for (var k = 0; k < len; k++)
 					{
-						var pv = point_vox[p];
-						var vv = NNInterp(niiOriginal, pv._data[0], pv._data[1], pv._data[2], [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], k * vsz);
-						vv = niiOriginal.datascaling.e(vv);
-						if( !isNaN(vv) && vv != undefined)
-								v += vv;
-					}
-					v = v/count;
-					ydata.push(v);
-					xdata.push(k);
-					if (v > ymax)
-					    ymax = v;
-					if (v < ymin)
-					    ymin = v;
-					auc += Math.abs(v);
+						var v = 0;
+						// run over roi points
+						for(var p=0; p < count; p++)
+						{
+							var pv = point_vox[p];
+							var vv = NNInterp(niiOriginal, pv._data[0], pv._data[1], pv._data[2], [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], k * vsz);
+							vv = niiOriginal.datascaling.e(vv);
+							if( !isNaN(vv) && vv != undefined)
+									v += vv;
+						}
 
+						v = v/count;
+						if (k== 0)
+						    y0 = v;
+						if (k==len-1)
+						    ylast = v;
+						ydata.push(v);
+						xdata.push(k);
+						if (v > ymax)
+							ymax = v;
+						if (v < ymin)
+							ymin = v;
+						area += Math.abs(v);
+						
+					}
+				area /=len;
+
+
+       
+				for (var k = 0; k < niiOriginal.sizes[3]; k++)
+				{
+					ydata[k] = map(ydata[k]);
+					auc += Math.abs(ydata[k]);
+
+				}
+
+				// xdata stored in nifti?
+				if(niiOriginal.extension && niiOriginal.extension.content)
+				{
+					try {
+						var content = JSON.parse(niiOriginal.extension.content);
+						if(content.xdata)
+						{
+							curveobj.xdata_custom = content.xdata;
+							curveobj.xdata_custom_max = kmath.max(content.xdata);
+						}
+					} catch (error) {
+						
+					}
 				}
 
 				curveobj.xdata	= xdata;
 				curveobj.ydata	= ydata;
-				curveobj.ymin = ymin;
-				curveobj.ymax = ymax;
+				curveobj.ymin = map(ymin);
+				curveobj.ymax = map(ymax);
 				curveobj.auc = auc;
 
 			}
@@ -1771,6 +2115,10 @@ function KMedImgCurve(medviewer)
 	setstate('normalise', 'noscaling')
 	setstate('baselinelength', 'off')
 	setstate('mode', 'tseries')
+	setstate('yscaling_min', 'min')
+	setstate('yscaling_max', '1.1*max')
+	setstate('yscaling_label', 'y-axis')
+	setstate('xscaling_label', 'x-axis')
 
 //	that.customToggle = close;
 	return that;

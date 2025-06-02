@@ -8,7 +8,6 @@ if (typeof electron == "undefined")
 if (typeof module != "undefined" && !electron)
 {
 
-    var KissFFT = require("../../htdocs/imgproc/kissFFT_main.js");
 
     if (typeof daikon == "undefined")
         daikon = require('./daikon');
@@ -105,6 +104,8 @@ function DicomReader()
     // can call this by an on drop / load event
     function readMultiFiles(files, whendone,progressSpinner)
     {
+      var about_to_abort = false;
+        
       // for debugging load script already in index.php
       if( typeof daikon == "undefined")
           scriptLoader.loadScript("dicom/daikon.js", scriptLoaded);
@@ -124,27 +125,37 @@ function DicomReader()
         //var files = ev.target.files;
         fileList   = files;
 
-        var numfiles = files.length;        
+        var numfiles = files.length;  
         
         function readSeries() {
             if (files.length>0) 
             {
+                if (about_to_abort)
+                    return;
                 if (progress)
-                    progress("Reading Headers " + math.round(100*(1-files.length/numfiles)) + "%");
+                    progress("Reading DCM Headers " + math.round(100*(1-files.length/numfiles)) + "%",
+                            function() {
+                                about_to_abort = true;
+                                
+                            });
                 var file = files[0];
                 files = files.slice(1);
 
                 var reader = new FileReader();
                 reader.onloadend = function (evt) 
                 {
+                    var ret = false;
                     if (evt.target && evt.target.readyState === FileReader.DONE) 
                     {
-                        readSingleDICOM(file.name, evt.target.result, readSeries);
+                        ret = readSingleDICOM(file, file.name, evt.target.result, readSeries);
                     }
                     else if (this.customBuffer)
                     {
-                        readSingleDICOM(file.filename, this.customBuffer.buffer, readSeries)
+                        ret = readSingleDICOM(file, file.filename, this.customBuffer.buffer, readSeries)
                     }
+                    if (ret)
+                       file.isdicom = true;
+                            
                  };
                 readBufferFromFile(reader, file )
 
@@ -154,243 +165,323 @@ function DicomReader()
         }                
         readSeries();
       }
-        
+      return function() {about_to_abort=true;}
 
     }
     that.readMultiFiles = readMultiFiles;
     that.transform_suidmap = {}
 
     // parse the dicom content
-    function readSingleDICOM(name, buf, callback) 
+    function readSingleDICOM(fileobj, name, buf, the_callback) 
     {   
+
+
+        
         // function reads a single file, gathers important tags and appends it to the series array
         var data = new DataView(buf);
         daikon.Parser.verbose = false;
+        if (data.byteLength == 0)
+        { 
+            console.warn("problem during conversion " + fileobj.filename + ", size 0B");            
+            error_report.daikon = true;
+            if (the_callback)
+                the_callback(false)
+            return false;
+        }
 
         var image = daikon.Series.parseImage(data);
         if (image == undefined)
         { 
             error_report.daikon = true;
-            if (callback)
-                callback(false)
+            if (the_callback)
+                the_callback(false)
             return false;
         }
-           
-        // sort the images according to patient, StudyInstanceUID
-        // for now, only use the suid;
-        var suid = image.getSeriesInstanceUID();
 
-        // in strange cases, images can have same suid but different geometries... use some advanced other tags for key
-        if(1)
+        if (image.ktags.SegmentLabel != undefined && image.ktags.SegmentLabel.multival != undefined && image.ktags.SegmentLabel.multival.length > 1)
         {
-            var sizehash = "";
-            sizehash += image.gettag("Rows") + "x" + image.gettag("Columns");
-            var x = image.gettag("ImageOrientationPatient");
-            if(x!=undefined)
-                for(var k=0; k<x.length; k++)
-                    sizehash += x[k].toFixed(3);
-            suid += sizehash + image.gettag("SegmentLabel");
-        }
+             var perframe = image.tags['52009230'].value;
+             var labels = {};
+             for (var k = 0; k < perframe.length;k++)
+             {
+                var i = perframe[k].value.findIndex((x) => x.key == "SegmentIdentificationSequence")
+                var lnum = perframe[k].value[i].value[0].value[0].value[0]
+                 if (labels[lnum] == undefined)
+                     labels[lnum] = [];
+                labels[lnum].push(k);
+             }
+             var buf = new Uint8Array(image.getPixelDataBytes());
+             var framesz = buf.byteLength/perframe.length
+             var SegmentLabels = Object.keys(labels)
+             var subImages = [];
+             for (var k = 0; k < SegmentLabels.length;k++)
+             {
+                  var subimage =daikon.Series.parseImage(data);
+                  var numframes = labels[SegmentLabels[k]].length
+                  var subbuf = new Uint8Array(framesz*numframes)
+                  subimage.ktags.ImagePositionPatient.multival = []
+                  subimage.ktags.NumberOfFrames.value[0] = numframes
+                  subimage.ktags.SegmentLabel.value[0] = image.ktags.SegmentLabel.multival[k]
+                  var fs = labels[SegmentLabels[k]]
+                  for (var j = 0; j < fs.length;j++)
+                  {
+                     subimage.ktags.ImagePositionPatient.multival.push(image.ktags.ImagePositionPatient.multival[fs[j]])
+                     subbuf.set(buf.slice(fs[j]*framesz,(fs[j]+1)*framesz)   , j*framesz)
+                  }
+                  subimage.ktags.ImagePositionPatient.value = subimage.ktags.ImagePositionPatient.multival[0]
+                  var subbuftag = subimage.getPixelData()
+                  subbuftag.value = new DataView(subbuf.buffer)
+                  subImages.push(subimage);
+             }
 
-        function done()
-        {
-            series[suid].daikonseries.addImage(image);
-            if (callback)
-                callback(true)
-            return true
+             iterate();
+             function iterate()
+             {
+                 if (subImages.length == 0)
+                 {
+                     if (the_callback)
+                         the_callback()
+                 }
+                 else
+                     readDCM(subImages.splice(0,1)[0],iterate)
+             }
+                    
+            
         }
-    
-        // no valid dicom file, or no suid in this file. abort
-        if(image.getSeriesInstanceUID() !== null) 
-        {    
-            if(series[suid] === undefined) // start a new series
+        else        
+            return readDCM(image,the_callback)
+
+
+        function readDCM(image,callback)
             {
-                series[suid] = {};
-                series[suid].daikonseries = new daikon.Series();
-                series[suid].seriesDescription =  image.getSeriesDescription() || "noDescription";
-                series[suid].seriesNumber = image.getSeriesNumber() || "0";;
-                series[suid].AcquisitionNumber = image.gettag("AcquisitionNumber")
-                series[suid].PatientID = image.getPatientID() || "nopatientid";
-                series[suid].AccessionNumber = image.gettag("AccessionNumber")
-                series[suid].originalStudyID = image.gettag("StudyID");
+            // sort the images according to patient, StudyInstanceUID
+            // for now, only use the suid;
+            var suid = image.getSeriesInstanceUID();
+            if (suid == undefined)
+                suid = image.getSeriesNumber()
 
-                series[suid].image0 = image;
-                
-                if (image.ktags.FrameOfReferenceTransformMatrix)
+            if(suid !== null) 
+            {    
+                    
+                // in strange cases, images can have same suid but different geometries... use some advanced other tags for key
+                if(1)
                 {
-
-                    for (var k = 0; k < image.ktags.ReferencedSOPInstanceUID.multival.length;k++)
-                        that.transform_suidmap[image.ktags.ReferencedSOPInstanceUID.multival[k]] = image;
-                }
-
-                var studydate = image.getStudyDate() || "00000000";
-                var studytime = image.getStudyTime() || "";
-                
-                if(studytime==undefined)
-                    studytime = studytime;
-                else
-                    studytime = studytime.split('.')[0];
-
-                var studydatetime = (studydate +  studytime).toString();
-
-                series[suid].studydatetime = studydatetime;
-                series[suid].StudyDate = studydate;
-                series[suid].StudyTime =  image.getStudyTime();
-
-                series[suid].PatientName = image.getPatientName() || "NoPatientName";
-                var names =  series[suid].PatientName.split(" ");
-                series[suid].GivenName = names[1];
-                series[suid].FamilyName = names[0];
-             
-
-                series[suid].ProtocolName = image.gettag("ProtocolName")
-                series[suid].ImageType = image.gettag("ImageType")
-                series[suid].Rows = image.gettag("Rows")
-                series[suid].Columns = image.gettag("Columns")
-		        series[suid].filepath = name; 
-                series[suid].seriesInstanceUID = suid;
-                series[suid].diffusion = false;
-                series[suid].bDirections = [];
-                series[suid].bMatrix = [];
-                series[suid].bValue = [];
-                series[suid].ImageOrientationPatient = image.gettag("ImageOrientationPatient");
-                series[suid].SeriesInstanceUID = image.getSeriesInstanceUID();
-                series[suid].StudyInstanceUID = image.gettag('StudyInstanceUID');
-                series[suid].imagePathList = [name];
-
-                // this is the default for the studyID
-                series[suid].StudyID = studydatetime;
-
-
-                if (typeof projectInfo == "object" && projectInfo.jsondesc)
-                {
-                    if (projectInfo.jsondesc.StudyID_type != undefined && projectInfo.jsondesc.StudyID_type != "studydatetime")
+                    var sizehash = "";
+                    sizehash += image.gettag("Rows") + "x" + image.gettag("Columns");
+                    var x = image.gettag("ImageOrientationPatient");
+        
+                    if(x!=undefined)
                     {
-                        var sid = image.gettag(projectInfo.jsondesc.StudyID_type);
-                        if (sid != undefined)
-                            series[suid].StudyID = sid;
-                        else
-                            console.warn("Custom StudyID type: '" + projectInfo.jsondesc.StudyID_type + "' not extisting in dicom header, falling back to default");
-
-                    }
-
-                    if (projectInfo.jsondesc.PatientID_type != undefined)                    
-                    {
-                        var piz;
-                        if (projectInfo.jsondesc.PatientID_type == "studydatetime")
-                            piz = studydatetime;
-                        else
-                            piz = image.gettag(projectInfo.jsondesc.PatientID_type);
-                            
-                        if (piz != undefined)
-                            series[suid].PatientID = piz;
-                        else
-                            console.warn("Custom PatientID type: '" + projectInfo.jsondesc.PatientID_type + "' not extisting in dicom header, falling back to default");
-
-                    }
-
-                    // get rid of all non-alphanumerics in PIZ/SID
-                    series[suid].PatientID = series[suid].PatientID.replace(/\W/g,'');
-                    series[suid].StudyID = series[suid].StudyID.replace(/\W/g,'');
-                    series[suid].PatientID = series[suid].PatientID.replace(/\_/g,'-');
-                    series[suid].StudyID = series[suid].StudyID.replace(/\_/g,'-');
-
-                    image.ktags.PatientID.value[0] = series[suid].PatientID;
-                    image.ktags.StudyID.value[0] = series[suid].StudyID
-
-
-                    if (projectInfo.jsondesc.anonymization && typeof pid_hashfun != "undefined")
-                    {
-
-                        pid_hashfun(projectInfo.jsondesc.anonymization.type,series[suid].PatientID,function(ppid)
+                        for(var k=0; k<x.length; k++)
                         {
-                            var keylength=10;
-
-                            if (projectInfo.jsondesc.anonymization.key_length != undefined)
-                                keylength = projectInfo.jsondesc.anonymization.key_length
-                            ppid = ppid.substring(0,keylength);
+                            // some shitty brainlab CT dicoms can have quite some variability in ImageOrientationPatient, maybe after a coreg  ... 
+                            // general problem with 0.0, -0.0 => add 1
+                            sizehash += (x[k] + 1).toFixed(2) ;
+                        }
+                    }
+                    suid += sizehash + image.gettag("SegmentLabel") + image.gettag("PatientID") ; //+ image.ktags.WindowCenter.value[0];
+                }
+        
+                function done()
+                {
+                    series[suid].daikonseries.addImage(image);
+                    fileobj.isdicom = true;
+                    if (callback)
+                        callback(true)
+                    return true
+                }
+            
+                if(series[suid] === undefined) // start a new series
+                {
+                    series[suid] = {};
+                    series[suid].daikonseries = new daikon.Series();
+                    series[suid].seriesDescription =  image.getSeriesDescription() || "noDescription";
+                    series[suid].seriesNumber = image.getSeriesNumber() || "0";;
+                    series[suid].AcquisitionNumber = image.gettag("AcquisitionNumber")
+                    series[suid].PatientID = image.getPatientID() || "nopatientid";
+                    series[suid].AccessionNumber = image.gettag("AccessionNumber")
+                    series[suid].originalStudyID = image.gettag("StudyID");
+                    series[suid].StudyDescription = image.gettag("StudyDescription");
+    
+                    series[suid].image0 = image;
+                    
+                    if (image.ktags.FrameOfReferenceTransformMatrix && image.ktags.ReferencedSOPInstanceUID)
+                    {
+    
+                        for (var k = 0; k < image.ktags.ReferencedSOPInstanceUID.multival.length;k++)
+                            that.transform_suidmap[image.ktags.ReferencedSOPInstanceUID.multival[k]] = image;
+                    }
+    
+                    var studydate = image.getStudyDate() || "00000000";
+    
+                    if (studydate.length > 8)
+                    {
+                        studydate = studydate.substring(0,8);
+                        studydate = studydate.replace(/[^0-9.]/g,'0')
+                    }
+    
+                    var studytime = image.getStudyTime() || "";
+                    
+                    if(studytime==undefined)
+                        studytime = studytime;
+                    else
+                        studytime = studytime.split('.')[0];
+    
+                    var studydatetime = (studydate +  studytime).toString();
+    
+                    series[suid].studydatetime = studydatetime;
+                    series[suid].studydatetime_nosec = studydatetime.substring(0,12);
+                    series[suid].StudyDate = studydate;
+                    series[suid].StudyTime =  image.getStudyTime();
+    
+                    series[suid].PatientName = image.getPatientName() || "NoPatientName";
+                    series[suid].PatientName = series[suid].PatientName.trim();
+                    var names =  series[suid].PatientName.split(" ");
+                    series[suid].GivenName = names[1];
+                    series[suid].FamilyName = names[0];
+                 
+    
+                    series[suid].ProtocolName = image.gettag("ProtocolName")
+                    series[suid].ImageType = image.gettag("ImageType")
+                    series[suid].Rows = image.gettag("Rows")
+                    series[suid].Columns = image.gettag("Columns")
+    		        series[suid].filepath = name; 
+                    series[suid].seriesInstanceUID = suid;
+                    series[suid].diffusion = false;
+                    series[suid].bDirections = [];
+                    series[suid].bMatrix = [];
+                    series[suid].bValue = [];
+                    series[suid].ImageOrientationPatient = image.gettag("ImageOrientationPatient");
+                    series[suid].SeriesInstanceUID = image.getSeriesInstanceUID();
+                    series[suid].StudyInstanceUID = image.gettag('StudyInstanceUID');
+                    series[suid].imagePathList = [name];
+    
+                    // this is the default for the studyID
+                    series[suid].StudyID = studydatetime;
+    
+    
+                    if (typeof projectInfo == "object" && projectInfo.jsondesc)
+                    {
+                        if (projectInfo.jsondesc.StudyID_type != undefined && projectInfo.jsondesc.StudyID_type != "studydatetime")
+                        {
+                            var sid = image.gettag(projectInfo.jsondesc.StudyID_type);
+                            if (sid == undefined)
+                                sid = series[suid][projectInfo.jsondesc.StudyID_type]
+                            if (sid != undefined)
+                                series[suid].StudyID = sid;
+                            else
+                                console.warn("Custom StudyID type: '" + projectInfo.jsondesc.StudyID_type + "' not extisting in dicom header, falling back to default");
+    
+                        }
+    
+                        if (projectInfo.jsondesc.PatientID_type != undefined)                    
+                        {
+                            var piz;
+                            if (projectInfo.jsondesc.PatientID_type == "suid")
+                            {
+                                pid_hashfun("sha",series[suid].StudyInstanceUID,function(d)
+                                {                        
+                                    piz = d.substring(0,16);
+                                    image.ktags.PatientName.value[0] = piz;
+                                });
+                            }
+                            else if (projectInfo.jsondesc.PatientID_type == "studydatetime")
+                                piz = studydatetime;
+                            else
+                                piz = image.gettag(projectInfo.jsondesc.PatientID_type);
+                                
+                            if (piz != undefined)
+                                series[suid].PatientID = piz;
+                            else
+                                console.warn("Custom PatientID type: '" + projectInfo.jsondesc.PatientID_type + "' not extisting in dicom header, falling back to default");
+    
+    
                             
-                            series[suid].PatientID = ppid;
-                            series[suid].PatientName =ppid;
-//                            series[suid].GivenName = ppid.substring(0,10)
-//                            series[suid].FamilyName = "Anonymous"
-                            series[suid].FamilyName = ppid.substring(0,10)
-                            series[suid].GivenName = "";
-                            
-                            image.ktags.PatientName.value[0] = series[suid].FamilyName + " " + series[suid].GivenName
+                        }
+    
+                        // get rid of all non-alphanumerics in PIZ/SID
+                        series[suid].PatientID = series[suid].PatientID.replace(/\W/g,'');
+                        series[suid].StudyID = series[suid].StudyID.replace(/\W/g,'');
+                        series[suid].PatientID = series[suid].PatientID.replace(/\_/g,'-');
+                        series[suid].StudyID = series[suid].StudyID.replace(/\_/g,'-');
+    
+                        if (image.ktags.PatientID != null && image.ktags.PatientID.value != null)
                             image.ktags.PatientID.value[0] = series[suid].PatientID;
-
-                            return done();
-
-                        });
+                        else
+                            image.ktags.PatientID = {value:series[suid].PatientID }
+                        if (image.ktags.StudyID != null && image.ktags.StudyID.value != null)
+                            image.ktags.StudyID.value[0] = series[suid].StudyID;
+                        else
+                            image.ktags.StudyID = {value:series[suid].StudyID }
+    
+    
+                        if (projectInfo.jsondesc.anonymization && typeof pid_hashfun != "undefined")
+                        {
+    
+                            pid_hashfun(projectInfo.jsondesc.anonymization.type,series[suid].PatientID,function(ppid)
+                            {
+                                var keylength=10;
+    
+                                if (projectInfo.jsondesc.anonymization.key_length != undefined)
+                                    keylength = projectInfo.jsondesc.anonymization.key_length
+                                ppid = ppid.substring(0,keylength);
+                                
+                                series[suid].PatientID = ppid;
+                                series[suid].PatientName =ppid;
+                                series[suid].FamilyName = ppid.substring(0,10)
+                                series[suid].GivenName = "anonym";
+                                
+                                if(image.ktags.PatientName.value != null)
+                                {
+                                    image.ktags.PatientName.value[0] = series[suid].FamilyName + " " + series[suid].GivenName
+                                    image.ktags.PatientID.value[0] = series[suid].PatientID;
+                                }
+    
+                                var fields = ["PatientBirthDate"];
+                                if (projectInfo.jsondesc.anonymization && projectInfo.jsondesc.anonymization.fields_to_remove)
+                                    fields = fields.concat(projectInfo.jsondesc.anonymization.fields_to_remove);
+    
+                                for (var k = 0;k < fields.length;k++)
+                                {
+                                    if (image.ktags[fields[k]] != undefined)
+                                    {
+                                        if (image.ktags[fields[k]].value != undefined)                                        
+                                            image.ktags[fields[k]].value = [""];
+                                    }
+                                    if (series[suid][fields[k]] != undefined)
+                                    {
+                                        series[suid][fields[k]] = "";
+                                    }
+                                }
+    
+    
+                                return done();
+    
+                            });
+                        }
+                        else
+                           return  done();
                     }
                     else
-                       return  done();
+                        return  done();
+    
+    
                 }
                 else
-                    return  done();
-
-
+                {
+                    //remember all original image paths for sorting purposes
+                    series[suid].imagePathList.push( name );
+                    return done()
+                }
+    
             }
             else
             {
-                //remember all original image paths for sorting purposes
-                series[suid].imagePathList.push( name );
-                return done()
+               if (callback)
+                    callback(false)            
+    	       return false;
             }
-
-
-/*
-            var siemens = image.gettag('CSAImageHeaderInfo');
-            if(typeof siemens == "string" )
-            {
-                sn = siemens.match(/DiffusionGradientDirection=([-\d.\s]+)\n/);
-                var bdir;
-                var bmat;
-                var bv = 0;
-                if (sn && sn.length > 1)
-                {
-                    bdir = sn[1].split(" ");
-                    series[suid].diffusion = true;
-                    var bval = siemens.match(/B_value=([-\d.\s]+)\n/);
-                    if (bval && bval.length > 1)
-                         bv = parseFloat(bval[1].trim());
-                    var bmat_ = siemens.match(/B_matrix=([-\d.\s]+)\n/);
-                    if (bmat_ != null)
-                    {
-                      bmat_ = bmat_[1].split(" ");
-                      bmat = [[parseFloat(bmat_[0].trim()),parseFloat(bmat_[1].trim()),parseFloat(bmat_[2].trim())],
-                          [parseFloat(bmat_[1].trim()),parseFloat(bmat_[3].trim()),parseFloat(bmat_[4].trim())],
-                          [parseFloat(bmat_[2].trim()),parseFloat(bmat_[4].trim()),parseFloat(bmat_[5].trim())]];
-                    }
-                    else
-                      bmat = [];
-
-
-
-                }
-                else
-                    bdir = ["0","0","0"];
-                series[suid].bMatrix.push(bmat);                
-                series[suid].bDirections.push(bdir);                
-                series[suid].bValue.push(bv);
-                console.log(bv);
-            }
-*/
-
-            // to save memory, otherwise even smallest images kill the task
-            // no, do not, need it later when building series for e.g. for slice normal vector
-            //delete image.ktags.CSAImageHeaderInfo.value;
-            //delete image.ktags.CSASeriesHeaderInfo.value;
-
         }
-        else
-        {
-           if (callback)
-                callback(false)            
-	       return false;
-        }
-
      }
         
     // helper function for a file reader, taken from somewhere
@@ -438,16 +529,46 @@ function DicomReader()
                 {
                     // key will be number series desription + num of images + difference between seriesNumber + acquisitonNumber + ImageOrientationPatient
                     var ss = series[suidList[k]];
-                    if(ss.seriesDescription.search(/^GRASP/)==0 || ss.seriesDescription.search(/^Brain_0_5_CE/)==0)
+                    var mname = ss.daikonseries.images[0].gettag('ManufacturerModelName');
+                    
+                    if( (mname && mname.search(/^NAEOTOM/)==0) && (ss.ProtocolName && ss.ProtocolName.search(/^CTDI/)==0) )
+                    {
+//                         if( ity.filter(function(x){ return x.match(/IOD/) }).length > 0 )
+                      var key = 'PCCT' + ss.seriesDescription +  ss.daikonseries.images.length + ss.ImageOrientationPatient + ss.Rows + ss.Columns;
+                      var ity = ss.ImageType;
+                      if(ity)
+                      {
+                            var a = 'VNC'
+                            if(ity.filter(function(x){ return x.match('^'+a) }).length > 0)
+                            {
+                                key += a;
+                                ss.seriesDescription +='_' + a;
+                            }
+                            var a = 'IMD'
+                            if(ity.filter(function(x){ return x.match('^'+a) }).length > 0)
+                            {
+                                key += a;
+                                ss.seriesDescription +='_' + a;
+                            }
+                      }
+                    }
+                    else if(ss.seriesDescription.search(/^GRASP/)==0 || ss.seriesDescription.search(/^Brain_0_5_CE/)==0 )
                         var key = 'GRASP' + ss.daikonseries.images.length + ( parseInt(ss.seriesNumber) - parseInt(ss.AcquisitionNumber) ) +ss.ImageOrientationPatient + ss.Rows + ss.Columns;
                     else if (ss.daikonseries.images[0].gettag('Modality')== 'SR'  | ss.daikonseries.images[0].fromRDA)
                         var key = ss.SeriesInstanceUID;
+                    else if (ss.daikonseries.images[0].gettag('Modality')== 'CR' ) // never glue CRs
+                        var key = ss.SeriesInstanceUID;
+                    else if (ss.daikonseries.images[0].gettag('Modality')== 'XA' ) // never glue XA
+                        var key = ss.SeriesInstanceUID;
+//                     else if (ss.daikonseries.images[0].gettag('Modality')== 'CT' ) // temporary switch OFF
+//                         var key = ss.SeriesInstanceUID;
                     else
                         var key = ss.seriesDescription + ss.daikonseries.images.length + ( parseInt(ss.seriesNumber) - parseInt(ss.AcquisitionNumber) ) +ss.ImageOrientationPatient + ss.Rows + ss.Columns;
                
-                    key += ss.daikonseries.images[0].gettag('SegmentLabel')
+                    key += ss.daikonseries.images[0].gettag('SegmentLabel')                    
+               //     key += ss.daikonseries.images[0].gettag('WindowCenter')
 
-
+                    
 
                     if(newlist[key] == undefined)
                         newlist[key] = ss;
@@ -470,6 +591,7 @@ function DicomReader()
              run again over all series, might happen that 2 series will have same filename (for example different views in DX )
             *******************************/
             var fnlist = {};
+            var bestSRIndex = [-1, 0];
             for(var k=0; k<suidList.length; k++ )
             {
                 var temp = series[suidList[k]];
@@ -487,7 +609,62 @@ function DicomReader()
                     fnlist[fnkey] = [suidList[k]];
                     temp.seriesSuffix = "";
                 }
+
+                // structured report (SR) speciality: we need to take the "best one" (verified and completed) or newest one
+                var CompletionFlag = temp.daikonseries.images[0].gettag('CompletionFlag');
+                var VerificationFlag = temp.daikonseries.images[0].gettag('VerificationFlag');
+                if(CompletionFlag != undefined)
+                {
+                    var tstamp = temp.daikonseries.images[0].gettag('SeriesDate') + temp.daikonseries.images[0].gettag('SeriesTime') 
+    
+                    if(bestSRIndex[0] == -1 || tstamp > bestSRIndex[1])
+                        bestSRIndex = [k, tstamp];
+                }
             }
+            if(bestSRIndex[0] > -1)
+                series[suidList[bestSRIndex[0]]].isBestStructuredReport = 1;
+
+            /******************************* 
+            OverlayData: multiple solutions. For now, create a "burned-in" overlay
+            *******************************/
+            for(var k=0; k<suidList.length; k++ )
+            {
+                var temp = series[suidList[k]];
+                if(ss.daikonseries.getName().search('Aspect Score') > -1)
+                {
+                    if(temp.daikonseries.images[0].ktags.OverlayData != undefined)
+                    {
+                        for(var z=0; z<temp.daikonseries.images.length; z++)
+                        {
+                            var timg = temp.daikonseries.images[z];
+                            var buf1 = timg.ktags.OverlayData.value;
+                            var buf2 = timg.getPixelData().value;
+                            
+                            var targetValue = (200 - timg.ktags.RescaleIntercept.value) / timg.ktags.RescaleSlope.value;
+                            
+                            // Loop through each byte of buf1 and extract each bit
+                            let bitIndex = 0;
+                            for (let byteIndex = 0; byteIndex < buf1.byteLength; byteIndex++) {
+                                const byte = buf1.getUint8(byteIndex);  // Get byte from buf1
+                            
+                                // Loop through each bit of the byte
+                                for (let bit = 0; bit < 8; bit++) {
+                                    const bitValue = (byte >> bit) & 1;  // Shift and mask to get bit
+                            
+                                    if (bitValue === 1) {
+                                        // Update the corresponding 16-bit value in buf2
+                                        const buf2Index = bitIndex * 2;  // Each 16-bit value takes 2 bytes
+                                        if (buf2Index < buf2.byteLength) {
+                                            buf2.setUint16(buf2Index, targetValue, timg.littleEndian);  // Set the target value
+                                        }
+                                    }
+                                    bitIndex++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }        
 
             convertSeries();
 
@@ -496,9 +673,9 @@ function DicomReader()
                     if (progress)
                     {
                        if (suidList.length == numItems)
-                          progress("Creating Nifti");
+                          progress("Creating Images");
                        else
-                          progress("Creating Niftis " + math.round(100*(1-suidList.length/numItems))+"%");
+                          progress("Creating Images " + math.round(100*(1-suidList.length/numItems))+"%");
                     }
 
                     var item = series[suidList[0]];
@@ -514,6 +691,11 @@ function DicomReader()
                             mypapaya =  new papaya.volume.dicom.HeaderDICOM();
                             mypapaya.series = item.daikonseries;
                             item.type = 'nii';
+                        }
+                        else if( item.image0.tags['00420011'] != undefined) // item.daikonseries.images[0].gettag('Modality') == "DOC")
+                        {
+                            item.buffer = item.image0.tags['00420011'].value.buffer;
+                            item.type = 'pdf'
                         }
                         else if(item.daikonseries.images[0].gettag('Modality') == "RTSTRUCT")
                         {
@@ -545,54 +727,82 @@ function DicomReader()
                                 // create the raw nii buffer
                                 mypapaya.imageData = imageData;
                                 mypapaya.fromRDA = item.image0.fromRDA
-                                var nifti = getNiftiBuffer(mypapaya);  
-                                item.buffer = nifti.buffer
-                                item.edges = nifti.edges;
-
+  
+                                var extendedheader = undefined
                                 var info = item.daikonseries.imageInfo;
 
                                 
                                 if (info.diffusion)
                                 {
-                                    var rot  = mypapaya.getBestTransform().rot;
-                                    var bX = "";
-                                    var bY = "";
-                                    var bZ = "";
-                                    var bV = "";
-                                    var bM = "";
-                                    var bmrtrix = "";
-                                    for (var k = 0; k < info.bDirections.length;k++)
+                                    if (info.bValue.length == 1 && info.bValue[0] == 0)
+                                         ;
+                                    else
                                     {
-                                        var d = info.bDirections[k];
-                                        d = [parseFloat(d[0]),parseFloat(d[1]),parseFloat(d[2])];
-                                        bmrtrix+= (d[0].toFixed(5) + " " + d[1].toFixed(5) + " " + d[2].toFixed(5) + " " +  info.bValue[k].toFixed(5) + "\n");
-
-                                        d = math.multiply(math.Transpose(math.matrix(rot)),math.matrix(d))._data;
-                                        bX += d[0] + " ";
-                                        bY += d[1] + " ";
-                                        bZ += d[2] + " ";
-                                        bV += info.bValue[k] + " ";
-
-                                        var d = info.bMatrix[k];
-                                        var R = math.matrix(rot);
-                                        if(d!=undefined && d.length > 0)
+                                        var rot  = mypapaya.getBestTransform().rot;
+                                        var bX = "";
+                                        var bY = "";
+                                        var bZ = "";
+                                        var bV = "";
+                                        var bM = "";
+                                        var bmrtrix = "";
+                                        for (var k = 0; k < info.bDirections.length;k++)
                                         {
-                                            d = math.multiply(math.multiply(math.Transpose(R),d),R)._data;
-                                            bM += d[0][0]  + " " + d[0][1] + " " + d[0][2] + " " +
-                                                  d[1][0] + " " + d[1][1] + " " + d[1][2] + " " +
-                                                  d[2][0]  + " " + d[2][1] + " " + d[2][2] + " \n";
-                                        }
-                                        else
-                                            bM += "0 0 0 0 0 0 0 0 0 \n";
 
+                                            if (info.bMatrix[k] != undefined)
+                                            {
+                                                var d = info.bMatrix[k];
+                                            
+                                                bM += d[0][0]  + " " + d[0][1] + " " + d[0][2] + " " +
+                                                      d[1][0] + " " + d[1][1] + " " + d[1][2] + " " +
+                                                      d[2][0]  + " " + d[2][1] + " " + d[2][2] + " \n";
+                                                var dir = math.maxEV(math.matrix(d))
+                                                var v = dir.v._data
+                                                bX += v[0].toFixed(3) + " ";
+                                                bY += v[1].toFixed(3) + " ";
+                                                bZ += v[2].toFixed(3) + " ";
+                                                bV += dir.ev + " ";
+                                            }
+                                            else
+                                            {
+                                                var d = info.bDirections[k];
+                                                
+                                                d = [parseFloat(d[0]),parseFloat(d[1]),parseFloat(d[2])];
+                                                bmrtrix+= (d[0].toFixed(3) + " " + d[1].toFixed(3) + " " + d[2].toFixed(3) + " " +  info.bValue[k].toFixed(3) + "\n");
+    
+                                                d = math.multiply(math.Transpose(math.matrix(rot)),math.matrix(d))._data;
+                                                bX += d[0].toFixed(3) + " ";
+                                                bY += d[1].toFixed(3) + " ";
+                                                bZ += d[2].toFixed(3) + " ";
+                                                bV += info.bValue[k] + " ";
+    
+                                                var d = info.bMatrix[k];
+                                                var R = math.matrix(rot);
+                                                if(d!=undefined && d.length > 0)
+                                                {
+                                                    d = math.multiply(math.multiply(math.Transpose(R),d),R)._data;
+                                                    bM += d[0][0]  + " " + d[0][1] + " " + d[0][2] + " " +
+                                                          d[1][0] + " " + d[1][1] + " " + d[1][2] + " " +
+                                                          d[2][0]  + " " + d[2][1] + " " + d[2][2] + " \n";
+                                                }
+                                                else
+                                                    bM += "0 0 0 0 0 0 0 0 0 \n";
+                                            }
+
+                                        }
+                                        item.bval = bV;
+                                        item.bvec = bX + "\n" + bY + "\n" + bZ + "\n";
+                                        item.bmat = bM; 
+                                        item.bmrtrix = bmrtrix; 
+                                        item.diffusion = true;
+                                        extendedheader = {bval:item.bval,bvec:item.bvec,bmat:item.bmat}
+                                        console.log("diffusion info found");
                                     }
-                                    item.bval = bV;
-                                    item.bvec = bX + "\n" + bY + "\n" + bZ + "\n";
-                                    item.bmat = bM; 
-                                    item.bmrtrix = bmrtrix; 
-                                    item.diffusion = true;
-				                    console.log("diffusion info found");
                                 }
+
+                                var nifti = getNiftiBuffer(mypapaya,extendedheader);  
+                                item.buffer = nifti.buffer
+                                item.edges = nifti.edges;
+
 
                                 item.imageDimensions = mypapaya.getImageDimensions();
 
@@ -782,8 +992,9 @@ function DicomReader()
                             }
 
 
-                            // only save verified or completed reports
-                            if( (srjson.VerificationFlag || srjson.CompletionFlag) )
+                            // only save verified or completed reports?
+                            // hm, sometimes there are only incomplete and unverified ones, then take these ... puh, complicated!
+                            if( (srjson.VerificationFlag || srjson.CompletionFlag) || item.isBestStructuredReport )
                             {
                                 item.isStructuredReport = true;
                                 item.daikonseries.srjson = srjson;
@@ -852,7 +1063,7 @@ function DicomReader()
     }
 
 
-    function getNiftiBuffer(mypapaya)
+    function getNiftiBuffer(mypapaya,extendedheader)
     {
 
         // this is a default nifti buffer in uint8 representation.
@@ -875,6 +1086,16 @@ function DicomReader()
         sz =  imgSize.slices;
         st =  imgSize.timepoints;
         st2 =  1;
+
+        // some images have one slice, multiple "timepoints", for example XA, or US, or some RGBs. convert to pseudo-3D volume
+        // no good idea, cannot perform measurements etc then?
+//        if(sz==1 && st > 1 && mypapaya.series.images[0].getDataType() == 6 || mypapaya.series.images[0].gettag("Modality").value == "XA")
+        // only do for RGB series
+        if(sz==1 && st > 1 && mypapaya.series.images[0].getDataType() == 6) 
+        {
+            sz = st;
+            st = 1;
+        }
         
         vx =  voxSize.colSize;
         vy =  voxSize.rowSize;
@@ -887,8 +1108,13 @@ function DicomReader()
             st =  imgSize.timepoints/2;
             st2 = 2;
         }
-
-
+/*
+        if (mypapaya.series.images[0].ktags.ImageComments.value[0] == "phase difference images")
+        {
+            st2 = 3;
+            st = imgSize.timepoints/3;
+        }
+*/
         edges = mypapaya.getBestTransform().edges;
         // permutationOrder gives the order in which the real world is stored in the array
 
@@ -989,7 +1215,7 @@ function DicomReader()
        // window
         // E. Kellner
         // in some DICOMS, this is ugly set. So do not use this feature.
-        if(0)
+        if(1)
         {
             var w = mypapaya.series.images[0].ktags['WindowWidth'];
             var c = mypapaya.series.images[0].ktags['WindowCenter'];
@@ -1065,7 +1291,7 @@ function DicomReader()
       */
 
        // not all datatypes are implemented yet
-       if(     dcmdatatype == 3 & dcmnumBytes == 1)   // uint8
+       if(     dcmdatatype == 3 & dcmnumBytes <= 1)   // uint8
             datatype = 2;
        else if(dcmdatatype == 3 & dcmnumBytes == 2)   // uint16
             datatype = 512;
@@ -1082,8 +1308,16 @@ function DicomReader()
 
        // ********************** data (re)-scaling ************************************
        var hh        = mypapaya.series.images[0];
-       var slope     = hh.getDataScaleSlope() || 1;
-       var intercept = hh.getDataScaleIntercept() || 0;
+       if(mypapaya.series.isMultiFrame)
+       {
+           var slope     = hh.gettag("RealWorldValueSlope")!=undefined?hh.gettag("RealWorldValueSlope"):1;
+           var intercept     = hh.gettag("RealWorldValueIntercept")!=undefined?hh.gettag("RealWorldValueIntercept"):0;
+       }
+       else
+       {
+           var slope     = hh.getDataScaleSlope() || 1;
+           var intercept = hh.getDataScaleIntercept() || 0;
+       }
 
         // data scaling. Might be different for each slice (for example PET)! In this case, must scale data in place and convert to float.
         // for now, do it only for PET (migh also be necessary for other modalities)
@@ -1139,15 +1373,33 @@ function DicomReader()
             }
 
             // SUVbw units
-            if(hh.gettag('Units') == "BQML" )
+            if(hh.gettag('Units') == "BQML" | hh.gettag('Units') == "GML" )
             {
                 if(hh.gettag('PatientWeight')) 
                 {
                     // RadionuclideTotalDose in subgroup, take from tagsflat
                     if(hh.tagsFlat["00181074"] && hh.tagsFlat["00181074"].value )
                     {
+                        var rad_total_dose = parseInt(hh.tagsFlat["00181074"].value)
+                        var weight = parseFloat(hh.gettag('PatientWeight'));
+                        var dose = rad_total_dose;
+                        try {
+                            dose = NaN;
+                            var ti = (t) => t.substring(0,2)*3600 + t.substring(2,4)*60 + t.substring(4,6)*1;
+                            var series_time = ti(hh.gettag('SeriesTime'))
+                            var rad_time = ti(hh.tagsFlat['00181072'].value[0])
+                            var decay_time_sec = series_time-rad_time;
+                            var half_life = parseInt(hh.tagsFlat["00181075"].value)
+                            dose = rad_total_dose * Math.pow(2,(-decay_time_sec/half_life))
+                            console.log('PET dose correction factor: ' + (dose/rad_total_dose))
+                        }
+                        catch (err)  {  }
+
+                        if (isNaN(dose))
+                            dose = rad_total_dose;
+
                         // formula for SUVbw
-                        var fac = parseInt(hh.gettag('PatientWeight'))*1000 / parseInt(hh.tagsFlat["00181074"].value);
+                        var fac = weight*1000 / dose;
                         //console.log(fac)
                         slope*=fac;
                     }
@@ -1165,12 +1417,57 @@ function DicomReader()
        
         view.setInt16(70, datatype, littleEndian) 
 
-       
-       // combine the header and the imageData
-       var tmp = new Uint8Array(buffer.byteLength + mypapaya.imageData.byteLength);
-       tmp.set(new Uint8Array(buffer), 0);
-       tmp.set(new Uint8Array(mypapaya.imageData), buffer.byteLength);
-       
+        var byteImgData = mypapaya.imageData
+
+        if (dcmdatatype == 3 & dcmnumBytes < 1) // binary bitwise // dicomseg? -> convert to uint8 nifti
+        {
+            var tmp = new Uint8Array(byteImgData)
+            byteImgData = new Uint8Array(tmp.byteLength*8);
+            for (var k = 0; k < tmp.byteLength;k++)
+                for (var j = 0; j < 8;j++)
+                    byteImgData[k*8+j] = ((1 << j) & tmp[k])>0; 
+            
+        }
+        
+       if (extendedheader)
+       {    
+             var content = JSON.stringify(extendedheader) + "         ";
+             var rem = content.length%8;
+             for (var k = 0; k < rem;k++)
+                content += " ";
+             var extbuf 
+             if (typeof TextEncoder == "function")
+             {
+                 var utf8encoder = new TextEncoder()
+                 extbuf = utf8encoder.encode(content);
+             }
+             else 
+                 extbuf = Buffer.from(content, 'utf-8');
+             var len = extbuf.byteLength;
+             var vox_offset = 352+len;
+             view.setFloat32(108,vox_offset,littleEndian) 
+
+             var tmp = new Uint8Array(352 + len+  byteImgData.byteLength);
+             tmp.set(new Uint8Array(buffer), 0);
+             tmp.set(new Uint8Array(extbuf), 360);
+             tmp.set(new Uint8Array(byteImgData),len+buffer.byteLength);
+             
+             var view_ = new DataView(tmp.buffer);
+             view_.setInt32(348,1,littleEndian) 
+             view_.setInt32(352,len,littleEndian) 
+             view_.setInt32(352+4,0,littleEndian) 
+
+       }
+       else
+       {
+
+
+           // combine the header and the imageData
+           console.log("allocating buffer of size " + ((buffer.byteLength + byteImgData.byteLength)/2**20).toFixed(2) + "M shape:[" + sx + "," + sy + ","+ sz + ","+ st + ","+ st2 + "]" )
+           var tmp = new Uint8Array(buffer.byteLength + byteImgData.byteLength);
+           tmp.set(new Uint8Array(buffer), 0);
+           tmp.set(new Uint8Array(byteImgData), buffer.byteLength);
+       }
        return {buffer:tmp , edges:edges_};
     }
 
@@ -1194,6 +1491,7 @@ function DicomReader()
                 callback([]); 
                 return;
             }
+            params
 
             var fobj = {};
 		    fobj.URLType  = 'localfile';
@@ -1297,9 +1595,14 @@ function DicomReader()
             return;
         }
 
-
-        dicomFileList[0].progressSpinner('Converting dicoms ...');
-        readMultiFiles(dicomFileList, whendone,dicomFileList[0].progressSpinner );
+        var abort = undefined;
+        dicomFileList[0].progressSpinner('Converting dicoms ...', function ()
+                                         {
+                                             if (abort != undefined)
+                                                 abort();
+                                             params.to_be_aborted=true;
+                                         });
+        abort = readMultiFiles(dicomFileList, whendone,dicomFileList[0].progressSpinner );
     }
 
 
@@ -1404,18 +1707,27 @@ function DicomReader()
                         {
 
                           var tags = Object.keys(dictionary.series_map[keys[k]][mods[l]]);
+                          var tagsX = [];
+                          for (var s = 0; s < tags.length;s++)
+                          {
+                              if (tags[s] == 'seriesDescription')
+                                  tagsX[s] = 'seriesDescription_original';
+                              else
+                                  tagsX[s] = tags[s];
+                          }
+
                           if (keys[k] == "dti" && item.diffusion != false)
                              found = true;
                           else
                           {
                             for (var j = 0; j < tags.length;j++)
                             { 
-                                if (item[tags[j]])
+                                if (item[tagsX[j]])
                                 {
                                     var pats = dictionary.series_map[keys[k]][mods[l]][tags[j]];
                                     for (var i = 0; i < pats.length;i++)
                                     {
-                                       if (item[tags[j]].search(pats[i]) > -1)
+                                       if (item[tagsX[j]].search(pats[i]) > -1)
                                        {
                                           found = true;
                                           break;
@@ -1464,6 +1776,7 @@ function DicomReader()
                   item['seriesDescription'] = item['seriesDescription'].replace(/[\_]+/g, "_")
                   item['ProtocolName'] = item['ProtocolName'].replace(/[\_]+/g, "_")                   
                   item['Modifier'] = item['seriesDescription'].replace(item['ProtocolName'],'');
+                  item['seriesDescription_original'] = item['seriesDescription'];
                   item['seriesDescription'] =  item['seriesDescription'].replace(item['Modifier'],'');
 
                    if (item['Modifier'][0] == '_') 
@@ -1489,7 +1802,10 @@ function DicomReader()
 
 
                   if (item['seriesNumber'])
-                    item['seriesNumber'] =  ("00000" + item['seriesNumber']).slice(-3);
+                  {
+                      var tlen = Math.max(item['seriesNumber'].toString().length, 3);
+                      item['seriesNumber'] =  ("00000" + item['seriesNumber']).slice(-tlen);
+                  }
 
                   if (item['seriesSuffix'])
                     item['seriesNumber'] +=  item['seriesSuffix'];
@@ -1760,32 +2076,34 @@ function prepareRTstruct(item)
     for (var k = 0; k < x.length; k++)
     {
        var c = x[k].ContourSequence.node;
+       var bbox_min = [Infinity,Infinity,Infinity];
+       var bbox_max = [-Infinity,-Infinity,-Infinity];
        for (var j = 0; j < c.length; j++)
        {
            var l = c[j].ContourData;
            var len = l.length/3;
-           var bbox_min = [Infinity,Infinity,Infinity];
-           var bbox_max = [-Infinity,-Infinity,-Infinity];
            for (var i = 0;i < len;i++)
            {
-              // l[3*i+2] -= 1600;
+               // change world coordinates (!!)
+               l[3*i+0] = -l[3*i+0];
+               l[3*i+1] = -l[3*i+1];
                for (var r = 0; r < 3;r++)
                {
                   bbox_min[r] = Math.min(l[3*i+r],bbox_min[r]);
                   bbox_max[r] = Math.max(l[3*i+r],bbox_max[r]);
                }
            }
-           c[j].bbox_min  = bbox_min;
-           c[j].bbox_max  = bbox_max;
-
-
-           for (var r = 0; r < 3;r++)
-           {
-              bbox_min_glob[r] = Math.min( bbox_min_glob[r],bbox_min[r]);
-              bbox_max_glob[r] = Math.max( bbox_max_glob[r],bbox_max[r]);
-           }
 
        }
+       x[k].bbox_min  = bbox_min;
+       x[k].bbox_max  = bbox_max;
+
+       for (var r = 0; r < 3;r++)
+       {
+          bbox_min_glob[r] = Math.min( bbox_min_glob[r],bbox_min[r]);
+          bbox_max_glob[r] = Math.max( bbox_max_glob[r],bbox_max[r]);
+       }
+
     }
 
     x.min = bbox_min_glob;

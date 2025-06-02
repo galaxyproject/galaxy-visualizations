@@ -1,3 +1,5 @@
+
+
 #KView_mainFrame
 {
    -webkit-touch-callout: none;
@@ -164,14 +166,14 @@
     right:0%;
     z-index:90000;
     transform: translate(00%,-50%);
-    padding:20px;
+    padding:10px;
     display:flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap-reverse;
     flex-direction: column;
-    align-items: flex-end; 
+    galign-items: flex-end; 
     justify-content:         flex-end;
     background: rgba(0, 0, 100, 0.0);
-    width: calc(200px - 2px) !important;
+    width: calc(170px - 2px) !important;
     height:calc(100% - 2px) !important;
     box-sizing:border-box;
     __border:1px solid red;
@@ -181,27 +183,58 @@
 {
   box-sizing:content-box;
   line-height:1;
-  font-size:18px;
+  font-size:16px;
   line-height:auto;
   text-align:center;
-  text-shadow: 1px 1px 1px #000;
+  text-shadow: 0px 0px 0x #000;
   font-weight:normal;
   vertical-align:middle;
   color:  lightgray;
   border: 0px solid rgba(0,139,139,.8);
   border-radius:8px;
   padding:15px;
-  padding-top:30px;
+  padding-top:20px;
   margin: 10px;
   background: none;
   background: rgba(139, 0, 0, 0.6);
-
+ 
   edisplay: flex;
   justify-content: center; 
   align-items: center; 
 
-  height:70px !important;
+  gheight:60px !important;
 
+}
+.KView_viewportdropIndicator > div.atlasdrop
+{
+  border: 2px solid #AA2;
+  color:white;
+  opacity:0.85;
+}
+
+.KView_viewportdropIndicator > div.roidrop
+{
+  border: 2px solid #99F;
+  opacity:0.85;
+}
+
+
+.KView_viewportdropIndicator > div.fiberdrop
+{
+  border: 2px solid #FAA;
+  opacity:0.85;
+}
+
+.KView_viewportdropIndicator > div.ovldrop
+{
+  border: 2px solid white;
+  opacity:0.85;
+}
+
+.KView_viewportdropIndicator > div.surfcol
+{
+  border: 2px solid gray;
+  opacity:0.85;
 }
 
 
@@ -219,6 +252,7 @@
   padding-right:6px;
   margin-top:10px;
   margin-left:-5px;
+  
      
 }
 
@@ -360,8 +394,9 @@
     border:1px solid hsla(206, 64%, 37%,0.3);
     margin: 0px;
     flex: 1 1 auto;
-    min-width:20px;
+    min-width:0px;
     min-height:20px;
+    touch-action: none;
 
    -webkit-user-select: none;/* Chrome/Safari/Opera */
      
@@ -500,7 +535,7 @@
   
 }
 
-.KToolsTopMenu > li:nth-child(2)
+.KToolsTopMenu > li:nth-child(3)
 {
   margin-left:35px;
 }
@@ -511,6 +546,10 @@
   z-index:2;
   background:#551111; /*toolstopmenucolor*/
 
+
+}
+.KToolsTopMenu > li 
+{
 }
 
 .KToolsdragger > i 
@@ -623,6 +662,12 @@
   background:hsl(120, 100%, 25%)!important;
 }
 
+#autoloaderButtonDIV.disabled
+{
+  opacity:0.5;
+  
+  pointer-events:none;
+}
 
 .KView_tool_menu
 {
@@ -695,8 +740,10 @@
 .KView_tool_menu i:hover
 {
   color:hsl(0,0%,60%);
-  color: hsl(206, 64%, 77%);
+  color: hsl(206, 64%, 77%)!important;
+  _background:red!important;
   _text-shadow: 0 1px 1px rgba(0, 0, 0, .5);
+  cursor:pointer;
 }
 
 .KView_tool_menu li >  span
@@ -762,7 +809,6 @@
 {
   height:173px;
 }
-
 
 .KView_tool_menu_layoutSelectorTable
 {width:90px;height:142px;border:0px solid green;border-spacing: 3px;display:inline-block;box-sizing:content-box;line-height:1;border-collapse: separate;text-indent: initial;/* white-space: normal; *//* line-height: normal; *//* font-weight: normal; *//* font-size: medium; *//* font-style: normal; */color: -internal-quirk-inherit;/* text-align: start; *//* border-spacing: 2px; *//* font-variant: normal; */}
@@ -841,17 +887,10 @@
 
 
 
-
-
-
-
 .KViewPort_canvas
 {
-  border:0px solid white;
   height:100%;
   width:100%;
-  margin-top: 0px;
-  margin-top: 0px;
   z-index: 1;
   image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
   image-rendering: -webkit-optimize-contrast; /* Safari                        */
@@ -865,7 +904,7 @@
 
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
-  box-sizing: border-box;
+  box-sizing:border-box;
 
 }
 
@@ -873,6 +912,16 @@
 {
   image-rendering: auto;
 }
+
+
+.KViewPort_canvas_border
+{
+
+  border:1px solid white;
+  margin:-1px;
+}
+
+
 
 
 .KViewPort_canvas3D
@@ -998,7 +1047,7 @@
   overflow:scroll;
   width:100%;
   position:relative;
-  height:95%;
+  height:95%;  
   top:8px;
 }
 
@@ -1034,10 +1083,21 @@
  border-collapse: collapse;
  max-width:150px;
  position:relative;
- overflow:hidden;
+ boverflow:hidden;
 }
 
-.KViewPort_tableViewer td > span
+.KViewPort_tableViewer  td 
+{
+  user-select:text;
+  __user-select:none;
+}
+
+.KViewPort_tableViewer tbody td 
+{
+  overflow:hidden;
+}
+
+.__KViewPort_tableViewer td > span
 {
 
   overflow:hidden;
@@ -1049,7 +1109,7 @@
 }
 
 
-.KViewPort_tableViewer tbody td:hover > span
+.__KViewPort_tableViewer tbody td:hover > span
 {
   width:initial;
   position:relative;
@@ -1065,6 +1125,9 @@
 .KViewPort_tableViewer 
 {
   background:#F0F0FF; /*tableentry*/
+
+  border-collapse: separate;
+  border-spacing:0;
 }
 .KViewPort_tableViewer tr 
 {
@@ -1101,19 +1164,116 @@
 .KViewPort_tableViewer thead
 {
   background:lightgray;
+  position:sticky;
+  top:0;
+  z-index:10;
+  border: 2px solid gray;
+
 }
 
 .KViewPort_tableViewer thead td
 {
 
-  z-index:2;
+  __z-index:2;
   color:black;
-  border-right: 1px solid green;
+  border: 0.1px solid gray;
   cursor:inherit;
-  background:lightgray;
-
+  background:linear-gradient(-20deg, #BBB, #DDD); 
+    
  
 }
+.KViewPort_tableViewer thead td:hover > span
+{
+  position:relative;
+  z-index:1;
+  background:white;
+}
+
+.KViewPort_tableViewer thead td > span
+{
+    
+  overflow:visible;  
+  text-wrap:wrap;
+  pointer-events:none;
+}
+
+
+
+.tablestatinfo
+{
+  position:relative;
+ 
+}
+.tablesettarget:hover
+{
+  background:lightblue;
+  color:black;
+  cursor:pointer;
+}
+.tablesettarget
+{
+  position:absolute;
+  display:inline-block;
+  float:right;
+  background:gray;
+  color:white;
+  border: solid 1px black;
+  border-radius:5px;
+  font-size:13px;
+  padding-left:2px;
+  padding-right:2px;
+  margin:0px;
+  right:0px;
+  top:0px;
+  box-shadow: 2px 2px 9px gray;
+  
+
+}
+.tabledeactivate
+{
+  position:absolute;
+  display:inline-block;
+  background:gray;
+  color:white;
+  border: solid 1px black;
+  border-radius:5px;
+  font-size:13px;
+  padding:2px;
+  top:20px;
+  left:-20px;
+  box-shadow: 2px 2px 9px gray;
+  
+}
+.tabledeactivate:hover
+{
+  background:lightblue;
+  color:black;
+  cursor:pointer;
+}
+
+.combiflag
+{  
+ display:none;
+ background:gray;
+ color:white;
+ border-radius:4px;
+ border: solid 1px black;
+ margin-right:3px;
+ margin-top:3px;
+ box-shadow: 2px 2px 9px gray;
+
+}
+
+.combicol
+{
+
+  display:initial;
+  pointer-events:none;
+  position:absolute;
+  right:0px;
+  top:0px;
+}
+
 .tabcolselected
 { 
   background-color:yellow !important;
@@ -1121,6 +1281,11 @@
 .tabcolselectedALT
 { 
   background-color:green !important;
+}
+
+.tabcolselectedALT2
+{ 
+  background-color:lightblue !important;
 }
 
 .KchartOptions:hover
@@ -1183,7 +1348,6 @@
   box-shadow: 2px 2px 9px gray;
     
 
-
 }
 
 .Kchartstats:hover,.visible
@@ -1197,10 +1361,12 @@
 .Kchartstats.visible > div
 {
   display:block;
+  
 }
 .Kchartstats:hover > div
 {
   display:block;
+  
 }
 
 
@@ -1222,8 +1388,13 @@
 {
   display:none;
   margin-top:5px;
+  
 }
 
+.Kchartstats
+{
+
+}
 
 .KViewPort_txtViewer
 {
@@ -1291,6 +1462,22 @@
   __background:green;
 }
 
+.KViewPort_txtViewer_txtsearch
+{
+  background:hsl(0,0%,95%);
+}
+
+.KTxtViewerEditor
+{
+  
+  
+}
+
+.KTxtViewerEditor > .CodeMirror
+{
+  height:100%;
+  top:6px;
+}
 
 .KViewPort_jsonViewer
 {
@@ -1309,6 +1496,20 @@
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
   box-sizing: border-box;
+
+}
+
+.KViewPort_icontainer > .extralogo
+{
+  display:inline-block;
+  position:absolute;
+  z-index:1;
+  transform: translate(-50%, -5%);
+  top:0%; 
+  left:50%;
+  width:95%;
+  opacity:0.85;
+  pointer-events:none;
 
 }
 
@@ -1420,7 +1621,7 @@
   box-shadow: 2px 2px 9px hsla(0,0%,50%,.7);
   
 }
-
+ 
 .KViewPort_icontainer
 {
   /*z-index:2;*/
@@ -1494,7 +1695,7 @@
   color: none;
   padding: 0px;
   cursor: default;
-  z-index:3;
+  z-index:2;
 
 }
 
@@ -1585,6 +1786,15 @@
 
 }
 
+
+span.KViewPort_movie_tool 
+{
+  position:relative;
+  width:auto;
+  right:1px;
+  background: none;
+  color:white;
+}
 
 
 .KViewPort_movie_tool
@@ -1781,8 +1991,10 @@
   opacity:0.4; 
   background:transparent;
   color:gray;
-  width:30px;
+  width:5px;
+  margin-right:12px;
   float:right;
+  
 }
 
 .KViewPort_tool.surface
@@ -1806,6 +2018,12 @@
 .KViewPort_tool.atlas
 {
    background: linear-gradient(to top left, #FF7, #FFF);
+   color:black;
+}
+
+.KViewPort_tool.atlas.active
+{
+   background: orange !important;  
    color:black;
 }
 
@@ -1882,9 +2100,14 @@
 
 
 .KViewPort_tool_enabled
-{
-   background: #e60000 !important;
+{   
    background: darkred !important;
+}
+
+
+.KViewPort_tool_enabled_alt
+{
+   background: #F00 !important;
 }
 
 
@@ -2014,10 +2237,11 @@
 
   border:0px solid white;
   top:70px;
-  left:10px;
+  left:0px;
   z-index:1000;
   font-size:15px;
   border-radius:5px;
+  width:100%;
 
 }
 .KViewPort_autoLoaderLiveEdit > div
@@ -2029,10 +2253,11 @@
 
 .KViewPort_autoLoaderLiveEdit textarea
 {
-  width:300px;
-  height:30px;
+  _width:300px;
+  width:95%;
+  height:50px;
   background: rgba(200, 200, 200, 1);
-  font-size:10px;
+  font-size:15px;
 }
 .KViewPort_autoLoaderLiveEdit textarea
 {
@@ -2043,7 +2268,7 @@
 {
   position:absolute;
   top:0px;
-  right:1px;
+  right:10px;
   background:darkred;
   padding:5px;
   width:18px;
@@ -2264,9 +2489,24 @@
 
 }
 
+.haircrossFocus_new  .fa-circle-o:hover
+{
+  color:red;
+}
+
+.haircrossFocus_new  .fa-circle-o
+{
+   z-index:-1 !important;
+   position:absolute;
+   top:50%;
+   font-size:120px;
+   width:0px;
+   height:0px;
+   opacity:0.3;
+      
+}
+
 /*end of haircrossFocus_new*/
-
-
 
 
 #KseriesViewerMin
@@ -2676,8 +2916,7 @@ border-color: #007bff;
 {
   cursor:default;
   background:none;
-  border:2px solid;
-  border-color: red;
+  border:2px solid;  
   border-radius: 50%;
   position:absolute;
   
@@ -2985,7 +3224,7 @@ border-color: #007bff;
 {
   color:black;
   font-weight:bold;
-  background:hsla(0,0%,90%,.6);
+  background:hsla(0,0%,90%,1);
   padding:5px;
   border-radius:5px;
   position:absolute;
@@ -2993,13 +3232,15 @@ border-color: #007bff;
   left:100%;
   width:auto;
   display:none;
+
 }
 
-.markerpoint:hover .markerpoint_props, .markerrectangle:hover .markerpoint_props
+
+/*.markerpoint:hover .markerpoint_props, .markerrectangle:hover .markerpoint_props
 {
   z-index:100;
   display:block;
-}
+}*/
 
 
 .markerROIStats 
@@ -3095,7 +3336,7 @@ border-color: #007bff;
 
 .markerpoint_coords .pointcomment
 {
-  width:130%!important;
+  width:110%;
   box-sizing:border-box;
   border-radius:0px;
 }
@@ -3182,7 +3423,15 @@ border-color: #007bff;
 .markerpointrow_info > div
 {
  margin-right:4px;
+ 
 }
+
+.infohover > div > div 
+{
+ color:black;
+ z-index:100;
+}
+
 /* the toolbar at the right side, find, delete ... */
 .markerpointrow_info .markerpointrow_tools
 {
@@ -3209,12 +3458,13 @@ border-color: #007bff;
   margin:0px!important;
 }
 
-
 .markerset_colselector
 {
   float:right;
   margin:-2px;
+  height:13px;
   margin-left:2px;
+  width:10px;
 }
 
 .markerset_row
@@ -3229,6 +3479,31 @@ border-color: #007bff;
 
 .annotation_info
 {
+
+}
+
+.KannoInfo > div
+{ 
+  display:none;
+}
+
+.KannoInfo:hover > div
+{ 
+   display:block;
+   position:absolute;
+   
+   color:black !important;
+   padding:10px;
+   border-radius:5px;
+   border: 1px solid black;
+   background:white;
+   width:70%;
+   left:20%;
+
+   z-index:10;
+
+   white-space:break-spaces;
+
 
 }
 
@@ -3287,6 +3562,20 @@ border-color: #007bff;
 {
  float:left;
     
+}
+
+.markerset_title > .togglemarker
+{
+  float:left;
+  border: solid 2px;
+  border-radius:5px;
+  margin-left:-2px;
+  height:14px;
+  margin-top:-2px;
+  text-align:center;
+  width:18px;
+  background:#FFFFAA;
+  
 }
 
 .markerset_row_active
@@ -3409,6 +3698,9 @@ border-color: #007bff;
 .annotation_point_hovered
 {
   box-shadow: 0 0 15px !important;
+  opacity:1 !important;
+  z-index:1000;
+
   /* border-color: rgba(81, 203, 238,1)!important; */
 }
 
@@ -3689,6 +3981,7 @@ border-color: #007bff;
   border-radius:3px;
 
   margin: 1px;
+  margin-left:3px;
   border: 0px solid gray;
   width: auto;
   height: auto;
@@ -3720,7 +4013,11 @@ border-color: #007bff;
  }
 
 
-
+.deformable > span
+{
+  
+  margin:4px 10px 4px 2px;
+}
 
 .annotation_tool_elemDIV table
 {
@@ -3774,6 +4071,22 @@ border-color: #007bff;
   border-right: 1px solid black;
   width:0px;
 }
+
+.annotation_tool_elemDIV table.deformable th 
+{
+    text-align:left;
+    padding-left:4px;
+
+    
+}
+
+.annotation_tool_elemDIV table.deformable th i
+{
+  float:right;
+  margin:1px;
+  border: 1px solid black;
+}
+
 
 .annotation_tool_elemDIV .tr_hovered input
 {
@@ -3935,15 +4248,23 @@ border-color: #007bff;
   transform:translate(0%,-30%)
 }
 
+.KPickerPanelCRow
+{
+  _max-height:400px;
+  overflow-y:scroll;
+  position:relative;  
+}
+
 
 .KPickerPanelLargeHead
 {
   position:relative;
   margin-top:15px;
-  width:300px;
+  width:80%;
   margin-left:20px;
   box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/ 
   padding:30px;  
+  margin-bottom:15px;
     
 }
 
@@ -3961,6 +4282,16 @@ border-color: #007bff;
    background:red;
    color:yellow;
     
+}
+
+.KPickerPanelDropArea
+{
+  position:absolute;
+  bottom:0px;
+  width:100%;
+  margin-bottom:5px;
+  
+  
 }
 
 .KPickerPanelLargeHead > span:first-child
@@ -4009,15 +4340,26 @@ border-color: #007bff;
 
 .KPickerPanelRow
 {
-  height:60px;
+  height:100%;
   bottom:0px;
   border:2px;
   display:flex;
   align-items:flex-end;
   justify-content:center;
   margin-bottom:13px;
+  position:relative;
   
 
+}
+
+
+
+.KChartPickerCanvas
+{
+  position:relative;
+  background:white;
+  top:0px;
+  fwidth:400px !important;
 }
 
 .KPickerPanelRow > span:first-child
@@ -4150,18 +4492,31 @@ border-color: #007bff;
   background:rgba(255,75, 212, .2);
   pointer-events:none;
 }
+.roiToolPanelContainer
+{
+  overflow-y:scroll !important;
+  display:inline-block;
+  width:135px;
+ 
+}
 
+.roiToolTableContainer{
+  display:inline-block;
+  overflow:scroll;
+  width:80%;
+}
 
 .roiToolContainer 
 {
   margin-top:3px;
-  display:flex;
-  flex-direction:horizontal;
-  overflow-y:auto;
-  overflow-x:hidden;
-  flex-grow:1;
+  ddisplay:flex;
+  dflex-direction:horizontal;
+  overflow:hidden;
+  dflex-grow:1;
   box-sizing:border-box;
   height:calc(100% - 30px)!important;
+  white-space:nowrap;
+  
 
   /*
   border:5px solid white;
@@ -4176,8 +4531,8 @@ border-color: #007bff;
 }
 .roiToolContainer > div:nth-child(2) /* the file list */
 {
-  padding:0px;
-  overflow:auto;
+  dpadding:0px;
+  doverflow:auto;
 }
 
 
@@ -4187,13 +4542,13 @@ border-color: #007bff;
 {
   padding-left:2px;
   width:120px;
-  height:100%;
+  height:500px;
   background: rgba(99, 99, 99, 0.99);
   margin-right:6px;
   padding-right:2px;
   z-index:2;
   _border:1px solid red;
-
+  touch-action: none;
   
 }
 
@@ -4251,7 +4606,7 @@ border-color: #007bff;
 {
   box-shadow: 15px 15px 25px hsla(0, 0%, 10%, .7); /*boxshadow*/
   padding-left:0px;
-  width:120px;
+  awidth:120px;
   height:100%;
   background: rgba(99, 99, 99, 0.99);
   margin-right:6px;
@@ -4275,10 +4630,13 @@ border-color: #007bff;
 
 .panel_toprow
 {   
+/*
    margin-top:-24px;
+   height:20px;
+   */
+   height:25px;
    background:#226699; /*menucolor*/
    overflow:hidden;
-   height:24px;
 
 }
 .panel_toprow > .fa-close
@@ -4288,15 +4646,24 @@ border-color: #007bff;
   top:1px;
   margin-top:0px;
 }
-.panel_toprow > span
+.panel_toprow > .mini
 {
+  position:absolute;
+  right:25px;
+  top:1px;
+  margin-top:0px;
+}
+
+.panel_toprow >span
+{
+
   white-space:nowrap;
   margin-left:4px;
 }
 
 .roiTool_panel_flex 
 {
-
+ 
   display:flex;
   flex-directions:column;
   cdjustify-content: flex-end;
@@ -4319,7 +4686,7 @@ border-color: #007bff;
 
 }
 
-
+ 
 .roiTool_panel > div
 {
   border-radius:0px; /*border-radius*/
@@ -4381,6 +4748,7 @@ border-color: #007bff;
   width:28px;
   text-align:right;
   padding-right:1px;
+  margin-left:5px;
 }
 
 
@@ -4394,9 +4762,9 @@ border-color: #007bff;
 
 .floatingViewporthidetitle > .panel_toprow
 {
-  width:20%;
+  width:50%;
   height:24px;
-  left:80%;
+  left:50%;
   top:2px;
   border-radius:4px;
   border:1px solid black;
@@ -4506,6 +4874,13 @@ border-color: #007bff;
   top:70px;
   _background: rgba(199, 199, 199, 0.6);
   height:auto;
+
+}
+
+.panel_floatable_simple_resize
+{
+  overflow:hidden;
+  resize:both;  
 }
 
 
@@ -4528,6 +4903,16 @@ border-color: #007bff;
   
   
 }
+
+.infohover
+{  
+  display: block !important;
+  
+  color:black !important;  
+  opacity:1 !important;
+  z-index:10000;
+}
+
 
 .roiTool_panel ul
 {
@@ -4714,13 +5099,14 @@ border-color: #007bff;
 
 .atlaslabeltable
 {
-  height:300px;
+  height:calc(100% - 50px);  
   width:auto;
 }
 
 .atlaslabeltable > table
 {
   top:-2px;
+  padding-bottom:20px;
 }
 
 .atlaslabelhead > tr > td
@@ -4742,6 +5128,12 @@ border-color: #007bff;
   overflow: visible; 
   background:lightgreen;
 
+}
+
+
+.atlaslabeltable > .KViewPort_tableViewer tbody td 
+{
+  user-select:none;
 }
 
 .KSearchHTML 
@@ -4920,12 +5312,29 @@ border-color: #007bff;
 
 }
 
+
 .menu_context i
 {
   position:absolute;
   right:5px;
   top:5px;  
 }
+
+
+
+.menu_context i.rightaligned
+{
+  position:relative;
+  
+  top:0px !important;
+  margin-right:2px;  
+  right:-10px !important;
+  
+  
+
+}
+
+
 
 
 .menu_context i.button
@@ -4957,7 +5366,10 @@ border-color: #007bff;
 
 .menu_context .button:hover
 {
-  color:red;
+  color:black;
+  background:white;
+  border: 1px solid red;
+  
 }
 
 
@@ -5038,10 +5450,15 @@ border-color: #007bff;
   text-shadow: 0 1px 1px rgba(0, 0, 0, .1);
 }
 
+.menu_context li.inactive
+{
+color:#777;
+}
+
 .menu_context li.inactive:hover
 {
   background:none;
-  color: #000!important;
+color:#777 !important;
   text-shadow:none!important; 
 }
 
@@ -5182,9 +5599,9 @@ color:yellow;
 background:rgba(0,0,0,1);
 z-index:2;
 width:0px;
-pointer-events:none;
-font-size:25px;
-  text-shadow: 2px 2px 2px #000;
+spointer-events:none;
+font-size:20px;
+  text-shadow: 1px 1px 1px #555;
 
 }
 
@@ -5210,16 +5627,36 @@ font-size:25px;
 .Kcurveinfo
 {
   position:absolute;
-  z-index:2 !important;
+  z-index:1 !important;
   right:2px;
-  height:18px;
+  height:15px;
   font-size:10px;
   border:4px solid black;
   padding-left:3px;
   padding-right:3px;
-  opacity:0.6;
+  opacity:0.9;
   user-select: text;
- 
+  font-size:13px;
+
+}
+.Kcurveinfo .curvesetting
+{
+  position:relative;
+  display:inline-block;
+  color:black;
+  background:gray;
+  padding:2px;
+  top:-1px !important;
+  left:6px;
+  fborder: white solid 1px;
+  border-radius:3px;
+
+
+}
+.Kcurveinfo .curvesetting:hover
+{
+  background:white;
+  cursor:pointer;
 
 }
 
@@ -5330,8 +5767,12 @@ font-size:25px;
 
 .Kchart
 {
-  background:white;
-position:absolute;
+  background:white;  
+  position:absolute;
+  padding-top:0px;
+  padding-bottom:30px;
+  padding-right:0px;
+  overflow:hidden;
 
 }
 
@@ -5339,4 +5780,180 @@ position:absolute;
 {
   position:relative;
   height:20px;
+}
+
+.outline_label
+{
+
+  font-size:15px;
+  z-index:1000!important;  
+  max-width:100px;
+  position:absolute;  
+  display:inline-block;
+  transform: translate(-50%,-50%);
+  text-shadow: 1px 1px 1px #000;
+  pointer-events:none;
+ 
+}
+
+.inputclim_contextmenu
+{
+  max-width:60px;
+  
+}
+
+.KTableViewerBox
+{
+  user-select:text;
+  
+  overflow:scroll;
+  height: calc(100% - 53px);
+}
+
+
+.KTableViewerBox_ava
+{
+  user-select:text;  
+  overflow:scroll;
+  height: calc(100%);
+}
+
+.KTableViewerBox_ava > table
+{
+  margin-top:20px;
+}
+
+.KTableCorrmat
+{
+  
+  position:relative;
+  left:5%;
+  width:90%;
+  
+  background:darkgray;
+  color:black;
+}
+
+.Kchart .modernbuttongroup
+{
+  flex-wrap: nowrap;
+}
+
+.corrmatheading
+{
+  display:inline-block;
+
+  font-size:12px;
+  padding-top:0px;
+  padding-bottom:5px;    
+  padding-left:10px;
+  color:black !important;
+
+}
+
+.KTableCorrmat  thead td {
+  font-weight:bold;
+  background:#CCC;
+}
+
+.KTableCorrmat  thead td > span {
+  background:#CCC;
+}
+
+.KTableCorrmat td {
+  border: 1px solid black;
+  border-collapse: collapse;
+  background:whitesmoke;
+  text-align:center;
+  max-width:80px;
+  font-size:15px;
+}
+
+.KTableCorrmat td:first-child {
+  max-width:unset;
+}
+
+.KTableCorrmat td
+{
+  overflow:hidden;
+}
+.KTableCorrmat td span
+{
+
+  bbackground:whitesmoke;
+
+}
+
+.KTableCorrmat td:hover
+{
+  overflow:visible;
+  z-index:99;
+}
+
+.KTableCorrmat td:hover > span
+{
+  position:relative;
+  background:whitesmoke;
+}
+
+
+.KTableCorrmat td.button {
+  cursor:pointer;
+}
+
+.KTableCorrmat td.button:hover {
+  background:lightgray !important;
+  
+}
+
+.Ktablecolsel {
+  width:100%;  
+
+}
+
+.Ktablecolsel td {
+  border: 1px solid;  
+}
+
+.Kjsoninlinechart {  
+  background:white;
+  border: black solid;
+  height:50px;
+  width:90%;
+  
+}
+.Kjsoninlinechart > div {
+  position:absolute;
+  color:white;
+  top:-18px;
+  left:25px;
+  cursor:pointer;
+  
+}
+.jsoncontenteditable > div:hover {
+  background:yellow;
+  color:black;
+  width:auto;
+}
+.Kjsoninlinechart > svg
+{
+  width:100%;
+  height:100%;
+  transform: scale(1, -1);
+  
+}
+
+html {
+  -webkit-touch-callout: default;
+}
+
+.KViewPort_ViewerJS
+{
+  overflow-x:scroll;
+  overflow-y:scroll;
+}
+
+.KViewPort_ViewerJS > canvas
+{
+  position:relative;  
 }

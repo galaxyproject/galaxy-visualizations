@@ -1244,11 +1244,11 @@ function KPickingPanel(mset)
     panel.closeOnCloseAll = true
 	var $container = panel.$container;
 
-
+	 panel.$container.addClass("panel_floatable_simple_resize");
 	var cid = -1;
-    var $contrastsRow = $("<div ></div>").appendTo(panel.$container);
+    var $contrastsRow = $("<div class='KPickerPanelCRow'></div>").appendTo(panel.$container);
 
-    var $fileRow2 = $("<div class='panel'></div>").appendTo(panel.$container);
+    var $fileRow2 = $("<div class='KPickerPanelDropArea' ></div>").appendTo(panel.$container);
 
 
 
@@ -1317,20 +1317,48 @@ function KPickingPanel(mset)
      	var nii = c.content;
      	var invedges = math.inv(nii.edges);
      	var volsz =  nii.sizes[0]*nii.sizes[1]*nii.sizes[2];
-     
+
         var points = mset.getPoints();
         var res = [];
-        for (var j = 0; j < points.length;j++)
-        {
-        	if (points[j].p.name != "tip" & points[j].p.name != "end" )
-        	{
-				var point = points[j].p.coords;
+
+		if (points.length > 0)
+		{
+			if (mset.type == 'freeline')
+			{
 				var vals = [];
-				for (var k = 0;k < nii.numTimePoints;k++)
-					   vals.push(Math.abs(trilinInterp(nii, point[0], point[1], point[2], invedges._data, volsz*k)))
-				res.push({name:points[j].p.name,vals:vals})
-        	}
-        }
+				var k = 0;
+		        for (var j = 0; j < points.length-1;j++)
+		        {
+				    var N;
+					var N = points[j].p.coords.map((x,y) => -(points[j].p.coords[y]-points[j+1].p.coords[y]));
+					var p = points[j].p.coords;
+					var norm = Math.sqrt(N.map((x) => x*x).reduce((x,y)=>x+y,0))
+					var np = Math.round(norm)*10;
+					for (var i = 0; i < np;i++)
+					{
+					   vals.push(Math.abs(trilinInterp(nii, p[0]+i/np*N[0], 
+														    p[1]+i/np*N[1],
+														    p[2]+i/np*N[2], invedges._data, volsz*k)))
+					}
+		        	
+		        }			
+				res.push({name:points[j].p.name,vals:vals,type:'chart'})
+			}
+			else
+			{
+		        for (var j = 0; j < points.length;j++)
+		        {
+		        	if (points[j].p.name != "tip" & points[j].p.name != "end" )
+		        	{
+						var point = points[j].p.coords;
+						var vals = [];
+						for (var k = 0;k < nii.numTimePoints;k++)
+							   vals.push(Math.abs(trilinInterp(nii, point[0], point[1], point[2], invedges._data, volsz*k)))
+						res.push({name:points[j].p.name,vals:vals})
+		        	}
+		        }
+			}
+		}
         return res;
      }
 
@@ -1377,6 +1405,60 @@ function KPickingPanel(mset)
 
 						$("<div class=KPickerPanelRow>" + str + "</div").appendTo($c);
 					}
+					else if (res[j].type == 'chart')
+					{
+						var data = [];
+						for (var l = 0; l < res[j].vals.length;l++)
+							data.push({x:l,y:res[j].vals[l]})
+
+
+							var charty = {
+								data: {
+									datasets: [{
+										type:'line',
+										label: name,
+										borderColor:"rgba(255,0,0,1)",
+										pointColor: 'rgba(0,255,0,1)',					
+										fill:false,
+										data: data
+									}
+									]
+								},
+								options: {
+											
+									maintainAspectRatio:true,
+					
+									scales: {
+										xAxes: [{
+											type: 'linear',
+											position: 'bottom',
+											/*  scaleLabel: {
+												display: true,
+												labelString: 'somex'
+											  }*/
+										}],
+										yAxes: [{
+											type: 'linear',
+											position: 'left',
+											  /*scaleLabel: {
+												display: true,
+												labelString: 'somey'
+											  }*/
+										}]
+									}
+								}
+							}
+
+
+						var row = $("<div class=KPickerPanelRow></div").appendTo($c);
+						var canvas = $('<canvas class="KChartPickerCanvas" ></canvas>').appendTo(row)
+					    var ctx = canvas[0].getContext("2d");						
+						var currentChart = new Chart(ctx,charty); 
+
+
+
+
+					}
 					else
 					{
 						var maxi = math.max(res[j].vals);
@@ -1390,6 +1472,8 @@ function KPickingPanel(mset)
 					}
 
 
+
+					
 
 
 				}
