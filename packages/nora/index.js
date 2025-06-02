@@ -92,51 +92,49 @@ console.log(window.location.href);
 
 stateManager.setDefaultState(); 
 
+// Access container element
+const appElement = document.querySelector("#app");
 
-_.extend(window.bundleEntries || {}, {
-    load: function(options) {
-        var chart = options.chart;
+// Access attached data
+const incoming = JSON.parse(appElement.dataset.incoming || "{}");
+const datasetId = incoming.visualization_config.dataset_id;
+const root = incoming.root;
+const metaUrl = `${root}api/datasets/${datasetId}`;
+const url = `${metaUrl}/display`;
 
-			var $t = $(document.getElementById( options.targets[ 0 ]))
-
-			var KViewer = new KView($t.parent());
-			$t.remove();
-
-			KViewer.crosshairMode = true;
-			KViewer.showInfoBar = true;
-			KViewer.globalCoordinates = true;
-			KViewer.startImageLoader = startImageLoader;
-
-			addKeyboardShortcuts()
-
-			ViewerSettings.nVisibleCols = 2
-			ViewerSettings.nVisibleRows = 2
-			ViewerSettings.nVisibleBarports = 0;
-
-			KViewer.ViewerSettings = ViewerSettings;
-			KViewer.defaultFOV_mm = 220;
-
-			KViewer.$screenShot.hide()
-			KViewer.$iron.hide()
-
-			KViewer.applyState()
-
-			//var intendedName = options.dataset.name.replace(/\.gz/g,"")
-			var intendedName = options.dataset.name;
-			var filetype = options.dataset.extension;
-		
-			//	KViewer.setViewPortLayout();
-
-
-
-			console.log(options.dataset);
-  		    var loader = [{url: window.location.host+options.dataset.download_url, 
-				  intendedName: intendedName,
-				  filetype: filetype,
-				  intent: {  }  }   ];
-		    KViewer.startImageLoader(loader,function() {});
-
-       
-        
+async function getData(url) {
+    try {
+        const { data } = await $.get(url);
+        return data;
+    } catch (e) {
+        showMessage("Failed to retrieve data.", e);
     }
-});
+}
+
+async function render() {
+    var KViewer = new KView(appElement);
+
+    KViewer.crosshairMode = true;
+    KViewer.showInfoBar = true;
+    KViewer.globalCoordinates = true;
+    KViewer.startImageLoader = startImageLoader;
+
+    addKeyboardShortcuts()
+
+    ViewerSettings.nVisibleCols = 2
+    ViewerSettings.nVisibleRows = 2
+    ViewerSettings.nVisibleBarports = 0;
+
+    KViewer.ViewerSettings = ViewerSettings;
+    KViewer.defaultFOV_mm = 220;
+    KViewer.$screenShot.hide()
+    KViewer.$iron.hide()
+    KViewer.applyState()
+
+    const metaData = await getData(metaUrl);
+
+    var loader = [{url: url, intendedName: metaData.name, filetype: metaData.extension, intent: {}}];
+    KViewer.startImageLoader(loader,function() {});
+}
+
+render();
