@@ -104,14 +104,15 @@ const url = `${metaUrl}/display`;
 
 async function getData(url) {
     try {
-        const { data } = await $.get(url);
-        return data;
+        return await $.get(url);
     } catch (e) {
-        showMessage("Failed to retrieve data.", e);
+        console.error("Failed to retrieve data.", e);
     }
 }
 
 async function render() {
+    const metaData = await getData(metaUrl);
+
     var KViewer = new KView(appElement);
 
     KViewer.crosshairMode = true;
@@ -130,8 +131,6 @@ async function render() {
     KViewer.$screenShot.hide()
     KViewer.$iron.hide()
     KViewer.applyState()
-
-    const metaData = await getData(metaUrl);
 
     var loader = [{url: url, intendedName: metaData.name, filetype: metaData.extension, intent: {}}];
     KViewer.startImageLoader(loader,function() {});
