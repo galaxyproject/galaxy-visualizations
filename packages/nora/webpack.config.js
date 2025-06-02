@@ -36,7 +36,7 @@ module.exports = {
             patterns: [
                 { from: "nora.xml", to: "static/nora.xml" },                
                 { from: "nora.svg", to: "static/logo.svg" },                
-                { from: htdocs + "/logo_template.svg", to: dist+"logo.svg" },                
+                { from: htdocs + "/logo.svg", to: dist+"logo.svg" },
                 { from: htdocs + "/babylon.js", to: dist+"babylon.js" },
                 { from: htdocs + "/babylon.objFileLoader.js", to: dist+"babylon.objFileLoader.js" },
                 { from: htdocs + "/models3d/LowPolyGirl.obj", to: dist+"models3d/LowPolyGirl.obj" },
