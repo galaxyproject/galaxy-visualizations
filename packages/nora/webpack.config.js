@@ -34,7 +34,7 @@ module.exports = {
         new MiniCssExtractPlugin(),
         new CopyPlugin({
             patterns: [
-                { from: "nora.xml", to: "config/nora.xml" },                
+                { from: "nora.xml", to: "static/nora.xml" },                
                 { from: "nora.png", to: "static/logo.png" },                
                 { from: htdocs + "/logo_template.svg", to: dist+"logo.svg" },                
                 { from: htdocs + "/babylon.js", to: dist+"babylon.js" },
