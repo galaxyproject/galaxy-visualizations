@@ -100,7 +100,6 @@ const incoming = JSON.parse(appElement.dataset.incoming || "{}");
 const datasetId = incoming.visualization_config.dataset_id;
 const root = incoming.root;
 const metaUrl = `${root}api/datasets/${datasetId}`;
-const url = `${metaUrl}/display`;
 
 async function getData(url) {
     try {
@@ -110,10 +109,15 @@ async function getData(url) {
     }
 }
 
+function getUrl(datasetId) {
+    const rootWithoutProtocol = root.replace(/^[a-z]+:\/\//i, '');
+    return `${rootWithoutProtocol}api/datasets/${datasetId}/display`;
+}
+
 async function render() {
     const metaData = await getData(metaUrl);
 
-    var KViewer = new KView(appElement);
+    var KViewer = new KView($(appElement).parent());
 
     KViewer.crosshairMode = true;
     KViewer.showInfoBar = true;
@@ -132,7 +136,7 @@ async function render() {
     KViewer.$iron.hide()
     KViewer.applyState()
 
-    var loader = [{url: url, intendedName: metaData.name, filetype: metaData.extension, intent: {}}];
+    var loader = [{url: getUrl(datasetId), intendedName: metaData.name, filetype: metaData.extension, intent: {}}];
     KViewer.startImageLoader(loader,function() {});
 }
 
