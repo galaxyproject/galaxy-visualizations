@@ -81,17 +81,6 @@ import "script-loader!./htdocs/KView/KView.js";
 import "script-loader!./htdocs/zip/zip.js";
 import "script-loader!./htdocs/zip/inflate.js";
 
-
-
-setNORAenv({
-	url_pref: window.location.origin + "/static/plugins/visualizations/nora/static/dist/" 
-})
-
-console.log("starting NORA's viewer");
-console.log(window.location.href);
-
-stateManager.setDefaultState(); 
-
 // Access container element
 const appElement = document.querySelector("#app");
 
@@ -116,6 +105,14 @@ function getUrl(datasetId) {
 
 async function render() {
     const metaData = await getData(metaUrl);
+
+    setNORAenv({
+        url_pref: root + "static/plugins/visualizations/nora/static/dist/"
+    })
+
+    console.debug("starting NORA's viewer");
+
+    stateManager.setDefaultState();
 
     var KViewer = new KView($(appElement).parent());
 
