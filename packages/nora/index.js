@@ -1,7 +1,3 @@
-import * as _ from "underscore";
-/*
-import "script-loader!./htdocs/jquery-1.11.2.min.js";
-*/
 //import "script-loader!./htdocs/font-awesome-4.5.0/css/font-awesome.min.css";
 import "script-loader!./htdocs/dicom/daikon.js";
 import "script-loader!./htdocs/dicom/dicomReader.js";
