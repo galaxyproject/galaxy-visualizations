@@ -17,7 +17,6 @@
             <test test_attr="ext" result_type="datatype">gii</test>
             <test test_attr="ext" result_type="datatype">gii.gz</test>
             <test test_attr="ext" result_type="datatype">png</test>
-            <test test_attr="ext" result_type="datatype">binary</test>
             <test test_attr="ext" result_type="datatype">jpg</test>
         </data_source>
     </data_sources>
