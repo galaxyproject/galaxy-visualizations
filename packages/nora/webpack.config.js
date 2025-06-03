@@ -54,8 +54,8 @@ module.exports = {
                     loader: "file-loader",
                     options: {
                         name: "[name].[hash].[ext]",
-                        outputPath: "/static/assets",
-                        publicPath: "/static/plugins/visualizations/nora/static/assets",
+                        outputPath: "static/assets",
+                        publicPath: "../../../static/plugins/visualizations/nora/static/assets",
                     },
                 },
             },
