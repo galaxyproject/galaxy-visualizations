@@ -4,19 +4,13 @@
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
-            <test test_attr="ext">analyze75</test>
             <test test_attr="ext">gii</test>
             <test test_attr="ext">gii.gz</test>
-            <test test_attr="ext">jpg</test>
             <test test_attr="ext">nii1</test>
             <test test_attr="ext">nii1.gz</test>
             <test test_attr="ext">nii2</test>
             <test test_attr="ext">nii2.gz</test>
             <test test_attr="ext">nrrd</test>
-            <test test_attr="ext">png</test>
-            <test test_attr="ext">stl</test>
-            <test test_attr="ext">tck</test>
-            <test test_attr="ext">trk</test>
         </data_source>
     </data_sources>
     <params>
