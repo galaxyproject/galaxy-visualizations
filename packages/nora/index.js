@@ -1,4 +1,3 @@
-//import "script-loader!./htdocs/font-awesome-4.5.0/css/font-awesome.min.css";
 import "script-loader!./htdocs/dicom/daikon.js";
 import "script-loader!./htdocs/dicom/dicomReader.js";
 
@@ -7,6 +6,7 @@ import "./htdocs/alertify.core.css";
 import "./htdocs/alertify.default.css";
 import "./htdocs/styles_main.css";
 
+import "./htdocs/fontawesome/font-awesome.css";
 import "./htdocs/alertify.core.css";
 import "./htdocs/alertify.default.css";
 import "./htdocs/styles_main.css";
