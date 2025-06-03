@@ -12,7 +12,6 @@ import "./htdocs/alertify.default.css";
 import "./htdocs/styles_main.css";
 import "./htdocs/styles_KView.css";
 
-
 import "script-loader!./htdocs/KMiscFuns.js";
 import "script-loader!./htdocs/KForms.js";
 import "script-loader!./htdocs/kmath.js";
@@ -43,9 +42,7 @@ import "script-loader!./htdocs/KView/KView.js";
 import "script-loader!./htdocs/zip/zip.js";
 import "script-loader!./htdocs/zip/inflate.js";
 
-
 import "./htdocs/styles_KView.css";
-
 
 import "script-loader!./htdocs/KMiscFuns.js";
 import "script-loader!./htdocs/KForms.js";
@@ -106,7 +103,7 @@ async function render() {
         url_pref: root + "static/plugins/visualizations/nora/static/dist/"
     })
 
-    console.debug("starting NORA's viewer");
+    console.debug("[NORA] Initialization...");
 
     stateManager.setDefaultState();
 
