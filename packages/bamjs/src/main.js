@@ -12,10 +12,7 @@ if (import.meta.env.DEV && appElement) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: import.meta.env.VITE_DATASET_ID || "test-bam-dataset",
-            max_records: "50",
-            region_start: "0",
-            region_end: "10000",
+            dataset_id: process.env.dataset_id,
         },
     };
 
@@ -46,9 +43,6 @@ class BamViewer {
         this.container.className = "bam-viewer";
         this.container.innerHTML = "";
         this.addStyles();
-
-        // Log the settings being used
-        console.info("BAM Viewer settings:", this.settings);
 
         this.loadBamFile();
     }
@@ -121,15 +115,10 @@ class BamViewer {
         this.error = null;
         this.render();
 
-        console.log("Loading BAM file from URL:", this.datasetUrl);
-        console.log("Is development mode:", import.meta.env.DEV);
-
         try {
-            if (import.meta.env.DEV && this.datasetUrl.startsWith("https://raw.githubusercontent.com")) {
-                console.log("Using HTTP BAM file loader for development");
+            if (import.meta.env.DEV) {
                 await this.loadHttpBamFile();
             } else {
-                console.log("Using Galaxy BAM file loader for production");
                 await this.loadGalaxyBamFile();
             }
         } catch (err) {
@@ -190,15 +179,12 @@ class BamViewer {
                         this.records = broaderRecords;
                     }
                 } catch (rangeError) {
-                    console.warn("Could not get records for range:", rangeError.message);
                     this.records = [];
                 }
             } else {
                 this.records = [];
             }
         } catch (bamError) {
-            console.warn("BAM file loading failed, trying without index:", bamError.message);
-
             // Try without index using RemoteFile
             try {
                 const bamFile = new BamFile({
@@ -220,10 +206,6 @@ class BamViewer {
         const datasetId = incoming.visualization_config?.dataset_id;
         const root = incoming.root || "/";
 
-        console.log("Galaxy data incoming:", incoming);
-        console.log("Dataset ID:", datasetId);
-        console.log("Root URL:", root);
-
         if (!datasetId) {
             throw new Error("No dataset ID provided by Galaxy");
         }
@@ -232,28 +214,20 @@ class BamViewer {
         const bamUrl = `${root}api/datasets/${datasetId}/display?to_ext=bam`;
         const baiUrl = `${root}api/datasets/${datasetId}/metadata_file?metadata_file=bam_index`;
 
-        console.log("BAM URL:", bamUrl);
-        console.log("BAI URL:", baiUrl);
-
         let bamFile; // Declare bamFile at function scope
 
         try {
             // Try with index first
-            console.log("Attempting to load with BAI index");
-
-            // Log the actual file size if possible
             try {
                 const response = await fetch(bamUrl, { method: "HEAD" });
                 const contentLength = response.headers.get("content-length");
-                console.log("BAM file size:", contentLength, "bytes");
 
                 if (contentLength && parseInt(contentLength) < 100000) {
-                    console.log("Small BAM file detected, trying full download approach");
+                    console.log("Small BAM file detected, using optimized download approach");
 
                     // Download both BAM and BAI files entirely
                     const bamResponse = await fetch(bamUrl);
                     const bamData = await bamResponse.arrayBuffer();
-                    console.log("Downloaded entire BAM file:", bamData.byteLength, "bytes");
 
                     // Check if the BAM file is gzip compressed
                     const bamView = new Uint8Array(bamData);
@@ -261,21 +235,12 @@ class BamViewer {
                     const headerString = Array.from(headerBytes.slice(0, 4))
                         .map((b) => String.fromCharCode(b))
                         .join("");
-                    console.log("BAM header signature:", headerString, "Should be 'BAM\\x01'");
-                    console.log(
-                        "First 32 bytes:",
-                        Array.from(headerBytes)
-                            .map((b) => b.toString(16).padStart(2, "0"))
-                            .join(" ")
-                    );
 
                     // Check for gzip magic bytes (0x1f 0x8b)
                     const isGzipped = bamView[0] === 0x1f && bamView[1] === 0x8b;
-                    console.log("File is gzipped:", isGzipped);
 
                     let decompressedBamData;
                     if (isGzipped) {
-                        console.log("Decompressing gzipped BAM file with pako...");
                         try {
                             // Use pako for more reliable gzip decompression
                             const compressed = new Uint8Array(bamData);
@@ -284,20 +249,17 @@ class BamViewer {
                                 decompressed.byteOffset,
                                 decompressed.byteOffset + decompressed.byteLength
                             );
-                            console.log("Decompressed BAM file:", decompressedBamData.byteLength, "bytes");
 
                             // Verify the decompressed header
                             const decompressedView = new Uint8Array(decompressedBamData);
                             const decompressedHeader = Array.from(decompressedView.slice(0, 4))
                                 .map((b) => String.fromCharCode(b))
                                 .join("");
-                            console.log("Decompressed header signature:", decompressedHeader);
 
                             if (decompressedHeader !== "BAM\x01") {
                                 console.warn("Decompressed file doesn't have BAM signature, got:", decompressedHeader);
                             }
                         } catch (decompressError) {
-                            console.error("Pako decompression failed:", decompressError.message);
                             throw new Error(`Failed to decompress BAM file: ${decompressError.message}`);
                         }
                     } else {
@@ -306,18 +268,13 @@ class BamViewer {
 
                     const baiResponse = await fetch(baiUrl);
                     const baiData = await baiResponse.arrayBuffer();
-                    console.log("Downloaded entire BAI file:", baiData.byteLength, "bytes");
 
-                    // Alternative approach: create a blob URL and use RemoteFile
-                    // Try with original compressed data since BAM has internal block compression
-                    console.log("Creating blob URL from original compressed data...");
+                    // Create blob URLs and use RemoteFile
                     const bamBlob = new Blob([bamData], { type: "application/octet-stream" });
                     const bamBlobUrl = URL.createObjectURL(bamBlob);
-                    console.log("Created BAM blob URL:", bamBlobUrl);
 
                     const baiBlob = new Blob([baiData], { type: "application/octet-stream" });
                     const baiBlobUrl = URL.createObjectURL(baiBlob);
-                    console.log("Created BAI blob URL:", baiBlobUrl);
 
                     // Use standard RemoteFile with blob URLs
                     const bamFilehandle = new RemoteFile(bamBlobUrl);
@@ -329,142 +286,22 @@ class BamViewer {
                         URL.revokeObjectURL(baiBlobUrl);
                     }, 30000); // 30 second cleanup
 
-                    /*
-                    // Keep the old custom filehandle approach as backup
-                    const bamFilehandle_OLD = {
-                        async read(buffer, offset = 0, length, position = 0) {
-                            console.log("Custom read called:", { buffer, offset, length, position });
-                            
-                            // Handle the case where buffer is a number (length)
-                            if (typeof buffer === 'number') {
-                                const requestedLength = buffer;
-                                const start = position || 0;
-                                const end = Math.min(start + requestedLength, decompressedBamData.byteLength);
-                                const actualLength = end - start;
-                                
-                                if (actualLength <= 0) {
-                                    return { bytesRead: 0, buffer: new Uint8Array(0) };
-                                }
-                                
-                                // Return the actual slice of data - copy to avoid reference issues  
-                                const source = new Uint8Array(decompressedBamData, start, actualLength);
-                                const result = new Uint8Array(source); // Create a copy
-                                
-                                // Add extra debugging and properties to help diagnose the issue
-                                console.log("Returning slice:", actualLength, "bytes, type:", result.constructor.name);
-                                console.log("Has subarray:", typeof result.subarray, "Has slice:", typeof result.slice);
-                                console.log("Buffer details:", {
-                                    length: result.length,
-                                    byteLength: result.byteLength,
-                                    buffer: !!result.buffer,
-                                    BYTES_PER_ELEMENT: result.BYTES_PER_ELEMENT
-                                });
-                                
-                                return { bytesRead: actualLength, buffer: result };
-                            }
-                            
-                            // Handle normal buffer case
-                            const start = position || 0;
-                            const requestedLength = length || buffer.length;
-                            const end = Math.min(start + requestedLength, decompressedBamData.byteLength);
-                            const actualLength = end - start;
-                            
-                            if (actualLength <= 0) {
-                                return { bytesRead: 0, buffer };
-                            }
-                            
-                            const slice = new Uint8Array(decompressedBamData, start, actualLength);
-                            buffer.set(slice, offset);
-                            
-                            console.log("Read into provided buffer:", actualLength, "bytes");
-                            return { bytesRead: actualLength, buffer };
-                        },
-                        async stat() {
-                            return { size: decompressedBamData.byteLength };
-                        },
-                        async readFile() {
-                            return new Uint8Array(decompressedBamData);
-                        },
-                        async close() {
-                            // No-op for in-memory file
-                        }
-                    };
-                    
-                    // Create a similar filehandle for the BAI file
-                    const baiFilehandle_OLD = {
-                        async read(buffer, offset = 0, length, position = 0) {
-                            console.log("Custom BAI read called:", { buffer, offset, length, position });
-                            
-                            // Handle the case where buffer is a number (length)
-                            if (typeof buffer === 'number') {
-                                const requestedLength = buffer;
-                                const start = position || 0;
-                                const end = Math.min(start + requestedLength, baiData.byteLength);
-                                const actualLength = end - start;
-                                
-                                if (actualLength <= 0) {
-                                    return { bytesRead: 0, buffer: new Uint8Array(0) };
-                                }
-                                
-                                // Return the actual slice of data - copy to avoid reference issues
-                                const source = new Uint8Array(baiData, start, actualLength);
-                                const result = new Uint8Array(source); // Create a copy
-                                console.log("Returning BAI slice:", actualLength, "bytes, type:", result.constructor.name);
-                                console.log("BAI has subarray:", typeof result.subarray, "Has slice:", typeof result.slice);
-                                return { bytesRead: actualLength, buffer: result };
-                            }
-                            
-                            // Handle normal buffer case
-                            const start = position || 0;
-                            const requestedLength = length || buffer.length;
-                            const end = Math.min(start + requestedLength, baiData.byteLength);
-                            const actualLength = end - start;
-                            
-                            if (actualLength <= 0) {
-                                return { bytesRead: 0, buffer };
-                            }
-                            
-                            const slice = new Uint8Array(baiData, start, actualLength);
-                            buffer.set(slice, offset);
-                            
-                            console.log("Read BAI into provided buffer:", actualLength, "bytes");
-                            return { bytesRead: actualLength, buffer };
-                        },
-                        async stat() {
-                            return { size: baiData.byteLength };
-                        },
-                        async readFile() {
-                            return new Uint8Array(baiData);
-                        },
-                        async close() {
-                            // No-op for in-memory file
-                        }
-                    };
-                    */
-
-                    console.log("Creating BamFile with blob URL filehandles...");
                     bamFile = new BamFile({
                         bamFilehandle,
                         baiFilehandle,
                     });
-                    console.log("BamFile created successfully");
 
-                    console.log("Getting BAM header with downloaded file...");
                     try {
                         const rawHeader = await bamFile.getHeader();
                         this.headerInfo = this.parseHeader(rawHeader);
-                        console.log("BAM header loaded successfully:", this.headerInfo);
                     } catch (headerError) {
                         console.error("Error getting header:", headerError);
-                        console.error("Header error stack:", headerError.stack);
                         throw new Error(`Header loading failed: ${headerError.message}`);
                     }
                 } else {
                     throw new Error("File too large for workaround");
                 }
             } catch (e) {
-                console.log("Full download approach failed, falling back to RemoteFile:", e.message);
-
                 // Fallback to original approach
                 const bamFilehandle = new RemoteFile(bamUrl);
                 const baiFilehandle = new RemoteFile(baiUrl);
@@ -474,26 +311,12 @@ class BamViewer {
                     baiFilehandle,
                 });
 
-                console.log("Getting BAM header with RemoteFile...");
                 const rawHeader = await bamFile.getHeader();
                 this.headerInfo = this.parseHeader(rawHeader);
-                console.log("BAM header loaded:", this.headerInfo);
             }
 
             // The header is now properly parsed, so references should be available
             const refSeqs = this.headerInfo.references;
-            console.log("Parsed header references:", refSeqs);
-            if (refSeqs && refSeqs.length > 0) {
-                console.log(
-                    "First 5 references:",
-                    refSeqs.slice(0, 5).map((ref) => `${ref.name}:${ref.length}`)
-                );
-            } else {
-                console.log("No reference sequences found in header");
-            }
-
-            // Try to get first available reads efficiently
-            console.log("Searching for BAM records...");
 
             // Check BAM index to identify chromosomes with data
             let chromosomesWithData = [];
@@ -506,7 +329,6 @@ class BamViewer {
                                 const blocks = await index.blocksForRange(ref.name, 0, ref.length);
                                 if (blocks && blocks.length > 0) {
                                     chromosomesWithData.push(ref);
-                                    console.log(`${ref.name}: ${blocks.length} data blocks found`);
                                 }
                             } catch (e) {
                                 // Continue checking other chromosomes
@@ -515,7 +337,7 @@ class BamViewer {
                     }
                 }
             } catch (indexError) {
-                console.log("Could not inspect index, will try all chromosomes");
+                // Could not inspect index, will try all chromosomes
             }
 
             try {
@@ -526,10 +348,8 @@ class BamViewer {
                     let chromosomesToTry;
 
                     if (chromosomesWithData.length > 0) {
-                        console.log(`Found ${chromosomesWithData.length} chromosomes with data, searching those first`);
                         chromosomesToTry = chromosomesWithData;
                     } else {
-                        console.log("No index data available, trying strategic chromosomes");
                         chromosomesToTry = [
                             ...refSeqs.slice(0, 3), // First 3 from the list
                             ...refSeqs.filter((r) => r.name === "MT" || r.name === "chrM"), // Mitochondrial
@@ -550,7 +370,6 @@ class BamViewer {
                             );
 
                             if (records && records.length > 0) {
-                                console.log(`Found ${records.length} records in ${ref.name}`);
                                 allRecords = records;
                                 break;
                             }
@@ -572,9 +391,6 @@ class BamViewer {
                                     );
 
                                     if (regionRecords && regionRecords.length > 0) {
-                                        console.log(
-                                            `Found ${regionRecords.length} records in ${ref.name}:${region.start}-${region.end}`
-                                        );
                                         allRecords = regionRecords;
                                         break;
                                     }
@@ -592,7 +408,6 @@ class BamViewer {
 
                 // Fallback: try global iterator if available
                 if (allRecords.length === 0 && bamFile.getRecords) {
-                    console.log("Trying global record iterator...");
                     try {
                         const recordIterator = bamFile.getRecords();
                         let count = 0;
@@ -606,18 +421,13 @@ class BamViewer {
                                 break;
                             }
                         }
-
-                        if (count > 0) {
-                            console.log(`Found ${count} records via global iterator`);
-                        }
                     } catch (iteratorError) {
-                        console.log("Global iterator failed:", iteratorError.message);
+                        // Global iterator failed
                     }
                 }
 
                 // Last resort: full chromosome scan
                 if (allRecords.length === 0 && refSeqs && refSeqs.length > 0) {
-                    console.log("Last resort: scanning full chromosome...");
                     const firstRef = refSeqs[0];
                     try {
                         const records = await bamFile.getRecordsForRange(firstRef.name, 0, firstRef.length, {
@@ -625,32 +435,20 @@ class BamViewer {
                         });
 
                         if (records && records.length > 0) {
-                            console.log(`Found ${records.length} records in ${firstRef.name} (full scan)`);
                             allRecords = records;
                         }
                     } catch (lastResortError) {
-                        console.log("Full chromosome scan failed:", lastResortError.message);
+                        // Full chromosome scan failed
                     }
                 }
 
-                console.log(`Final result: ${allRecords.length} records retrieved`);
                 this.records = allRecords;
-
-                if (allRecords.length > 0) {
-                    const firstRecord = allRecords[0];
-                    const formatted = this.formatRecord(firstRecord);
-                    console.log(`Successfully retrieved ${allRecords.length} BAM records`);
-                    console.log(`First record: ${formatted.name} at ${formatted.refName}:${formatted.start}`);
-                } else {
-                    console.log("No BAM records found");
-                    this.records = [];
-                }
             } catch (recordError) {
-                console.warn("Error retrieving records:", recordError.message);
+                console.warn("Error retrieving BAM records:", recordError.message);
                 this.records = [];
             }
         } catch (bamError) {
-            console.error("BAM file loading with index failed:", bamError.message);
+            console.error("BAM file loading failed:", bamError.message);
             throw bamError;
         }
     }
