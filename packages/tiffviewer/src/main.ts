@@ -171,8 +171,7 @@ function createPageSelector(
   imageCount: number,
   onChange: (index: number) => void
 ) {
-  const label = document.createElement("label");
-  label.textContent = "Page:";
+  let currentIndex = 0;
 
   const select = document.createElement("select");
   select.id = "tiff-page-selector";
@@ -185,10 +184,45 @@ function createPageSelector(
   }
 
   select.addEventListener("change", () => {
-    const index = parseInt(select.value, 10);
-    onChange(index);
+    currentIndex = parseInt(select.value, 10);
+    updateButtonStates();
+    onChange(currentIndex);
   });
 
-  toolbar.appendChild(label);
+  const prevBtn = document.createElement("button");
+  prevBtn.textContent = "⬅️";
+  prevBtn.title = "Previous Page";
+  prevBtn.type = "button";
+  prevBtn.onclick = () => {
+    if (currentIndex > 0) {
+      currentIndex--;
+      select.value = currentIndex.toString();
+      updateButtonStates();
+      onChange(currentIndex);
+    }
+  };
+
+  const nextBtn = document.createElement("button");
+  nextBtn.textContent = "➡️";
+  nextBtn.title = "Next Page";
+  nextBtn.type = "button";
+  nextBtn.onclick = () => {
+    if (currentIndex < imageCount - 1) {
+      currentIndex++;
+      select.value = currentIndex.toString();
+      updateButtonStates();
+      onChange(currentIndex);
+    }
+  };
+
+  function updateButtonStates() {
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex === imageCount - 1;
+  }
+
+  updateButtonStates();
+
+  toolbar.appendChild(prevBtn);
   toolbar.appendChild(select);
+  toolbar.appendChild(nextBtn);
 }
