@@ -2,7 +2,8 @@ import { fromArrayBuffer, GeoTIFFImage, type ReadRasterResult } from "geotiff";
 import Panzoom from "@panzoom/panzoom";
 
 const appElement = document.querySelector("#app") as HTMLElement;
-const { canvas, context } = initializeCanvas();
+
+const { toolbar, canvas } = initializeUI();
 
 // Mock data for development
 setDevelopmentIncomingData();
@@ -31,21 +32,6 @@ function setDevelopmentIncomingData() {
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
   }
-}
-
-function initializeCanvas() {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d")!;
-  appElement.appendChild(canvas);
-
-  const panzoom = Panzoom(canvas, { canvas: true });
-  const parent = canvas.parentElement!;
-  parent.addEventListener("wheel", (event) => {
-    if (event.shiftKey) {
-      panzoom.zoomWithWheel(event);
-    }
-  });
-  return { canvas, context };
 }
 
 async function render(): Promise<void> {
@@ -77,12 +63,24 @@ async function processTIFF(arrayBuffer: ArrayBuffer): Promise<void> {
     return;
   }
 
-  // TODO: Handle multi-page TIFFs using a selection UI
-  const image = await tiff.getImage(0);
-  await renderTIFFImage(image);
+  if (imageCount > 1) {
+    createPageSelector(imageCount, async (pageIndex) => {
+      const image = await tiff.getImage(pageIndex);
+      await renderTIFFImage(image);
+    });
+  }
+
+  const firstImage = await tiff.getImage(0);
+  await renderTIFFImage(firstImage);
 }
 
 async function renderTIFFImage(image: GeoTIFFImage): Promise<void> {
+  // Turn off alpha channel for performance
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) {
+    throw new Error("Canvas context not available");
+  }
+
   const width = image.getWidth();
   const height = image.getHeight();
   const samples = image.getSamplesPerPixel();
@@ -115,9 +113,13 @@ async function renderTIFFImage(image: GeoTIFFImage): Promise<void> {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = width * dpr;
   canvas.height = height * dpr;
+
+  // Scale the context to ensure correct drawing operations
+  // See https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas#scaling_for_high_resolution_displays
+  context.scale(dpr, dpr);
+
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
-  context.setTransform(dpr, 0, 0, dpr, 0, 0);
   const imageData = new ImageData(rgba, width, height);
   context.putImageData(imageData, 0, 0);
 }
@@ -140,4 +142,53 @@ function normalizeIfNeeded(raster: ReadRasterResult): Uint8ClampedArray {
     );
   }
   return new Uint8ClampedArray(arr);
+}
+
+function initializeUI() {
+  const toolbar = document.createElement("div");
+  toolbar.id = "tiff-toolbar";
+  appElement.appendChild(toolbar);
+
+  const container = document.createElement("div");
+  container.id = "canvas-container";
+  appElement.appendChild(container);
+
+  const canvas = document.createElement("canvas");
+  container.appendChild(canvas);
+
+  const panzoom = Panzoom(canvas, { canvas: true });
+  const parent = canvas.parentElement!;
+  parent.addEventListener("wheel", (event) => {
+    if (event.shiftKey) {
+      panzoom.zoomWithWheel(event);
+    }
+  });
+
+  return { toolbar, canvas };
+}
+
+function createPageSelector(
+  imageCount: number,
+  onChange: (index: number) => void
+) {
+  const label = document.createElement("label");
+  label.textContent = "Page:";
+
+  const select = document.createElement("select");
+  select.id = "tiff-page-selector";
+
+  for (let i = 0; i < imageCount; i++) {
+    const option = document.createElement("option");
+    option.value = i.toString();
+    option.textContent = `Page ${i + 1}`;
+    select.appendChild(option);
+  }
+
+  select.addEventListener("change", () => {
+    const index = parseInt(select.value, 10);
+    onChange(index);
+  });
+
+  toolbar.appendChild(label);
+  toolbar.appendChild(select);
 }
