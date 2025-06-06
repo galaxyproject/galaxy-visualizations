@@ -1,0 +1,59 @@
+html,
+body {
+    overflow: hidden;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100%;
+    width: 100%;
+}
+
+#app {
+    position: relative;
+    overflow: hidden;
+    height: 100vh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;
+}
+
+#tiff-toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background-color: #f8f8f8;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 10px;
+  z-index: 1000;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+#tiff-toolbar label {
+  font-size: 14px;
+}
+
+#canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  display: block;
+  margin-top: 40px;
+}
+
+#tiff-page-selector {
+  font-size: 14px;
+  padding: 4px;
+}
+
+
+
