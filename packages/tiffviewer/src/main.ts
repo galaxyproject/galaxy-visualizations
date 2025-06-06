@@ -112,9 +112,12 @@ async function renderTIFFImage(image: GeoTIFFImage): Promise<void> {
     return;
   }
 
-  canvas.width = width;
-  canvas.height = height;
-
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  context.setTransform(dpr, 0, 0, dpr, 0, 0);
   const imageData = new ImageData(rgba, width, height);
   context.putImageData(imageData, 0, 0);
 }
