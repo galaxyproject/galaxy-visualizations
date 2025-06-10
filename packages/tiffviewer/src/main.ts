@@ -164,6 +164,29 @@ function initializeUI() {
     }
   });
 
+  // --- Add zoom controls to toolbar ---
+  const zoomInBtn = document.createElement("button");
+  zoomInBtn.textContent = "＋";
+  zoomInBtn.title = "Zoom In";
+  zoomInBtn.type = "button";
+  zoomInBtn.onclick = () => panzoom.zoomIn();
+
+  const zoomOutBtn = document.createElement("button");
+  zoomOutBtn.textContent = "－";
+  zoomOutBtn.title = "Zoom Out";
+  zoomOutBtn.type = "button";
+  zoomOutBtn.onclick = () => panzoom.zoomOut();
+
+  const resetZoomBtn = document.createElement("button");
+  resetZoomBtn.textContent = "⭯";
+  resetZoomBtn.title = "Reset Zoom";
+  resetZoomBtn.type = "button";
+  resetZoomBtn.onclick = () => panzoom.reset();
+
+  toolbar.appendChild(zoomInBtn);
+  toolbar.appendChild(zoomOutBtn);
+  toolbar.appendChild(resetZoomBtn);
+
   return { toolbar, canvas };
 }
 
