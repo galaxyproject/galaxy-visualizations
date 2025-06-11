@@ -39,6 +39,43 @@ body {
   font-size: 14px;
 }
 
+#tiff-toolbar button {
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 0 2px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#tiff-toolbar button:disabled {
+  background: #e0e0e0;
+  color: #aaa;
+  border-color: #eee;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+#tiff-toolbar button:hover:not(:disabled),
+#tiff-toolbar button:focus-visible:not(:disabled) {
+  background: #e6f0fa;
+  border-color: #90caf9;
+}
+
+#tiff-toolbar button:active:not(:disabled) {
+  background: #bbdefb;
+  border-color: #42a5f5;
+}
+
 #canvas-container {
   position: relative;
   width: 100%;
