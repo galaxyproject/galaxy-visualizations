@@ -51,6 +51,8 @@ async function loadTIFF() {
   return response.arrayBuffer();
 }
 
+let imageTags: unknown = null;
+
 async function processTIFF(arrayBuffer: ArrayBuffer): Promise<void> {
   const tiff = await fromArrayBuffer(arrayBuffer);
   const imageCount = await tiff.getImageCount();
@@ -75,6 +77,7 @@ async function processTIFF(arrayBuffer: ArrayBuffer): Promise<void> {
 }
 
 async function renderTIFFImage(image: GeoTIFFImage): Promise<void> {
+  imageTags = image.getFileDirectory();
   // Turn off alpha channel for performance
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) {
@@ -183,11 +186,34 @@ function initializeUI() {
   resetZoomBtn.type = "button";
   resetZoomBtn.onclick = () => panzoom.reset();
 
+  // --- Add info dialog button to toolbar ---
+  const infoBtn = document.createElement("button");
+  infoBtn.textContent = "ℹ️";
+  infoBtn.title = "Show Info";
+  infoBtn.type = "button";
+  infoBtn.onclick = () => showInfoDialog();
+
+  toolbar.appendChild(infoBtn);
   toolbar.appendChild(zoomInBtn);
   toolbar.appendChild(zoomOutBtn);
   toolbar.appendChild(resetZoomBtn);
 
   return { toolbar, canvas };
+}
+
+function showInfoDialog() {
+  const dialog = document.createElement("dialog");
+  dialog.className = "info-dialog";
+  const tiffMetadata = generateImageInfoHtml();
+  dialog.innerHTML = `<div class="info-dialog-content">${tiffMetadata}</div>`;
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "info-dialog-close";
+  closeBtn.textContent = "Close";
+  closeBtn.onclick = () => dialog.close();
+  dialog.appendChild(closeBtn);
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.appendChild(dialog);
+  dialog.showModal();
 }
 
 function createPageSelector(
@@ -248,4 +274,16 @@ function createPageSelector(
   toolbar.appendChild(prevBtn);
   toolbar.appendChild(select);
   toolbar.appendChild(nextBtn);
+}
+
+function generateImageInfoHtml(): string {
+  if (!imageTags) {
+    return "<p>No TIFF metadata available.</p>";
+  }
+  const tags = imageTags as Record<string, unknown>;
+  const entries = Object.entries(tags)
+    .map(([key, value]) => `<li><strong>${key}:</strong> ${value}</li>`)
+    .join("");
+
+  return `<h2>Image Information</h2><ul>${entries}</ul>`;
 }
