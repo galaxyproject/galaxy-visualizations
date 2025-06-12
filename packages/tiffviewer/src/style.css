@@ -5,6 +5,9 @@ body {
     padding: 0 !important;
     height: 100%;
     width: 100%;
+    font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, 'Liberation Sans', 'DejaVu Sans', sans-serif;
+    font-size: 16px;
+    color: #222;
 }
 
 #app {
