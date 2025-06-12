@@ -194,6 +194,48 @@ canvas {
   border-radius: 50%;
 }
 
+.info-table-title {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #1976d2;
+  text-align: left;
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+  margin-bottom: 8px;
+}
+
+.info-table tr {
+  border-bottom: 1px solid #e3eaf3;
+}
+
+.info-table-key {
+  font-weight: 500;
+  color: #333;
+  padding: 6px 12px 6px 0;
+  text-align: left;
+  vertical-align: top;
+  background: #f6fafd;
+  min-width: 120px;
+}
+
+.info-table-value {
+  color: #444;
+  padding: 6px 0 6px 12px;
+  text-align: left;
+  vertical-align: top;
+  background: #fff;
+  word-break: break-word;
+}
+
+.info-table tr:last-child {
+  border-bottom: none;
+}
+
 .centered-error-panel {
   position: fixed;
   top: 50%;

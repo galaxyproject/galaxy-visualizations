@@ -286,11 +286,21 @@ function generateImageInfoHtml(): string {
     return "<p>No TIFF metadata available.</p>";
   }
   const tags = imageTags as Record<string, unknown>;
-  const entries = Object.entries(tags)
-    .map(([key, value]) => `<li><strong>${key}:</strong> ${value}</li>`)
+  const rows = Object.entries(tags)
+    .map(
+      ([key, value]) =>
+        `<tr><td class='info-table-key'>${key}</td><td class='info-table-value'>${value}</td></tr>`
+    )
     .join("");
 
-  return `<h2>Image Information</h2><ul>${entries}</ul>`;
+  return `
+    <h2 class="info-table-title">Image Information</h2>
+    <table class="info-table">
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
 }
 
 function displayErrorPanel(title: string, error: unknown) {
