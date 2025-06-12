@@ -194,8 +194,7 @@ function initializeUI() {
   let infoPanel: HTMLElement | null = null;
   infoSwitch.onclick = () => {
     if (infoPanel) {
-      infoPanel.remove();
-      infoPanel = null;
+      closeInfoPanel();
       return;
     }
     infoPanel = document.createElement("div");
@@ -205,12 +204,20 @@ function initializeUI() {
     closeBtn.className = "info-dialog-close info-dialog-x";
     closeBtn.title = "Close";
     closeBtn.innerHTML = "&times;";
-    closeBtn.onclick = () => {
+    function closeInfoPanel() {
       infoPanel?.remove();
       infoPanel = null;
-    };
+      document.removeEventListener("keydown", closeInfoPanelOnEsc);
+    }
+    function closeInfoPanelOnEsc(e: KeyboardEvent) {
+      if (e.key === "Escape" && infoPanel) {
+        closeInfoPanel();
+      }
+    }
+    closeBtn.onclick = closeInfoPanel;
     infoPanel.appendChild(closeBtn);
     document.body.appendChild(infoPanel);
+    document.addEventListener("keydown", closeInfoPanelOnEsc);
   };
 
   toolbar.appendChild(infoSwitch);
