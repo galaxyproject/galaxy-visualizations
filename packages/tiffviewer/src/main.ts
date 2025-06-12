@@ -164,9 +164,7 @@ function initializeUI() {
   const panzoom = Panzoom(canvas, { canvas: true });
   const parent = canvas.parentElement!;
   parent.addEventListener("wheel", (event) => {
-    if (event.shiftKey) {
-      panzoom.zoomWithWheel(event);
-    }
+    panzoom.zoomWithWheel(event);
   });
 
   // --- Add zoom controls to toolbar ---
