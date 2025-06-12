@@ -1,6 +1,8 @@
 import { fromArrayBuffer, GeoTIFFImage, type ReadRasterResult } from "geotiff";
 import Panzoom from "@panzoom/panzoom";
 
+const isDev = import.meta.env.DEV;
+
 const appElement = document.querySelector("#app") as HTMLElement;
 
 const { toolbar, canvas } = initializeUI();
@@ -23,7 +25,7 @@ function buildDatasetUrl() {
 }
 
 function setDevelopmentIncomingData() {
-  if (import.meta.env.DEV) {
+  if (isDev) {
     const dataIncoming = {
       root: "/",
       visualization_config: {
@@ -39,8 +41,8 @@ async function render(): Promise<void> {
     const buffer = await loadTIFF();
     await processTIFF(buffer);
   } catch (error) {
-    console.error("Failed to load TIFF:", error);
-    appElement.innerHTML = `<p>Error loading TIFF: ${error}</p>`;
+    console.error("Cannot render TIFF image:", error);
+    displayErrorPanel("Cannot render TIFF image", error);
   }
 }
 
@@ -291,4 +293,37 @@ function generateImageInfoHtml(): string {
     .join("");
 
   return `<h2>Image Information</h2><ul>${entries}</ul>`;
+}
+
+function displayErrorPanel(title: string, error: unknown) {
+  clearErrorPanel();
+
+  const panel = document.createElement("div");
+  panel.className = "centered-error-panel";
+
+  const titleElem = document.createElement("h2");
+  titleElem.className = "centered-error-title";
+  titleElem.textContent = title;
+  panel.appendChild(titleElem);
+
+  const msgElem = document.createElement("div");
+  msgElem.className = "centered-error-message";
+  if (error instanceof Error) {
+    msgElem.innerHTML = `<strong>Reason:</strong> ${error.message}`;
+    if (error.stack) {
+      const pre = document.createElement("pre");
+      pre.className = "centered-error-stack";
+      pre.textContent = error.stack;
+      panel.appendChild(pre);
+    }
+  } else {
+    msgElem.textContent = String(error);
+  }
+  panel.appendChild(msgElem);
+
+  document.body.appendChild(panel);
+}
+
+function clearErrorPanel() {
+  document.querySelectorAll(".centered-error-panel").forEach((e) => e.remove());
 }

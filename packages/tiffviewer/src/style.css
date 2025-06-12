@@ -191,5 +191,50 @@ canvas {
   border-radius: 50%;
 }
 
+.centered-error-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 340px;
+  max-width: 90vw;
+  background: #fff6f6;
+  border: 2px solid #e57373;
+  border-radius: 10px;
+  box-shadow: 0 4px 32px rgba(229, 115, 115, 0.18);
+  z-index: 3000;
+  padding: 32px 32px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.98;
+  backdrop-filter: blur(2px);
+}
 
+.centered-error-title {
+  color: #c62828;
+  font-size: 1.6em;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.centered-error-message {
+  color: #b71c1c;
+  font-size: 1.1em;
+  margin-bottom: 10px;
+  text-align: center;
+  word-break: break-word;
+}
+
+.centered-error-stack {
+  color: #444;
+  background: #fff0f0;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.95em;
+  max-width: 80vw;
+  max-height: 200px;
+  overflow: auto;
+  margin-top: 8px;
+}
 
