@@ -186,34 +186,39 @@ function initializeUI() {
   resetZoomBtn.type = "button";
   resetZoomBtn.onclick = () => panzoom.reset();
 
-  // --- Add info dialog button to toolbar ---
-  const infoBtn = document.createElement("button");
-  infoBtn.textContent = "ℹ️";
-  infoBtn.title = "Show Info";
-  infoBtn.type = "button";
-  infoBtn.onclick = () => showInfoDialog();
+  // --- Add info switch to toolbar ---
+  const infoSwitch = document.createElement("button");
+  infoSwitch.textContent = "ℹ️";
+  infoSwitch.title = "Show Info";
+  infoSwitch.type = "button";
+  let infoPanel: HTMLElement | null = null;
+  infoSwitch.onclick = () => {
+    if (infoPanel) {
+      infoPanel.remove();
+      infoPanel = null;
+      return;
+    }
+    infoPanel = document.createElement("div");
+    infoPanel.className = "info-floating-panel";
+    infoPanel.innerHTML = `<div class='info-dialog-content'>${generateImageInfoHtml()}</div>`;
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "info-dialog-close info-dialog-x";
+    closeBtn.title = "Close";
+    closeBtn.innerHTML = "&times;";
+    closeBtn.onclick = () => {
+      infoPanel?.remove();
+      infoPanel = null;
+    };
+    infoPanel.appendChild(closeBtn);
+    document.body.appendChild(infoPanel);
+  };
 
-  toolbar.appendChild(infoBtn);
+  toolbar.appendChild(infoSwitch);
   toolbar.appendChild(zoomInBtn);
   toolbar.appendChild(zoomOutBtn);
   toolbar.appendChild(resetZoomBtn);
 
   return { toolbar, canvas };
-}
-
-function showInfoDialog() {
-  const dialog = document.createElement("dialog");
-  dialog.className = "info-dialog";
-  const tiffMetadata = generateImageInfoHtml();
-  dialog.innerHTML = `<div class="info-dialog-content">${tiffMetadata}</div>`;
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "info-dialog-close";
-  closeBtn.textContent = "Close";
-  closeBtn.onclick = () => dialog.close();
-  dialog.appendChild(closeBtn);
-  dialog.addEventListener("close", () => dialog.remove());
-  document.body.appendChild(dialog);
-  dialog.showModal();
 }
 
 function createPageSelector(
