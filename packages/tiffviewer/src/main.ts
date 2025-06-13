@@ -238,41 +238,48 @@ function initializeUI() {
       closePalettePanel();
       return;
     }
+    const canUsePalette = currentTIFFImage?.getSamplesPerPixel() === 1;
     palettePanel = document.createElement("div");
     palettePanel.className = "info-floating-panel palette-panel";
     palettePanel.innerHTML = `<div class='info-dialog-content'><h2 class='info-table-title'>Color Palette</h2></div>`;
     const content = palettePanel.querySelector(".info-dialog-content")!;
-    // Swatch bar/grid for all palettes
-    const swatchBar = document.createElement("div");
-    swatchBar.className = "palette-swatch-bar";
-    (Object.keys(COLOR_PALETTES) as PaletteKey[]).forEach((key) => {
-      const swatchBtn = document.createElement("button");
-      swatchBtn.type = "button";
-      swatchBtn.className = "palette-swatch-btn";
-      swatchBtn.setAttribute("data-palette", key);
-      if (key === currentPalette) swatchBtn.classList.add("selected");
-      // Swatch visual
-      const swatch = document.createElement("span");
-      swatch.className = "palette-swatch palette-swatch-bar-item";
-      swatch.setAttribute("data-palette", key);
-      swatchBtn.appendChild(swatch);
-      // Name
-      const label = document.createElement("span");
-      label.className = "palette-swatch-label";
-      label.textContent = COLOR_PALETTES[key].name;
-      swatchBtn.appendChild(label);
-      swatchBtn.onclick = () => {
-        currentPalette = key;
-        if (currentTIFFImage) renderTIFFImage(currentTIFFImage);
-        // Update highlight
-        swatchBar
-          .querySelectorAll(".palette-swatch-btn")
-          .forEach((btn) => btn.classList.remove("selected"));
-        swatchBtn.classList.add("selected");
-      };
-      swatchBar.appendChild(swatchBtn);
-    });
-    content.appendChild(swatchBar);
+    if (canUsePalette) {
+      content.innerHTML += `<p class='palette-info'>Select a color palette to apply to the image.</p>`;
+      // Swatch bar/grid for all palettes
+      const swatchBar = document.createElement("div");
+      swatchBar.className = "palette-swatch-bar";
+      (Object.keys(COLOR_PALETTES) as PaletteKey[]).forEach((key) => {
+        const swatchBtn = document.createElement("button");
+        swatchBtn.type = "button";
+        swatchBtn.className = "palette-swatch-btn";
+        swatchBtn.setAttribute("data-palette", key);
+        if (key === currentPalette) swatchBtn.classList.add("selected");
+        // Swatch visual
+        const swatch = document.createElement("span");
+        swatch.className = "palette-swatch palette-swatch-bar-item";
+        swatch.setAttribute("data-palette", key);
+        swatchBtn.appendChild(swatch);
+        // Name
+        const label = document.createElement("span");
+        label.className = "palette-swatch-label";
+        label.textContent = COLOR_PALETTES[key].name;
+        swatchBtn.appendChild(label);
+        swatchBtn.onclick = () => {
+          currentPalette = key;
+          if (currentTIFFImage) renderTIFFImage(currentTIFFImage);
+          // Update highlight
+          swatchBar
+            .querySelectorAll(".palette-swatch-btn")
+            .forEach((btn) => btn.classList.remove("selected"));
+          swatchBtn.classList.add("selected");
+        };
+        swatchBar.appendChild(swatchBtn);
+      });
+      content.appendChild(swatchBar);
+    } else {
+      content.innerHTML += `<p class='palette-warning'>Color palettes are only available for single-channel images.</p>`;
+    }
+
     // Close button
     const closeBtn = document.createElement("button");
     closeBtn.className = "info-dialog-close info-dialog-x";
