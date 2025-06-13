@@ -1,5 +1,26 @@
-// Color palettes for TIFF viewer
-export const COLOR_PALETTES = {
+export type PaletteKey = keyof typeof COLOR_PALETTES;
+
+export class PaletteManager {
+  private currentPalette: PaletteKey = "grayscale";
+
+  getPalette(key: PaletteKey) {
+    return COLOR_PALETTES[key] || COLOR_PALETTES.grayscale;
+  }
+
+  setPalette(key: PaletteKey) {
+    this.currentPalette = key;
+  }
+
+  getCurrentPalette() {
+    return this.currentPalette;
+  }
+
+  getPaletteKeys(): PaletteKey[] {
+    return Object.keys(COLOR_PALETTES) as PaletteKey[];
+  }
+}
+
+const COLOR_PALETTES = {
   grayscale: {
     name: "Grayscale",
     map: (v: number) => [v, v, v],
@@ -38,5 +59,3 @@ export const COLOR_PALETTES = {
     },
   },
 } as const;
-
-export type PaletteKey = keyof typeof COLOR_PALETTES;
