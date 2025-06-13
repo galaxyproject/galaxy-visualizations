@@ -1,11 +1,15 @@
 import { fromArrayBuffer, GeoTIFFImage, type ReadRasterResult } from "geotiff";
 import Panzoom from "@panzoom/panzoom";
+import { COLOR_PALETTES, type PaletteKey } from "./palettes";
 
 const isDev = import.meta.env.DEV;
 
 const appElement = document.querySelector("#app") as HTMLElement;
 
 const { toolbar, canvas } = initializeUI();
+
+let currentPalette: PaletteKey = "grayscale";
+let currentTIFFImage: GeoTIFFImage | null = null;
 
 // Mock data for development
 setDevelopmentIncomingData();
@@ -79,6 +83,7 @@ async function processTIFF(arrayBuffer: ArrayBuffer): Promise<void> {
 }
 
 async function renderTIFFImage(image: GeoTIFFImage): Promise<void> {
+  currentTIFFImage = image;
   imageTags = image.getFileDirectory();
   // Turn off alpha channel for performance
   const context = canvas.getContext("2d", { alpha: false });
@@ -95,15 +100,18 @@ async function renderTIFFImage(image: GeoTIFFImage): Promise<void> {
   const rgba = new Uint8ClampedArray(width * height * 4);
 
   if (samples === 1) {
-    // Grayscale
+    // Grayscale or palette
+    const palette = COLOR_PALETTES[currentPalette] || COLOR_PALETTES.grayscale;
     for (let i = 0; i < width * height; i++) {
       const v = data[i];
-      rgba[i * 4 + 0] = v;
-      rgba[i * 4 + 1] = v;
-      rgba[i * 4 + 2] = v;
+      const [r, g, b] = palette.map(v);
+      rgba[i * 4 + 0] = r;
+      rgba[i * 4 + 1] = g;
+      rgba[i * 4 + 2] = b;
       rgba[i * 4 + 3] = 255;
     }
   } else if (samples >= 3) {
+    // Show RGB as-is
     for (let i = 0, j = 0; i < width * height; i++, j += samples) {
       rgba[i * 4 + 0] = data[j];
       rgba[i * 4 + 1] = data[j + 1];
@@ -220,11 +228,77 @@ function initializeUI() {
     document.addEventListener("keydown", closeInfoPanelOnEsc);
   };
 
+  // --- Palette panel switch ---
+  const palettePanelBtn = document.createElement("button");
+  palettePanelBtn.textContent = "🎨";
+  palettePanelBtn.title = "Show Palette Selector";
+  palettePanelBtn.type = "button";
+  let palettePanel: HTMLElement | null = null;
+  palettePanelBtn.onclick = () => {
+    if (palettePanel) {
+      closePalettePanel();
+      return;
+    }
+    palettePanel = document.createElement("div");
+    palettePanel.className = "info-floating-panel palette-panel";
+    palettePanel.innerHTML = `<div class='info-dialog-content'><h2 class='info-table-title'>Color Palette</h2></div>`;
+    const content = palettePanel.querySelector(".info-dialog-content")!;
+    // Swatch bar/grid for all palettes
+    const swatchBar = document.createElement("div");
+    swatchBar.className = "palette-swatch-bar";
+    (Object.keys(COLOR_PALETTES) as PaletteKey[]).forEach((key) => {
+      const swatchBtn = document.createElement("button");
+      swatchBtn.type = "button";
+      swatchBtn.className = "palette-swatch-btn";
+      swatchBtn.setAttribute("data-palette", key);
+      if (key === currentPalette) swatchBtn.classList.add("selected");
+      // Swatch visual
+      const swatch = document.createElement("span");
+      swatch.className = "palette-swatch palette-swatch-bar-item";
+      swatch.setAttribute("data-palette", key);
+      swatchBtn.appendChild(swatch);
+      // Name
+      const label = document.createElement("span");
+      label.className = "palette-swatch-label";
+      label.textContent = COLOR_PALETTES[key].name;
+      swatchBtn.appendChild(label);
+      swatchBtn.onclick = () => {
+        currentPalette = key;
+        if (currentTIFFImage) renderTIFFImage(currentTIFFImage);
+        // Update highlight
+        swatchBar
+          .querySelectorAll(".palette-swatch-btn")
+          .forEach((btn) => btn.classList.remove("selected"));
+        swatchBtn.classList.add("selected");
+      };
+      swatchBar.appendChild(swatchBtn);
+    });
+    content.appendChild(swatchBar);
+    // Close button
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "info-dialog-close info-dialog-x";
+    closeBtn.title = "Close";
+    closeBtn.innerHTML = "&times;";
+    function closePalettePanel() {
+      palettePanel?.remove();
+      palettePanel = null;
+      document.removeEventListener("keydown", closePalettePanelOnEsc);
+    }
+    function closePalettePanelOnEsc(e: KeyboardEvent) {
+      if (e.key === "Escape" && palettePanel) {
+        closePalettePanel();
+      }
+    }
+    closeBtn.onclick = closePalettePanel;
+    palettePanel.appendChild(closeBtn);
+    document.body.appendChild(palettePanel);
+    document.addEventListener("keydown", closePalettePanelOnEsc);
+  };
   toolbar.appendChild(infoSwitch);
   toolbar.appendChild(zoomInBtn);
   toolbar.appendChild(zoomOutBtn);
   toolbar.appendChild(resetZoomBtn);
-
+  toolbar.appendChild(palettePanelBtn);
   return { toolbar, canvas };
 }
 
