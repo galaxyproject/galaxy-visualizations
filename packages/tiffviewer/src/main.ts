@@ -45,8 +45,9 @@ async function render(): Promise<void> {
     const buffer = await loadTIFF();
     await processTIFF(buffer);
   } catch (error) {
-    console.error("Cannot render TIFF image:", error);
-    displayErrorPanel("Cannot render TIFF image", error);
+    const errorTitle = "Cannot display TIFF image";
+    console.error(errorTitle, error);
+    displayErrorPanel(errorTitle, error);
   }
 }
 
@@ -56,8 +57,6 @@ async function loadTIFF() {
 
   return response.arrayBuffer();
 }
-
-let imageTags: unknown = null;
 
 async function processTIFF(arrayBuffer: ArrayBuffer): Promise<void> {
   const tiff = await fromArrayBuffer(arrayBuffer);
@@ -83,13 +82,13 @@ async function processTIFF(arrayBuffer: ArrayBuffer): Promise<void> {
 }
 
 async function renderTIFFImage(image: GeoTIFFImage): Promise<void> {
-  currentTIFFImage = image;
-  imageTags = image.getFileDirectory();
   // Turn off alpha channel for performance
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) {
     throw new Error("Canvas context not available");
   }
+
+  currentTIFFImage = image;
 
   const width = image.getWidth();
   const height = image.getHeight();
@@ -363,6 +362,7 @@ function createPageSelector(
 }
 
 function generateImageInfoHtml(): string {
+  const imageTags = currentTIFFImage?.getFileDirectory();
   if (!imageTags) {
     return "<p>No TIFF metadata available.</p>";
   }
