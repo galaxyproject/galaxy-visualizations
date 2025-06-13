@@ -86,7 +86,7 @@ var ScoreSummary = (function (sSum) {
         var q = "SELECT score_summary.* from score_summary";
         var url =
             sSum.href +
-            "api/datasets/" +
+            "/api/datasets/" +
             sSum.datasetID +
             "?data_type=raw_data&provider=sqlite-table&headers=True&query=";
         var self = this;
