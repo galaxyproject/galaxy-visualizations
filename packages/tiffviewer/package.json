@@ -1,18 +1,23 @@
 {
-    "name": "@galaxyproject/tiffviewer",
-    "version": "0.0.0",
-    "description": "A visualization for Tiff files based on react-tiff package",
-    "license": "MIT",
-    "files": ["static"],
-    "scripts": {
-        "build": "parcel build src/script.js --dist-dir static"
-    },
-    "devDependencies": {
-        "buffer": "^5.5.0||^6.0.0",
-        "parcel": "^2.9.3",
-        "process": "^0.11.10",
-        "react": "18.2.0",
-        "react-dom": "18.2.0",
-        "react-tiff": "^0.0.8"
-    }
+  "name": "@galaxyproject/tiffviewer",
+  "version": "0.1.0",
+  "description": "A visualization for Tiff files based on GeoTIFF and PanZoom libraries.",
+  "license": "MIT",
+  "files": [
+    "static"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@panzoom/panzoom": "^4.6.0",
+    "geotiff": "^2.1.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  }
 }
