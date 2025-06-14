@@ -1,0 +1,103 @@
+name: Manual Package Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish (e.g., heatmap, plotly)'
+        required: true
+        type: string
+      dry-run:
+        description: 'Dry run (do not actually publish)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate package exists
+        run: |
+          if [ ! -d "packages/${{ github.event.inputs.package }}" ]; then
+            echo "Error: Package 'packages/${{ github.event.inputs.package }}' does not exist"
+            exit 1
+          fi
+          
+          if [ ! -f "packages/${{ github.event.inputs.package }}/package.json" ]; then
+            echo "Error: Package 'packages/${{ github.event.inputs.package }}' has no package.json"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        working-directory: packages/${{ github.event.inputs.package }}
+        run: |
+          if [ -f "yarn.lock" ]; then
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Build package
+        working-directory: packages/${{ github.event.inputs.package }}
+        run: |
+          if grep -q '"build"' package.json; then
+            if [ -f "yarn.lock" ]; then
+              yarn build
+            else
+              npm run build
+            fi
+          else
+            echo "No build script found, skipping build step"
+          fi
+
+      - name: Check package info
+        working-directory: packages/${{ github.event.inputs.package }}
+        run: |
+          package_name=$(jq -r '.name' package.json)
+          package_version=$(jq -r '.version' package.json)
+          
+          echo "Package: $package_name"
+          echo "Version: $package_version"
+          
+          # Check if already published
+          if npm view "$package_name@$package_version" version 2>/dev/null; then
+            echo "⚠️  Package $package_name@$package_version is already published"
+            echo "published=true" >> $GITHUB_ENV
+          else
+            echo "✅ Package $package_name@$package_version is not yet published"
+            echo "published=false" >> $GITHUB_ENV
+          fi
+
+      - name: Dry run
+        if: github.event.inputs.dry-run == 'true'
+        working-directory: packages/${{ github.event.inputs.package }}
+        run: |
+          echo "🧪 DRY RUN MODE - Would publish:"
+          npm pack --dry-run
+
+      - name: Publish to npm
+        if: github.event.inputs.dry-run == 'false' && env.published == 'false'
+        working-directory: packages/${{ github.event.inputs.package }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          package_name=$(jq -r '.name' package.json)
+          package_version=$(jq -r '.version' package.json)
+          
+          echo "🚀 Publishing $package_name@$package_version"
+          npm publish --access public
+
+      - name: Skip publishing
+        if: github.event.inputs.dry-run == 'false' && env.published == 'true'
+        run: |
+          echo "⏭️  Skipping publish - package already exists at this version"
