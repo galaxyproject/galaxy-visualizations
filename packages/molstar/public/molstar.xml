@@ -8,6 +8,7 @@
             <test test_attr="ext">pqr</test>
             <test test_attr="ext">cif</test>
             <test test_attr="ext">bcif</test>
+            <test test_attr="ext">cml</test>
             <test test_attr="ext">mol</test>
             <test test_attr="ext">mol2</test>
             <test test_attr="ext">sdf</test>
