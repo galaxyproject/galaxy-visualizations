@@ -40,28 +40,29 @@ galaxy-visualizations/
 Each visualization package can be developed independently:
 
 ```bash
-# Navigate to a specific package
+# Install all dependencies (from root)
+pnpm install
+
+# Work with a specific package
+pnpm --filter @galaxyproject/heatmap dev
+pnpm --filter @galaxyproject/heatmap build
+pnpm --filter @galaxyproject/heatmap test
+
+# Or navigate to a specific package
 cd packages/heatmap
-
-# Install dependencies
-yarn install
-
-# Start development server
-yarn dev
-
-# Build for production
-yarn build
-
-# Run tests
-yarn test
+pnpm dev
+pnpm build
+pnpm test
 ```
 
 ### Common Development Commands
 
-- **Build a package**: `cd packages/[name] && yarn build`
-- **Test a package**: `cd packages/[name] && yarn test`
-- **Format code**: `cd packages/[name] && yarn prettier`
-- **Development server**: `cd packages/[name] && yarn dev`
+- **Install all dependencies**: `pnpm install`
+- **Build all packages**: `pnpm build:all`
+- **Test all packages**: `pnpm test:all`
+- **Format all packages**: `pnpm lint:all`
+- **Clean all builds**: `pnpm clean`
+- **Work with specific package**: `pnpm --filter @galaxyproject/[name] [command]`
 
 ## Available Packages
 
