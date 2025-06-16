@@ -40,6 +40,7 @@ export class UIManager {
 
   async loadAndRender(url: string) {
     try {
+      this.showLoading("Loading...");
       await this.tiffService.load(url);
       this.pageCount = this.tiffService.getPageCount();
       if (this.pageCount === 0) {
@@ -51,6 +52,8 @@ export class UIManager {
       this.createToolbar();
     } catch (error) {
       this.displayErrorPanel("Cannot display TIFF image", error);
+    } finally {
+      this.hideLoading();
     }
   }
 
@@ -330,5 +333,18 @@ export class UIManager {
     document
       .querySelectorAll(".centered-error-panel")
       .forEach((e) => e.remove());
+  }
+
+  private showLoading(message = "Loading...") {
+    this.hideLoading();
+    const overlay = document.createElement("div");
+    overlay.className = "centered-loading-overlay";
+    overlay.innerHTML = `<div class="centered-loading-message"><div class="centered-loading-spinner"></div>${message}</div>`;
+    overlay.id = "tiff-loading-overlay";
+    document.body.appendChild(overlay);
+  }
+
+  private hideLoading() {
+    document.getElementById("tiff-loading-overlay")?.remove();
   }
 }
