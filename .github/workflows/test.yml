@@ -76,25 +76,20 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Install dependencies
-        working-directory: packages/${{ matrix.package }}
-        run: |
-          if [ -f "yarn.lock" ]; then
-            yarn install --frozen-lockfile
-          else
-            npm ci
-          fi
+        run: pnpm install --frozen-lockfile
 
       - name: Run tests
         working-directory: packages/${{ matrix.package }}
         run: |
           if grep -q '"test"' package.json && ! grep -q '"test":\s*""' package.json; then
             echo "Running tests for ${{ matrix.package }}"
-            if [ -f "yarn.lock" ]; then
-              yarn test
-            else
-              npm test
-            fi
+            pnpm test
           else
             echo "No tests found for ${{ matrix.package }}, skipping"
           fi
@@ -104,11 +99,7 @@ jobs:
         run: |
           if grep -q '"build"' package.json; then
             echo "Building ${{ matrix.package }}"
-            if [ -f "yarn.lock" ]; then
-              yarn build
-            else
-              npm run build
-            fi
+            pnpm build
           else
             echo "No build script found for ${{ matrix.package }}, skipping"
           fi
@@ -118,11 +109,7 @@ jobs:
         run: |
           if grep -q '"prettier"' package.json; then
             echo "Checking formatting for ${{ matrix.package }}"
-            if [ -f "yarn.lock" ]; then
-              yarn prettier --check .
-            else
-              npm run prettier -- --check .
-            fi
+            pnpm prettier --check .
           else
             echo "No prettier script found for ${{ matrix.package }}, skipping"
           fi

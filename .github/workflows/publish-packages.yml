@@ -75,25 +75,20 @@ jobs:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Install dependencies
-        working-directory: packages/${{ matrix.package }}
-        run: |
-          if [ -f "yarn.lock" ]; then
-            yarn install --frozen-lockfile
-          else
-            npm ci
-          fi
+        run: pnpm install --frozen-lockfile
 
       - name: Build package
         working-directory: packages/${{ matrix.package }}
         run: |
           # Try different build commands based on what's available
           if grep -q '"build"' package.json; then
-            if [ -f "yarn.lock" ]; then
-              yarn build
-            else
-              npm run build
-            fi
+            pnpm build
           else
             echo "No build script found, skipping build step"
           fi
