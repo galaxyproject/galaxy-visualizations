@@ -372,7 +372,7 @@ export class UIManager {
     const height = this.canvas.height / (window.devicePixelRatio || 1);
     const scaleX = containerRect.width / width;
     const scaleY = containerRect.height / height;
-    const scale = Math.min(scaleX, scaleY, 1);
+    const scale = Math.min(scaleX, scaleY);
     // Set origin to center for proper centering
     this.panzoom.setOptions({ origin: "center" });
     this.panzoom.reset();
