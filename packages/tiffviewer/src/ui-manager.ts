@@ -104,11 +104,12 @@ export class UIManager {
 
   private createToolbar() {
     this.toolbar.innerHTML = "";
-    // Info button
+    // Info button (SVG)
     const infoSwitch = document.createElement("button");
-    infoSwitch.textContent = "ℹ️";
+    infoSwitch.appendChild(this.createIcon("/icons/info.svg", "Show Info"));
     infoSwitch.title = "Show Info";
     infoSwitch.type = "button";
+    infoSwitch.setAttribute("aria-label", "Show Info");
     let infoPanel: HTMLElement | null = null;
     infoSwitch.onclick = () => {
       if (infoPanel) {
@@ -137,33 +138,40 @@ export class UIManager {
       document.body.appendChild(infoPanel);
       document.addEventListener("keydown", closeInfoPanelOnEsc);
     };
-    // Zoom controls
+    // Zoom controls (SVG)
     const zoomInBtn = document.createElement("button");
-    zoomInBtn.textContent = "＋";
+    zoomInBtn.appendChild(this.createIcon("/icons/zoom-in.svg", "Zoom In"));
     zoomInBtn.title = "Zoom In";
     zoomInBtn.type = "button";
+    zoomInBtn.setAttribute("aria-label", "Zoom In");
     zoomInBtn.onclick = () => this.panzoom.zoomIn();
     const zoomOutBtn = document.createElement("button");
-    zoomOutBtn.textContent = "－";
+    zoomOutBtn.appendChild(this.createIcon("/icons/zoom-out.svg", "Zoom Out"));
     zoomOutBtn.title = "Zoom Out";
     zoomOutBtn.type = "button";
+    zoomOutBtn.setAttribute("aria-label", "Zoom Out");
     zoomOutBtn.onclick = () => this.panzoom.zoomOut();
     const resetZoomBtn = document.createElement("button");
-    resetZoomBtn.textContent = "⭯";
+    resetZoomBtn.appendChild(this.createIcon("/icons/reset.svg", "Reset Zoom"));
     resetZoomBtn.title = "Reset Zoom";
     resetZoomBtn.type = "button";
+    resetZoomBtn.setAttribute("aria-label", "Reset Zoom");
     resetZoomBtn.onclick = () => this.panzoom.reset();
-    // Fit to screen button
+    // Fit to screen button (SVG)
     const fitBtn = document.createElement("button");
-    fitBtn.textContent = "🖼️";
+    fitBtn.appendChild(this.createIcon("/icons/fit.svg", "Fit to Screen"));
     fitBtn.title = "Fit to Screen";
     fitBtn.type = "button";
+    fitBtn.setAttribute("aria-label", "Fit to Screen");
     fitBtn.onclick = () => this.fitImageToScreen();
-    // Palette panel
+    // Palette panel (SVG)
     const palettePanelBtn = document.createElement("button");
-    palettePanelBtn.textContent = "🎨";
+    palettePanelBtn.appendChild(
+      this.createIcon("/icons/palette.svg", "Show Palette Selector")
+    );
     palettePanelBtn.title = "Show Palette Selector";
     palettePanelBtn.type = "button";
+    palettePanelBtn.setAttribute("aria-label", "Show Palette Selector");
     let palettePanel: HTMLElement | null = null;
     palettePanelBtn.onclick = () => {
       if (palettePanel) {
@@ -370,5 +378,16 @@ export class UIManager {
     this.panzoom.reset();
     this.panzoom.zoom(scale, { animate: false });
     this.panzoom.pan(0, 0, { animate: false });
+  }
+
+  private createIcon(path: string, label: string): HTMLElement {
+    const icon = document.createElement("img");
+    icon.src = path;
+    icon.alt = label;
+    icon.width = 20;
+    icon.height = 20;
+    icon.setAttribute("aria-hidden", "true");
+    icon.style.verticalAlign = "middle";
+    return icon;
   }
 }
