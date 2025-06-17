@@ -99,6 +99,7 @@ export class UIManager {
     this.canvas.style.height = `${height}px`;
     const imageData = new ImageData(rgba, width, height);
     context.putImageData(imageData, 0, 0);
+    this.fitImageToScreen();
   }
 
   private createToolbar() {
@@ -152,6 +153,12 @@ export class UIManager {
     resetZoomBtn.title = "Reset Zoom";
     resetZoomBtn.type = "button";
     resetZoomBtn.onclick = () => this.panzoom.reset();
+    // Fit to screen button
+    const fitBtn = document.createElement("button");
+    fitBtn.textContent = "🖼️";
+    fitBtn.title = "Fit to Screen";
+    fitBtn.type = "button";
+    fitBtn.onclick = () => this.fitImageToScreen();
     // Palette panel
     const palettePanelBtn = document.createElement("button");
     palettePanelBtn.textContent = "🎨";
@@ -229,6 +236,7 @@ export class UIManager {
     this.toolbar.appendChild(zoomInBtn);
     this.toolbar.appendChild(zoomOutBtn);
     this.toolbar.appendChild(resetZoomBtn);
+    this.toolbar.appendChild(fitBtn);
     this.toolbar.appendChild(palettePanelBtn);
   }
 
@@ -346,5 +354,21 @@ export class UIManager {
 
   private hideLoading() {
     document.getElementById("tiff-loading-overlay")?.remove();
+  }
+
+  private fitImageToScreen() {
+    const container = this.canvas.parentElement as HTMLElement;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const width = this.canvas.width / (window.devicePixelRatio || 1);
+    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    const scaleX = containerRect.width / width;
+    const scaleY = containerRect.height / height;
+    const scale = Math.min(scaleX, scaleY, 1);
+    // Set origin to center for proper centering
+    this.panzoom.setOptions({ origin: "center" });
+    this.panzoom.reset();
+    this.panzoom.zoom(scale, { animate: false });
+    this.panzoom.pan(0, 0, { animate: false });
   }
 }
