@@ -163,7 +163,7 @@ export class UIManager {
     fitBtn.title = "Fit to Screen";
     fitBtn.type = "button";
     fitBtn.setAttribute("aria-label", "Fit to Screen");
-    fitBtn.onclick = () => this.fitImageToScreen();
+    fitBtn.onclick = () => this.fitImageToScreen(true);
     // Palette panel (SVG)
     const palettePanelBtn = document.createElement("button");
     palettePanelBtn.appendChild(
@@ -364,7 +364,7 @@ export class UIManager {
     document.getElementById("tiff-loading-overlay")?.remove();
   }
 
-  private fitImageToScreen() {
+  private fitImageToScreen(animate = false) {
     const container = this.canvas.parentElement as HTMLElement;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
@@ -374,8 +374,8 @@ export class UIManager {
     const scaleY = containerRect.height / height;
     const scale = Math.min(scaleX, scaleY);
     this.panzoom.reset();
-    this.panzoom.zoom(scale, { animate: false });
-    this.panzoom.pan(0, 0, { animate: false });
+    this.panzoom.zoom(scale, { animate });
+    this.panzoom.pan(0, 0, { animate });
   }
 
   private createIcon(path: string, label: string): HTMLElement {
