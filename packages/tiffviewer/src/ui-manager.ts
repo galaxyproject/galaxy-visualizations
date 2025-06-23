@@ -12,6 +12,7 @@ export class UIManager {
   private currentTIFFImage: GeoTIFFImage | null = null;
   private pageCount: number = 0;
   private currentPageIndex: number = 0;
+  private readonly maxScale: number = 20;
 
   private tiffService: TIFFService;
   private paletteManager: PaletteManager;
@@ -32,7 +33,10 @@ export class UIManager {
     this.appElement.appendChild(container);
     this.canvas = document.createElement("canvas");
     container.appendChild(this.canvas);
-    this.panzoom = Panzoom(this.canvas, { canvas: true });
+    this.panzoom = Panzoom(this.canvas, {
+      canvas: true,
+      maxScale: this.maxScale,
+    });
     container.addEventListener("wheel", (event) => {
       this.panzoom.zoomWithWheel(event);
     });
