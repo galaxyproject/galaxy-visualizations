@@ -373,8 +373,6 @@ export class UIManager {
     const scaleX = containerRect.width / width;
     const scaleY = containerRect.height / height;
     const scale = Math.min(scaleX, scaleY);
-    // Set origin to center for proper centering
-    this.panzoom.setOptions({ origin: "center" });
     this.panzoom.reset();
     this.panzoom.zoom(scale, { animate: false });
     this.panzoom.pan(0, 0, { animate: false });
