@@ -156,7 +156,7 @@ export class UIManager {
     resetZoomBtn.title = "Reset Zoom";
     resetZoomBtn.type = "button";
     resetZoomBtn.setAttribute("aria-label", "Reset Zoom");
-    resetZoomBtn.onclick = () => this.panzoom.reset();
+    resetZoomBtn.onclick = () => this.resetImage();
     // Fit to screen button (SVG)
     const fitBtn = document.createElement("button");
     fitBtn.appendChild(this.createIcon("/icons/fit.svg", "Fit to Screen"));
@@ -379,6 +379,18 @@ export class UIManager {
     this.panzoom.reset();
     this.panzoom.zoom(scale, { animate });
     this.panzoom.pan(panX, panY, { animate });
+  }
+
+  private resetImage() {
+    const container = this.canvas.parentElement as HTMLElement;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const width = this.canvas.width / (window.devicePixelRatio || 1);
+    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    const panX = (containerRect.width - width) / 2;
+    const panY = (containerRect.height - height) / 2;
+    this.panzoom.reset();
+    this.panzoom.pan(panX, panY, { animate: true });
   }
 
   private createIcon(path: string, label: string): HTMLElement {
