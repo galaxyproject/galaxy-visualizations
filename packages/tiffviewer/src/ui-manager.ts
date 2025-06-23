@@ -373,9 +373,12 @@ export class UIManager {
     const scaleX = containerRect.width / width;
     const scaleY = containerRect.height / height;
     const scale = Math.min(scaleX, scaleY);
+    // Calculate offset for centering
+    const panX = (containerRect.width - width) / 2 / scale;
+    const panY = (containerRect.height - height) / 2 / scale;
     this.panzoom.reset();
     this.panzoom.zoom(scale, { animate });
-    this.panzoom.pan(0, 0, { animate });
+    this.panzoom.pan(panX, panY, { animate });
   }
 
   private createIcon(path: string, label: string): HTMLElement {
