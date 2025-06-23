@@ -163,7 +163,7 @@ export class UIManager {
     fitBtn.title = "Fit to Screen";
     fitBtn.type = "button";
     fitBtn.setAttribute("aria-label", "Fit to Screen");
-    fitBtn.onclick = () => this.fitImageToScreen(true);
+    fitBtn.onclick = () => this.fitImageToScreen();
     // Palette panel (SVG)
     const palettePanelBtn = document.createElement("button");
     palettePanelBtn.appendChild(
@@ -364,7 +364,27 @@ export class UIManager {
     document.getElementById("tiff-loading-overlay")?.remove();
   }
 
-  private fitImageToScreen(animate = false) {
+  private centerImageInContainer(scale: number) {
+    const container = this.canvas.parentElement as HTMLElement;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const width = this.canvas.width / (window.devicePixelRatio || 1);
+    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    let useScale = scale;
+    if (isNaN(useScale) || useScale <= 0) {
+      useScale = this.panzoom.getScale() || 1;
+    }
+    // Calculate offset for centering
+    const panX = (containerRect.width - width) / 2 / useScale;
+    const panY = (containerRect.height - height) / 2 / useScale;
+    this.panzoom.reset();
+    if (useScale !== 1) {
+      this.panzoom.zoom(useScale);
+    }
+    this.panzoom.pan(panX, panY);
+  }
+
+  private fitImageToScreen() {
     const container = this.canvas.parentElement as HTMLElement;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
@@ -373,24 +393,11 @@ export class UIManager {
     const scaleX = containerRect.width / width;
     const scaleY = containerRect.height / height;
     const scale = Math.min(scaleX, scaleY);
-    // Calculate offset for centering
-    const panX = (containerRect.width - width) / 2 / scale;
-    const panY = (containerRect.height - height) / 2 / scale;
-    this.panzoom.reset();
-    this.panzoom.zoom(scale, { animate });
-    this.panzoom.pan(panX, panY, { animate });
+    this.centerImageInContainer(scale);
   }
 
   private resetImage() {
-    const container = this.canvas.parentElement as HTMLElement;
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const width = this.canvas.width / (window.devicePixelRatio || 1);
-    const height = this.canvas.height / (window.devicePixelRatio || 1);
-    const panX = (containerRect.width - width) / 2;
-    const panY = (containerRect.height - height) / 2;
-    this.panzoom.reset();
-    this.panzoom.pan(panX, panY, { animate: true });
+    this.centerImageInContainer(1);
   }
 
   private createIcon(path: string, label: string): HTMLElement {
