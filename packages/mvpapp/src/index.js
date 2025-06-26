@@ -89,7 +89,7 @@ async function create() {
             datasetID: datasetId,
             dataName: dataset.name,
             dbkey: dataset.metadata_dbkey || "?",
-            href: root,
+            href: root.replace(/\/$/, ""),
             historyID: dataset.history_id,
             tableRowCount: { ...dataset.metadata_table_row_count },
         }
