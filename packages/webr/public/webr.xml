@@ -1,0 +1,4 @@
+<visualization name="WebR">
+    <description>R in the Browser.</description>
+    <entry_point src="index.js" css="index.css" />
+</visualization>
