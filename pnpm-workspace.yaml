@@ -1,0 +1,12 @@
+packages:
+  - 'packages/*'
+  - '!packages/annotateimage'
+  - '!packages/aequatus'
+  - '!packages/chiraviz'
+  - '!packages/jupyterlite'
+  - '!packages/kepler'
+  - '!packages/mvpapp'
+  - '!packages/nora'
+  - '!packages/vitessce'
+  - '!packages/tiffviewer'
+  - '!packages/venn'
