@@ -12,6 +12,7 @@ export class UIManager {
   private currentTIFFImage: GeoTIFFImage | null = null;
   private pageCount: number = 0;
   private currentPageIndex: number = 0;
+  private readonly maxScale: number = 20;
 
   private tiffService: TIFFService;
   private paletteManager: PaletteManager;
@@ -32,7 +33,10 @@ export class UIManager {
     this.appElement.appendChild(container);
     this.canvas = document.createElement("canvas");
     container.appendChild(this.canvas);
-    this.panzoom = Panzoom(this.canvas, { canvas: true });
+    this.panzoom = Panzoom(this.canvas, {
+      canvas: true,
+      maxScale: this.maxScale,
+    });
     container.addEventListener("wheel", (event) => {
       this.panzoom.zoomWithWheel(event);
     });
@@ -40,6 +44,7 @@ export class UIManager {
 
   async loadAndRender(url: string) {
     try {
+      this.showLoading("Loading...");
       await this.tiffService.load(url);
       this.pageCount = this.tiffService.getPageCount();
       if (this.pageCount === 0) {
@@ -51,6 +56,8 @@ export class UIManager {
       this.createToolbar();
     } catch (error) {
       this.displayErrorPanel("Cannot display TIFF image", error);
+    } finally {
+      this.hideLoading();
     }
   }
 
@@ -96,15 +103,17 @@ export class UIManager {
     this.canvas.style.height = `${height}px`;
     const imageData = new ImageData(rgba, width, height);
     context.putImageData(imageData, 0, 0);
+    this.fitImageToScreen();
   }
 
   private createToolbar() {
     this.toolbar.innerHTML = "";
-    // Info button
+    // Info button (SVG)
     const infoSwitch = document.createElement("button");
-    infoSwitch.textContent = "ℹ️";
+    infoSwitch.appendChild(this.createIcon("/icons/info.svg", "Show Info"));
     infoSwitch.title = "Show Info";
     infoSwitch.type = "button";
+    infoSwitch.setAttribute("aria-label", "Show Info");
     let infoPanel: HTMLElement | null = null;
     infoSwitch.onclick = () => {
       if (infoPanel) {
@@ -133,27 +142,40 @@ export class UIManager {
       document.body.appendChild(infoPanel);
       document.addEventListener("keydown", closeInfoPanelOnEsc);
     };
-    // Zoom controls
+    // Zoom controls (SVG)
     const zoomInBtn = document.createElement("button");
-    zoomInBtn.textContent = "＋";
+    zoomInBtn.appendChild(this.createIcon("/icons/zoom-in.svg", "Zoom In"));
     zoomInBtn.title = "Zoom In";
     zoomInBtn.type = "button";
+    zoomInBtn.setAttribute("aria-label", "Zoom In");
     zoomInBtn.onclick = () => this.panzoom.zoomIn();
     const zoomOutBtn = document.createElement("button");
-    zoomOutBtn.textContent = "－";
+    zoomOutBtn.appendChild(this.createIcon("/icons/zoom-out.svg", "Zoom Out"));
     zoomOutBtn.title = "Zoom Out";
     zoomOutBtn.type = "button";
+    zoomOutBtn.setAttribute("aria-label", "Zoom Out");
     zoomOutBtn.onclick = () => this.panzoom.zoomOut();
     const resetZoomBtn = document.createElement("button");
-    resetZoomBtn.textContent = "⭯";
+    resetZoomBtn.appendChild(this.createIcon("/icons/reset.svg", "Reset Zoom"));
     resetZoomBtn.title = "Reset Zoom";
     resetZoomBtn.type = "button";
-    resetZoomBtn.onclick = () => this.panzoom.reset();
-    // Palette panel
+    resetZoomBtn.setAttribute("aria-label", "Reset Zoom");
+    resetZoomBtn.onclick = () => this.resetImage();
+    // Fit to screen button (SVG)
+    const fitBtn = document.createElement("button");
+    fitBtn.appendChild(this.createIcon("/icons/fit.svg", "Fit to Screen"));
+    fitBtn.title = "Fit to Screen";
+    fitBtn.type = "button";
+    fitBtn.setAttribute("aria-label", "Fit to Screen");
+    fitBtn.onclick = () => this.fitImageToScreen();
+    // Palette panel (SVG)
     const palettePanelBtn = document.createElement("button");
-    palettePanelBtn.textContent = "🎨";
+    palettePanelBtn.appendChild(
+      this.createIcon("/icons/palette.svg", "Show Palette Selector")
+    );
     palettePanelBtn.title = "Show Palette Selector";
     palettePanelBtn.type = "button";
+    palettePanelBtn.setAttribute("aria-label", "Show Palette Selector");
     let palettePanel: HTMLElement | null = null;
     palettePanelBtn.onclick = () => {
       if (palettePanel) {
@@ -226,6 +248,7 @@ export class UIManager {
     this.toolbar.appendChild(zoomInBtn);
     this.toolbar.appendChild(zoomOutBtn);
     this.toolbar.appendChild(resetZoomBtn);
+    this.toolbar.appendChild(fitBtn);
     this.toolbar.appendChild(palettePanelBtn);
   }
 
@@ -330,5 +353,65 @@ export class UIManager {
     document
       .querySelectorAll(".centered-error-panel")
       .forEach((e) => e.remove());
+  }
+
+  private showLoading(message = "Loading...") {
+    this.hideLoading();
+    const overlay = document.createElement("div");
+    overlay.className = "centered-loading-overlay";
+    overlay.innerHTML = `<div class="centered-loading-message"><div class="centered-loading-spinner"></div>${message}</div>`;
+    overlay.id = "tiff-loading-overlay";
+    document.body.appendChild(overlay);
+  }
+
+  private hideLoading() {
+    document.getElementById("tiff-loading-overlay")?.remove();
+  }
+
+  private centerImageInContainer(scale: number) {
+    const container = this.canvas.parentElement as HTMLElement;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const width = this.canvas.width / (window.devicePixelRatio || 1);
+    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    let useScale = scale;
+    if (isNaN(useScale) || useScale <= 0) {
+      useScale = this.panzoom.getScale() || 1;
+    }
+    // Calculate offset for centering
+    const panX = (containerRect.width - width) / 2 / useScale;
+    const panY = (containerRect.height - height) / 2 / useScale;
+    this.panzoom.reset();
+    if (useScale !== 1) {
+      this.panzoom.zoom(useScale);
+    }
+    this.panzoom.pan(panX, panY);
+  }
+
+  private fitImageToScreen() {
+    const container = this.canvas.parentElement as HTMLElement;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const width = this.canvas.width / (window.devicePixelRatio || 1);
+    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    const scaleX = containerRect.width / width;
+    const scaleY = containerRect.height / height;
+    const scale = Math.min(scaleX, scaleY);
+    this.centerImageInContainer(scale);
+  }
+
+  private resetImage() {
+    this.centerImageInContainer(1);
+  }
+
+  private createIcon(path: string, label: string): HTMLElement {
+    const icon = document.createElement("img");
+    icon.src = path;
+    icon.alt = label;
+    icon.width = 20;
+    icon.height = 20;
+    icon.setAttribute("aria-hidden", "true");
+    icon.style.verticalAlign = "middle";
+    return icon;
   }
 }
