@@ -1,6 +1,6 @@
 {
   "name": "@galaxyproject/tiffviewer",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A visualization for Tiff files based on GeoTIFF and PanZoom libraries.",
   "license": "MIT",
   "files": [
