@@ -3,6 +3,7 @@ import { PaletteManager } from "./palette-manager";
 import { TIFFService } from "./tiff-service";
 import { normalizeIfNeeded } from "./utils";
 import type { GeoTIFFImage } from "geotiff";
+import { icons, type IconKey } from "./icons";
 
 export class UIManager {
   private appElement: HTMLElement;
@@ -110,7 +111,7 @@ export class UIManager {
     this.toolbar.innerHTML = "";
     // Info button (SVG)
     const infoSwitch = document.createElement("button");
-    infoSwitch.appendChild(this.createIcon("/icons/info.svg", "Show Info"));
+    infoSwitch.appendChild(this.createIcon("info", "Show Info"));
     infoSwitch.title = "Show Info";
     infoSwitch.type = "button";
     infoSwitch.setAttribute("aria-label", "Show Info");
@@ -144,26 +145,26 @@ export class UIManager {
     };
     // Zoom controls (SVG)
     const zoomInBtn = document.createElement("button");
-    zoomInBtn.appendChild(this.createIcon("/icons/zoom-in.svg", "Zoom In"));
+    zoomInBtn.appendChild(this.createIcon("zoom-in", "Zoom In"));
     zoomInBtn.title = "Zoom In";
     zoomInBtn.type = "button";
     zoomInBtn.setAttribute("aria-label", "Zoom In");
     zoomInBtn.onclick = () => this.panzoom.zoomIn();
     const zoomOutBtn = document.createElement("button");
-    zoomOutBtn.appendChild(this.createIcon("/icons/zoom-out.svg", "Zoom Out"));
+    zoomOutBtn.appendChild(this.createIcon("zoom-out", "Zoom Out"));
     zoomOutBtn.title = "Zoom Out";
     zoomOutBtn.type = "button";
     zoomOutBtn.setAttribute("aria-label", "Zoom Out");
     zoomOutBtn.onclick = () => this.panzoom.zoomOut();
     const resetZoomBtn = document.createElement("button");
-    resetZoomBtn.appendChild(this.createIcon("/icons/reset.svg", "Reset Zoom"));
+    resetZoomBtn.appendChild(this.createIcon("reset", "Reset Zoom"));
     resetZoomBtn.title = "Reset Zoom";
     resetZoomBtn.type = "button";
     resetZoomBtn.setAttribute("aria-label", "Reset Zoom");
     resetZoomBtn.onclick = () => this.resetImage();
     // Fit to screen button (SVG)
     const fitBtn = document.createElement("button");
-    fitBtn.appendChild(this.createIcon("/icons/fit.svg", "Fit to Screen"));
+    fitBtn.appendChild(this.createIcon("fit", "Fit to Screen"));
     fitBtn.title = "Fit to Screen";
     fitBtn.type = "button";
     fitBtn.setAttribute("aria-label", "Fit to Screen");
@@ -171,7 +172,7 @@ export class UIManager {
     // Palette panel (SVG)
     const palettePanelBtn = document.createElement("button");
     palettePanelBtn.appendChild(
-      this.createIcon("/icons/palette.svg", "Show Palette Selector")
+      this.createIcon("palette", "Show Palette Selector")
     );
     palettePanelBtn.title = "Show Palette Selector";
     palettePanelBtn.type = "button";
@@ -269,7 +270,7 @@ export class UIManager {
       this.renderTIFFImage(currentIndex);
     });
     const prevBtn = document.createElement("button");
-    prevBtn.textContent = "⬅️";
+    prevBtn.appendChild(this.createIcon("arrow-left", "Previous Page"));
     prevBtn.title = "Previous Page";
     prevBtn.type = "button";
     prevBtn.onclick = () => {
@@ -281,7 +282,7 @@ export class UIManager {
       }
     };
     const nextBtn = document.createElement("button");
-    nextBtn.textContent = "➡️";
+    nextBtn.appendChild(this.createIcon("arrow-right", "Next Page"));
     nextBtn.title = "Next Page";
     nextBtn.type = "button";
     nextBtn.onclick = () => {
@@ -404,14 +405,15 @@ export class UIManager {
     this.centerImageInContainer(1);
   }
 
-  private createIcon(path: string, label: string): HTMLElement {
-    const icon = document.createElement("img");
-    icon.src = path;
-    icon.alt = label;
-    icon.width = 20;
-    icon.height = 20;
-    icon.setAttribute("aria-hidden", "true");
-    icon.style.verticalAlign = "middle";
-    return icon;
+  private createIcon(key: IconKey, label: string) {
+    const wrapper = document.createElement("span");
+    wrapper.innerHTML = icons[key];
+    const svg = wrapper.firstElementChild;
+    if (svg) {
+      svg.setAttribute("aria-label", label);
+      svg.setAttribute("role", "img");
+      svg.setAttribute("focusable", "false");
+    }
+    return svg || wrapper;
   }
 }
