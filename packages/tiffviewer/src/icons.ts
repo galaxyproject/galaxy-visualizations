@@ -1,6 +1,15 @@
 // Inline SVG icon definitions for TIFF viewer toolbar
+export type IconKey =
+  | "info"
+  | "zoom-in"
+  | "zoom-out"
+  | "reset"
+  | "fit"
+  | "palette"
+  | "arrow-left"
+  | "arrow-right";
 
-export const icons: Record<string, string> = {
+export const icons: Record<IconKey, string> = {
   info: `
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="10" cy="10" r="9" stroke="#333" stroke-width="2" fill="#fff"/>

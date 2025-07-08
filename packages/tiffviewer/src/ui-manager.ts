@@ -3,7 +3,7 @@ import { PaletteManager } from "./palette-manager";
 import { TIFFService } from "./tiff-service";
 import { normalizeIfNeeded } from "./utils";
 import type { GeoTIFFImage } from "geotiff";
-import { icons } from "./icons";
+import { icons, type IconKey } from "./icons";
 
 export class UIManager {
   private appElement: HTMLElement;
@@ -405,17 +405,14 @@ export class UIManager {
     this.centerImageInContainer(1);
   }
 
-  private createIcon(key: string, label: string): HTMLElement {
+  private createIcon(key: IconKey, label: string) {
     const wrapper = document.createElement("span");
-    wrapper.innerHTML = icons[key] || "";
-    const svg = wrapper.firstElementChild as SVGElement | null;
+    wrapper.innerHTML = icons[key];
+    const svg = wrapper.firstElementChild;
     if (svg) {
       svg.setAttribute("aria-label", label);
       svg.setAttribute("role", "img");
       svg.setAttribute("focusable", "false");
-      svg.style.verticalAlign = "middle";
-      svg.style.width = "20px";
-      svg.style.height = "20px";
     }
     return svg || wrapper;
   }
