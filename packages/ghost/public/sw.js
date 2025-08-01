@@ -7,6 +7,10 @@ const getMimeType = (path) => {
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
     '.html': 'text/html',
+    '.svg': 'image/svg+xml',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf'
   };
   const ext = path.slice(path.lastIndexOf('.')).split('?')[0];
   return mimeMap[ext] || 'text/plain';
@@ -32,34 +36,18 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only permit GET requests from same origin
   const url = new URL(event.request.url);
-  
-  // Skip non-GET and cross-origin requests
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
-    return;
+  if (event.request.method === 'GET' && url.origin === self.location.origin) {
+    // Only permit access to files provided in fs
+    const path = decodeURIComponent(url.pathname).split('?')[0];
+    if (virtualFS.has(path)) {
+        const mime = getMimeType(path);
+        const content = virtualFS.get(path);
+        const response = new Response(content, {
+            headers: { 'Content-Type': mime }
+        });
+        event.respondWith(response);
+    }
   }
-
-  const path = decodeURIComponent(url.pathname).split('?')[0];
-  const requestPath = path === '/' ? '/index.html' : path;
-  
-  // Skip system files
-  if (requestPath.includes('__MACOSX/') || requestPath.includes('.DS_Store') || requestPath.startsWith('._')) {
-    return;
-  }
-
-  event.respondWith(handleRequest(event, requestPath));
 });
-
-async function handleRequest(event, path) {
-  // Check in-memory cache first
-  if (virtualFS.has(path)) {
-    const mime = getMimeType(path);
-    const content = virtualFS.get(path);
-    return new Response(content, {
-      headers: { 'Content-Type': mime }
-    });
-  }
-
-  // Fallback to network
-  alert('SKIP')
-}
