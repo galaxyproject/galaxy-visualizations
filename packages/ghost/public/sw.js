@@ -61,5 +61,5 @@ async function handleRequest(event, path) {
   }
 
   // Fallback to network
-  return fetch(event.request);
+  alert('SKIP')
 }
