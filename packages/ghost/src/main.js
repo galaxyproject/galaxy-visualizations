@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 
-const ZIP_URL = "/alpha-rarefaction.qzv";
-const BASE_PATH = "/f51bd593-69db-4d97-98fd-7ba6fc65027f/data"; // Only files under this path will be extracted
+const ZIP_URL = "/faith-pd-group-significance.qzv";
+const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data"; // Only files under this path will be extracted
 
 async function loadZipToMemory() {
     console.log("Loading ZIP content...");
