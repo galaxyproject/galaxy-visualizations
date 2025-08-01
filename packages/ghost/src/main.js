@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 
-const ZIP_URL = "/data.zip";
+const ZIP_URL = "/alpha-rarefaction.qzv";
+const BASE_PATH = "/f51bd593-69db-4d97-98fd-7ba6fc65027f/data"; // Only files under this path will be extracted
 
 async function loadZipToMemory() {
     console.log("Loading ZIP content...");
@@ -15,8 +16,14 @@ async function loadZipToMemory() {
         }
 
         const normalizedPath = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
-        const content = await file.async("uint8array");
-        files[normalizedPath] = content;
+
+        // Only process files under BASE_PATH
+        if (normalizedPath.startsWith(BASE_PATH)) {
+            // Map to root by removing BASE_PATH prefix
+            const rootPath = normalizedPath.slice(BASE_PATH.length);
+            const content = await file.async("uint8array");
+            files[rootPath] = content;
+        }
     }
 
     return files;
@@ -78,6 +85,11 @@ async function initApp() {
     try {
         console.log("Loading ZIP to memory...");
         const files = await loadZipToMemory();
+        console.log(files);
+        // Verify we have an index.html
+        if (!files["/index.html"]) {
+            throw new Error("No index.html found in the specified BASE_PATH");
+        }
 
         console.log("Registering service worker...");
         await registerServiceWorker(files);
