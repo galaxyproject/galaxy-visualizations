@@ -20,17 +20,17 @@ const getMimeType = (path) => {
 const virtualFS = new Map();
 
 self.addEventListener("install", (event) => {
-    console.log("[SW] Installing...");
+    console.log("[GHOST] Installing...");
     event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
-    console.log("[SW] Activating...");
+    console.log("[GHOST] Activating...");
     event.waitUntil(clients.claim());
 });
 
 self.addEventListener("message", (event) => {
-    if (event.data.type === "ADD_FILE") {
+    if (event.data.type === "ADD") {
         virtualFS.set(event.data.path, event.data.content);
     }
 });
