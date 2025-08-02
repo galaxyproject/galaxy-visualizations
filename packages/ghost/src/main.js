@@ -1,12 +1,12 @@
 import JSZip from "jszip";
 
-const ZIP_URL1 = "/raincloud-baseline0.qzv";
-const BASE_PATH1 = "/d0171103-9c4d-4bf9-924a-21a9065193b2/data";
+// const ZIP_URL = "/raincloud-baseline0.qzv";
+// const BASE_PATH = "/d0171103-9c4d-4bf9-924a-21a9065193b2/data";
 
 const ZIP_URL = "/faith-pd-group-significance.qzv";
 const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data";
-
 const IGNORE = ["__MACOSX/", ".DS_Store"];
+const SW_SCOPE = "/";
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content...");
@@ -16,7 +16,7 @@ async function loadZipToMemory() {
 
     // Process files
     for (const [path, file] of Object.entries(zip.files)) {
-        if (!file.dir && !IGNORE.some(pattern => path.includes(pattern))) {       
+        if (!file.dir && !IGNORE.some(pattern => path.includes(pattern))) {
             const normalizedPath = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
             // Only process files under BASE_PATH
             if (normalizedPath.startsWith(BASE_PATH)) {
@@ -33,21 +33,17 @@ async function loadZipToMemory() {
 
 async function registerServiceWorker(files) {
     if (navigator.serviceWorker) {
-
         // Clear existing registrations
         const registrations = await navigator.serviceWorker.getRegistrations();
         await Promise.all(registrations.map((r) => r.unregister()));
-
         // Register with cache busting
         const registration = await navigator.serviceWorker.register("/sw.js", {
             scope: "/",
             updateViaCache: "none",
         });
-
         // Send files to service worker
         if (registration.active) {
             for (const [path, content] of Object.entries(files)) {
-                console.log("here", path);
                 registration.active.postMessage({
                     type: "ADD",
                     path,
@@ -57,7 +53,6 @@ async function registerServiceWorker(files) {
         } else {
             throw new Error("[GHOST] Service activation failed.");
         }
-
         return registration;
     } else {
         throw new Error("[GHOST] Service workers not supported.");
@@ -65,10 +60,14 @@ async function registerServiceWorker(files) {
 }
 
 function mountWebsite(html) {
-    document.getElementById("app").innerHTML = `
-    <iframe srcdoc="${html.replace(/"/g, "&quot;")}"
-            style="width:100%;height:100vh;border:none"></iframe>
-  `;
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("sandbox", "allow-scripts");
+    iframe.style.width = "100%";
+    iframe.style.height = "100vh";
+    iframe.style.border = "none";
+    iframe.srcdoc = html.replace(/"/g, "&quot;");
+    document.getElementById("app").innerHTML = "";
+    document.getElementById("app").appendChild(iframe);
 }
 
 async function initApp() {
