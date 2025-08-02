@@ -21,6 +21,11 @@ const virtualFS = new Map();
 
 self.addEventListener("install", (event) => {
     console.log("[GHOST] Installing...");
+    /*if (!self.registration.scope.startsWith(self.location.origin + "/sandbox/")) {
+        console.warn("[GHOST] Invalid scope, unregistering...");
+        event.waitUntil(self.registration.unregister());
+        return;
+    }*/
     event.waitUntil(self.skipWaiting());
 });
 
