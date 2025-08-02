@@ -16,7 +16,7 @@ async function loadZipToMemory() {
 
     // Process files
     for (const [path, file] of Object.entries(zip.files)) {
-        if (!file.dir && !IGNORE.some(pattern => path.includes(pattern))) {
+        if (!file.dir && !IGNORE.some((pattern) => path.includes(pattern))) {
             const normalizedPath = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
             // Only process files under BASE_PATH
             if (normalizedPath.startsWith(BASE_PATH)) {
@@ -60,14 +60,12 @@ async function registerServiceWorker(files) {
 }
 
 function mountWebsite(html) {
-    const iframe = document.createElement("iframe");
-    iframe.setAttribute("sandbox", "allow-scripts");
-    iframe.style.width = "100%";
-    iframe.style.height = "100vh";
-    iframe.style.border = "none";
-    iframe.srcdoc = html.replace(/"/g, "&quot;");
-    document.getElementById("app").innerHTML = "";
-    document.getElementById("app").appendChild(iframe);
+    document.getElementById("app").innerHTML = `
+        <iframe
+            srcdoc="${html.replace(/"/g, "&quot;")}"
+            style="width:100%;height:100vh;border:none">
+        </iframe>
+    `;
 }
 
 async function initApp() {
