@@ -50,14 +50,9 @@ self.addEventListener("fetch", (event) => {
     // Only permit GET requests from same origin
     console.log("[SW] Intercept:", event.request.url);
     const url = new URL(event.request.url);
-    const path = decodeURIComponent(url.pathname).split("?")[0];
-        
-    console.log(path)
-    if (event.request.method === "GET") {
+    if (event.request.method === "GET" && url.pathname.startsWith(scope)) {
         // Only permit access to files provided in fs
         const path = decodeURIComponent(url.pathname).split("?")[0];
-        
-        //const path = url.pathname;
         if (virtualFS.has(path)) {
             const mime = getMimeType(path);
             const content = virtualFS.get(path);
