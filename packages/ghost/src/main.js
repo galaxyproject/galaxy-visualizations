@@ -7,7 +7,7 @@ const ZIP_URL = "/faith-pd-group-significance.qzv";
 const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data";
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
-const SCOPE = BASE_PATH;
+const SCOPE = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/";
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content...");
@@ -15,14 +15,18 @@ async function loadZipToMemory() {
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
+    // Process files
     for (const [path, file] of Object.entries(zip.files)) {
         if (!file.dir && !IGNORE.some((pattern) => path.includes(pattern))) {
             const normalizedPath = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
-            const rootPath = normalizedPath.startsWith(BASE_PATH)
-                ? normalizedPath.slice(BASE_PATH.length)
-                : normalizedPath;
-            const content = await file.async("uint8array");
-            files[SCOPE + rootPath.slice(1)] = content;
+
+            // Only process files under BASE_PATH
+            if (normalizedPath.startsWith(BASE_PATH)) {
+                // Map to root by removing BASE_PATH prefix
+                const rootPath = normalizedPath.slice(BASE_PATH.length);
+                const content = await file.async("uint8array");
+                files[SCOPE + rootPath.slice(1)] = content;
+            }
         }
     }
     console.log("[GHOST] Registered files:", Object.keys(files).length);
