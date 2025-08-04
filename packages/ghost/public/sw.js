@@ -19,6 +19,8 @@ const getMimeType = (path) => {
 // In-memory file storage
 const virtualFS = new Map();
 
+let scope = "/";
+
 self.addEventListener("install", (event) => {
     console.log("[GHOST] Installing...");
     /*if (!self.registration.scope.startsWith(self.location.origin + "/sandbox/")) {
@@ -38,14 +40,24 @@ self.addEventListener("message", (event) => {
     if (event.data.type === "ADD") {
         virtualFS.set(event.data.path, event.data.content);
     }
+    if (event.data.type === "SCOPE") {
+        scope = event.data.content;
+        console.log("[SW] Updating scope", scope);
+    }
 });
 
 self.addEventListener("fetch", (event) => {
     // Only permit GET requests from same origin
+    console.log("[SW] Intercept:", event.request.url);
     const url = new URL(event.request.url);
-    if (event.request.method === "GET" && url.origin === self.location.origin) {
+    const path = decodeURIComponent(url.pathname).split("?")[0];
+        
+    console.log(path)
+    if (event.request.method === "GET") {
         // Only permit access to files provided in fs
         const path = decodeURIComponent(url.pathname).split("?")[0];
+        
+        //const path = url.pathname;
         if (virtualFS.has(path)) {
             const mime = getMimeType(path);
             const content = virtualFS.get(path);
