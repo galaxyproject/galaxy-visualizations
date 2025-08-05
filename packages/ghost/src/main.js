@@ -3,11 +3,11 @@ import JSZip from "jszip";
 //const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
 //const BASE_PATH = "/d0171103-9c4d-4bf9-924a-21a9065193b2/data";
 
-const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
-const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data";
+//const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
+//const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data";
 
-//const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
-//const BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
+const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
+const BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
 //const SCOPE = "/static/plugins/visualizations/ghost/static/";
@@ -79,14 +79,14 @@ function rebaseHtmlPaths(html) {
     });
 }
 
-function mountWebsite(html) {
-    const rebasedHtml = rebaseHtmlPaths(html);
-    document.getElementById("app").innerHTML = `
-        <iframe
-            srcdoc="${rebasedHtml.replace(/"/g, "&quot;")}"
-            style="width:100%;height:100vh;border:none">
-        </iframe>
-    `;
+function mountWebsite() {
+    const iframe = document.createElement("iframe");
+    iframe.style.width = "100%";
+    iframe.style.height = "100vh";
+    iframe.style.border = "none";
+    iframe.src = `${SCOPE}index.html`;
+    document.getElementById("app").innerHTML = "";
+    document.getElementById("app").appendChild(iframe);
 }
 
 async function initApp() {
@@ -97,14 +97,21 @@ async function initApp() {
         // Verify we have an index.html
         const indexFile = files[`${SCOPE}index.html`];
         if (!indexFile) {
-            throw new Error("No index.html found in the specified BASE_PATH");
+            const originalIndex = Object.keys(files).find(k => k.endsWith("index.html"));
+            if (!originalIndex) {
+                throw new Error("No index.html found in the specified BASE_PATH");
+            }
+            const html = new TextDecoder().decode(files[originalIndex]);
+            const rebasedHtml = rebaseHtmlPaths(html);
+            const encodedHtml = new TextEncoder().encode(rebasedHtml);
+            files[`${SCOPE}index.html`] = encodedHtml;
         }
 
         console.log("[GHOST] Registering service worker...");
         await registerServiceWorker(files);
 
         console.log("[GHOST] Mounting website...");
-        mountWebsite(new TextDecoder().decode(indexFile));
+        mountWebsite();
     } catch (err) {
         console.error("[GHOST] Error:", err);
         document.getElementById("app").innerHTML = `
