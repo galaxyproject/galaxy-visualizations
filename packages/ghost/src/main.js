@@ -1,13 +1,17 @@
 import JSZip from "jszip";
 
-//const ZIP_URL = "/raincloud-baseline0.qzv";
+//const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
 //const BASE_PATH = "/d0171103-9c4d-4bf9-924a-21a9065193b2/data";
 
-const ZIP_URL = "/faith-pd-group-significance.qzv";
+const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
 const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data";
 
+//const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
+//const BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
+
 const IGNORE = ["__MACOSX/", ".DS_Store"];
-const SCOPE = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/";
+//const SCOPE = "/static/plugins/visualizations/ghost/static/";
+const SCOPE = "/";
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content...");
@@ -40,8 +44,8 @@ async function registerServiceWorker(files) {
         await Promise.all(registrations.map((r) => r.unregister()));
         // Register with cache busting
         try {
-            const registration = await navigator.serviceWorker.register(`/sw.js`, {
-                scope: "/",
+            const registration = await navigator.serviceWorker.register(`${SCOPE}sw.js`, {
+                scope: SCOPE,
                 updateViaCache: "none",
             });
             // Send files to service worker
@@ -67,23 +71,16 @@ async function registerServiceWorker(files) {
     }
 }
 
-function rebaseHtmlPaths(html, scope) {
-    if (!scope.endsWith("/")) {
-        scope += "/";
-    }
-
-    return html.replace(
-        /(src|href)=["']((?!https?:|data:|\/|#)[^"']+)["']/g,
-        (match, attr, path) => {
-            // Normalize "./" and strip it
-            const normalizedPath = path.startsWith("./") ? path.slice(2) : path;
-            return `${attr}="${scope}${normalizedPath}"`;
-        }
-    );
+function rebaseHtmlPaths(html) {
+    return html.replace(/(src|href)=["']((?!https?:|data:|\/|#)[^"']+)["']/g, (match, attr, path) => {
+        // Normalize "./" and strip it
+        const normalizedPath = path.startsWith("./") ? path.slice(2) : path;
+        return `${attr}="${SCOPE}${normalizedPath}"`;
+    });
 }
 
 function mountWebsite(html) {
-    const rebasedHtml = rebaseHtmlPaths(html, SCOPE);
+    const rebasedHtml = rebaseHtmlPaths(html);
     document.getElementById("app").innerHTML = `
         <iframe
             srcdoc="${rebasedHtml.replace(/"/g, "&quot;")}"
