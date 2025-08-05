@@ -10,8 +10,8 @@ const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualiza
 const BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
-//const SCOPE = "/static/plugins/visualizations/ghost/static/";
-const SCOPE = "/";
+const SCOPE = "/static/plugins/visualizations/ghost/static/virtual/";
+const SCRIPT_PATH = "/static/plugins/visualizations/ghost/static/";
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content...");
@@ -44,7 +44,7 @@ async function registerServiceWorker(files) {
         await Promise.all(registrations.map((r) => r.unregister()));
         // Register with cache busting
         try {
-            const registration = await navigator.serviceWorker.register(`${SCOPE}sw.js`, {
+            const registration = await navigator.serviceWorker.register(`${SCRIPT_PATH}sw.js`, {
                 scope: SCOPE,
                 updateViaCache: "none",
             });
