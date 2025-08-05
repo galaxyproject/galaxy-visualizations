@@ -48,19 +48,33 @@ async function registerServiceWorker(files) {
                 scope: SCOPE,
                 updateViaCache: "none",
             });
-            // Send files to service worker
-            if (registration.active) {
-                registration.active.postMessage({
-                    type: "SCOPE",
-                    content: SCOPE,
-                });
-                for (const [path, content] of Object.entries(files)) {
-                    registration.active.postMessage({
-                        type: "ADD",
-                        path,
-                        content,
+            // Wait until the service worker is active
+            if (!registration.active) {
+                await new Promise((resolve) => {
+                    const sw = registration.installing || registration.waiting;
+                    if (!sw) {
+                        resolve();
+                        return;
+                    }
+                    sw.addEventListener("statechange", function onStateChange(e) {
+                        if (e.target.state === "activated") {
+                            sw.removeEventListener("statechange", onStateChange);
+                            resolve();
+                        }
                     });
-                }
+                });
+            }
+            // Send files to service worker
+            registration.active.postMessage({
+                type: "SCOPE",
+                content: SCOPE,
+            });
+            for (const [path, content] of Object.entries(files)) {
+                registration.active.postMessage({
+                    type: "ADD",
+                    path,
+                    content,
+                });
             }
             return registration;
         } catch (e) {
