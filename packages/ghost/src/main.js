@@ -1,13 +1,13 @@
 import JSZip from "jszip";
 
-//const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
-//const BASE_PATH = "/d0171103-9c4d-4bf9-924a-21a9065193b2/data";
+const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
+const BASE_PATH = "/d0171103-9c4d-4bf9-924a-21a9065193b2/data";
 
 //const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
 //const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data";
 
-const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
-const BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
+//const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
+//const BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
 const SCOPE = "/static/plugins/visualizations/ghost/static/virtual/";
@@ -52,16 +52,16 @@ async function registerServiceWorker(files) {
             if (!registration.active) {
                 await new Promise((resolve) => {
                     const sw = registration.installing || registration.waiting;
-                    if (!sw) {
+                    if (sw) {
+                        sw.addEventListener("statechange", function onStateChange(e) {
+                            if (e.target.state === "activated") {
+                                sw.removeEventListener("statechange", onStateChange);
+                                resolve();
+                            }
+                        });
+                    } else {
                         resolve();
-                        return;
                     }
-                    sw.addEventListener("statechange", function onStateChange(e) {
-                        if (e.target.state === "activated") {
-                            sw.removeEventListener("statechange", onStateChange);
-                            resolve();
-                        }
-                    });
                 });
             }
             // Send files to service worker
@@ -85,12 +85,26 @@ async function registerServiceWorker(files) {
     }
 }
 
+function injectTestScript(html) {
+    const payload = `
+<script>
+(function() {
+    fetch('/api/version')
+        .then(r => r.text())
+        .then(t => console.error('API /version response:', t))
+        .catch(e => console.error('Error fetching /api/version:', e));
+})();
+</script>
+`;
+    return html.replace(/<\/body>/i, payload + '</body>');
+}
+
 function rebaseHtmlPaths(html) {
-    return html.replace(/(src|href)=["']((?!https?:|data:|\/|#)[^"']+)["']/g, (match, attr, path) => {
+    return injectTestScript(html.replace(/(src|href)=["']((?!https?:|data:|\/|#)[^"']+)["']/g, (match, attr, path) => {
         // Normalize "./" and strip it
         const normalizedPath = path.startsWith("./") ? path.slice(2) : path;
         return `${attr}="${SCOPE}${normalizedPath}"`;
-    });
+    }));
 }
 
 function mountWebsite() {
