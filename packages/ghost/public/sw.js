@@ -39,6 +39,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
     if (event.data.type === "ADD") {
         virtualFS.set(event.data.path, event.data.content);
+        console.log("[SW] Adding", event.data.path);
     }
     if (event.data.type === "SCOPE") {
         scope = event.data.content;
@@ -61,5 +62,7 @@ self.addEventListener("fetch", (event) => {
             });
             event.respondWith(response);
         }
+    } else {
+        console.error("[SW] Rejecting request to", url);
     }
 });
