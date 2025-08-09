@@ -190,12 +190,28 @@ async function startApp() {
         console.log("[GHOST] Loading ZIP to memory...");
         const files = await loadZipToMemory();
         console.log("[GHOST] Registering service worker...");
-        await registerServiceWorker(files);
+        const registration = await registerServiceWorker(files);
         console.log("[GHOST] Mounting website...");
         showWebsite();
+        window.addEventListener("beforeunload", () => stopApp(registration), { once: true });
     } catch (err) {
         console.error("[GHOST] Error:", err);
         showMessage("Loading Error", err.message);
+    }
+}
+
+// Destroy service worker
+async function stopApp(registration) {
+    try {
+        if (registration && registration.active) {
+            registration.active.postMessage({ type: "CLEAR" });
+        }
+        if (registration) {
+            await registration.unregister();
+            console.log("[GHOST] Successfully, unregistered.");
+        }
+    } catch (e) {
+        console.error("[GHOST] Teardown error:", e);
     }
 }
 
