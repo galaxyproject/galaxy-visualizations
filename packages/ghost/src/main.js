@@ -1,17 +1,14 @@
 import JSZip from "jszip";
 
-const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
-const BASE_PATH = "/d0171103-9c4d-4bf9-924a-21a9065193b2/data";
-
+//const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
 //const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
-//const BASE_PATH = "/59003edc-0779-4f0b-a379-a4bd58baa0bc/data";
-
-//const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
-//const BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
+const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
 const SCOPE = "/static/plugins/visualizations/ghost/static/virtual/";
 const SCRIPT_PATH = "/static/plugins/visualizations/ghost/static/";
+
+let BASE_PATH = null;
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content...");
@@ -19,11 +16,35 @@ async function loadZipToMemory() {
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
+    // Detect BASE_PATH from the index.html inside the zip
+    let detected = null;
+    for (const [path, file] of Object.entries(zip.files)) {
+        if (!file.dir) {
+            const canon = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
+            if (canon.endsWith("/index.html")) {
+                const candidate = canon.slice(0, -"/index.html".length); // no trailing slash
+                if (!detected) {
+                    detected = candidate;
+                } else {
+                    if (candidate.includes("/data/") && !detected.includes("/data/")) {
+                        detected = candidate;
+                    } else if (candidate.length > detected.length) {
+                        detected = candidate;
+                    }
+                }
+            }
+        }
+    }
+    if (!detected) {
+        throw new Error("No index.html found in ZIP");
+    }
+    BASE_PATH = detected;
+    console.log("[GHOST] Detected BASE_PATH:", BASE_PATH);
+
     // Process files
     for (const [path, file] of Object.entries(zip.files)) {
         if (!file.dir && !IGNORE.some((pattern) => path.includes(pattern))) {
             const normalizedPath = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
-
             // Only process files under BASE_PATH
             if (normalizedPath.startsWith(BASE_PATH)) {
                 // Map to root by removing BASE_PATH prefix
