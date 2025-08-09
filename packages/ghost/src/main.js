@@ -20,6 +20,9 @@ https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-resul
 https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv
 */
 
+// Import styles
+import "./main.css";
+
 // Load JSZip to unzip files
 import JSZip from "jszip";
 
@@ -64,6 +67,13 @@ const ZIP = DATASET_ID ? `${ROOT}api/datasets/${DATASET_ID}/display` : incoming.
 // Ignore list for zip loader
 const IGNORE = ["__MACOSX/", ".DS_Store"];
 
+// Add message container
+const messageElement = document.createElement("div");
+messageElement.id = "message";
+messageElement.style.display = "none";
+appElement.appendChild(messageElement);
+
+// Unzip and write files to virtual file system
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content from", ZIP);
     const response = await fetch(ZIP);
@@ -106,6 +116,7 @@ async function loadZipToMemory() {
     return files;
 }
 
+// Register service worker
 async function registerServiceWorker(files) {
     if (navigator.serviceWorker) {
         // Clear existing registrations
@@ -154,7 +165,16 @@ async function registerServiceWorker(files) {
     }
 }
 
-function mountWebsite() {
+// Show error message
+function showMessage(title, details = null) {
+    details = details ? `: ${details}` : "";
+    messageElement.innerHTML = `<strong>${title}${details}</strong>`;
+    messageElement.style.display = "inline";
+    console.debug(`${title}${details}`);
+}
+
+// Mount website
+function showWebsite() {
     const iframe = document.createElement("iframe");
     iframe.style.width = "100%";
     iframe.style.height = "100vh";
@@ -164,19 +184,20 @@ function mountWebsite() {
     document.getElementById("app").appendChild(iframe);
 }
 
-async function initApp() {
+// Render content
+async function startApp() {
     try {
         console.log("[GHOST] Loading ZIP to memory...");
         const files = await loadZipToMemory();
         console.log("[GHOST] Registering service worker...");
         await registerServiceWorker(files);
         console.log("[GHOST] Mounting website...");
-        mountWebsite();
+        showWebsite();
     } catch (err) {
         console.error("[GHOST] Error:", err);
-        document.getElementById("app").innerHTML = `<b>Loading Error:</b>&nbsp;<span>${err.message}</span>`;
+        showMessage("Loading Error", err.message);
     }
 }
 
 // Start the app
-initApp();
+startApp();
