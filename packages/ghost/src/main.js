@@ -174,13 +174,7 @@ async function initApp() {
         mountWebsite();
     } catch (err) {
         console.error("[GHOST] Error:", err);
-        document.getElementById("app").innerHTML = `
-      <div style="color:red;padding:1rem">
-        <h2>Loading Error</h2>
-        <p>${err.message}</p>
-        <button onclick="window.location.reload()">Reload</button>
-      </div>
-    `;
+        document.getElementById("app").innerHTML = `<b>Loading Error:</b>&nbsp;<span>${err.message}</span>`;
     }
 }
 
