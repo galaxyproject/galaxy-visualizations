@@ -2,16 +2,11 @@ import JSZip from "jszip";
 
 //const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
 //const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
-//const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
+const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
 const SCOPE = "/static/plugins/visualizations/ghost/static/virtual/";
 const SCRIPT_PATH = "/static/plugins/visualizations/ghost/static/";
-
-let BASE_PATH = null;
-
-const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
-//let BASE_PATH = "/27c988f6-40aa-4066-b3ad-0ee98c8a5978/data";
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content...");
@@ -19,7 +14,7 @@ async function loadZipToMemory() {
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
-    // Detect BASE_PATH from the index.html inside the zip
+    // Detect base path from the index.html inside the zip
     const candidates = [];
     for (const [path, file] of Object.entries(zip.files)) {
         if (!file.dir) {
@@ -35,17 +30,17 @@ async function loadZipToMemory() {
         throw new Error("No index.html found in ZIP");
     }
     candidates.sort((a, b) => a.depth - b.depth || a.len - b.len);
-    BASE_PATH = candidates[0].dir;
-    console.log("[GHOST] Detected BASE_PATH:", BASE_PATH);
+    const base = candidates[0].dir;
+    console.log("[GHOST] Detected base path:", base);
 
     // Process files
     for (const [path, file] of Object.entries(zip.files)) {
         if (!file.dir && !IGNORE.some((pattern) => path.includes(pattern))) {
             const normalizedPath = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
-            // Only process files under BASE_PATH
-            if (normalizedPath.startsWith(BASE_PATH)) {
-                // Map to root by removing BASE_PATH prefix
-                const rootPath = normalizedPath.slice(BASE_PATH.length);
+            // Only process files under base
+            if (normalizedPath.startsWith(base)) {
+                // Map to root by removing base prefix
+                const rootPath = normalizedPath.slice(base.length);
                 const content = await file.async("uint8array");
                 files[SCOPE + rootPath.slice(1)] = content;
             }
@@ -114,15 +109,17 @@ function injectTestScript(html) {
 })();
 </script>
 `;
-    return html.replace(/<\/body>/i, payload + '</body>');
+    return html.replace(/<\/body>/i, payload + "</body>");
 }
 
 function rebaseHtmlPaths(html) {
-    return injectTestScript(html.replace(/(src|href)=["']((?!https?:|data:|\/|#)[^"']+)["']/g, (match, attr, path) => {
-        // Normalize "./" and strip it
-        const normalizedPath = path.startsWith("./") ? path.slice(2) : path;
-        return `${attr}="${SCOPE}${normalizedPath}"`;
-    }));
+    return injectTestScript(
+        html.replace(/(src|href)=["']((?!https?:|data:|\/|#)[^"']+)["']/g, (match, attr, path) => {
+            // Normalize "./" and strip it
+            const normalizedPath = path.startsWith("./") ? path.slice(2) : path;
+            return `${attr}="${SCOPE}${normalizedPath}"`;
+        }),
+    );
 }
 
 function mountWebsite() {
@@ -143,9 +140,9 @@ async function initApp() {
         // Verify we have an index.html
         const indexFile = files[`${SCOPE}index.html`];
         if (!indexFile) {
-            const originalIndex = Object.keys(files).find(k => k.endsWith("index.html"));
+            const originalIndex = Object.keys(files).find((k) => k.endsWith("index.html"));
             if (!originalIndex) {
-                throw new Error("No index.html found in the specified BASE_PATH");
+                throw new Error("[GHOST] No index.html found in the specified zip-file.");
             }
             const html = new TextDecoder().decode(files[originalIndex]);
             const rebasedHtml = rebaseHtmlPaths(html);
