@@ -12,10 +12,8 @@ if (import.meta.env.DEV) {
     // Build the incoming data object
     const dataIncoming = {
         visualization_config: {
-            dataset_url:
-                "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv",
+            dataset_url: "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv",
         },
-        root: "/",
     };
 
     // Attach config to the data-incoming attribute
@@ -23,24 +21,18 @@ if (import.meta.env.DEV) {
 }
 
 // Access attached data
-const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+const incoming = JSON.parse(appElement?.dataset.incoming || "{}");
 const datasetId = incoming.visualization_config.dataset_id;
 const root = incoming.root;
 
 // Determine dataset url
-let datasetUrl = incoming.visualization_config.dataset_url || `${root}api/datasets/${datasetId}/display`;
+let datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : incoming.visualization_config.dataset_url;
 
-// Set up scope and script location
-let SCOPE = null;
-let SCRIPT_PATH = null;
-if (import.meta.env.DEV) {
-    SCOPE = `/virtual/`;
-    SCRIPT_PATH = "/";
-} else {
-    const pathname = new URL(root).pathname;
-    SCOPE = `${pathname}static/plugins/visualizations/ghost/static/virtual/`;
-    SCRIPT_PATH = `${pathname}static/plugins/visualizations/ghost/static/`;
-}
+// Locate service worker script
+const SCRIPT_PATH = root ? `${new URL(root).pathname}static/plugins/visualizations/ghost/static/` : "/";
+
+// Determine scope
+const SCOPE = `${SCRIPT_PATH}virtual/`;
 
 // Ignore list for zip loader
 const IGNORE = ["__MACOSX/", ".DS_Store"];
@@ -51,7 +43,7 @@ async function loadZipToMemory() {
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
-    // Detect base path from the index.html inside the zip
+    // Detect index path from the index.html inside the zip
     const candidates = [];
     for (const [path, file] of Object.entries(zip.files)) {
         if (!file.dir) {
@@ -67,17 +59,17 @@ async function loadZipToMemory() {
         throw new Error("No index.html found in ZIP");
     }
     candidates.sort((a, b) => a.depth - b.depth || a.len - b.len);
-    const base = candidates[0].dir;
-    console.log("[GHOST] Detected base path:", base);
+    const indexPath = candidates[0].dir;
+    console.log("[GHOST] Detected index path:", indexPath);
 
     // Process files
     for (const [path, file] of Object.entries(zip.files)) {
         if (!file.dir && !IGNORE.some((pattern) => path.includes(pattern))) {
             const normalizedPath = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
-            // Only process files under base
-            if (normalizedPath.startsWith(base)) {
-                // Map to root by removing base prefix
-                const rootPath = normalizedPath.slice(base.length);
+            // Only process files under index path
+            if (normalizedPath.startsWith(indexPath)) {
+                // Map to root by removing index prefix
+                const rootPath = normalizedPath.slice(indexPath.length);
                 const content = await file.async("uint8array");
                 files[SCOPE + rootPath.slice(1)] = content;
             }
@@ -116,8 +108,11 @@ async function registerServiceWorker(files) {
             }
             // Send files to service worker
             registration.active.postMessage({
-                type: "SCOPE",
-                content: SCOPE,
+                type: "CONFIG",
+                content: {
+                    root: root,
+                    scope: SCOPE,
+                },
             });
             for (const [path, content] of Object.entries(files)) {
                 registration.active.postMessage({
@@ -135,28 +130,9 @@ async function registerServiceWorker(files) {
     }
 }
 
-function injectTestScript(html) {
-    const payload = `
-<script>
-(function() {
-    fetch('/api/version')
-        .then(r => r.text())
-        .then(t => console.error('API /version response:', t))
-        .catch(e => console.error('Error fetching /api/version:', e));
-})();
-</script>
-`;
-    return html.replace(/<\/body>/i, payload + "</body>");
-}
-
-function rebaseHtmlPaths(html) {
-    return injectTestScript(
-        html.replace(/(src|href)=["']((?!https?:|data:|\/|#)[^"']+)["']/g, (match, attr, path) => {
-            // Normalize "./" and strip it
-            const normalizedPath = path.startsWith("./") ? path.slice(2) : path;
-            return `${attr}="${SCOPE}${normalizedPath}"`;
-        }),
-    );
+function buildTestHtml(title = "Probe") {
+    const s = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><h1>${title}</h1><pre id="out"></pre><script>(function(){function w(m){try{const o=document.getElementById("out");if(o){o.textContent+=m+"\\n";}}catch(e){console.log(e);}console.log(m);}try{w("[PROBE] start");fetch("/api/version",{credentials:"include"}).then(function(r){return r.text();}).then(function(t){w("[PROBE] /api/version: "+t);}).catch(function(e){w("[PROBE] error: "+e);});}catch(e){w("[PROBE] threw: "+e);}})();</script></body></html>`;
+    return s;
 }
 
 function mountWebsite() {
@@ -174,18 +150,7 @@ async function initApp() {
         console.log("[GHOST] Loading ZIP to memory...");
         const files = await loadZipToMemory();
 
-        // Verify we have an index.html
-        const indexFile = files[`${SCOPE}index.html`];
-        if (!indexFile) {
-            const originalIndex = Object.keys(files).find((k) => k.endsWith("index.html"));
-            if (!originalIndex) {
-                throw new Error("[GHOST] No index.html found in the specified zip-file.");
-            }
-            const html = new TextDecoder().decode(files[originalIndex]);
-            const rebasedHtml = rebaseHtmlPaths(html);
-            const encodedHtml = new TextEncoder().encode(rebasedHtml);
-            files[`${SCOPE}index.html`] = encodedHtml;
-        }
+        //files[`${SCOPE}index.html`] = buildTestHtml();
 
         console.log("[GHOST] Registering service worker...");
         await registerServiceWorker(files);

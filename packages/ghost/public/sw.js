@@ -19,6 +19,7 @@ const getMimeType = (path) => {
 // In-memory file storage
 const virtualFS = new Map();
 
+let root = "/";
 let scope = "/";
 
 self.addEventListener("install", (event) => {
@@ -41,8 +42,11 @@ self.addEventListener("message", (event) => {
         virtualFS.set(event.data.path, event.data.content);
         console.log("[SW] Adding", event.data.path);
     }
-    if (event.data.type === "SCOPE") {
-        scope = event.data.content;
+    if (event.data.type === "CONFIG") {
+        const content = event.data.content;
+        root = content.root;
+        console.log("[SW] Updating root", root);
+        scope = content.scope;
         console.log("[SW] Updating scope", scope);
     }
 });
@@ -57,12 +61,16 @@ self.addEventListener("fetch", (event) => {
         if (virtualFS.has(path)) {
             const mime = getMimeType(path);
             const content = virtualFS.get(path);
-            const response = new Response(content, {
-                headers: { "Content-Type": mime },
-            });
-            event.respondWith(response);
+            event.respondWith(new Response(content, { headers: { "Content-Type": mime } }));
+            return;
         }
-    } else {
-        console.error("[SW] Rejecting request to", url);
     }
+    console.error("[SW] Rejecting request to", url);
+    event.respondWith(
+        new Response("Blocked by Service Worker", {
+            status: 403,
+            statusText: "Forbidden",
+            headers: { "Content-Type": "text/plain" },
+        }),
+    );
 });
