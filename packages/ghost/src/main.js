@@ -81,7 +81,6 @@ appElement.appendChild(messageElement);
 
 // Unzip and write files to virtual file system
 async function loadZipToMemory() {
-    console.log("[GHOST] Loading ZIP content from", ZIP);
     const response = await fetch(ZIP);
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
@@ -138,7 +137,7 @@ async function registerServiceWorker(files) {
             if (!registration.active) {
                 await new Promise((resolve) => {
                     const sw = registration.installing || registration.waiting;
-                    if (sw) {    
+                    if (sw) {
                         sw.addEventListener("statechange", function onStateChange(e) {
                             if (e.target.state === "activated") {
                                 sw.removeEventListener("statechange", onStateChange);
@@ -186,12 +185,12 @@ function showWebsite() {
 // Render content
 async function startApp() {
     try {
-        console.log("[GHOST] Loading ZIP to memory...");
+        console.log("[GHOST] Loading ZIP content from", ZIP);
         const files = await loadZipToMemory();
         console.log("[GHOST] Registering service worker...");
         await registerServiceWorker(files);
         console.log("[GHOST] Mounting website...");
-        setTimeout(showWebsite, 100);
+        showWebsite();
     } catch (err) {
         console.error("[GHOST] Error:", err);
         showMessage("Loading Error", err.message);
