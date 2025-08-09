@@ -156,6 +156,7 @@ async function registerServiceWorker(files) {
             // Return service worker handle
             return registration;
         } catch (e) {
+            console.error(e);
             throw new Error("[GHOST] Service activation failed.", e);
         }
     } else {

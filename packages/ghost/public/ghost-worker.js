@@ -81,17 +81,16 @@ self.addEventListener("fetch", (event) => {
                     return new Response("Not Found", { status: 404, statusText: "Not Found" });
                 })(),
             );
-            return;
+        } else {
+            // Block other same-origin requests (outside our scope)
+            console.error("[GHOST] Blocking same-origin request:", url.href);
+            event.respondWith(
+                new Response("Blocked by Service Worker", {
+                    status: 403,
+                    statusText: "Forbidden",
+                    headers: { "Content-Type": "text/plain" },
+                }),
+            );
         }
-
-        // Block other same-origin requests (outside our scope)
-        console.error("[GHOST] Blocking same-origin request:", url.href);
-        event.respondWith(
-            new Response("Blocked by Service Worker", {
-                status: 403,
-                statusText: "Forbidden",
-                headers: { "Content-Type": "text/plain" },
-            }),
-        );
     }
 });
