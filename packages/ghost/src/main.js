@@ -208,7 +208,7 @@ async function stopApp(registration) {
         }
         if (registration) {
             await registration.unregister();
-            console.log("[GHOST] Successfully, unregistered.");
+            console.log("[GHOST] Successfully, unregistered");
         }
     } catch (e) {
         console.error("[GHOST] Teardown error:", e);
