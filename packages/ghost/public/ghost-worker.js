@@ -31,20 +31,23 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
-    if (event.data.type === "ADD") {
-        virtualFS.set(event.data.path, event.data.content);
-        console.log("[GHOST] Adding", event.data.path);
-    }
-    if (event.data.type === "INIT") {
-        virtualFS.clear();
-        console.log("[GHOST] Cleared filesystem");
+    if (event.data.type === "CREATE") {
         scope = event.data.scope;
         console.log("[GHOST] Updating scope", scope);
+        const files = Object.entries(event.data.files);
+        for (const [path, content] of files) {
+            virtualFS.set(path, content);
+        }
+        console.log("[GHOST] Added files:", files.length);
+    }
+    if (event.data.type === "DESTROY") {
+        virtualFS.clear();
+        console.log("[GHOST] Destroyed filesystem");
     }
 });
 
 self.addEventListener("fetch", (event) => {
-    console.log("[GHOST] Intercept:", event.request.url);
+    console.log("[GHOST] Intercepting...");
     const url = new URL(event.request.url);
     const isSameOrigin = url.origin === self.location.origin;
     const scoped = scope.endsWith("/") ? scope : scope + "/";
