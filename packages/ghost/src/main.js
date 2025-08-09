@@ -24,16 +24,20 @@ if (import.meta.env.DEV) {
 
 // Access attached data
 const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+const root = incoming.root;
+const pathname = new URL(root).pathname;
+
+// Get dataset details
 const datasetId = incoming.visualization_config.dataset_id;
 const datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : incoming.visualization_config.dataset_url;
-const root = incoming.root;
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
-const SCOPE = `${root}virtual/`;
-const SCRIPT_PATH = root;
+
+const SCOPE = `${pathname}static/plugins/visualizations/ghost/static/virtual/`;
+const SCRIPT_PATH = `${root}static/plugins/visualizations/ghost/static/`;
 
 async function loadZipToMemory() {
-    console.log("[GHOST] Loading ZIP content...");
+    console.log("[GHOST] Loading ZIP content from", datasetUrl);
     const response = await fetch(datasetUrl);
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
