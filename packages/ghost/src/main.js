@@ -25,7 +25,7 @@ if (import.meta.env.DEV) {
 // Access attached data
 const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
 const root = incoming.root;
-const pathname = new URL(root).pathname;
+const pathname = root === "/" ? "/" : new URL(root).pathname;
 
 // Get dataset details
 const datasetId = incoming.visualization_config.dataset_id;
