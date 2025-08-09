@@ -1,16 +1,40 @@
 import JSZip from "jszip";
 
+// Access container element
+const appElement = document.getElementById("app");
+
 //const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
 //const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
-const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
+//const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
+
+// Attach mock data for development
+if (import.meta.env.DEV) {
+    // Build the incoming data object
+    const dataIncoming = {
+        visualization_config: {
+            dataset_url:
+                "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv",
+        },
+        root: "/",
+    };
+
+    // Attach config to the data-incoming attribute
+    appElement?.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+}
+
+// Access attached data
+const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+const datasetId = incoming.visualization_config.dataset_id;
+const datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : incoming.visualization_config.dataset_url;
+const root = incoming.root;
 
 const IGNORE = ["__MACOSX/", ".DS_Store"];
-const SCOPE = "/static/plugins/visualizations/ghost/static/virtual/";
-const SCRIPT_PATH = "/static/plugins/visualizations/ghost/static/";
+const SCOPE = `${root}virtual/`;
+const SCRIPT_PATH = root;
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content...");
-    const response = await fetch(ZIP_URL);
+    const response = await fetch(datasetUrl);
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
