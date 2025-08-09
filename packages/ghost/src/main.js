@@ -59,7 +59,7 @@ const STATIC_PATH = "static/plugins/visualizations/ghost/static/";
 const SCRIPT_PATH = ROOT ? `${new URL(ROOT).pathname}${STATIC_PATH}` : "/";
 
 // Determine scope
-const SCOPE = `${SCRIPT_PATH}virtual/`;
+const SCOPE = `${SCRIPT_PATH}virtual/${DATASET_ID}/`;
 
 // Determine dataset url
 const ZIP = DATASET_ID ? `${ROOT}api/datasets/${DATASET_ID}/display` : incoming.visualization_config.dataset_url;
