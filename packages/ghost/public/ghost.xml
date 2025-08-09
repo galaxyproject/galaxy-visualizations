@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="Ghost" embeddable="true">
-    <description>Virtual Webserver for zipped HTML pages</description>
+    <description>Virtual Webserver for HTML archives</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
