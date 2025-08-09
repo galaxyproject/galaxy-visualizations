@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="Ghost" embeddable="true">
-    <description>Viewer for zipped HTML pages</description>
+    <description>Virtual Webserver for zipped HTML pages</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
@@ -15,10 +15,10 @@
     <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <tests>
         <test>
-            <param name="dataset_id" label="Raincloud Baseline Example" ftype="qzv" value="https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv" />
+            <param name="dataset_id" label="Raincloud Baseline" ftype="qzv" value="https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv" />
         </test>
         <test>
-            <param name="dataset_id" label="FastTree Empire Visualization" ftype="qzv" value="https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv" />
+            <param name="dataset_id" label="FastTree Empire" ftype="qzv" value="https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv" />
         </test>
     </tests>
     <help format="markdown"><![CDATA[
