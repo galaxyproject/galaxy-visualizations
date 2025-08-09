@@ -35,13 +35,11 @@ self.addEventListener("message", (event) => {
         virtualFS.set(event.data.path, event.data.content);
         console.log("[GHOST] Adding", event.data.path);
     }
-    if (event.data.type === "CONFIGURE") {
+    if (event.data.type === "INIT") {
+        virtualFS.clear();
+        console.log("[GHOST] Cleared filesystem");
         scope = event.data.scope;
         console.log("[GHOST] Updating scope", scope);
-    }
-    if (event.data.type === "CLEAR") {
-        virtualFS.clear();
-        console.log("[GHOST] Cleared virtual filesystem");
     }
 });
 
