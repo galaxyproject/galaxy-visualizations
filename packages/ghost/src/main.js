@@ -12,7 +12,8 @@ if (import.meta.env.DEV) {
     // Build the incoming data object
     const dataIncoming = {
         visualization_config: {
-            dataset_url: "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv",
+            dataset_url:
+                "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv",
         },
     };
 
@@ -22,24 +23,31 @@ if (import.meta.env.DEV) {
 
 // Access attached data
 const incoming = JSON.parse(appElement?.dataset.incoming || "{}");
-const datasetId = incoming.visualization_config.dataset_id;
-const root = incoming.root;
 
-// Determine dataset url
-let datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : incoming.visualization_config.dataset_url;
+// Collect dataset identifier
+const DATASET_ID = incoming.visualization_config.dataset_id;
+
+// Collect root
+const ROOT = incoming.root;
+
+// Set static path within GALAXY
+const STATIC_PATH = "static/plugins/visualizations/ghost/static/";
 
 // Locate service worker script
-const SCRIPT_PATH = root ? `${new URL(root).pathname}static/plugins/visualizations/ghost/static/` : "/";
+const SCRIPT_PATH = ROOT ? `${new URL(ROOT).pathname}${STATIC_PATH}` : "/";
 
 // Determine scope
 const SCOPE = `${SCRIPT_PATH}virtual/`;
+
+// Determine dataset url
+const URL = DATASET_ID ? `${ROOT}api/datasets/${DATASET_ID}/display` : incoming.visualization_config.dataset_url;
 
 // Ignore list for zip loader
 const IGNORE = ["__MACOSX/", ".DS_Store"];
 
 async function loadZipToMemory() {
-    console.log("[GHOST] Loading ZIP content from", datasetUrl);
-    const response = await fetch(datasetUrl);
+    console.log("[GHOST] Loading ZIP content from", URL);
+    const response = await fetch(URL);
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
@@ -108,11 +116,8 @@ async function registerServiceWorker(files) {
             }
             // Send files to service worker
             registration.active.postMessage({
-                type: "CONFIG",
-                content: {
-                    root: root,
-                    scope: SCOPE,
-                },
+                type: "CONFIGURE",
+                scope: SCOPE,
             });
             for (const [path, content] of Object.entries(files)) {
                 registration.active.postMessage({
@@ -149,12 +154,8 @@ async function initApp() {
     try {
         console.log("[GHOST] Loading ZIP to memory...");
         const files = await loadZipToMemory();
-
-        //files[`${SCOPE}index.html`] = buildTestHtml();
-
         console.log("[GHOST] Registering service worker...");
         await registerServiceWorker(files);
-
         console.log("[GHOST] Mounting website...");
         mountWebsite();
     } catch (err) {
