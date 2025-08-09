@@ -3,7 +3,6 @@ const TIMEOUT = 100;
 const virtualFS = new Map();
 
 let ready = false;
-
 let scope = "";
 
 const getMimeType = (path) => {
