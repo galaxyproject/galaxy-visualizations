@@ -1,3 +1,11 @@
+const TIMEOUT = 100;
+
+const virtualFS = new Map();
+
+let ready = false;
+
+let scope = "";
+
 const getMimeType = (path) => {
     const mimeMap = {
         ".css": "text/css",
@@ -15,10 +23,6 @@ const getMimeType = (path) => {
     const ext = path.slice(path.lastIndexOf(".")).split("?")[0];
     return mimeMap[ext] || "text/plain";
 };
-
-const virtualFS = new Map();
-
-let scope = "";
 
 self.addEventListener("install", (event) => {
     console.log("[GHOST] Installing...");
@@ -39,30 +43,50 @@ self.addEventListener("message", (event) => {
             virtualFS.set(path, content);
         }
         console.log("[GHOST] Added files:", files.length);
+        ready = true;
     }
     if (event.data.type === "DESTROY") {
         virtualFS.clear();
         console.log("[GHOST] Destroyed filesystem");
+        ready = false;
     }
 });
 
 self.addEventListener("fetch", (event) => {
     console.log("[GHOST] Intercepting...");
+
     const url = new URL(event.request.url);
     const isSameOrigin = url.origin === self.location.origin;
     const scoped = scope.endsWith("/") ? scope : scope + "/";
+
+    // Only handle same-origin requests
     if (isSameOrigin) {
         if (event.request.method === "GET" && url.pathname.startsWith(scoped)) {
-            const path = decodeURIComponent(url.pathname).split("?")[0];
-            if (virtualFS.has(path)) {
-                const mime = getMimeType(path);
-                const content = virtualFS.get(path);
-                event.respondWith(new Response(content, { headers: { "Content-Type": mime } }));
-                return;
-            }
-            event.respondWith(new Response("Not Found", { status: 404, statusText: "Not Found" }));
+            event.respondWith(
+                (async () => {
+                    const start = Date.now();
+                    while (!ready) {
+                        if (Date.now() - start > TIMEOUT * TIMEOUT) {
+                            return new Response("Filesystem not ready", {
+                                status: 503,
+                                headers: { "Cache-Control": "no-store" },
+                            });
+                        }
+                        await new Promise((r) => setTimeout(r, TIMEOUT));
+                    }
+                    const path = decodeURIComponent(url.pathname).split("?")[0];
+                    if (virtualFS.has(path)) {
+                        const mime = getMimeType(path);
+                        const content = virtualFS.get(path);
+                        return new Response(content, { headers: { "Content-Type": mime } });
+                    }
+                    return new Response("Not Found", { status: 404, statusText: "Not Found" });
+                })(),
+            );
             return;
         }
+
+        // Block other same-origin requests (outside our scope)
         console.error("[GHOST] Blocking same-origin request:", url.href);
         event.respondWith(
             new Response("Blocked by Service Worker", {
@@ -71,6 +95,5 @@ self.addEventListener("fetch", (event) => {
                 headers: { "Content-Type": "text/plain" },
             }),
         );
-        return;
     }
 });
