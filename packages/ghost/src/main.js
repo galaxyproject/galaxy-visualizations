@@ -119,42 +119,36 @@ async function loadZipToMemory() {
 // Register service worker
 async function registerServiceWorker(files) {
     if (navigator.serviceWorker) {
-        // Clear existing registrations
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((r) => r.unregister()));
-        // Register with cache busting
         try {
-            const registration = await navigator.serviceWorker.register(`${SCRIPT_PATH}sw.js`, {
-                scope: SCOPE,
-                updateViaCache: "none",
-            });
-            // Wait until the service worker is active
+            let registration = await navigator.serviceWorker.getRegistration(SCOPE);
+            if (!registration) {
+                registration = await navigator.serviceWorker.register(`${SCRIPT_PATH}sw.js`, {
+                    scope: SCOPE,
+                    updateViaCache: "none",
+                });
+            }
+
+            // Wait for service to become active
             if (!registration.active) {
                 await new Promise((resolve) => {
                     const sw = registration.installing || registration.waiting;
-                    if (sw) {
-                        sw.addEventListener("statechange", function onStateChange(e) {
-                            if (e.target.state === "activated") {
-                                sw.removeEventListener("statechange", onStateChange);
-                                resolve();
-                            }
-                        });
-                    } else {
+                    if (!sw) {
                         resolve();
+                        return;
                     }
+                    sw.addEventListener("statechange", function onStateChange(e) {
+                        if (e.target.state === "activated") {
+                            sw.removeEventListener("statechange", onStateChange);
+                            resolve();
+                        }
+                    });
                 });
             }
-            // Send files to service worker
-            registration.active.postMessage({
-                type: "CONFIGURE",
-                scope: SCOPE,
-            });
+
+            // Initialize and populate contents
+            registration.active.postMessage({ type: "INIT", scope: SCOPE });
             for (const [path, content] of Object.entries(files)) {
-                registration.active.postMessage({
-                    type: "ADD",
-                    path,
-                    content,
-                });
+                registration.active.postMessage({ type: "ADD", path, content });
             }
             return registration;
         } catch (e) {
@@ -190,28 +184,12 @@ async function startApp() {
         console.log("[GHOST] Loading ZIP to memory...");
         const files = await loadZipToMemory();
         console.log("[GHOST] Registering service worker...");
-        const registration = await registerServiceWorker(files);
+        await registerServiceWorker(files);
         console.log("[GHOST] Mounting website...");
         showWebsite();
-        window.addEventListener("beforeunload", () => stopApp(registration), { once: true });
     } catch (err) {
         console.error("[GHOST] Error:", err);
         showMessage("Loading Error", err.message);
-    }
-}
-
-// Destroy service worker
-async function stopApp(registration) {
-    try {
-        if (registration && registration.active) {
-            registration.active.postMessage({ type: "CLEAR" });
-        }
-        if (registration) {
-            await registration.unregister();
-            console.log("[GHOST] Successfully, unregistered");
-        }
-    } catch (e) {
-        console.error("[GHOST] Teardown error:", e);
     }
 }
 
