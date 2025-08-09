@@ -24,17 +24,26 @@ if (import.meta.env.DEV) {
 
 // Access attached data
 const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
-const root = incoming.root;
-const pathname = root === "/" ? "/" : new URL(root).pathname;
-
-// Get dataset details
 const datasetId = incoming.visualization_config.dataset_id;
-const datasetUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : incoming.visualization_config.dataset_url;
+const root = incoming.root;
 
+// Determine dataset url
+let datasetUrl = incoming.visualization_config.dataset_url || `${root}api/datasets/${datasetId}/display`;
+
+// Set up scope and script location
+let SCOPE = null;
+let SCRIPT_PATH = null;
+if (root === "/") {
+    SCOPE = `${root}virtual/`;
+    SCRIPT_PATH = root;
+} else {
+    const pathname = new URL(root).pathname;
+    SCOPE = `${pathname}static/plugins/visualizations/ghost/static/virtual/`;
+    SCRIPT_PATH = `${pathname}static/plugins/visualizations/ghost/static/`;
+}
+
+// Ignore list for zip loader
 const IGNORE = ["__MACOSX/", ".DS_Store"];
-
-const SCOPE = `${pathname}static/plugins/visualizations/ghost/static/virtual/`;
-const SCRIPT_PATH = `${root}static/plugins/visualizations/ghost/static/`;
 
 async function loadZipToMemory() {
     console.log("[GHOST] Loading ZIP content from", datasetUrl);
