@@ -33,16 +33,20 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
     if (event.data.type === "ADD") {
         virtualFS.set(event.data.path, event.data.content);
-        console.log("[SW] Adding", event.data.path);
+        console.log("[GHOST] Adding", event.data.path);
     }
     if (event.data.type === "CONFIGURE") {
         scope = event.data.scope;
-        console.log("[SW] Updating scope", scope);
+        console.log("[GHOST] Updating scope", scope);
+    }
+    if (event.data.type === "CLEAR") {
+        virtualFS.clear();
+        console.log("[GHOST] Cleared virtual filesystem");
     }
 });
 
 self.addEventListener("fetch", (event) => {
-    console.log("[SW] Intercept:", event.request.url);
+    console.log("[GHOST] Intercept:", event.request.url);
     const url = new URL(event.request.url);
     const isSameOrigin = url.origin === self.location.origin;
     const scoped = scope.endsWith("/") ? scope : scope + "/";
@@ -58,7 +62,7 @@ self.addEventListener("fetch", (event) => {
             event.respondWith(new Response("Not Found", { status: 404, statusText: "Not Found" }));
             return;
         }
-        console.error("[SW] Blocking same-origin request:", url.href);
+        console.error("[GHOST] Blocking same-origin request:", url.href);
         event.respondWith(
             new Response("Blocked by Service Worker", {
                 status: 403,
