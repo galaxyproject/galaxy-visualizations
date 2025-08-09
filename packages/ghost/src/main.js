@@ -33,9 +33,9 @@ let datasetUrl = incoming.visualization_config.dataset_url || `${root}api/datase
 // Set up scope and script location
 let SCOPE = null;
 let SCRIPT_PATH = null;
-if (root === "/") {
-    SCOPE = `${root}virtual/`;
-    SCRIPT_PATH = root;
+if (import.meta.env.DEV) {
+    SCOPE = `/virtual/`;
+    SCRIPT_PATH = "/";
 } else {
     const pathname = new URL(root).pathname;
     SCOPE = `${pathname}static/plugins/visualizations/ghost/static/virtual/`;
