@@ -53,7 +53,6 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("fetch", (event) => {
     console.log("[GHOST] Intercepting...");
-
     const url = new URL(event.request.url);
     const isSameOrigin = url.origin === self.location.origin;
     const scoped = scope.endsWith("/") ? scope : scope + "/";
