@@ -52,6 +52,9 @@ const DATASET_ID = incoming.visualization_config.dataset_id;
 // Collect root
 const ROOT = incoming.root;
 
+// Set index file name
+const INDEX_NAME = "index.html";
+
 // Set static path within GALAXY
 const STATIC_PATH = "static/plugins/visualizations/ghost/static/";
 
@@ -83,20 +86,20 @@ async function loadZipToMemory() {
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
-    // Detect index path from the index.html inside the zip
+    // Detect index path from the index inside the zip
     const candidates = [];
     for (const [path, file] of Object.entries(zip.files)) {
         if (!file.dir) {
             const canon = "/" + path.replace(/\\/g, "/").replace(/^\.\//, "");
-            if (canon.toLowerCase().endsWith("/index.html")) {
-                const dir = canon.slice(0, -"/index.html".length);
+            if (canon.toLowerCase().endsWith(`/${INDEX_NAME}`)) {
+                const dir = canon.slice(0, -(INDEX_NAME.length + 1));
                 const depth = dir.split("/").filter(Boolean).length;
                 candidates.push({ dir, depth, len: dir.length });
             }
         }
     }
     if (!candidates.length) {
-        throw new Error("No index.html found in ZIP");
+        throw new Error(`No ${INDEX_NAME} found in ZIP`);
     }
     candidates.sort((a, b) => a.depth - b.depth || a.len - b.len);
     const indexPath = candidates[0].dir;
@@ -135,24 +138,23 @@ async function registerServiceWorker(files) {
             if (!registration.active) {
                 await new Promise((resolve) => {
                     const sw = registration.installing || registration.waiting;
-                    if (!sw) {
+                    if (sw) {    
+                        sw.addEventListener("statechange", function onStateChange(e) {
+                            if (e.target.state === "activated") {
+                                sw.removeEventListener("statechange", onStateChange);
+                                resolve();
+                            }
+                        });
+                    } else {
                         resolve();
-                        return;
                     }
-                    sw.addEventListener("statechange", function onStateChange(e) {
-                        if (e.target.state === "activated") {
-                            sw.removeEventListener("statechange", onStateChange);
-                            resolve();
-                        }
-                    });
                 });
             }
 
             // Initialize and populate contents
-            registration.active.postMessage({ type: "INIT", scope: SCOPE });
-            for (const [path, content] of Object.entries(files)) {
-                registration.active.postMessage({ type: "ADD", path, content });
-            }
+            registration.active.postMessage({ type: "CREATE", scope: SCOPE, files: files });
+
+            // Return service worker handle
             return registration;
         } catch (e) {
             throw new Error("[GHOST] Service activation failed.", e);
@@ -176,7 +178,7 @@ function showWebsite() {
     iframe.style.width = "100%";
     iframe.style.height = "100vh";
     iframe.style.border = "none";
-    iframe.src = `${SCOPE}index.html`;
+    iframe.src = `${SCOPE}${INDEX_NAME}`;
     document.getElementById("app").innerHTML = "";
     document.getElementById("app").appendChild(iframe);
 }
@@ -189,10 +191,25 @@ async function startApp() {
         console.log("[GHOST] Registering service worker...");
         await registerServiceWorker(files);
         console.log("[GHOST] Mounting website...");
-        showWebsite();
+        setTimeout(showWebsite, 100);
     } catch (err) {
         console.error("[GHOST] Error:", err);
         showMessage("Loading Error", err.message);
+    }
+}
+
+// Destroy service worker
+async function stopApp(registration) {
+    try {
+        if (registration && registration.active) {
+            registration.active.postMessage({ type: "DESTROY" });
+        }
+        if (registration) {
+            await registration.unregister();
+            console.log("[GHOST] Successfully, unregistered");
+        }
+    } catch (e) {
+        console.error("[GHOST] Teardown error:", e);
     }
 }
 
