@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Ghost">
-    <description>Viewer for HTML visualizations</description>
+<visualization name="Ghost" embeddable="true">
+    <description>Viewer for zipped HTML pages</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
@@ -15,23 +15,23 @@
     <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <tests>
         <test>
-            <param name="dataset_id" title="Raincloud Baseline Example" value="https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv" />
+            <param name="dataset_id" label="Raincloud Baseline Example" ftype="qzv" value="https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv" />
         </test>
         <test>
-            <param name="dataset_id" title="FastTree Empire Visualization" value="https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv" />
+            <param name="dataset_id" label="FastTree Empire Visualization" ftype="qzv" value="https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv" />
         </test>
     </tests>
     <help format="markdown"><![CDATA[
 # What is GHOST?
 
 GHOST is a Galaxy visualization for securely displaying interactive websites that are packaged
-as QIIME 2 visualization files (`.qzv`) or similar ZIP archives. These archives often contain
-HTML, JavaScript, and data assets for rich, client-side exploration of analysis results.
+as QIIME 2 visualization files (`.qzv`) or similar ZIP archives containing an `index.html` file.
+These archives often contain JavaScript, and data assets for rich, client-side exploration of analysis results.
 
 When you open a `.qzv` dataset with GHOST:
 
 1. The file is fetched and unzipped in your browser.
-2. The HTML and assets load through a **service worker** at a dedicated scope.
+2. The `index.html` is located and assets load through a **service worker** at a dedicated scope.
 3. The service worker serves only the files from the archive, blocking all other same-origin requests
    (for example, API calls) to prevent malicious content from interacting with Galaxy.
 
