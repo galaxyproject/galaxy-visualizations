@@ -55,6 +55,9 @@ const ROOT = incoming.root;
 // Set static path within GALAXY
 const STATIC_PATH = "static/plugins/visualizations/ghost/static/";
 
+// Set service worker script name
+const SCRIPT_NAME = "ghost-worker.js";
+
 // Locate service worker script
 const SCRIPT_PATH = ROOT ? `${new URL(ROOT).pathname}${STATIC_PATH}` : "/";
 
@@ -122,7 +125,7 @@ async function registerServiceWorker(files) {
         try {
             let registration = await navigator.serviceWorker.getRegistration(SCOPE);
             if (!registration) {
-                registration = await navigator.serviceWorker.register(`${SCRIPT_PATH}sw.js`, {
+                registration = await navigator.serviceWorker.register(`${SCRIPT_PATH}${SCRIPT_NAME}`, {
                     scope: SCOPE,
                     updateViaCache: "none",
                 });
