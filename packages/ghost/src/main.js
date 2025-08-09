@@ -1,11 +1,30 @@
+/*
+GHOST is a Galaxy visualization that securely loads and displays static websites packaged
+as ZIP-based QIIME 2 visualization (.qzv) files or similar archive formats. The archive is
+fetched at runtime, unzipped in memory, and its contents are served to an embedded iframe
+via a service worker. HTML files are automatically rebased so all relative paths resolve
+through the service worker scope.
+
+The service worker enforces a strict same-origin policy:
+- Only GET requests within the defined virtual scope are served.
+- Files are only returned if explicitly loaded into the in-memory virtual file system.
+- Any other same-origin requests (for example, /api/version) are blocked with a 403
+  Forbidden response to prevent malicious HTML content from interacting with the Galaxy API.
+
+This enables arbitrary client-side visualizations to run isolated from the main Galaxy UI,
+while still loading all assets locally from the extracted archive.
+
+Some example archives you can load:
+https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv
+https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv
+https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv
+*/
+
+// Load JSZip to unzip files
 import JSZip from "jszip";
 
 // Access container element
 const appElement = document.getElementById("app");
-
-//const ZIP_URL = "https://raw.githubusercontent.com/qiime2/q2-fmt/master/demo/raincloud-baseline0.qzv";
-//const ZIP_URL = "https://docs.qiime2.org/2024.2/data/tutorials/moving-pictures/core-metrics-results/faith-pd-group-significance.qzv";
-//const ZIP_URL = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
 
 // Attach mock data for development
 if (import.meta.env.DEV) {
@@ -40,14 +59,14 @@ const SCRIPT_PATH = ROOT ? `${new URL(ROOT).pathname}${STATIC_PATH}` : "/";
 const SCOPE = `${SCRIPT_PATH}virtual/`;
 
 // Determine dataset url
-const URL = DATASET_ID ? `${ROOT}api/datasets/${DATASET_ID}/display` : incoming.visualization_config.dataset_url;
+const ZIP = DATASET_ID ? `${ROOT}api/datasets/${DATASET_ID}/display` : incoming.visualization_config.dataset_url;
 
 // Ignore list for zip loader
 const IGNORE = ["__MACOSX/", ".DS_Store"];
 
 async function loadZipToMemory() {
-    console.log("[GHOST] Loading ZIP content from", URL);
-    const response = await fetch(URL);
+    console.log("[GHOST] Loading ZIP content from", ZIP);
+    const response = await fetch(ZIP);
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
 
@@ -133,11 +152,6 @@ async function registerServiceWorker(files) {
     } else {
         throw new Error("[GHOST] Service workers not supported.");
     }
-}
-
-function buildTestHtml(title = "Probe") {
-    const s = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><h1>${title}</h1><pre id="out"></pre><script>(function(){function w(m){try{const o=document.getElementById("out");if(o){o.textContent+=m+"\\n";}}catch(e){console.log(e);}console.log(m);}try{w("[PROBE] start");fetch("/api/version",{credentials:"include"}).then(function(r){return r.text();}).then(function(t){w("[PROBE] /api/version: "+t);}).catch(function(e){w("[PROBE] error: "+e);});}catch(e){w("[PROBE] threw: "+e);}})();</script></body></html>`;
-    return s;
 }
 
 function mountWebsite() {
