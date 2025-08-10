@@ -133,29 +133,29 @@ async function registerWorker() {
                     scope: SCOPE,
                     updateViaCache: "none",
                 });
-
-                // Wait for service to become active
-                if (!registration.active) {
-                    await new Promise((resolve) => {
-                        const sw = registration.installing || registration.waiting;
-                        if (sw) {
-                            sw.addEventListener("statechange", function onStateChange(e) {
-                                if (e.target.state === "activated") {
-                                    sw.removeEventListener("statechange", onStateChange);
-                                    resolve();
-                                }
-                            });
-                        } else {
-                            resolve();
-                        }
-                    });
-                }
-
-                // Initialize and populate contents
-                console.log("[GHOST] Loading ZIP content from", ZIP);
-                const files = await loadZip();
-                registration.active.postMessage({ type: "CREATE", scope: SCOPE, files: files });
             }
+
+            // Wait for service to become active
+            if (!registration.active) {
+                await new Promise((resolve) => {
+                    const sw = registration.installing || registration.waiting;
+                    if (sw) {
+                        sw.addEventListener("statechange", function onStateChange(e) {
+                            if (e.target.state === "activated") {
+                                sw.removeEventListener("statechange", onStateChange);
+                                resolve();
+                            }
+                        });
+                    } else {
+                        resolve();
+                    }
+                });
+            }
+
+            // Initialize and populate contents
+            console.log("[GHOST] Loading ZIP content from", ZIP);
+            const files = await loadZip();
+            registration.active.postMessage({ type: "CREATE", scope: SCOPE, files: files });
 
             // Return service worker handle
             return registration;
