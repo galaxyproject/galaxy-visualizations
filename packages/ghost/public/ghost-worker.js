@@ -1,3 +1,4 @@
+const DESTROY = 5000;
 const TIMEOUT = 100;
 
 const virtualFS = new Map();
@@ -94,3 +95,35 @@ self.addEventListener("fetch", (event) => {
         }
     }
 });
+
+// Function to check if there are any active clients within the same scope
+const checkClientsAndCleanup = async () => {
+    // Get all clients that are within the same scope
+    const clientsList = await clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+    });
+
+    // Filter clients by scope
+    const scopedClients = clientsList.filter((client) => {
+        const clientUrl = new URL(client.url);
+        return clientUrl.pathname.startsWith(scope);
+    });
+
+    // If no scoped clients are present, start cleanup
+    if (scopedClients.length === 0) {
+        // Clear interval
+        clearInterval(clientCheckInterval);
+
+        // Clear filesystem
+        virtualFS.clear();
+        console.log("[GHOST] Destroyed filesystem");
+
+        // Cleanup logic: unregister service worker or any other resource cleanup
+        await self.registration.unregister();
+        console.log("[GHOST] Service worker unregistered.");
+    }
+};
+
+// Start checking for active clients
+const clientCheckInterval = setInterval(checkClientsAndCleanup, DESTROY);
