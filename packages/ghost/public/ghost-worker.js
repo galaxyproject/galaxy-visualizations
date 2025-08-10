@@ -115,13 +115,12 @@ const checkClientsAndCleanup = async () => {
         // Clear interval
         clearInterval(clientCheckInterval);
 
-        // Clear filesystem
-        virtualFS.clear();
-        console.log("[GHOST] Destroyed filesystem");
-
         // Cleanup logic: unregister service worker or any other resource cleanup
         await self.registration.unregister();
-        console.log("[GHOST] Service worker unregistered.");
+
+        // Clear filesystem
+        virtualFS.clear();
+        console.log("[GHOST] Service worker unregistered");
     }
 };
 
