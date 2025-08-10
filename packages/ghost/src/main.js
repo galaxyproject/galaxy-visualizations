@@ -127,31 +127,33 @@ async function registerServiceWorker(files) {
         try {
             let registration = await navigator.serviceWorker.getRegistration(SCOPE);
             if (!registration) {
+                console.log("[GHOST] Creating service worker...");
+                // Create service worker
                 registration = await navigator.serviceWorker.register(`${SCRIPT_PATH}${SCRIPT_NAME}`, {
                     scope: SCOPE,
                     updateViaCache: "none",
                 });
-            }
 
-            // Wait for service to become active
-            if (!registration.active) {
-                await new Promise((resolve) => {
-                    const sw = registration.installing || registration.waiting;
-                    if (sw) {
-                        sw.addEventListener("statechange", function onStateChange(e) {
-                            if (e.target.state === "activated") {
-                                sw.removeEventListener("statechange", onStateChange);
-                                resolve();
-                            }
-                        });
-                    } else {
-                        resolve();
-                    }
-                });
-            }
+                // Wait for service to become active
+                if (!registration.active) {
+                    await new Promise((resolve) => {
+                        const sw = registration.installing || registration.waiting;
+                        if (sw) {
+                            sw.addEventListener("statechange", function onStateChange(e) {
+                                if (e.target.state === "activated") {
+                                    sw.removeEventListener("statechange", onStateChange);
+                                    resolve();
+                                }
+                            });
+                        } else {
+                            resolve();
+                        }
+                    });
+                }
 
-            // Initialize and populate contents
-            registration.active.postMessage({ type: "CREATE", scope: SCOPE, files: files });
+                // Initialize and populate contents
+                registration.active.postMessage({ type: "CREATE", scope: SCOPE, files: files });
+            }
 
             // Return service worker handle
             return registration;
