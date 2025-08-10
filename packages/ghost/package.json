@@ -1,5 +1,5 @@
 {
-    "name": "ghost",
+    "name": "@galaxyproject/ghost",
     "private": true,
     "version": "0.0.0",
     "type": "module",
