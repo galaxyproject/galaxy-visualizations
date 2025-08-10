@@ -122,7 +122,7 @@ async function loadZipToMemory() {
 }
 
 // Register service worker
-async function registerServiceWorker(files) {
+async function registerServiceWorker() {
     if (navigator.serviceWorker) {
         try {
             let registration = await navigator.serviceWorker.getRegistration(SCOPE);
@@ -152,6 +152,8 @@ async function registerServiceWorker(files) {
                 }
 
                 // Initialize and populate contents
+                console.log("[GHOST] Loading ZIP content from", ZIP);
+                const files = await loadZipToMemory();
                 registration.active.postMessage({ type: "CREATE", scope: SCOPE, files: files });
             }
 
@@ -188,30 +190,13 @@ function showWebsite() {
 // Render content
 async function startApp() {
     try {
-        console.log("[GHOST] Loading ZIP content from", ZIP);
-        const files = await loadZipToMemory();
         console.log("[GHOST] Registering service worker...");
-        await registerServiceWorker(files);
+        await registerServiceWorker();
         console.log("[GHOST] Mounting website...");
         showWebsite();
     } catch (err) {
         console.error("[GHOST] Error:", err);
         showMessage("Loading Error", err.message);
-    }
-}
-
-// Destroy service worker
-async function stopApp(registration) {
-    try {
-        if (registration && registration.active) {
-            registration.active.postMessage({ type: "DESTROY" });
-        }
-        if (registration) {
-            await registration.unregister();
-            console.log("[GHOST] Successfully, unregistered");
-        }
-    } catch (e) {
-        console.error("[GHOST] Teardown error:", e);
     }
 }
 
