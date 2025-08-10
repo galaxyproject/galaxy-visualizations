@@ -80,7 +80,7 @@ messageElement.style.display = "none";
 appElement.appendChild(messageElement);
 
 // Unzip and write files to virtual file system
-async function loadZipToMemory() {
+async function loadZip() {
     const response = await fetch(ZIP);
     const zip = await JSZip.loadAsync(await response.arrayBuffer());
     const files = {};
@@ -122,7 +122,7 @@ async function loadZipToMemory() {
 }
 
 // Register service worker
-async function registerServiceWorker() {
+async function registerWorker() {
     if (navigator.serviceWorker) {
         try {
             let registration = await navigator.serviceWorker.getRegistration(SCOPE);
@@ -153,7 +153,7 @@ async function registerServiceWorker() {
 
                 // Initialize and populate contents
                 console.log("[GHOST] Loading ZIP content from", ZIP);
-                const files = await loadZipToMemory();
+                const files = await loadZip();
                 registration.active.postMessage({ type: "CREATE", scope: SCOPE, files: files });
             }
 
@@ -191,7 +191,7 @@ function showWebsite() {
 async function startApp() {
     try {
         console.log("[GHOST] Registering service worker...");
-        await registerServiceWorker();
+        await registerWorker();
         console.log("[GHOST] Mounting website...");
         showWebsite();
     } catch (err) {
