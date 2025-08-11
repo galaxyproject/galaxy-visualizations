@@ -37,12 +37,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
     if (event.data.type === "CREATE") {
         scope = event.data.scope;
-        console.log("[GHOST] Updating scope", scope);
         const files = Object.entries(event.data.files);
         for (const [path, content] of files) {
             virtualFS.set(path, content);
         }
-        console.log("[GHOST] Added files:", files.length);
+        console.log(`[GHOST] Serving ${files.length} files from ${scope}`);
         ready = true;
     }
     if (event.data.type === "DESTROY") {
