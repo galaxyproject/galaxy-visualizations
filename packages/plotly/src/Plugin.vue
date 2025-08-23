@@ -5,6 +5,7 @@ import { onMounted, ref, watch } from "vue";
 import plotlySurface from "@/variants/surface";
 import plotlyBasics from "@/variants/basics";
 import plotlyBox from "@/variants/box";
+import plotlyHeatmap from "@/variants/heatmap";
 import plotlyHistogram from "@/variants/histogram";
 
 const props = defineProps({
@@ -27,6 +28,9 @@ async function render() {
             break;
         case "histogram":
             wrapper = plotlyHistogram;
+            break;
+        case "heatmap":
+            wrapper = plotlyHeatmap;
             break;
         case "surface":
             wrapper = plotlySurface;
