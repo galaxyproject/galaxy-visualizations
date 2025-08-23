@@ -1,9 +1,11 @@
 {
     "name": "@galaxyproject/plotly",
-    "version": "0.0.17",
+    "version": "0.0.18",
     "type": "module",
     "license": "MIT",
-    "files": ["static"],
+    "files": [
+        "static"
+    ],
     "scripts": {
         "dev": "vite",
         "build": "vite build",

@@ -80,8 +80,14 @@
             <label>Provide a label</label>
             <name>name</name>
             <type>text</type>
-            <placeholder>Data label</placeholder>
-            <value>Data label</value>
+            <placeholder>Track label</placeholder>
+            <value>Track label</value>
+        </input>
+        <input>
+            <name>label</name>
+            <label>Column of data labels</label>
+            <type>data_column</type>
+            <is_auto>true</is_auto>
         </input>
         <input>
             <name>x</name>
