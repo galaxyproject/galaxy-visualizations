@@ -28,7 +28,7 @@ export default async function (datasetId) {
     // data comes from tabular not from csv (metadata missing)
     if (metaData.metadata_columns === metaData.metadata_column_names.length) {
         xLabels = metaData.metadata_column_names.slice(1);
-        // remove first column from yLabels
+        // remove first row from yLabels
         yLabels = yLabels.slice(1);
         // remove first row from zMatrix (contains column names)
         zMatrix = zMatrix.slice(1);
