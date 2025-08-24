@@ -12,20 +12,25 @@ function formatLabels(labels, lng = 9) {
 }
 
 export default async function (datasetId) {
+    // request dataset details
     const params = new URLSearchParams({
         data_type: "raw_data",
         provider: "dataset-column",
     }).toString();
+    const { data: metaData } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
     const { data: rawData } = await GalaxyApi().GET(`/api/datasets/${datasetId}?${params}`);
 
-    // first row is x-axis labels (skip first column)
-    const xLabels = rawData.data[0].slice(1);
+    // data parameters
+    let xLabels = [];
+    const yLabels = rawData.data.map((row) => row[0]);
+    const zMatrix = rawData.data.map((row) => row.slice(1).map((val) => parseFloat(val)));
 
-    // first column is y-axis labels (skip first row)
-    const yLabels = rawData.data.slice(1).map((row) => row[0]);
-
-    // rest is z matrix
-    const zMatrix = rawData.data.slice(1).map((row) => row.slice(1).map((val) => parseFloat(val)));
+    // data comes from tabular not from csv (metadata missing)
+    if (metaData.metadata_columns === metaData.metadata_column_names.length) {
+        xLabels = metaData.metadata_column_names.slice(1);
+    } else {
+        xLabels = Array.from({ length: metaData.metadata_columns - 1 }, (_, i) => i);
+    }
 
     const data = [
         {
