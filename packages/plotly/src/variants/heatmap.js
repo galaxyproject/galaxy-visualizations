@@ -58,5 +58,10 @@ export default async function (datasetId) {
 
     const config = { responsive: true };
 
-    return { data, layout, config };
+    const warning =
+        rawData.data.length < metaData.metadata_data_lines
+            ? `Displaying only the first ${rawData.data.length} rows.`
+            : undefined;
+
+    return { data, layout, config, warning };
 }

@@ -2,11 +2,11 @@
 import Plotly from "plotly.js-dist";
 import { onMounted, ref, watch } from "vue";
 
-import plotlySurface from "@/variants/surface";
 import plotlyBasics from "@/variants/basics";
 import plotlyBox from "@/variants/box";
 import plotlyHeatmap from "@/variants/heatmap";
 import plotlyHistogram from "@/variants/histogram";
+import plotlySurface from "@/variants/surface";
 
 const props = defineProps({
     datasetId: String,
@@ -40,7 +40,10 @@ async function render() {
     }
     try {
         message.value = "";
-        const { data, layout, config } = await wrapper(props.datasetId, props.settings, props.tracks);
+        const { data, layout, config, warning } = await wrapper(props.datasetId, props.settings, props.tracks);
+        if (warning) {
+            message.value = warning;
+        }
         Plotly.newPlot(viewport.value, data, layout, config);
     } catch (e) {
         message.value = `Failed to render: ${e}`;
