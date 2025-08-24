@@ -22,15 +22,22 @@ export default async function (datasetId) {
 
     // data parameters
     let xLabels = [];
-    const yLabels = rawData.data.map((row) => row[0]);
-    const zMatrix = rawData.data.map((row) => row.slice(1).map((val) => parseFloat(val)));
+    let yLabels = rawData.data.map((row) => row[0]);
+    let zMatrix = rawData.data;
 
     // data comes from tabular not from csv (metadata missing)
     if (metaData.metadata_columns === metaData.metadata_column_names.length) {
         xLabels = metaData.metadata_column_names.slice(1);
+        // remove first column from yLabels
+        yLabels = yLabels.slice(1);
+        // remove first row from zMatrix (contains column names)
+        zMatrix = zMatrix.slice(1);
     } else {
         xLabels = Array.from({ length: metaData.metadata_columns - 1 }, (_, i) => i);
     }
+
+    // remove first column from zMatrix and format values
+    zMatrix = zMatrix.map((row) => row.slice(1).map((val) => parseFloat(val)));
 
     const data = [
         {
