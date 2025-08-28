@@ -1,0 +1,749 @@
+import { BamFile } from "@gmod/bam";
+import { RemoteFile } from "generic-filehandle2";
+import axios from "axios";
+import pako from "pako";
+
+// Access container element
+const appElement = document.querySelector("#app");
+
+// Attach mock data for development
+if (import.meta.env.DEV && appElement) {
+    // Build the incoming data object
+    const dataIncoming = {
+        root: "/",
+        visualization_config: {
+            dataset_id: process.env.dataset_id,
+        },
+    };
+
+    // Attach config to the data-incoming attribute
+    appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+}
+
+class BamViewer {
+    constructor(container, options = {}) {
+        this.container = container;
+        this.datasetUrl = options.datasetUrl;
+        this.settings = {
+            max_records: 100,
+            region_start: 0,
+            region_end: 10000,
+            ...options.settings,
+        };
+
+        this.loading = false;
+        this.error = null;
+        this.headerInfo = null;
+        this.records = [];
+
+        this.init();
+    }
+
+    init() {
+        this.container.className = "bam-viewer";
+        this.container.innerHTML = "";
+        this.addStyles();
+
+        this.loadBamFile();
+    }
+
+    addStyles() {
+        if (!document.getElementById("bam-viewer-styles")) {
+            const style = document.createElement("style");
+            style.id = "bam-viewer-styles";
+            style.textContent = `
+                .bam-viewer {
+                    text-align: left;
+                    width: 100%;
+                    height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    padding: 0;
+                    margin: 0;
+                    box-sizing: border-box;
+                    background-color: #fff;
+                    color: #333;
+                }
+                
+                .bam-records {
+                    font-family: monospace;
+                    font-size: 12px;
+                    line-height: 1.4;
+                    white-space: pre-wrap;
+                    flex: 1;
+                    overflow-y: auto;
+                    color: #333;
+                    padding: 16px;
+                    margin: 0;
+                }
+                
+                .bam-error {
+                    color: #d32f2f;
+                    padding: 16px;
+                    background-color: #ffebee;
+                    border: 1px solid #ffcdd2;
+                    border-radius: 4px;
+                    margin: 16px;
+                }
+                
+                .bam-loading {
+                    padding: 20px;
+                    text-align: center;
+                    color: #666;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    render() {
+        if (this.loading) {
+            this.container.innerHTML = '<div class="bam-loading">Loading BAM file...</div>';
+        } else if (this.error) {
+            this.container.innerHTML = `<div class="bam-error">${this.error}</div>`;
+        } else if (this.headerInfo || this.records.length > 0) {
+            const headerText = this.headerInfo ? this.formatHeader(this.headerInfo) : "";
+            const recordsText = this.records.length > 0 ? this.formatRecords(this.records) : "";
+            this.container.innerHTML = `<div class="bam-records">${headerText}${recordsText}</div>`;
+        } else {
+            this.container.innerHTML = '<div class="bam-loading">No BAM data available</div>';
+        }
+    }
+
+    async loadBamFile() {
+        this.loading = true;
+        this.error = null;
+        this.render();
+
+        try {
+            if (import.meta.env.DEV) {
+                await this.loadHttpBamFile();
+            } else {
+                await this.loadGalaxyBamFile();
+            }
+        } catch (err) {
+            this.error = `Error loading BAM file: ${err.message}`;
+            console.error("BAM loading error:", err);
+        } finally {
+            this.loading = false;
+            this.render();
+        }
+    }
+
+    async loadHttpBamFile() {
+        const bamUrl = this.datasetUrl;
+
+        try {
+            // Use RemoteFile for browser compatibility as per @gmod/bam docs
+            let baiUrl = null;
+            if (bamUrl.includes("raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/srma_out2.bam")) {
+                // Use the raw.githubusercontent.com version for the BAI file as well
+                baiUrl = "https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/srma_out2.bai";
+            } else if (bamUrl.endsWith(".bam")) {
+                // For other URLs, try standard .bai extension
+                baiUrl = bamUrl + ".bai";
+            }
+
+            const bamFile = new BamFile({
+                bamFilehandle: new RemoteFile(bamUrl),
+                baiFilehandle: baiUrl ? new RemoteFile(baiUrl) : undefined,
+            });
+
+            // Required: run getHeader before any getRecordsForRange
+            const rawHeader = await bamFile.getHeader();
+            this.headerInfo = this.parseHeader(rawHeader);
+
+            const refSeqs = this.headerInfo.references;
+            if (refSeqs && refSeqs.length > 0) {
+                const firstRef = refSeqs[0];
+                const endPos = Math.min(this.settings.region_end, firstRef.length);
+
+                try {
+                    const bamRecords = await bamFile.getRecordsForRange(
+                        firstRef.name,
+                        this.settings.region_start,
+                        endPos,
+                        { maxRecords: this.settings.max_records }
+                    );
+
+                    this.records = bamRecords;
+
+                    if (bamRecords.length === 0) {
+                        // Try a broader range if no records found
+                        const broaderRecords = await bamFile.getRecordsForRange(
+                            firstRef.name,
+                            0,
+                            Math.min(100000, firstRef.length),
+                            { maxRecords: this.settings.max_records }
+                        );
+                        this.records = broaderRecords;
+                    }
+                } catch (rangeError) {
+                    this.records = [];
+                }
+            } else {
+                this.records = [];
+            }
+        } catch (bamError) {
+            // Try without index using RemoteFile
+            try {
+                const bamFile = new BamFile({
+                    bamFilehandle: new RemoteFile(bamUrl),
+                    // No baiFilehandle = no index
+                });
+                const rawHeader = await bamFile.getHeader();
+                this.headerInfo = this.parseHeader(rawHeader);
+                this.records = [];
+            } catch (noIndexError) {
+                throw noIndexError;
+            }
+        }
+    }
+
+    async loadGalaxyBamFile() {
+        // We already have the dataset ID and root from data-incoming
+        const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+        const datasetId = incoming.visualization_config?.dataset_id;
+        const root = incoming.root || "/";
+
+        if (!datasetId) {
+            throw new Error("No dataset ID provided by Galaxy");
+        }
+
+        // Construct proper Galaxy API URLs
+        const bamUrl = `${root}api/datasets/${datasetId}/display?to_ext=bam`;
+        const baiUrl = `${root}api/datasets/${datasetId}/metadata_file?metadata_file=bam_index`;
+
+        let bamFile; // Declare bamFile at function scope
+
+        try {
+            // Try with index first
+            try {
+                const response = await fetch(bamUrl, { method: "HEAD" });
+                const contentLength = response.headers.get("content-length");
+
+                if (contentLength && parseInt(contentLength) < 100000) {
+                    console.log("Small BAM file detected, using optimized download approach");
+
+                    // Download both BAM and BAI files entirely
+                    const bamResponse = await fetch(bamUrl);
+                    const bamData = await bamResponse.arrayBuffer();
+
+                    // Check if the BAM file is gzip compressed
+                    const bamView = new Uint8Array(bamData);
+                    const headerBytes = bamView.slice(0, Math.min(32, bamView.length));
+                    const headerString = Array.from(headerBytes.slice(0, 4))
+                        .map((b) => String.fromCharCode(b))
+                        .join("");
+
+                    // Check for gzip magic bytes (0x1f 0x8b)
+                    const isGzipped = bamView[0] === 0x1f && bamView[1] === 0x8b;
+
+                    let decompressedBamData;
+                    if (isGzipped) {
+                        try {
+                            // Use pako for more reliable gzip decompression
+                            const compressed = new Uint8Array(bamData);
+                            const decompressed = pako.inflate(compressed);
+                            decompressedBamData = decompressed.buffer.slice(
+                                decompressed.byteOffset,
+                                decompressed.byteOffset + decompressed.byteLength
+                            );
+
+                            // Verify the decompressed header
+                            const decompressedView = new Uint8Array(decompressedBamData);
+                            const decompressedHeader = Array.from(decompressedView.slice(0, 4))
+                                .map((b) => String.fromCharCode(b))
+                                .join("");
+
+                            if (decompressedHeader !== "BAM\x01") {
+                                console.warn("Decompressed file doesn't have BAM signature, got:", decompressedHeader);
+                            }
+                        } catch (decompressError) {
+                            throw new Error(`Failed to decompress BAM file: ${decompressError.message}`);
+                        }
+                    } else {
+                        decompressedBamData = bamData;
+                    }
+
+                    const baiResponse = await fetch(baiUrl);
+                    const baiData = await baiResponse.arrayBuffer();
+
+                    // Create blob URLs and use RemoteFile
+                    const bamBlob = new Blob([bamData], { type: "application/octet-stream" });
+                    const bamBlobUrl = URL.createObjectURL(bamBlob);
+
+                    const baiBlob = new Blob([baiData], { type: "application/octet-stream" });
+                    const baiBlobUrl = URL.createObjectURL(baiBlob);
+
+                    // Use standard RemoteFile with blob URLs
+                    const bamFilehandle = new RemoteFile(bamBlobUrl);
+                    const baiFilehandle = new RemoteFile(baiBlobUrl);
+
+                    // Clean up blob URLs after a delay (they'll be used async)
+                    setTimeout(() => {
+                        URL.revokeObjectURL(bamBlobUrl);
+                        URL.revokeObjectURL(baiBlobUrl);
+                    }, 30000); // 30 second cleanup
+
+                    bamFile = new BamFile({
+                        bamFilehandle,
+                        baiFilehandle,
+                    });
+
+                    try {
+                        const rawHeader = await bamFile.getHeader();
+                        this.headerInfo = this.parseHeader(rawHeader);
+                    } catch (headerError) {
+                        console.error("Error getting header:", headerError);
+                        throw new Error(`Header loading failed: ${headerError.message}`);
+                    }
+                } else {
+                    throw new Error("File too large for workaround");
+                }
+            } catch (e) {
+                // Fallback to original approach
+                const bamFilehandle = new RemoteFile(bamUrl);
+                const baiFilehandle = new RemoteFile(baiUrl);
+
+                bamFile = new BamFile({
+                    bamFilehandle,
+                    baiFilehandle,
+                });
+
+                const rawHeader = await bamFile.getHeader();
+                this.headerInfo = this.parseHeader(rawHeader);
+            }
+
+            // The header is now properly parsed, so references should be available
+            const refSeqs = this.headerInfo.references;
+
+            // Check BAM index to identify chromosomes with data
+            let chromosomesWithData = [];
+            try {
+                if (bamFile.index || bamFile.bai) {
+                    const index = bamFile.index || bamFile.bai;
+                    if (index.blocksForRange) {
+                        for (const ref of refSeqs) {
+                            try {
+                                const blocks = await index.blocksForRange(ref.name, 0, ref.length);
+                                if (blocks && blocks.length > 0) {
+                                    chromosomesWithData.push(ref);
+                                }
+                            } catch (e) {
+                                // Continue checking other chromosomes
+                            }
+                        }
+                    }
+                }
+            } catch (indexError) {
+                // Could not inspect index, will try all chromosomes
+            }
+
+            try {
+                let allRecords = [];
+
+                // Try chromosomes with data first, then strategic fallbacks
+                if (refSeqs && refSeqs.length > 0) {
+                    let chromosomesToTry;
+
+                    if (chromosomesWithData.length > 0) {
+                        chromosomesToTry = chromosomesWithData;
+                    } else {
+                        chromosomesToTry = [
+                            ...refSeqs.slice(0, 3), // First 3 from the list
+                            ...refSeqs.filter((r) => r.name === "MT" || r.name === "chrM"), // Mitochondrial
+                            ...refSeqs.filter((r) => r.name === "X" || r.name === "chrX"), // X chromosome
+                            ...refSeqs.filter((r) => r.name === "Y" || r.name === "chrY"), // Y chromosome
+                            ...refSeqs.slice(-3), // Last 3 from the list
+                        ].filter((r, i, arr) => arr.findIndex((x) => x.name === r.name) === i); // Remove duplicates
+                    }
+
+                    for (const ref of chromosomesToTry) {
+                        try {
+                            // Try reading from the start of the chromosome
+                            const records = await bamFile.getRecordsForRange(
+                                ref.name,
+                                0,
+                                Math.min(1000000, ref.length),
+                                { maxRecords: this.settings.max_records }
+                            );
+
+                            if (records && records.length > 0) {
+                                allRecords = records;
+                                break;
+                            }
+
+                            // If no records at start, try other regions
+                            const regions = [
+                                { start: Math.floor(ref.length * 0.1), end: Math.floor(ref.length * 0.1) + 1000000 },
+                                { start: Math.floor(ref.length * 0.5), end: Math.floor(ref.length * 0.5) + 1000000 },
+                                { start: Math.max(0, ref.length - 5000000), end: ref.length },
+                            ];
+
+                            for (const region of regions) {
+                                try {
+                                    const regionRecords = await bamFile.getRecordsForRange(
+                                        ref.name,
+                                        region.start,
+                                        Math.min(region.end, ref.length),
+                                        { maxRecords: this.settings.max_records }
+                                    );
+
+                                    if (regionRecords && regionRecords.length > 0) {
+                                        allRecords = regionRecords;
+                                        break;
+                                    }
+                                } catch (regionError) {
+                                    // Continue to next region
+                                }
+                            }
+
+                            if (allRecords.length > 0) break;
+                        } catch (refError) {
+                            // Continue to next chromosome
+                        }
+                    }
+                }
+
+                // Fallback: try global iterator if available
+                if (allRecords.length === 0 && bamFile.getRecords) {
+                    try {
+                        const recordIterator = bamFile.getRecords();
+                        let count = 0;
+                        const startTime = Date.now();
+                        const timeout = 30000; // 30 second timeout
+
+                        for await (const record of recordIterator) {
+                            allRecords.push(record);
+                            count++;
+                            if (count >= this.settings.max_records || Date.now() - startTime > timeout) {
+                                break;
+                            }
+                        }
+                    } catch (iteratorError) {
+                        // Global iterator failed
+                    }
+                }
+
+                // Last resort: full chromosome scan
+                if (allRecords.length === 0 && refSeqs && refSeqs.length > 0) {
+                    const firstRef = refSeqs[0];
+                    try {
+                        const records = await bamFile.getRecordsForRange(firstRef.name, 0, firstRef.length, {
+                            maxRecords: this.settings.max_records,
+                        });
+
+                        if (records && records.length > 0) {
+                            allRecords = records;
+                        }
+                    } catch (lastResortError) {
+                        // Full chromosome scan failed
+                    }
+                }
+
+                this.records = allRecords;
+            } catch (recordError) {
+                console.warn("Error retrieving BAM records:", recordError.message);
+                this.records = [];
+            }
+        } catch (bamError) {
+            console.error("BAM file loading failed:", bamError.message);
+            throw bamError;
+        }
+    }
+
+    parseHeader(rawHeader) {
+        // Handle both array and object header formats
+        if (Array.isArray(rawHeader)) {
+            const parsedHeader = {
+                version: "1.6",
+                sortOrder: "unknown",
+                references: [],
+                readGroups: [],
+                programs: [],
+                comments: rawHeader,
+            };
+
+            // Parse header lines for reference sequences
+            rawHeader.forEach((line) => {
+                if (line && typeof line === "object") {
+                    if (line.tag === "HD") {
+                        const hdData = line.data || [];
+                        hdData.forEach((field) => {
+                            if (field.tag === "VN") parsedHeader.version = field.value;
+                            if (field.tag === "SO") parsedHeader.sortOrder = field.value;
+                        });
+                    } else if (line.tag === "SQ") {
+                        const sqData = line.data || [];
+                        const refSeq = { name: "unknown", length: 0 };
+
+                        sqData.forEach((field) => {
+                            if (field.tag === "SN") refSeq.name = field.value;
+                            if (field.tag === "LN") refSeq.length = parseInt(field.value) || 0;
+                        });
+
+                        parsedHeader.references.push(refSeq);
+                    } else if (line.tag === "PG") {
+                        const pgData = line.data || [];
+                        const program = { id: "unknown" };
+
+                        pgData.forEach((field) => {
+                            if (field.tag === "ID") program.id = field.value;
+                            if (field.tag === "PN") program.name = field.value;
+                            if (field.tag === "VN") program.version = field.value;
+                            if (field.tag === "CL") program.commandLine = field.value;
+                        });
+
+                        parsedHeader.programs.push(program);
+                    }
+                }
+            });
+
+            return parsedHeader;
+        } else {
+            return rawHeader;
+        }
+    }
+
+    formatRecord(record) {
+        // Handle bam-js record format - use getters if available
+        let flags = 0;
+        try {
+            flags = record.flags || 0;
+        } catch (e) {
+            console.warn("Could not access flags:", e);
+            flags = 0;
+        }
+
+        const flagNames = [];
+        if (flags & 0x1) flagNames.push("paired");
+        if (flags & 0x2) flagNames.push("proper_pair");
+        if (flags & 0x4) flagNames.push("unmapped");
+        if (flags & 0x8) flagNames.push("mate_unmapped");
+        if (flags & 0x10) flagNames.push("reverse");
+        if (flags & 0x20) flagNames.push("mate_reverse");
+        if (flags & 0x40) flagNames.push("read1");
+        if (flags & 0x80) flagNames.push("read2");
+        if (flags & 0x100) flagNames.push("secondary");
+        if (flags & 0x200) flagNames.push("qc_fail");
+        if (flags & 0x400) flagNames.push("duplicate");
+        if (flags & 0x800) flagNames.push("supplementary");
+
+        // Safely access record properties
+        const getName = () => {
+            try {
+                return record.name || record.qname || "unknown";
+            } catch {
+                return "unknown";
+            }
+        };
+        const getRefName = () => {
+            try {
+                return record.refName || record.rname || "unknown";
+            } catch {
+                return "unknown";
+            }
+        };
+        const getStart = () => {
+            try {
+                return record.start || record.pos || 0;
+            } catch {
+                return 0;
+            }
+        };
+        const getEnd = () => {
+            try {
+                return record.end || record.start + (record.length || 0) || 0;
+            } catch {
+                return 0;
+            }
+        };
+        const getCigar = () => {
+            try {
+                return record.cigar || "";
+            } catch {
+                return "";
+            }
+        };
+        const getSeq = () => {
+            try {
+                const seq = record.seq || record.sequence || "";
+                // Ensure sequence is a string
+                return typeof seq === "string" ? seq : String(seq);
+            } catch {
+                return "";
+            }
+        };
+        const getQual = () => {
+            try {
+                const qual = record.qual || record.quality || "";
+                // Handle both string and array formats for quality scores
+                if (typeof qual === "string") {
+                    return qual;
+                } else if (Array.isArray(qual)) {
+                    // Convert array of quality scores to string
+                    return qual.map((q) => String.fromCharCode(q + 33)).join("");
+                } else {
+                    return String(qual);
+                }
+            } catch {
+                return "";
+            }
+        };
+        const getMapq = () => {
+            try {
+                return record.mapq || record.mapQ || 0;
+            } catch {
+                return 0;
+            }
+        };
+        const getTags = () => {
+            try {
+                const tags = record.tags || record.aux || {};
+                return Object.entries(tags)
+                    .map(([k, v]) => `${k}:${v}`)
+                    .join(";");
+            } catch {
+                return "";
+            }
+        };
+
+        return {
+            name: getName(),
+            refName: getRefName(),
+            start: getStart(),
+            end: getEnd(),
+            cigar: getCigar(),
+            seq: getSeq(),
+            qual: getQual(),
+            flags: flagNames.join(","),
+            mapq: getMapq(),
+            tags: getTags(),
+        };
+    }
+
+    formatHeader(header) {
+        let output = "BAM Header Information:\n";
+        output += "======================\n\n";
+
+        if (header.version) {
+            output += `Version: ${header.version}\n`;
+        }
+
+        if (header.sortOrder) {
+            output += `Sort Order: ${header.sortOrder}\n`;
+        }
+
+        if (header.groupOrder) {
+            output += `Group Order: ${header.groupOrder}\n`;
+        }
+
+        output += "\nReference Sequences:\n";
+        output += "-------------------\n";
+        if (header.references) {
+            header.references.forEach((ref, index) => {
+                output += `${index + 1}. ${ref.name} (length: ${ref.length})\n`;
+            });
+        }
+
+        if (header.readGroups && header.readGroups.length > 0) {
+            output += "\nRead Groups:\n";
+            output += "------------\n";
+            header.readGroups.forEach((rg, index) => {
+                output += `${index + 1}. ID: ${rg.id}\n`;
+                if (rg.sample) output += `   Sample: ${rg.sample}\n`;
+                if (rg.library) output += `   Library: ${rg.library}\n`;
+                if (rg.platform) output += `   Platform: ${rg.platform}\n`;
+            });
+        }
+
+        if (header.programs && header.programs.length > 0) {
+            output += "\nPrograms:\n";
+            output += "---------\n";
+            header.programs.forEach((prog, index) => {
+                output += `${index + 1}. ID: ${prog.id}\n`;
+                if (prog.name) output += `   Name: ${prog.name}\n`;
+                if (prog.version) output += `   Version: ${prog.version}\n`;
+                if (prog.commandLine) output += `   Command: ${prog.commandLine}\n`;
+            });
+        }
+
+        return output;
+    }
+
+    formatRecords(recordList) {
+        if (!recordList || recordList.length === 0) {
+            return "No records found in the specified region.";
+        }
+
+        let output = `\nBAM Records (showing ${recordList.length} records):\n`;
+        output += "=".repeat(50) + "\n\n";
+
+        recordList.forEach((record, index) => {
+            const formatted = this.formatRecord(record);
+            output += `Record ${index + 1}:\n`;
+            output += `  Name: ${formatted.name}\n`;
+            output += `  Reference: ${formatted.refName}\n`;
+            output += `  Position: ${formatted.start}-${formatted.end}\n`;
+            output += `  CIGAR: ${formatted.cigar}\n`;
+            output += `  MAPQ: ${formatted.mapq}\n`;
+            output += `  Flags: ${formatted.flags}\n`;
+            if (formatted.seq && typeof formatted.seq === "string") {
+                output += `  Sequence: ${formatted.seq.substring(0, 100)}${formatted.seq.length > 100 ? "..." : ""}\n`;
+            }
+            if (formatted.qual && typeof formatted.qual === "string") {
+                output += `  Quality: ${formatted.qual.substring(0, 100)}${formatted.qual.length > 100 ? "..." : ""}\n`;
+            }
+            if (formatted.tags) {
+                output += `  Tags: ${formatted.tags}\n`;
+            }
+            output += "\n";
+        });
+
+        return output;
+    }
+}
+
+// Access attached data
+const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+
+// Extract dataset information
+const datasetId = incoming.visualization_config?.dataset_id;
+const root = incoming.root || "/";
+
+// Extract settings from Galaxy configuration
+const config = incoming.visualization_config || {};
+const settings = {
+    max_records: parseInt(config.max_records) || 100,
+    region_start: parseInt(config.region_start) || 0,
+    region_end: parseInt(config.region_end) || 10000,
+};
+
+// Build the data request URL
+let datasetUrl;
+if (import.meta.env.DEV) {
+    // In development, use direct URL to BAM file
+    datasetUrl = "https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/srma_out2.bam";
+} else {
+    // In production, Galaxy must provide a dataset ID
+    if (!datasetId) {
+        throw new Error("No dataset ID provided by Galaxy");
+    }
+    datasetUrl = `${root}api/datasets/${datasetId}/display`;
+}
+
+// Initialize the viewer when the DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+    const container = document.getElementById("app") || document.body;
+
+    const options = {
+        datasetUrl: datasetUrl,
+        settings: settings,
+    };
+
+    new BamViewer(container, options);
+});
+
+// Export for use in Galaxy
+window.BamViewer = BamViewer;
