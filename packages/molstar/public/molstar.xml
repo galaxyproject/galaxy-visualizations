@@ -8,6 +8,7 @@
             <test test_attr="ext">pqr</test>
             <test test_attr="ext">cif</test>
             <test test_attr="ext">bcif</test>
+            <test test_attr="ext">cml</test>
             <test test_attr="ext">mol</test>
             <test test_attr="ext">mol2</test>
             <test test_attr="ext">sdf</test>
@@ -23,8 +24,20 @@
     <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <tests>
         <test>
-            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/newbox.pdb" ftype="pdb" />
+            <param name="dataset_id" label="Peptide as PDB" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/newbox.pdb" ftype="pdb" />
         </test>
+        <test>
+            <param name="dataset_id" label="Diclofenac as SDF" value="https://raw.githubusercontent.com/bgruening/galaxytools/refs/heads/master/chemicaltoolbox/openbabel/test-data/CID_3033.sdf" ftype="sdf" />
+        </test>
+        <test>
+            <param name="dataset_id" label="Aspirin as CML" value="https://raw.githubusercontent.com/bgruening/galaxytools/refs/heads/master/chemicaltoolbox/openbabel/test-data/ob_convert_on_CID2244.cml" ftype="cml" />
+        </test>
+        <test>
+            <param name="dataset_id" label="Asperin as MOL2" value="https://raw.githubusercontent.com/spiwokv/Dockingtutorial/refs/heads/master/decoys/aspirin.mol2" ftype="mol2" />
+        </test>
+        <test>
+            <param name="dataset_id" label="Triple complex as GRO" value="https://raw.githubusercontent.com/galaxycomputationalchemistry/galaxy-tools-compchem/refs/heads/master/tools/gromacs/test-data/complex.gro" ftype="gro" />
+        </test>        
     </tests>
     <help format="markdown"><![CDATA[
 # What is Molstar?
