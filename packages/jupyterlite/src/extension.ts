@@ -1,4 +1,4 @@
-import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
+import type { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
 import { InputDialog } from "@jupyterlab/apputils";
 import axios from "axios";
 
@@ -98,7 +98,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 }
 
                 // open and save notebooks
-                app.commands.commandExecuted.connect(async (_, args) => {
+                app.commands.commandExecuted.connect(async (_: any, args: any) => {
                     if (args.id === "docmanager:open") {
                         args.result.then(async (widget: any) => {
                             const model = widget?.content?.model;
@@ -121,7 +121,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                 let name = path.split("/").pop() || getTimestamp();
                                 const input = await InputDialog.getText({
                                     title: "💾 Save to Galaxy?",
-                                    label: `Provide a name to save to source history:`,
+                                    label: "Provide a name to save to source history:",
                                     text: name,
                                 });
                                 if (input.button.accept && input.value) {
