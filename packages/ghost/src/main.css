@@ -19,3 +19,7 @@
     word-break: break-all;
     z-index: 9999;
 }
+
+body {
+    margin: 0;
+}
