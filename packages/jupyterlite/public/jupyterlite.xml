@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="JupyterLite" embeddable="true">
+<visualization name="JupyterLite" creatable="true" embeddable="true">
     <description>Pyodide-based Jupyter Notebooks</description>
     <data_sources>
         <data_source>
