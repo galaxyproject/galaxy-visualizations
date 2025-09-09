@@ -60,6 +60,9 @@ await gxy.api("/api/histories", method="GET")
 # Download a dataset by HID into the virtual filesystem
 await gxy.get(3)
 
+# Download datasets by tag into the virtual filesystem
+await gxy.get("my-tag", "tag")
+
 # Upload a local file to the associated Galaxy history (renamed to "newname.txt")
 await gxy.put("output.txt", "newname.txt")
 
