@@ -33,7 +33,7 @@ async def api(endpoint, method="GET", data=None):
         return text
 
 
-async def get(datasets_identifiers, identifier_type='hid', history_id=None, retrieve_datatype=False):
+async def get(datasets_identifiers, identifier_type="hid", history_id=None, retrieve_datatype=False):
     """
     Downloads dataset(s) from the current Galaxy history.
     In JupyterLite, saves files to virtual filesystem using `open()`.
@@ -48,7 +48,7 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
 
     # collect all datasets from the history
     history_id = history_id or await get_history_id()
-    history_datasets = await get_history(history_id)
+    history_datasets = await get_history(history_id, datasets_identifiers, identifier_type)
 
     # filter datasets
     if not isinstance(datasets_identifiers, list):
@@ -124,15 +124,24 @@ def get_api(url):
     return f"{root}/api/{trimmed}"
 
 
-async def get_history(history_id=None):
+async def get_history(history_id=None, datasets_identifiers=None, identifier_type=None):
     """
        Get all visible dataset infos of user history.
        Return a list of dict of each dataset.
     """
     import json
     from js import fetch
+
+    # identify target history
     history_id = history_id or await get_history_id()
-    url = get_api(f"/api/histories/{history_id}/contents")
+
+    # use backend filtering if single hid or tag is provided
+    query = ""
+    if identifier_type in ["hid", "tag"] and isinstance(datasets_identifiers, str) and datasets_identifiers:
+        query = f"/v=dev?q={identifier_type}-eq&qv={datasets_identifiers}"
+    url = get_api(f"/api/histories/{history_id}/contents{query}")
+
+    # perform request
     response = await fetch(url)
     if not response.ok:
         raise Exception(f"Failed to fetch history {history_id}: {response.status}")
@@ -206,7 +215,7 @@ async def put(name, output=None, ext="auto", dbkey="?", history_id=None):
         return response.responseText
 
 
-def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type='hid'):
+def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type="hid"):
     """
     Given a list of regex patterns, return matching dataset HIDs or IDs
     from the current Galaxy history.
