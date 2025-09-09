@@ -61,7 +61,7 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
     datatypes_all = []
 
     # backend vs client filtered results
-    if filter_by_api(datasets_identifiers, identifier_type):
+    if _is_api_filter(datasets_identifiers, identifier_type):
         datasets = history_datasets
     else:
         # convert to list
@@ -126,7 +126,7 @@ async def get_history(history_id=None, datasets_identifiers=None, identifier_typ
 
     # use backend filtering if single identifer from map is provided
     query = ""
-    if filter_by_api(datasets_identifiers, identifier_type):
+    if _is_api_filter(datasets_identifiers, identifier_type):
         query = f"?v=dev&q={IDENTIFIER_TYPES[identifier_type]}&qv={datasets_identifiers}"
     url = get_api(f"/api/histories/{history_id}/contents{query}")
 
@@ -268,7 +268,7 @@ def _find_matching_datasets(history_datasets, list_of_regex_patterns):
     return list(matching_datasets.values())
 
 
-def filter_by_api(datasets_identifiers, identifier_type):
+def _is_api_filter(datasets_identifiers, identifier_type):
     return identifier_type in IDENTIFIER_TYPES and not isinstance(datasets_identifiers, list) and datasets_identifiers
 
 __all__ = ["api", "get", "get_environment", "get_history", "get_history_id", "put"]

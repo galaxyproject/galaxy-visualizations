@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-const DATASET_0 = { id: "dataset_0", hid: 99, history_content_type: "dataset", history_id: "history_id" };
-const DATASET_1 = { id: "dataset_1", hid: 98, history_content_type: "dataset", history_id: "history_id" };
+const DATASET_0 = { id: "dataset_0", hid: 99, history_content_type: "dataset", history_id: "history_id", name: "notebook" };
+const DATASET_1 = { id: "dataset_1", hid: 98, history_content_type: "dataset", history_id: "history_id", name: "sample" };
 
 async function createNotebook(page) {
     await page.waitForSelector("#jp-MainMenu");
@@ -122,6 +122,10 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
     // test gxy backend filter
     await executeNext(page, ["import gxy", "print(await gxy.get(98))"]);
     await checkOutputArea(page, 4, "/history_id/dataset_1");
+
+    // test gxy client regex filter
+    await executeNext(page, ["import gxy", "print(await gxy.get('boo', 'regex'))"]);
+    await checkOutputArea(page, 5, "/history_id/dataset_0");
 
     // test plotly, numpy and pandas
     const plotlyCode = [
