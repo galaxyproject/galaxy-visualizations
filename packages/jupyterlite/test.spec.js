@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 
+const DATASET_0 = { id: "dataset_0", hid: 99, history_content_type: "dataset", history_id: "history_id" };
+const DATASET_1 = { id: "dataset_1", hid: 98, history_content_type: "dataset", history_id: "history_id" };
+
 async function createNotebook(page) {
     await page.waitForSelector("#jp-MainMenu");
     await page.click("text=File");
@@ -32,7 +35,7 @@ async function selectKernel(page) {
 
 test("Create new Python notebook from menu and run a cell", async ({ page }) => {
     // mock api
-    await page.route("**/root/api/datasets/dataset_id/display", async (route) => {
+    await page.route("**/root/api/datasets/dataset_0/display", async (route) => {
         await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -64,16 +67,40 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
         });
     });
 
-    await page.route("**/root/api/datasets/dataset_id", async (route) => {
+    await page.route("**/root/api/datasets/dataset_1/display", async (route) => {
         await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify({ history_id: "history_id" }),
+            body: "content_1"
+        });
+    });
+
+    await page.route("**/root/api/datasets/dataset_0", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(DATASET_0),
+        });
+    });
+
+    await page.route("**/root/api/histories/history_id/contents", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_0, DATASET_1]),
+        });
+    });
+
+    await page.route("**/root/api/histories/history_id/contents?v=dev&q=hid-eq&qv=98", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_1]),
         });
     });
 
     // start
-    await page.goto("http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_id");
+    await page.goto("http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0");
 
     // accept and execute first cell
     await selectKernel(page);
@@ -82,11 +109,19 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
 
     // test gxy environment
     await executeNext(page, ["import gxy", "print(gxy.get_environment())"]);
-    await checkOutputArea(page, 1, "{'root': '/root/', 'dataset_id': 'dataset_id'}");
+    await checkOutputArea(page, 1, "{'root': '/root/', 'dataset_id': 'dataset_0'}");
 
     // test gxy.get_history_id
     await executeNext(page, ["import gxy", "print(await gxy.get_history_id())"]);
     await checkOutputArea(page, 2, "history_id");
+
+    // test gxy front-end filter
+    await executeNext(page, ["import gxy", "print(await gxy.get([99, 98]))"]);
+    await checkOutputArea(page, 3, "['/history_id/dataset_0', '/history_id/dataset_1']");
+
+    // test gxy backend filter
+    await executeNext(page, ["import gxy", "print(await gxy.get(98))"]);
+    await checkOutputArea(page, 4, "/history_id/dataset_1");
 
     // test plotly, numpy and pandas
     const plotlyCode = [

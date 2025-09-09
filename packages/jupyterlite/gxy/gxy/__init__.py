@@ -64,21 +64,22 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
     datasets = {ds[identifier_type]: ds for ds in history_datasets}
 
     # download filtered datasets
-    for dataset_id in datasets_identifiers:
+    for identifier in datasets_identifiers:
         if identifier_type == "hid":
-            dataset_id = int(dataset_id)
-        if dataset_id not in datasets:
-            raise Exception(f"Unavailable dataset identifer: {dataset_id}")
-        ds = datasets[dataset_id]
+            identifier = int(identifier)
+        if identifier not in datasets:
+            raise Exception(f"Unavailable dataset identifer: {identifier}")
+        ds = datasets[identifier]
+        dataset_id = ds['id']
         path = f"/{history_id}/{dataset_id}"
 
         # download only if not already written
         if not os.path.exists(path):
             if ds["history_content_type"] == "dataset":
-                url = get_api(f"/api/datasets/{ds['id']}/display")
+                url = get_api(f"/api/datasets/{dataset_id}/display")
                 response = await fetch(url)
                 if not response.ok:
-                    raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
+                    raise Exception(f"Failed to fetch dataset {identifier}: {response.status}")
                 content_type = response.headers.get("Content-Type", "")
                 if content_type.startswith("text/"):
                     content = await response.text()
@@ -137,8 +138,8 @@ async def get_history(history_id=None, datasets_identifiers=None, identifier_typ
 
     # use backend filtering if single hid or tag is provided
     query = ""
-    if identifier_type in ["hid", "tag"] and isinstance(datasets_identifiers, str) and datasets_identifiers:
-        query = f"/v=dev?q={identifier_type}-eq&qv={datasets_identifiers}"
+    if identifier_type in ["hid", "tag"] and not isinstance(datasets_identifiers, list) and datasets_identifiers:
+        query = f"?v=dev&q={identifier_type}-eq&qv={datasets_identifiers}"
     url = get_api(f"/api/histories/{history_id}/contents{query}")
 
     # perform request
