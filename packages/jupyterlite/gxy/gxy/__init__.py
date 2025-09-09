@@ -50,10 +50,10 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
     """
 
     # download datasets by id without filtering
+    datasets = []
     if identifier_type == "id":
         if not isinstance(datasets_identifiers, list):
             datasets_identifiers = [datasets_identifiers]
-        datasets = []
         for identifers in datasets_identifiers:
             ds = await api(f"/api/datasets/{identifers}")
             datasets.append(ds)
@@ -74,7 +74,6 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
                 datasets = _find_matching_datasets(history_datasets, datasets_identifiers)
             else:
                 # match attributes
-                datasets = []
                 for ds in history_datasets:
                     if identifier_type not in ds:
                         raise Exception(f"Unavailable dataset identifier type: {identifier_type}")
