@@ -139,6 +139,10 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
     await executeNext(page, ["import gxy", "print(await gxy.get('test', 'tag'))"]);
     await checkOutputArea(page, 6, "/history_id/dataset_1");
 
+    // test gxy client id filter
+    await executeNext(page, ["import gxy", "print(await gxy.get('dataset_0', 'id'))"]);
+    await checkOutputArea(page, 7, "/history_id/dataset_0");
+
     // test plotly, numpy and pandas
     const plotlyCode = [
         "import plotly.express as px",

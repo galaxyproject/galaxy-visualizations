@@ -56,6 +56,7 @@ async def download_dataset(dataset):
 
     # download only if not already written
     if not os.path.exists(path):
+        os.makedirs(f"/{history_id}", exist_ok=True)
         if history_content_type == "dataset":
             url = get_api(f"/api/datasets/{dataset_id}/display")
             response = await fetch(url)
@@ -87,37 +88,37 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
         - Optionally, datatype(s) if `retrieve_datatype=True`
     """
 
-    # collect all datasets from the history
-    history_id = history_id or await get_history_id()
-    history_datasets = await get_history(history_id, datasets_identifiers, identifier_type)
+    # download single datasets by id without filtering
+    if identifier_type == "id" and datasets_identifiers and isinstance(datasets_identifiers, str):
+        ds = await api(f"/api/datasets/{datasets_identifiers}")
+        datasets = [ds]
+    else:
+        # collect all datasets from the history
+        history_id = history_id or await get_history_id()
+        history_datasets = await get_history(history_id, datasets_identifiers, identifier_type)
 
-    # ensure directory
-    os.makedirs(f"/{history_id}", exist_ok=True)
+        # backend vs client filtered results
+        if _is_api_filter(datasets_identifiers, identifier_type):
+            datasets = history_datasets
+        else:
+            # convert to list
+            if not isinstance(datasets_identifiers, list):
+                datasets_identifiers = [datasets_identifiers]
+            # match regex
+            if identifier_type == "regex":
+                datasets = _find_matching_datasets(history_datasets, datasets_identifiers)
+            else:
+                # match attributes
+                datasets = []
+                for ds in history_datasets:
+                    if identifier_type not in ds:
+                        raise Exception(f"Unavailable dataset identifier type: {identifier_type}")
+                    if ds[identifier_type] in datasets_identifiers:
+                        datasets.append(ds)
 
-    # prep result lists
+    # download datasets
     file_path_all = []
     datatypes_all = []
-
-    # backend vs client filtered results
-    if _is_api_filter(datasets_identifiers, identifier_type):
-        datasets = history_datasets
-    else:
-        # convert to list
-        if not isinstance(datasets_identifiers, list):
-            datasets_identifiers = [datasets_identifiers]
-        # match regex
-        if identifier_type == "regex":
-            datasets = _find_matching_datasets(history_datasets, datasets_identifiers)
-        else:
-            # match attributes
-            datasets = []
-            for ds in history_datasets:
-                if identifier_type not in ds:
-                    raise Exception(f"Unavailable dataset identifier type: {identifier_type}")
-                if ds[identifier_type] in datasets_identifiers:
-                    datasets.append(ds)
-
-    # download filtered datasets
     for ds in datasets:
         path = await download_dataset(ds)
         file_path_all.append(path)
