@@ -5,6 +5,12 @@ import pyodide_js
 from js import XMLHttpRequest, File, FormData, fetch, Promise
 from pyodide.ffi import create_proxy, to_js
 
+# identifer types
+IDENTIFIER_TYPES = {
+    "hid": "hid-eq",
+    "name": "name-contains",
+    "tag": "tag-eq",
+}
 
 async def api(endpoint, method="GET", data=None):
     """
@@ -43,22 +49,27 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
         - Optionally, datatype(s) if `retrieve_datatype=True`
     """
 
-    file_path_all = []
-    datatypes_all = []
-
     # collect all datasets from the history
     history_id = history_id or await get_history_id()
     history_datasets = await get_history(history_id, datasets_identifiers, identifier_type)
 
+    # ensure directory
+    os.makedirs(f"/{history_id}", exist_ok=True)
+
+    #if identifier_type in IDENTIFIER_TYPES and not isinstance(datasets_identifiers, list) and datasets_identifiers:
+
     # filter datasets
     if not isinstance(datasets_identifiers, list):
         datasets_identifiers = [datasets_identifiers]
+
+
+    # match regex
     if identifier_type == "regex":
         identifier_type = "hid"
         datasets_identifiers = _find_matching_ids(history_datasets, datasets_identifiers, identifier_type)
 
-    # ensure directory
-    os.makedirs(f"/{history_id}", exist_ok=True)
+    file_path_all = []
+    datatypes_all = []
 
     # index datasets
     datasets = {ds[identifier_type]: ds for ds in history_datasets}
@@ -70,31 +81,8 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
         if identifier not in datasets:
             raise Exception(f"Unavailable dataset identifer: {identifier}")
         ds = datasets[identifier]
-        dataset_id = ds['id']
-        path = f"/{history_id}/{dataset_id}"
-
-        # download only if not already written
-        if not os.path.exists(path):
-            if ds["history_content_type"] == "dataset":
-                url = get_api(f"/api/datasets/{dataset_id}/display")
-                response = await fetch(url)
-                if not response.ok:
-                    raise Exception(f"Failed to fetch dataset {identifier}: {response.status}")
-                content_type = response.headers.get("Content-Type", "")
-                if content_type.startswith("text/"):
-                    content = await response.text()
-                    with open(path, "w") as f:
-                        f.write(content)
-                else:
-                    buffer = await response.arrayBuffer()
-                    data = bytearray(buffer.to_py())
-                    with open(path, "wb") as f:
-                        f.write(data)
-                file_path_all.append(path)
-            elif ds["history_content_type"] == "dataset_collection":
-                raise Exception("Not implemented.")
-        else:
-            file_path_all.append(path)
+        path = await _download_dataset(ds)
+        file_path_all.append(path)
         if retrieve_datatype:
             datatypes_all.append({dataset_id: ds["extension"]})
     if retrieve_datatype:
@@ -138,8 +126,8 @@ async def get_history(history_id=None, datasets_identifiers=None, identifier_typ
 
     # use backend filtering if single hid or tag is provided
     query = ""
-    if identifier_type in ["hid", "tag"] and not isinstance(datasets_identifiers, list) and datasets_identifiers:
-        query = f"?v=dev&q={identifier_type}-eq&qv={datasets_identifiers}"
+    if identifier_type in IDENTIFIER_TYPES and not isinstance(datasets_identifiers, list) and datasets_identifiers:
+        query = f"?v=dev&q={IDENTIFIER_TYPES[identifier_type]}&qv={datasets_identifiers}"
     url = get_api(f"/api/histories/{history_id}/contents{query}")
 
     # perform request
@@ -214,6 +202,44 @@ async def put(name, output=None, ext="auto", dbkey="?", history_id=None):
         return json.loads(response.responseText)
     except Exception:
         return response.responseText
+
+
+async def _download_dataset(dataset):
+    """
+    Given a dataset object, its content is downloaded from Galaxy and stored in Pyodide’s virtual filesystem.
+
+    Args:
+        dataset: Object of dataset
+
+    Returns:
+        String path of stored file
+    """
+    dataset_id = dataset['id']
+    history_id = dataset['history_id']
+    history_content_type = dataset["history_content_type"]
+    path = f"/{history_id}/{dataset_id}"
+
+    # download only if not already written
+    if not os.path.exists(path):
+        if history_content_type == "dataset":
+            url = get_api(f"/api/datasets/{dataset_id}/display")
+            response = await fetch(url)
+            if not response.ok:
+                raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
+            content_type = response.headers.get("Content-Type", "")
+            if content_type.startswith("text/"):
+                content = await response.text()
+                with open(path, "w") as f:
+                    f.write(content)
+            else:
+                buffer = await response.arrayBuffer()
+                data = bytearray(buffer.to_py())
+                with open(path, "wb") as f:
+                    f.write(data)
+        elif history_content_type == "dataset_collection":
+            raise Exception("Not implemented.")
+
+    return path
 
 
 def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type="hid"):
