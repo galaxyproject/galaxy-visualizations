@@ -99,6 +99,14 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
         });
     });
 
+    await page.route("**/root/api/histories/history_id/contents?v=dev&q=tag-eq&qv=test", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_1]),
+        });
+    });
+
     // start
     await page.goto("http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0");
 
@@ -115,17 +123,21 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
     await executeNext(page, ["import gxy", "print(await gxy.get_history_id())"]);
     await checkOutputArea(page, 2, "history_id");
 
-    // test gxy front-end filter
+    // test gxy front-end multiple hid filter
     await executeNext(page, ["import gxy", "print(await gxy.get([99, 98]))"]);
     await checkOutputArea(page, 3, "['/history_id/dataset_0', '/history_id/dataset_1']");
 
-    // test gxy backend filter
+    // test gxy backend hid filter
     await executeNext(page, ["import gxy", "print(await gxy.get(98))"]);
     await checkOutputArea(page, 4, "/history_id/dataset_1");
 
     // test gxy client regex filter
     await executeNext(page, ["import gxy", "print(await gxy.get('boo', 'regex'))"]);
     await checkOutputArea(page, 5, "/history_id/dataset_0");
+
+    // test gxy backend tag filter
+    await executeNext(page, ["import gxy", "print(await gxy.get('test', 'tag'))"]);
+    await checkOutputArea(page, 6, "/history_id/dataset_1");
 
     // test plotly, numpy and pandas
     const plotlyCode = [
