@@ -200,7 +200,10 @@ async def put(name, output=None, ext="auto", dbkey="?", history_id=None):
     xhr.open("POST", get_api("/api/tools/fetch"))
     xhr.send(form)
     response = await future
-    return response.responseText
+    try:
+        return json.loads(response.responseText)
+    except Exception:
+        return response.responseText
 
 
 def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type='hid'):
@@ -226,7 +229,7 @@ def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type
         fid = dataset["id"]
         fhid = dataset["hid"]
         for pat in patterns:
-            if pat.match(fname):
+            if pat.search(fname):
                 print(f"🔍 Matched pattern on item {fhid} ({fid}): '{fname}'")
                 matching_ids.append(fhid if identifier_type == "hid" else fid)
     return list(set(matching_ids))
