@@ -1,0 +1,29 @@
+{
+    "name": "@galaxyproject/alignmentviewer",
+    "version": "0.0.0",
+    "type": "module",
+    "keywords": [
+        "galaxy",
+        "visualization",
+        "alignmentviewer"
+    ],
+    "license": "AFL-3.0",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --write 'package.json' '*.jsx'"
+    },
+    "files": [
+        "static"
+    ],
+    "devDependencies": {
+        "@vitejs/plugin-react": "^4.3.3",
+        "react": "18.3.1",
+        "react-dom": "18.3.1",
+        "vite": "^5.4.10"
+    },
+    "dependencies": {
+        "prettier": "^3.6.2"
+    }
+}
