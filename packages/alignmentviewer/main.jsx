@@ -1,40 +1,73 @@
-import "./style.css";
-import React from "react";
-import { createRoot } from "react-dom/client";
-import { App, H5GroveProvider } from "@h5web/app";
+import * as React from "react";
+import ReactDOM from "react-dom";
+import { AlignmentViewer, FastaAlignment } from "alignment-viewer-2";
+import "./main.css";
 
-// Access container element
 const appElement = document.querySelector("#app");
 
-// Attach mock data for development
 if (import.meta.env.DEV) {
-    // Build the incoming data object
     const dataIncoming = {
-        root: `${window.location.origin}/`,
+        root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
         },
     };
-
-    // Attach config to the data-incoming attribute
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
 }
 
-// Access attached data
-const { root, visualization_config } = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
+const datasetId = incoming.visualization_config?.dataset_id;
+const root = incoming.root || "";
+const dataUrl = datasetId ? `${root}api/datasets/${datasetId}/display` : null;
 
-/** Now you can consume the incoming data in your application.
- * In this example, the data was attached in the development mode block.
- * In production, this data will be provided by Galaxy.
- */
-const datasetId = visualization_config.dataset_id;
-const datasetName = visualization_config.dataset_name || "Input";
+const messageElement = document.createElement("div");
+messageElement.id = "message";
+messageElement.style.display = "none";
+appElement.appendChild(messageElement);
 
-const url = `${root}api/datasets/${datasetId}/content`;
+const viewerElement = document.createElement("div");
+viewerElement.id = "viewer";
+appElement.appendChild(viewerElement);
 
-const rootElement = createRoot(appElement);
-rootElement.render(
-    <H5GroveProvider url={url} filepath={datasetName} axiosConfig={{ params: { file: datasetName } }}>
-        <App />
-    </H5GroveProvider>,
-);
+function App() {
+    const [alignment, setAlignment] = React.useState(null);
+    const [error, setError] = React.useState(null);
+
+    React.useEffect(() => {
+        async function fetchData() {
+            try {
+                showMessage("Please wait...");
+                const response = await fetch(dataUrl);
+                const fastaText = await response.text();
+                const alignmentObj = FastaAlignment.fromFileContents("Dataset", fastaText);
+                setAlignment(alignmentObj);
+            } catch (e) {
+                setError(e.message);
+                showMessage(`Error loading dataset: ${e.message}`);
+            }
+        }
+        fetchData();
+    }, []);
+
+    if (error) {
+        showMessage(`Error loading dataset: ${error}`);
+    } else if (!alignment) {
+        showMessage("Loading alignment...");
+    } else {
+        hideMessage();
+        return <AlignmentViewer alignment={alignment} />;
+    }
+}
+
+function showMessage(title, details = null) {
+    details = details ? `: ${details}` : "";
+    messageElement.innerHTML = `<strong>${title}${details}</strong>`;
+    messageElement.style.display = "inline";
+    console.debug(`${title}${details}`);
+}
+
+function hideMessage() {
+    messageElement.style.display = "none";
+}
+
+ReactDOM.render(<App />, viewerElement);

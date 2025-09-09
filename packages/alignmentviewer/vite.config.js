@@ -6,4 +6,8 @@ export default defineConfig({
     ...viteConfigCharts,
     /* Insert your existing vite.config settings here. */
     plugins: [react()],
+    define: {
+        hoverTrackerSize: JSON.stringify(1),
+        ...viteConfigCharts.define,
+    },
 });
