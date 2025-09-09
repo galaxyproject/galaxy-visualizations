@@ -56,31 +56,31 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
     # ensure directory
     os.makedirs(f"/{history_id}", exist_ok=True)
 
-    #if identifier_type in IDENTIFIER_TYPES and not isinstance(datasets_identifiers, list) and datasets_identifiers:
-
-    # filter datasets
-    if not isinstance(datasets_identifiers, list):
-        datasets_identifiers = [datasets_identifiers]
-
-
-    # match regex
-    if identifier_type == "regex":
-        identifier_type = "hid"
-        datasets_identifiers = _find_matching_ids(history_datasets, datasets_identifiers, identifier_type)
-
+    # prep result lists
     file_path_all = []
     datatypes_all = []
 
-    # index datasets
-    datasets = {ds[identifier_type]: ds for ds in history_datasets}
+    # backend vs client filtered results
+    if filter_by_api(datasets_identifiers, identifier_type):
+        datasets = history_datasets
+    else:
+        # convert to list
+        if not isinstance(datasets_identifiers, list):
+            datasets_identifiers = [datasets_identifiers]
+        # match regex
+        if identifier_type == "regex":
+            datasets = _find_matching_datasets(history_datasets, datasets_identifiers)
+        else:
+            # match attributes
+            datasets = []
+            for ds in history_datasets:
+                if identifier_type not in ds:
+                    raise Exception(f"Unavailable dataset identifier type: {identifier_type}")
+                if ds[identifier_type] in datasets_identifiers:
+                    datasets.append(ds)
 
     # download filtered datasets
-    for identifier in datasets_identifiers:
-        if identifier_type == "hid":
-            identifier = int(identifier)
-        if identifier not in datasets:
-            raise Exception(f"Unavailable dataset identifer: {identifier}")
-        ds = datasets[identifier]
+    for ds in datasets:
         path = await _download_dataset(ds)
         file_path_all.append(path)
         if retrieve_datatype:
@@ -124,9 +124,9 @@ async def get_history(history_id=None, datasets_identifiers=None, identifier_typ
     # identify target history
     history_id = history_id or await get_history_id()
 
-    # use backend filtering if single hid or tag is provided
+    # use backend filtering if single identifer from map is provided
     query = ""
-    if identifier_type in IDENTIFIER_TYPES and not isinstance(datasets_identifiers, list) and datasets_identifiers:
+    if filter_by_api(datasets_identifiers, identifier_type):
         query = f"?v=dev&q={IDENTIFIER_TYPES[identifier_type]}&qv={datasets_identifiers}"
     url = get_api(f"/api/histories/{history_id}/contents{query}")
 
@@ -242,33 +242,33 @@ async def _download_dataset(dataset):
     return path
 
 
-def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type="hid"):
+def _find_matching_datasets(history_datasets, list_of_regex_patterns):
     """
-    Given a list of regex patterns, return matching dataset HIDs or IDs
+    Given a list of regex patterns, return matching dataset objects
     from the current Galaxy history.
 
     Args:
         list_of_regex_patterns: List of strings (regexes)
-        identifier_type: 'hid' or 'id'
-        history_id: Optional history ID
 
     Returns:
-        List of matching identifiers (hid or id)
+        List of matching dataset objects (non-redundant)
     """
     import re
     if isinstance(list_of_regex_patterns, str):
         list_of_regex_patterns = [list_of_regex_patterns]
     patterns = [re.compile(pat, re.IGNORECASE) for pat in list_of_regex_patterns]
-    matching_ids = []
+    matching_datasets = {}
     for dataset in history_datasets:
         fname = dataset["name"]
         fid = dataset["id"]
-        fhid = dataset["hid"]
         for pat in patterns:
             if pat.search(fname):
-                print(f"🔍 Matched pattern on item {fhid} ({fid}): '{fname}'")
-                matching_ids.append(fhid if identifier_type == "hid" else fid)
-    return list(set(matching_ids))
+                print(f"🔍 Matched pattern on item {fid}: '{fname}'")
+                matching_datasets[fid] = dataset
+    return list(matching_datasets.values())
 
+
+def filter_by_api(datasets_identifiers, identifier_type):
+    return identifier_type in IDENTIFIER_TYPES and not isinstance(datasets_identifiers, list) and datasets_identifiers
 
 __all__ = ["api", "get", "get_environment", "get_history", "get_history_id", "put"]
