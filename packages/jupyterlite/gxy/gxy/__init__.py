@@ -39,45 +39,6 @@ async def api(endpoint, method="GET", data=None):
         return text
 
 
-async def download_dataset(dataset):
-    """
-    Given a dataset id, its content is downloaded from Galaxy and stored in Pyodide’s virtual filesystem.
-
-    Args:
-        dataset_id: String of dataset identifier
-
-    Returns:
-        String path of stored file
-    """
-    dataset_id = dataset['id']
-    history_id = dataset['history_id']
-    history_content_type = dataset["history_content_type"]
-    path = f"/{history_id}/{dataset_id}"
-
-    # download only if not already written
-    if not os.path.exists(path):
-        os.makedirs(f"/{history_id}", exist_ok=True)
-        if history_content_type == "dataset":
-            url = get_api(f"/api/datasets/{dataset_id}/display")
-            response = await fetch(url)
-            if not response.ok:
-                raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
-            content_type = response.headers.get("Content-Type", "")
-            if content_type.startswith("text/"):
-                content = await response.text()
-                with open(path, "w") as f:
-                    f.write(content)
-            else:
-                buffer = await response.arrayBuffer()
-                data = bytearray(buffer.to_py())
-                with open(path, "wb") as f:
-                    f.write(data)
-        elif history_content_type == "dataset_collection":
-            raise Exception("Not implemented.")
-
-    return path
-
-
 async def get(datasets_identifiers, identifier_type="hid", history_id=None, retrieve_datatype=False):
     """
     Downloads dataset(s) from the current Galaxy history.
@@ -120,7 +81,7 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
     file_path_all = []
     datatypes_all = []
     for ds in datasets:
-        path = await download_dataset(ds)
+        path = await _download_dataset(ds)
         file_path_all.append(path)
         if retrieve_datatype:
             datatypes_all.append({dataset_id: ds["extension"]})
@@ -241,6 +202,45 @@ async def put(name, output=None, ext="auto", dbkey="?", history_id=None):
         return json.loads(response.responseText)
     except Exception:
         return response.responseText
+
+
+async def _download_dataset(dataset):
+    """
+    Given a dataset object, its content is downloaded from Galaxy and stored in Pyodide’s virtual filesystem.
+
+    Args:
+        dataset: Object of dataset
+
+    Returns:
+        String path of stored file
+    """
+    dataset_id = dataset['id']
+    history_id = dataset['history_id']
+    history_content_type = dataset["history_content_type"]
+    path = f"/{history_id}/{dataset_id}"
+
+    # download only if not already written
+    if not os.path.exists(path):
+        os.makedirs(f"/{history_id}", exist_ok=True)
+        if history_content_type == "dataset":
+            url = get_api(f"/api/datasets/{dataset_id}/display")
+            response = await fetch(url)
+            if not response.ok:
+                raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
+            content_type = response.headers.get("Content-Type", "")
+            if content_type.startswith("text/"):
+                content = await response.text()
+                with open(path, "w") as f:
+                    f.write(content)
+            else:
+                buffer = await response.arrayBuffer()
+                data = bytearray(buffer.to_py())
+                with open(path, "wb") as f:
+                    f.write(data)
+        elif history_content_type == "dataset_collection":
+            raise Exception("Not implemented.")
+
+    return path
 
 
 def _find_matching_datasets(history_datasets, list_of_regex_patterns):
