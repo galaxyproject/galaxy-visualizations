@@ -1,8 +1,8 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  timeout: 120000, // 120 seconds per test
-  use: {
-    headless: false, // run headed
-  },
+    timeout: 120000, // 120 seconds per test
+    use: {
+        headless: false, // run headed
+    },
 });
