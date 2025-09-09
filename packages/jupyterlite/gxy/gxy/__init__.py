@@ -49,10 +49,14 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
         - Optionally, datatype(s) if `retrieve_datatype=True`
     """
 
-    # download single datasets by id without filtering
-    if identifier_type == "id" and datasets_identifiers and isinstance(datasets_identifiers, str):
-        ds = await api(f"/api/datasets/{datasets_identifiers}")
-        datasets = [ds]
+    # download datasets by id without filtering
+    if identifier_type == "id":
+        if not isinstance(datasets_identifiers, list):
+            datasets_identifiers = [datasets_identifiers]
+        datasets = []
+        for identifers in datasets_identifiers:
+            ds = await api(f"/api/datasets/{identifers}")
+            datasets.append(ds)
     else:
         # collect all datasets from the history
         history_id = history_id or await get_history_id()
@@ -113,6 +117,15 @@ def get_api(url):
     return f"{root}/api/{trimmed}"
 
 
+def get_environment():
+    """
+    Returns the Galaxy environment configuration injected into the runtime.
+    """
+    if "__gxy__" in os.environ:
+        return json.loads(os.environ["__gxy__"])
+    raise RuntimeError("__gxy__ not found in environment")
+
+
 async def get_history(history_id=None, datasets_identifiers=None, identifier_type=None):
     """
        Get all visible dataset infos of user history.
@@ -136,15 +149,6 @@ async def get_history(history_id=None, datasets_identifiers=None, identifier_typ
         raise Exception(f"Failed to fetch history {history_id}: {response.status}")
     text = await response.text()
     return json.loads(text)
-
-
-def get_environment():
-    """
-    Returns the Galaxy environment configuration injected into the runtime.
-    """
-    if "__gxy__" in os.environ:
-        return json.loads(os.environ["__gxy__"])
-    raise RuntimeError("__gxy__ not found in environment")
 
 
 async def get_history_id():
