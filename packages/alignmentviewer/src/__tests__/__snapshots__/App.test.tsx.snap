@@ -1,0 +1,395 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`App Should render within 2 minutes. 1`] = `
+<Fragment>
+  <div
+    className="app-header"
+  >
+    <div
+      className="settings-box"
+    >
+      <form>
+        <div
+          className="settings-header"
+        >
+          <h2>
+            AlignmentViewer 2.0
+          </h2>
+          <a
+            className="github-link"
+            href="https://github.com/sanderlab/AlignmentViewer2.0"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            <img
+              alt="Alignment Viewer 2.0 GitHub Repo"
+              height="16"
+              src="/GitHub-Mark-32px.png"
+              width="16"
+            />
+          </a>
+          <button
+            className="button-link hide"
+            onClick={[Function]}
+            style={
+              Object {
+                "border": "none",
+                "margin": 0,
+                "padding": 0,
+              }
+            }
+            type="button"
+          >
+            <img
+              alt="Show Settings Box"
+              height="16"
+              src="/settings_32px.png"
+              width="16"
+            />
+          </button>
+          <button
+            className="button-link"
+            onClick={[Function]}
+            style={
+              Object {
+                "border": "none",
+                "margin": 0,
+                "padding": 0,
+              }
+            }
+            type="button"
+          >
+            <img
+              alt="Hide Settings Box"
+              height="16px"
+              src="/hide_contract_icon_32px.png"
+              width="16px"
+            />
+          </button>
+        </div>
+        <div
+          className="settings-alignment-description"
+        />
+        <div
+          className="settings-content"
+          style={
+            Object {
+              "display": "block",
+            }
+          }
+        >
+          <div>
+            <label>
+              <strong>
+                Alignment Type:
+              </strong>
+              <select
+                onChange={[Function]}
+                value="aminoacid-alignment"
+              >
+                <option
+                  key="aminoacid-alignment"
+                  value="aminoacid-alignment"
+                >
+                  Amino Acid Sequences
+                </option>
+                <option
+                  key="nucleotide-alignment"
+                  value="nucleotide-alignment"
+                >
+                  Nucleotide Sequences
+                </option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>
+              <strong>
+                Sort order:
+              </strong>
+              <select
+                onChange={[Function]}
+                value="as-input"
+              >
+                <option
+                  key="as-input"
+                  value="as-input"
+                >
+                  As input
+                </option>
+                <option
+                  key="hamming-dist-to-query"
+                  value="hamming-dist-to-query"
+                >
+                  Hamming distance to query sequence
+                </option>
+                <option
+                  key="hamming-dist-to-consensus"
+                  value="hamming-dist-to-consensus"
+                >
+                  Hamming distance to consensus sequence
+                </option>
+                <option
+                  key="blosum-score-to-query"
+                  value="blosum-score-to-query"
+                >
+                  BLOSUM62 score to query sequence
+                </option>
+                <option
+                  key="blosum-score-to-consensus"
+                  value="blosum-score-to-consensus"
+                >
+                  BLOSUM62 score to consensus sequence
+                </option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>
+              <strong>
+                Color Scheme:
+              </strong>
+              <select
+                onChange={[Function]}
+                value={0}
+              >
+                <option
+                  key="0"
+                  value={0}
+                >
+                  mock-aa-style-desc
+                </option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>
+              <strong>
+                Residue Style:
+              </strong>
+              <select
+                onChange={[Function]}
+                value="light"
+              >
+                <option
+                  key="dark"
+                  value="dark"
+                >
+                  Dark
+                </option>
+                <option
+                  key="light"
+                  value="light"
+                >
+                  Light
+                </option>
+                <option
+                  key="lettersonly"
+                  value="lettersonly"
+                >
+                  Letters Only
+                </option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>
+              <strong>
+                Positions to Style:
+              </strong>
+              <select
+                onChange={[Function]}
+                value={0}
+              >
+                <option
+                  key="0"
+                  value={0}
+                >
+                  All
+                </option>
+                <option
+                  key="1"
+                  value={1}
+                >
+                  Same as Query
+                </option>
+                <option
+                  key="2"
+                  value={2}
+                >
+                  Different from Query
+                </option>
+                <option
+                  key="3"
+                  value={3}
+                >
+                  Same as Consensus
+                </option>
+                <option
+                  key="4"
+                  value={4}
+                >
+                  Different from Consensus
+                </option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>
+              <strong>
+                Sequence Logo Style:
+              </strong>
+              <select
+                onChange={[Function]}
+                value="Letter Stack"
+              >
+                <option
+                  key="Letter Stack"
+                  value="Letter Stack"
+                >
+                  Letter Stack
+                </option>
+                <option
+                  key="Bar Plot"
+                  value="Bar Plot"
+                >
+                  Bar Plot
+                </option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>
+              <strong>
+                Zoom Level:
+              </strong>
+              <div
+                className="zoom-level"
+              >
+                <button
+                  disabled={false}
+                  onClick={[Function]}
+                  type="button"
+                >
+                  -
+                </button>
+                14
+                <button
+                  disabled={false}
+                  onClick={[Function]}
+                  type="button"
+                >
+                  +
+                </button>
+              </div>
+            </label>
+          </div>
+          <div
+            className="annotation-toggle"
+          >
+            <label>
+              <strong>
+                Show Annotations
+                :
+              </strong>
+              <input
+                checked={true}
+                name="annotation-toggle"
+                onChange={[Function]}
+                type="checkbox"
+              />
+            </label>
+          </div>
+          <div
+            className="minimap-toggle"
+          >
+            <label>
+              <strong>
+                Show MiniMap
+                :
+              </strong>
+              <input
+                checked={true}
+                name="minimap-toggle"
+                onChange={[Function]}
+                type="checkbox"
+              />
+            </label>
+          </div>
+          <div
+            className="barplot-conservation-toggle"
+          >
+            <label>
+              <strong>
+                Show Conservation Barplot
+                :
+              </strong>
+              <input
+                checked={true}
+                name="barplot-conservation-toggle"
+                onChange={[Function]}
+                type="checkbox"
+              />
+            </label>
+          </div>
+          <div
+            className="barplot-entropy-gaps-toggle"
+          >
+            <label>
+              <strong>
+                Show Entropy / Gaps Barplot
+                :
+              </strong>
+              <input
+                checked={true}
+                name="barplot-entropy-gaps-toggle"
+                onChange={[Function]}
+                type="checkbox"
+              />
+            </label>
+          </div>
+          <div
+            className="barplot-kldivergence-toggle"
+          >
+            <label>
+              <strong>
+                Show KL Divergence Barplot
+                :
+              </strong>
+              <input
+                checked={false}
+                name="barplot-kldivergence-toggle"
+                onChange={[Function]}
+                type="checkbox"
+              />
+            </label>
+          </div>
+          <br />
+          <div>
+            <AlignmentFileLoaderComponent
+              exampleFiles={
+                Array [
+                  Object {
+                    "fileName": "7fa1c5691376beab198788a726917d48_b0.4.a2m",
+                    "fileURL": "/7fa1c5691376beab198788a726917d48_b0.4.a2m",
+                    "labelText": "β-lactamase",
+                  },
+                  Object {
+                    "fileName": "Spike_Full_f05_m05_t08.a2m",
+                    "fileURL": "/Spike_Full_f05_m05_t08.a2m",
+                    "labelText": "SARS-CoV-2 Spike",
+                  },
+                ]
+              }
+              fileSelectorLabelText="Upload Alignment File:"
+              onAlignmenLoadError={[Function]}
+              onAlignmentLoaded={[Function]}
+              onFileLoadStart={[Function]}
+            />
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</Fragment>
+`;
