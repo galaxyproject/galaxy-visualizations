@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="JupyterLite" embeddable="true">
+<visualization name="JupyterLite" creatable="true" embeddable="true">
     <description>Pyodide-based Jupyter Notebooks</description>
     <data_sources>
         <data_source>
@@ -59,6 +59,9 @@ await gxy.api("/api/histories", method="GET")
 
 # Download a dataset by HID into the virtual filesystem
 await gxy.get(3)
+
+# Download datasets by tag into the virtual filesystem
+await gxy.get("my-tag", "tag")
 
 # Upload a local file to the associated Galaxy history (renamed to "newname.txt")
 await gxy.put("output.txt", "newname.txt")

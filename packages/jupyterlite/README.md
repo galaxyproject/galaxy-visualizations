@@ -86,8 +86,9 @@ Downloads dataset(s) by HID, ID, or regex pattern. Saves them to Pyodide's virtu
 
 ```python
 await get(3)                          # by HID
-await get("some_id", identifier_type="id")
-await get("myfile.*", identifier_type="regex")
+await get("some_id", "id")
+await get("myfile.*", "regex")
+await get("mytag", "tag")
 ```
 
 ---
