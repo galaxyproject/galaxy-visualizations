@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { AlignmentViewer } from "./components/AlignmentViewerHook";
-import { FastaAlignment } from "./common/FastaAlignment";
+import { AlignmentViewer } from "./src/components/AlignmentViewerHook";
+import { FastaAlignment } from "./src/common/FastaAlignment";
 import "./index.css";
 
 const appElement = document.getElementById("app");
