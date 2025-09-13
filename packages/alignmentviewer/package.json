@@ -42,7 +42,6 @@
     "sass": "1.69.7"
   },
   "scripts": {
-    "start": "react-scripts start",
     "build": "yarn webpack --config webpack.config.js"
   },
   "files": [
