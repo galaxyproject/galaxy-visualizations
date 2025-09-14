@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Alignment Viewer" embeddable="true">
+<visualization name="Multiple Sequence Alignment and Sequence Logo" embeddable="true">
     <tags>
         <tag>multiple</tag>
         <tag>sequence</tag>
         <tag>alignment</tag>
     </tags>
-    <description>Interactive Multiple Sequence Alignments</description>
+    <description>Advanced Multiple Sequence Alignment Viewer</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
