@@ -4,8 +4,6 @@
   "version": "0.0.0",
   "private": false,
   "author": "Nicholas Gauthier",
-  "module": "dist/js/index.js",
-  "types": "dist/js/index.d.ts",
   "contributors": [
     "Yang Su",
     "Andrew Diamantoukos",
