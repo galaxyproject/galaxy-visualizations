@@ -23,19 +23,15 @@
         </test>
     </tests>
     <help format="markdown"><![CDATA[
-# What is Alignment Viewer?
+# What is Multiple Sequence Alignment and Sequence Logo?
 
-This tool provides an **interactive multiple sequence alignment (MSA) viewer** powered by **Alignment Viewer 2.0**. It is written in TypeScript with the React framework and designed for high performance, enabling visualization and analysis of very large alignments directly in the browser.
+This tool provides an **interactive multiple sequence alignment (MSA) viewer** powered by **Alignment Viewer 2.0**. It is designed for high performance, enabling visualization and analysis of very large alignments directly in the browser.
 
 ## Key Features
 
 - **Scalable Visualization**: View entire alignments or zoom in to individual residues.
 - **Sequence Types**: Supports DNA, RNA, and protein alignments in FASTA or Stockholm format.
 - **Analysis Tools**: Displays sequence logos, consensus sequences, conservation, and gap statistics.
-- **Sorting & Styling**: Sort alignments and choose from multiple color schemes.
-- **Customizable Interface**: Show or hide components as needed.
-- **Interactive Exploration**: Mouse-over and click events for deeper inspection.
-- **Client-Side Only**: Runs fully in the browser with no server dependency.
 
 Learn more at: [https://github.com/sanderlab/AlignmentViewer2.0](https://github.com/sanderlab/AlignmentViewer2.0)
     ]]></help>
