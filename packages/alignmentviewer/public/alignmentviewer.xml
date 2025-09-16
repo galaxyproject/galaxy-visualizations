@@ -22,6 +22,9 @@
         <test>
             <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.a2m" ftype="a2m" />
         </test>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.stockholm" ftype="stockholm" />
+        </test>
     </tests>
     <help format="markdown"><![CDATA[
 # What is Multiple Sequence Alignment and Sequence Logo?
