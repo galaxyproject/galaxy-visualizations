@@ -1,7 +1,7 @@
 {
   "name": "@galaxyproject/alignmentviewer",
   "homepage": "https://fast.alignmentviewer.org",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": false,
   "author": "Nicholas Gauthier",
   "contributors": [

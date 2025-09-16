@@ -2,6 +2,8 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { AlignmentViewer } from "./src/components/AlignmentViewerHook";
 import { FastaAlignment } from "./src/common/FastaAlignment";
+import { StockholmAlignment } from "./src/common/StockholmAlignment";
+
 import "./index.css";
 
 const appElement = document.getElementById("app");
@@ -41,18 +43,19 @@ function hideMessage() {
 async function initViewer() {
   try {
     showMessage("Please wait...");
-    let initialFasta = null;
+    let fileContent = null;
 
     if (dataUrl) {
       const response = await fetch(dataUrl);
-      initialFasta = await response.text();
+      fileContent = await response.text();
     }
 
-    if (!initialFasta) {
-      throw new Error("No FASTA data found");
+    if (!fileContent) {
+      showMessage("Provided dataset is invalid.");
     }
 
-    const alignmentObj = FastaAlignment.fromFileContents("ALIGNMENT_NAME", initialFasta);
+    const reader = fileContent[0] === ">" ? FastaAlignment : StockholmAlignment;
+    const alignmentObj = reader.fromFileContents(datasetId, fileContent);
 
     hideMessage();
     const root = createRoot(viewerElement);
