@@ -1,0 +1,2281 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CanvasAlignmentComponent Should match the mounted snapshot for a large sequence. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+      ],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      },
+      "globalAlphaLetterCounts": Object {
+        "A": 10,
+        "B": 10,
+        "C": 10,
+        "D": 10,
+        "E": 10,
+        "F": 10,
+        "G": 10,
+        "H": 10,
+        "I": 10,
+        "J": 10,
+        "K": 10,
+        "L": 10,
+        "M": 10,
+        "N": 10,
+        "O": 10,
+        "P": 10,
+        "Q": 10,
+        "R": 10,
+        "S": 10,
+        "T": 10,
+        "U": 10,
+        "V": 10,
+        "W": 10,
+        "X": 10,
+        "Y": 10,
+        "Z": 10,
+      },
+      "maxSequenceLength": 26,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "A": 10,
+        },
+        1 => Object {
+          "B": 10,
+        },
+        2 => Object {
+          "C": 10,
+        },
+        3 => Object {
+          "D": 10,
+        },
+        4 => Object {
+          "E": 10,
+        },
+        5 => Object {
+          "F": 10,
+        },
+        6 => Object {
+          "G": 10,
+        },
+        7 => Object {
+          "H": 10,
+        },
+        8 => Object {
+          "I": 10,
+        },
+        9 => Object {
+          "J": 10,
+        },
+        10 => Object {
+          "K": 10,
+        },
+        11 => Object {
+          "L": 10,
+        },
+        12 => Object {
+          "M": 10,
+        },
+        13 => Object {
+          "N": 10,
+        },
+        14 => Object {
+          "O": 10,
+        },
+        15 => Object {
+          "P": 10,
+        },
+        16 => Object {
+          "Q": 10,
+        },
+        17 => Object {
+          "R": 10,
+        },
+        18 => Object {
+          "S": 10,
+        },
+        19 => Object {
+          "T": 10,
+        },
+        20 => Object {
+          "U": 10,
+        },
+        21 => Object {
+          "V": 10,
+        },
+        22 => Object {
+          "W": 10,
+        },
+        23 => Object {
+          "X": 10,
+        },
+        24 => Object {
+          "Y": 10,
+        },
+        25 => Object {
+          "Z": 10,
+        },
+      },
+      "predictedNT": false,
+      "querySequence": Object {
+        "id": "big-sequence-0",
+        "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "big-sequence-0",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-1",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-2",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-3",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-4",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-5",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-6",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-7",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-8",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "big-sequence-9",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-aa-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-aa-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Amino Acid Sequences",
+      "key": "aminoacid-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-aa-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-aa-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "All",
+      "key": "all",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the mounted snapshot when doing a nucleotide alignment. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+      ],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      },
+      "globalAlphaLetterCounts": Object {
+        "A": 10,
+        "B": 10,
+        "C": 10,
+        "D": 10,
+        "E": 10,
+        "F": 10,
+        "G": 10,
+        "H": 10,
+        "I": 10,
+        "J": 10,
+        "K": 10,
+        "L": 10,
+        "M": 10,
+        "N": 10,
+        "O": 10,
+        "P": 10,
+        "Q": 10,
+        "R": 10,
+        "S": 10,
+        "T": 10,
+        "U": 10,
+        "V": 10,
+        "W": 10,
+        "X": 10,
+        "Y": 10,
+        "Z": 10,
+      },
+      "maxSequenceLength": 26,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "A": 10,
+        },
+        1 => Object {
+          "B": 10,
+        },
+        2 => Object {
+          "C": 10,
+        },
+        3 => Object {
+          "D": 10,
+        },
+        4 => Object {
+          "E": 10,
+        },
+        5 => Object {
+          "F": 10,
+        },
+        6 => Object {
+          "G": 10,
+        },
+        7 => Object {
+          "H": 10,
+        },
+        8 => Object {
+          "I": 10,
+        },
+        9 => Object {
+          "J": 10,
+        },
+        10 => Object {
+          "K": 10,
+        },
+        11 => Object {
+          "L": 10,
+        },
+        12 => Object {
+          "M": 10,
+        },
+        13 => Object {
+          "N": 10,
+        },
+        14 => Object {
+          "O": 10,
+        },
+        15 => Object {
+          "P": 10,
+        },
+        16 => Object {
+          "Q": 10,
+        },
+        17 => Object {
+          "R": 10,
+        },
+        18 => Object {
+          "S": 10,
+        },
+        19 => Object {
+          "T": 10,
+        },
+        20 => Object {
+          "U": 10,
+        },
+        21 => Object {
+          "V": 10,
+        },
+        22 => Object {
+          "W": 10,
+        },
+        23 => Object {
+          "X": 10,
+        },
+        24 => Object {
+          "Y": 10,
+        },
+        25 => Object {
+          "Z": 10,
+        },
+      },
+      "predictedNT": false,
+      "querySequence": Object {
+        "id": "nt-sequence-0",
+        "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "nt-sequence-0",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-1",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-2",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-3",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-4",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-5",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-6",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-7",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-8",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+          Object {
+            "id": "nt-sequence-9",
+            "sequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-nt-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-nt-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Nucleotide Sequences",
+      "key": "nucleotide-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-nt-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-nt-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "All",
+      "key": "all",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the mounted snapshot. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-aa-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-aa-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Amino Acid Sequences",
+      "key": "aminoacid-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-aa-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-aa-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "All",
+      "key": "all",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the shallow snapshot. 1`] = `
+<div
+  className="alignment-canvas"
+  onMouseEnter={[Function]}
+  onMouseLeave={[Function]}
+  onWheel={[Function]}
+>
+  <x
+    height={1}
+    onMount={[Function]}
+    onUnmount={[Function]}
+    options={
+      Object {
+        "transparent": true,
+      }
+    }
+    raf={true}
+    renderOnComponentChange={true}
+    width={1}
+  >
+    <ContextConsumer>
+      <Component />
+    </ContextConsumer>
+  </x>
+</div>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'all',
+  description: 'All',
+  className: undefined
+} position. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-aa-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-aa-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Amino Acid Sequences",
+      "key": "aminoacid-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-aa-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-aa-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "All",
+      "key": "all",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'all',
+  description: 'All',
+  className: undefined
+} position. 2`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-nt-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-nt-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Nucleotide Sequences",
+      "key": "nucleotide-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-nt-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-nt-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "All",
+      "key": "all",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'consensus',
+  description: 'Same as Consensus',
+  className: undefined
+} position. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-aa-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-aa-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Amino Acid Sequences",
+      "key": "aminoacid-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-aa-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-aa-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Same as Consensus",
+      "key": "consensus",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'consensus',
+  description: 'Same as Consensus',
+  className: undefined
+} position. 2`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-nt-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-nt-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Nucleotide Sequences",
+      "key": "nucleotide-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-nt-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-nt-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Same as Consensus",
+      "key": "consensus",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'consensus-diff',
+  description: 'Different from Consensus',
+  className: undefined
+} position. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-aa-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-aa-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Amino Acid Sequences",
+      "key": "aminoacid-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-aa-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-aa-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Different from Consensus",
+      "key": "consensus-diff",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'consensus-diff',
+  description: 'Different from Consensus',
+  className: undefined
+} position. 2`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-nt-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-nt-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Nucleotide Sequences",
+      "key": "nucleotide-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-nt-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-nt-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Different from Consensus",
+      "key": "consensus-diff",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'query',
+  description: 'Same as Query',
+  className: undefined
+} position. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-aa-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-aa-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Amino Acid Sequences",
+      "key": "aminoacid-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-aa-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-aa-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Same as Query",
+      "key": "query",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'query',
+  description: 'Same as Query',
+  className: undefined
+} position. 2`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-nt-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-nt-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Nucleotide Sequences",
+      "key": "nucleotide-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-nt-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-nt-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Same as Query",
+      "key": "query",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'query-diff',
+  description: 'Different from Query',
+  className: undefined
+} position. 1`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-aa-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-aa-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Amino Acid Sequences",
+      "key": "aminoacid-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-aa-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-aa-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Different from Query",
+      "key": "query-diff",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
+
+exports[`CanvasAlignmentComponent Should match the snapshot when styling the PositionsToStyle {
+  key: 'query-diff',
+  description: 'Different from Query',
+  className: undefined
+} position. 2`] = `
+<CanvasAlignmentComponent
+  alignment={
+    Alignment {
+      "aceEditorMode": undefined,
+      "allUpperAlphaLettersInAlignmentSorted": Array [],
+      "consensus": Object {
+        "id": "consensus",
+        "sequence": "atgc",
+      },
+      "globalAlphaLetterCounts": Object {
+        "a": 1,
+        "c": 1,
+        "g": 1,
+        "t": 1,
+      },
+      "maxSequenceLength": 4,
+      "name": "My-Alignment",
+      "positionalLetterCounts": Map {
+        0 => Object {
+          "a": 1,
+        },
+        1 => Object {
+          "t": 1,
+        },
+        2 => Object {
+          "g": 1,
+        },
+        3 => Object {
+          "c": 1,
+        },
+      },
+      "predictedNT": true,
+      "querySequence": Object {
+        "id": "id",
+        "sequence": "atgc",
+      },
+      "sequences": Map {
+        SequenceSorter {
+          "description": "As input",
+          "isQuerySequenceDependent": false,
+          "key": "as-input",
+          "sortFn": [Function],
+          "targetAlignmentType": "both",
+        } => Array [
+          Object {
+            "id": "id",
+            "sequence": "atgc",
+          },
+        ],
+      },
+      "uuid": "10000000-1000-4000-8000-100000000000",
+    }
+  }
+  alignmentType={
+    AlignmentTypes {
+      "allColorSchemes": Array [
+        Object {
+          "backgroundAlpha": 0.25,
+          "backgroundColorsLightTheme": Object {
+            "": "",
+          },
+          "className": "mock-nt-class",
+          "colors": Object {
+            "": "",
+          },
+          "commonName": "Default",
+          "defaultLetterColor": "#ffffff",
+          "description": "mock-nt-style-desc",
+          "letterColorsDarkTheme": Object {
+            "": "",
+          },
+        },
+      ],
+      "className": undefined,
+      "description": "Nucleotide Sequences",
+      "key": "nucleotide-alignment",
+    }
+  }
+  colorScheme={
+    Object {
+      "backgroundAlpha": 0.25,
+      "backgroundColorsLightTheme": Object {
+        "": "",
+      },
+      "className": "mock-nt-class",
+      "colors": Object {
+        "": "",
+      },
+      "commonName": "Default",
+      "defaultLetterColor": "#ffffff",
+      "description": "mock-nt-style-desc",
+      "letterColorsDarkTheme": Object {
+        "": "",
+      },
+    }
+  }
+  positionsToStyle={
+    PositionsToStyle {
+      "className": undefined,
+      "description": "Different from Query",
+      "key": "query-diff",
+    }
+  }
+  sortBy={
+    SequenceSorter {
+      "description": "As input",
+      "isQuerySequenceDependent": false,
+      "key": "as-input",
+      "sortFn": [Function],
+      "targetAlignmentType": "both",
+    }
+  }
+  stageDimensions={
+    Object {
+      "height": 650,
+      "width": 485,
+    }
+  }
+  stageHeight={1}
+  stageWidth={1}
+>
+  <div
+    className="alignment-canvas"
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    onWheel={[Function]}
+  >
+    <x
+      height={1}
+      onMount={[Function]}
+      onUnmount={[Function]}
+      options={
+        Object {
+          "transparent": true,
+        }
+      }
+      raf={true}
+      renderOnComponentChange={true}
+      width={1}
+    >
+      <canvas />
+    </x>
+  </div>
+</CanvasAlignmentComponent>
+`;
