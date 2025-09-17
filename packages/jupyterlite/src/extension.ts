@@ -105,8 +105,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         // open and save notebooks
         try {
             // get current history
-            const { data: details } = await axios.get(`${root}history/current_history_json`);
-            const historyId = details.id;
+            const { data: { id: historyId } } = await axios.get(`${root}history/current_history_json`);
 
             // attach commands
             app.commands.commandExecuted.connect(async (_: any, args: any) => {
