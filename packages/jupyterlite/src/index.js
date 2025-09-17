@@ -7,10 +7,11 @@ const datasetId = incoming.visualization_config.dataset_id;
 const root = incoming.root;
 
 // Build query string
-const query = new URLSearchParams({
-    dataset_id: datasetId,
-    root,
-}).toString();
+const params = { root };
+if (datasetId !== undefined) {
+    params.dataset_id = datasetId;
+}
+const query = new URLSearchParams(params).toString();
 
 // Load jupyter
 (function () {
