@@ -6,7 +6,8 @@ bam:
   index: bam_index
 
 bcf:
-  type: variant
+  type: vcf
+  index: tabix_index
 
 bed:
   type: annotation
@@ -32,9 +33,11 @@ cram:
 
 fa:
   type: sequence
+  index: fai_index
 
 fasta:
   type: sequence
+  index: fai_index
 
 gff:
   type: annotation
@@ -49,10 +52,10 @@ narrowpeak:
   type: annotation
 
 vcf:
-  type: variant
+  type: vcf
 
 vcf_bgzip:
-  type: variant
+  type: vcf
   index: tabix_index
 
 wig:
