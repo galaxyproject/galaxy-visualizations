@@ -1,6 +1,3 @@
-2bit:
-  type: sequence
-
 bam:
   type: alignment
   index: bam_index
@@ -21,19 +18,9 @@ bigbed:
 bigwig:
   type: wig
 
-broadpeak:
-  type: annotation
-
-bw:
-  type: wig
-
 cram:
   type: alignment
   index: cram_index
-
-fa:
-  type: sequence
-  index: fai_index
 
 fasta:
   type: sequence
@@ -48,8 +35,8 @@ gff3:
 gtf:
   type: annotation
 
-narrowpeak:
-  type: annotation
+twobit:
+  type: sequence
 
 vcf:
   type: vcf

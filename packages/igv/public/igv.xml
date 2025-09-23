@@ -5,22 +5,18 @@
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
-            <test test_attr="ext">2bit</test>
             <test test_attr="ext">bam</test>
             <test test_attr="ext">bcf</test>
             <test test_attr="ext">bed</test>
             <test test_attr="ext">bedgraph</test>
             <test test_attr="ext">bigbed</test>
             <test test_attr="ext">bigwig</test>
-            <test test_attr="ext">broadpeak</test>
-            <test test_attr="ext">bw</test>
             <test test_attr="ext">cram</test>
-            <test test_attr="ext">fa</test>
             <test test_attr="ext">fasta</test>
             <test test_attr="ext">gff</test>
             <test test_attr="ext">gff3</test>
             <test test_attr="ext">gtf</test>
-            <test test_attr="ext">narrowpeak</test>
+            <test test_attr="ext">twobit</test>
             <test test_attr="ext">vcf</test>
             <test test_attr="ext">vcf_bgzip</test>
             <test test_attr="ext">wig</test>
