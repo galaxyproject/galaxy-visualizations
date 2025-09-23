@@ -2,6 +2,8 @@ import type { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/applica
 import { InputDialog } from "@jupyterlab/apputils";
 import axios from "axios";
 
+import TEMPLATE from "./template.json";
+
 const EXTENSION = "ipynb";
 const TIMEOUT = 100;
 
@@ -71,35 +73,39 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const root = params.get("root");
 
         // load notebook
+        let nbContent = null;
         if (datasetId) {
+            const datasetUrl = `${root}api/datasets/${datasetId}/display`;
+            console.log("📥 Loading notebook from:", datasetUrl);
             try {
-                const datasetUrl = `${root}api/datasets/${datasetId}/display`;
-                console.log("📥 Loading notebook from:", datasetUrl);
-                try {
-                    const res = await fetch(datasetUrl);
-                    if (res.ok) {
-                        const nbContent = await res.json();
-                        await app.serviceManager.contents.save(notebookName, {
-                            type: "notebook",
-                            format: "json",
-                            content: nbContent,
-                        });
-                        await app.commands.execute("docmanager:open", {
-                            path: notebookName,
-                            factory: "Notebook",
-                        });
-                        console.log("✅ Notebook opened:", notebookName);
-                    } else {
-                        throw new Error(`Failed to fetch notebook: ${res.statusText}`);
-                    }
-                } catch (err) {
-                    console.error("❌ Could not load dataset notebook:", err);
+                const res = await fetch(datasetUrl);
+                if (res.ok) {
+                    nbContent = await res.json();
+                } else {
+                    throw new Error(`Failed to fetch notebook: ${res.statusText}`);
                 }
             } catch (err) {
                 console.error("❌ Could not load dataset details:", err);
             }
         } else {
-            console.error("❌ Dataset identifer missing from query");
+            nbContent = TEMPLATE;
+            console.log("✅ Dataset identifer not available, loading default notebook");
+        }
+
+        // open notebook
+        try {
+            await app.serviceManager.contents.save(notebookName, {
+                type: "notebook",
+                format: "json",
+                content: nbContent,
+            });
+            await app.commands.execute("docmanager:open", {
+                path: notebookName,
+                factory: "Notebook",
+            });
+            console.log("✅ Notebook opened:", notebookName);
+        } catch (err) {
+            console.error("❌ Could not load dataset notebook:", err);
         }
 
         // open and save notebooks
