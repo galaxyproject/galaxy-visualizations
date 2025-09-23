@@ -1,0 +1,59 @@
+2bit:
+  type: sequence
+
+bam:
+  type: alignment
+  index: bam_index
+
+bcf:
+  type: variant
+
+bed:
+  type: annotation
+
+bedgraph:
+  type: wig
+
+bigbed:
+  type: annotation
+
+bigwig:
+  type: wig
+
+broadpeak:
+  type: annotation
+
+bw:
+  type: wig
+
+cram:
+  type: alignment
+  index: cram_index
+
+fa:
+  type: sequence
+
+fasta:
+  type: sequence
+
+gff:
+  type: annotation
+
+gff3:
+  type: annotation
+
+gtf:
+  type: annotation
+
+narrowpeak:
+  type: annotation
+
+vcf:
+  type: variant
+
+vcf_bgzip:
+  type: variant
+  index: tabix_index
+
+wig:
+  type: wig

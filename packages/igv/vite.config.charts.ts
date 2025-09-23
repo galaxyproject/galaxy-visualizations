@@ -6,7 +6,6 @@ const env = {
     GALAXY_ROOT: "http://127.0.0.1:8080",
 };
 
-// add history id for testing
 Object.keys(env).forEach((key) => {
     if (process.env[key]) {
         env[key] = process.env[key];
@@ -18,7 +17,7 @@ Object.keys(env).forEach((key) => {
 // https://vitejs.dev/config/
 export const viteConfigCharts = defineConfig({
     build: {
-        outDir: "./static/dist",
+        outDir: "./static",
         emptyOutDir: true,
         rollupOptions: {
             output: {

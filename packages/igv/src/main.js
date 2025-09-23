@@ -1,61 +1,77 @@
-import axios from "axios";
-import igv from "igv";
+import { createApp, h } from "vue";
+import App from "./App.vue";
+import "./style.css";
 
-// Access container element
-const appElement = document.querySelector("#app");
+async function main() {
+    /**
+     * Identify the target container
+     */
+    const scriptUrl = new URL(import.meta.url);
+    const container = scriptUrl.searchParams.get("container") || "app";
 
-// Attach mock data for development
-if (import.meta.env.DEV) {
-    // Build the incoming data object
-    const dataIncoming = {
-        root: "/",
-        visualization_config: {
-            dataset_id: process.env.dataset_id,
-            dataset_content: {
-                genome: "hg38",
-                locus: "chr8:127,736,588-127,739,371",
-                tracks: [
-                    {
-                        name: "HG00103",
-                        url: "https://s3.amazonaws.com/1000genomes/data/HG00103/alignment/HG00103.alt_bwamem_GRCh38DH.20150718.GBR.low_coverage.cram",
-                        indexURL:
-                            "https://s3.amazonaws.com/1000genomes/data/HG00103/alignment/HG00103.alt_bwamem_GRCh38DH.20150718.GBR.low_coverage.cram.crai",
-                        format: "cram",
-                    },
-                ],
+    /**
+     * Development Environment Setup
+     *
+     * This section is specifically for configuring the application
+     * during development. You can modify the settings below to
+     * tailor your development environment, such as simulating data
+     * or working with mock services.
+     */
+    if (import.meta.env.DEV) {
+        // Dynamically import the XML parser utility, used for parsing visualization configurations
+        const { parseXML } = await import("galaxy-charts-xml-parser");
+
+        // Construct the incoming data object with mock configuration and data
+        const dataIncoming = {
+            visualization_config: {
+                // Placeholder for dataset URL (can be replaced during actual development)
+                dataset_url: "MY_DATASET_URL",
+                // Placeholder for dataset ID
+                dataset_id: process.env.dataset_id,
+                // Placeholder for additional visualization settings
+                settings: {},
             },
-        },
-    };
+            // Parse and load the visualization XML configuration
+            visualization_plugin: await parseXML("igv.xml"),
+        };
 
-    // Attach config to the data-incoming attribute
-    appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
-}
-
-// Access attached data
-const incoming = JSON.parse(appElement?.getAttribute("data-incoming") || "{}");
-const root = incoming.root;
-const visualizationConfig = incoming.visualization_config || {};
-
-function datasetsGetUrl(root, datasetId) {
-    return `${root}api/datasets/${datasetId}/display`;
-}
-
-async function render() {
-    let datasetContent = "";
-    if (visualizationConfig.dataset_id) {
-        const datasetUrl = datasetsGetUrl(root, visualizationConfig.dataset_id);
-        const { data } = await axios.get(datasetUrl);
-        datasetContent = data;
-    } else {
-        datasetContent = visualizationConfig.dataset_content;
+        // Find the root app element and attach the mock data as a JSON string to its data-incoming attribute
+        const appElement = document.getElementById(container);
+        appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
     }
-    igv.createBrowser(appElement, datasetContent)
-        .then(() => {
-            console.debug("Created IGV browser.");
-        })
-        .catch((e) => {
-            console.error("Failed to create IGV browser", e);
-        });
+
+    /* Dynamically Populate Incoming */
+    const appElement = document.getElementById(container);
+    const dataIncoming = JSON.parse(appElement.dataset.incoming);
+    const datasetId = dataIncoming?.visualization_config?.dataset_id;
+    if (datasetId) {
+        const tracks = dataIncoming.visualization_config.tracks || [];
+        if (tracks.length === 0) {
+            dataIncoming.visualization_config.tracks = [
+                {
+                    urlDataset: {
+                        id: datasetId,
+                        name: "Selected History Dataset",
+                    },
+                },
+            ];
+            console.debug(`[IGV] Populated incoming dataset ${datasetId}.`);
+            appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+        }
+    } else {
+        console.error("[IGV] No dataset id available.");
+    }
+
+    /**
+     * Mount the Vue Application
+     *
+     * This initializes the Vue app, rendering the root component
+     * and passing in any necessary props such as credentials.
+     */
+    createApp({
+        render: () => h(App, { container: container, credentials: process.env.credentials }),
+    }).mount(`#${container}`);
 }
 
-render();
+// Start the application
+main();
