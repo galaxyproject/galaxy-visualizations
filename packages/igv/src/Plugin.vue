@@ -56,8 +56,8 @@ onBeforeUnmount(() => {
 watch(
     () => props,
     () => {
-        locus.value = props.settings?.locus;
-        genome.value = props.settings?.genome;
+        locus.value = props.settings?.locus || "";
+        genome.value = props.settings?.genome || "";
     },
     { deep: true, immediate: true },
 );
@@ -85,23 +85,30 @@ watch(
 );
 
 async function createBrowser() {
-    try {
-        igvBrowser = await igv.createBrowser(viewport.value, { genome: genome.value });
-        await tracksLoad(true);
-        await locusSearch();
+    if (viewport.value) {
+        try {
+            igvBrowser = await igv.createBrowser(viewport.value, { genome: {
+                    id: "anoGam1",
+                    fastaURL: `${props.root}api/tool_data/fasta_indexes/fields/anoGam1X/files/anoGam1.fa`,
+                    indexURL: `${props.root}api/tool_data/fasta_indexes/fields/anoGam1X/files/anoGam1.fa.fai`,
+                    name: "Anopheles gambiae",
+            } });
+            await tracksLoad(true);
+            await locusSearch();
 
-        // Manually patch style, try to move this into css if possible
-        const igvNavBar = igvBrowser.root.querySelector(".igv-navbar");
-        if (igvNavBar) {
-            Object.assign(igvNavBar.style, {
-                flexFlow: "column",
-                height: "unset",
-                paddingBottom: "3px",
-            });
+            // Manually patch style, try to move this into css if possible
+            const igvNavBar = igvBrowser.root.querySelector(".igv-navbar");
+            if (igvNavBar) {
+                Object.assign(igvNavBar.style, {
+                    flexFlow: "column",
+                    height: "unset",
+                    paddingBottom: "3px",
+                });
+            }
+        } catch (e) {
+            message.value = "Failed to create browser";
+            console.error(message.value, e);
         }
-    } catch (e) {
-        message.value = "Failed to create browser";
-        console.error(message.value, e);
     }
 }
 
@@ -128,7 +135,13 @@ function getIndexUrl(datasetId: string, format: string | null): string | null {
 async function loadGenome() {
     if (igvBrowser) {
         try {
-            await igvBrowser.loadGenome({ genome: genome.value });
+            //await igvBrowser.loadGenome({ genome: genome.value });
+            await igvBrowser.loadGenome({
+                id: "anoGam1",
+                fastaURL: `${props.root}api/genomes/anoGam1/download`,
+                indexURL: `${props.root}api/genomes/anoGam1/indexes`,
+                name: "Anopheles gambiae",
+            });
             await tracksLoad(true);
             message.value = "";
         } catch (e) {

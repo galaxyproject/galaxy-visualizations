@@ -8,6 +8,3 @@ declare module "*.yaml" {
     export default value;
 }
 
-declare module "galaxy-charts" {
-    export const GalaxyApi: any;
-}

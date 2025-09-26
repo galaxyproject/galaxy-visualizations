@@ -40,10 +40,12 @@ async function main() {
         appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
     }
 
-    /* Dynamically Populate Incoming */
+    /* Collect Incoming */
     const appElement = document.getElementById(container);
     const dataIncoming = JSON.parse(appElement.dataset.incoming);
     const datasetId = dataIncoming?.visualization_config?.dataset_id;
+
+    /* Inject incoming dataset into track */
     if (datasetId) {
         const tracks = dataIncoming.visualization_config.tracks || [];
         if (tracks.length === 0) {
