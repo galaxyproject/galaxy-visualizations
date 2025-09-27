@@ -37,9 +37,10 @@ const props = defineProps<{
     datasetUrl: string;
     root: string;
     settings: {
-        locus?: string;
-        source?: {
-            genome?: any;
+        locus: string;
+        source: {
+            from_igv: string;
+            genome: any;
         };
     };
     specs: Record<string, unknown>;
@@ -68,9 +69,8 @@ onBeforeUnmount(() => {
 watch(
     () => props,
     () => {
-        locus.value = props.settings?.locus || "";
-        genome.value = props.settings?.source?.genome || null;
-        console.log(props.settings);
+        locus.value = props.settings.locus;
+        genome.value = props.settings.source.genome;
     },
     { deep: true, immediate: true },
 );
@@ -99,25 +99,29 @@ watch(
 
 function getGenome() {
     if (genome.value) {
-        const genomeId = genome.value.id;
-        const columns = genome.value.columns;
-        const row = genome.value.row;
-        const table = genome.value.table;
-        const pathColumn = columns.indexOf("path");
-        if (pathColumn >= 0 && row.length > pathColumn) {
-            const fileName = row[pathColumn].split("/").pop();
-            const apiPath = `${props.root}api/tool_data/${table}/fields/${genomeId}/files/`;
-            if (table === "fasta_indexes") {
-                return {
-                    id: "anoGam1",
-                    fastaURL: `${apiPath}${fileName}`,
-                    indexURL: `${apiPath}${fileName}.fai`,
-                };
-            } else if (table === "twobit") {
-                return {
-                    id: genome.value.id,
-                    twoBitURL: `${apiPath}${fileName}`,
-                };
+        if (props.settings.source.from_igv === "true") {
+            return genome.value;
+        } else {
+            const genomeId = genome.value.id;
+            const columns = genome.value.columns;
+            const row = genome.value.row;
+            const table = genome.value.table;
+            const pathColumn = columns.indexOf("path");
+            if (pathColumn >= 0 && row.length > pathColumn) {
+                const fileName = row[pathColumn].split("/").pop();
+                const apiPath = `${props.root}api/tool_data/${table}/fields/${genomeId}/files/`;
+                if (table === "fasta_indexes") {
+                    return {
+                        id: genomeId,
+                        fastaURL: `${apiPath}${fileName}`,
+                        indexURL: `${apiPath}${fileName}.fai`,
+                    };
+                } else if (table === "twobit") {
+                    return {
+                        id: genomeId,
+                        twoBitURL: `${apiPath}${fileName}`,
+                    };
+                }
             }
         }
     }
@@ -180,9 +184,6 @@ async function loadGenome() {
             }
             await locusSearch();
         }
-    } else {
-        message.value = `[igv] Failed to detect genome.`;
-        console.error(message.value);
     }
 }
 

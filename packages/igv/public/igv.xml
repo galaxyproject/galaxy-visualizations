@@ -33,7 +33,7 @@
             <name>source</name>
             <type>conditional</type>
             <test_param>
-                <name>source_flag</name>
+                <name>from_igv</name>
                 <type>boolean</type>
                 <value>false</value>
             </test_param>
@@ -48,7 +48,6 @@
                             <type>data_table</type>
                             <tables>
                                 <tables>fasta_indexes</tables>
-                                <tables>remote_indexes</tables>
                                 <tables>twobit</tables>
                             </tables>
                         </inputs>
@@ -63,6 +62,7 @@
                             <name>genome</name>
                             <type>data_json</type>
                             <url>https://s3.amazonaws.com/igv.org.genomes/genomes.json</url>
+                        </inputs>
                     </inputs>
                 </cases>
             </cases>
