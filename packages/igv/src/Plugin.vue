@@ -130,7 +130,7 @@ function getGenome() {
 async function createBrowser() {
     if (viewport.value) {
         try {
-            igvBrowser = await igv.createBrowser(viewport.value, { genome: "hg38" });
+            igvBrowser = await igv.createBrowser(viewport.value, { genome: props.settings.source.genome });
             await tracksLoad(true);
             await locusSearch();
 

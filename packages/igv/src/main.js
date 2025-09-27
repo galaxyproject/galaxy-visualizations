@@ -23,6 +23,7 @@ async function main() {
 
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
+            root: "/",
             visualization_config: {
                 // Placeholder for dataset URL (can be replaced during actual development)
                 dataset_url: "MY_DATASET_URL",
@@ -42,26 +43,34 @@ async function main() {
 
     /* Collect Incoming */
     const appElement = document.getElementById(container);
-    const dataIncoming = JSON.parse(appElement.dataset.incoming);
-    const datasetId = dataIncoming?.visualization_config?.dataset_id;
+    const dataIncoming = JSON.parse(appElement.dataset.incoming || "{}");
+    const datasetId = dataIncoming.visualization_config?.dataset_id;
+    const root = dataIncoming.root;
 
     /* Inject incoming dataset into track */
     if (datasetId) {
-        const tracks = dataIncoming.visualization_config.tracks || [];
-        if (tracks.length === 0) {
-            dataIncoming.visualization_config.tracks = [
-                {
-                    urlDataset: {
-                        id: datasetId,
-                        name: "Selected History Dataset",
+        const response = await fetch(`${root}api/datasets/${datasetId}`);
+        if (response.ok) {
+            const details = await response.json();
+            const config = dataIncoming.visualization_config || {};
+            if (!config.tracks) {
+                // Populate dataset track
+                config.tracks = [{ urlDataset: { id: datasetId } }];
+                console.debug(`[igv] Populated incoming dataset ${datasetId}.`);
+                // Populate database key
+                config.settings = {
+                    source: {
+                        from_igv: "true",
+                        genome: details.metadata_dbkey !== "?" ? details.metadata_dbkey : "hg19",
                     },
-                },
-            ];
-            console.debug(`[IGV] Populated incoming dataset ${datasetId}.`);
-            appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+                };
+                appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+            }
+        } else {
+            console.error("[igv] Failed to obtain dataset details");
         }
     } else {
-        console.error("[IGV] No dataset id available.");
+        console.error("[igv] No dataset id available.");
     }
 
     /**
