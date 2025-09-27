@@ -23,20 +23,32 @@ interface Track {
 
 type TrackValue = Atomic | Dataset | Track;
 
+type GenomeType = {
+    id: string;
+    columns: string[];
+    row: string[];
+    table: string;
+};
+
 const lastQueue = new LastQueue<any>(DELAY);
 
 const props = defineProps<{
     datasetId: string;
     datasetUrl: string;
     root: string;
-    settings: { locus?: string; genome?: string };
+    settings: {
+        locus?: string;
+        source?: {
+            genome?: any;
+        };
+    };
     specs: Record<string, unknown>;
     tracks: Track[];
 }>();
 
 const message = ref("");
 const locus = ref<string | null>(null);
-const genome = ref<string | null>(null);
+const genome = ref<GenomeType | null>(null);
 const tracks = ref<Track[]>([]);
 const viewport = ref<HTMLDivElement | null>(null);
 
@@ -57,7 +69,8 @@ watch(
     () => props,
     () => {
         locus.value = props.settings?.locus || "";
-        genome.value = props.settings?.genome || "";
+        genome.value = props.settings?.source?.genome || null;
+        console.log(props.settings);
     },
     { deep: true, immediate: true },
 );
@@ -84,15 +97,36 @@ watch(
     { deep: true },
 );
 
+function getGenome() {
+    if (genome.value) {
+        const genomeId = genome.value.id;
+        const columns = genome.value.columns;
+        const row = genome.value.row;
+        const table = genome.value.table;
+        const pathColumn = columns.indexOf("path");
+        if (pathColumn >= 0 && row.length > pathColumn) {
+            const fileName = row[pathColumn].split("/").pop();
+            const apiPath = `${props.root}api/tool_data/${table}/fields/${genomeId}/files/`;
+            if (table === "fasta_indexes") {
+                return {
+                    id: "anoGam1",
+                    fastaURL: `${apiPath}${fileName}`,
+                    indexURL: `${apiPath}${fileName}.fai`,
+                };
+            } else if (table === "twobit") {
+                return {
+                    id: genome.value.id,
+                    twoBitURL: `${apiPath}${fileName}`,
+                };
+            }
+        }
+    }
+}
+
 async function createBrowser() {
     if (viewport.value) {
         try {
-            igvBrowser = await igv.createBrowser(viewport.value, { genome: {
-                    id: "anoGam1",
-                    fastaURL: `${props.root}api/tool_data/fasta_indexes/fields/anoGam1X/files/anoGam1.fa`,
-                    indexURL: `${props.root}api/tool_data/fasta_indexes/fields/anoGam1X/files/anoGam1.fa.fai`,
-                    name: "Anopheles gambiae",
-            } });
+            igvBrowser = await igv.createBrowser(viewport.value, { genome: "hg38" });
             await tracksLoad(true);
             await locusSearch();
 
@@ -133,22 +167,22 @@ function getIndexUrl(datasetId: string, format: string | null): string | null {
 }
 
 async function loadGenome() {
-    if (igvBrowser) {
-        try {
-            //await igvBrowser.loadGenome({ genome: genome.value });
-            await igvBrowser.loadGenome({
-                id: "anoGam1",
-                fastaURL: `${props.root}api/genomes/anoGam1/download`,
-                indexURL: `${props.root}api/genomes/anoGam1/indexes`,
-                name: "Anopheles gambiae",
-            });
-            await tracksLoad(true);
-            message.value = "";
-        } catch (e) {
-            message.value = "Failed to load genome";
-            console.error(message.value, genome.value, e);
+    const genomeConfig = getGenome();
+    if (genomeConfig) {
+        if (igvBrowser) {
+            try {
+                await igvBrowser.loadGenome(genomeConfig);
+                await tracksLoad(true);
+                message.value = "";
+            } catch (e) {
+                message.value = "[igv] Failed to load genome";
+                console.error(message.value, genome.value, e);
+            }
+            await locusSearch();
         }
-        await locusSearch();
+    } else {
+        message.value = `[igv] Failed to detect genome.`;
+        console.error(message.value);
     }
 }
 
@@ -160,12 +194,12 @@ async function locusSearch() {
             try {
                 await igvBrowser.search(locus.value);
             } catch {
-                console.warn("[IGV] Invalid locus ignored:", locus.value);
+                console.warn("[igv] Invalid locus ignored:", locus.value);
             }
         }
     } else {
         message.value = "Failed to search.";
-        console.error("[IGV] Browser not available.");
+        console.error("[igv] Browser not available.");
     }
 }
 
@@ -213,21 +247,21 @@ function tracksDiff(newTracks: Track[], existingTracks: Track[], force: boolean 
 async function tracksLoad(force: boolean = false) {
     if (igvBrowser) {
         const newTracks = tracksResolve(tracks.value);
-        console.debug("[IGV] Resolved Tracks", newTracks);
+        console.debug("[igv] Resolved Tracks", newTracks);
         const { toAdd, toRemove } = tracksDiff(newTracks, igvTracks, force);
         for (const old of toRemove) {
             const view = igvBrowser.trackViews.find((tv: any) => tv.track.name === old.name);
             if (view) {
-                console.debug(`[IGV] Removing existing track '${view.track.name}'`);
+                console.debug(`[igv] Removing existing track '${view.track.name}'`);
                 igvBrowser.removeTrack(view.track);
             }
         }
         for (const t of toAdd) {
             try {
-                console.debug(`[IGV] Adding new track '${t.name}'`);
+                console.debug(`[igv] Adding new track '${t.name}'`);
                 await igvBrowser.loadTrack(t);
             } catch (e) {
-                console.error(`[IGV] Failed to load track '${t.name}'`, e);
+                console.error(`[igv] Failed to load track '${t.name}'`, e);
             }
         }
         igvBrowser.reorderTracks();
@@ -252,7 +286,7 @@ async function tracksParse() {
             const indexURL = index ? getDatasetUrl(index.id) : getIndexUrl(dataset?.id, format);
             // create track configuration
             const trackConfig: Track = { color, displayMode, format, indexURL, name, type, url };
-            console.debug("[IGV] Track:", trackConfig);
+            console.debug("[igv] Track:", trackConfig);
             parsedTracks.push(trackConfig);
         }
     }
@@ -278,9 +312,9 @@ function tracksResolve(rawTracks: Array<Track>) {
             trackSeen.add(trackKey);
             resolved.push({ ...track, name, order: index });
         } else if (!isValid) {
-            console.warn(`[IGV] Invalid track skipped: '${baseName}'`);
+            console.warn(`[igv] Invalid track skipped: '${baseName}'`);
         } else {
-            console.warn(`[IGV] Duplicate track skipped: '${baseName}'`);
+            console.warn(`[igv] Duplicate track skipped: '${baseName}'`);
         }
     });
     return resolved;

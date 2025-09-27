@@ -28,55 +28,89 @@
     <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <settings>
         <input>
-            <label>Genome</label>
-            <help>Select a reference genome supported by igv.js</help>
-            <name>genome</name>
-            <type>select</type>
-            <filterable>true</filterable>
-            <value>hg38</value>
-            <data>
-                <data><label>Human (T2T CHM13-v2.0/hs1)</label><value>hs1</value></data>
-                <data><label>Human (T2T CHM13-v1.1)</label><value>chm13v1.1</value></data>
-                <data><label>Human (GRCh38/hg38)</label><value>hg38</value></data>
-                <data><label>Human (hg38 1kg/GATK)</label><value>hg38_1kg</value></data>
-                <data><label>Human (GRCh37/hg19)</label><value>hg19</value></data>
-                <data><label>Human (hg18)</label><value>hg18</value></data>
-                <data><label>Mouse (GRCm39/mm39)</label><value>mm39</value></data>
-                <data><label>Mouse (GRCm38/mm10)</label><value>mm10</value></data>
-                <data><label>Mouse (NCBI37/mm9)</label><value>mm9</value></data>
-                <data><label>Rat (rn7)</label><value>rn7</value></data>
-                <data><label>Rat (RGCS 6.0/rn6)</label><value>rn6</value></data>
-                <data><label>Gorilla (Kamilah_GGO_v0/gorGor6)</label><value>gorGor6</value></data>
-                <data><label>Gorilla (gorGor4.1/gorGor4)</label><value>gorGor4</value></data>
-                <data><label>Chimp (panTro6)</label><value>panTro6</value></data>
-                <data><label>Chimp (panTro5)</label><value>panTro5</value></data>
-                <data><label>Chimp (SAC 2.1.4/panTro4)</label><value>panTro4</value></data>
-                <data><label>Macaca fascicularis (macFas5)</label><value>macFas5</value></data>
-                <data><label>Macaca fascicularis 6.0 (GCA_011100615.1)</label><value>GCA_011100615.1</value></data>
-                <data><label>Bonobo (MPI-EVA panpan1.1/panPan2)</label><value>panPan2</value></data>
-                <data><label>Dog (Broad CanFam3.1/canFam3)</label><value>canFam3</value></data>
-                <data><label>Dog (UU_Cfam_GSD_1.0/canFam4)</label><value>canFam4</value></data>
-                <data><label>Dog (canFam5)</label><value>canFam5</value></data>
-                <data><label>Cow (ARS-UCD1.2/bosTau9)</label><value>bosTau9</value></data>
-                <data><label>Cow (UMD_3.1.1/bosTau8)</label><value>bosTau8</value></data>
-                <data><label>Pig (SGSC Sscrofa11.1/susScr11)</label><value>susScr11</value></data>
-                <data><label>Chicken (galGal6)</label><value>galGal6</value></data>
-                <data><label>Gallus gallus (GCF_016699485.2)</label><value>GCF_016699485.2</value></data>
-                <data><label>Zebrafish (GRCZ11/danRer11)</label><value>danRer11</value></data>
-                <data><label>Zebrafish (GRCZ10/danRer10)</label><value>danRer10</value></data>
-                <data><label>C. elegans (ce11)</label><value>ce11</value></data>
-                <data><label>D. melanogaster (dm6)</label><value>dm6</value></data>
-                <data><label>D. melanogaster (dm3)</label><value>dm3</value></data>
-                <data><label>D. melanogaster (dmel_r5.9)</label><value>dmel_r5.9</value></data>
-                <data><label>S. cerevisiae (sacCer3)</label><value>sacCer3</value></data>
-                <data><label>S. pombe (ASM294v2)</label><value>ASM294v2</value></data>
-                <data><label>Sars-CoV-2 (ASM985889v3)</label><value>ASM985889v3</value></data>
-                <data><label>A. thaliana (TAIR 10)</label><value>tair10</value></data>
-                <data><label>Peanut (GCA_003086295.2)</label><value>GCA_003086295.2</value></data>
-                <data><label>O. sativa IRGSP-1.0 (GCF_001433935.1)</label><value>GCF_001433935.1</value></data>
-                <data><label>Salmonella enterica subsp. enterica serovar Typhimurium str. 14028S</label><value>NC_016856.1</value></data>
-                <data><label>Coprinopsis cinerea okayama7#130 (GCA_000182895.1)</label><value>GCA_000182895.1</value></data>
-            </data>
+            <label>Source</label>
+            <help>Switch to genomes provided IGV</help>
+            <name>source</name>
+            <type>conditional</type>
+            <test_param>
+                <name>source_flag</name>
+                <type>boolean</type>
+                <value>false</value>
+            </test_param>
+            <cases>
+                <cases>
+                    <value>false</value>
+                    <inputs>
+                        <inputs>
+                            <label>Genome</label>
+                            <help>Select a reference genome</help>
+                            <name>genome</name>
+                            <type>data_table</type>
+                            <tables>
+                                <tables>fasta_indexes</tables>
+                                <tables>remote_indexes</tables>
+                                <tables>twobit</tables>
+                            </tables>
+                        </inputs>
+                    </inputs>
+                </cases>
+                <cases>
+                    <value>true</value>
+                    <inputs>
+                        <inputs>
+                            <label>Genome</label>
+                            <help>Select a reference genome provided by IGV</help>
+                            <name>genome</name>
+                            <type>select</type>
+                            <filterable>true</filterable>
+                            <value>hg38</value>
+                            <data>
+                                <data><label>Human (T2T CHM13-v2.0/hs1)</label><value>hs1</value></data>
+                                <data><label>Human (T2T CHM13-v1.1)</label><value>chm13v1.1</value></data>
+                                <data><label>Human (GRCh38/hg38)</label><value>hg38</value></data>
+                                <data><label>Human (hg38 1kg/GATK)</label><value>hg38_1kg</value></data>
+                                <data><label>Human (GRCh37/hg19)</label><value>hg19</value></data>
+                                <data><label>Human (hg18)</label><value>hg18</value></data>
+                                <data><label>Mouse (GRCm39/mm39)</label><value>mm39</value></data>
+                                <data><label>Mouse (GRCm38/mm10)</label><value>mm10</value></data>
+                                <data><label>Mouse (NCBI37/mm9)</label><value>mm9</value></data>
+                                <data><label>Rat (rn7)</label><value>rn7</value></data>
+                                <data><label>Rat (RGCS 6.0/rn6)</label><value>rn6</value></data>
+                                <data><label>Gorilla (Kamilah_GGO_v0/gorGor6)</label><value>gorGor6</value></data>
+                                <data><label>Gorilla (gorGor4.1/gorGor4)</label><value>gorGor4</value></data>
+                                <data><label>Chimp (panTro6)</label><value>panTro6</value></data>
+                                <data><label>Chimp (panTro5)</label><value>panTro5</value></data>
+                                <data><label>Chimp (SAC 2.1.4/panTro4)</label><value>panTro4</value></data>
+                                <data><label>Macaca fascicularis (macFas5)</label><value>macFas5</value></data>
+                                <data><label>Macaca fascicularis 6.0 (GCA_011100615.1)</label><value>GCA_011100615.1</value></data>
+                                <data><label>Bonobo (MPI-EVA panpan1.1/panPan2)</label><value>panPan2</value></data>
+                                <data><label>Dog (Broad CanFam3.1/canFam3)</label><value>canFam3</value></data>
+                                <data><label>Dog (UU_Cfam_GSD_1.0/canFam4)</label><value>canFam4</value></data>
+                                <data><label>Dog (canFam5)</label><value>canFam5</value></data>
+                                <data><label>Cow (ARS-UCD1.2/bosTau9)</label><value>bosTau9</value></data>
+                                <data><label>Cow (UMD_3.1.1/bosTau8)</label><value>bosTau8</value></data>
+                                <data><label>Pig (SGSC Sscrofa11.1/susScr11)</label><value>susScr11</value></data>
+                                <data><label>Chicken (galGal6)</label><value>galGal6</value></data>
+                                <data><label>Gallus gallus (GCF_016699485.2)</label><value>GCF_016699485.2</value></data>
+                                <data><label>Zebrafish (GRCZ11/danRer11)</label><value>danRer11</value></data>
+                                <data><label>Zebrafish (GRCZ10/danRer10)</label><value>danRer10</value></data>
+                                <data><label>C. elegans (ce11)</label><value>ce11</value></data>
+                                <data><label>D. melanogaster (dm6)</label><value>dm6</value></data>
+                                <data><label>D. melanogaster (dm3)</label><value>dm3</value></data>
+                                <data><label>D. melanogaster (dmel_r5.9)</label><value>dmel_r5.9</value></data>
+                                <data><label>S. cerevisiae (sacCer3)</label><value>sacCer3</value></data>
+                                <data><label>S. pombe (ASM294v2)</label><value>ASM294v2</value></data>
+                                <data><label>Sars-CoV-2 (ASM985889v3)</label><value>ASM985889v3</value></data>
+                                <data><label>A. thaliana (TAIR 10)</label><value>tair10</value></data>
+                                <data><label>Peanut (GCA_003086295.2)</label><value>GCA_003086295.2</value></data>
+                                <data><label>O. sativa IRGSP-1.0 (GCF_001433935.1)</label><value>GCF_001433935.1</value></data>
+                                <data><label>Salmonella enterica subsp. enterica serovar Typhimurium str. 14028S</label><value>NC_016856.1</value></data>
+                                <data><label>Coprinopsis cinerea okayama7#130 (GCA_000182895.1)</label><value>GCA_000182895.1</value></data>
+                            </data>
+                        </inputs>
+                    </inputs>
+                </cases>
+            </cases>
         </input>
         <input>
             <label>Locus</label>
