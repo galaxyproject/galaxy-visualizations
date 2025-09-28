@@ -47,6 +47,11 @@ const props = defineProps<{
     tracks: Track[];
 }>();
 
+// Emit events with TypeScript
+const emit = defineEmits<{
+    (event: "update", newSettings: any, newTracks: any): void;
+}>();
+
 const message = ref("");
 const locus = ref<string | null>(null);
 const genome = ref<GenomeType | null>(null);
@@ -246,7 +251,7 @@ function tracksDiff(newTracks: Track[], existingTracks: Track[], force: boolean 
 }
 
 async function tracksLoad(force: boolean = false) {
-    if (igvBrowser) {
+    if (igvBrowser && genome.value) {
         const newTracks = tracksResolve(tracks.value);
         console.debug("[igv] Resolved Tracks", newTracks);
         const { toAdd, toRemove } = tracksDiff(newTracks, igvTracks, force);

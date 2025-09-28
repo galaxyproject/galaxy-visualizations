@@ -41,38 +41,6 @@ async function main() {
         appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
     }
 
-    /* Collect Incoming */
-    const appElement = document.getElementById(container);
-    const dataIncoming = JSON.parse(appElement.dataset.incoming || "{}");
-    const datasetId = dataIncoming.visualization_config?.dataset_id;
-    const root = dataIncoming.root;
-
-    /* Inject incoming dataset into track */
-    if (datasetId) {
-        const response = await fetch(`${root}api/datasets/${datasetId}`);
-        if (response.ok) {
-            const details = await response.json();
-            const config = dataIncoming.visualization_config || {};
-            if (!config.tracks) {
-                // Populate dataset track
-                config.tracks = [{ urlDataset: { id: datasetId } }];
-                console.debug(`[igv] Populated incoming dataset ${datasetId}.`);
-                // Populate database key
-                config.settings = {
-                    source: {
-                        from_igv: "true",
-                        genome: details.metadata_dbkey !== "?" ? details.metadata_dbkey : "hg19",
-                    },
-                };
-                appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
-            }
-        } else {
-            console.error("[igv] Failed to obtain dataset details");
-        }
-    } else {
-        console.error("[igv] No dataset id available.");
-    }
-
     /**
      * Mount the Vue Application
      *
