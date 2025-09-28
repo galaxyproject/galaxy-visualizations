@@ -5,7 +5,6 @@ import { LastQueue } from "./lastQueue";
 import { GalaxyApi, useDataTableStore, useDataJsonStore } from "galaxy-charts";
 import CONFIG from "./config.yml";
 
-const DEFAULT_GENOME = "hg38";
 const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
 
@@ -26,9 +25,16 @@ type TrackValue = Atomic | Dataset | Track;
 
 type GenomeType = {
     id: string;
-    columns: string[];
-    row: string[];
-    table: string;
+    fastaURL: string;
+    indexURL: string;
+};
+
+
+type GenomeTableType = {
+    id: string;
+    columns?: Array<string>;
+    row?: Array<string>;
+    table?: string;
 };
 
 const lastQueue = new LastQueue<any>(DELAY);
@@ -42,6 +48,7 @@ const props = defineProps<{
         source: {
             from_igv: string;
             genome: any;
+            genome_from_igv?: any;
         };
     };
     specs: Record<string, unknown>;
@@ -63,7 +70,7 @@ let igvBrowser: any = null;
 let igvTracks: Array<Track> = [];
 
 onMounted(() => {
-    createBrowser();
+    //create();
 });
 
 onBeforeUnmount(() => {
@@ -107,10 +114,10 @@ function getGenome() {
     if (genome.value) {
         if (props.settings.source.from_igv === "true") {
             return genome.value;
-        } else {
+        }/* else {
             const genomeId = genome.value.id;
-            const columns = genome.value.columns;
-            const row = genome.value.row;
+            const columns = genome.value.columns || [];
+            const row = genome.value.row || [];
             const table = genome.value.table;
             const pathColumn = columns.indexOf("path");
             if (pathColumn >= 0 && row.length > pathColumn) {
@@ -129,61 +136,44 @@ function getGenome() {
                     };
                 }
             }
-        }
+        }*/
     }
 }
 
-async function createBrowser() {
-    if (viewport.value) {
-        try {
-            igvBrowser = await igv.createBrowser(viewport.value, { genome: DEFAULT_GENOME });
-            await tracksLoad(true);
-            await locusSearch();
-
-            // Manually patch style, try to move this into css if possible
-            const igvNavBar = igvBrowser.root.querySelector(".igv-navbar");
-            if (igvNavBar) {
-                Object.assign(igvNavBar.style, {
-                    flexFlow: "column",
-                    height: "unset",
-                    paddingBottom: "3px",
-                });
-            }
-        } catch (e) {
-            message.value = "Failed to create browser";
-            console.error(message.value, e);
-        }
-    }
-
+async function emitBrowser() {
     const dataTableStore = useDataTableStore();
     const dataJsonStore = useDataJsonStore();
-
-    emit("update", {
-        source: {
-            from_igv: "true",
-            genome: {
-                "id": "hg38",
-                "name": "Human (GRCh38/hg38)",
-                "fastaURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa",
-                "indexURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa.fai",
-                "cytobandURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/cytoBandIdeo.txt.gz",
-                "aliasURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/hg38_alias.tab",
-                "chromSizesURL": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes",
-                "twoBitURL": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.2bit",
-                "tracks": [
-                {
-                    "name": "Refseq Genes",
-                    "format": "refgene",
-                    "url": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz",
-                    "indexed": false,
-                    "order": 1000001,
-                    "infoURL": "https://www.ncbi.nlm.nih.gov/gene/?term=$$"
-                }
-                ],
-                "chromosomeOrder": "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
+    emit(
+        "update",
+        {
+            source: {
+                from_igv: "true",
+                genome: {
+                    id: "hg38",
+                    name: "Human (GRCh38/hg38)",
+                    fastaURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa",
+                    indexURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa.fai",
+                    cytobandURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/cytoBandIdeo.txt.gz",
+                    aliasURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/hg38_alias.tab",
+                    chromSizesURL: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes",
+                    twoBitURL: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.2bit",
+                    tracks: [
+                        {
+                            name: "Refseq Genes",
+                            format: "refgene",
+                            url: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz",
+                            indexed: false,
+                            order: 1000001,
+                            infoURL: "https://www.ncbi.nlm.nih.gov/gene/?term=$$",
+                        },
+                    ],
+                    chromosomeOrder:
+                        "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY",
+                },
             },
-        }
-    }, [{ urlDataset: { id: props.datasetId } }]);
+        },
+        [{ urlDataset: { id: props.datasetId } }],
+    );
 
     /* Inject incoming dataset into track */
     if (props.datasetId) {
@@ -210,7 +200,6 @@ async function createBrowser() {
     } else {
         console.error("[igv] No dataset id available.");
     }
-
 }
 
 async function getDatasetType(datasetId: string): Promise<string | null> {
@@ -235,16 +224,30 @@ function getIndexUrl(datasetId: string, format: string | null): string | null {
 
 async function loadGenome() {
     const genomeConfig = getGenome();
-    if (igvBrowser && genomeConfig) {
-        try {
+    try {
+        if (igvBrowser && genomeConfig) {
             await igvBrowser.loadGenome(genomeConfig);
-            await tracksLoad(true);
-            message.value = "";
-        } catch (e) {
-            message.value = "[igv] Failed to load genome";
-            console.error(message.value, genome.value, e);
+        } else if (viewport.value && genomeConfig) {
+            igvBrowser = await igv.createBrowser(viewport.value, { genome: genomeConfig });
         }
+
+        // Refresh view
+        await tracksLoad(true);
         await locusSearch();
+        message.value = "";
+
+        // Manually patch style, try to move this into css if possible
+        const igvNavBar = igvBrowser.root.querySelector(".igv-navbar");
+        if (igvNavBar) {
+            Object.assign(igvNavBar.style, {
+                flexFlow: "column",
+                height: "unset",
+                paddingBottom: "3px",
+            });
+        }
+    } catch (e) {
+        message.value = "Failed to load genome.";
+        console.error(message.value, e);
     }
 }
 
