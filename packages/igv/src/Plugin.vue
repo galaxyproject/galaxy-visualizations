@@ -7,6 +7,7 @@ import CONFIG from "./config.yml";
 
 const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
+const URL = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
 
 type Atomic = string | number | boolean | null | undefined;
 
@@ -34,7 +35,6 @@ const props = defineProps<{
         source: {
             from_igv: string;
             genome: any;
-            genome_from_igv?: any;
         };
     };
     specs: Record<string, unknown>;
@@ -70,7 +70,7 @@ watch(
 );
 
 watch(
-    () => props.settings.source.genome,
+    () => props.settings.source?.genome,
     () => lastQueue.enqueue(loadGenome, undefined, "loadGenome"),
 );
 
@@ -111,37 +111,51 @@ function getGenome() {
 }
 
 async function create() {
-    emit(
-        "update",
-        {
-            source: {
-                from_igv: "true",
-                genome: {
-                    id: "hg38",
-                    name: "Human (GRCh38/hg38)",
-                    fastaURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa",
-                    indexURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa.fai",
-                    cytobandURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/cytoBandIdeo.txt.gz",
-                    aliasURL: "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/hg38_alias.tab",
-                    chromSizesURL: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes",
-                    twoBitURL: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.2bit",
-                    tracks: [
-                        {
-                            name: "Refseq Genes",
-                            format: "refgene",
-                            url: "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz",
-                            indexed: false,
-                            order: 1000001,
-                            infoURL: "https://www.ncbi.nlm.nih.gov/gene/?term=$$",
-                        },
-                    ],
-                    chromosomeOrder:
-                        "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY",
-                },
-            },
-        },
-        [{ urlDataset: { id: props.datasetId } }],
-    );
+    if (props.datasetId && !props.settings.source.genome) {
+        // access stores
+        const dataTableStore = useDataTableStore();
+        const dataJsonStore = useDataJsonStore();
+
+        // collect dataset details
+        const { data: dataset } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
+        const dbkey = dataset.metadata_dbkey;
+
+        // prep source
+        let source = null;
+
+        // attempt to match database key to fasta_indexes
+        const dataTable = await dataTableStore.getDataTable("fasta_indexes");
+        const dbkeyIndex = dataTable[0]?.value?.columns.indexOf("dbkey");
+        const matchTable = dataTable.find(
+            (item) => dbkeyIndex >= 0 && item.value?.row[dbkeyIndex] === dbkey
+        );
+        if (matchTable) {
+            source = {
+                from_igv: "false",
+                genome: matchTable.value,
+            };
+        }
+
+        // attempt to match database key to igv genomes
+        if (!source) {
+            const dataJson = await dataJsonStore.getDataJson(URL);
+            const matchJson = dataJson.find((item) => item.value?.id === dbkey);
+            if (matchJson) {
+                source = {
+                    from_igv: "true",
+                    genome: matchJson.value,
+                }
+            }
+        }
+
+        // emit update
+        const newSettings = source ? { source } : {};
+        const newTracks = [{ urlDataset: { id: dataset.id } }];
+        emit("update", newSettings, newTracks);
+        console.error("[igv] Updating values.", newSettings, newTracks);
+    } else {
+        console.error("[igv] Skipping genome matching.");
+    }
 }
 
 async function getDatasetType(datasetId: string): Promise<string | null> {
