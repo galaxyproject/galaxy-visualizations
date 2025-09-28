@@ -2,7 +2,7 @@
 import { onMounted, onBeforeUnmount, ref, watch } from "vue";
 import igv from "igv";
 import { LastQueue } from "./lastQueue";
-import { GalaxyApi } from "galaxy-charts";
+import { GalaxyApi, useDataTableStore, useDataJsonStore } from "galaxy-charts";
 import CONFIG from "./config.yml";
 
 const DEFAULT_GENOME = "hg38";
@@ -154,6 +154,63 @@ async function createBrowser() {
             console.error(message.value, e);
         }
     }
+
+    const dataTableStore = useDataTableStore();
+    const dataJsonStore = useDataJsonStore();
+
+    emit("update", {
+        source: {
+            from_igv: "true",
+            genome: {
+                "id": "hg38",
+                "name": "Human (GRCh38/hg38)",
+                "fastaURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa",
+                "indexURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa.fai",
+                "cytobandURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/cytoBandIdeo.txt.gz",
+                "aliasURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/hg38/hg38_alias.tab",
+                "chromSizesURL": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes",
+                "twoBitURL": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.2bit",
+                "tracks": [
+                {
+                    "name": "Refseq Genes",
+                    "format": "refgene",
+                    "url": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz",
+                    "indexed": false,
+                    "order": 1000001,
+                    "infoURL": "https://www.ncbi.nlm.nih.gov/gene/?term=$$"
+                }
+                ],
+                "chromosomeOrder": "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
+            },
+        }
+    }, [{ urlDataset: { id: props.datasetId } }]);
+
+    /* Inject incoming dataset into track */
+    if (props.datasetId) {
+        const response = await fetch(`${props.root}api/datasets/${props.datasetId}`);
+        if (response.ok) {
+            const details = await response.json();
+            /*const config = dataIncoming.visualization_config || {};
+            if (!config.tracks) {
+                // Populate dataset track
+                config.tracks = [{ urlDataset: { id: datasetId } }];
+                console.debug(`[igv] Populated incoming dataset ${datasetId}.`);
+                // Populate database key
+                config.settings = {
+                    source: {
+                        from_igv: "true",
+                        genome: details.metadata_dbkey !== "?" ? details.metadata_dbkey : "hg19",
+                    },
+                };
+                appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+            }*/
+        } else {
+            console.error("[igv] Failed to obtain dataset details");
+        }
+    } else {
+        console.error("[igv] No dataset id available.");
+    }
+
 }
 
 async function getDatasetType(datasetId: string): Promise<string | null> {
