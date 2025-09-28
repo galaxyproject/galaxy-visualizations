@@ -7,7 +7,7 @@ import CONFIG from "./config.yml";
 
 const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
-const URL = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
+const IGV_GENOMES = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
 
 type Atomic = string | number | boolean | null | undefined;
 
@@ -79,6 +79,53 @@ watch(
     () => lastQueue.enqueue(locusSearch, undefined, "locusSearch"),
 );
 
+async function create() {
+    if (props.datasetId && !props.settings.source.genome) {
+        // match database key to genomes
+        const { data: dataset } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
+        const dbkey = dataset.metadata_dbkey;
+        const source = await findGenome(dbkey);
+
+        // emit update
+        const newSettings = source ? { source } : {};
+        const newTracks = [{ urlDataset: { id: dataset.id } }];
+        emit("update", newSettings, newTracks);
+        console.error("[igv] Updating values.", newSettings, newTracks);
+    } else {
+        console.error("[igv] Skipping genome matching.");
+    }
+}
+
+async function findGenome(dbkey: string) {
+    // attempt to match database key to galaxy genomes
+    const sources = ["fasta_indexes", "twobit"];
+    const dataTableStore = useDataTableStore();
+    for (const table of sources) {
+        const dataTable = await dataTableStore.getDataTable(table);
+        const matchTable = dataTable.find((item) => Array.isArray(item.value?.row) && item.value.row.includes(dbkey));
+        if (matchTable) {
+            return {
+                from_igv: "false",
+                genome: matchTable.value,
+            };
+        }
+    }
+
+    // attempt to match database key to igv genomes
+    const dataJsonStore = useDataJsonStore();
+    const dataJson = await dataJsonStore.getDataJson(IGV_GENOMES);
+    const matchJson = dataJson.find((item) => item.value?.id === dbkey);
+    if (matchJson) {
+        return {
+            from_igv: "true",
+            genome: matchJson.value,
+        };
+    }
+
+    // could not match a genome
+    return null;
+}
+
 function getGenome() {
     const genome = props.settings.source.genome;
     if (genome) {
@@ -107,54 +154,6 @@ function getGenome() {
                 }
             }
         }
-    }
-}
-
-async function create() {
-    if (props.datasetId && !props.settings.source.genome) {
-        // access stores
-        const dataTableStore = useDataTableStore();
-        const dataJsonStore = useDataJsonStore();
-
-        // collect dataset details
-        const { data: dataset } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
-        const dbkey = dataset.metadata_dbkey;
-
-        // prep source
-        let source = null;
-
-        // attempt to match database key to fasta_indexes
-        const dataTable = await dataTableStore.getDataTable("fasta_indexes");
-        const dbkeyIndex = dataTable[0]?.value?.columns.indexOf("dbkey");
-        const matchTable = dataTable.find(
-            (item) => dbkeyIndex >= 0 && item.value?.row[dbkeyIndex] === dbkey
-        );
-        if (matchTable) {
-            source = {
-                from_igv: "false",
-                genome: matchTable.value,
-            };
-        }
-
-        // attempt to match database key to igv genomes
-        if (!source) {
-            const dataJson = await dataJsonStore.getDataJson(URL);
-            const matchJson = dataJson.find((item) => item.value?.id === dbkey);
-            if (matchJson) {
-                source = {
-                    from_igv: "true",
-                    genome: matchJson.value,
-                }
-            }
-        }
-
-        // emit update
-        const newSettings = source ? { source } : {};
-        const newTracks = [{ urlDataset: { id: dataset.id } }];
-        emit("update", newSettings, newTracks);
-        console.error("[igv] Updating values.", newSettings, newTracks);
-    } else {
-        console.error("[igv] Skipping genome matching.");
     }
 }
 
