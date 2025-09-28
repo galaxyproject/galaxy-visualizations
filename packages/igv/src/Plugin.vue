@@ -90,9 +90,9 @@ async function create() {
         const newSettings = source ? { source } : {};
         const newTracks = [{ urlDataset: { id: dataset.id } }];
         emit("update", newSettings, newTracks);
-        console.error("[igv] Updating values.", newSettings, newTracks);
+        console.debug("[igv] Updating values.", newSettings, newTracks);
     } else {
-        console.error("[igv] Skipping genome matching.");
+        console.debug("[igv] Skipping genome matching.");
     }
 }
 
