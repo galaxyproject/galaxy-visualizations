@@ -23,20 +23,6 @@ interface Track {
 
 type TrackValue = Atomic | Dataset | Track;
 
-type GenomeType = {
-    id: string;
-    fastaURL: string;
-    indexURL: string;
-};
-
-
-type GenomeTableType = {
-    id: string;
-    columns?: Array<string>;
-    row?: Array<string>;
-    table?: string;
-};
-
 const lastQueue = new LastQueue<any>(DELAY);
 
 const props = defineProps<{
@@ -61,16 +47,14 @@ const emit = defineEmits<{
 }>();
 
 const message = ref("");
-const locus = ref<string | null>(null);
-const genome = ref<GenomeType | null>(null);
-const tracks = ref<Track[]>([]);
 const viewport = ref<HTMLDivElement | null>(null);
 
 let igvBrowser: any = null;
 let igvTracks: Array<Track> = [];
+let parsedTracks: Array<Track> = [];
 
 onMounted(() => {
-    //create();
+    create();
 });
 
 onBeforeUnmount(() => {
@@ -80,45 +64,31 @@ onBeforeUnmount(() => {
 });
 
 watch(
-    () => props,
-    () => {
-        locus.value = props.settings.locus;
-        genome.value = props.settings.source.genome;
-    },
-    { deep: true, immediate: true },
-);
-
-watch(
     () => props.tracks,
     () => lastQueue.enqueue(tracksParse, undefined, "tracksParse"),
     { deep: true, immediate: true },
 );
 
 watch(
-    () => genome.value,
+    () => props.settings.source.genome,
     () => lastQueue.enqueue(loadGenome, undefined, "loadGenome"),
 );
 
 watch(
-    () => locus.value,
+    () => props.settings.locus,
     () => lastQueue.enqueue(locusSearch, undefined, "locusSearch"),
 );
 
-watch(
-    () => tracks.value,
-    () => lastQueue.enqueue(tracksLoad, undefined, "tracksLoad"),
-    { deep: true },
-);
-
 function getGenome() {
-    if (genome.value) {
+    const genome = props.settings.source.genome;
+    if (genome) {
         if (props.settings.source.from_igv === "true") {
-            return genome.value;
-        }/* else {
-            const genomeId = genome.value.id;
-            const columns = genome.value.columns || [];
-            const row = genome.value.row || [];
-            const table = genome.value.table;
+            return genome;
+        } else {
+            const genomeId = genome.id;
+            const columns = genome.columns || [];
+            const row = genome.row || [];
+            const table = genome.table;
             const pathColumn = columns.indexOf("path");
             if (pathColumn >= 0 && row.length > pathColumn) {
                 const fileName = row[pathColumn].split("/").pop();
@@ -136,13 +106,11 @@ function getGenome() {
                     };
                 }
             }
-        }*/
+        }
     }
 }
 
-async function emitBrowser() {
-    const dataTableStore = useDataTableStore();
-    const dataJsonStore = useDataJsonStore();
+async function create() {
     emit(
         "update",
         {
@@ -174,32 +142,6 @@ async function emitBrowser() {
         },
         [{ urlDataset: { id: props.datasetId } }],
     );
-
-    /* Inject incoming dataset into track */
-    if (props.datasetId) {
-        const response = await fetch(`${props.root}api/datasets/${props.datasetId}`);
-        if (response.ok) {
-            const details = await response.json();
-            /*const config = dataIncoming.visualization_config || {};
-            if (!config.tracks) {
-                // Populate dataset track
-                config.tracks = [{ urlDataset: { id: datasetId } }];
-                console.debug(`[igv] Populated incoming dataset ${datasetId}.`);
-                // Populate database key
-                config.settings = {
-                    source: {
-                        from_igv: "true",
-                        genome: details.metadata_dbkey !== "?" ? details.metadata_dbkey : "hg19",
-                    },
-                };
-                appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
-            }*/
-        } else {
-            console.error("[igv] Failed to obtain dataset details");
-        }
-    } else {
-        console.error("[igv] No dataset id available.");
-    }
 }
 
 async function getDatasetType(datasetId: string): Promise<string | null> {
@@ -224,42 +166,45 @@ function getIndexUrl(datasetId: string, format: string | null): string | null {
 
 async function loadGenome() {
     const genomeConfig = getGenome();
-    try {
-        if (igvBrowser && genomeConfig) {
-            await igvBrowser.loadGenome(genomeConfig);
-        } else if (viewport.value && genomeConfig) {
-            igvBrowser = await igv.createBrowser(viewport.value, { genome: genomeConfig });
-        }
+    if (genomeConfig) {
+        try {
+            if (igvBrowser) {
+                await igvBrowser.loadGenome(genomeConfig);
+            } else if (viewport.value) {
+                igvBrowser = await igv.createBrowser(viewport.value, { genome: genomeConfig });
+            }
 
-        // Refresh view
-        await tracksLoad(true);
-        await locusSearch();
-        message.value = "";
+            // Refresh view
+            await tracksLoad(true);
+            await locusSearch();
+            message.value = "";
 
-        // Manually patch style, try to move this into css if possible
-        const igvNavBar = igvBrowser.root.querySelector(".igv-navbar");
-        if (igvNavBar) {
-            Object.assign(igvNavBar.style, {
-                flexFlow: "column",
-                height: "unset",
-                paddingBottom: "3px",
-            });
+            // Manually patch style, try to move this into css if possible
+            const igvNavBar = igvBrowser.root.querySelector(".igv-navbar");
+            if (igvNavBar) {
+                Object.assign(igvNavBar.style, {
+                    flexFlow: "column",
+                    height: "unset",
+                    paddingBottom: "3px",
+                });
+            }
+        } catch (e) {
+            message.value = "Failed to load genome.";
+            console.error(message.value, e);
         }
-    } catch (e) {
-        message.value = "Failed to load genome.";
-        console.error(message.value, e);
     }
 }
 
 async function locusSearch() {
+    const locus = props.settings.locus;
     if (igvBrowser) {
-        if (!locus.value) {
+        if (!locus) {
             await igvBrowser.search("all");
-        } else if (locusValid(locus.value)) {
+        } else if (locusValid(locus)) {
             try {
-                await igvBrowser.search(locus.value);
+                await igvBrowser.search(locus);
             } catch {
-                console.warn("[igv] Invalid locus ignored:", locus.value);
+                console.warn("[igv] Invalid locus ignored:", locus);
             }
         }
     } else {
@@ -310,8 +255,8 @@ function tracksDiff(newTracks: Track[], existingTracks: Track[], force: boolean 
 }
 
 async function tracksLoad(force: boolean = false) {
-    if (igvBrowser && genome.value) {
-        const newTracks = tracksResolve(tracks.value);
+    if (igvBrowser) {
+        const newTracks = tracksResolve(parsedTracks);
         console.debug("[igv] Resolved Tracks", newTracks);
         const { toAdd, toRemove } = tracksDiff(newTracks, igvTracks, force);
         for (const old of toRemove) {
@@ -335,7 +280,7 @@ async function tracksLoad(force: boolean = false) {
 }
 
 async function tracksParse() {
-    const parsedTracks: Array<Track> = [];
+    parsedTracks = [];
     if (props.tracks) {
         for (const t of props.tracks) {
             // populate basic track parameters
@@ -355,7 +300,7 @@ async function tracksParse() {
             parsedTracks.push(trackConfig);
         }
     }
-    tracks.value = parsedTracks;
+    tracksLoad();
 }
 
 function tracksResolve(rawTracks: Array<Track>) {
