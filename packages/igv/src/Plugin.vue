@@ -5,6 +5,7 @@ import { LastQueue } from "./lastQueue";
 import { GalaxyApi } from "galaxy-charts";
 import CONFIG from "./config.yml";
 
+const DEFAULT_GENOME = "hg38";
 const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
 
@@ -135,7 +136,7 @@ function getGenome() {
 async function createBrowser() {
     if (viewport.value) {
         try {
-            igvBrowser = await igv.createBrowser(viewport.value, { genome: props.settings.source.genome });
+            igvBrowser = await igv.createBrowser(viewport.value, { genome: DEFAULT_GENOME });
             await tracksLoad(true);
             await locusSearch();
 
@@ -177,18 +178,16 @@ function getIndexUrl(datasetId: string, format: string | null): string | null {
 
 async function loadGenome() {
     const genomeConfig = getGenome();
-    if (genomeConfig) {
-        if (igvBrowser) {
-            try {
-                await igvBrowser.loadGenome(genomeConfig);
-                await tracksLoad(true);
-                message.value = "";
-            } catch (e) {
-                message.value = "[igv] Failed to load genome";
-                console.error(message.value, genome.value, e);
-            }
-            await locusSearch();
+    if (igvBrowser && genomeConfig) {
+        try {
+            await igvBrowser.loadGenome(genomeConfig);
+            await tracksLoad(true);
+            message.value = "";
+        } catch (e) {
+            message.value = "[igv] Failed to load genome";
+            console.error(message.value, genome.value, e);
         }
+        await locusSearch();
     }
 }
 
