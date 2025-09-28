@@ -5,6 +5,7 @@ import { LastQueue } from "./lastQueue";
 import { GalaxyApi, useDataTableStore, useDataJsonStore } from "galaxy-charts";
 import CONFIG from "./config.yml";
 
+const DEFAULT_GENOME = "hg38";
 const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
 const IGV_GENOMES = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
@@ -84,15 +85,13 @@ async function create() {
         // match database key to genomes
         const { data: dataset } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
         const dbkey = dataset.metadata_dbkey;
-        const source = await findGenome(dbkey);
+        const source = (await findGenome(dbkey)) || (await findGenome(DEFAULT_GENOME));
 
         // emit update
         const newSettings = source ? { source } : {};
         const newTracks = [{ urlDataset: { id: dataset.id } }];
         emit("update", newSettings, newTracks);
         console.debug("[igv] Updating values.", newSettings, newTracks);
-    } else {
-        console.debug("[igv] Skipping genome matching.");
     }
 }
 
@@ -346,7 +345,7 @@ function tracksResolve(rawTracks: Array<Track>) {
 
 <template>
     <div class="h-screen overflow-auto">
-        <div v-if="message" class="bg-sky-100 border border-sky-200 p-1 rounded text-sky-800 text-sm">
+        <div v-if="message" class="bg-sky-100 border border-sky-200 mt-1 p-2 rounded text-sky-800 text-sm">
             {{ message }}
         </div>
         <div ref="viewport"></div>
