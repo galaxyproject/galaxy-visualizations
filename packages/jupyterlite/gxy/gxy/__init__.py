@@ -154,21 +154,10 @@ async def get_history_id():
     """
     Returns the history ID associated with the current dataset.
     """
-    gxy = get_environment()
-    dataset_id = gxy.get("dataset_id")
-    if not dataset_id:
-        raise ValueError("Missing 'dataset_id' in gxy")
-    url = get_api(f"/api/datasets/{dataset_id}")
-    response = await fetch(url)
-    if not response.ok:
-        raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
-    text = await response.text()
-    data = json.loads(text)
-    if "history_id" not in data:
-        raise ValueError("Missing 'history_id' in dataset metadata", text)
-    history_id = data["history_id"]
+    environment = get_environment()
+    history_id = environment.get("history_id")
     if not history_id:
-        raise ValueError("Undefined 'history_id' in dataset metadata", text)
+        raise ValueError("Missing 'history_id' in environment")
     return history_id
 
 

@@ -69,6 +69,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         await waitFor(() => !!app.shell && !!app.docRegistry.getWidgetFactory("Notebook"));
         const params = new URLSearchParams(window.location.search);
         const datasetId = params.get("dataset_id");
+        const historyId = params.get("history_id");
         const notebookName = getTimestamp();
         const root = params.get("root");
 
@@ -110,9 +111,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
         // open and save notebooks
         try {
-            // get current history
-            const { data: { id: historyId } } = await axios.get(`${root}history/current_history_json`);
-
             // attach commands
             app.commands.commandExecuted.connect(async (_: any, args: any) => {
                 if (args.id === "docmanager:open") {
@@ -143,15 +141,19 @@ const plugin: JupyterFrontEndPlugin<void> = {
                             if (input.button.accept && input.value) {
                                 name = input.value;
                                 const content = JSON.stringify(model.toJSON(), null, 2);
-                                const payload = getPayload(name, historyId, content);
-                                axios
-                                    .post(`${root}api/tools/fetch`, payload)
-                                    .then(() => {
-                                        console.log(`✅ Notebook "${name}" saved to history`);
-                                    })
-                                    .catch((err) => {
-                                        console.error(`❌ Could not save "${name}" to history:`, err);
-                                    });
+                                if (historyId) {
+                                    const payload = getPayload(name, historyId, content);
+                                    axios
+                                        .post(`${root}api/tools/fetch`, payload)
+                                        .then(() => {
+                                            console.log(`✅ Notebook "${name}" saved to history`);
+                                        })
+                                        .catch((err) => {
+                                            console.error(`❌ Could not save "${name}" to history:`, err);
+                                        });
+                                } else {
+                                    console.error("❌ Could not load history identifier.");
+                                }
                             } else {
                                 console.log("🚫 Export to Galaxy canceled by user");
                             }

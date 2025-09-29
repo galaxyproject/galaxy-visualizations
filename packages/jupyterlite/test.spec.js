@@ -1,7 +1,19 @@
 import { test, expect } from "@playwright/test";
 
-const DATASET_0 = { id: "dataset_0", hid: 99, history_content_type: "dataset", history_id: "history_id", name: "notebook" };
-const DATASET_1 = { id: "dataset_1", hid: 98, history_content_type: "dataset", history_id: "history_id", name: "sample" };
+const DATASET_0 = {
+    id: "dataset_0",
+    hid: 99,
+    history_content_type: "dataset",
+    history_id: "history_id",
+    name: "notebook",
+};
+const DATASET_1 = {
+    id: "dataset_1",
+    hid: 98,
+    history_content_type: "dataset",
+    history_id: "history_id",
+    name: "sample",
+};
 
 async function createNotebook(page) {
     await page.waitForSelector("#jp-MainMenu");
@@ -71,7 +83,7 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
         await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: "content_1"
+            body: "content_1",
         });
     });
 
@@ -80,6 +92,14 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
             status: 200,
             contentType: "application/json",
             body: JSON.stringify(DATASET_0),
+        });
+    });
+
+    await page.route("**/root/history/current_history_json", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ id: "history_id" }),
         });
     });
 
@@ -108,7 +128,7 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
     });
 
     // start
-    await page.goto("http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0");
+    await page.goto("http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id");
 
     // accept and execute first cell
     await selectKernel(page);
@@ -117,7 +137,7 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
 
     // test gxy environment
     await executeNext(page, ["import gxy", "print(gxy.get_environment())"]);
-    await checkOutputArea(page, 1, "{'root': '/root/', 'dataset_id': 'dataset_0'}");
+    await checkOutputArea(page, 1, "{'root': '/root/', 'dataset_id': 'dataset_0', 'history_id': 'history_id'}");
 
     // test gxy.get_history_id
     await executeNext(page, ["import gxy", "print(await gxy.get_history_id())"]);
