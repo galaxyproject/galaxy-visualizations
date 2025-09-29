@@ -129,4 +129,20 @@
             <type>color</type>
         </input>
     </tracks>
+    <help format="markdown"><![CDATA[
+# What is IGV?
+
+The Integrative Genomics Viewer (IGV) is a high-performance, interactive browser for exploring large genomic datasets. This tool integrates seamlessly with Galaxy to provide fast, scalable visualization of sequencing data and annotations directly in the browser.
+
+## Key Features
+
+- **Multi-format Support*: View alignments, variants, annotations, and coverage from BAM, CRAM, VCF, GFF/GTF, BED, BigWig, BigBed, and more.
+- **Reference Genomes**: Load locally indexed FASTA/2bit references or select from IGV’s extensive genome collection.
+- **Interactive Navigation**: Jump to specific chromosomes, loci, or genes; zoom across whole chromosomes or individual bases.
+- **Track Management**: Add multiple datasets as tracks, configure colors, display modes, and track types.
+- **Scalability**: Optimized for very large datasets with smooth, real-time panning and zooming.
+- **Custom Views**: Adjust track layouts, collapse or expand features, and highlight regions of interest.
+
+Learn more at: https://igv.org
+    ]]></help>
 </visualization>
