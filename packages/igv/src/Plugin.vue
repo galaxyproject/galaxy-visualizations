@@ -65,12 +65,6 @@ onBeforeUnmount(() => {
 });
 
 watch(
-    () => props.tracks,
-    () => lastQueue.enqueue(tracksParse, undefined, "tracksParse"),
-    { deep: true, immediate: true },
-);
-
-watch(
     () => props.settings.source?.genome,
     () => lastQueue.enqueue(loadGenome, undefined, "loadGenome"),
 );
@@ -80,8 +74,15 @@ watch(
     () => lastQueue.enqueue(locusSearch, undefined, "locusSearch"),
 );
 
+watch(
+    () => props.tracks,
+    () => lastQueue.enqueue(loadTracks, undefined, "loadTracks"),
+);
+
 async function create() {
-    if (props.datasetId && !props.settings.source.genome) {
+    if (props.settings.source.genome) {
+        await loadGenome();
+    } else if (props.datasetId) {
         // match database key to genomes
         const { data: dataset } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
         const dbkey = dataset.metadata_dbkey;
@@ -92,6 +93,8 @@ async function create() {
         const newTracks = [{ urlDataset: { id: dataset.id } }];
         emit("update", newSettings, newTracks);
         console.debug("[igv] Updating values.", newSettings, newTracks);
+    } else {
+        message.value = "Genome selection required. Open the side panel and choose options.";
     }
 }
 
@@ -187,7 +190,7 @@ async function loadGenome() {
             }
 
             // Refresh view
-            await tracksLoad(true);
+            await loadTracks(true);
             await locusSearch();
             message.value = "";
 
@@ -204,6 +207,31 @@ async function loadGenome() {
             message.value = "Failed to load genome.";
             console.error(message.value, e);
         }
+    }
+}
+
+async function loadTracks(force: boolean = false) {
+    if (igvBrowser) {
+        const newTracks = await tracksResolve(parsedTracks);
+        console.debug("[igv] Resolved Tracks", newTracks);
+        const { toAdd, toRemove } = tracksDiff(newTracks, igvTracks, force);
+        for (const old of toRemove) {
+            const view = igvBrowser.trackViews.find((tv: any) => tv.track.name === old.name);
+            if (view) {
+                console.debug(`[igv] Removing existing track '${view.track.name}'`);
+                igvBrowser.removeTrack(view.track);
+            }
+        }
+        for (const t of toAdd) {
+            try {
+                console.debug(`[igv] Adding new track '${t.name}'`);
+                await igvBrowser.loadTrack(t);
+            } catch (e) {
+                console.error(`[igv] Failed to load track '${t.name}'`, e);
+            }
+        }
+        igvBrowser.reorderTracks();
+        igvTracks = newTracks.map((t) => ({ ...t }));
     }
 }
 
@@ -266,56 +294,28 @@ function tracksDiff(newTracks: Track[], existingTracks: Track[], force: boolean 
     return { toAdd, toRemove };
 }
 
-async function tracksLoad(force: boolean = false) {
-    if (igvBrowser) {
-        const newTracks = tracksResolve(parsedTracks);
-        console.debug("[igv] Resolved Tracks", newTracks);
-        const { toAdd, toRemove } = tracksDiff(newTracks, igvTracks, force);
-        for (const old of toRemove) {
-            const view = igvBrowser.trackViews.find((tv: any) => tv.track.name === old.name);
-            if (view) {
-                console.debug(`[igv] Removing existing track '${view.track.name}'`);
-                igvBrowser.removeTrack(view.track);
-            }
-        }
-        for (const t of toAdd) {
-            try {
-                console.debug(`[igv] Adding new track '${t.name}'`);
-                await igvBrowser.loadTrack(t);
-            } catch (e) {
-                console.error(`[igv] Failed to load track '${t.name}'`, e);
-            }
-        }
-        igvBrowser.reorderTracks();
-        igvTracks = newTracks.map((t) => ({ ...t }));
-    }
-}
-
-async function tracksParse() {
+async function tracksResolve(rawTracks: Array<Track>) {
+    // parse tracks
     parsedTracks = [];
-    if (props.tracks) {
-        for (const t of props.tracks) {
-            // populate basic track parameters
-            const dataset = t.urlDataset as Dataset;
-            const displayMode = t.displayMode;
-            const color = t.color;
-            const format = dataset ? await getDatasetType(dataset.id) : null;
-            const index = t.indexUrlDataset as Dataset;
-            const name = t.name;
-            const type = t.type && t.type !== "auto" ? t.type : trackType(format);
-            const url = dataset ? getDatasetUrl(dataset.id) : null;
-            // identify index source
-            const indexURL = index ? getDatasetUrl(index.id) : getIndexUrl(dataset?.id, format);
-            // create track configuration
-            const trackConfig: Track = { color, displayMode, format, indexURL, name, type, url };
-            console.debug("[igv] Track:", trackConfig);
-            parsedTracks.push(trackConfig);
-        }
+    for (const t of props.tracks) {
+        // populate basic track parameters
+        const dataset = t.urlDataset as Dataset;
+        const displayMode = t.displayMode;
+        const color = t.color;
+        const format = dataset ? await getDatasetType(dataset.id) : null;
+        const index = t.indexUrlDataset as Dataset;
+        const name = t.name;
+        const type = t.type && t.type !== "auto" ? t.type : trackType(format);
+        const url = dataset ? getDatasetUrl(dataset.id) : null;
+        // identify index source
+        const indexURL = index ? getDatasetUrl(index.id) : getIndexUrl(dataset?.id, format);
+        // create track configuration
+        const trackConfig: Track = { color, displayMode, format, indexURL, name, type, url };
+        console.debug("[igv] Track:", trackConfig);
+        parsedTracks.push(trackConfig);
     }
-    tracksLoad();
-}
 
-function tracksResolve(rawTracks: Array<Track>) {
+    // resolve tracks
     const trackSeen = new Set<string>();
     const nameCounts = new Map<string, number>();
     const resolved: Array<Track> = [];
