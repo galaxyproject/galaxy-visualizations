@@ -17,7 +17,7 @@ async function create() {
             if (response.ok) {
                 const { history_id: historyId } = await response.json();
                 params.history_id = historyId;
-                console.error(`[jupyterlite] Identified history from dataset: ${historyId}.`);
+                console.debug(`[jupyterlite] Identified history from dataset: ${historyId}.`);
             } else {
                 console.error("[jupyterlite] Failed to determine current history from dataset.");
             }
@@ -31,7 +31,7 @@ async function create() {
             if (response.ok) {
                 const { id: historyId } = await response.json();
                 params.history_id = historyId;
-                console.error(`[jupyterlite] Identified history: ${historyId}.`);
+                console.debug(`[jupyterlite] Identified history: ${historyId}.`);
             } else {
                 console.error("[jupyterlite] Failed to determine current history.");
             }
