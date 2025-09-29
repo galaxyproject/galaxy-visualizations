@@ -1,0 +1,46 @@
+{
+    "name": "@galaxyproject/bamjs",
+    "version": "0.0.1",
+    "type": "module",
+    "author": "Galaxy Project",
+    "license": "MIT",
+    "files": [
+        "static/dist/index.js",
+        "static/dist/index.css"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --write 'package.json' '*.js' 'src/**/*.js'",
+        "test": "vitest",
+        "test:watch": "vitest --watch",
+        "test:ui": "vitest --ui"
+    },
+    "devDependencies": {
+        "@types/node": "^22.9.0",
+        "@vitest/ui": "^3.1.4",
+        "jsdom": "^26.1.0",
+        "prettier": "^3.3.3",
+        "typescript": "^5.5.4",
+        "vite": "^6.3.5",
+        "vitest": "^3.1.4"
+    },
+    "dependencies": {
+        "@gmod/bam": "^5.0.0",
+        "axios": "^1.7.7",
+        "generic-filehandle2": "^2.0.2",
+        "pako": "^2.1.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/galaxyproject/galaxy-visualizations.git"
+    },
+    "keywords": [
+        "bam",
+        "galaxy",
+        "visualization",
+        "vanilla-js",
+        "vite"
+    ]
+}
