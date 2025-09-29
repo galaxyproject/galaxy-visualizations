@@ -129,6 +129,14 @@
             <type>color</type>
         </input>
     </tracks>
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/gencode.v29.annotation.bed" ftype="bed" />
+        </test>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/gencode.v29.annotation.gff3" ftype="gff3" />
+        </test>
+    </tests>
     <help format="markdown"><![CDATA[
 # What is IGV?
 
