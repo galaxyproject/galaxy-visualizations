@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="IGV" embeddable="true">
-    <description>Interactive Genome Visualization</description>
+    <description>Integrative Genomics Viewer</description>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
