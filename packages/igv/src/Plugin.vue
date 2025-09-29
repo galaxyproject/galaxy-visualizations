@@ -52,7 +52,6 @@ const viewport = ref<HTMLDivElement | null>(null);
 
 let igvBrowser: any = null;
 let igvTracks: Array<Track> = [];
-let parsedTracks: Array<Track> = [];
 
 onMounted(() => {
     create();
@@ -212,7 +211,7 @@ async function loadGenome() {
 
 async function loadTracks(force: boolean = false) {
     if (igvBrowser) {
-        const newTracks = await tracksResolve(parsedTracks);
+        const newTracks = await tracksResolve();
         console.debug("[igv] Resolved Tracks", newTracks);
         const { toAdd, toRemove } = tracksDiff(newTracks, igvTracks, force);
         for (const old of toRemove) {
@@ -294,9 +293,9 @@ function tracksDiff(newTracks: Track[], existingTracks: Track[], force: boolean 
     return { toAdd, toRemove };
 }
 
-async function tracksResolve(rawTracks: Array<Track>) {
+async function tracksResolve() {
     // parse tracks
-    parsedTracks = [];
+    const parsedTracks: Array<Track> = [];
     for (const t of props.tracks) {
         // populate basic track parameters
         const dataset = t.urlDataset as Dataset;
@@ -319,7 +318,7 @@ async function tracksResolve(rawTracks: Array<Track>) {
     const trackSeen = new Set<string>();
     const nameCounts = new Map<string, number>();
     const resolved: Array<Track> = [];
-    rawTracks.forEach((track, index) => {
+    parsedTracks.forEach((track, index) => {
         const baseName = track.name || `track-${trackHash(track)}`;
         const trackKey = JSON.stringify({ ...track, name: baseName });
         const isValid = typeof track?.url === "string" && track.url.trim().length > 0;
