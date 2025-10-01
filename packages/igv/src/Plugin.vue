@@ -58,9 +58,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-    if (igvBrowser && typeof igvBrowser.dispose === "function") {
-        igvBrowser.dispose();
-    }
+    dispose();
 });
 
 watch(
@@ -94,6 +92,13 @@ async function create() {
         console.debug("[igv] Updating values.", newSettings, newTracks);
     } else {
         message.value = "Genome selection required. Open the side panel and choose options.";
+    }
+}
+
+function dispose() {
+    if (igvBrowser) {
+        igv.removeBrowser(igvBrowser);
+        igvBrowser = undefined;
     }
 }
 
@@ -187,7 +192,6 @@ async function loadGenome() {
             } else if (viewport.value) {
                 igvBrowser = await igv.createBrowser(viewport.value, { genome: genomeConfig });
             }
-
             // Refresh view
             await loadTracks(true);
             await locusSearch();
@@ -205,6 +209,7 @@ async function loadGenome() {
         } catch (e) {
             message.value = "Failed to load genome.";
             console.error(message.value, e);
+            dispose();
         }
     }
 }
