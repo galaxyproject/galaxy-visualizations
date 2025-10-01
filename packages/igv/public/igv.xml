@@ -29,7 +29,7 @@
     <settings>
         <input>
             <label>Source</label>
-            <help>Switch to genomes provided IGV</help>
+            <help>Switch to genomes served by IGV.</help>
             <name>source</name>
             <type>conditional</type>
             <test_param>
@@ -43,7 +43,7 @@
                     <inputs>
                         <inputs>
                             <label>Genome</label>
-                            <help>Select a reference genome</help>
+                            <help>Select a reference genome.</help>
                             <name>genome</name>
                             <type>data_table</type>
                             <tables>
@@ -58,7 +58,7 @@
                     <inputs>
                         <inputs>
                             <label>Genome</label>
-                            <help>Select a reference genome provided by IGV</help>
+                            <help>Select a reference genome from IGV.</help>
                             <name>genome</name>
                             <type>data_json</type>
                             <url>https://s3.amazonaws.com/igv.org.genomes/genomes.json</url>
@@ -69,7 +69,7 @@
         </input>
         <input>
             <label>Locus</label>
-            <help>Select a gene locus e.g. chr1:1-100</help>
+            <help>Select a gene locus e.g. chr1:1-100.</help>
             <name>locus</name>
             <type>text</type>
             <value>all</value>
@@ -78,27 +78,27 @@
     <tracks>
         <input>
             <label>Name</label>
-            <help>Specify a name</help>
+            <help>Specify a track name.</help>
             <name>name</name>
             <type>text</type>
             <value>Track</value>
         </input>
         <input>
             <label>Dataset</label>
-            <help>Specify a dataset</help>
+            <help>Select a track dataset.</help>
             <name>urlDataset</name>
             <type>data</type>
         </input>
         <input>
             <label>Index</label>
-            <help>Specify an index</help>
+            <help>Select an index (or auto-detect from dataset metadata).</help>
             <name>indexUrlDataset</name>
             <type>data</type>
             <optional>true</optional>
         </input>
         <input>
             <label>Type</label>
-            <help>Select the track type (only if not auto-detected from file format)</help>
+            <help>Select the track type (or auto-detect from dataset format).</help>
             <name>type</name>
             <type>select</type>
             <value>auto</value>
@@ -112,7 +112,7 @@
         </input>
         <input>
             <label>Mode</label>
-            <help>Select a display mode</help>
+            <help>Select a display mode.</help>
             <name>displayMode</name>
             <type>select</type>
             <value>EXPANDED</value>
@@ -124,7 +124,7 @@
         </input>
         <input>
             <label>Color</label>
-            <help>Pick a color</help>
+            <help>Pick a color.</help>
             <name>color</name>
             <type>color</type>
         </input>
