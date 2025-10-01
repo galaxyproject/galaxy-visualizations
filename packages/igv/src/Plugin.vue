@@ -44,7 +44,7 @@ const props = defineProps<{
 
 // Emit events with TypeScript
 const emit = defineEmits<{
-    (event: "update", newSettings: any, newTracks: any): void;
+    (event: "update", newSettings: any, newTracks?: any): void;
 }>();
 
 const message = ref("");
@@ -191,6 +191,17 @@ async function loadGenome() {
                 await igvBrowser.loadGenome(genomeConfig);
             } else if (viewport.value) {
                 igvBrowser = await igv.createBrowser(viewport.value, { genome: genomeConfig });
+
+                // Add event listener and update locus
+                igvBrowser.on("locuschange", (args: any) => {
+                    if (args && args.length > 0) {
+                        const details = args[0];
+                        const start = Math.round(details.start + 1);
+                        const end = Math.round(details.end);
+                        const locus = `${details.chr}:${start}-${end}`;
+                        emit("update", { locus });
+                    }
+                });
             }
             // Refresh view
             await loadTracks(true);
@@ -250,6 +261,8 @@ async function locusSearch() {
             } catch {
                 console.warn("[igv] Invalid locus ignored:", locus);
             }
+        } else {
+            console.warn("[igv] Invalid locus ignored:", locus);
         }
     } else {
         message.value = "Failed to search.";
@@ -259,8 +272,19 @@ async function locusSearch() {
 
 function locusValid(locus: string): boolean {
     const chrPattern = /^[\w.-]+$/;
-    const rangePattern = /^[\w.-]+:\d{1,3}(,\d{3})*-\d{1,3}(,\d{3})*$/;
-    return chrPattern.test(locus) || rangePattern.test(locus);
+    const rangePattern = /^([\w.-]+):(\d{1,3}(?:,\d{3})*|\d+)-(\d{1,3}(?:,\d{3})*|\d+)$/;
+    if (chrPattern.test(locus)) {
+        return true;
+    } else {
+        const match = locus.match(rangePattern);
+        if (match) {
+            const start = parseInt(match[2].replace(/,/g, ""), 10);
+            const end = parseInt(match[3].replace(/,/g, ""), 10);
+            return Number.isInteger(start) && Number.isInteger(end) && start < end;
+        } else {
+            return false;
+        }
+    }
 }
 
 function trackHash(track: Track): string {
