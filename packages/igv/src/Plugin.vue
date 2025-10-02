@@ -188,6 +188,7 @@ async function loadGenome() {
     if (genomeConfig) {
         try {
             if (igvBrowser) {
+                igvBrowser.off("locuschange", locusChange);
                 await igvBrowser.loadGenome(genomeConfig);
             } else if (viewport.value) {
                 igvBrowser = await igv.createBrowser(viewport.value, { genome: genomeConfig });
@@ -197,17 +198,7 @@ async function loadGenome() {
             await locusSearch();
             message.value = "";
 
-            // Add event listener and update locus
-            function locusChange(args: any) {
-                if (args && args.length > 0) {
-                    const details = args[0];
-                    const start = Math.round(details.start + 1);
-                    const end = Math.round(details.end);
-                    const locus = `${details.chr}:${start}-${end}`;
-                    emit("update", { locus });
-                }
-            }
-            igvBrowser.off("locuschange", locusChange);
+            // Attach locus change handler
             igvBrowser.on("locuschange", locusChange);
 
             // Manually patch style, try to move this into css if possible
@@ -249,6 +240,17 @@ async function loadTracks(force: boolean = false) {
         }
         igvBrowser.reorderTracks();
         igvTracks = newTracks.map((t) => ({ ...t }));
+    }
+}
+
+// Add event listener and update locus
+function locusChange(args: any) {
+    if (args && args.length > 0) {
+        const details = args[0];
+        const start = Math.round(details.start + 1);
+        const end = Math.round(details.end);
+        const locus = `${details.chr}:${start}-${end}`;
+        emit("update", { locus });
     }
 }
 
