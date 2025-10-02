@@ -191,22 +191,24 @@ async function loadGenome() {
                 await igvBrowser.loadGenome(genomeConfig);
             } else if (viewport.value) {
                 igvBrowser = await igv.createBrowser(viewport.value, { genome: genomeConfig });
-
-                // Add event listener and update locus
-                igvBrowser.on("locuschange", (args: any) => {
-                    if (args && args.length > 0) {
-                        const details = args[0];
-                        const start = Math.round(details.start + 1);
-                        const end = Math.round(details.end);
-                        const locus = `${details.chr}:${start}-${end}`;
-                        emit("update", { locus });
-                    }
-                });
             }
             // Refresh view
             await loadTracks(true);
             await locusSearch();
             message.value = "";
+
+            // Add event listener and update locus
+            function locusChange(args: any) {
+                if (args && args.length > 0) {
+                    const details = args[0];
+                    const start = Math.round(details.start + 1);
+                    const end = Math.round(details.end);
+                    const locus = `${details.chr}:${start}-${end}`;
+                    emit("update", { locus });
+                }
+            }
+            igvBrowser.off("locuschange", locusChange);
+            igvBrowser.on("locuschange", locusChange);
 
             // Manually patch style, try to move this into css if possible
             const igvNavBar = igvBrowser.root.querySelector(".igv-navbar");
