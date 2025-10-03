@@ -244,29 +244,37 @@ async function loadTracks(force: boolean = false) {
 }
 
 // Add event listener and update locus
-function locusChange(args: any) {
-    if (args && args.length > 0) {
-        const details = args[0];
-        const start = Math.round(details.start + 1);
-        const end = Math.round(details.end);
-        const locus = `${details.chr}:${start}-${end}`;
-        emit("update", { locus });
+function locusChange() {
+    if (igvBrowser) {
+        emit("update", { locus: locusCurrent() });
+    }
+}
+
+// Collect current locus from igv
+function locusCurrent() {
+    if (igvBrowser && igvBrowser.referenceFrameList?.length > 0) {
+        const rf = igvBrowser.referenceFrameList[0];
+        return `${rf.chr}:${Math.round(rf.start) + 1}-${Math.round(rf.end)}`;
+    } else {
+        console.error("[igv] Failed to obtain current locus.");
+        return undefined;
     }
 }
 
 async function locusSearch() {
-    const locus = props.settings.locus;
     if (igvBrowser) {
-        if (!locus) {
-            await igvBrowser.search("all");
-        } else if (locusValid(locus)) {
-            try {
-                await igvBrowser.search(locus);
-            } catch {
-                console.warn("[igv] Invalid locus ignored:", locus);
+        const locus = props.settings?.locus;
+        if (locusCurrent() !== locus) {
+            const target = locus ? locus : "all";
+            if (locusValid(target)) {
+                try {
+                    await igvBrowser.search(target);
+                } catch {
+                    console.warn("[igv] Locus search failed:", target);
+                }
+            } else {
+                console.warn("[igv] Invalid locus ignored:", target);
             }
-        } else {
-            console.warn("[igv] Invalid locus ignored:", locus);
         }
     } else {
         message.value = "Failed to search.";
