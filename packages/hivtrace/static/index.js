@@ -1,32 +1,30 @@
-const { root, visualization_config } = JSON.parse(document.getElementById("app").dataset.incoming);
+const { root, visualization_config } = JSON.parse(
+  document.getElementById("app").dataset.incoming,
+);
 
 const dataset_id = visualization_config.dataset_id;
 
 const app_root = `${root}/static/plugins/visualizations/hivtrace/static/`;
 
-
 function loadScriptsSequentially(scripts, callback) {
-    let index = 0;
-    function next() {
-        if (index >= scripts.length) {
-            callback();
-            return;
-        }
-        const script = document.createElement("script");
-        script.src = scripts[index];
-        script.onload = () => {
-            index++;
-            next();
-        };
-        document.body.appendChild(script);
+  let index = 0;
+  function next() {
+    if (index >= scripts.length) {
+      callback();
+      return;
     }
-    next();
+    const script = document.createElement("script");
+    script.src = scripts[index];
+    script.onload = () => {
+      index++;
+      next();
+    };
+    document.body.appendChild(script);
+  }
+  next();
 }
 
-const scriptsToLoad = [
-    app_root + "vendor.js",
-    app_root + "hivtrace.js",
-];
+const scriptsToLoad = [app_root + "vendor.js", app_root + "hivtrace.js"];
 
 document.body.innerHTML = `
 <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -138,92 +136,133 @@ document.body.innerHTML = `
 <img class="hidden" id="hyphy-chart-image" /><canvas class="hidden" id="hyphy-chart-canvas"></canvas>
 `;
 
+var network_container = "#network_tag",
+  network_status_string = "#network_status_string",
+  network_warning = "#main-warning",
+  histogram_tag = "#histogram_tag",
+  histogram_label = "#histogram_label",
+  button_bar_prefix = "network_ui_bar",
+  csvexport_label = "#csvexport",
+  fasta_export_label = "#fasta-export",
+  filter_edges_toggle = "#network_ui_bar_toggle_filter_edges",
+  graph_summary_tag = "#graph_summary_table",
+  cluster_table = "#cluster_table",
+  parent_container = "#top_level_tab_container",
+  node_table = "#node_table";
 
-var network_container     = '#network_tag',
-    network_status_string = '#network_status_string',
-    network_warning       = '#main-warning',
-    histogram_tag         = '#histogram_tag',
-    histogram_label       = '#histogram_label',
-    button_bar_prefix     = 'network_ui_bar',
-    csvexport_label       = '#csvexport',
-    fasta_export_label    = '#fasta-export',
-    filter_edges_toggle   = '#network_ui_bar_toggle_filter_edges',
-    graph_summary_tag     = '#graph_summary_table',
-    cluster_table         = '#cluster_table',
-    parent_container      = '#top_level_tab_container',
-    node_table            = '#node_table';
+var init = function (data) {
+  var graph = "trace_results" in data ? data.trace_results : data;
+  var attributes = null;
+  var user_graph = new hivtrace.clusterNetwork(
+    graph,
+    network_container,
+    network_status_string,
+    network_warning,
+    button_bar_prefix,
+    attributes,
+    filter_edges_toggle,
+    cluster_table,
+    node_table,
+    parent_container,
+    { no_cdc: false },
+  );
 
-var init = function(data) {
-    var graph = "trace_results" in data ? data.trace_results : data;
-    var attributes = null;
-    var user_graph = new hivtrace.clusterNetwork(graph, network_container, network_status_string, network_warning, button_bar_prefix, attributes, filter_edges_toggle, cluster_table, node_table, parent_container, {"no_cdc" : false});
+  if (user_graph.is_empty()) {
+    $("#main-tab").tab("show");
+    d3.select("#app-error")
+      .text("This network contains no clusters and cannot be displayed")
+      .style("display", null);
+    d3.select(parent_container).selectAll("li").classed("disabled", true);
+    d3.select(parent_container)
+      .selectAll("li")
+      .selectAll("a")
+      .each(function (d) {
+        d3.select(d3.select(this).attr("href")).style("display", "none");
+      });
+  } else {
+    d3.select("#app-error").style("display", "none");
+    hivtrace.histogramDistances(graph, histogram_tag, histogram_label);
+    hivtrace.graphSummary(graph, graph_summary_tag);
 
-    if (user_graph.is_empty()) {
-        $('#main-tab').tab('show');
-        d3.select ("#app-error").text ("This network contains no clusters and cannot be displayed").style ('display', null);
-        d3.select (parent_container).selectAll ("li").classed ("disabled", true);
-        d3.select (parent_container).selectAll ("li").selectAll ("a").each (function (d) { d3.select (d3.select (this).attr ("href")).style ('display', 'none')});
-    } else {
-        d3.select ("#app-error").style ('display', 'none');
-        hivtrace.histogramDistances(graph, histogram_tag, histogram_label);
-        hivtrace.graphSummary(graph, graph_summary_tag);
+    [
+      "#main-tab",
+      "#graph-tab",
+      "#clusters-tab",
+      "#nodes-tab",
+      "#attributes-tab",
+    ].forEach(function (tab) {
+      d3.select(tab).classed("disabled", false);
+    });
+    d3.select(parent_container)
+      .selectAll("li")
+      .selectAll("a")
+      .each(function (d) {
+        d3.select(d3.select(this).attr("href")).style("display", null);
+      });
 
-        ["#main-tab","#graph-tab","#clusters-tab","#nodes-tab","#attributes-tab"].forEach (function (tab) {
-            d3.select (tab).classed ("disabled",false);
-        });
-        d3.select (parent_container).selectAll ("li").selectAll ("a").each (function (d) { d3.select (d3.select (this).attr ("href")).style ('display', null)});
+    hivtrace.misc.export_table_to_text("#cluster-table-export", cluster_table);
+    hivtrace.misc.export_table_to_text("#node-table-export", node_table);
 
-        hivtrace.misc.export_table_to_text("#cluster-table-export", cluster_table);
-        hivtrace.misc.export_table_to_text("#node-table-export", node_table);
+    $("#main-tab a[data-toggle='tab']").on("shown.bs.tab", function (e) {
+      if (user_graph.needs_an_update) {
+        user_graph.update(false, 0.5);
+      }
+    });
 
-        $("#main-tab a[data-toggle='tab']").on ("shown.bs.tab", function (e) {
-            if (user_graph.needs_an_update) {
-                user_graph.update(false, 0.5);
-            }
-        });
+    $("#clusters-tab a[data-toggle='tab']").on("shown.bs.tab", function (e) {
+      user_graph.update_volatile_elements(d3.select(cluster_table));
+    });
 
-        $("#clusters-tab a[data-toggle='tab']").on ("shown.bs.tab", function (e) {
-            user_graph.update_volatile_elements (d3.select (cluster_table));
-        });
+    $("#nodes-tab a[data-toggle='tab']").on("shown.bs.tab", function (e) {
+      user_graph.update_volatile_elements(d3.select(node_table));
+    });
 
-        $("#nodes-tab a[data-toggle='tab']").on ("shown.bs.tab", function (e) {
-            user_graph.update_volatile_elements (d3.select (node_table));
-        });
+    if (data.lanl_trace_results > 0) {
+      // Only if the comparison was done
+      var lanl_network_container = "#lanl-network_tag",
+        lanl_network_status_string = "#lanl-network_status_string",
+        lanl_network_warning = "#lanl-main-warning",
+        lanl_histogram_tag = "#lanl-histogram_tag",
+        lanl_histogram_label = "#lanl-histogram_label",
+        lanl_csvexport_label = "#lanl-csvexport",
+        lanl_button_bar_prefix = "lanl_network_ui_bar";
 
-        if(data.lanl_trace_results > 0) {
-            // Only if the comparison was done
-            var lanl_network_container     = '#lanl-network_tag',
-                lanl_network_status_string = '#lanl-network_status_string',
-                lanl_network_warning       = '#lanl-main-warning',
-                lanl_histogram_tag         = '#lanl-histogram_tag',
-                lanl_histogram_label       = '#lanl-histogram_label',
-                lanl_csvexport_label       = '#lanl-csvexport',
-                lanl_button_bar_prefix     = 'lanl_network_ui_bar';
+      d3.select("#lanl-trace-results").classed("disabled", false);
 
-            d3.select ("#lanl-trace-results").classed ("disabled", false);
-
-            var lanl_graph = data.lanl_trace_results;
-            var lanl_graph_rendered = new hivtrace.clusterNetwork(lanl_graph, lanl_network_container, lanl_network_status_string, lanl_network_warning, lanl_button_bar_prefix, attributes, filter_edges_toggle, null, null, parent_container);
-        }
+      var lanl_graph = data.lanl_trace_results;
+      var lanl_graph_rendered = new hivtrace.clusterNetwork(
+        lanl_graph,
+        lanl_network_container,
+        lanl_network_status_string,
+        lanl_network_warning,
+        lanl_button_bar_prefix,
+        attributes,
+        filter_edges_toggle,
+        null,
+        null,
+        parent_container,
+      );
     }
-}
+  }
+};
 
 var initialize_cluster_network_graphs = function () {
-    const url = `${root}api/datasets/${dataset_id}/display?to_ext=json`;
-    d3.json(url, init);
-}
+  const url = `${root}api/datasets/${dataset_id}/display?to_ext=json`;
+  d3.json(url, init);
+};
 
 function in_progress() {
-    return $('.progress').length > 0;
+  return $(".progress").length > 0;
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-    loadScriptsSequentially(scriptsToLoad, () => {
-        $("#network_pairwise_chord_legend").popover({
-            'html' : true,
-            'trigger' : "click",
-            'placement' : "bottom",
-            'content' : "<div style = 'width : 250px'>\
+document.addEventListener("DOMContentLoaded", function () {
+  loadScriptsSequentially(scriptsToLoad, () => {
+    $("#network_pairwise_chord_legend").popover({
+      html: true,
+      trigger: "click",
+      placement: "bottom",
+      content:
+        "<div style = 'width : 250px'>\
                             This panel will show either a <a href = 'https://en.wikipedia.org/wiki/Chord_diagram'><b>chord diagram</b></a> (for category values) \
                             or a <b>scatterplot</b> (for continous values). They are useful to display the pairings \
                             for node attributes across links. Mouse over a particular color to display what attribute it\
@@ -234,47 +273,47 @@ document.addEventListener("DOMContentLoaded", function() {
                             total circumference (pie slice size). The connection between males and females (with the males as the focus) will be given 50 / (50+40) = 5/9 of the \
                             weight. The connection between females and males (with the females as the focus) will be given 50 / (50+10) = 5/6 of the weight.\
                 </div>\
-            "
-        });
+            ",
+    });
 
-        $("#network_pairwise_table_legend").popover({
-            'html' : true,
-            'trigger' : "hover",
-            'placement' : "bottom",
-            'content' : "<div style = 'width : 250px'>\
+    $("#network_pairwise_table_legend").popover({
+      html: true,
+      trigger: "hover",
+      placement: "bottom",
+      content:
+        '<div style = \'width : 250px\'>\
                 This table shows how many connections exist between each pair of attribute values. For example, if \
-                a link connects a node which is \"Male\" and a node that is \"Female\", this link contributes \
-                a count of 1 to both \"Male/Female\", and \"Female/Male\" cells of the table. A link connecting a \"Male\" node  \
-                to a \"Male\" node will contribute 2 counts to the Male/Male cell.\
+                a link connects a node which is "Male" and a node that is "Female", this link contributes \
+                a count of 1 to both "Male/Female", and "Female/Male" cells of the table. A link connecting a "Male" node  \
+                to a "Male" node will contribute 2 counts to the Male/Male cell.\
                 </div>\
-            "
-        });
+            ',
+    });
 
-        $("#network_pairwise_chart_legend").popover(
-        {
-            'html' : true,
-            'trigger' : "click",
-            'placement' : "bottom",
-            'content' : "<div style = 'width : 250px'>\
+    $("#network_pairwise_chart_legend").popover({
+      html: true,
+      trigger: "click",
+      placement: "bottom",
+      content:
+        '<div style = \'width : 250px\'>\
                 This table shows how many connections exist between each pair of attribute values. For example, if\
-                a link connects a node which is \"Male\" and a node that is \"Female\", this link contributes\
-                a count of 1 to both \"Male/Female\", and \"Female/Male\" cells of the table. A link connecting a \"Male\" node\
-                to a \"Male\" node will contribute 2 counts to the Male/Male cell.\
+                a link connects a node which is "Male" and a node that is "Female", this link contributes\
+                a count of 1 to both "Male/Female", and "Female/Male" cells of the table. A link connecting a "Male" node\
+                to a "Male" node will contribute 2 counts to the Male/Male cell.\
                 </div>\
-            "
-            }
-        );
+            ',
+    });
 
-        $("#network_pairwise_table_legend").on ("click", function (e) {
-            e.preventDefault();
-        });
+    $("#network_pairwise_table_legend").on("click", function (e) {
+      e.preventDefault();
+    });
 
-        $("#network_ui_search_help").popover(
-            {
-            'html' : true,
-            'trigger' : "hover click",
-            'placement' : "bottom",
-            'content' : "<div style = 'width : 250px'>\
+    $("#network_ui_search_help").popover({
+      html: true,
+      trigger: "hover click",
+      placement: "bottom",
+      content:
+        "<div style = 'width : 250px'>\
                 Type in text to search for clusters and nodes whose <em>attributes contain the term</em>. <p/>\
                 For example, typing in <code>MSM</code> will highlight nodes and/or clusters that \
                 have 'MSM' in any of the data fields. <p/>\
@@ -292,28 +331,27 @@ document.addEventListener("DOMContentLoaded", function() {
                 <p/>\
                 Use the <code>Show small clusters</code> checkbox to display small clusters that may have been hidden for clarity\
                 </div>\
-            "
-            }
-        );
-
-        initialize_cluster_network_graphs();
-
-        // *** HANDLERS ***
-        $("#json_file").on ("change", function (e) {
-            d3.selectAll(".my_progress").style("display", "block");
-            var files = e.target.files; // FileList object
-            if (files.length == 1) {
-            var f = files[0];
-            var reader = new FileReader();
-            reader.onload = (function(theFile) {
-                return function(e) {
-                    var container_id = '#tree_container';
-                    analysis_data = JSON.parse(e.target.result);
-                    init(analysis_data);
-                };
-            })(f);
-                reader.readAsText(f);
-            }
-        });
+            ",
     });
+
+    initialize_cluster_network_graphs();
+
+    // *** HANDLERS ***
+    $("#json_file").on("change", function (e) {
+      d3.selectAll(".my_progress").style("display", "block");
+      var files = e.target.files; // FileList object
+      if (files.length == 1) {
+        var f = files[0];
+        var reader = new FileReader();
+        reader.onload = (function (theFile) {
+          return function (e) {
+            var container_id = "#tree_container";
+            analysis_data = JSON.parse(e.target.result);
+            init(analysis_data);
+          };
+        })(f);
+        reader.readAsText(f);
+      }
+    });
+  });
 });
