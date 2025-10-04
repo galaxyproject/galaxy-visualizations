@@ -1,0 +1,11 @@
+{
+    "name": "@galaxyproject/hivtrace",
+    "version": "0.0.0",
+    "license": "MIT",
+    "scripts": {
+        "prettier": "prettier --write 'package.json' 'src/**/*.js'"
+    },
+    "devDependencies": {
+        "prettier": "^3.6.2"
+    }
+}
