@@ -27,7 +27,7 @@ function loadScriptsSequentially(scripts, callback) {
 const scriptsToLoad = [app_root + "vendor.js", app_root + "hivtrace.js"];
 
 document.body.innerHTML = `
-<nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+<nav class="navbar navbar-default" role="navigation">
   <div class="container">
     <div class="navbar-header">
       <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse-1">
@@ -49,7 +49,7 @@ document.body.innerHTML = `
 </nav>
 
 <div class="container">
-  <div class="row" style="margin-top:10px;margin-bottom:10px;">
+  <div class="row">
     <div class="col-lg-12">
       <div class="alert alert-danger alert-lg" id="app-error" style="display:none;"></div>
     </div>
@@ -66,7 +66,7 @@ document.body.innerHTML = `
     </ul>
     <div class="tab-content" id="top_level_tab_content">
       <div id="trace-results" class="tab-pane active">
-        <div class="row" style="margin-top:10px;margin-bottom:10px;">
+        <div class="row">
           <div class="col-lg-12">
             <div class="alert alert-warning alert-dismissible" id="main-warning" style="display:none;">
               <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
