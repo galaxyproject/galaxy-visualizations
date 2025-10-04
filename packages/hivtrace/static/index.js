@@ -37,12 +37,6 @@ document.body.innerHTML = `
       <a class="navbar-brand" href="#">HIV-TRACE</a>
     </div>
     <div class="collapse navbar-collapse" id="navbar-collapse-1">
-      <ul class="nav navbar-nav">
-        <li class="dropdown hidden">
-          <a href="javascript:void(0)" role="button" class="dropdown-toggle" data-toggle="dropdown">Load file<b class="caret"></b></a>
-          <ul class="dropdown-menu"><li><input type="file" id="json_file"></li></ul>
-        </li>
-      </ul>
       <form class="navbar-form navbar-right"><div class='form-group' id='network_status_string'></div></form>
     </div>
   </div>
@@ -335,23 +329,5 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     initialize_cluster_network_graphs();
-
-    // *** HANDLERS ***
-    $("#json_file").on("change", function (e) {
-      d3.selectAll(".my_progress").style("display", "block");
-      var files = e.target.files; // FileList object
-      if (files.length == 1) {
-        var f = files[0];
-        var reader = new FileReader();
-        reader.onload = (function (theFile) {
-          return function (e) {
-            var container_id = "#tree_container";
-            analysis_data = JSON.parse(e.target.result);
-            init(analysis_data);
-          };
-        })(f);
-        reader.readAsText(f);
-      }
-    });
   });
 });
