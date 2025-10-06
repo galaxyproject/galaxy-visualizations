@@ -1,0 +1,112 @@
+name: Publish Updated Packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-packages: ${{ steps.detect-changes.outputs.packages }}
+      has-changes: ${{ steps.detect-changes.outputs.has-changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect package version changes
+        id: detect-changes
+        run: |
+          # Get the list of changed package.json files
+          changed_files=$(git diff --name-only HEAD~1 HEAD | grep "packages/.*/package.json" || true)
+          
+          if [ -z "$changed_files" ]; then
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "No package.json files changed"
+            exit 0
+          fi
+          
+          changed_packages=""
+          
+          for file in $changed_files; do
+            package_dir=$(dirname "$file")
+            package_name=$(basename "$package_dir")
+            
+            # Check if version actually changed
+            old_version=$(git show HEAD~1:"$file" | jq -r '.version' 2>/dev/null || echo "")
+            new_version=$(cat "$file" | jq -r '.version' 2>/dev/null || echo "")
+            
+            if [ "$old_version" != "$new_version" ] && [ -n "$new_version" ] && [ "$new_version" != "null" ]; then
+              echo "Package $package_name version changed: $old_version -> $new_version"
+              if [ -n "$changed_packages" ]; then
+                changed_packages="$changed_packages,$package_name"
+              else
+                changed_packages="$package_name"
+              fi
+            fi
+          done
+          
+          if [ -n "$changed_packages" ]; then
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "packages=$changed_packages" >> $GITHUB_OUTPUT
+            echo "Changed packages: $changed_packages"
+          else
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "No version changes detected"
+          fi
+
+  publish:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: ${{ fromJson(format('["{0}"]', join(split(needs.detect-changes.outputs.changed-packages, ','), '","'))) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          # Try different build commands based on what's available
+          if grep -q '"build"' package.json; then
+            pnpm build
+          else
+            echo "No build script found, skipping build step"
+          fi
+
+      - name: Publish to npm
+        working-directory: packages/${{ matrix.package }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Check if package is already published at this version
+          package_name=$(jq -r '.name' package.json)
+          package_version=$(jq -r '.version' package.json)
+          
+          if npm view "$package_name@$package_version" version 2>/dev/null; then
+            echo "Package $package_name@$package_version already published, skipping"
+            exit 0
+          fi
+          
+          # Publish the package
+          echo "Publishing $package_name@$package_version"
+          npm publish --access public
