@@ -40,6 +40,9 @@ describe("Plugin", () => {
                 setTransform: vi.fn(),
                 drawImage: vi.fn(),
                 save: vi.fn(),
+                context: {
+                    translate: vi.fn(),
+                },
                 fillText: vi.fn(),
                 restore: vi.fn(),
                 measureText: vi.fn(() => {

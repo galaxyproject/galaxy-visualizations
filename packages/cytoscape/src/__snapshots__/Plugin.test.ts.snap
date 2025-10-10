@@ -12,7 +12,7 @@ VueWrapper {
       data-v-app=""
     >
       <div
-        class="min-h-screen"
+        class="h-screen overflow-hidden"
         credentials="include"
       />
     </div>,
@@ -344,11 +344,11 @@ VueWrapper {
               "__v_isRef": true,
               "__v_isShallow": false,
               "_rawValue": <div
-                class="min-h-screen"
+                class="h-screen overflow-hidden"
                 credentials="include"
               />,
               "_value": <div
-                class="min-h-screen"
+                class="h-screen overflow-hidden"
                 credentials="include"
               />,
               "dep": undefined,
@@ -464,7 +464,7 @@ VueWrapper {
           },
           "refs": {
             "viewport": <div
-              class="min-h-screen"
+              class="h-screen overflow-hidden"
               credentials="include"
             />,
           },
@@ -602,7 +602,7 @@ VueWrapper {
             },
             "render": [Function],
             "viewport": <div
-              class="min-h-screen"
+              class="h-screen overflow-hidden"
               credentials="include"
             />,
           },
@@ -621,13 +621,13 @@ VueWrapper {
             "dynamicChildren": [],
             "dynamicProps": null,
             "el": <div
-              class="min-h-screen"
+              class="h-screen overflow-hidden"
               credentials="include"
             />,
             "key": null,
             "patchFlag": 528,
             "props": {
-              "class": "min-h-screen",
+              "class": "h-screen overflow-hidden",
               "credentials": "include",
               "ref": "viewport",
             },
@@ -653,7 +653,7 @@ VueWrapper {
           "suspense": null,
           "suspenseId": 0,
           "type": {
-            "__file": "/Users/alireza/Documents/GitHub/cytospace/src/Plugin.vue",
+            "__file": "/Users/guerler/galaxy-visualizations/packages/cytoscape/src/Plugin.vue",
             "__name": "Plugin",
             "components": {},
             "props": {
@@ -699,7 +699,7 @@ VueWrapper {
         "dynamicChildren": null,
         "dynamicProps": null,
         "el": <div
-          class="min-h-screen"
+          class="h-screen overflow-hidden"
           credentials="include"
         />,
         "key": null,
@@ -740,7 +740,7 @@ VueWrapper {
         "targetStart": null,
         "transition": null,
         "type": {
-          "__file": "/Users/alireza/Documents/GitHub/cytospace/src/Plugin.vue",
+          "__file": "/Users/guerler/galaxy-visualizations/packages/cytoscape/src/Plugin.vue",
           "__name": "Plugin",
           "components": {},
           "props": {
@@ -826,7 +826,7 @@ VueWrapper {
         "dynamicChildren": null,
         "dynamicProps": null,
         "el": <div
-          class="min-h-screen"
+          class="h-screen overflow-hidden"
           credentials="include"
         />,
         "key": null,
@@ -1054,7 +1054,7 @@ VueWrapper {
     "VTU_COMPONENT": {},
   },
   "wrapperElement": <div
-    class="min-h-screen"
+    class="h-screen overflow-hidden"
     credentials="include"
   />,
 }
