@@ -14,29 +14,37 @@ jobs:
       - name: Discover packages with tests
         id: set-packages
         run: |
-          echo "Scanning packages for test scripts..."
+          echo "Scanning packages for test scripts and test files..."
 
-          with_tests=()
-          without_tests=()
+          with_tests_and_files=()
+          with_test_script_no_files=()
+          no_test_script=()
           for dir in packages/*/; do
             pkg=$(basename "$dir")
             if [ -f "$dir/package.json" ]; then
               if jq -e ".scripts.test" "$dir/package.json" > /dev/null 2>&1; then
-                with_tests+=("$pkg")
+                if find "$dir" -type f \( -name "*.test.js" -o -name "*.test.ts" -o -name "*.test.jsx" -o -name "*.test.tsx" -o -name "*.spec.js" -o -name "*.spec.ts" -o -name "*.spec.jsx" -o -name "*.spec.tsx" \) -not -path "*/node_modules/*" | grep -q .; then
+                  with_tests_and_files+=("$pkg")
+                else
+                  with_test_script_no_files+=("$pkg")
+                fi
               else
-                without_tests+=("$pkg")
+                no_test_script+=("$pkg")
               fi
             fi
           done
-          packages=$(printf '%s\n' "${with_tests[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          packages=$(printf '%s\n' "${with_tests_and_files[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "packages=$packages" >> $GITHUB_OUTPUT
           
           echo ""
-          echo "✅ Packages WITH test scripts (${#with_tests[@]}):"
-          printf '  - %s\n' "${with_tests[@]}"
+          echo "✅ Packages WITH test script AND test files (${#with_tests_and_files[@]}):"
+          printf '  - %s\n' "${with_tests_and_files[@]}"
           echo ""
-          echo "⚠️  Packages WITHOUT test scripts (${#without_tests[@]}):"
-          printf '  - %s\n' "${without_tests[@]}"
+          echo "⚠️  Packages WITH test script but NO test files (${#with_test_script_no_files[@]}):"
+          printf '  - %s\n' "${with_test_script_no_files[@]}"
+          echo ""
+          echo "❌  Packages WITHOUT test script (${#no_test_script[@]}):"
+          printf '  - %s\n' "${no_test_script[@]}"
 
   test:
     needs: discover
