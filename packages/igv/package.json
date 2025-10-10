@@ -11,7 +11,7 @@
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
-        "test": "vitest",
+        "test": "vitest --run",
         "test:watch": "vitest --watch",
         "test:ui": "vitest --ui"
     },
