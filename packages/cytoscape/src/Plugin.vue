@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import axios from "axios";
 import Cytoscape, { type Core, type ElementDefinition, type ElementsDefinition } from "cytoscape";
 import { onMounted, onUnmounted, ref, watch } from "vue";
 
 import { parseSIF, runSearchAlgorithm, runTraversalType, styleGenerator } from "./utils";
+
+const TEST_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.cytoscapejson";
 
 type Settings = {
     directed: boolean;
@@ -18,11 +19,9 @@ type Settings = {
 
 interface Props {
     root: string;
-    tracks: unknown[];
     datasetId: string;
     datasetUrl: string;
     settings: Settings;
-    specs?: object;
 }
 
 const props = defineProps<Props>();
@@ -65,12 +64,21 @@ async function render() {
 }
 
 async function getDataset() {
-    const { data } = await axios.get(props.datasetUrl);
-
-    if (data.file_ext === "sif") {
-        dataset.value = parseSIF(data).content;
-    } else {
-        dataset.value = data.elements ? data.elements : data;
+    try {
+        const datasetUrl = props.datasetId === "__test__" ? TEST_URL : props.datasetUrl;
+        const response = await fetch(datasetUrl);
+        if (response.ok) {
+            const content = await response.json();
+            if (content.file_ext === "sif") {
+                dataset.value = parseSIF(content).content;
+            } else {
+                dataset.value = content.elements ?? content;
+            }
+        } else {
+            console.error("Fetch failed", response);
+        }
+    } catch (err) {
+        console.error("Dataset fetch error", err);
     }
 }
 
@@ -82,9 +90,7 @@ watch(
 
 onMounted(async () => {
     await getDataset();
-
     await render();
-
     window.addEventListener("resize", function () {
         cytoscape.value?.resize();
     });

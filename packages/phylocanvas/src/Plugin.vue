@@ -5,13 +5,12 @@ import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import phylocanvas from "@/phylocanvas.min.js";
 
+const TEST_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.newick";
+
 const props = defineProps({
     datasetId: String,
     datasetUrl: String,
-    root: String,
     settings: Object,
-    specs: Object,
-    tracks: Array,
 });
 
 let tree = null;
@@ -53,7 +52,8 @@ function handleResize() {
 
 async function load() {
     isLoading.value = true;
-    const response = await fetch(props.datasetUrl);
+    const datasetUrl = props.datasetId === "__test__" ? TEST_URL : props.datasetUrl;
+    const response = await fetch(datasetUrl);
     if (response.ok) {
         const content = await response.text();
         extract(content);
