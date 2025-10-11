@@ -1,10 +1,12 @@
 {
     "name": "@galaxyproject/cytoscape",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "type": "module",
     "author": "Alireza Heidari",
     "license": "MIT",
-    "files": ["static"],
+    "files": [
+        "static"
+    ],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
@@ -22,8 +24,8 @@
         "@vue/test-utils": "^2.4.6",
         "autoprefixer": "^10.4.19",
         "axios": "^1.7.7",
-        "cytoscape": "^3.30.3",
-        "galaxy-charts": "^0.0.73",
+        "cytoscape": "^3.33.1",
+        "galaxy-charts": "^0.0.87",
         "galaxy-charts-xml-parser": "^1.0.3",
         "jsdom": "^25.0.1",
         "postcss": "^8.4.40",
