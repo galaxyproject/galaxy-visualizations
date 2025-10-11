@@ -6,9 +6,11 @@ const env = {
     GALAXY_ROOT: "http://127.0.0.1:8080",
 };
 
+type EnvKeyType = keyof typeof env;
+
 Object.keys(env).forEach((key) => {
     if (process.env[key]) {
-        env[key] = process.env[key];
+        env[key as EnvKeyType] = process.env[key] as string;
     } else {
         console.log(`${key} not available. Please provide as environment variable.`);
     }

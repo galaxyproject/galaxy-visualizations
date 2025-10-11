@@ -24,7 +24,7 @@ describe("Plugin", () => {
                 tracks: [],
             },
         });
-
-        expect(wrapper).toMatchSnapshot();
+        const html = wrapper.html().replace(/__file=".*\/packages/g, '__file="<root>/packages');
+        expect(html).toMatchSnapshot();
     });
 });
