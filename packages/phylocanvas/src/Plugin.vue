@@ -10,10 +10,7 @@ const TEST_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.ne
 const props = defineProps({
     datasetId: String,
     datasetUrl: String,
-    root: String,
     settings: Object,
-    specs: Object,
-    tracks: Array,
 });
 
 let tree = null;
@@ -55,7 +52,7 @@ function handleResize() {
 
 async function load() {
     isLoading.value = true;
-    const datasetUrl = props.datasetId != "unavailable" ? props.datasetUrl : TEST_URL;
+    const datasetUrl = props.datasetId === "__test__" ? TEST_URL : props.datasetUrl;
     const response = await fetch(datasetUrl);
     if (response.ok) {
         const content = await response.text();

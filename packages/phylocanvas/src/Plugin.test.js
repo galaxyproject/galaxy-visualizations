@@ -1,8 +1,6 @@
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-
 import Plugin from "@/Plugin.vue";
-
 import "@/__snapshots__/HTMLCanvasElement.js";
 
 const content =
@@ -14,16 +12,15 @@ vi.spyOn(global, "fetch").mockResolvedValue({
 });
 
 describe("Plugin", () => {
-    it("should render correctly", () => {
+    it("should render correctly", async () => {
         const wrapper = mount(Plugin, {
             props: {
-                datasetId: "MY_DATASET_ID",
-                datasetUrl: "phylocanvas.nwk",
+                datasetId: "datasetId",
                 root: "/",
-                settings: {},
-                tracks: [],
             },
         });
+        await flushPromises();
+        await wrapper.vm.$nextTick();
         const html = wrapper.html().replace(/__file=".*\/packages/g, '__file="<root>/packages');
         expect(html).toMatchSnapshot();
     });

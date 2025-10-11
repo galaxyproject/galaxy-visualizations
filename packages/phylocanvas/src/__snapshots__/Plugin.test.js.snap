@@ -1,10 +1,24 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`Plugin > should render correctly 1`] = `
-"<!--v-if-->
-<div class="m-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon" class="animate-spin size-4 inline mx-1">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"></path>
-  </svg><span class="text-xs">Please wait...</span></div>
+"<transition-stub name="fade-in-height-expand-transition" appear="false" persisted="false" css="true">
+  <div class="m-1 n-alert n-alert--show-icon" style="--n-bezier: cubic-bezier(.4, 0, .2, 1); --n-color: rgba(251, 238, 241, 1); --n-close-icon-size: 16px; --n-close-border-radius: 3px; --n-close-color-hover: rgba(0, 0, 0, .09); --n-close-color-pressed: rgba(0, 0, 0, .13); --n-close-icon-color: rgba(102, 102, 102, 1); --n-close-icon-color-hover: rgba(102, 102, 102, 1); --n-close-icon-color-pressed: rgba(102, 102, 102, 1); --n-icon-color: #d03050; --n-border: 1px solid rgba(243, 203, 211, 1); --n-title-text-color: rgb(31, 34, 37); --n-content-text-color: rgb(51, 54, 57); --n-line-height: 1.6; --n-border-radius: 3px; --n-font-size: 14px; --n-title-font-weight: 500; --n-icon-size: 24px; --n-icon-margin: 11px 8px 0 12px; --n-icon-margin-rtl: 11px 12px 0 8px; --n-close-size: 20px; --n-close-margin: 13px 14px 0 0; --n-close-margin-rtl: 13px 0 0 14px; --n-padding: 13px; --n-icon-margin-left: 12px; --n-icon-margin-right: 8px;" role="alert">
+    <!---->
+    <div class="n-alert__border"></div>
+    <div class="n-alert__icon" aria-hidden="true"><i class="n-base-icon"><svg viewBox="0 0 48 48" version="1.1" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="none" stroke-width="1" fill-rule="evenodd">
+            <g fill-rule="nonzero">
+              <path d="M24,4 C35.045695,4 44,12.954305 44,24 C44,35.045695 35.045695,44 24,44 C12.954305,44 4,35.045695 4,24 C4,12.954305 12.954305,4 24,4 Z M17.8838835,16.1161165 L17.7823881,16.0249942 C17.3266086,15.6583353 16.6733914,15.6583353 16.2176119,16.0249942 L16.1161165,16.1161165 L16.0249942,16.2176119 C15.6583353,16.6733914 15.6583353,17.3266086 16.0249942,17.7823881 L16.1161165,17.8838835 L22.233,24 L16.1161165,30.1161165 L16.0249942,30.2176119 C15.6583353,30.6733914 15.6583353,31.3266086 16.0249942,31.7823881 L16.1161165,31.8838835 L16.2176119,31.9750058 C16.6733914,32.3416647 17.3266086,32.3416647 17.7823881,31.9750058 L17.8838835,31.8838835 L24,25.767 L30.1161165,31.8838835 L30.2176119,31.9750058 C30.6733914,32.3416647 31.3266086,32.3416647 31.7823881,31.9750058 L31.8838835,31.8838835 L31.9750058,31.7823881 C32.3416647,31.3266086 32.3416647,30.6733914 31.9750058,30.2176119 L31.8838835,30.1161165 L25.767,24 L31.8838835,17.8838835 L31.9750058,17.7823881 C32.3416647,17.3266086 32.3416647,16.6733914 31.9750058,16.2176119 L31.8838835,16.1161165 L31.7823881,16.0249942 C31.3266086,15.6583353 30.6733914,15.6583353 30.2176119,16.0249942 L30.1161165,16.1161165 L24,22.233 L17.8838835,16.1161165 L17.7823881,16.0249942 L17.8838835,16.1161165 Z"></path>
+            </g>
+          </g>
+        </svg></i></div>
+    <div class="n-alert-body n-alert-body--bordered">
+      <!---->
+      <div class="n-alert-body__content">Failed to render tree.</div>
+    </div>
+  </div>
+</transition-stub>
+<!--v-if-->
 <div class="h-screen overflow-hidden">
   <div class="h-screen"></div>
   <!--v-if-->
