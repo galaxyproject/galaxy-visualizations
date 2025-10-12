@@ -1,4 +1,4 @@
-name: Test All Visualizations
+name: Test Visualizations
 
 on:
   pull_request:
@@ -8,42 +8,49 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.set-packages.outputs.packages }}
+      playwright_packages: ${{ steps.set-packages.outputs.playwright_packages }}
     steps:
       - uses: actions/checkout@v5
       
       - name: Discover packages with tests
         id: set-packages
         run: |
-          echo "Scanning packages for test scripts and test files..."
+          echo "Scanning packages for test scripts..."
 
-          with_tests_and_files=()
-          with_test_script_no_files=()
+          regular_packages=()
+          playwright_packages=()
           no_test_script=()
           for dir in packages/*/; do
             pkg=$(basename "$dir")
             if [ -f "$dir/package.json" ]; then
-              if jq -e ".scripts.test" "$dir/package.json" > /dev/null 2>&1; then
-                if find "$dir" -type f \( -name "*.test.js" -o -name "*.test.ts" -o -name "*.test.jsx" -o -name "*.test.tsx" -o -name "*.spec.js" -o -name "*.spec.ts" -o -name "*.spec.jsx" -o -name "*.spec.tsx" \) -not -path "*/node_modules/*" | grep -q .; then
-                  with_tests_and_files+=("$pkg")
+              test_script=$(jq -r ".scripts.test // \"\"" "$dir/package.json")
+              if [ -n "$test_script" ]; then
+                # Check for Playwright in test script or dependencies
+                if [[ "$test_script" == *"playwright"* ]] || \
+                   jq -e '.devDependencies | has("@playwright/test") or has("playwright")' "$dir/package.json" > /dev/null 2>&1; then
+                  playwright_packages+=("$pkg")
                 else
-                  with_test_script_no_files+=("$pkg")
+                  regular_packages+=("$pkg")
                 fi
               else
                 no_test_script+=("$pkg")
               fi
             fi
           done
-          packages=$(printf '%s\n' "${with_tests_and_files[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          packages=$(printf '%s\n' "${regular_packages[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "packages=$packages" >> $GITHUB_OUTPUT
           
+          playwright_packages_json=$(printf '%s\n' "${playwright_packages[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "playwright_packages=$playwright_packages_json" >> $GITHUB_OUTPUT
+          
           echo ""
-          echo "✅ Packages WITH test script AND test files (${#with_tests_and_files[@]}):"
-          printf '  - %s\n' "${with_tests_and_files[@]}"
+          echo "✅ Regular packages with test script (${#regular_packages[@]}):"
+          printf '  - %s\n' "${regular_packages[@]}"
           echo ""
-          echo "⚠️  Packages WITH test script but NO test files (${#with_test_script_no_files[@]}):"
-          printf '  - %s\n' "${with_test_script_no_files[@]}"
+          echo "✅ Playwright packages with test script (${#playwright_packages[@]}):"
+          printf '  - %s\n' "${playwright_packages[@]}"
           echo ""
-          echo "❌  Packages WITHOUT test script (${#no_test_script[@]}):"
+          echo "❌ Packages without test script (${#no_test_script[@]}):"
           printf '  - %s\n' "${no_test_script[@]}"
 
   test:
@@ -54,8 +61,6 @@ jobs:
       fail-fast: false
       matrix:
         package: ${{ fromJson(needs.discover.outputs.packages) }}
-        exclude:
-          - package: jupyterlite
     
     steps:
       - uses: actions/checkout@v5
@@ -81,10 +86,14 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: npm test
 
-  test-jupyterlite:
+  test-playwright:
     needs: discover
-    if: contains(fromJson(needs.discover.outputs.packages), 'jupyterlite')
+    if: needs.discover.outputs.playwright_packages != '[]'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.discover.outputs.playwright_packages) }}
     
     steps:
       - uses: actions/checkout@v5
@@ -97,36 +106,57 @@ jobs:
       - name: Cache Node dependencies
         uses: actions/cache@v4
         with:
-          path: packages/jupyterlite/node_modules
-          key: ${{ runner.os }}-node-jupyterlite-${{ hashFiles('packages/jupyterlite/package-lock.json') }}
+          path: packages/${{ matrix.package }}/node_modules
+          key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
           restore-keys: |
-            ${{ runner.os }}-node-jupyterlite-
+            ${{ runner.os }}-node-${{ matrix.package }}-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Check for requirements.txt
+        id: check-python
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          if [ -f requirements.txt ]; then
+            echo "has_requirements=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_requirements=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Python
+        if: steps.check-python.outputs.has_requirements == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: pip
-          cache-dependency-path: packages/jupyterlite/requirements.txt
+          cache-dependency-path: packages/${{ matrix.package }}/requirements.txt
 
       - name: Install Python dependencies
-        working-directory: packages/jupyterlite
+        if: steps.check-python.outputs.has_requirements == 'true'
+        working-directory: packages/${{ matrix.package }}
         run: pip install -r requirements.txt
 
       - name: Install Node dependencies
-        working-directory: packages/jupyterlite
+        working-directory: packages/${{ matrix.package }}
         run: npm install
 
       - name: Install Playwright browsers
-        working-directory: packages/jupyterlite
+        working-directory: packages/${{ matrix.package }}
         run: npx playwright install --with-deps chromium
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
 
-      - name: Build JupyterLite
-        working-directory: packages/jupyterlite
+      - name: Build
+        working-directory: packages/${{ matrix.package }}
         run: npm run build
 
       - name: Start dev server in background
-        working-directory: packages/jupyterlite
+        working-directory: packages/${{ matrix.package }}
         run: |
           nohup npm run dev > server.log 2>&1 &
           echo $! > server.pid
@@ -142,17 +172,17 @@ jobs:
             echo "Attempt $i/60..."
             sleep 2
           done
-          echo "❌ Server failed to start"
-          cat packages/jupyterlite/server.log
+          echo "❌ Server failed to start!"
+          cat packages/${{ matrix.package }}/server.log
           exit 1
 
       - name: Run Playwright tests
-        working-directory: packages/jupyterlite
+        working-directory: packages/${{ matrix.package }}
         run: npm test
 
       - name: Stop dev server
         if: always()
-        working-directory: packages/jupyterlite
+        working-directory: packages/${{ matrix.package }}
         run: |
           if [ -f server.pid ]; then
             kill $(cat server.pid) 2>/dev/null || true
@@ -163,15 +193,14 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: packages/jupyterlite/playwright-report/
+          name: playwright-report-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/playwright-report/
           retention-days: 7
 
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results
-          path: packages/jupyterlite/test-results/
+          name: playwright-test-results-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/test-results/
           retention-days: 7
-
