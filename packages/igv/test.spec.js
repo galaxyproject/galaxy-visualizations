@@ -33,6 +33,13 @@ test("basic", async ({ page }) => {
             body: JSON.stringify(DATASET_DETAILS),
         });
     });
+    page.on("console", msg => console.log(msg.type(), msg.text()));
+    page.on("request", request => console.log("Request:", request.url(), request.method(), request.postData()));
+    page.on("response", async response => {
+        const url = response.url();
+        const status = response.status();
+        console.log("Response:", url, status);
+    });
     await page.goto("http://localhost:5173/");
     await page.waitForSelector(".igv-track-label[title='Track']");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
