@@ -15,25 +15,22 @@ jobs:
       - name: Discover packages with tests
         id: set-packages
         run: |
-          echo "Scanning packages for test scripts and test files..."
+          echo "Scanning packages for test scripts..."
 
           regular_packages=()
           playwright_packages=()
-          with_test_script_no_files=()
           no_test_script=()
           for dir in packages/*/; do
             pkg=$(basename "$dir")
             if [ -f "$dir/package.json" ]; then
               test_script=$(jq -r ".scripts.test // \"\"" "$dir/package.json")
               if [ -n "$test_script" ]; then
-                if find "$dir" -type f \( -name "*.test.js" -o -name "*.test.ts" -o -name "*.test.jsx" -o -name "*.test.tsx" -o -name "*.spec.js" -o -name "*.spec.ts" -o -name "*.spec.jsx" -o -name "*.spec.tsx" \) -not -path "*/node_modules/*" | grep -q .; then
-                  if [[ "$test_script" == *"playwright"* ]]; then
-                    playwright_packages+=("$pkg")
-                  else
-                    regular_packages+=("$pkg")
-                  fi
+                # Check for Playwright in test script or dependencies
+                if [[ "$test_script" == *"playwright"* ]] || \
+                   jq -e '.devDependencies | has("@playwright/test") or has("playwright")' "$dir/package.json" > /dev/null 2>&1; then
+                  playwright_packages+=("$pkg")
                 else
-                  with_test_script_no_files+=("$pkg")
+                  regular_packages+=("$pkg")
                 fi
               else
                 no_test_script+=("$pkg")
@@ -47,16 +44,13 @@ jobs:
           echo "playwright_packages=$playwright_packages_json" >> $GITHUB_OUTPUT
           
           echo ""
-          echo "✅ Regular packages WITH test script AND test files (${#regular_packages[@]}):"
+          echo "✅ Regular packages with test script (${#regular_packages[@]}):"
           printf '  - %s\n' "${regular_packages[@]}"
           echo ""
-          echo "✅ Playwright packages WITH test script AND test files (${#playwright_packages[@]}):"
+          echo "✅ Playwright packages with test script (${#playwright_packages[@]}):"
           printf '  - %s\n' "${playwright_packages[@]}"
           echo ""
-          echo "⚠️  Packages WITH test script but NO test files (${#with_test_script_no_files[@]}):"
-          printf '  - %s\n' "${with_test_script_no_files[@]}"
-          echo ""
-          echo "❌  Packages WITHOUT test script (${#no_test_script[@]}):"
+          echo "❌ Packages without test script (${#no_test_script[@]}):"
           printf '  - %s\n' "${no_test_script[@]}"
 
   test:
@@ -117,19 +111,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-${{ matrix.package }}-
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Setup Python
+        if: steps.check-python.outputs.has_requirements == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: pip
           cache-dependency-path: packages/${{ matrix.package }}/requirements.txt
 
-      - name: Install Python dependencies
+      - name: Check for requirements.txt
+        id: check-python
         working-directory: packages/${{ matrix.package }}
         run: |
           if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
+            echo "has_requirements=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_requirements=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Install Python dependencies
+        if: steps.check-python.outputs.has_requirements == 'true'
+        working-directory: packages/${{ matrix.package }}
+        run: pip install -r requirements.txt
 
       - name: Install Node dependencies
         working-directory: packages/${{ matrix.package }}
@@ -138,6 +149,7 @@ jobs:
       - name: Install Playwright browsers
         working-directory: packages/${{ matrix.package }}
         run: npx playwright install --with-deps chromium
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
 
       - name: Build
         working-directory: packages/${{ matrix.package }}
@@ -160,7 +172,7 @@ jobs:
             echo "Attempt $i/60..."
             sleep 2
           done
-          echo "❌ Server failed to start"
+          echo "❌ Server failed to start!"
           cat packages/${{ matrix.package }}/server.log
           exit 1
 
