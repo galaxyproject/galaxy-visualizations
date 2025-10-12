@@ -25,10 +25,8 @@ async function main() {
         const dataIncoming = {
             root: "/",
             visualization_config: {
-                // Placeholder for dataset URL (can be replaced during actual development)
-                dataset_url: "MY_DATASET_URL",
                 // Placeholder for dataset ID
-                dataset_id: process.env.dataset_id,
+                dataset_id: process.env.dataset_id || "__test__",
                 // Placeholder for additional visualization settings
                 settings: {},
             },
