@@ -12,59 +12,35 @@ const DATASET_CONTENT = fs.readFileSync(path.resolve(__dirname, "./test-data/tes
 const DATASET_DETAILS = { extension: "bed", history_id: "0", id: "__test__", name: "__test__", hid: 0 };
 
 test("basic", async ({ page }) => {
-    await page.route(
-        "**/api/histories/0/contents?v=dev&order=hid&q=deleted&qv=false&q=visible&qv=true&limit=100",
-        async (route) => {
+    const routes = [
+        {
+            url: "**/api/histories/0/contents?v=dev&order=hid&q=deleted&qv=false&q=visible&qv=true&limit=100",
+            body: [DATASET_DETAILS],
+        },
+        { url: "**/api/datasets/__test__/display", body: DATASET_CONTENT, raw: true },
+        { url: "**/api/datasets/__test__", body: DATASET_DETAILS },
+        { url: "**/api/tool_data/fasta_indexes", body: FASTA_INDEXES },
+        { url: "**/api/tool_data/twobit", body: TWOBIT },
+        { url: "**/api/version", body: { version_major: "25.1", version_minor: "rc1" } },
+    ];
+
+    for (const r of routes) {
+        await page.route(r.url, async (route) => {
             await route.fulfill({
                 status: 200,
                 contentType: "application/json",
-                body: JSON.stringify([DATASET_DETAILS]),
+                body: r.raw ? r.body : JSON.stringify(r.body),
             });
-        },
-    );
-    await page.route("**/api/datasets/__test__/display", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: DATASET_CONTENT,
         });
-    });
-    await page.route("**/api/datasets/__test__", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify(DATASET_DETAILS),
-        });
-    });
-    await page.route("**/api/tool_data/fasta_indexes", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify(FASTA_INDEXES),
-        });
-    });
-    await page.route("**/api/tool_data/twobit", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify(TWOBIT),
-        });
-    });
-    await page.route("**/api/version", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({"version_major": "25.1","version_minor": "rc1"}),
-        });
-    });
+    }
 
-    page.on("console", msg => console.log(msg.type(), msg.text()));
-    page.on("request", request => console.log("Request:", request.url(), request.method(), request.postData()));
-    page.on("response", async response => {
+    page.on("console", (msg) => console.log(msg.type(), msg.text()));
+    page.on("response", async (response) => {
         const url = response.url();
         const status = response.status();
         console.log("Response:", url, status);
     });
+
     await page.goto("http://localhost:5173/");
     await page.waitForSelector(".igv-track-label[title='Track']");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
