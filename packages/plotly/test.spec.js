@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import DATASET_DETAILS from "./testing/api.datasets.id.json" with { type: "json" };
-import DATASET_COLUMNS from "./testing/api.datasets.columns.json" with { type: "json" };
+import DATASET_DETAILS from "./test-data/api.datasets.id.json" with { type: "json" };
+import DATASET_COLUMNS from "./test-data/api.datasets.columns.json" with { type: "json" };
 
 test("basic", async ({ page }) => {
     // mock api
