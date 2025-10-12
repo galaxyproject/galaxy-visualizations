@@ -7,7 +7,7 @@
         "static"
     ],
     "scripts": {
-        "dev": "vite",
+        "dev": "vite --port 8000",
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
