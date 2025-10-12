@@ -50,6 +50,13 @@ test("basic", async ({ page }) => {
             body: JSON.stringify(TWOBIT),
         });
     });
+    await page.route("**/api/version", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({"version_major": "25.1","version_minor": "rc1"}),
+        });
+    });
 
     page.on("console", msg => console.log(msg.type(), msg.text()));
     page.on("request", request => console.log("Request:", request.url(), request.method(), request.postData()));
