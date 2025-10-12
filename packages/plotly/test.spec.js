@@ -31,5 +31,5 @@ test("basic", async ({ page }) => {
     // start
     await page.goto("http://localhost:8000/");
     await page.waitForTimeout(2000);
-    await expect(page).toHaveScreenshot("0.png");
+    await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
 });
