@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import FASTA_INDEXES from "./test-data/api.fasta_indexes.json" with { type: "json" };
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATASET_CONTENT = fs.readFileSync(path.resolve(__dirname, "./test-data/test.bed"), "utf8");
@@ -33,6 +35,14 @@ test("basic", async ({ page }) => {
             body: JSON.stringify(DATASET_DETAILS),
         });
     });
+    await page.route("**/api/tool_data/fasta_indexes", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(FASTA_INDEXES),
+        });
+    });
+
     page.on("console", msg => console.log(msg.type(), msg.text()));
     page.on("request", request => console.log("Request:", request.url(), request.method(), request.postData()));
     page.on("response", async response => {
