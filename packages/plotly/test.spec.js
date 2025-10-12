@@ -32,4 +32,6 @@ test("basic", async ({ page }) => {
     await page.goto("http://localhost:5173/");
     await page.waitForTimeout(2000);
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
+    await page.click(".n-button");
+    await expect(page).toHaveScreenshot("1.png", { maxDiffPixelRatio: 0.02 });
 });
