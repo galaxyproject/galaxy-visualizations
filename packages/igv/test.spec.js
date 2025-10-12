@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import FASTA_INDEXES from "./test-data/api.fasta_indexes.json" with { type: "json" };
+import TWOBIT from "./test-data/api.twobit.json" with { type: "json" };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,13 @@ test("basic", async ({ page }) => {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify(FASTA_INDEXES),
+        });
+    });
+    await page.route("**/api/tool_data/twobit", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(TWOBIT),
         });
     });
 
