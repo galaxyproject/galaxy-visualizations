@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import DATASET_DETAILS from "./testing/api.datasets.id.json" with { type: "json" };
-import DATASET_COLUMNS from "./testing/api.datasets.columns.json" with { type: "json" };
+import DATASET_DETAILS from "./test-data/api.datasets.id.json" with { type: "json" };
+import DATASET_COLUMNS from "./test-data/api.datasets.columns.json" with { type: "json" };
 
 test("basic", async ({ page }) => {
     // mock api
@@ -29,7 +29,7 @@ test("basic", async ({ page }) => {
     });
 
     // start
-    await page.goto("http://localhost:8000/");
+    await page.goto("http://localhost:5173/");
     await page.waitForTimeout(2000);
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
 });

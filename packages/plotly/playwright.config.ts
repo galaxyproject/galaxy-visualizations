@@ -5,5 +5,5 @@ export default defineConfig({
     use: {
         headless: !!process.env.CI,
     },
-    snapshotPathTemplate: "{testDir}/testing/{arg}.png",
+    snapshotPathTemplate: "{testDir}/test-data/{arg}.png",
 });
