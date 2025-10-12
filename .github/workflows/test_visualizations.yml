@@ -1,4 +1,4 @@
-name: Test All Visualizations
+name: Test Visualizations
 
 on:
   pull_request:
