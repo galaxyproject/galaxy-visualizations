@@ -29,7 +29,7 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
     });
 
     // start
-    await page.goto("http://localhost:5173/");
+    await page.goto("http://localhost:8000/");
     await page.waitForTimeout(2000);
     await expect(page).toHaveScreenshot("0.png");
 });
