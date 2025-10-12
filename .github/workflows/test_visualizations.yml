@@ -179,11 +179,15 @@ jobs:
       - name: Wait for server to be ready
         run: |
           echo "Waiting for server to be ready..."
+          ports=(5173 8000 8080)
           for i in {1..60}; do
-            if curl -s http://localhost:8000 > /dev/null 2>&1; then
-              echo "✅ Server is ready!"
-              exit 0
-            fi
+            for port in "${ports[@]}"; do
+              if curl -s http://localhost:$port > /dev/null 2>&1; then
+                echo "✅ Server is ready on port $port!"
+                echo "port=$port" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            done
             echo "Attempt $i/60..."
             sleep 2
           done
