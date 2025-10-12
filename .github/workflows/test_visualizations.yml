@@ -151,6 +151,21 @@ jobs:
         run: npx playwright install --with-deps chromium
         if: steps.cache-playwright.outputs.cache-hit != 'true'
 
+      - name: Check for Playwright config
+        id: check-playwright-config
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          if [ -f playwright.config.js ] || [ -f playwright.config.ts ]; then
+            echo "has_config=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_config=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Copy default Playwright config
+        if: steps.check-playwright-config.outputs.has_config == 'false'
+        working-directory: packages/${{ matrix.package }}
+        run: cp ../../.github/config/playwright.config.js .
+
       - name: Build
         working-directory: packages/${{ matrix.package }}
         run: npm run build

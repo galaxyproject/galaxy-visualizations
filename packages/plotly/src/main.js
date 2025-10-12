@@ -25,12 +25,12 @@ async function main() {
         const dataIncoming = {
             visualization_config: {
                 // Placeholder for dataset ID
-                dataset_id: process.env.dataset_id,
+                dataset_id: process.env.dataset_id || "__test__",
                 // Placeholder for additional visualization settings
                 settings: {},
             },
             // Parse and load the visualization XML configuration
-            visualization_plugin: await parseXML("plotly_heatmap.xml"),
+            visualization_plugin: await parseXML("plotly.xml"),
         };
 
         // Find the root app element and attach the mock data as a JSON string to its data-incoming attribute
