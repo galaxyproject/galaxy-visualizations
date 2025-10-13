@@ -46,6 +46,7 @@ async function render() {
     });
 
     if (props.settings.search_algorithm === "kruskal") {
+        //@ts-ignore
         cytoscape.value.elements().kruskal().edges().addClass("searchpath");
     }
 

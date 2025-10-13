@@ -12,11 +12,14 @@
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
-        "test": "vitest --run",
-        "test:watch": "vitest --watch",
-        "test:ui": "vitest --ui"
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:e2e": "npx playwright test",
+        "test:ui": "vitest --ui",
+        "test:unit": "vitest run",
+        "test:watch": "vitest --watch"
     },
     "devDependencies": {
+        "@playwright/test": "^1.56.0",
         "@types/cytoscape": "^3.21.8",
         "@types/node": "^22.9.0",
         "@vitejs/plugin-vue": "^5.0.5",
