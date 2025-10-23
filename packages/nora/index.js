@@ -82,6 +82,7 @@ const incoming = JSON.parse(appElement.dataset.incoming || "{}");
 const datasetId = incoming.visualization_config.dataset_id;
 const root = incoming.root;
 const metaUrl = `${root}api/datasets/${datasetId}`;
+const dataUrl = `${root}api/datasets/${datasetId}/display`;
 
 async function getData(url) {
     try {
@@ -89,11 +90,6 @@ async function getData(url) {
     } catch (e) {
         console.error("Failed to retrieve data.", e);
     }
-}
-
-function getUrl(datasetId) {
-    const rootWithoutProtocol = root.replace(/^[a-z]+:\/\//i, '');
-    return `${rootWithoutProtocol}api/datasets/${datasetId}/display`;
 }
 
 async function render() {
@@ -126,7 +122,7 @@ async function render() {
     KViewer.$iron.hide()
     KViewer.applyState()
 
-    var loader = [{url: getUrl(datasetId), intendedName: metaData.name, filetype: metaData.extension, intent: {}}];
+    var loader = [{url: dataUrl, intendedName: metaData.name, filetype: metaData.extension, intent: {}}];
     KViewer.startImageLoader(loader,function() {});
 }
 

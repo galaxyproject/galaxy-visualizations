@@ -441,7 +441,7 @@ function KDataManager()
 		var suffix = "";
 		var suffix = "?v=" + Date.now();
 		
-		xhr.open('GET', `${window.location.protocol}//${params.url}${suffix}` , true);
+		xhr.open('GET', `${params.url}${suffix}`, true);
 		
 		xhr.setRequestHeader('Cache-Control', 'no-cache');
 		xhr.responseType = 'arraybuffer';
