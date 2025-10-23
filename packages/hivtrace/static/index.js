@@ -249,85 +249,83 @@ function in_progress() {
   return $(".progress").length > 0;
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-  loadScriptsSequentially(scriptsToLoad, () => {
-    $("#network_pairwise_chord_legend").popover({
-      html: true,
-      trigger: "click",
-      placement: "bottom",
-      content:
-        "<div style = 'width : 250px'>\
-                            This panel will show either a <a href = 'https://en.wikipedia.org/wiki/Chord_diagram'><b>chord diagram</b></a> (for category values) \
-                            or a <b>scatterplot</b> (for continous values). They are useful to display the pairings \
-                            for node attributes across links. Mouse over a particular color to display what attribute it\
-                            corresponds to in <b>chord diagrams</b>. Mouse over a particular point to display what link \
-                            corresponds to in <b>histograms</b>. <p/> \
-                            To better understand a <b>chord diagram</b>, consider a network with 100 links. 40 of these links connect males to males, \
-                            10 of the links connect females to females, and 50 - males to females. Males will be allocated (40 x 2 + 50) / 200 = .65, of the \
-                            total circumference (pie slice size). The connection between males and females (with the males as the focus) will be given 50 / (50+40) = 5/9 of the \
-                            weight. The connection between females and males (with the females as the focus) will be given 50 / (50+10) = 5/6 of the weight.\
-                </div>\
-            ",
-    });
-
-    $("#network_pairwise_table_legend").popover({
-      html: true,
-      trigger: "hover",
-      placement: "bottom",
-      content:
-        '<div style = \'width : 250px\'>\
-                This table shows how many connections exist between each pair of attribute values. For example, if \
-                a link connects a node which is "Male" and a node that is "Female", this link contributes \
-                a count of 1 to both "Male/Female", and "Female/Male" cells of the table. A link connecting a "Male" node  \
-                to a "Male" node will contribute 2 counts to the Male/Male cell.\
-                </div>\
-            ',
-    });
-
-    $("#network_pairwise_chart_legend").popover({
-      html: true,
-      trigger: "click",
-      placement: "bottom",
-      content:
-        '<div style = \'width : 250px\'>\
-                This table shows how many connections exist between each pair of attribute values. For example, if\
-                a link connects a node which is "Male" and a node that is "Female", this link contributes\
-                a count of 1 to both "Male/Female", and "Female/Male" cells of the table. A link connecting a "Male" node\
-                to a "Male" node will contribute 2 counts to the Male/Male cell.\
-                </div>\
-            ',
-    });
-
-    $("#network_pairwise_table_legend").on("click", function (e) {
-      e.preventDefault();
-    });
-
-    $("#network_ui_search_help").popover({
-      html: true,
-      trigger: "hover click",
-      placement: "bottom",
-      content:
-        "<div style = 'width : 250px'>\
-                Type in text to search for clusters and nodes whose <em>attributes contain the term</em>. <p/>\
-                For example, typing in <code>MSM</code> will highlight nodes and/or clusters that \
-                have 'MSM' in any of the data fields. <p/>\
-                Type in space separated terms (<code>MSM IDU</code>) to search for <b>either</b> term. <p/>\
-                Type in terms in quotes (<code>\"male\"</code>) will search for this <b>exact</b> term. <p/>\
-                Type in <code>&lt;0.01</code> to search for nodes that have edges which are 0.01 (1%) or shorter. Any positive threshold works <p/>\
-                Matching node <svg width = '20' height = '20' style = 'vertical-align: bottom; display: inline'><circle cx = '10' cy = '10' r = '7' class = 'node selected_object'> </circle></svg><p/>\
-                Cluster where 25% of nodes match the term <svg width = '28' height = '28' style = 'vertical-align: bottom; display: inline'><circle cx = '14' cy = '14' r = '8' class = 'cluster'> </circle>\
-                <path d = 'M 2 14 A 12 12 0 0 1 14 2'/ style = 'fill: none; stroke: #337AB7; stroke-width: 3px;'>\
-                </svg><p/> \
-                Cluster where 75% of nodes match the term <svg width = '28' height = '28' style = 'vertical-align: bottom; display: inline'><circle cx = '14' cy = '14' r = '8' class = 'cluster'> </circle>\
-                <path d = 'M 2 14 A 12 12 0 1 1 14 26'/ style = 'fill: none; stroke: #337AB7; stroke-width: 3px;'>\
-                </svg><p/> \
-                Use the <code>Hide others</code> checkbox to automatically hide all clusters/nodes that do not match the search terms\
-                <p/>\
-                Use the <code>Show small clusters</code> checkbox to display small clusters that may have been hidden for clarity\
-                </div>\
-            ",
-    });
-
-    initialize_cluster_network_graphs();
+loadScriptsSequentially(scriptsToLoad, () => {
+  $("#network_pairwise_chord_legend").popover({
+    html: true,
+    trigger: "click",
+    placement: "bottom",
+    content:
+      "<div style = 'width : 250px'>\
+                          This panel will show either a <a href = 'https://en.wikipedia.org/wiki/Chord_diagram'><b>chord diagram</b></a> (for category values) \
+                          or a <b>scatterplot</b> (for continous values). They are useful to display the pairings \
+                          for node attributes across links. Mouse over a particular color to display what attribute it\
+                          corresponds to in <b>chord diagrams</b>. Mouse over a particular point to display what link \
+                          corresponds to in <b>histograms</b>. <p/> \
+                          To better understand a <b>chord diagram</b>, consider a network with 100 links. 40 of these links connect males to males, \
+                          10 of the links connect females to females, and 50 - males to females. Males will be allocated (40 x 2 + 50) / 200 = .65, of the \
+                          total circumference (pie slice size). The connection between males and females (with the males as the focus) will be given 50 / (50+40) = 5/9 of the \
+                          weight. The connection between females and males (with the females as the focus) will be given 50 / (50+10) = 5/6 of the weight.\
+              </div>\
+          ",
   });
+
+  $("#network_pairwise_table_legend").popover({
+    html: true,
+    trigger: "hover",
+    placement: "bottom",
+    content:
+      '<div style = \'width : 250px\'>\
+              This table shows how many connections exist between each pair of attribute values. For example, if \
+              a link connects a node which is "Male" and a node that is "Female", this link contributes \
+              a count of 1 to both "Male/Female", and "Female/Male" cells of the table. A link connecting a "Male" node  \
+              to a "Male" node will contribute 2 counts to the Male/Male cell.\
+              </div>\
+          ',
+  });
+
+  $("#network_pairwise_chart_legend").popover({
+    html: true,
+    trigger: "click",
+    placement: "bottom",
+    content:
+      '<div style = \'width : 250px\'>\
+              This table shows how many connections exist between each pair of attribute values. For example, if\
+              a link connects a node which is "Male" and a node that is "Female", this link contributes\
+              a count of 1 to both "Male/Female", and "Female/Male" cells of the table. A link connecting a "Male" node\
+              to a "Male" node will contribute 2 counts to the Male/Male cell.\
+              </div>\
+          ',
+  });
+
+  $("#network_pairwise_table_legend").on("click", function (e) {
+    e.preventDefault();
+  });
+
+  $("#network_ui_search_help").popover({
+    html: true,
+    trigger: "hover click",
+    placement: "bottom",
+    content:
+      "<div style = 'width : 250px'>\
+              Type in text to search for clusters and nodes whose <em>attributes contain the term</em>. <p/>\
+              For example, typing in <code>MSM</code> will highlight nodes and/or clusters that \
+              have 'MSM' in any of the data fields. <p/>\
+              Type in space separated terms (<code>MSM IDU</code>) to search for <b>either</b> term. <p/>\
+              Type in terms in quotes (<code>\"male\"</code>) will search for this <b>exact</b> term. <p/>\
+              Type in <code>&lt;0.01</code> to search for nodes that have edges which are 0.01 (1%) or shorter. Any positive threshold works <p/>\
+              Matching node <svg width = '20' height = '20' style = 'vertical-align: bottom; display: inline'><circle cx = '10' cy = '10' r = '7' class = 'node selected_object'> </circle></svg><p/>\
+              Cluster where 25% of nodes match the term <svg width = '28' height = '28' style = 'vertical-align: bottom; display: inline'><circle cx = '14' cy = '14' r = '8' class = 'cluster'> </circle>\
+              <path d = 'M 2 14 A 12 12 0 0 1 14 2'/ style = 'fill: none; stroke: #337AB7; stroke-width: 3px;'>\
+              </svg><p/> \
+              Cluster where 75% of nodes match the term <svg width = '28' height = '28' style = 'vertical-align: bottom; display: inline'><circle cx = '14' cy = '14' r = '8' class = 'cluster'> </circle>\
+              <path d = 'M 2 14 A 12 12 0 1 1 14 26'/ style = 'fill: none; stroke: #337AB7; stroke-width: 3px;'>\
+              </svg><p/> \
+              Use the <code>Hide others</code> checkbox to automatically hide all clusters/nodes that do not match the search terms\
+              <p/>\
+              Use the <code>Show small clusters</code> checkbox to display small clusters that may have been hidden for clarity\
+              </div>\
+          ",
+  });
+
+  initialize_cluster_network_graphs();
 });
