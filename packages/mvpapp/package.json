@@ -1,6 +1,6 @@
 {
   "name": "@galaxyproject/mvpapp",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "MVP Viewer",
   "main": "index.js",
   "scripts": {
