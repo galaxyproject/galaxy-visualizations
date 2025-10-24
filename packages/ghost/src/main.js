@@ -34,8 +34,7 @@ if (import.meta.env.DEV) {
     // Build the incoming data object
     const dataIncoming = {
         visualization_config: {
-            dataset_url:
-                "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv",
+            dataset_id: process.env.dataset_id,
         },
     };
 
@@ -67,8 +66,11 @@ const SCRIPT_PATH = ROOT ? `${new URL(ROOT).pathname}${STATIC_PATH}` : "/";
 // Determine scope
 const SCOPE = `${SCRIPT_PATH}virtual/${DATASET_ID}/`;
 
+// Test dataset
+const TEST_DATA = "https://raw.githubusercontent.com/caporaso-lab/q2view-visualizations/main/uu-fasttree-empire.qzv";
+
 // Determine dataset url
-const ZIP = DATASET_ID ? `${ROOT}api/datasets/${DATASET_ID}/display` : incoming.visualization_config.dataset_url;
+const ZIP = DATASET_ID ? `${ROOT}api/datasets/${DATASET_ID}/display` : TEST_DATA;
 
 // Ignore list for zip loader
 const IGNORE = ["__MACOSX/", ".DS_Store"];
