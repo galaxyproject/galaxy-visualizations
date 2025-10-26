@@ -16,7 +16,6 @@ type Atomic = string | number | boolean | null | undefined;
 
 interface Dataset {
     extension?: string;
-    hid?: string;
     id: string;
     metadata_dbkey?: string;
     name?: string;
@@ -376,14 +375,6 @@ function trackHash(track: Track): string {
     return (hash >>> 0).toString(36);
 }
 
-function trackName(datasetDetails: Dataset | null): string {
-    if (datasetDetails) {
-        return `${datasetDetails?.hid}: ${datasetDetails?.name}`;
-    } else {
-        return "";
-    }
-}
-
 function trackType(format: string | null): string {
     const normalized = format?.toLowerCase();
     if (normalized) {
@@ -419,7 +410,7 @@ async function tracksResolve() {
         const color = t.color;
         const format = datasetDetails?.extension || null;
         const index = t.indexUrlDataset as Dataset;
-        const name = t.name || trackName(datasetDetails);
+        const name = t.name || datasetDetails?.name || "";
         const type = t.type && t.type !== "auto" ? t.type : trackType(format);
         const url = dataset ? getDatasetUrl(dataset.id) : null;
         // identify index source
