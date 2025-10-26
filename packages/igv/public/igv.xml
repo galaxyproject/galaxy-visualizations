@@ -88,13 +88,6 @@
     </settings>
     <tracks>
         <input>
-            <label>Name</label>
-            <help>Specify a track name.</help>
-            <name>name</name>
-            <type>text</type>
-            <value></value>
-        </input>
-        <input>
             <label>Dataset</label>
             <help>Select a track dataset.</help>
             <name>urlDataset</name>
@@ -132,6 +125,13 @@
                 <data><label>Squished</label><value>SQUISHED</value></data>
                 <data><label>Expanded</label><value>EXPANDED</value></data>
             </data>
+        </input>
+        <input>
+            <label>Name</label>
+            <help>Specify a track name.</help>
+            <name>name</name>
+            <type>text</type>
+            <value></value>
         </input>
         <input>
             <label>Color</label>
