@@ -314,6 +314,52 @@ function locusValid(locus: string): boolean {
     }
 }
 
+function trackDrop(event: DragEvent) {
+    let invalid = false;
+    const droppedTracks = [];
+    const raw = event.dataTransfer?.getData("text");
+    try {
+        const data = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(data) && data.length > 0) {
+            const payload = data[0];
+            if (payload && typeof payload === "object") {
+                const values: Array<Record<string, any>> = payload.id ? [payload] : Object.values(payload);
+                for (const entry of values) {
+                    if (entry.object?.model_class === "HistoryDatasetAssociation" && entry.object?.id && entry.element_identifier) {
+                        droppedTracks.push({
+                            id: entry.object.id,
+                            name: entry.element_identifier,
+                        });
+                    } else if (entry.history_content_type === "dataset" && entry.id) {
+                        droppedTracks.push({
+                            id: entry.id,
+                            name: entry.name,
+                        });
+                    } else {
+                        invalid = true;
+                    }
+                }
+            } else {
+                invalid = true;
+            }
+        } else {
+            invalid = true;
+        }
+    } catch {
+        message.value = "Failed to parse dropped data.";
+    }
+    if (invalid || droppedTracks.length === 0) {
+        message.value = "Please make sure to only drop valid history datasets.";
+        console.debug("[igv] Dropped Content", raw);
+    } else {
+        //const newTracks = [...props.tracks, droppedTracks.map((datasetId) => ({ urlDataset: { id: datasetId } }))];
+        const newTracks = [...props.tracks, { urlDataset: droppedTracks[0] }];
+        emit("update", {}, newTracks);
+        message.value = "";
+        console.debug("[igv] Dropped Tracks", newTracks);
+    }
+}
+
 function trackHash(track: Track): string {
     const keys = Object.keys(track).sort();
     const str = JSON.stringify(track, keys);
@@ -408,7 +454,7 @@ async function tracksResolve() {
 </script>
 
 <template>
-    <div class="h-screen overflow-auto">
+    <div class="h-screen overflow-auto" @dragover.prevent @drop.prevent="trackDrop">
         <div v-if="message" class="bg-sky-100 border border-sky-200 mt-1 p-2 rounded text-sky-800 text-sm">
             {{ message }}
         </div>
