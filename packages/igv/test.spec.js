@@ -39,7 +39,7 @@ test("basic", async ({ page }) => {
     });
 
     await page.goto("http://localhost:5173?dataset_id=__test_pw__");
-    await page.waitForSelector(".igv-track-label[title='Track']");
+    await page.waitForSelector(".igv-track-label[title='0: __test_pw__']");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
     await page.click(".n-button");
     await expect(page).toHaveScreenshot("1.png", { maxDiffPixelRatio: 0.02 });
