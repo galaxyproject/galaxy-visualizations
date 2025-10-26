@@ -9,13 +9,13 @@ import TWOBIT from "./test-data/api.twobit.json" with { type: "json" };
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATASET_CONTENT = fs.readFileSync(path.resolve(__dirname, "./test-data/test.bed"), "utf8");
-const DATASET_DETAILS = { extension: "bed", history_id: "history_id", id: "__test__", name: "__test__", hid: 0 };
+const DATASET_DETAILS = { extension: "bed", history_id: "history_id", id: "__test_pw__", name: "__test_pw__", hid: 0 };
 
 test("basic", async ({ page }) => {
     const routes = [
         { url: "**/api/histories/history_id/contents?**", body: [DATASET_DETAILS] },
-        { url: "**/api/datasets/__test__/display", body: DATASET_CONTENT, raw: true },
-        { url: "**/api/datasets/__test__", body: DATASET_DETAILS },
+        { url: "**/api/datasets/__test_pw__/display", body: DATASET_CONTENT, raw: true },
+        { url: "**/api/datasets/__test_pw__", body: DATASET_DETAILS },
         { url: "**/api/tool_data/fasta_indexes", body: FASTA_INDEXES },
         { url: "**/api/tool_data/twobit", body: TWOBIT },
         { url: "**/api/version", body: { version_major: "25.1", version_minor: "rc1" } },
@@ -38,7 +38,7 @@ test("basic", async ({ page }) => {
         console.log("Response:", url, status);
     });
 
-    await page.goto("http://localhost:5173/");
+    await page.goto("http://localhost:5173?dataset_id=__test_pw__");
     await page.waitForSelector(".igv-track-label[title='Track']");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
     await page.click(".n-button");

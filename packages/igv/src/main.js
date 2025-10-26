@@ -21,12 +21,15 @@ async function main() {
         // Dynamically import the XML parser utility, used for parsing visualization configurations
         const { parseXML } = await import("galaxy-charts-xml-parser");
 
+        // Determine page url in dev environment, `window.location` is not available in production
+        const pageUrl = new URL(window.location.href);
+
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             root: "/",
             visualization_config: {
                 // Placeholder for dataset ID
-                dataset_id: process.env.dataset_id || "__test__",
+                dataset_id: process.env.dataset_id || pageUrl.searchParams.get("dataset_id") || "__test__",
                 // Placeholder for additional visualization settings
                 settings: {},
             },

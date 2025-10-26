@@ -9,12 +9,20 @@ const DEFAULT_GENOME = "hg38";
 const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
 const IGV_GENOMES = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
+const TEST_DATASET_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/gencode.v29.annotation.gff3";
+const TEST_DATASET_DETAILS = { extension: "gff3", id: "__test__", metadata_dbkey: "hg18" };
 
 type Atomic = string | number | boolean | null | undefined;
 
 interface Dataset {
     id: string;
     name: string;
+}
+
+interface DatasetDetails {
+    extension: string;
+    id: string;
+    metadata_dbkey: string;
 }
 
 interface Track {
@@ -29,7 +37,6 @@ const lastQueue = new LastQueue<any>(DELAY);
 
 const props = defineProps<{
     datasetId: string;
-    datasetUrl: string;
     root: string;
     settings: {
         locus: string;
@@ -81,7 +88,7 @@ async function create() {
         await loadGenome();
     } else if (props.datasetId) {
         // match database key to genomes
-        const { data: dataset } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
+        const dataset = await getDatasetDetails(props.datasetId);
         const dbkey = dataset.metadata_dbkey;
         const source = (await findGenome(dbkey)) || (await findGenome(DEFAULT_GENOME));
 
@@ -165,8 +172,8 @@ function getGenome() {
 
 async function getDatasetType(datasetId: string): Promise<string | null> {
     try {
-        const { data } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
-        return data.extension;
+        const dataset = await getDatasetDetails(datasetId);
+        return dataset.extension;
     } catch (e) {
         message.value = `Failed to retrieve dataset type for: ${datasetId}`;
         console.error(message.value, e);
@@ -175,12 +182,26 @@ async function getDatasetType(datasetId: string): Promise<string | null> {
 }
 
 function getDatasetUrl(datasetId: string): string {
-    return `${props.root}api/datasets/${datasetId}/display`;
+    if (datasetId === "__test__") {
+        return TEST_DATASET_URL;
+    } else {
+        return `${props.root}api/datasets/${datasetId}/display`;
+    }
+}
+
+async function getDatasetDetails(datasetId: string): Promise<DatasetDetails> {
+    if (datasetId === "__test__") {
+        return TEST_DATASET_DETAILS;
+    } else {
+        const { data } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
+        return data;
+    }
 }
 
 function getIndexUrl(datasetId: string, format: string | null): string | null {
     const metadataKey = format ? CONFIG[format]?.index : null;
-    return metadataKey ? `${props.root}api/datasets/${datasetId}/metadata_file?metadata_file=${metadataKey}` : null;
+    const metadataCheck = metadataKey && datasetId !== "__test__";
+    return metadataCheck ? `${props.root}api/datasets/${datasetId}/metadata_file?metadata_file=${metadataKey}` : null;
 }
 
 async function loadGenome() {
