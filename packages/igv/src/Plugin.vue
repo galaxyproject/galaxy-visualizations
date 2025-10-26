@@ -51,6 +51,7 @@ const emit = defineEmits<{
     (event: "update", newSettings: any, newTracks?: any): void;
 }>();
 
+const dragging = ref(false);
 const message = ref("");
 const viewport = ref<HTMLDivElement | null>(null);
 
@@ -325,7 +326,11 @@ function trackDrop(event: DragEvent) {
             if (payload && typeof payload === "object") {
                 const values: Array<Record<string, any>> = payload.id ? [payload] : Object.values(payload);
                 for (const entry of values) {
-                    if (entry.object?.model_class === "HistoryDatasetAssociation" && entry.object?.id && entry.element_identifier) {
+                    if (
+                        entry.object?.model_class === "HistoryDatasetAssociation" &&
+                        entry.object?.id &&
+                        entry.element_identifier
+                    ) {
                         droppedTracks.push({
                             id: entry.object.id,
                             name: entry.element_identifier,
@@ -454,10 +459,19 @@ async function tracksResolve() {
 </script>
 
 <template>
-    <div class="h-screen overflow-auto" @dragover.prevent @drop.prevent="trackDrop">
+    <div
+        class="h-screen overflow-auto"
+        @dragover.prevent="dragging = true"
+        @dragleave.prevent="dragging = false"
+        @drop.prevent="trackDrop">
         <div v-if="message" class="bg-sky-100 border border-sky-200 mt-1 p-2 rounded text-sky-800 text-sm">
             {{ message }}
         </div>
         <div ref="viewport"></div>
+        <div
+            v-if="dragging"
+            class="absolute inset-2 border-4 border-dashed border-sky-600 rounded flex items-center justify-center pointer-events-none bg-sky-200 bg-opacity-80 text-sky-900 text-xl font-semibold z-256">
+            Drop Track Datasets!
+        </div>
     </div>
 </template>
