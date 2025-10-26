@@ -357,8 +357,7 @@ function trackDrop(event: DragEvent) {
         message.value = "Please make sure to only drop valid history datasets.";
         console.debug("[igv] Dropped Content", raw);
     } else {
-        //const newTracks = [...props.tracks, droppedTracks.map((datasetId) => ({ urlDataset: { id: datasetId } }))];
-        const newTracks = [...props.tracks, { urlDataset: droppedTracks[0] }];
+        const newTracks = [...props.tracks, ...droppedTracks.map((datasetId) => ({ urlDataset: { id: datasetId } }))];
         emit("update", {}, newTracks);
         message.value = "";
         console.debug("[igv] Dropped Tracks", newTracks);
