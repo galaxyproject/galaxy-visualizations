@@ -89,7 +89,7 @@
     <tracks>
         <input>
             <label>Dataset</label>
-            <help>Select a track dataset.</help>
+            <help>Select or drag and drop a track dataset from your history.</help>
             <name>urlDataset</name>
             <type>data</type>
         </input>
