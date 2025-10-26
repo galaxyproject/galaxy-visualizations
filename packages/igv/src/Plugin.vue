@@ -363,6 +363,7 @@ function trackDrop(event: DragEvent) {
         message.value = "";
         console.debug("[igv] Dropped Tracks", newTracks);
     }
+    dragging.value = false;
 }
 
 function trackHash(track: Track): string {
@@ -470,7 +471,7 @@ async function tracksResolve() {
         <div ref="viewport"></div>
         <div
             v-if="dragging"
-            class="absolute inset-2 border-4 border-dashed border-sky-600 rounded flex items-center justify-center pointer-events-none bg-sky-200 bg-opacity-80 text-sky-900 text-xl font-semibold z-256">
+            class="absolute inset-2 border-4 border-dashed border-sky-600 rounded flex items-center justify-center pointer-events-none bg-sky-200 bg-opacity-80 text-sky-600 text-xl font-semibold z-256">
             Drop Track Datasets!
         </div>
     </div>
