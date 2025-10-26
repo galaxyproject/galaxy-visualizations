@@ -28,6 +28,14 @@
     <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <settings>
         <input>
+            <label>Locus</label>
+            <help>Select a gene locus e.g. chr1:1-100.</help>
+            <name>locus</name>
+            <type>text</type>
+            <deferred>true</deferred>
+            <value>all</value>
+        </input>
+        <input>
             <label>Source</label>
             <help>Pick a genome source.</help>
             <name>source</name>
@@ -76,14 +84,6 @@
                     </inputs>
                 </cases>
             </cases>
-        </input>
-        <input>
-            <label>Locus</label>
-            <help>Select a gene locus e.g. chr1:1-100.</help>
-            <name>locus</name>
-            <type>text</type>
-            <deferred>true</deferred>
-            <value>all</value>
         </input>
     </settings>
     <tracks>
