@@ -41,8 +41,8 @@ const props = defineProps<{
     settings: {
         locus: string;
         source: {
-            origin: string;
             genome: any;
+            origin: string;
         };
     };
     specs: Record<string, unknown>;
@@ -118,8 +118,8 @@ async function findGenome(dbkey: string) {
         const matchTable = dataTable.find((item) => Array.isArray(item.value?.row) && item.value.row.includes(dbkey));
         if (matchTable) {
             return {
-                origin: "builtin",
                 genome: matchTable.value,
+                origin: "builtin",
             };
         }
     }
@@ -130,8 +130,8 @@ async function findGenome(dbkey: string) {
     const matchJson = dataJson.find((item) => item.value?.id === dbkey);
     if (matchJson) {
         return {
-            origin: "igv",
             genome: matchJson.value,
+            origin: "igv",
         };
     }
 
