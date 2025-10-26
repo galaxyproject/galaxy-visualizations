@@ -9,7 +9,7 @@ import TWOBIT from "./test-data/api.twobit.json" with { type: "json" };
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATASET_CONTENT = fs.readFileSync(path.resolve(__dirname, "./test-data/test.bed"), "utf8");
-const DATASET_DETAILS = { extension: "bed", history_id: "history_id", id: "__test_pw__", name: "__test_pw__", hid: 0 };
+const DATASET_DETAILS = { extension: "bed", history_id: "history_id", id: "__test_pw__", name: "__test_pw__" };
 
 test("basic", async ({ page }) => {
     const routes = [
@@ -39,7 +39,7 @@ test("basic", async ({ page }) => {
     });
 
     await page.goto("http://localhost:5173?dataset_id=__test_pw__");
-    await page.waitForSelector(".igv-track-label[title='0: __test_pw__']");
+    await page.waitForSelector(".igv-track-label[title='__test_pw__']");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
     await page.click(".n-button");
     await expect(page).toHaveScreenshot("1.png", { maxDiffPixelRatio: 0.02 });
