@@ -317,7 +317,7 @@ function locusValid(locus: string): boolean {
 
 function trackDrop(event: DragEvent) {
     let invalid = false;
-    const droppedTracks = [];
+    const droppedDatasets = [];
     const raw = event.dataTransfer?.getData("text");
     try {
         const data = raw ? JSON.parse(raw) : [];
@@ -331,12 +331,12 @@ function trackDrop(event: DragEvent) {
                         entry.object?.id &&
                         entry.element_identifier
                     ) {
-                        droppedTracks.push({
+                        droppedDatasets.push({
                             id: entry.object.id,
                             name: entry.element_identifier,
                         });
                     } else if (entry.history_content_type === "dataset" && entry.id) {
-                        droppedTracks.push({
+                        droppedDatasets.push({
                             id: entry.id,
                             name: entry.name,
                         });
@@ -353,11 +353,11 @@ function trackDrop(event: DragEvent) {
     } catch {
         message.value = "Failed to parse dropped data.";
     }
-    if (invalid || droppedTracks.length === 0) {
+    if (invalid || droppedDatasets.length === 0) {
         message.value = "Please make sure to only drop valid history datasets.";
         console.debug("[igv] Dropped Content", raw);
     } else {
-        const newTracks = [...props.tracks, ...droppedTracks.map((datasetId) => ({ urlDataset: { id: datasetId } }))];
+        const newTracks = [...props.tracks, ...droppedDatasets.map((d) => ({ urlDataset: d }))];
         emit("update", {}, newTracks);
         message.value = "";
         console.debug("[igv] Dropped Tracks", newTracks);
