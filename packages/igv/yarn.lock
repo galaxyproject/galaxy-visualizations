@@ -765,10 +765,10 @@ galaxy-charts-xml-parser@^1.0.3:
   dependencies:
     axios "^1.7.7"
 
-galaxy-charts@^0.0.87:
-  version "0.0.87"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.87.tgz"
-  integrity sha512-3xyr7+5mcHRLlJ7WbCh59i9eD0l9QIvLzO06GjIhMfCKT5g+3TIv1DHde16b1WTgQq1KWWLaDfDqvWDykMyGoA==
+galaxy-charts@^0.0.88:
+  version "0.0.88"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.88.tgz"
+  integrity sha512-FVHzZBBcdPZ/1EM3wQC4jheFSVbr4YqPXZ9WDPGXCoKsHhQcrbmrT5buXAZ3xLn16DCs9pzCC7F+Sk2A7UXk5w==
 
 get-intrinsic@^1.2.6:
   version "1.3.0"
@@ -1608,9 +1608,9 @@ vite-node@3.0.9:
     vite "^5.0.0 || ^6.0.0"
 
 "vite@^5.0.0 || ^6.0.0", vite@^6.2.2:
-  version "6.3.6"
-  resolved "https://registry.npmjs.org/vite/-/vite-6.3.6.tgz"
-  integrity sha512-0msEVHJEScQbhkbVTb/4iHZdJ6SXp/AvxL2sjwYQFfBqleHtnCqv1J3sa9zbWz/6kW1m9Tfzn92vW+kZ1WV6QA==
+  version "6.4.1"
+  resolved "https://registry.npmjs.org/vite/-/vite-6.4.1.tgz"
+  integrity sha512-+Oxm7q9hDoLMyJOYfUYBuHQo+dkAloi33apOPP56pzj+vsdJDzr+j1NISE5pyaAuKL4A3UD34qd0lx5+kfKp2g==
   dependencies:
     esbuild "^0.25.0"
     fdir "^6.4.4"
