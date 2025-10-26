@@ -10,19 +10,15 @@ const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
 const IGV_GENOMES = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
 const TEST_DATASET_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/gencode.v29.annotation.gff3";
-const TEST_DATASET_DETAILS = { extension: "gff3", id: "__test__", metadata_dbkey: "hg18" };
+const TEST_DATASET_DETAILS = { extension: "gff3", id: "__test__", metadata_dbkey: "hg18", name: "TEST DATASET" };
 
 type Atomic = string | number | boolean | null | undefined;
 
 interface Dataset {
+    extension?: string;
     id: string;
-    name: string;
-}
-
-interface DatasetDetails {
-    extension: string;
-    id: string;
-    metadata_dbkey: string;
+    metadata_dbkey?: string;
+    name?: string;
 }
 
 interface Track {
@@ -89,14 +85,16 @@ async function create() {
     } else if (props.datasetId) {
         // match database key to genomes
         const dataset = await getDatasetDetails(props.datasetId);
-        const dbkey = dataset.metadata_dbkey;
-        const source = (await findGenome(dbkey)) || (await findGenome(DEFAULT_GENOME));
+        if (dataset) {
+            const dbkey = dataset.metadata_dbkey || DEFAULT_GENOME;
+            const source = (await findGenome(dbkey)) || (await findGenome(DEFAULT_GENOME));
 
-        // emit update
-        const newSettings = source ? { source } : {};
-        const newTracks = [{ urlDataset: { id: dataset.id } }];
-        emit("update", newSettings, newTracks);
-        console.debug("[igv] Updating values.", newSettings, newTracks);
+            // emit update
+            const newSettings = source ? { source } : {};
+            const newTracks = [{ urlDataset: { id: dataset.id } }];
+            emit("update", newSettings, newTracks);
+            console.debug("[igv] Updating values.", newSettings, newTracks);
+        }
     } else {
         message.value = "Genome selection required. Open the side panel and choose options.";
     }
@@ -170,17 +168,6 @@ function getGenome() {
     }
 }
 
-async function getDatasetType(datasetId: string): Promise<string | null> {
-    try {
-        const dataset = await getDatasetDetails(datasetId);
-        return dataset.extension;
-    } catch (e) {
-        message.value = `Failed to retrieve dataset type for: ${datasetId}`;
-        console.error(message.value, e);
-        return null;
-    }
-}
-
 function getDatasetUrl(datasetId: string): string {
     if (datasetId === "__test__") {
         return TEST_DATASET_URL;
@@ -189,12 +176,18 @@ function getDatasetUrl(datasetId: string): string {
     }
 }
 
-async function getDatasetDetails(datasetId: string): Promise<DatasetDetails> {
+async function getDatasetDetails(datasetId: string): Promise<Dataset | null> {
     if (datasetId === "__test__") {
         return TEST_DATASET_DETAILS;
     } else {
-        const { data } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
-        return data;
+        try {
+            const { data } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
+            return data;
+        } catch (e) {
+            message.value = `Failed to retrieve dataset details for: ${datasetId}`;
+            console.error(message.value, e);
+            return null;
+        }
     }
 }
 
@@ -361,11 +354,12 @@ async function tracksResolve() {
     for (const t of props.tracks) {
         // populate basic track parameters
         const dataset = t.urlDataset as Dataset;
+        const datasetDetails = dataset ? await getDatasetDetails(dataset.id) : null;
         const displayMode = t.displayMode;
         const color = t.color;
-        const format = dataset ? await getDatasetType(dataset.id) : null;
+        const format = datasetDetails?.extension || null;
         const index = t.indexUrlDataset as Dataset;
-        const name = t.name;
+        const name = t.name || datasetDetails?.name || "";
         const type = t.type && t.type !== "auto" ? t.type : trackType(format);
         const url = dataset ? getDatasetUrl(dataset.id) : null;
         // identify index source

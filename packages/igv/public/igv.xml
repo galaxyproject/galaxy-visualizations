@@ -92,7 +92,7 @@
             <help>Specify a track name.</help>
             <name>name</name>
             <type>text</type>
-            <value>Track</value>
+            <value></value>
         </input>
         <input>
             <label>Dataset</label>
