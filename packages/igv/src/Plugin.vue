@@ -41,7 +41,7 @@ const props = defineProps<{
     settings: {
         locus: string;
         source: {
-            from_igv: string;
+            origin: string;
             genome: any;
         };
     };
@@ -118,7 +118,7 @@ async function findGenome(dbkey: string) {
         const matchTable = dataTable.find((item) => Array.isArray(item.value?.row) && item.value.row.includes(dbkey));
         if (matchTable) {
             return {
-                from_igv: "false",
+                origin: "builtin",
                 genome: matchTable.value,
             };
         }
@@ -130,7 +130,7 @@ async function findGenome(dbkey: string) {
     const matchJson = dataJson.find((item) => item.value?.id === dbkey);
     if (matchJson) {
         return {
-            from_igv: "true",
+            origin: "igv",
             genome: matchJson.value,
         };
     }
@@ -142,7 +142,7 @@ async function findGenome(dbkey: string) {
 function getGenome() {
     const genome = props.settings.source.genome;
     if (genome) {
-        if (props.settings.source.from_igv === "true") {
+        if (props.settings.source.origin === "igv") {
             return genome;
         } else {
             const genomeId = genome.id;

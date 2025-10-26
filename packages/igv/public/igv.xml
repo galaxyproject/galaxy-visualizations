@@ -29,17 +29,27 @@
     <settings>
         <input>
             <label>Source</label>
-            <help>Switch to genomes served by IGV.</help>
+            <help>Pick a genome source.</help>
             <name>source</name>
             <type>conditional</type>
             <test_param>
-                <name>from_igv</name>
-                <type>boolean</type>
-                <value>false</value>
+                <name>origin</name>
+                <type>select</type>
+                <value>igv</value>
+                <data>
+                    <data>
+                        <label>IGV Remote Genome</label>
+                        <value>igv</value>
+                    </data>
+                    <data>
+                        <label>Galaxy Reference Genome</label>
+                        <value>builtin</value>
+                    </data>
+                </data>
             </test_param>
             <cases>
                 <cases>
-                    <value>false</value>
+                    <value>builtin</value>
                     <inputs>
                         <inputs>
                             <label>Genome</label>
@@ -54,7 +64,7 @@
                     </inputs>
                 </cases>
                 <cases>
-                    <value>true</value>
+                    <value>igv</value>
                     <inputs>
                         <inputs>
                             <label>Genome</label>
