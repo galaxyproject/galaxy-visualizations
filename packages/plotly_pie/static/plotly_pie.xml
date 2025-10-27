@@ -21,6 +21,59 @@
     </specs>
     <settings>
         <input>
+            <label>Color Schema</label>
+            <name>colorschema</name>
+            <help>Select a color map</help>
+            <type>select</type>
+            <value>galaxy</value>
+            <data>
+                <data>
+                    <label>Classic</label>
+                    <value>classic</value>
+                </data>
+                <data>
+                    <label>Earth</label>
+                    <value>earth</value>
+                </data>
+                <data>
+                    <label>Fire</label>
+                    <value>fire</value>
+                </data>
+                <data>
+                    <label>Forest</label>
+                    <value>forest</value>
+                </data>
+                <data>
+                    <label>Galaxy</label>
+                    <value>galaxy</value>
+                </data>
+                <data>
+                    <label>Muted</label>
+                    <value>muted</value>
+                </data>
+                <data>
+                    <label>Night</label>
+                    <value>night</value>
+                </data>
+                <data>
+                    <label>Ocean</label>
+                    <value>ocean</value>
+                </data>
+                <data>
+                    <label>Pastel</label>
+                    <value>pastel</value>
+                </data>
+                <data>
+                    <label>Plotly</label>
+                    <value>plotly</value>
+                </data>
+                <data>
+                    <label>Vibrant</label>
+                    <value>vibrant</value>
+                </data>
+            </data>
+        </input>
+        <input>
             <label>Text Information</label>
             <name>textinfo</name>
             <help>Select text information.</help>
@@ -75,59 +128,6 @@
                 <data>
                     <label>Value</label>
                     <value>value</value>
-                </data>
-            </data>
-        </input>
-        <input>
-            <label>Color Schema</label>
-            <name>colorschema</name>
-            <help>Select a color map</help>
-            <type>select</type>
-            <value>galaxy</value>
-            <data>
-                <data>
-                    <label>Classic</label>
-                    <value>classic</value>
-                </data>
-                <data>
-                    <label>Earth</label>
-                    <value>earth</value>
-                </data>
-                <data>
-                    <label>Fire</label>
-                    <value>fire</value>
-                </data>
-                <data>
-                    <label>Forest</label>
-                    <value>forest</value>
-                </data>
-                <data>
-                    <label>Galaxy</label>
-                    <value>galaxy</value>
-                </data>
-                <data>
-                    <label>Muted</label>
-                    <value>muted</value>
-                </data>
-                <data>
-                    <label>Night</label>
-                    <value>night</value>
-                </data>
-                <data>
-                    <label>Ocean</label>
-                    <value>ocean</value>
-                </data>
-                <data>
-                    <label>Pastel</label>
-                    <value>pastel</value>
-                </data>
-                <data>
-                    <label>Plotly</label>
-                    <value>plotly</value>
-                </data>
-                <data>
-                    <label>Vibrant</label>
-                    <value>vibrant</value>
                 </data>
             </data>
         </input>
