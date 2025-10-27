@@ -33,6 +33,7 @@ export default async function (datasetId, settings, tracks) {
     const layout = {
         grid: { rows, columns, xgap: XGAP, ygap: YGAP },
         margin: { l: MARGIN, r: MARGIN, t: MARGIN, b: MARGIN },
+        showlegend: settings.showlegend,
         annotations,
     };
     const config = { responsive: true };
@@ -52,8 +53,8 @@ export default async function (datasetId, settings, tracks) {
         data.push({
             name: `${track.name} (${index + 1})`,
             type: "pie",
-            hoverinfo: "label+percent",
-            textinfo: "percent",
+            hoverinfo: settings.hoverinfo || "label+value+percent",
+            textinfo: settings.textinfo || "label+percent",
             textposition: "inside",
             automargin: true,
             hole: settings.hole,

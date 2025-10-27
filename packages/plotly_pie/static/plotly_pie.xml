@@ -21,12 +21,131 @@
     </specs>
     <settings>
         <input>
-            <label>Hole</label>
+            <label>Text Information</label>
+            <name>textinfo</name>
+            <help>Select text information.</help>
+            <type>select</type>
+            <value>label+percent</value>
+            <data>
+                <data>
+                    <label>Label</label>
+                    <value>label</value>
+                </data>
+                <data>
+                    <label>Label+Percent</label>
+                    <value>label+percent</value>
+                </data>
+                <data>
+                    <label>Percent</label>
+                    <value>percent</value>
+                </data>
+                <data>
+                    <label>Value</label>
+                    <value>value</value>
+                </data>
+            </data>
+        </input>
+        <input>
+            <label>Hover Information</label>
+            <name>hoverinfo</name>
+            <help>Select hover information.</help>
+            <type>select</type>
+            <value>label+value+percent</value>
+            <data>
+                <data>
+                    <label>Label</label>
+                    <value>label</value>
+                </data>
+                <data>
+                    <label>Label+Percent</label>
+                    <value>label+percent</value>
+                </data>
+                <data>
+                    <label>Label+Value</label>
+                    <value>label+value</value>
+                </data>
+                <data>
+                    <label>Label+Value+Percent</label>
+                    <value>label+value+percent</value>
+                </data>
+                <data>
+                    <label>Percent</label>
+                    <value>percent</value>
+                </data>
+                <data>
+                    <label>Value</label>
+                    <value>value</value>
+                </data>
+            </data>
+        </input>
+        <input>
+            <label>Color Schema</label>
+            <name>colorschema</name>
+            <help>Select a color map</help>
+            <type>select</type>
+            <value>galaxy</value>
+            <data>
+                <data>
+                    <label>Classic</label>
+                    <value>classic</value>
+                </data>
+                <data>
+                    <label>Earth</label>
+                    <value>earth</value>
+                </data>
+                <data>
+                    <label>Fire</label>
+                    <value>fire</value>
+                </data>
+                <data>
+                    <label>Forest</label>
+                    <value>forest</value>
+                </data>
+                <data>
+                    <label>Galaxy</label>
+                    <value>galaxy</value>
+                </data>
+                <data>
+                    <label>Muted</label>
+                    <value>muted</value>
+                </data>
+                <data>
+                    <label>Night</label>
+                    <value>night</value>
+                </data>
+                <data>
+                    <label>Ocean</label>
+                    <value>ocean</value>
+                </data>
+                <data>
+                    <label>Pastel</label>
+                    <value>pastel</value>
+                </data>
+                <data>
+                    <label>Plotly</label>
+                    <value>plotly</value>
+                </data>
+                <data>
+                    <label>Vibrant</label>
+                    <value>vibrant</value>
+                </data>
+            </data>
+        </input>
+        <input>
+            <label>Donut</label>
             <name>hole</name>
             <help>Specify the hole size.</help>
             <type>float</type>
             <min>0</min>
-            <max>1</max>
+            <max>0.9</max>
+            <value>0</value>
+        </input>
+        <input>
+            <label>Legend</label>
+            <name>showlegend</name>
+            <help>Show or hide the legend.</help>
+            <type>boolean</type>
+            <value>true</value>
         </input>
     </settings>
     <tracks>
