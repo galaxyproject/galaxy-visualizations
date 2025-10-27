@@ -438,7 +438,7 @@ async function tracksResolve() {
             }
             nameCounts.set(baseName, count + 1);
             trackSeen.add(trackKey);
-            resolved.push({ ...track, name, order: index });
+            resolved.push({ ...track, name, order: -index });
         } else if (!isValid) {
             console.warn(`[igv] Invalid track skipped: '${baseName}'`);
         } else {
