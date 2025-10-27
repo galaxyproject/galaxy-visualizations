@@ -141,6 +141,13 @@
             <value>0</value>
         </input>
         <input>
+            <label>Sort</label>
+            <name>sort</name>
+            <help>Keep labels in original dataset order or sort by value.</help>
+            <type>boolean</type>
+            <value>false</value>
+        </input>
+        <input>
             <label>Legend</label>
             <name>showlegend</name>
             <help>Show or hide the legend.</help>

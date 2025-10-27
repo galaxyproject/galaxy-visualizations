@@ -13,13 +13,16 @@ test("basic", async ({ page }) => {
         });
     });
 
-    await page.route("**/api/datasets/__test__?data_type=raw_data&provider=dataset-column&indeces=0%2C1", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify(DATASET_COLUMNS_TEXT_NUMBER),
-        });
-    });
+    await page.route(
+        "**/api/datasets/__test__?data_type=raw_data&provider=dataset-column&indeces=0%2C1",
+        async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify(DATASET_COLUMNS_TEXT_NUMBER),
+            });
+        },
+    );
 
     await page.route("**/api/datasets/__test__?data_type=raw_data&provider=dataset-column&indeces=1", async (route) => {
         await route.fulfill({
