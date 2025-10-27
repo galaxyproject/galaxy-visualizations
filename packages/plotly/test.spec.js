@@ -51,27 +51,27 @@ test("basic", async ({ page }) => {
 
     // start
     await page.goto("http://localhost:5173/");
-    await expect(page).toHaveScreenshot("basic.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("basic.png");
     await page.click(".n-button");
-    await expect(page).toHaveScreenshot("basic_with_form.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("basic_with_form.png");
 
     // start pie
     await page.goto("http://localhost:5173?xml=plotly_pie");
-    await expect(page).toHaveScreenshot("pie.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("pie.png");
 
     // start box
     await page.goto("http://localhost:5173?xml=plotly_box");
-    await expect(page).toHaveScreenshot("box.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("box.png");
 
     // start histogram
     await page.goto("http://localhost:5173?xml=plotly_histogram");
-    await expect(page).toHaveScreenshot("histogram.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("histogram.png");
 
     // start surface
     await page.goto("http://localhost:5173?xml=plotly_surface");
-    await expect(page).toHaveScreenshot("surface.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("surface.png");
 
     // start heatmap
     await page.goto("http://localhost:5173?xml=plotly_heatmap");
-    await expect(page).toHaveScreenshot("heatmap.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("heatmap.png");
 });

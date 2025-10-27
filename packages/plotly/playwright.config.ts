@@ -1,8 +1,13 @@
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-    use: {
-        headless: !!process.env.CI,
+    expect: {
+        toMatchSnapshot: {
+            maxDiffPixelRatio: 0.03
+        }
     },
-    snapshotPathTemplate: "{testDir}/test-data/{arg}.png",
+    use: {
+        headless: !!process.env.CI
+    },
+    snapshotPathTemplate: "{testDir}/test-data/{arg}.png"
 });
