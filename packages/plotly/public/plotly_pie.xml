@@ -145,7 +145,7 @@
             <name>sort</name>
             <help>Keep labels in original dataset order or sort by value.</help>
             <type>boolean</type>
-            <value>false</value>
+            <value>true</value>
         </input>
         <input>
             <label>Legend</label>
