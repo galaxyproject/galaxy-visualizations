@@ -28,18 +28,36 @@
     <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <settings>
         <input>
+            <label>Locus</label>
+            <help>Select a gene locus e.g. chr1:1-100.</help>
+            <name>locus</name>
+            <type>text</type>
+            <deferred>true</deferred>
+            <value>all</value>
+        </input>
+        <input>
             <label>Source</label>
-            <help>Switch to genomes served by IGV.</help>
+            <help>Pick a genome source.</help>
             <name>source</name>
             <type>conditional</type>
             <test_param>
-                <name>from_igv</name>
-                <type>boolean</type>
-                <value>false</value>
+                <name>origin</name>
+                <type>select</type>
+                <value>igv</value>
+                <data>
+                    <data>
+                        <label>IGV Remote Genome</label>
+                        <value>igv</value>
+                    </data>
+                    <data>
+                        <label>Galaxy Reference Genome</label>
+                        <value>builtin</value>
+                    </data>
+                </data>
             </test_param>
             <cases>
                 <cases>
-                    <value>false</value>
+                    <value>builtin</value>
                     <inputs>
                         <inputs>
                             <label>Genome</label>
@@ -54,7 +72,7 @@
                     </inputs>
                 </cases>
                 <cases>
-                    <value>true</value>
+                    <value>igv</value>
                     <inputs>
                         <inputs>
                             <label>Genome</label>
@@ -67,26 +85,11 @@
                 </cases>
             </cases>
         </input>
-        <input>
-            <label>Locus</label>
-            <help>Select a gene locus e.g. chr1:1-100.</help>
-            <name>locus</name>
-            <type>text</type>
-            <deferred>true</deferred>
-            <value>all</value>
-        </input>
     </settings>
     <tracks>
         <input>
-            <label>Name</label>
-            <help>Specify a track name.</help>
-            <name>name</name>
-            <type>text</type>
-            <value>Track</value>
-        </input>
-        <input>
             <label>Dataset</label>
-            <help>Select a track dataset.</help>
+            <help>Select or drag and drop a track dataset from your history.</help>
             <name>urlDataset</name>
             <type>data</type>
         </input>
@@ -122,6 +125,13 @@
                 <data><label>Squished</label><value>SQUISHED</value></data>
                 <data><label>Expanded</label><value>EXPANDED</value></data>
             </data>
+        </input>
+        <input>
+            <label>Name</label>
+            <help>Specify a track name.</help>
+            <name>name</name>
+            <type>text</type>
+            <value></value>
         </input>
         <input>
             <label>Color</label>

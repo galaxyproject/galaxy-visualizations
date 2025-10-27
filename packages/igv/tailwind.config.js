@@ -2,7 +2,11 @@
 export default {
     content: ["./src/**/*.vue"],
     theme: {
-        extend: {},
+        extend: {
+            zIndex: {
+                256: "256",
+            },
+        },
     },
     plugins: [],
 };

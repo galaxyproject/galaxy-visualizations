@@ -9,12 +9,16 @@ const DEFAULT_GENOME = "hg38";
 const DEFAULT_TYPE = "annotation";
 const DELAY = 500;
 const IGV_GENOMES = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
+const TEST_DATASET_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/gencode.v29.annotation.gff3";
+const TEST_DATASET_DETAILS = { extension: "gff3", id: "__test__", metadata_dbkey: "hg18", name: "TEST DATASET" };
 
 type Atomic = string | number | boolean | null | undefined;
 
 interface Dataset {
+    extension?: string;
     id: string;
-    name: string;
+    metadata_dbkey?: string;
+    name?: string;
 }
 
 interface Track {
@@ -29,13 +33,12 @@ const lastQueue = new LastQueue<any>(DELAY);
 
 const props = defineProps<{
     datasetId: string;
-    datasetUrl: string;
     root: string;
     settings: {
         locus: string;
         source: {
-            from_igv: string;
             genome: any;
+            origin: string;
         };
     };
     specs: Record<string, unknown>;
@@ -47,6 +50,7 @@ const emit = defineEmits<{
     (event: "update", newSettings: any, newTracks?: any): void;
 }>();
 
+const dragging = ref(false);
 const message = ref("");
 const viewport = ref<HTMLDivElement | null>(null);
 
@@ -81,15 +85,17 @@ async function create() {
         await loadGenome();
     } else if (props.datasetId) {
         // match database key to genomes
-        const { data: dataset } = await GalaxyApi().GET(`/api/datasets/${props.datasetId}`);
-        const dbkey = dataset.metadata_dbkey;
-        const source = (await findGenome(dbkey)) || (await findGenome(DEFAULT_GENOME));
+        const dataset = await getDatasetDetails(props.datasetId);
+        if (dataset) {
+            const dbkey = dataset.metadata_dbkey || DEFAULT_GENOME;
+            const source = (await findGenome(dbkey)) || (await findGenome(DEFAULT_GENOME));
 
-        // emit update
-        const newSettings = source ? { source } : {};
-        const newTracks = [{ urlDataset: { id: dataset.id } }];
-        emit("update", newSettings, newTracks);
-        console.debug("[igv] Updating values.", newSettings, newTracks);
+            // emit update
+            const newSettings = source ? { source } : {};
+            const newTracks = [{ urlDataset: { id: dataset.id } }];
+            emit("update", newSettings, newTracks);
+            console.debug("[igv] Updating values.", newSettings, newTracks);
+        }
     } else {
         message.value = "Genome selection required. Open the side panel and choose options.";
     }
@@ -111,8 +117,8 @@ async function findGenome(dbkey: string) {
         const matchTable = dataTable.find((item) => Array.isArray(item.value?.row) && item.value.row.includes(dbkey));
         if (matchTable) {
             return {
-                from_igv: "false",
                 genome: matchTable.value,
+                origin: "builtin",
             };
         }
     }
@@ -123,8 +129,8 @@ async function findGenome(dbkey: string) {
     const matchJson = dataJson.find((item) => item.value?.id === dbkey);
     if (matchJson) {
         return {
-            from_igv: "true",
             genome: matchJson.value,
+            origin: "igv",
         };
     }
 
@@ -135,7 +141,7 @@ async function findGenome(dbkey: string) {
 function getGenome() {
     const genome = props.settings.source.genome;
     if (genome) {
-        if (props.settings.source.from_igv === "true") {
+        if (props.settings.source.origin === "igv") {
             return genome;
         } else {
             const genomeId = genome.id;
@@ -163,24 +169,33 @@ function getGenome() {
     }
 }
 
-async function getDatasetType(datasetId: string): Promise<string | null> {
-    try {
-        const { data } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
-        return data.extension;
-    } catch (e) {
-        message.value = `Failed to retrieve dataset type for: ${datasetId}`;
-        console.error(message.value, e);
-        return null;
+function getDatasetUrl(datasetId: string): string {
+    if (datasetId === "__test__") {
+        return TEST_DATASET_URL;
+    } else {
+        return `${props.root}api/datasets/${datasetId}/display`;
     }
 }
 
-function getDatasetUrl(datasetId: string): string {
-    return `${props.root}api/datasets/${datasetId}/display`;
+async function getDatasetDetails(datasetId: string): Promise<Dataset | null> {
+    if (datasetId === "__test__") {
+        return TEST_DATASET_DETAILS;
+    } else {
+        try {
+            const { data } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
+            return data;
+        } catch (e) {
+            message.value = `Failed to retrieve dataset details for: ${datasetId}`;
+            console.error(message.value, e);
+            return null;
+        }
+    }
 }
 
 function getIndexUrl(datasetId: string, format: string | null): string | null {
     const metadataKey = format ? CONFIG[format]?.index : null;
-    return metadataKey ? `${props.root}api/datasets/${datasetId}/metadata_file?metadata_file=${metadataKey}` : null;
+    const metadataCheck = metadataKey && datasetId !== "__test__";
+    return metadataCheck ? `${props.root}api/datasets/${datasetId}/metadata_file?metadata_file=${metadataKey}` : null;
 }
 
 async function loadGenome() {
@@ -299,6 +314,56 @@ function locusValid(locus: string): boolean {
     }
 }
 
+function trackDrop(event: DragEvent) {
+    let invalid = false;
+    const droppedDatasets = [];
+    const raw = event.dataTransfer?.getData("text");
+    try {
+        const data = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(data) && data.length > 0) {
+            const payload = data[0];
+            if (payload && typeof payload === "object") {
+                const values: Array<Record<string, any>> = payload.id ? [payload] : Object.values(payload);
+                for (const entry of values) {
+                    if (
+                        entry.object?.model_class === "HistoryDatasetAssociation" &&
+                        entry.object?.id &&
+                        entry.element_identifier
+                    ) {
+                        droppedDatasets.push({
+                            id: entry.object.id,
+                            name: entry.element_identifier,
+                        });
+                    } else if (entry.history_content_type === "dataset" && entry.id) {
+                        droppedDatasets.push({
+                            id: entry.id,
+                            name: entry.name,
+                        });
+                    } else {
+                        invalid = true;
+                    }
+                }
+            } else {
+                invalid = true;
+            }
+        } else {
+            invalid = true;
+        }
+    } catch {
+        message.value = "Failed to parse dropped data.";
+    }
+    if (invalid || droppedDatasets.length === 0) {
+        message.value = "Please make sure to only drop valid history datasets.";
+        console.debug("[igv] Dropped Content", raw);
+    } else {
+        const newTracks = [...props.tracks, ...droppedDatasets.map((d) => ({ urlDataset: d }))];
+        emit("update", {}, newTracks);
+        message.value = "";
+        console.debug("[igv] Dropped Tracks", newTracks);
+    }
+    dragging.value = false;
+}
+
 function trackHash(track: Track): string {
     const keys = Object.keys(track).sort();
     const str = JSON.stringify(track, keys);
@@ -340,11 +405,12 @@ async function tracksResolve() {
     for (const t of props.tracks) {
         // populate basic track parameters
         const dataset = t.urlDataset as Dataset;
+        const datasetDetails = dataset ? await getDatasetDetails(dataset.id) : null;
         const displayMode = t.displayMode;
         const color = t.color;
-        const format = dataset ? await getDatasetType(dataset.id) : null;
+        const format = datasetDetails?.extension || null;
         const index = t.indexUrlDataset as Dataset;
-        const name = t.name;
+        const name = t.name || datasetDetails?.name || "";
         const type = t.type && t.type !== "auto" ? t.type : trackType(format);
         const url = dataset ? getDatasetUrl(dataset.id) : null;
         // identify index source
@@ -384,10 +450,19 @@ async function tracksResolve() {
 </script>
 
 <template>
-    <div class="h-screen overflow-auto">
+    <div
+        class="h-screen overflow-auto"
+        @dragover.prevent="dragging = true"
+        @dragleave.prevent="dragging = false"
+        @drop.prevent="trackDrop">
         <div v-if="message" class="bg-sky-100 border border-sky-200 mt-1 p-2 rounded text-sky-800 text-sm">
             {{ message }}
         </div>
         <div ref="viewport"></div>
+        <div
+            v-if="dragging"
+            class="absolute inset-2 border-4 border-dashed border-sky-600 rounded flex items-center justify-center pointer-events-none bg-sky-200 bg-opacity-80 text-sky-600 text-xl font-semibold z-256">
+            Drop Track Datasets!
+        </div>
     </div>
 </template>
