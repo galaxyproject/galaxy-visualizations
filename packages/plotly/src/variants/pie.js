@@ -45,8 +45,10 @@ export default async function (datasetId, settings, tracks) {
         const row = Math.floor(index / columns);
         const column = index % columns;
         const valueCount = columnsData.values.length;
-        const colorSchema = settings.color_schema || "galaxy";
-        const colors = generateColors(COLOR_SCHEMES[colorSchema], valueCount);
+        const colors =
+            settings.colorschema && settings.colorschema !== "plotly"
+                ? generateColors(COLOR_SCHEMES[settings.colorschema], valueCount)
+                : undefined;
         data.push({
             name: `${track.name} (${index + 1})`,
             type: "pie",
