@@ -6,11 +6,11 @@ import plotlyBasics from "@/variants/basics";
 import plotlyBox from "@/variants/box";
 import plotlyHeatmap from "@/variants/heatmap";
 import plotlyHistogram from "@/variants/histogram";
+import plotlyPie from "@/variants/pie";
 import plotlySurface from "@/variants/surface";
 
 const props = defineProps({
     datasetId: String,
-    datasetUrl: String,
     root: String,
     settings: Object,
     specs: Object,
@@ -31,6 +31,9 @@ async function render() {
             break;
         case "heatmap":
             wrapper = plotlyHeatmap;
+            break;
+        case "pie":
+            wrapper = plotlyPie;
             break;
         case "surface":
             wrapper = plotlySurface;
