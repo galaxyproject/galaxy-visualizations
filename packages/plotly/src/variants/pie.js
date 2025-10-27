@@ -41,10 +41,11 @@ export default async function (datasetId, settings, tracks) {
     const rows = Math.ceil(count / columns);
     const annotations = [];
     const layout = {
+        annotations,
+        legend: { traceorder: "normal" },
         grid: { rows, columns, xgap: XGAP, ygap: YGAP },
         margin: { l: MARGIN, r: MARGIN, t: MARGIN, b: MARGIN },
         showlegend: Boolean(settings.showlegend),
-        annotations,
     };
     const config = { responsive: true };
     const data = [];
@@ -62,17 +63,18 @@ export default async function (datasetId, settings, tracks) {
                 ? generateColors(base, valueCount)
                 : undefined;
         data.push({
-            name: `${track.name} (${index + 1})`,
-            type: "pie",
+            automargin: true,
+            domain: { row, column },
+            hole: settings.hole,
             hoverinfo: settings.hoverinfo || "label+value+percent",
+            labels: columnsData.labels,
+            marker: { colors },
+            name: `${track.name} (${index + 1})`,
+            sort: Boolean(settings.sort),
             textinfo: settings.textinfo || "label+percent",
             textposition: "inside",
-            automargin: true,
-            hole: settings.hole,
-            labels: columnsData.labels,
+            type: "pie",
             values: columnsData.values,
-            marker: { colors },
-            domain: { row, column },
         });
         const x = (column + 0.5) * xDomainWidth + (column * XGAP) / columns;
         const y = 1 - ((row + 1) * yDomainHeight + (row * YGAP) / rows);
@@ -81,15 +83,15 @@ export default async function (datasetId, settings, tracks) {
             label = label.slice(0, maxChars - 1) + "…";
         }
         annotations.push({
-            text: label,
-            xref: "paper",
-            yref: "paper",
-            x,
-            y,
-            showarrow: false,
             font: { size: 12 },
+            showarrow: false,
+            text: label,
+            x,
             xanchor: "center",
+            xref: "paper",
+            y,
             yanchor: "top",
+            yref: "paper",
         });
     });
     return { data, layout, config };

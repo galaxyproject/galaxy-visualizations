@@ -141,6 +141,13 @@
             <value>0</value>
         </input>
         <input>
+            <label>Sort</label>
+            <name>sort</name>
+            <help>Sort labels by value or preserve original order.</help>
+            <type>boolean</type>
+            <value>true</value>
+        </input>
+        <input>
             <label>Legend</label>
             <name>showlegend</name>
             <help>Show or hide the legend.</help>

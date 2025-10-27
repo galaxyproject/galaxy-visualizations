@@ -1,5 +1,8 @@
 {
     "name": "@galaxyproject/plotly_surface",
     "version": "0.0.0",
-    "license": "MIT"
+    "license": "MIT",
+    "scripts": {
+        "prepublishOnly": "XML=plotly_surface && rm -f static/$XML.xml && cp ../plotly/public/$XML.xml static/$XML.xml"
+    }
 }
