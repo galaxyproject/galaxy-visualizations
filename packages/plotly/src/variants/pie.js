@@ -1,10 +1,28 @@
 import { useColumnsStore } from "galaxy-charts";
+import COLOR_SCHEMES from "@/colors.json";
 
 const MARGIN = 30;
 const XGAP = 0.1;
 const YGAP = 0.3;
 
 const columnsStore = useColumnsStore();
+
+function generateColors(baseColors, count, delta = 0.15) {
+    const colors = [];
+    const steps = Math.ceil(count / baseColors.length);
+    for (let i = 0; i < steps; i++) {
+        for (const base of baseColors) {
+            const factor = 1 - i * delta;
+            const [r, g, b] = base.match(/\d+/g).map(Number);
+            const c = `rgb(${Math.round(r * factor)},${Math.round(g * factor)},${Math.round(b * factor)})`;
+            colors.push(c);
+            if (colors.length >= count) {
+                return colors.slice(0, count);
+            }
+        }
+    }
+    return colors;
+}
 
 export default async function (datasetId, settings, tracks) {
     const columnsList = await columnsStore.fetchColumns(datasetId, tracks, ["labels", "values"]);
@@ -26,6 +44,9 @@ export default async function (datasetId, settings, tracks) {
         const track = tracks[index];
         const row = Math.floor(index / columns);
         const column = index % columns;
+        const valueCount = columnsData.values.length;
+        const colorSchema = settings.color_schema || "galaxy";
+        const colors = generateColors(COLOR_SCHEMES[colorSchema], valueCount);
         data.push({
             name: `${track.name} (${index + 1})`,
             type: "pie",
@@ -36,6 +57,7 @@ export default async function (datasetId, settings, tracks) {
             hole: settings.hole,
             labels: columnsData.labels,
             values: columnsData.values,
+            marker: { colors },
             domain: { row, column },
         });
         const x = (column + 0.5) * xDomainWidth + (column * XGAP) / columns;
