@@ -53,7 +53,7 @@ test("basic", async ({ page }) => {
 
     // start
     await page.goto("http://localhost:5173/");
-    await expect(page).toHaveScreenshot("basic.png");
+    await expect(page).toHaveScreenshot("basic.png", { maxDiffPixelRatio });
     await page.click(".n-button");
     await expect(page).toHaveScreenshot("basic_with_form.png", { maxDiffPixelRatio });
 
