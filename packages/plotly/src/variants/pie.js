@@ -1,8 +1,8 @@
 import { useColumnsStore } from "galaxy-charts";
 
-const MARGIN = 10;
+const MARGIN = 30;
 const XGAP = 0.1;
-const YGAP = 0.1;
+const YGAP = 0.3;
 
 const columnsStore = useColumnsStore();
 
@@ -38,7 +38,7 @@ export default async function (datasetId, settings, tracks) {
             domain: { row, column },
         });
         const x = (column + 0.5) * xDomainWidth + (column * XGAP) / columns;
-        const y = 1 - ((row + 0.5) * yDomainHeight + (row * YGAP) / rows);
+        const y = 1 - ((row + 1) * yDomainHeight + (row * YGAP) / rows);
         annotations.push({
             text: track.name,
             xref: "paper",
