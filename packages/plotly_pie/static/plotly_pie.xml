@@ -19,6 +19,16 @@
     <specs>
         <variant>pie</variant>
     </specs>
+    <settings>
+        <input>
+            <label>Hole</label>
+            <name>hole</name>
+            <help>Specify the hole size.</help>
+            <type>float</type>
+            <min>0</min>
+            <max>1</max>
+        </input>
+    </settings>
     <tracks>
         <input>
             <label>Provide a label</label>
