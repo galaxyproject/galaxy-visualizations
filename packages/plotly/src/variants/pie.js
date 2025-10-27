@@ -21,6 +21,7 @@ export default async function (datasetId, settings, tracks) {
     const data = [];
     const xDomainWidth = (1 - ((columns - 1) * XGAP) / columns) / columns;
     const yDomainHeight = (1 - ((rows - 1) * YGAP) / rows) / rows;
+    const maxChars = Math.floor((xDomainWidth / (1 / columns)) * 20);
     columnsList.forEach((columnsData, index) => {
         const track = tracks[index];
         const row = Math.floor(index / columns);
@@ -39,8 +40,12 @@ export default async function (datasetId, settings, tracks) {
         });
         const x = (column + 0.5) * xDomainWidth + (column * XGAP) / columns;
         const y = 1 - ((row + 1) * yDomainHeight + (row * YGAP) / rows);
+        let label = track.name;
+        if (label.length > maxChars) {
+            label = label.slice(0, maxChars - 1) + "…";
+        }
         annotations.push({
-            text: track.name,
+            text: label,
             xref: "paper",
             yref: "paper",
             x,
