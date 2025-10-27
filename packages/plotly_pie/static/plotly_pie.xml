@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="Pie Chart" embeddable="true">
+    <description>Pie Chart from http://plotly.com</description>
+    <tags>
+        <tag>Plotly</tag>
+        <tag>Pie</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">tabular</test>
+            <test test_attr="ext">csv</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="../../plotly/static/index.js" css="../../plotly/static/index.css" />
+    <specs>
+        <variant>pie</variant>
+    </specs>
+    <tracks>
+        <input>
+            <label>Provide a label</label>
+            <name>name</name>
+            <type>text</type>
+            <placeholder>Data label</placeholder>
+            <value>Data label</value>
+        </input>
+        <input>
+            <label>Column of labels</label>
+            <name>labels</name>
+            <type>data_column</type>
+        </input>
+        <input>
+            <label>Column of values</label>
+            <name>values</name>
+            <type>data_column</type>
+            <is_number>true</is_number>
+        </input>
+    </tracks>
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.tabular" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the Pie Chart?
+
+This visualization allows you to create interactive pie charts from your tabular or CSV data using the [Plotly](https://plotly.com/) library.
+
+After selecting a dataset, you can specify which column contains the labels and which contains the numeric values. Each unique label will appear as a segment of the pie, with its size proportional to the corresponding value.
+
+## Key Features
+
+- **Pie Chart Rendering**: Display proportional relationships between categorical data.
+- **Label and Value Selection**: Choose any columns from your dataset for labels and numeric values.
+- **Custom Labeling**: Add a title or identifier for the chart.
+- **Interactive**: Hover over slices to view detailed values and percentages.
+
+This tool is ideal for visualizing categorical data distributions and highlighting proportions within datasets.
+
+To learn more about Plotly, visit:
+[https://plotly.com/](https://plotly.com/)
+    ]]></help>
+</visualization>
