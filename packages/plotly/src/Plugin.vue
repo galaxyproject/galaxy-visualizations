@@ -26,11 +26,11 @@ async function render() {
         case "box":
             wrapper = plotlyBox;
             break;
-        case "histogram":
-            wrapper = plotlyHistogram;
-            break;
         case "heatmap":
             wrapper = plotlyHeatmap;
+            break;
+        case "histogram":
+            wrapper = plotlyHistogram;
             break;
         case "pie":
             wrapper = plotlyPie;
