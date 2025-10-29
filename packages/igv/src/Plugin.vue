@@ -461,7 +461,7 @@ async function tracksResolve() {
         <div ref="viewport"></div>
         <div
             v-if="dragging"
-            class="absolute bg-sky-100 text-sky-500 border-sky-500 bg-opacity-80 text-lg font-semibold inset-0 border-2 border-dashed rounded flex items-center justify-center pointer-events-none z-256">
+            class="absolute bg-sky-100 text-sky-500 border-sky-500 bg-opacity-80 text-xl font-semibold inset-1 border-4 border-dashed rounded flex items-center justify-center pointer-events-none z-256">
             Drop Track Datasets!
         </div>
     </div>
