@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="HyPhy Vision" embeddable="true">
+    <description>Interactive HyPhy Viewer</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">hyphy_results.json</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/veg/hyphy-vision/example_data/absrel.json" ftype="hyphy_results.json" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is HyPhy Vision?
+
+**HyPhy Vision** is a collection of web-based visualizations for examining results produced by the **HyPhy** (Hypothesis Testing using Phylogenies) software package. It provides interactive tools to explore molecular evolution analyses, allowing users to visualize evidence of selection, substitution rates, and other model-based outcomes.
+
+## Key Features
+
+- **Model-specific Views**: Supports multiple analyses such as **aBSREL**, **BUSTED**, **FEL**, **MEME**, and others.
+- **Interactive Exploration**: Navigate trees, hover over branches, and inspect selection metrics and likelihood ratio tests.
+- **Statistical Context**: Visualizes p-values, ω (dN/dS) ratios, and site-level selection estimates.
+- **Data Integration**: Reads and renders HyPhy JSON output files directly from Galaxy datasets.
+
+To learn more visit:
+[https://github.com/veg/hyphy-vision](https://github.com/veg/hyphy-vision)
+    ]]></help>
+</visualization>
