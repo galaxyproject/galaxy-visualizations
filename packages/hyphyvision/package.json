@@ -3,6 +3,9 @@
     "version": "0.0.0",
     "license": "MIT",
     "main": "index.js",
+    "files": [
+        "static"
+    ],
     "scripts": {
         "build": "rm -rf static && webpack --mode development && cp public/* static"
     },
