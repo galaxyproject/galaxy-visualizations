@@ -464,12 +464,12 @@ async function tracksResolve() {
         @dragleave.prevent="dragging = false"
         @drop.prevent="trackDrop">
         <div
-            v-if="dragging || !loading"
+            v-if="dragging || loading"
             class="absolute inset-0 z-[4096] flex items-center justify-center bg-sky-100 !bg-opacity-30 text-sky-500 text-xl font-semibold"
             :class="dragging && 'border-4 border-dashed border-sky-500 rounded'">
             <div class="bg-white !bg-opacity-90 rounded py-1 px-3 pointer-events-none">
                 <div v-if="dragging">Drop Track Datasets!</div>
-                <div v-else-if="!loading">Loading Datasets...</div>
+                <div v-else-if="loading">Loading Datasets...</div>
             </div>
         </div>
         <div v-if="message" class="bg-sky-100 border border-sky-200 mt-1 p-2 rounded text-sky-800 text-sm">
