@@ -459,18 +459,15 @@ async function tracksResolve() {
 
 <template>
     <div
-        class="h-screen overflow-auto"
+        class="h-screen overflow-auto relative"
         @dragover.prevent="dragging = true"
         @dragleave.prevent="dragging = false"
         @drop.prevent="trackDrop">
-        <div
-            v-if="dragging || loading"
-            class="absolute inset-0 z-[4096] flex items-center justify-center bg-sky-100 !bg-opacity-30 text-sky-500 text-xl font-semibold"
-            :class="dragging && 'border-4 border-dashed border-sky-500 rounded'">
-            <div class="bg-white !bg-opacity-90 rounded py-1 px-3 pointer-events-none">
-                <div v-if="dragging">Drop Track Datasets!</div>
-                <div v-else-if="loading">Loading Datasets...</div>
-            </div>
+        <div v-if="dragging" class="igv-overlay border-4 border-dashed border-sky-500 rounded pointer-events-none">
+            <div class="igv-overlay-title">Drop Track Datasets!</div>
+        </div>
+        <div v-else-if="loading" class="igv-overlay">
+            <div class="igv-overlay-title">Loading Datasets...</div>
         </div>
         <div v-if="message" class="bg-sky-100 border border-sky-200 mt-1 p-2 rounded text-sky-800 text-sm">
             {{ message }}
@@ -478,3 +475,12 @@ async function tracksResolve() {
         <div ref="viewport"></div>
     </div>
 </template>
+
+<style scoped>
+.igv-overlay {
+    @apply absolute inset-0 z-[4096] flex items-center justify-center bg-sky-100 bg-opacity-30 text-sky-500 text-xl font-semibold;
+}
+.igv-overlay-title {
+    @apply bg-white bg-opacity-90 rounded py-1 px-3 pointer-events-none;
+}
+</style>
