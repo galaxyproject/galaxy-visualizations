@@ -14,7 +14,7 @@
     <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <tests>
         <test>
-            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/veg/hyphy-vision/example_data/absrel.json" ftype="hyphy_results.json" />
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.hyphy_results.json" ftype="hyphy_results.json" />
         </test>
     </tests>
     <help format="markdown"><![CDATA[
