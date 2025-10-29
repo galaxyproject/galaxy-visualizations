@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from "vue";
+
 import igv from "igv";
 import { LastQueue } from "./lastQueue";
 import { GalaxyApi, useDataTableStore, useDataJsonStore } from "galaxy-charts";
@@ -51,6 +52,7 @@ const emit = defineEmits<{
 }>();
 
 const dragging = ref(false);
+const loading = ref(false);
 const message = ref("");
 const viewport = ref<HTMLDivElement | null>(null);
 
@@ -201,6 +203,7 @@ function getIndexUrl(datasetId: string, format: string | null): string | null {
 async function loadGenome() {
     const genomeConfig = getGenome();
     if (genomeConfig) {
+        loading.value = true;
         try {
             if (igvBrowser) {
                 igvBrowser.off("locuschange", locusChange);
@@ -230,11 +233,13 @@ async function loadGenome() {
             console.error(message.value, e);
             dispose();
         }
+        loading.value = false;
     }
 }
 
 async function loadTracks(force: boolean = false) {
     if (igvBrowser) {
+        loading.value = true;
         const newTracks = await tracksResolve();
         console.debug("[igv] Resolved Tracks", newTracks);
         const { toAdd, toRemove } = tracksDiff(newTracks, igvTracks, force);
@@ -255,6 +260,7 @@ async function loadTracks(force: boolean = false) {
         }
         igvBrowser.reorderTracks();
         igvTracks = newTracks.map((t) => ({ ...t }));
+        loading.value = false;
     }
 }
 
@@ -283,7 +289,9 @@ async function locusSearch() {
             const target = locus ? locus : "all";
             if (locusValid(target)) {
                 try {
+                    loading.value = true;
                     await igvBrowser.search(target);
+                    loading.value = false;
                 } catch {
                     console.warn("[igv] Locus search failed:", target);
                 }
@@ -461,8 +469,13 @@ async function tracksResolve() {
         <div ref="viewport"></div>
         <div
             v-if="dragging"
-            class="absolute bg-sky-100 text-sky-500 border-sky-500 bg-opacity-80 text-xl font-semibold inset-1 border-4 border-dashed rounded flex items-center justify-center pointer-events-none z-256">
+            class="absolute bg-sky-100 text-sky-500 border-sky-500 bg-opacity-80 text-xl font-semibold inset-0 border-4 border-dashed rounded flex items-center justify-center pointer-events-none z-256">
             Drop Track Datasets!
+        </div>
+        <div
+            v-if="loading"
+            class="absolute bg-white text-sky-500 bg-opacity-50 text-xl font-semibold inset-0 flex items-center justify-center pointer-events-none z-256">
+            Loading...
         </div>
     </div>
 </template>
