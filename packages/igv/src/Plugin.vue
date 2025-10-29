@@ -473,7 +473,7 @@ async function tracksResolve() {
             :class="dragging && 'border-4 border-dashed border-sky-500 rounded'">
             <div class="bg-white bg-opacity-90 rounded py-1 px-3">
                 <div v-if="dragging">Drop Track Datasets!</div>
-                <div v-else-if="loading">Loading...</div>
+                <div v-else-if="loading">Loading Datasets...</div>
             </div>
         </div>
     </div>
