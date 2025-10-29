@@ -471,8 +471,10 @@ async function tracksResolve() {
             v-if="dragging || loading"
             class="absolute bg-opacity-30 bg-sky-100 flex font-semibold inset-0 items-center justify-center pointer-events-none text-sky-500 text-xl z-256"
             :class="dragging && 'border-4 border-dashed border-sky-500 rounded'">
-            <div v-if="dragging" class="">Drop Track Datasets!</div>
-            <div v-else-if="loading">Loading...</div>
+            <div class="bg-white bg-opacity-90 rounded py-1 px-3">
+                <div v-if="dragging">Drop Track Datasets!</div>
+                <div v-else-if="loading">Loading...</div>
+            </div>
         </div>
     </div>
 </template>
