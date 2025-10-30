@@ -6,7 +6,7 @@ module.exports = {
     mode: "production",
     entry: path.resolve(__dirname, "src/script.js"),
     output: {
-        filename: "script.js",
+        filename: "index.js",
         path: path.resolve(__dirname, "static"),
     },
     experiments: {
