@@ -11,9 +11,9 @@ messageElement.id = "message";
 messageElement.style.display = "none";
 appElement.appendChild(messageElement);
 
-const rootDiv = document.createElement("div");
-rootDiv.id = "hyphy-vision-root";
-appElement.appendChild(rootDiv);
+const containerElement = document.createElement("div");
+containerElement.id = "hyphy-vision-root";
+appElement.appendChild(containerElement);
 
 async function create() {
     showMessage("Please wait...");
