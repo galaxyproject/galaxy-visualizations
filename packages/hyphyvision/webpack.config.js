@@ -50,4 +50,11 @@ module.exports = {
             "phylotree.css": path.join(__dirname, "node_modules/phylotree/phylotree.css"),
         },
     },
+    devServer: {
+        static: {
+            directory: path.join(__dirname, "./")
+        },
+        port: 8080,
+        hot: true
+    }
 };

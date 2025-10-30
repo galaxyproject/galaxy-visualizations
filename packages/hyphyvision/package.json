@@ -8,6 +8,7 @@
     ],
     "scripts": {
         "build": "rm -rf static && webpack --mode production && cp public/* static",
+        "dev": "webpack serve --mode development --open",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}'"
     },
     "dependencies": {
@@ -27,7 +28,8 @@
         "sass": "^1.93.2",
         "sass-loader": "^16.0.6",
         "webpack": "^5.95.0",
-        "webpack-cli": "^5.1.4"
+        "webpack-cli": "^5.1.4",
+        "webpack-dev-server": "^5.2.2"
     },
     "resolutions": {
         "**/underscore": "1.13.6"
