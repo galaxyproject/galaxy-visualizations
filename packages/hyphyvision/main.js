@@ -3,10 +3,12 @@ import * as hyphyVision from "hyphy-vision";
 
 import determineHyPhyMethod from "./helper.js";
 
+const TEST_DATA = "testdata/1.hyphy_results.json";
+
 const appElement = document.getElementById("app");
 const incoming = JSON.parse(appElement.dataset.incoming || "{}");
-const datasetId = incoming.visualization_config?.dataset_id || "__test__";
-const root = incoming.root;
+const datasetId = incoming.visualization_config && incoming.visualization_config.dataset_id;
+const root = incoming.root || "/";
 
 const messageElement = document.createElement("div");
 messageElement.id = "message";
@@ -29,7 +31,7 @@ function renderHyPhyVision(data, element) {
 async function create() {
     showMessage("Please wait...");
     try {
-        const url = `${root}api/datasets/${datasetId}/display?to_ext=json`;
+        const url = datasetId ? `${root}api/datasets/${datasetId}/display?to_ext=json` : TEST_DATA;
         const response = await fetch(url);
         const data = await response.json();
         renderHyPhyVision(data, containerElement.id);
