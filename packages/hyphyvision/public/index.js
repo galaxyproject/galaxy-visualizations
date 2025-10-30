@@ -4,8 +4,7 @@ if (!appElement) {
 }
 
 const incoming = JSON.parse(appElement.dataset.incoming || "{}");
-const root = incoming.root || "";
-const scriptSrc = `${root}static/plugins/visualizations/hyphyvision/static/script.js`;
+const root = incoming.root || "/";
 
 const styleLink = document.createElement("link");
 styleLink.rel = "stylesheet";
@@ -16,6 +15,6 @@ shimLink.rel = "stylesheet";
 shimLink.href = "https://use.fontawesome.com/releases/v5.6.3/css/v4-shims.css";
 
 const script = document.createElement("script");
-script.src = scriptSrc;
+script.src = `${root}static/plugins/visualizations/hyphyvision/static/script.js`;
 
 appElement.append(styleLink, shimLink, script);
