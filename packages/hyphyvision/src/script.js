@@ -1,6 +1,6 @@
-import "hyphy-vision/dist/hyphyvision.css";
+import "hyphy-vision/dist/application.scss";
 import * as hyphyVision from "hyphy-vision";
-
+console.log(hyphyVision);
 const appElement = document.getElementById("app");
 const incoming = JSON.parse(appElement.dataset.incoming || "{}");
 const datasetId = incoming.visualization_config.dataset_id || "__test__";
@@ -19,7 +19,7 @@ async function create() {
     showMessage("Please wait...");
     try {
         const url = `${root}api/datasets/${datasetId}/display?to_ext=json`;
-        hyphyVision.renderHyPhyVision(url, "hyphy-vision-root");
+        hyphyVision.gard(url, "hyphy-vision-root");
         hideMessage();
     } catch (error) {
         console.log(error);
@@ -39,4 +39,3 @@ function hideMessage() {
 }
 
 create();
-
