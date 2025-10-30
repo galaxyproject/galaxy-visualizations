@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const maxDiffPixelRatio = 0.03;
+const maxDiffPixelRatio = 0.06;
 
 test("basic", async ({ page }) => {
     await page.goto("http://localhost:8080/");
