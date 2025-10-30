@@ -66,7 +66,6 @@
                             <type>data_table</type>
                             <tables>
                                 <tables>fasta_indexes</tables>
-                                <tables>twobit</tables>
                             </tables>
                         </inputs>
                     </inputs>
