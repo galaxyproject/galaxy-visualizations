@@ -1,9 +1,10 @@
 import "hyphy-vision/dist/application.scss";
 import * as hyphyVision from "hyphy-vision";
 
+import "./main.css";
 import determineHyPhyMethod from "./helper.js";
 
-const TEST_DATA = "testdata/1.hyphy_results.json";
+const TEST_DATA = "test-data/1.hyphy_results.json";
 
 const appElement = document.getElementById("app");
 const incoming = JSON.parse(appElement.dataset.incoming || "{}");
@@ -35,7 +36,11 @@ async function create() {
         const response = await fetch(url);
         const data = await response.json();
         renderHyPhyVision(data, containerElement.id);
-        hideMessage();
+        if (url === TEST_DATA) {
+            showMessage("Showing test data.")
+        } else {
+            hideMessage();
+        }
     } catch (error) {
         console.log(error);
         showMessage("Error loading dataset", error.message || String(error));
