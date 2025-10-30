@@ -159,13 +159,13 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: npm run build
 
-      - name: Start dev server in background
+      - name: Start Server in background
         working-directory: packages/${{ matrix.package }}
         run: |
           nohup npm run dev > server.log 2>&1 &
           echo $! > server.pid
 
-      - name: Wait for server to be ready
+      - name: Wait for Server to be ready
         run: |
           echo "Waiting for server to be ready..."
           ports=(5173 8000 8080)
@@ -184,11 +184,11 @@ jobs:
           cat packages/${{ matrix.package }}/server.log
           exit 1
 
-      - name: Run Playwright tests
+      - name: Run Playwright Tests
         working-directory: packages/${{ matrix.package }}
         run: npm test
 
-      - name: Stop dev server
+      - name: Stop Server
         if: always()
         working-directory: packages/${{ matrix.package }}
         run: |
@@ -197,7 +197,7 @@ jobs:
             rm server.pid
           fi
 
-      - name: Upload Playwright report
+      - name: Upload Playwright Report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -205,7 +205,7 @@ jobs:
           path: packages/${{ matrix.package }}/playwright-report/
           retention-days: 7
 
-      - name: Upload test results
+      - name: Upload Test Results
         if: failure()
         uses: actions/upload-artifact@v4
         with:

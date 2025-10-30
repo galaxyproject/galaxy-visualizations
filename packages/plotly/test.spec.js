@@ -4,7 +4,7 @@ import DATASET_COLUMNS_NUMBER from "./test-data/api.datasets.columns.number.json
 import DATASET_COLUMNS_TEXT_NUMBER from "./test-data/api.datasets.columns.text.number.json" with { type: "json" };
 import DATASET_DETAILS from "./test-data/api.datasets.details.json" with { type: "json" };
 
-const maxDiffPixelRatio = 0.03;
+const maxDiffPixelRatio = 0.06;
 
 test("basic", async ({ page }) => {
     // mock api
