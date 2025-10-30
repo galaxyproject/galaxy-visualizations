@@ -5,8 +5,7 @@ import determineHyPhyMethod from "./helper.js";
 
 const appElement = document.getElementById("app");
 const incoming = JSON.parse(appElement.dataset.incoming || "{}");
-console.log("HALLO")
-const datasetId = incoming.visualization_config.dataset_id || "__test__";
+const datasetId = incoming.visualization_config?.dataset_id || "__test__";
 const root = incoming.root;
 
 const messageElement = document.createElement("div");

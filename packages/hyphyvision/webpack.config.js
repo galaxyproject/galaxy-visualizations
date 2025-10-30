@@ -55,6 +55,5 @@ module.exports = {
             directory: path.join(__dirname, "./")
         },
         port: 8080,
-        hot: true
     }
 };
