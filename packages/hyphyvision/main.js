@@ -14,7 +14,7 @@ messageElement.style.display = "none";
 appElement.appendChild(messageElement);
 
 const containerElement = document.createElement("div");
-containerElement.id = "hyphy-vision-root";
+containerElement.id = "hyphyvision-root";
 appElement.appendChild(containerElement);
 
 function renderHyPhyVision(data, element) {
@@ -32,7 +32,7 @@ async function create() {
         const url = `${root}api/datasets/${datasetId}/display?to_ext=json`;
         const response = await fetch(url);
         const data = await response.json();
-        renderHyPhyVision(data, "hyphy-vision-root");
+        renderHyPhyVision(data, containerElement.id);
         hideMessage();
     } catch (error) {
         console.log(error);
