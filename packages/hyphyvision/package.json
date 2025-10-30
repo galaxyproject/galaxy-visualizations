@@ -8,7 +8,7 @@
     ],
     "scripts": {
         "build": "rm -rf static && webpack --mode production && cp public/* static",
-        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'public/*.js' 'src/*.js'"
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}'"
     },
     "dependencies": {
         "fbjs": "^3.0.5",
