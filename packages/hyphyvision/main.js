@@ -36,8 +36,8 @@ async function create() {
         const response = await fetch(url);
         const data = await response.json();
         renderHyPhyVision(data, containerElement.id);
-        if (url === TEST_DATA) {
-            showMessage("Showing test data.")
+        if (!datasetId) {
+            showMessage(`TEST_DATA: ${url}`);
         } else {
             hideMessage();
         }
