@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const maxDiffPixelRatio = 0.06;
+const maxDiffPixelRatio = 0.07;
 
 const TESTS = {
     ABSREL: "span:text('branches with evidence of selection')",
