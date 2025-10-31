@@ -18,14 +18,14 @@ export default function determineHyPhyMethod(json) {
             return "fade";
         } else if (analysisString.includes("FUBAR")) {
             return "fubar";
+        } else if (analysisString.includes("GARD")) {
+            return "gard";
+        } else if (analysisString.includes("MEME")) {
+            return "meme";
         } else if (analysisString.includes("RELAX")) {
             return "relax";
         } else if (analysisString.includes("SLAC")) {
             return "slac";
-        } else if (analysisString.includes("MEME")) {
-            return "meme";
-        } else if (analysisString.includes("GARD")) {
-            return "gard";
         } else {
             return null;
         }

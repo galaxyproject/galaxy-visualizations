@@ -4,11 +4,10 @@ import * as hyphyVision from "hyphy-vision";
 import "./main.scss";
 import determineHyPhyMethod from "./helper.js";
 
-const TEST_DATA = "test-data/1.hyphy_results.json";
+const TEST_DATA = "test-data/1.ABSREL.json";
 
 const appElement = document.getElementById("app");
 const incoming = JSON.parse(appElement.dataset.incoming || "{}");
-const datasetId = incoming.visualization_config && incoming.visualization_config.dataset_id;
 const root = incoming.root || "/";
 
 const messageElement = document.createElement("div");
@@ -25,13 +24,18 @@ function renderHyPhyVision(data, element) {
     if (method) {
         hyphyVision[method](data, element);
     } else {
-        showMessage("Failed to match method.");
+        throw "Failed to detect method. Supported methods are absrel, bgm, busted, fade, fel, fubar, gard, meme, relax and slac.";
     }
 }
 
 async function create() {
     showMessage("Please wait...");
     try {
+        let datasetId = incoming.visualization_config && incoming.visualization_config.dataset_id;
+        if (!datasetId && window && window.location && window.location.href) {
+            const pageUrl = new URL(window.location.href);
+            datasetId = pageUrl.searchParams.get("dataset_id");
+        }
         const url = datasetId ? `${root}api/datasets/${datasetId}/display?to_ext=json` : TEST_DATA;
         const response = await fetch(url);
         const data = await response.json();
