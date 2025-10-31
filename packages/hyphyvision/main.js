@@ -1,7 +1,7 @@
 import "hyphy-vision/dist/application.scss";
 import * as hyphyVision from "hyphy-vision";
 
-import "./main.css";
+import "./main.scss";
 import determineHyPhyMethod from "./helper.js";
 
 const TEST_DATA = "test-data/1.hyphy_results.json";

@@ -19,3 +19,6 @@
     word-break: break-all;
     z-index: 9999;
 }
+
+$fa-font-path: "~@fortawesome/fontawesome-free/webfonts";
+@import "~@fortawesome/fontawesome-free/scss/solid";
