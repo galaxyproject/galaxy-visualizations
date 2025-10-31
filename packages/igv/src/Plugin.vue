@@ -472,7 +472,7 @@ async function tracksResolve() {
         <div v-if="message" class="bg-sky-100 border border-sky-200 mt-1 p-2 rounded text-sky-800 text-sm">
             {{ message }}
         </div>
-        <div ref="viewport"></div>
+        <div id="viewport" ref="viewport"></div>
     </div>
 </template>
 

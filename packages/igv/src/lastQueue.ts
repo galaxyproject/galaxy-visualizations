@@ -1,65 +1,104 @@
-type QueuedAction<T extends (...args: any) => R, R = ReturnType<T>> = {
+export class ActionSkippedError extends Error {
+    constructor(message = "Action skipped") {
+        super(message);
+        this.name = "ActionSkippedError";
+    }
+}
+
+interface QueuedAction<T extends (arg: any, signal?: AbortSignal) => Promise<R>, R> {
     action: T;
     arg: Parameters<T>[0];
-    resolve: (value: R) => void;
-    reject: (e: Error) => void;
-};
-
-export class ActionSkippedError extends Error {}
+    resolve: (value: R | undefined) => void;
+    reject: (error: Error) => void;
+    controller: AbortController;
+}
 
 /**
- * This queue waits until the current promise is resolved and only executes the last enqueued
- * promise. Promises added between the last and the currently executing promise are skipped.
- * This is useful when promises earlier enqueued become obsolete.
- * See also: https://stackoverflow.com/questions/53540348/js-async-await-tasks-queue
+ * A per-key async queue ensuring that only the latest enqueued task runs.
+ * The first task starts immediately; later tasks replace pending ones.
+ * Once the current task completes, any most recent queued task executes next.
  */
-export class LastQueue<T extends (arg: any) => R, R = ReturnType<T>> {
-    throttlePeriod: number;
-    /** Throw an error if a queued action is skipped. This avoids dangling promises */
-    rejectSkipped: boolean;
-    private queuedPromises: Record<string | number, QueuedAction<T, R>> = {};
-    private pendingPromise = false;
+export class LastQueue<T extends (arg: any, signal?: AbortSignal) => Promise<R>, R = any> {
+    private throttle: number;
+    private rejectSkipped: boolean;
+    private queues = new Map<string | number, QueuedAction<T, R>>();
+    private pending = new Map<string | number, boolean>();
+    private lastRun = new Map<string | number, number>();
 
-    constructor(throttlePeriod = 1000, rejectSkipped = false) {
-        this.throttlePeriod = throttlePeriod;
+    constructor(throttle = 300, rejectSkipped = false) {
+        this.throttle = throttle;
         this.rejectSkipped = rejectSkipped;
     }
 
-    private skipPromise(key: string | number) {
-        if (!this.rejectSkipped) {
-            return;
+    private skip(item: QueuedAction<T, R>, key: string | number) {
+        item.controller.abort();
+        if (this.rejectSkipped) {
+            item.reject(new ActionSkippedError());
+        } else {
+            item.resolve(undefined);
         }
-
-        const promise = this.queuedPromises[key];
-        promise?.reject(new ActionSkippedError());
+        this.queues.delete(key);
     }
 
-    async enqueue(action: T, arg: Parameters<T>[0], key: string | number = 0): Promise<R> {
+    async enqueue(action: T, arg: Parameters<T>[0], key: string | number = "default"): Promise<R | undefined> {
+        const controller = new AbortController();
+        const task: QueuedAction<T, R> = { action, arg, resolve: () => {}, reject: () => {}, controller };
+
         return new Promise((resolve, reject) => {
-            this.skipPromise(key);
-            this.queuedPromises[key] = { action, arg, resolve, reject };
-            this.dequeue();
+            task.resolve = resolve;
+            task.reject = reject;
+
+            if (this.queues.has(key)) {
+                const prev = this.queues.get(key)!;
+                this.skip(prev, key);
+            }
+
+            this.queues.set(key, task);
+            if (!this.pending.has(key)) {
+                this.dequeue(key);
+            }
         });
     }
 
-    async dequeue() {
-        const keys = Object.keys(this.queuedPromises);
-        if (!this.pendingPromise && keys.length > 0) {
-            const nextKey = keys[0] as string;
-            const item = this.queuedPromises[nextKey] as QueuedAction<T, R>;
-            delete this.queuedPromises[nextKey];
-            this.pendingPromise = true;
+    private async dequeue(key: string | number) {
+        if (!this.pending.has(key) && this.queues.has(key)) {
+            const now = Date.now();
+            const last = this.lastRun.get(key) || 0;
+            const delay = this.throttle - (now - last);
 
-            try {
-                const payload = await item.action(item.arg);
-                item.resolve(payload);
-            } catch (e) {
-                item.reject(e as Error);
-            } finally {
-                setTimeout(() => {
-                    this.pendingPromise = false;
-                    this.dequeue();
-                }, this.throttlePeriod);
+            if (delay > 0) {
+                setTimeout(() => this.dequeue(key), delay);
+            } else {
+                const current = this.queues.get(key)!;
+                this.queues.delete(key);
+                this.pending.set(key, true);
+                this.lastRun.set(key, now);
+
+                try {
+                    if (current.controller.signal.aborted) {
+                        throw new DOMException("Aborted", "AbortError");
+                    }
+                    const result = await current.action(current.arg, current.controller.signal);
+                    if (current.controller.signal.aborted) {
+                        throw new DOMException("Aborted", "AbortError");
+                    }
+                    current.resolve(result);
+                } catch (e: any) {
+                    if (e.name === "AbortError") {
+                        if (this.rejectSkipped) {
+                            current.reject(new ActionSkippedError());
+                        } else {
+                            current.resolve(undefined);
+                        }
+                    } else {
+                        current.reject(e);
+                    }
+                } finally {
+                    this.pending.delete(key);
+                    if (this.queues.has(key)) {
+                        this.dequeue(key);
+                    }
+                }
             }
         }
     }
