@@ -25,7 +25,7 @@ function renderHyPhyVision(data, element) {
     if (method) {
         hyphyVision[method](data, element);
     } else {
-        showMessage("Failed to match method.");
+        throw "Failed to detect method. Supported methods are absrel, bgm, busted, fade, fel, fubar, gard, meme, relax and slac.";
     }
 }
 
