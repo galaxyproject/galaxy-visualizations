@@ -144,14 +144,17 @@ describe("test last-queue", () => {
 
     it("should resolve skipped promises to undefined when rejectSkipped is false", async () => {
         const queue = new LastQueue(0, false);
-        let resolvedSkipped = false;
-        queue.enqueue(testPromise, 1).then((r) => {
-            if (r === undefined) resolvedSkipped = true;
-        });
+        const results = [];
+        queue.enqueue(testPromise, 1).then((r) => results.push(r));
         await queue.enqueue(testPromise, 2);
         await wait(5);
-        // The skipped resolve may not always appear; both true and false are valid
-        expect(typeof resolvedSkipped).toBe("boolean");
+        const defined = results.filter(r => r !== undefined);
+        const skipped = results.filter(r => r === undefined);
+        // Either the first completed normally (defined=[1])
+        // or it was skipped and undefined (defined=[2])
+        expect(defined.length).toBe(1);
+        expect([1, 2]).toContain(defined[0]);
+        expect(skipped.length).toBeLessThanOrEqual(1);
     });
 
     it("should not fail if a running task is replaced during execution", async () => {
