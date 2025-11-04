@@ -6,8 +6,11 @@ import { LastQueue } from "./lastQueue";
 import { GalaxyApi, useDataTableStore, useDataJsonStore } from "galaxy-charts";
 import CONFIG from "./config.yml";
 
+import Modal from "./Modal.vue";
+
 const DEFAULT_GENOME = "hg38";
 const DEFAULT_TYPE = "annotation";
+const UNKNOWN_GENOME = "?";
 const DELAY = 500;
 const IGV_GENOMES = "https://s3.amazonaws.com/igv.org.genomes/genomes.json";
 const TEST_DATASET_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/gencode.v29.annotation.gff3";
@@ -54,6 +57,7 @@ const emit = defineEmits<{
 const dragging = ref(false);
 const loading = ref(false);
 const message = ref("");
+const showModal = ref(false);
 const viewport = ref<HTMLDivElement | null>(null);
 
 let igvBrowser: any = null;
@@ -89,7 +93,10 @@ async function create() {
         // match database key to genomes
         const dataset = await getDatasetDetails(props.datasetId);
         if (dataset) {
-            const dbkey = dataset.metadata_dbkey || DEFAULT_GENOME;
+            const dbkey = dataset.metadata_dbkey || UNKNOWN_GENOME;
+            showModal.value = !dbkey || dbkey === UNKNOWN_GENOME;
+
+            // identify source
             const source = (await findGenome(dbkey)) || (await findGenome(DEFAULT_GENOME));
 
             // emit update
@@ -490,6 +497,11 @@ async function tracksResolve() {
             {{ message }}
         </div>
         <div id="viewport" ref="viewport"></div>
+        <Modal
+            :message="`Using default genome. Please change genome selection in the side panel settings.`"
+            :show="showModal"
+            title="Genome Selection Required!"
+            @close="showModal = false" />
     </div>
 </template>
 
