@@ -141,10 +141,27 @@ async function findGenome(dbkey: string) {
 }
 
 function getGenome() {
+    message.value = "";
     const genome = props.settings.source.genome;
     if (genome) {
-        if (props.settings.source.origin === "igv") {
+        const origin = props.settings.source.origin;
+        if (origin === "igv") {
             return genome;
+        } else if (origin === "history") {
+            if (genome.extension === "fasta") {
+                return {
+                    id: genome.name,
+                    fastaURL: getDatasetUrl(genome.id),
+                    indexUrl: getIndexUrl(genome.id, genome.extension),
+                };
+            } else if (genome.extension === "twobit") {
+                return {
+                    id: genome.name,
+                    twoBitURL: getDatasetUrl(genome.id),
+                };
+            } else {
+                message.value = "References from History must be `fasta` or `twobit`.";
+            }
         } else {
             const genomeId = genome.id;
             const columns = genome.columns || [];

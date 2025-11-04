@@ -53,6 +53,10 @@
                         <label>Galaxy Reference Genome</label>
                         <value>builtin</value>
                     </data>
+                    <data>
+                        <label>Galaxy History Dataset</label>
+                        <value>history</value>
+                    </data>
                 </data>
             </test_param>
             <cases>
@@ -79,6 +83,17 @@
                             <name>genome</name>
                             <type>data_json</type>
                             <url>https://s3.amazonaws.com/igv.org.genomes/genomes.json</url>
+                        </inputs>
+                    </inputs>
+                </cases>
+                <cases>
+                    <value>history</value>
+                    <inputs>
+                        <inputs>
+                            <label>Genome</label>
+                            <help>Select a `fasta` or `twobit` dataset from your History.</help>
+                            <name>genome</name>
+                            <type>data</type>
                         </inputs>
                     </inputs>
                 </cases>

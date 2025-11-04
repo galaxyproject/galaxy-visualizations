@@ -148,8 +148,8 @@ describe("test last-queue", () => {
         queue.enqueue(testPromise, 1).then((r) => results.push(r));
         await queue.enqueue(testPromise, 2);
         await wait(5);
-        const defined = results.filter(r => r !== undefined);
-        const skipped = results.filter(r => r === undefined);
+        const defined = results.filter((r) => r !== undefined);
+        const skipped = results.filter((r) => r === undefined);
         // Either the first completed normally (defined=[1])
         // or it was skipped and undefined (defined=[2])
         expect(defined.length).toBe(1);
