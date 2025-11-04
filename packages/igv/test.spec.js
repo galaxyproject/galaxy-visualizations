@@ -8,7 +8,7 @@ import TWOBIT from "./test-data/api.twobit.json" with { type: "json" };
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATASET_CONTENT = fs.readFileSync(path.resolve(__dirname, "./test-data/test.bed"), "utf8");
-const DATASET_DETAILS = { extension: "bed", history_id: "history_id", id: "__test_pw__", name: "__test_pw__" };
+const DATASET_DETAILS = { extension: "bed", history_id: "history_id", id: "__test_pw__", metadata_dbkey: "hg38", name: "__test_pw__", };
 const DATASET_DETAILS_DROPPED = {
     extension: "bed",
     history_id: "history_id",
