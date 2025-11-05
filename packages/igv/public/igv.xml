@@ -94,6 +94,7 @@
                             <help>Select a `fasta` or `twobit` dataset from your History.</help>
                             <name>genome</name>
                             <type>data</type>
+                            <extension>fasta,twobit</extension>
                         </inputs>
                     </inputs>
                 </cases>
@@ -106,6 +107,7 @@
             <help>Select or drag and drop a track dataset from your history.</help>
             <name>urlDataset</name>
             <type>data</type>
+            <extension>bam,bcf,bed,bedgraph,bigbed,bigwig,cram,fasta,gff,gff3,gtf,twobit,vcf,vcf_bgzip,wig</extension>
         </input>
         <input>
             <label>Index</label>
