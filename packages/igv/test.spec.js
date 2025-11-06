@@ -8,8 +8,10 @@ import TWOBIT from "./test-data/api.twobit.json" with { type: "json" };
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATASET_CONTENT = fs.readFileSync(path.resolve(__dirname, "./test-data/test.bed"), "utf8");
+const DATASET_CONTENT_GENOME = fs.readFileSync(path.resolve(__dirname, "./test-data/test.fa"), "utf8");
 const DATASET_DETAILS = {
     extension: "bed",
+    hid: 1,
     history_id: "history_id",
     id: "__test_pw__",
     metadata_dbkey: "hg38",
@@ -17,9 +19,19 @@ const DATASET_DETAILS = {
 };
 const DATASET_DETAILS_DROPPED = {
     extension: "bed",
+    hid: 2,
     history_id: "history_id",
     id: "__test_pw_dropped__",
+    metadata_dbkey: "hg38",
     name: "__test_pw_dropped__",
+};
+const DATASET_DETAILS_GENOME = {
+    extension: "fasta",
+    history_id: "history_id",
+    hid: 3,
+    id: "__test_pw_genome__",
+    metadata_dbkey: "hg38",
+    name: "__test_pw_genome__",
 };
 
 async function createMockDatasetElement(page) {
@@ -70,11 +82,13 @@ async function dragAndDropDataset(page, datasetId, datasetName) {
 
 test("basic load and drag-drop dataset", async ({ page }) => {
     const routes = [
-        { url: "**/api/histories/history_id/contents?**", body: [DATASET_DETAILS] },
+        { url: "**/api/histories/history_id/contents?**", body: [DATASET_DETAILS, DATASET_DETAILS_DROPPED, DATASET_DETAILS_GENOME] },
         { url: "**/api/datasets/__test_pw__/display", body: DATASET_CONTENT, raw: true },
         { url: "**/api/datasets/__test_pw__", body: DATASET_DETAILS },
         { url: "**/api/datasets/__test_pw_dropped__/display", body: DATASET_CONTENT, raw: true },
         { url: "**/api/datasets/__test_pw_dropped__", body: DATASET_DETAILS_DROPPED },
+        { url: "**/api/datasets/__test_pw_genome__", body: DATASET_DETAILS_GENOME },
+        { url: "**/api/datasets/__test_pw_genome__/display", body: DATASET_CONTENT_GENOME, raw: true },
         { url: "**/api/tool_data/fasta_indexes", body: FASTA_INDEXES },
         { url: "**/api/tool_data/twobit", body: TWOBIT },
         { url: "**/api/version", body: { version_major: "25.1", version_minor: "rc1" } },
