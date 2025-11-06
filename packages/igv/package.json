@@ -23,7 +23,7 @@
         "@vitejs/plugin-vue": "^5.0.5",
         "@vitest/ui": "^3.0.9",
         "autoprefixer": "^10.4.19",
-        "galaxy-charts": "^0.0.92",
+        "galaxy-charts": "^0.0.93",
         "galaxy-charts-xml-parser": "^1.0.3",
         "igv": "^3.5.0",
         "jsdom": "^25.0.1",
