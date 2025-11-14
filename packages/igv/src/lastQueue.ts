@@ -24,6 +24,7 @@ export class LastQueue<T extends (arg: any, signal?: AbortSignal) => Promise<R>,
     private queues = new Map<string | number, QueuedAction<T, R>>();
     private pending = new Map<string | number, boolean>();
     private lastRun = new Map<string | number, number>();
+    private timeoutIds = new Map<string | number, NodeJS.Timeout>();
 
     constructor(throttle = 300, rejectSkipped = false) {
         this.throttle = throttle;
@@ -43,17 +44,19 @@ export class LastQueue<T extends (arg: any, signal?: AbortSignal) => Promise<R>,
     async enqueue(action: T, arg: Parameters<T>[0], key: string | number = "default"): Promise<R | undefined> {
         const controller = new AbortController();
         const task: QueuedAction<T, R> = { action, arg, resolve: () => {}, reject: () => {}, controller };
-
         return new Promise((resolve, reject) => {
             task.resolve = resolve;
             task.reject = reject;
-
             if (this.queues.has(key)) {
                 const prev = this.queues.get(key)!;
                 this.skip(prev, key);
             }
-
             this.queues.set(key, task);
+            const existing = this.timeoutIds.get(key);
+            if (existing) {
+                clearTimeout(existing);
+                this.timeoutIds.delete(key);
+            }
             if (!this.pending.has(key)) {
                 this.dequeue(key);
             }
@@ -64,27 +67,29 @@ export class LastQueue<T extends (arg: any, signal?: AbortSignal) => Promise<R>,
         if (!this.pending.has(key) && this.queues.has(key)) {
             const now = Date.now();
             const last = this.lastRun.get(key) || 0;
-            const delay = this.throttle - (now - last);
-
+            const delay = Math.max(0, this.throttle - (now - last));
             if (delay > 0) {
-                setTimeout(() => this.dequeue(key), delay);
+                const id = setTimeout(() => {
+                    this.timeoutIds.delete(key);
+                    this.dequeue(key);
+                }, delay);
+                this.timeoutIds.set(key, id);
             } else {
                 const current = this.queues.get(key)!;
                 this.queues.delete(key);
                 this.pending.set(key, true);
                 this.lastRun.set(key, now);
-
                 try {
                     if (current.controller.signal.aborted) {
-                        throw new DOMException("Aborted", "AbortError");
+                        throw new Error("Aborted");
                     }
                     const result = await current.action(current.arg, current.controller.signal);
                     if (current.controller.signal.aborted) {
-                        throw new DOMException("Aborted", "AbortError");
+                        throw new Error("Aborted");
                     }
                     current.resolve(result);
                 } catch (e: any) {
-                    if (e.name === "AbortError") {
+                    if (e.message === "Aborted") {
                         if (this.rejectSkipped) {
                             current.reject(new ActionSkippedError());
                         } else {
