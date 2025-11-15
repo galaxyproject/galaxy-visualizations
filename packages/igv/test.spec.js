@@ -82,7 +82,10 @@ async function dragAndDropDataset(page, datasetId, datasetName) {
 
 test("basic load and drag-drop dataset", async ({ page }) => {
     const routes = [
-        { url: "**/api/histories/history_id/contents?**", body: [DATASET_DETAILS, DATASET_DETAILS_DROPPED, DATASET_DETAILS_GENOME] },
+        {
+            url: "**/api/histories/history_id/contents?**",
+            body: [DATASET_DETAILS, DATASET_DETAILS_DROPPED, DATASET_DETAILS_GENOME],
+        },
         { url: "**/api/datasets/__test_pw__/display", body: DATASET_CONTENT, raw: true },
         { url: "**/api/datasets/__test_pw__", body: DATASET_DETAILS },
         { url: "**/api/datasets/__test_pw_dropped__/display", body: DATASET_CONTENT, raw: true },

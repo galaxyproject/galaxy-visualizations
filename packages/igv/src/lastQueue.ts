@@ -26,19 +26,18 @@ export class LastQueue<T extends (arg: any, signal?: AbortSignal) => Promise<R>,
     private lastRun = new Map<string | number, number>();
     private timeoutIds = new Map<string | number, NodeJS.Timeout>();
 
-    constructor(throttle = 300, rejectSkipped = false) {
+    constructor(throttle = 1000, rejectSkipped = false) {
         this.throttle = throttle;
         this.rejectSkipped = rejectSkipped;
     }
 
-    private skip(item: QueuedAction<T, R>, key: string | number) {
+    private skip(item: QueuedAction<T, R>) {
         item.controller.abort();
         if (this.rejectSkipped) {
             item.reject(new ActionSkippedError());
         } else {
             item.resolve(undefined);
         }
-        this.queues.delete(key);
     }
 
     async enqueue(action: T, arg: Parameters<T>[0], key: string | number = "default"): Promise<R | undefined> {
@@ -49,61 +48,60 @@ export class LastQueue<T extends (arg: any, signal?: AbortSignal) => Promise<R>,
             task.reject = reject;
             if (this.queues.has(key)) {
                 const prev = this.queues.get(key)!;
-                this.skip(prev, key);
+                this.queues.delete(key);
+                this.skip(prev);
             }
             this.queues.set(key, task);
-            const existing = this.timeoutIds.get(key);
-            if (existing) {
-                clearTimeout(existing);
-                this.timeoutIds.delete(key);
-            }
             if (!this.pending.has(key)) {
-                this.dequeue(key);
+                this.execute(key);
             }
         });
     }
 
-    private async dequeue(key: string | number) {
-        if (!this.pending.has(key) && this.queues.has(key)) {
-            const now = Date.now();
+    private async execute(key: string | number) {
+        if (this.queues.has(key) && !this.pending.has(key)) {
+            const task = this.queues.get(key)!;
+            this.queues.delete(key);
+            this.pending.set(key, true);
+            this.lastRun.set(key, Date.now());
+            try {
+                if (task.controller.signal.aborted) {
+                    throw new Error("Aborted");
+                }
+                const result = await task.action(task.arg, task.controller.signal);
+                if (task.controller.signal.aborted) {
+                    throw new Error("Aborted");
+                }
+                task.resolve(result);
+            } catch (e: any) {
+                if (e.message === "Aborted") {
+                    if (this.rejectSkipped) {
+                        task.reject(new ActionSkippedError());
+                    } else {
+                        task.resolve(undefined);
+                    }
+                } else {
+                    task.reject(e);
+                }
+            } finally {
+                this.pending.delete(key);
+                this.next(key);
+            }
+        }
+    }
+
+    private next(key: string | number) {
+        if (this.queues.has(key)) {
             const last = this.lastRun.get(key) || 0;
-            const delay = Math.max(0, this.throttle - (now - last));
-            if (delay > 0) {
+            const remaining = Math.max(0, this.throttle - (Date.now() - last));
+            if (remaining === 0) {
+                this.execute(key);
+            } else {
                 const id = setTimeout(() => {
                     this.timeoutIds.delete(key);
-                    this.dequeue(key);
-                }, delay);
+                    this.execute(key);
+                }, remaining);
                 this.timeoutIds.set(key, id);
-            } else {
-                const current = this.queues.get(key)!;
-                this.queues.delete(key);
-                this.pending.set(key, true);
-                this.lastRun.set(key, now);
-                try {
-                    if (current.controller.signal.aborted) {
-                        throw new Error("Aborted");
-                    }
-                    const result = await current.action(current.arg, current.controller.signal);
-                    if (current.controller.signal.aborted) {
-                        throw new Error("Aborted");
-                    }
-                    current.resolve(result);
-                } catch (e: any) {
-                    if (e.message === "Aborted") {
-                        if (this.rejectSkipped) {
-                            current.reject(new ActionSkippedError());
-                        } else {
-                            current.resolve(undefined);
-                        }
-                    } else {
-                        current.reject(e);
-                    }
-                } finally {
-                    this.pending.delete(key);
-                    if (this.queues.has(key)) {
-                        this.dequeue(key);
-                    }
-                }
             }
         }
     }

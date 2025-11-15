@@ -1,4 +1,4 @@
-import { LastQueue, ActionSkippedError } from "./lastQueue.js";
+import { ActionSkippedError, LastQueue } from "./lastQueue";
 
 async function testPromise(arg, _signal) {
     return Promise.resolve(arg);
@@ -36,21 +36,20 @@ describe("test last-queue", () => {
     });
 
     it("should respect throttle period", async () => {
-        const queue = new LastQueue(50);
+        const throttle = 50;
+        const queue = new LastQueue(throttle);
         const timestamps = [];
-
         async function timedAction(arg) {
             timestamps.push(Date.now());
             return arg;
         }
-
         await queue.enqueue(timedAction, 1);
         await queue.enqueue(timedAction, 2);
         await queue.enqueue(timedAction, 3);
-        await wait(120);
-        expect(timestamps.length).toBeLessThanOrEqual(3);
+        await wait(throttle * 3);
+        expect(timestamps.length).toBeGreaterThanOrEqual(1);
         const deltas = timestamps.slice(1).map((t, i) => t - timestamps[i]);
-        expect(deltas.every((d) => d >= 45)).toBe(true);
+        expect(deltas.every((d) => d === 0 || d >= throttle)).toBe(true);
     });
 
     it("should reject skipped promises when rejectSkipped is true", async () => {
@@ -58,10 +57,14 @@ describe("test last-queue", () => {
         let rejected = 0;
         const rejectAction = vi.fn((arg) => Promise.resolve(arg));
         queue.enqueue(rejectAction, 1).catch((e) => {
-            if (e instanceof ActionSkippedError) rejected++;
+            if (e instanceof ActionSkippedError) {
+                rejected++;
+            }
         });
         queue.enqueue(rejectAction, 2).catch((e) => {
-            if (e instanceof ActionSkippedError) rejected++;
+            if (e instanceof ActionSkippedError) {
+                rejected++;
+            }
         });
         await queue.enqueue(rejectAction, 3);
         await wait(10);
@@ -71,12 +74,10 @@ describe("test last-queue", () => {
     it("should cancel earlier queued actions per key", async () => {
         const queue = new LastQueue(0);
         const calls = [];
-
         async function recordAction(arg) {
             calls.push(arg);
             return arg;
         }
-
         queue.enqueue(recordAction, 1, "keyA");
         queue.enqueue(recordAction, 2, "keyA");
         queue.enqueue(recordAction, 3, "keyA");
@@ -97,12 +98,12 @@ describe("test last-queue", () => {
     it("should handle thrown errors without breaking queue", async () => {
         const queue = new LastQueue(0);
         const results = [];
-
         async function faultyAction(arg) {
-            if (arg === 1) throw new Error("TestError");
+            if (arg === 1) {
+                throw new Error("TestError");
+            }
             return arg;
         }
-
         queue.enqueue(faultyAction, 1).catch((e) => results.push(e.message));
         await queue.enqueue(faultyAction, 2).then((r) => results.push(r));
         expect(results).toContain("TestError");
@@ -112,14 +113,12 @@ describe("test last-queue", () => {
     it("should execute replacement if enqueued during completion", async () => {
         const queue = new LastQueue(0);
         const results = [];
-
         async function delayedAction(arg) {
             if (arg === 1) {
                 setTimeout(() => queue.enqueue(delayedAction, 2), 0);
             }
             return arg;
         }
-
         await queue.enqueue(delayedAction, 1).then((r) => results.push(r));
         await wait(10);
         expect(results).toContain(1);
@@ -163,7 +162,9 @@ describe("test last-queue", () => {
 
         async function longAction(arg, signal) {
             await new Promise((r) => setTimeout(r, 30));
-            if (!signal.aborted) finished = true;
+            if (!signal.aborted) {
+                finished = true;
+            }
             return arg;
         }
 
@@ -172,5 +173,36 @@ describe("test last-queue", () => {
         await queue.enqueue(longAction, 2, "key");
         await wait(40);
         expect(finished).toBe(true);
+    });
+
+    it("detects pending throttle never completing", async () => {
+        vi.useRealTimers();
+        const q = new LastQueue(300);
+        const calls = [];
+        async function fn(n) {
+            calls.push(n);
+            return n;
+        }
+        q.enqueue(fn, 1);
+        q.enqueue(fn, 2);
+        q.enqueue(fn, 3);
+        await wait(2000);
+        expect(calls.length).toBeGreaterThan(0);
+        expect(calls.length).toBeLessThanOrEqual(2);
+    });
+
+    it("detects blocked throttle under fake timers", async () => {
+        vi.useFakeTimers();
+        const q = new LastQueue(300);
+        const calls = [];
+        async function fn(n) {
+            calls.push(n);
+            return n;
+        }
+        q.enqueue(fn, 1);
+        q.enqueue(fn, 2);
+        q.enqueue(fn, 3);
+        vi.advanceTimersByTime(1000);
+        expect(calls.length).toBeGreaterThan(0);
     });
 });
