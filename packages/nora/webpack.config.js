@@ -46,15 +46,6 @@ module.exports = {
                 test: /\.css$/i,
                 use: ["style-loader", "css-loader"],
             },
-            {
-                test: /\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)(\?.*$|$)/,
-                use: {
-                    loader: "file-loader",
-                    options: {
-                        name: "[name].[ext]",
-                    },
-                },
-            },
         ],
     },
     performance: {
