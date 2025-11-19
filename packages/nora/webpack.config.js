@@ -19,6 +19,7 @@ module.exports = {
         new CopyPlugin({
             patterns: [
                 { from: "public", to: "static" },
+                { from: "htdocs/logo.svg", to: dist + "logo.svg" },
                 { from: "htdocs/babylon.js", to: dist + "babylon.js" },
                 { from: "htdocs/babylon.objFileLoader.js", to: dist + "babylon.objFileLoader.js" },
                 { from: "htdocs/models3d/LowPolyGirl.obj", to: dist + "models3d/LowPolyGirl.obj" },
