@@ -18,9 +18,7 @@ module.exports = {
         new MiniCssExtractPlugin(),
         new CopyPlugin({
             patterns: [
-                { from: "nora.xml", to: "static/nora.xml" },                
-                { from: "nora.svg", to: "static/logo.svg" },                
-                { from: "htdocs/logo.svg", to: dist + "logo.svg" },
+                { from: "public", to: "static" },
                 { from: "htdocs/babylon.js", to: dist + "babylon.js" },
                 { from: "htdocs/babylon.objFileLoader.js", to: dist + "babylon.objFileLoader.js" },
                 { from: "htdocs/models3d/LowPolyGirl.obj", to: dist + "models3d/LowPolyGirl.obj" },
@@ -53,9 +51,7 @@ module.exports = {
                 use: {
                     loader: "file-loader",
                     options: {
-                        name: "[name].[hash].[ext]",
-                        outputPath: "static/assets",
-                        publicPath: "../../../static/plugins/visualizations/nora/static/assets",
+                        name: "[name].[ext]",
                     },
                 },
             },

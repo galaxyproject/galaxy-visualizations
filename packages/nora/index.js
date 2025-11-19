@@ -84,6 +84,20 @@ const root = incoming.root;
 const metaUrl = `${root}api/datasets/${datasetId}`;
 const dataUrl = `${root}api/datasets/${datasetId}/display`;
 
+const base = root + "static/plugins/visualizations/nora/static/";
+
+const style = document.createElement("style");
+style.textContent =
+`@font-face {
+    font-family: 'FontAwesome';
+    src: url('${base}assets/fontawesome-webfont.eot');
+    src: url('${base}assets/fontawesome-webfont.eot?#iefix') format('embedded-opentype'), url('${base}assets/fontawesome-webfont.woff2') format('woff2'), url('${base}assets/fontawesome-webfont.woff') format('woff'), url('${base}assets/fontawesome-webfont.ttf') format('truetype'), url('${base}assets/fontawesome-webfont.svg#fontawesomeregular') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}`;
+
+document.head.appendChild(style)
+
 async function getData(url) {
     try {
         return await $.get(url);
@@ -95,9 +109,7 @@ async function getData(url) {
 async function render() {
     const metaData = await getData(metaUrl);
 
-    setNORAenv({
-        url_pref: root + "static/plugins/visualizations/nora/static/dist/"
-    })
+    setNORAenv({ url_pref: `${base}dist/` })
 
     console.debug("[NORA] Initialization...");
 
