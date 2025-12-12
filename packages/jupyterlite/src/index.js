@@ -6,9 +6,10 @@ async function create() {
     const incoming = JSON.parse(appElement?.dataset.incoming || "{}");
     const datasetId = incoming.visualization_config.dataset_id;
     const root = incoming.root;
+    const workspace = `galaxy-${Date.now()}`;
 
     // Collect query params
-    const params = { root };
+    const params = { root, workspace };
     if (datasetId !== undefined) {
         params.dataset_id = datasetId;
         // Identify history from dataset

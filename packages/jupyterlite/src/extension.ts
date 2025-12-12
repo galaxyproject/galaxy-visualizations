@@ -5,7 +5,30 @@ import axios from "axios";
 import TEMPLATE from "./template.json";
 
 const EXTENSION = "ipynb";
+const PROVIDER_ID = "chatgxy";
+const PROVIDER_MODEL = "generic";
+const PROVIDER_URL = "api/ai/v1";
 const TIMEOUT = 100;
+
+async function configureAIProvider(app: JupyterFrontEnd, root: string) {
+    const settingManager = app.serviceManager.settings;
+    const PLUGIN_ID = "@jupyterlite/ai:settings-model";
+    const PROVIDER_JSON = {
+        id: PROVIDER_ID,
+        name: PROVIDER_ID,
+        provider: PROVIDER_MODEL,
+        model: PROVIDER_ID,
+        apiKey: PROVIDER_ID,
+        baseURL: `${root}${PROVIDER_URL}`,
+    };
+    try {
+        const newSettings = { defaultProvider: PROVIDER_ID, providers: [PROVIDER_JSON] };
+        await settingManager.save(PLUGIN_ID, JSON.stringify(newSettings, null, 2));
+        console.log("✅ AI provider configured: Galaxy");
+    } catch (err) {
+        console.error("❌ Failed to configure AI provider", err);
+    }
+}
 
 function getPayload(name: string, history_id: string, content: string) {
     return {
@@ -66,12 +89,19 @@ const plugin: JupyterFrontEndPlugin<void> = {
     autoStart: true,
     activate: async (app: JupyterFrontEnd) => {
         console.log("Activating jl-galaxy...", app);
-        await waitFor(() => !!app.shell && !!app.docRegistry.getWidgetFactory("Notebook"));
+        await waitFor(
+            () => !!app.shell && !!app.docRegistry.getWidgetFactory("Notebook") && !!app.serviceManager?.settings,
+        );
+
+        // collect props
         const params = new URLSearchParams(window.location.search);
         const datasetId = params.get("dataset_id");
         const historyId = params.get("history_id");
         const notebookName = getTimestamp();
-        const root = params.get("root");
+        const root = params.get("root") || "/";
+
+        // configure ai provider
+        await configureAIProvider(app, root);
 
         // load notebook
         let nbContent = null;
@@ -148,7 +178,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                         .then(() => {
                                             console.log(`✅ Notebook "${name}" saved to history`);
                                         })
-                                        .catch((err) => {
+                                        .catch((err: any) => {
                                             console.error(`❌ Could not save "${name}" to history:`, err);
                                         });
                                 } else {

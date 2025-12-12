@@ -87,10 +87,11 @@ async def get(datasets_identifiers, identifier_type="hid", history_id=None, retr
         path = await _download_dataset(ds)
         file_path_all.append(path)
         if retrieve_datatype:
-            datatypes_all.append({dataset_id: ds["extension"]})
+            datatypes_all.append({ds["id"]: ds["extension"]})
+
     if retrieve_datatype:
         if len(file_path_all) == 1:
-            return file_path_all, datatypes_all[0][dataset_id]
+            return file_path_all, datatypes_all[0][ds["id"]]
         else:
             datatype_multi = {}
             for dt in datatypes_all:
