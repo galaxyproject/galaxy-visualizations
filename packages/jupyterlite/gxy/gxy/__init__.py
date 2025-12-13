@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 import pyodide_js
-from js import XMLHttpRequest, File, FormData, fetch, Promise
+from js import XMLHttpRequest, File, FormData, fetch
 from pyodide.ffi import create_proxy, to_js
 
 # identifer types
@@ -10,6 +10,12 @@ IDENTIFIER_TYPES = {
     "hid": "hid-eq",
     "name": "name-contains",
     "tag": "tag-eq",
+}
+
+# text extensions
+TEXT_EXTENSIONS = {
+    "csv", "bed", "fasta", "fastq", "gff", "gtf", "json",
+    "tabular", "tsv", "txt", "sam", "vcf", "xml", "yaml"
 }
 
 async def api(endpoint, method="GET", data=None):
@@ -208,32 +214,30 @@ async def _download_dataset(dataset):
         String path of stored file
     """
     dataset_id = dataset['id']
-    history_id = dataset['history_id']
+    extension = dataset['extension']
+    hid = dataset['hid']
     history_content_type = dataset["history_content_type"]
-    path = f"/{history_id}/{dataset_id}"
+
+    # prep output file
+    is_text = extension in TEXT_EXTENSIONS
+    file_type = "txt" if is_text else "dat"
+    file_name = f"{hid}.{extension}.{dataset_id}.{file_type}"
 
     # download only if not already written
-    if not os.path.exists(path):
-        os.makedirs(f"/{history_id}", exist_ok=True)
+    if not os.path.exists(file_name):
         if history_content_type == "dataset":
             url = get_api(f"/api/datasets/{dataset_id}/display")
             response = await fetch(url)
             if not response.ok:
                 raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
-            content_type = response.headers.get("Content-Type", "")
-            if content_type.startswith("text/"):
-                content = await response.text()
-                with open(path, "w") as f:
-                    f.write(content)
-            else:
-                buffer = await response.arrayBuffer()
-                data = bytearray(buffer.to_py())
-                with open(path, "wb") as f:
-                    f.write(data)
+            buffer = await response.arrayBuffer()
+            data = bytes(bytearray(buffer.to_py()))
+            with open(file_name, "wb") as f:
+                f.write(data)
         elif history_content_type == "dataset_collection":
             raise Exception("Not implemented.")
 
-    return path
+    return file_name
 
 
 def _find_matching_datasets(history_datasets, list_of_regex_patterns):
