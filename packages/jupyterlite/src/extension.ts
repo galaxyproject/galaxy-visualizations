@@ -139,6 +139,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
             console.error("❌ Could not load dataset notebook:", err);
         }
 
+        // set to single document mode
+        await app.commands.execute("application:set-mode", { mode: "single-document" });
+
         // open and save notebooks
         try {
             // attach commands
