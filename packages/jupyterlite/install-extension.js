@@ -29,21 +29,7 @@ const PYPI_PATH = "../../../../pypi/";
 const INSTALL = ["numpy", "pandas", "rpds-py"];
 
 // ---- Optionally disable extensions e.g. side panel ----
-const DISABLED = [
-    "@jupyterlab/filebrowser-extension",
-    "@jupyterlab/launcher-extension",
-    "@jupyterlab/running-extension",
-    "@jupyterlab/toc-extension",
-    "@jupyterlab/fileeditor-extension:plugin",
-    "@jupyterlab/fileeditor-extension:cursor-position",
-    "@jupyterlab/fileeditor-extension:completer",
-    "@jupyterlab/fileeditor-extension:language-server",
-    "@jupyterlab/fileeditor-extension:editor-syntax-status",
-    "@jupyterlab/fileeditor-extension:tab-space-status",
-    "@jupyterlab/notebook-extension:toc",
-    "@jupyterlite/application-extension:share-file",
-    "@jupyterlab/tooltip-extension:files",
-];
+const DISABLED = [];
 
 // ---- Ensure base output dir exists ----
 fs.mkdirSync(path.join(__dirname, JUPYTER_DIR), { recursive: true });
@@ -109,6 +95,11 @@ jupyterConfig.litePluginSettings = {
         },
     },
 };
+
+// ---- Ensure in-memory storage driver only ----
+jupyterConfig.enableMemoryStorage = true;
+jupyterConfig.contentsStorageDrivers = ["memoryStorageDriver"];
+jupyterConfig.workspacesStorageDrivers = ["memoryStorageDriver"];
 
 // ---- Ensure federated_extensions array exists and add plugin ----
 const federated = (jupyterConfig.federated_extensions ||= []);
