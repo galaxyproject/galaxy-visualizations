@@ -17,6 +17,10 @@ const DATASET_1 = {
     name: "sample",
 };
 
+const DATASET_HASH = "f1b9ff97-c70c-4889-a0d0-40896db528eb";
+
+const LANDING = "http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id";
+
 async function createNotebook(page) {
     await page.waitForSelector("#jp-MainMenu");
     await page.click("text=File");
@@ -47,7 +51,7 @@ async function selectKernel(page) {
     await page.click(".jp-InputArea-editor");
 }
 
-test("Create new Python notebook from menu and run a cell", async ({ page }) => {
+async function startService(page, testTitle = "Hello World!") {
     // mock api
     await page.route("**/root/api/datasets/dataset_0/display", async (route) => {
         await route.fulfill({
@@ -67,9 +71,9 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
                 nbformat: 4,
                 cells: [
                     {
-                        id: "f1b9ff97-c70c-4889-a0d0-40896db528eb",
+                        id: DATASET_HASH,
                         cell_type: "code",
-                        source: 'print("Hello World!")',
+                        source: `print("${testTitle}")`,
                         metadata: {
                             trusted: true,
                         },
@@ -113,6 +117,14 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
         });
     });
 
+    await page.route("**/root/api/histories/history_id/contents?v=dev&q=hid-eq&qv=99", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_0]),
+        });
+    });
+
     await page.route("**/root/api/histories/history_id/contents?v=dev&q=hid-eq&qv=98", async (route) => {
         await route.fulfill({
             status: 200,
@@ -129,13 +141,37 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
         });
     });
 
-    // start
-    await page.goto("http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id");
+    await page.route("**/root/api/tools/fetch", async (route) => {
+        await route.fulfill({ status: 200, body: JSON.stringify({ status: "ok" }) });
+    });
+
+    // goto landing page
+    await page.goto(LANDING);
+
+    // select kernel
+    await selectKernel(page);
 
     // accept and execute first cell
-    await selectKernel(page);
     await page.keyboard.press("Shift+Enter");
-    await checkOutputArea(page, 0, "Hello World!");
+    await checkOutputArea(page, 0, testTitle);
+}
+
+test("get and put datasets", async ({ page }, testInfo) => {
+    await startService(page, testInfo.title);
+    await executeNext(page, [
+        "import gxy, os",
+        "await gxy.get(99)",
+        "with open('99.txt.dataset_0.txt') as f:",
+        "print(f.read())",
+    ]);
+    await checkOutputArea(page, 1, DATASET_HASH);
+    await executeNext(page, ["import gxy", "print(await gxy.put('99.txt.dataset_0.txt'))"]);
+    await checkOutputArea(page, 2, "ok");
+});
+
+test("create and run notebook", async ({ page }) => {
+    // start
+    await startService(page);
 
     // test gxy environment
     await executeNext(page, ["import gxy", "print(gxy.get_environment())"]);
