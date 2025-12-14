@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 
 const DATASET_0 = {
     id: "dataset_0",
+    extension: "txt",
     hid: 99,
     history_content_type: "dataset",
     history_id: "history_id",
@@ -9,6 +10,7 @@ const DATASET_0 = {
 };
 const DATASET_1 = {
     id: "dataset_1",
+    extension: "binary",
     hid: 98,
     history_content_type: "dataset",
     history_id: "history_id",
@@ -145,23 +147,23 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
 
     // test gxy front-end multiple hid filter
     await executeNext(page, ["import gxy", "print(await gxy.get([99, 98]))"]);
-    await checkOutputArea(page, 3, "['/history_id/dataset_0', '/history_id/dataset_1']");
+    await checkOutputArea(page, 3, "['99.txt.dataset_0.txt', '98.binary.dataset_1.dat']");
 
     // test gxy backend hid filter
     await executeNext(page, ["import gxy", "print(await gxy.get(98))"]);
-    await checkOutputArea(page, 4, "/history_id/dataset_1");
+    await checkOutputArea(page, 4, "98.binary.dataset_1.dat");
 
     // test gxy client regex filter
     await executeNext(page, ["import gxy", "print(await gxy.get('boo', 'regex'))"]);
-    await checkOutputArea(page, 5, "/history_id/dataset_0");
+    await checkOutputArea(page, 5, "99.txt.dataset_0.txt");
 
     // test gxy backend tag filter
     await executeNext(page, ["import gxy", "print(await gxy.get('test', 'tag'))"]);
-    await checkOutputArea(page, 6, "/history_id/dataset_1");
+    await checkOutputArea(page, 6, "98.binary.dataset_1.dat");
 
     // test gxy client id filter
     await executeNext(page, ["import gxy", "print(await gxy.get('dataset_0', 'id'))"]);
-    await checkOutputArea(page, 7, "/history_id/dataset_0");
+    await checkOutputArea(page, 7, "99.txt.dataset_0.txt");
 
     // test plotly, numpy and pandas
     const plotlyCode = [
