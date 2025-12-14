@@ -5,9 +5,9 @@ import axios from "axios";
 import TEMPLATE from "./template.json";
 
 const EXTENSION = "ipynb";
-const PROVIDER_ID = "chatgxy";
+const PROVIDER_ID = "jnaut";
 const PROVIDER_MODEL = "generic";
-const PROVIDER_URL = "api/ai/v1";
+const PROVIDER_URL = "jupyternaut";
 
 async function configureAIProvider(app: JupyterFrontEnd, root: string) {
     const settingManager = app.serviceManager.settings;
