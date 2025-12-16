@@ -156,6 +156,47 @@ async function startService(page, testTitle = "Hello World!") {
     await checkOutputArea(page, 0, testTitle);
 }
 
+test("test seaborn", async ({ page }, testInfo) => {
+    await startService(page, testInfo.title);
+    const seabornCode = [
+        "import numpy as np",
+        "import pandas as pd",
+        "import matplotlib.pyplot as plt",
+        "import seaborn as sns",
+        "x = np.linspace(0, 10, 100)",
+        "y = np.sin(x)",
+        'df = pd.DataFrame({"x": x, "y": y})',
+        "sns.lineplot(data=df, x='x', y='y')",
+        "plt.show()",
+    ].join("\n");
+    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
+    await page.keyboard.type(seabornCode);
+    await page.keyboard.press("Shift+Enter");
+    await page.waitForSelector(".jp-RenderedImage", { timeout: 20000 });
+    const imageCount = await page.locator(".jp-RenderedImage").count();
+    expect(imageCount).toBeGreaterThan(0);
+});
+
+test("test plotly", async ({ page }, testInfo) => {
+    await startService(page, testInfo.title);
+    const plotlyCode = [
+        "import plotly.express as px",
+        "import numpy as np",
+        "import pandas as pd",
+        "x = np.linspace(0, 10, 100)",
+        "y = np.sin(x)",
+        'df = pd.DataFrame({"x": x, "y": y})',
+        'fig = px.line(df, x="x", y="y", title="Sine Wave")',
+        "fig.show()",
+    ].join("\n");
+    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
+    await page.keyboard.type(plotlyCode);
+    await page.keyboard.press("Shift+Enter");
+    await page.waitForSelector(".js-plotly-plot", { timeout: 20000 });
+    const plotCount = await page.locator(".js-plotly-plot").count();
+    expect(plotCount).toBeGreaterThan(0);
+});
+
 test("get and put datasets", async ({ page }, testInfo) => {
     await startService(page, testInfo.title);
     await executeNext(page, [
@@ -200,22 +241,4 @@ test("create and run notebook", async ({ page }) => {
     // test gxy client id filter
     await executeNext(page, ["import gxy", "print(await gxy.get('dataset_0', 'id'))"]);
     await checkOutputArea(page, 7, "99.txt.dataset_0.txt");
-
-    // test plotly, numpy and pandas
-    const plotlyCode = [
-        "import plotly.express as px",
-        "import numpy as np",
-        "import pandas as pd",
-        "x = np.linspace(0, 10, 100)",
-        "y = np.sin(x)",
-        'df = pd.DataFrame({"x": x, "y": y})',
-        'fig = px.line(df, x="x", y="y", title="Sine Wave")',
-        "fig.show()",
-    ].join("\n");
-    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
-    await page.keyboard.type(plotlyCode);
-    await page.keyboard.press("Shift+Enter");
-    await page.waitForSelector(".js-plotly-plot", { timeout: 20000 });
-    const plotCount = await page.locator(".js-plotly-plot").count();
-    expect(plotCount).toBeGreaterThan(0);
 });

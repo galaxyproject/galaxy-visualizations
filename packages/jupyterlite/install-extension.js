@@ -56,7 +56,7 @@ console.log(`✅ Copied GXY wheel → ${GXY_TARGET_WHEEL}`);
 
 // ---- Download additional wheels ----
 const requirementsPath = path.join(__dirname, "pyodide.txt");
-const pipDownload = spawnSync("pip", ["download", "--dest", PYPI_DIR, "-r", requirementsPath], {
+const pipDownload = spawnSync("pip", ["download", "--dest", PYPI_DIR, "-r", requirementsPath, "--no-deps"], {
     stdio: "inherit",
 });
 if (pipDownload.status !== 0) {
