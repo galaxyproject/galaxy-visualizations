@@ -21,6 +21,7 @@
         "@playwright/test": "^1.52.0",
         "axios": "^1.9.0",
         "cpx": "^1.5.0",
+        "node-fetch": "^3.3.2",
         "playwright": "^1.52.0",
         "prettier": "^3.5.3",
         "ts-loader": "^9.5.0",
@@ -29,8 +30,5 @@
         "webpack-cli": "^5.1.4",
         "@jupyterlab/application": "^4.0.0",
         "@jupyterlab/apputils": "^4.0.0"
-    },
-    "dependencies": {
-        "node-fetch": "^3.3.2"
     }
 }

@@ -21,7 +21,11 @@ async function configureAIProvider(app: JupyterFrontEnd, root: string) {
         baseURL: `${root}${PROVIDER_URL}`,
     };
     try {
-        const newSettings = { defaultProvider: PROVIDER_ID, providers: [PROVIDER_JSON] };
+        const newSettings = {
+            defaultProvider: PROVIDER_ID,
+            providers: [PROVIDER_JSON],
+            useSameProviderForChatAndCompleter: false,
+        };
         await settingManager.save(PLUGIN_ID, JSON.stringify(newSettings, null, 2));
         console.log("✅ AI provider configured: Galaxy");
     } catch (err) {
