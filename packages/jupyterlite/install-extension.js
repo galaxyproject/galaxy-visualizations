@@ -107,6 +107,7 @@ jupyterConfig.litePluginSettings = {
 // ---- Ensure in-memory storage driver only ----
 jupyterConfig.enableMemoryStorage = true;
 jupyterConfig.contentsStorageDrivers = ["memoryStorageDriver"];
+jupyterConfig.settingsStorageDrivers = ["memoryStorageDriver"];
 jupyterConfig.workspacesStorageDrivers = ["memoryStorageDriver"];
 
 // ---- Ensure federated_extensions array exists and add plugin ----
