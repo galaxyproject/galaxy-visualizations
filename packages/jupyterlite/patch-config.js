@@ -1,17 +1,11 @@
 import fs from "fs";
 import path from "path";
 
-const file = path.resolve("static/dist/_output/config-utils.js");
+// Injection
+const MARKER = "const config = await jupyterConfigData();";
+const UNIQUE = "//__GXY__INJECTION__";
 
-if (!fs.existsSync(file)) {
-    console.error(`❌ Patch failed: ${file} not found. Did you run 'jupyter lite build' first?`);
-    process.exit(1);
-}
-
-let contents = fs.readFileSync(file, "utf-8");
-
-const marker = "const config = await jupyterConfigData();";
-const injection = `
+const INJECTION = `
     const AI_SETTINGS = "@jupyterlite/ai:settings-model";
     const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
     const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
@@ -35,19 +29,29 @@ const injection = `
     };
 `;
 
-// Already patched? No problem, continue silently
-if (contents.includes(injection)) {
-    console.log("✅ config-utils.js already patched.");
-    process.exit(0);
+// Read contents
+const file = path.resolve("static/dist/_output/config-utils.js");
+if (!fs.existsSync(file)) {
+    console.error(`❌ Patch failed: ${file} not found. Did you run 'jupyter lite build' first?`);
+    process.exit(1);
 }
 
-// Can't patch if marker isn't found — fail fast
-if (!contents.includes(marker)) {
+let contents = fs.readFileSync(file, "utf-8");
+
+// Ensure marker exists before mutation
+if (!contents.includes(MARKER)) {
     console.error("❌ Patch failed: marker line not found in config-utils.js.");
     process.exit(1);
 }
 
-// Inject patch
-const patched = contents.replace(marker, `${marker}\n  ${injection}`);
+// Remove previous injection if present
+const idx = contents.indexOf(UNIQUE);
+if (idx !== -1) {
+    contents = contents.slice(0, idx);
+}
+
+// Inject fresh block
+const patched = contents.replace(MARKER, `${MARKER}\n${UNIQUE}\n${INJECTION}\n${UNIQUE}`);
+
 fs.writeFileSync(file, patched, "utf-8");
 console.log("✅ Patched config-utils.js.");
