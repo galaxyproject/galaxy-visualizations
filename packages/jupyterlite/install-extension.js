@@ -25,9 +25,6 @@ const GXY_TARGET_WHEEL = path.join(PYPI_DIR, path.basename(GXY_SOURCE_WHEEL));
 const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
 const PYPI_PATH = "../../../../pypi/";
 
-// ---- Install pyodide packages ----
-const INSTALL = ["numpy", "pandas", "rpds-py"];
-
 // ---- Optionally disable extensions e.g. side panel ----
 const DISABLED = [];
 
@@ -54,9 +51,20 @@ fs.mkdirSync(PYPI_DIR, { recursive: true });
 fs.copyFileSync(GXY_SOURCE_WHEEL, GXY_TARGET_WHEEL);
 console.log(`✅ Copied GXY wheel → ${GXY_TARGET_WHEEL}`);
 
+// ---- Pyodide dependencies ----
+const INSTALL = [];
+const dependenciesPath = path.join(__dirname, "pyodide.deps.txt");
+const deps = fs.readFileSync(dependenciesPath, "utf-8").split(/\r?\n/);
+for (const line of deps) {
+    const v = line.trim();
+    if (v !== "" && !v.startsWith("#")) {
+        INSTALL.push(v);
+    }
+}
+
 // ---- Download additional wheels ----
 const requirementsPath = path.join(__dirname, "pyodide.txt");
-const pipDownload = spawnSync("pip", ["download", "--dest", PYPI_DIR, "-r", requirementsPath, "--no-deps"], {
+const pipDownload = spawnSync("pip", ["download", "--dest", PYPI_DIR, "-r", requirementsPath], {
     stdio: "inherit",
 });
 if (pipDownload.status !== 0) {
