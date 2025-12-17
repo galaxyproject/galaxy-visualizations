@@ -12,10 +12,26 @@ let contents = fs.readFileSync(file, "utf-8");
 
 const marker = "const config = await jupyterConfigData();";
 const injection = `
+    const AI_SETTINGS = "@jupyterlite/ai:settings-model";
     const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
     const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
     config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
         __gxy__: JSON.stringify(searchParams)
+    };
+    config.settingsOverrides ||= {};
+    config.settingsOverrides[AI_SETTINGS] = {
+        defaultProvider: "jnaut",
+        useSameProviderForChatAndCompleter: false,
+        providers: [
+            {
+                id: "jnaut",
+                name: "jnaut",
+                provider: "generic",
+                model: "jnaut",
+                apiKey: "jnaut",
+                baseURL: searchParams.root + "jupyternaut"
+            }
+        ]
     };
 `;
 

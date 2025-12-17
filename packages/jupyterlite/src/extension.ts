@@ -5,33 +5,6 @@ import axios from "axios";
 import TEMPLATE from "./template.json";
 
 const EXTENSION = "ipynb";
-const PROVIDER_ID = "jnaut";
-const PROVIDER_MODEL = "generic";
-const PROVIDER_URL = "jupyternaut";
-
-async function configureAIProvider(app: JupyterFrontEnd, root: string) {
-    const settingManager = app.serviceManager.settings;
-    const PLUGIN_ID = "@jupyterlite/ai:settings-model";
-    const PROVIDER_JSON = {
-        id: PROVIDER_ID,
-        name: PROVIDER_ID,
-        provider: PROVIDER_MODEL,
-        model: PROVIDER_ID,
-        apiKey: PROVIDER_ID,
-        baseURL: `${root}${PROVIDER_URL}`,
-    };
-    try {
-        const newSettings = {
-            defaultProvider: PROVIDER_ID,
-            providers: [PROVIDER_JSON],
-            useSameProviderForChatAndCompleter: false,
-        };
-        await settingManager.save(PLUGIN_ID, JSON.stringify(newSettings, null, 2));
-        console.log("✅ AI provider configured: Galaxy");
-    } catch (err) {
-        console.error("❌ Failed to configure AI provider", err);
-    }
-}
 
 function getPayload(name: string, history_id: string, content: string) {
     return {
@@ -82,9 +55,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
             const historyId = params.get("history_id");
             const notebookName = getTimestamp();
             const root = params.get("root") || "/";
-
-            // configure ai provider
-            await configureAIProvider(app, root);
 
             // load notebook
             let nbContent = null;
