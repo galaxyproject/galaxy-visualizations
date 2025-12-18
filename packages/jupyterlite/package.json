@@ -1,17 +1,16 @@
 {
     "name": "@galaxyproject/jupyterlite",
-    "version": "0.0.19",
+    "version": "0.0.21",
     "type": "module",
     "files": [
         "static"
     ],
     "scripts": {
-        "build": "webpack && npm run build:jupyter && npm run build:gxy && npm run build:extension && npm run build:patch && npm run build:index && npm run build:public",
-        "build:extension": "node install-extension.js",
+        "build": "webpack && npm run build:jupyter && npm run build:gxy && npm run build:extension && npm run build:index && npm run build:public",
+        "build:extension": "node jl.install.js",
         "build:gxy": "cd gxy && python -m build --wheel",
         "build:index": "cpx src/index.js static/dist",
         "build:jupyter": "jupyter lite build --output-dir static/dist/_output",
-        "build:patch": "node patch-config.js",
         "build:public": "cp public/* static",
         "dev": "jupyter lite serve --output-dir static/dist/_output --config static/dist/_output/jupyter-lite.json",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/*.js' 'src/*.ts'",
@@ -21,6 +20,7 @@
         "@playwright/test": "^1.52.0",
         "axios": "^1.9.0",
         "cpx": "^1.5.0",
+        "node-fetch": "^3.3.2",
         "playwright": "^1.52.0",
         "prettier": "^3.5.3",
         "ts-loader": "^9.5.0",
@@ -29,8 +29,5 @@
         "webpack-cli": "^5.1.4",
         "@jupyterlab/application": "^4.0.0",
         "@jupyterlab/apputils": "^4.0.0"
-    },
-    "dependencies": {
-        "node-fetch": "^3.3.2"
     }
 }

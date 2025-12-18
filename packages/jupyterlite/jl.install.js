@@ -25,9 +25,6 @@ const GXY_TARGET_WHEEL = path.join(PYPI_DIR, path.basename(GXY_SOURCE_WHEEL));
 const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
 const PYPI_PATH = "../../../../pypi/";
 
-// ---- Install pyodide packages ----
-const INSTALL = ["numpy", "pandas", "rpds-py"];
-
 // ---- Optionally disable extensions e.g. side panel ----
 const DISABLED = [];
 
@@ -54,8 +51,19 @@ fs.mkdirSync(PYPI_DIR, { recursive: true });
 fs.copyFileSync(GXY_SOURCE_WHEEL, GXY_TARGET_WHEEL);
 console.log(`✅ Copied GXY wheel → ${GXY_TARGET_WHEEL}`);
 
+// ---- Pyodide dependencies ----
+const INSTALL = [];
+const dependenciesPath = path.join(__dirname, "jl.pyodide.deps.txt");
+const deps = fs.readFileSync(dependenciesPath, "utf-8").split(/\r?\n/);
+for (const line of deps) {
+    const v = line.trim();
+    if (v !== "" && !v.startsWith("#")) {
+        INSTALL.push(v);
+    }
+}
+
 // ---- Download additional wheels ----
-const requirementsPath = path.join(__dirname, "pyodide.txt");
+const requirementsPath = path.join(__dirname, "jl.pyodide.txt");
 const pipDownload = spawnSync("pip", ["download", "--dest", PYPI_DIR, "-r", requirementsPath], {
     stdio: "inherit",
 });
@@ -99,6 +107,7 @@ jupyterConfig.litePluginSettings = {
 // ---- Ensure in-memory storage driver only ----
 jupyterConfig.enableMemoryStorage = true;
 jupyterConfig.contentsStorageDrivers = ["memoryStorageDriver"];
+jupyterConfig.settingsStorageDrivers = ["memoryStorageDriver"];
 jupyterConfig.workspacesStorageDrivers = ["memoryStorageDriver"];
 
 // ---- Ensure federated_extensions array exists and add plugin ----
@@ -152,3 +161,13 @@ const EMPTY_DIR_JSON = {
 };
 fs.writeFileSync(allJsonPath, JSON.stringify(EMPTY_DIR_JSON, null, 2));
 console.log(`✅ Created placeholder contents file: ${allJsonPath}`);
+
+// ---- Injecting dynamic configuration ----
+const configScriptPath = path.join(__dirname, "jl.config.js");
+const configInstall = spawnSync("node", [configScriptPath], {
+    stdio: "inherit"
+});
+if (configInstall.status !== 0) {
+    console.error("❌ patching configuration failed.");
+    process.exit(1);
+}
