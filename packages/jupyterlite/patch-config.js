@@ -23,7 +23,7 @@ const INJECTION = `
                 provider: "generic",
                 model: "jnaut",
                 apiKey: "jnaut",
-                baseURL: searchParams.root + "jupyternaut"
+                baseURL: searchParams.root + "compat"
             }
         ]
     };
