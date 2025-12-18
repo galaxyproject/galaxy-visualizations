@@ -1,0 +1,1 @@
+{"name":"fasta_indexes","model_class":"RefgenieToolDataTable","columns":["value","dbkey","name","path"],"fields":[["anoGam1X","anoGam1","Mosquito (Anopheles gambiae): anoGam1","/Users/guerler/galaxy-references/anoGam1/sam_index/anoGam1.fa"]]}

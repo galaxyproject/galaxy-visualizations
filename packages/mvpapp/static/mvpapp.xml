@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="MVP Application" embeddable="true">
+    <description>Mass Spectrometry</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">mz.sqlite</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="script.js" />
+    <help format="markdown"><![CDATA[
+# What is the MVP Application?
+
+The Galaxy-based **MVP visualization plugin** enables viewing of results produced from workflows integrating genomic sequencing data and mass spectrometry (MS)-based proteomics data, commonly known as **proteogenomics**.
+
+This multi-functional tool provides:
+
+- Organization and filtering of results
+- Quality assessment of tandem mass spectrometry (MS/MS) data matched to peptide sequences
+- Visualization of data at both the **protein** and **gene** level
+
+With relatively few keystrokes, users can filter and order large datasets down to a manageable subset.
+    ]]></help>
+</visualization>

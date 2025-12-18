@@ -28,6 +28,21 @@ function clone (source) {
 }
 
 
+
+kmath.matrices_equal = function(x,y,eps)
+{
+    if (eps == undefined)
+        eps = 0.01;
+
+    var diff = 0;
+    for (var k = 0;k < x.length;k++)
+        for (var j = 0;j < x[k].length;j++)
+            diff += Math.abs(x[k][j]-y[k][j])
+
+    return diff < eps;
+            
+}
+
 kmath.matrix = function(v)
 {
     var data;
@@ -222,6 +237,19 @@ kmath.dot = function(a,b)
         b =b._data;
     
     var out = (a[0]*b[0] + a[1]*b[1] + a[2]*b[2]);   
+    return out;
+}
+
+kmath.dots = function(a,b)
+{
+    if(a._data != undefined)
+        a = a._data;
+    if(b._data != undefined)
+        b =b._data;
+    
+    var out = 0;
+    for (var k = 0; k < a.length;k++)
+        out += a[k]*b[k];
     return out;
 }
 
@@ -436,10 +464,13 @@ kmath.argmax = function(array) {
 }
 
 
-kmath.add = function(a, b)
+kmath.add = function(a, b, f)
 {
+    if (f == undefined)
+        f = 1;
+
     if (typeof a == 'number')
-        return kmath.add(b, a);
+        return kmath.add(b, a,f);
 
     a = kmath.matrix(a);
 
@@ -448,13 +479,13 @@ kmath.add = function(a, b)
         if (a._size.length == 1)
         {
             for (var k = 0; k < a._size[0]; k++)
-                a._data[k] += b;
+                a._data[k] += f*b;
         }
         else
         {
             for (var k = 0; k < a._size[0]; k++)
                 for (var j = 0; j < a._size[1]; j++)
-                    a._data[k][j] += b;
+                    a._data[k][j] += f*b;
         }
         return a;
     }
@@ -464,13 +495,13 @@ kmath.add = function(a, b)
         if (a._size.length == 1)
         {
             for (var k = 0; k < a._size[0]; k++)
-                a._data[k] += b._data[k];
+                a._data[k] += f*b._data[k];
         }
         else
         {
             for (var k = 0; k < a._size[0]; k++)
                 for (var j = 0; j < a._size[1]; j++)
-                    a._data[k][j] += b._data[k][j];
+                    a._data[k][j] += f*b._data[k][j];
         }
 
         return a;
@@ -567,12 +598,15 @@ kmath.maxEV = function(M)
 
 kmath.normalize = function(v)
 {
+    if (v._data)
+        v = v._data;
+
     var n = 0;
-    for (var k = 0; k < v._data.length; k++)
-        n += v._data[k] * v._data[k];
+    for (var k = 0; k < v.length; k++)
+        n += v[k] * v[k];
     n = kmath.sqrt(n);
-    for (var k = 0; k < v._data.length; k++)
-        v._data[k] /= n;
+    for (var k = 0; k < v.length; k++)
+        v[k] /= n;
     return n;
 }
 

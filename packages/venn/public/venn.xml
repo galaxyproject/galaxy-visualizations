@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="Venn Diagram" embeddable="true">
     <description>Area proportional Venn and Euler Diagrams</description>
     <tags>
@@ -17,10 +16,7 @@
     <params>
         <param required="true">dataset_id</param>
     </params>
-    <requirements>
-        <requirement type="npm" version="0.0.7" package="@galaxyproject/venn"/>
-    </requirements>
-    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <tracks>
         <input>
             <label>Provide a label</label>

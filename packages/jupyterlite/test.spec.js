@@ -1,5 +1,26 @@
 import { test, expect } from "@playwright/test";
 
+const DATASET_0 = {
+    id: "dataset_0",
+    extension: "txt",
+    hid: 99,
+    history_content_type: "dataset",
+    history_id: "history_id",
+    name: "notebook",
+};
+const DATASET_1 = {
+    id: "dataset_1",
+    extension: "binary",
+    hid: 98,
+    history_content_type: "dataset",
+    history_id: "history_id",
+    name: "sample",
+};
+
+const DATASET_HASH = "f1b9ff97-c70c-4889-a0d0-40896db528eb";
+
+const LANDING = "http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id";
+
 async function createNotebook(page) {
     await page.waitForSelector("#jp-MainMenu");
     await page.click("text=File");
@@ -30,9 +51,9 @@ async function selectKernel(page) {
     await page.click(".jp-InputArea-editor");
 }
 
-test("Create new Python notebook from menu and run a cell", async ({ page }) => {
+async function startService(page, testTitle = "Hello World!") {
     // mock api
-    await page.route("**/root/api/datasets/dataset_id/display", async (route) => {
+    await page.route("**/root/api/datasets/dataset_0/display", async (route) => {
         await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -50,9 +71,9 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
                 nbformat: 4,
                 cells: [
                     {
-                        id: "f1b9ff97-c70c-4889-a0d0-40896db528eb",
+                        id: DATASET_HASH,
                         cell_type: "code",
-                        source: 'print("Hello World!")',
+                        source: `print("${testTitle}")`,
                         metadata: {
                             trusted: true,
                         },
@@ -64,31 +85,100 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
         });
     });
 
-    await page.route("**/root/api/datasets/dataset_id", async (route) => {
+    await page.route("**/root/api/datasets/dataset_1/display", async (route) => {
         await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify({ history_id: "history_id" }),
+            body: "content_1",
         });
     });
 
-    // start
-    await page.goto("http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_id");
+    await page.route("**/root/api/datasets/dataset_0", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(DATASET_0),
+        });
+    });
+
+    await page.route("**/root/history/current_history_json", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ id: "history_id" }),
+        });
+    });
+
+    await page.route("**/root/api/histories/history_id/contents", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_0, DATASET_1]),
+        });
+    });
+
+    await page.route("**/root/api/histories/history_id/contents?v=dev&q=hid-eq&qv=99", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_0]),
+        });
+    });
+
+    await page.route("**/root/api/histories/history_id/contents?v=dev&q=hid-eq&qv=98", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_1]),
+        });
+    });
+
+    await page.route("**/root/api/histories/history_id/contents?v=dev&q=tag-eq&qv=test", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([DATASET_1]),
+        });
+    });
+
+    await page.route("**/root/api/tools/fetch", async (route) => {
+        await route.fulfill({ status: 200, body: JSON.stringify({ status: "ok" }) });
+    });
+
+    // goto landing page
+    await page.goto(LANDING);
+
+    // select kernel
+    await selectKernel(page);
 
     // accept and execute first cell
-    await selectKernel(page);
     await page.keyboard.press("Shift+Enter");
-    await checkOutputArea(page, 0, "Hello World!");
+    await checkOutputArea(page, 0, testTitle);
+}
 
-    // test gxy environment
-    await executeNext(page, ["import gxy", "print(gxy.get_environment())"]);
-    await checkOutputArea(page, 1, "{'root': '/root/', 'dataset_id': 'dataset_id'}");
+test("test seaborn", async ({ page }, testInfo) => {
+    await startService(page, testInfo.title);
+    const seabornCode = [
+        "import numpy as np",
+        "import pandas as pd",
+        "import matplotlib.pyplot as plt",
+        "import seaborn as sns",
+        "x = np.linspace(0, 10, 100)",
+        "y = np.sin(x)",
+        'df = pd.DataFrame({"x": x, "y": y})',
+        "sns.lineplot(data=df, x='x', y='y')",
+        "plt.show()",
+    ].join("\n");
+    await page.click(".jp-Cell:last-child .jp-InputArea-editor");
+    await page.keyboard.type(seabornCode);
+    await page.keyboard.press("Shift+Enter");
+    await page.waitForSelector(".jp-RenderedImage", { timeout: 20000 });
+    const imageCount = await page.locator(".jp-RenderedImage").count();
+    expect(imageCount).toBeGreaterThan(0);
+});
 
-    // test gxy.get_history_id
-    await executeNext(page, ["import gxy", "print(await gxy.get_history_id())"]);
-    await checkOutputArea(page, 2, "history_id");
-
-    // test plotly, numpy and pandas
+test("test plotly", async ({ page }, testInfo) => {
+    await startService(page, testInfo.title);
     const plotlyCode = [
         "import plotly.express as px",
         "import numpy as np",
@@ -105,4 +195,50 @@ test("Create new Python notebook from menu and run a cell", async ({ page }) => 
     await page.waitForSelector(".js-plotly-plot", { timeout: 20000 });
     const plotCount = await page.locator(".js-plotly-plot").count();
     expect(plotCount).toBeGreaterThan(0);
+});
+
+test("get and put datasets", async ({ page }, testInfo) => {
+    await startService(page, testInfo.title);
+    await executeNext(page, [
+        "import gxy, os",
+        "await gxy.get(99)",
+        "with open('99.txt.dataset_0.txt') as f:",
+        "print(f.read())",
+    ]);
+    await checkOutputArea(page, 1, DATASET_HASH);
+    await executeNext(page, ["import gxy", "print(await gxy.put('99.txt.dataset_0.txt'))"]);
+    await checkOutputArea(page, 2, "ok");
+});
+
+test("create and run notebook", async ({ page }) => {
+    // start
+    await startService(page);
+
+    // test gxy environment
+    await executeNext(page, ["import gxy", "print(gxy.get_environment())"]);
+    await checkOutputArea(page, 1, "{'root': '/root/', 'dataset_id': 'dataset_0', 'history_id': 'history_id'}");
+
+    // test gxy.get_history_id
+    await executeNext(page, ["import gxy", "print(await gxy.get_history_id())"]);
+    await checkOutputArea(page, 2, "history_id");
+
+    // test gxy front-end multiple hid filter
+    await executeNext(page, ["import gxy", "print(await gxy.get([99, 98]))"]);
+    await checkOutputArea(page, 3, "['99.txt.dataset_0.txt', '98.binary.dataset_1.dat']");
+
+    // test gxy backend hid filter
+    await executeNext(page, ["import gxy", "print(await gxy.get(98))"]);
+    await checkOutputArea(page, 4, "98.binary.dataset_1.dat");
+
+    // test gxy client regex filter
+    await executeNext(page, ["import gxy", "print(await gxy.get('boo', 'regex'))"]);
+    await checkOutputArea(page, 5, "99.txt.dataset_0.txt");
+
+    // test gxy backend tag filter
+    await executeNext(page, ["import gxy", "print(await gxy.get('test', 'tag'))"]);
+    await checkOutputArea(page, 6, "98.binary.dataset_1.dat");
+
+    // test gxy client id filter
+    await executeNext(page, ["import gxy", "print(await gxy.get('dataset_0', 'id'))"]);
+    await checkOutputArea(page, 7, "99.txt.dataset_0.txt");
 });

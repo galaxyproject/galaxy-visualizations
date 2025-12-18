@@ -153,9 +153,21 @@
 						else	 
 							val = input.value;	
 					}
-					if (typeof option !== "undefined")
+					if (typeof option !== "undefined" && option.length>0)
 					{
-						val = {str:val,option:option.value};
+						if (option.length <= 1)
+							val = {str:val,option:option[0].value,index:option[0].selectedIndex};
+						else
+						{
+							var values = [];
+							var idxs = [];
+							for (var k = 0; k < option.length;k++)
+							 {
+								values.push(option[k].value)
+								idxs.push(option[k].selectedIndex)
+							 }
+							val = {str:val,option:values,index:idxs};
+						}
 					}
 					if (typeof fn === "function") {
 						if (typeof input !== "undefined") {
@@ -290,6 +302,26 @@
 
 				html += "<article class=\"alertify-inner\">";
 
+
+				function addOpt(messageObj)
+				{
+					if (messageObj.opt != undefined)
+					{
+						html += messageObj.optMsg;
+						html += "<select  class=\"alertify-option\"  id=\"alertify-option\">";
+						if (messageObj.val != undefined)
+						{
+							for (var k = 0; k < messageObj.opt.length;k++)
+								html += "<option value='"+messageObj.val[k]+"'>" +  messageObj.opt[k] + "</option>";
+						}
+						else
+						{
+							for (var k = 0; k < messageObj.opt.length;k++)
+								html += "<option >" +  messageObj.opt[k] + "</option>";
+						}
+						html += "</select>";
+					}
+				}			
 				if (Array.isArray(messageObj))
 				{
 					for (var k = 0; k < message.length;k++)
@@ -312,6 +344,8 @@
 						if (message[k].msg != undefined)
     						if (message[k].addon != undefined)
 						        html += message[k].addon
+
+						addOpt(message[k])
 						
 					}
 				}
@@ -320,19 +354,10 @@
 					html += dialogs.message.replace("{{message}}", message);
 					if (type === "prompt") 
 						html += dialogs.input;
+					addOpt(messageObj)
+					
 				}
 
-				if (messageObj.opt != undefined)
-				{
-					html += messageObj.optMsg;
-					html += "<select  class=\"alertify-option\"  id=\"alertify-option\">";
-					for (var k = 0; k < messageObj.opt.length;k++)
-					{
-						html += "<option>" +  messageObj.opt[k] + "</option>";
-
-					}
-					html += "</select>";
-				}
 
 				html += dialogs.buttons.holder;
 				html += "</article>";
@@ -348,8 +373,22 @@
 					html = html.replace("{{ok}}", this.labels.ok).replace("{{cancel}}", this.labels.cancel);
 					break;
 				case "prompt":
-					html = html.replace("{{buttons}}", this.appendButtons(dialogs.buttons.cancel, dialogs.buttons.submit));
-					html = html.replace("{{ok}}", this.labels.ok).replace("{{cancel}}", this.labels.cancel);
+
+                    if (messageObj.customLabel)
+                    {
+                    	var addon = ""
+                    	if (messageObj.customLabel.ok)
+                    	   addon +=  dialogs.buttons.ok
+                    	if (messageObj.customLabel.cancel)
+                    	   addon +=  dialogs.buttons.cancel
+    					html = html.replace("{{buttons}}", addon);                    	
+					    html = html.replace("{{ok}}", messageObj.customLabel.ok).replace("{{cancel}}", messageObj.customLabel.cancel);
+                    }
+                    else
+                    {
+    					html = html.replace("{{buttons}}", this.appendButtons(dialogs.buttons.cancel, dialogs.buttons.submit));
+					    html = html.replace("{{ok}}", this.labels.ok).replace("{{cancel}}", this.labels.cancel);
+                    }
 					break;
 				case "alert":
 					html = html.replace("{{buttons}}", dialogs.buttons.ok);
@@ -651,7 +690,7 @@
 				btnCancel = $("alertify-cancel") || undefined;
 				btnFocus  = (_alertify.buttonFocus === "cancel") ? btnCancel : ((_alertify.buttonFocus === "none") ? $("alertify-noneFocus") : btnOK),
 				input     = jQuery(".alertify-text")  || undefined;
-				option     = $("alertify-option")   || undefined;
+				option     = jQuery(".alertify-option")  || undefined;
 				form      = $("alertify-form")   || undefined;
 				// add placeholder value to the input field
 				if (typeof item.placeholder === "string" && item.placeholder !== "")
@@ -659,8 +698,9 @@
 				}
 				if (typeof item.placeholder === "object") 
 				{
-					for (var k = 0; k < item.placeholder.length;k++)
-						input[k].value = item.placeholder[k];
+					var all = input.add(option)
+					for (var k = 0; k <  Math.min(item.placeholder.length,all.length);k++)
+						all[k].value = item.placeholder[k];
 				}
 
 

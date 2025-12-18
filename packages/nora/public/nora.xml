@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="Nora" embeddable="true">
+    <description>Medical Images and Annotations</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">gii</test>
+            <test test_attr="ext">gii.gz</test>
+            <test test_attr="ext">nii1</test>
+            <test test_attr="ext">nii1.gz</test>
+            <test test_attr="ext">nii2</test>
+            <test test_attr="ext">nii2.gz</test>
+            <test test_attr="ext">nrrd</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="dist/script.js"/>
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/nifti.nii1.gz" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is Nora?
+
+Nora is a web-based framework for medical image analysis. It is designed to bridge the gap between research and clinical practice, providing researchers and clinicians with powerful tools to visualize, organize, process, and share medical imaging data through an intuitive web interface.
+
+Nora supports a wide variety of image and annotation formats, including NIfTI, DICOM, PNG, JPEG, and more. It can be used for collaborative annotation, segmentation, and analysis workflows across a range of medical imaging domains.
+
+## Key Features
+
+- **Multi-format Support**: Visualize data in formats such as `.nii.gz`, `.nrrd`, `.stl`, `.trk`, `.jpg`, and more.
+- **Web-based Interface**: Access your analysis tools from any modern web browser without needing local software.
+- **Modular and Customizable**: Easily adapt to your research or clinical workflows with a flexible plugin system.
+- **Local or Cloud Hosting**: Deploy Nora on local infrastructure or in the cloud, depending on institutional needs.
+
+Once the visualization loads, you can interact with the dataset using Nora's built-in tools. Depending on your setup, Nora may offer additional features like collaborative editing, segmentation tools, and advanced visualization plugins.
+
+For more information, visit:
+[https://www.nora-imaging.com](https://www.nora-imaging.com)
+]]></help>
+</visualization>

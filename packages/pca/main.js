@@ -11,7 +11,6 @@ if (import.meta.env.DEV) {
         root: "/",
         visualization_config: {
             dataset_id: process.env.dataset_id,
-            dataset_url: null,
         },
     };
 
@@ -24,11 +23,10 @@ const incoming = JSON.parse(appElement.dataset.incoming || "{}");
 
 /* Load attribute */
 const datasetId = incoming.visualization_config.dataset_id;
-const datasetUrl = incoming.visualization_config.dataset_url;
 const root = incoming.root;
 
 /* Build the data request url. */
-const url = datasetUrl || `${root}api/datasets/${datasetId}/display`;
+const url = `${root}api/datasets/${datasetId}/display`;
 
 /* Build and attach viewport element */
 const viewportElement = document.createElement("div");

@@ -1,5 +1,4 @@
 
-
 var oldBablyonFlag = false;
 
 /** @class 
@@ -113,7 +112,7 @@ function KMedImg3D(medviewer,$canvas3D)
 			/////////// the fibershader instance
 			var fiberDirColor_shader = new BABYLON.ShaderMaterial("fiberColorShader", scene, "fiberColor", {
 					attributes: [BABYLON.VertexBuffer.PositionKind,'colors'],
-					uniforms: ["worldViewProjection","col"],
+					uniforms: ["worldViewProjection","col","flow","flow_len"],
 					needAlphaBlending: needAlphaBlending,
 				});
 			fiberDirColor_shader.shadersignal = signalhandler.attach('positionChange', function() {
@@ -124,7 +123,8 @@ function KMedImg3D(medviewer,$canvas3D)
             fiberDirColor_shader.setFloat("planesNum",-1);
             fiberDirColor_shader.setColor4("col",new BABYLON.Color4(0,0,0,0));
 			fiberDirColor_shader.setFloat("planesThres",5);
-			fiberDirColor_shader.setFloat("planesProj",1);
+			fiberDirColor_shader.setFloat("flow",-1);
+			fiberDirColor_shader.setFloat("flow_len",0.05);
 			fiberDirColor_shader.setFloat("hover",0);
 		
 			return fiberDirColor_shader;
@@ -136,6 +136,17 @@ function KMedImg3D(medviewer,$canvas3D)
 	}
 
 
+	function updatePicto()
+		{
+		  if (camera_picto)
+			{
+				camera_picto.alpha= viewer.gl.camera.alpha;
+				camera_picto.beta= viewer.gl.camera.beta;
+				camera_picto.inertialAlphaOffset = viewer.gl.camera.inertialAlphaOffset;
+				camera_picto.inertialBetaOffset= viewer.gl.camera.inertialBetaOffset;
+			}
+		}
+	
 	function animate3D(dir)
 	{
 		if (this.animation != undefined)
@@ -150,13 +161,7 @@ function KMedImg3D(medviewer,$canvas3D)
 		   this.animation = setInterval(function() 
 		   		{ 
 		   		  camera.inertialAlphaOffset = dir*0.002*speed; 
-		   		  if (camera_picto)
-					{
-						camera_picto.alpha= viewer.gl.camera.alpha;
-						camera_picto.beta= viewer.gl.camera.beta;
-						camera_picto.inertialAlphaOffset = viewer.gl.camera.inertialAlphaOffset;
-						camera_picto.inertialBetaOffset= viewer.gl.camera.inertialBetaOffset;
-					}
+				  updatePicto()
 		   		  activateRenderLoop();
 		   		},100);
 		   return true;
@@ -180,6 +185,16 @@ function KMedImg3D(medviewer,$canvas3D)
 
 
 */
+
+    signalhandler.attach('backgroundcolor3Dchange',function(e)
+    {
+		var rgb = hexToRgb(ViewerSettings.background3D);
+		if (rgb != null)
+			scene.clearColor = new BABYLON.Color3(rgb.r/255,rgb.g/255,rgb.b/255);
+		activateRenderLoop()
+    	
+    });
+
 	
 
 		 // This begins the creation of a function that we will 'call' just after it's built
@@ -219,11 +234,12 @@ function KMedImg3D(medviewer,$canvas3D)
 
 		if (state.viewer.picto3D && state.viewer.picto3D != -1)
 		{
-
-			var pictoModels = [{name:"BodyMesh.obj",offset:[0,0,0],zoom:7 , rotx:Math.PI/2},
-							   {name:"LowPolyGirl.obj",offset:[-5,0,0],zoom:6, rotx:-Math.PI/2},
-							   {name:"minion.obj",offset:[0,6,0],zoom:0.6 , rotx:Math.PI/2}, 
-							   {name:"Bust_Basemesh.obj",offset:[0,8,0],zoom:0.3 , rotx:-Math.PI/2} 
+			var pictoModels = [{name:"BodyMesh.obj",offset:[0,0,0],zoom:7 , roty:Math.PI/2 ,rotx:0},
+							   {name:"LowPolyGirl.obj",offset:[-5,0,0],zoom:6, roty:-Math.PI/2,rotx:0},
+							   {name:"minion.obj",offset:[0,6,0],zoom:0.6 , roty:Math.PI/2,rotx:0}, 
+							   {name:"Bust_Basemesh.obj",offset:[0,8,0],zoom:0.3 , roty:-Math.PI/2,rotx:0},
+							   {name:"monkey.obj",offset:[0,1,0],zoom:0.4 , roty:-Math.PI/2,rotx:-Math.PI*0.5,roty:Math.PI*0.5}
+//							   {name:"Delorean.obj",offset:[0,8,0],zoom:0.3 , rotx:-Math.PI/2} 
 							   ];
 
 			var theModel = pictoModels[state.viewer.picto3D];
@@ -257,7 +273,7 @@ function KMedImg3D(medviewer,$canvas3D)
 								for (var k = 0; k < camera_picto.thepictomodel.length;k++)
 									camera_picto.thepictomodel[k].dispose();							
 							    camera_picto.thepictomodel = [];
-								m.loadedMeshes.forEach(function(b) {          
+								m.loadedMeshes.forEach(function(b) {   
 												b.position.x = 100000;
 												b.position.z = 0;
 												b.position.y = 0;
@@ -266,7 +282,8 @@ function KMedImg3D(medviewer,$canvas3D)
 												b.scaling.z = theModel.zoom;
 												b.createNormals();
 												b.material = new BABYLON.StandardMaterial("texture1", scene);
-												b.rotation.y = theModel.rotx ;
+												b.rotation.y = theModel.roty ;
+												b.rotation.x = theModel.rotx ;
 												//meshy.material.diffuseColor = new BABYLON.Color3(1,1,1);
 												//meshy.material.emissiveColorColor = new BABYLON.Color3(1,0,1);
 												light.excludedMeshes.push(b);
@@ -285,7 +302,19 @@ function KMedImg3D(medviewer,$canvas3D)
 
 				};
 
+				signalhandler.attach("picto3dmodel_hide",function() {
+						for (var k = 0; k < camera_picto.thepictomodel.length;k++)
+							camera_picto.thepictomodel[k].visibility = 0;					    
+				});
+
+				signalhandler.attach("picto3dmodel_show",function() {
+						for (var k = 0; k < camera_picto.thepictomodel.length;k++)
+							camera_picto.thepictomodel[k].visibility = 1;					    
+				});
+
+
 				signalhandler.attach("picto3dmodel_changed",function(cm) { return function()
+
 				{
 					loadmodel();
 				} }(camera_picto));
@@ -293,10 +322,10 @@ function KMedImg3D(medviewer,$canvas3D)
 				loadmodel();
 
 				var light_picto = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 0.2, 0), scene);
-				light_picto.diffuse = new BABYLON.Color3(0.8,0.7,0.2);
+				light_picto.diffuse = new BABYLON.Color3(0.8,0.8,0.8);
 				light_picto.intensity = 1;
 				 var light_picto = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(-1, 0.2, 0), scene);
-				light_picto.diffuse = new BABYLON.Color3(0.8,0.7,0.2);
+				light_picto.diffuse = new BABYLON.Color3(0.8,0.8,0.8);
 				light_picto.intensity = 0.5;
 			}
 		}
@@ -353,7 +382,19 @@ function KMedImg3D(medviewer,$canvas3D)
  	    }
  			
 	}
-	signalhandler.attach('webglresetcam',function() {} ); //createControlsCam);
+	signalhandler.attach('webglresetcam',function() {
+		if (viewer.gl != undefined)
+		{
+			viewer.gl.camera.setTarget(BABYLON.Vector3.Zero())
+			viewer.gl.camera.alpha = -1.6 * Math.PI;
+			viewer.gl.camera.beta =  Math.PI *0.2;
+			viewer.gl.camera.radius = KViewer.defaultFOV_mm*1.2 
+			updatePicto();
+			
+		}
+ //BABYLON.Vector3.Zero(
+		
+	} ); //createControlsCam);
 
 
 	
@@ -617,8 +658,10 @@ if (0)
 		if (obj.gl == undefined)
 			return;
 
-		if (obj.color.length == 3)
+		if (obj.color.length == 3 | obj.color.length == 4)
 			var col = [obj.color[0],obj.color[1],obj.color[2]];
+		else if (obj.color.color != undefined)
+			var col = [obj.color.color[0],obj.color.color[1],obj.color.color[2]];
 		else
 		{
 			var col = obj.colors[obj.color];
@@ -882,16 +925,21 @@ if (0)
 					{
 						var atl = obj.overlays[k].atlas
 						var labels;
+						var alpha = 0.7;
 						if (atl.panel) 
+						{
 							labels = atl.panel.persistentLabels;
+							alpha = atl.content.alpha;
+						}
 						else
 							labels = atl.content.labels;
 
+                        
 
 	    			    var getPixel = KAtlasTool.updateGetPixelFun(atl.content,undefined,labels,undefined,undefined,true);
 
 
-						acc = function(k,v) {colors[4*k] += v[0]/255; colors[4*k+1] += v[1]/255; colors[4*k+2] += v[2]/255;}
+						acc = function(k,v) {colors[4*k] += alpha*v[0]/255; colors[4*k+1] += alpha*v[1]/255; colors[4*k+2] += alpha*v[2]/255;}
 						for (var j = 0; j < points.length/3;j++)
 						{
 							 var val = getPixel(points[3*j],points[3*j+1],points[3*j+2]);
@@ -920,7 +968,7 @@ if (0)
 							colors[4*k] /= sum; colors[4*k+1] /= sum; colors[4*k+2] /= sum; colors[4*k+3] /= sum;
 						}
 
-						var colVol = ovl.nii.sizes[3]==3;
+						var colVol = ovl.nii.sizes[3]==3 & ovl.showcolored;
 
 						if (!colVol)
 						{
@@ -990,27 +1038,41 @@ if (0)
 				for (var j = 0; j < points.length/3;j++)
 				{
 					// var sum = (colors[4*j]+colors[4*j+1]+colors[4*j+2])/3 ;
-					 var max = math.max([colors[4*j],colors[4*j+1],colors[4*j+2]]);
+					 var max = math.max([colors[4*j],colors[4*j+1],colors[4*j+2]],0);
 					 var f1 = 2+obj.exposure;
-					 var f2 = (1-max)/255;
+					 var f2 = (1-max)/255*obj.alpha;
 					 colors[4*j] = f1*colors[4*j] + bgndcol[0]*f2;						 
 					 colors[4*j+1] = f1*colors[4*j+1] + bgndcol[1]*f2;						 
 					 colors[4*j+2] = f1*colors[4*j+2] + bgndcol[2]*f2;						 
+					 colors[4*j+3] = 1; // due to firefox
 					 
 				}
 			
 			}
 			else if (vals != undefined)
 			{
+				var bgndcol = obj.colors[obj.color];				
 				var colors = obj.colors_mapped;
 				var clim = obj.histoManager.clim;
 				for (var j = 0; j < vals.length;j++)
 				{
 					var v = colormap.mapVal((vals[j]-clim[0])/(clim[1]-clim[0]), obj.histoManager.cmapindex);
+					 var max = math.max([v[4*j],v[4*j+1],v[4*j+2]],0);
+					 var f1 = (2+obj.exposure);
+					 var f2 = (255-max)/255;
 					for (var k = 0; k < 3; k++)
 					{
 						var i = 3*j+k;
-						colors[4*i] =v[0]/255; colors[4*i+1] =v[1]/255; colors[4*i+2] =v[2]/255;colors[4*i+3] =v[3]/255; 
+
+					 colors[4*i] = (f1*v[0] + bgndcol[0]*f2)/255;						 
+					 colors[4*i+1] = (f1*v[1] + bgndcol[1]*f2)/255;						 
+					 colors[4*i+2] = (f1*v[2] + bgndcol[2]*f2)/255;						 
+					 colors[4*i+3] = 1; // due to firefox
+
+/*						colors[4*i] =v[0]/255; 
+						colors[4*i+1] =v[1]/255; 
+						colors[4*i+2] =v[2]/255;
+						colors[4*i+3] =v[3]/255; */
 					}
 
 				}
@@ -1075,7 +1137,13 @@ if (0)
 		}
 
 		dynMesh.isPickable = obj.pickable;
-		if (pos.length > 256000) 
+		if (!obj.pickable)
+		{
+			dynMesh.isPickable = false;
+			dynMesh.largeMesh = true;
+			
+		}
+		if (0) //pos.length > 1256000) 
 		{
 			dynMesh.isPickable = false;
 			dynMesh.largeMesh = true;
@@ -1123,16 +1191,15 @@ if (0)
 			obj.gl.parent = papa; 
 			//obj.gl.enableEdgesRendering(.9999999999);	
 			//obj.gl.edgesWidth = 100.0;
-			obj.gl.material.alpha =1
 			obj.gl.edgesColor = new BABYLON.Color3(1,1,0.3);
 			//obj.gl.alphaIndex = 1000;
-			obj.gl.material.alphaMode = 3;
-			obj.gl.material.alpha = 1;
-
+			obj.gl.material.alphaMode = 1;
+			obj.gl.material.alpha = 0.1;
+/*
 			var outline = createTrace(that,{width:1,closed:true});
 			if (outline != undefined)
 				outline.parent = papa;
-
+*/
 			obj.gl = papa;
 
 
@@ -1236,13 +1303,25 @@ if (0)
 */
 
 
-	function createFiberBundle(lines,subset,name,color,shader,obj,ras)
+	function createFiberBundle(lines,subset,name,color_proxy,shader,obj,ras)
 	{
 			var sg = 1;
 			if (ras)
 				sg = -1;
 
+            var stream_col = undefined
+            var color; 
+            if (color_proxy.cmapping != undefined) // "color_proxy" encodes streamline individual colors
+            {
+                stream_col = color_proxy;
+                color = new BABYLON.Vector4(0,0,0,0)
+            }
+            else if (color_proxy == 'dir')
+				color = new BABYLON.Vector4(0,0,0,0);
+			else
+				color = new BABYLON.Vector4(color_proxy[0]/255,color_proxy[1]/255,color_proxy[2]/255,1);
 
+       
   			var indices = [];
             var positions = [];
             var colors = [];
@@ -1270,26 +1349,68 @@ if (0)
 					c++;
 				}
 				plens.push(c)
+
+                var scol;
+				if (stream_col)
+				{
+					var cl = stream_col.cmapping.clim;					
+				    scol = colormap.mapVal((stream_col[l]-cl[0])/(cl[1]-cl[0]),stream_col.cmapping.cmapindex);
+				}
+
+				var time_offs = obj.time_offs?obj.time_offs[subset[l]]:undefined
+				if (time_offs == undefined)
+					time_offs = 0;
+
 				
                 positions = positions.concat(points);
                 var plen = points.length/3;
                 var rcol = Math.random();
-
+				var flow_content = 0;
+				var colscaling =1;
+				if (obj.params)
+				{
+					flow_content = obj.params && obj.params.flow_content;
+					colscaling = obj.params.colscale/(obj.params.interval*obj.params.venc/obj.params.Maxlen)/obj.params.t_len/obj.params.t_len;
+				}
                 for (var index = 0; index < plen; index++) {
                     if (index > 0) {
                         indices.push(idx - 1);
                         indices.push(idx);
-						var r = Math.abs(points[3*index] - points[3*(index-1)]);
-						var g = Math.abs(points[3*index+1]-points[3*(index-1)+1]);
-						var b = Math.abs(points[3*index+2]-points[3*(index-1)+2]);
-						r*=r; g*=g; b*=b;
-						var s = r+g+b;
-						colors.push(r/s,g/s,b/s,rcol);
+						if (stream_col)
+						{
+							colors.push(scol[0]/255,scol[1]/255,scol[2]/255,rcol);
+						}
+						else
+						{
+							var r = Math.abs(points[3*index] - points[3*(index-1)]);
+							var g = Math.abs(points[3*index+1]-points[3*(index-1)+1]);
+							var b = Math.abs(points[3*index+2]-points[3*(index-1)+2]);
+							r*=r; g*=g; b*=b;
+							var s = r+g+b;
+						    if (flow_content)			
+							{
+								var col = colormap.mapVal(s*colscaling,1);								
+								colors.push(col[0]/255+0.1,col[1]/255+0.1,col[2]/255+0.1,(index/obj.params.Maxlen*obj.params.t_len+time_offs)%1);								
+							}
+							else
+								colors.push(r/s,g/s,b/s,index/plen);
+						}
                     }
                     idx++;
                 }
-				colors.push(r/s,g/s,b/s,1);
+                if (stream_col)
+					colors.push(scol[0]/255,scol[1]/255,scol[2]/255,rcol);
+                else
+				{
+					if (flow_content)
+					   colors.push(0,0,0,0);
+					else
+					   colors.push(r/s,g/s,b/s,1);
+				}
             }
+
+
+           // console.log(colors);
             var vertexData = new BABYLON.VertexData();
             vertexData.indices = new Uint32Array(indices);
             vertexData.positions = new Float32Array(positions);
@@ -1307,23 +1428,21 @@ if (0)
 			shader.setVector3("planesPos",planesPos);
 
 		//	fibers._positionBuffer['colors'] = new BABYLON.VertexBuffer(scene.getEngine(),colors,'color',true)		
-
-			if (color == 'dir')
-				shader.setVector4("col",new BABYLON.Vector4(0,0,0,0));
-			else
-				shader.setVector4("col",new BABYLON.Vector4(color[0]/255,color[1]/255,color[2]/255,1));
+			shader.setVector4("col",color)
        
             vertexData.applyToMesh(fibers, true);
 
 			if (obj != undefined && obj.max != undefined)
 			{
-				var vis = [(obj.max[0]-obj.min[0])/2,(obj.max[1]-obj.min[1])/2,(obj.max[2]-obj.min[2])/2];
-				fibers._boundingInfo = new BABYLON.BoundingInfo(new BABYLON.Vector3(-vis[0], -vis[1], -vis[2]), new BABYLON.Vector3(vis[0], vis[1], vis[2]));
+			//	var vis = [(obj.max[0]-obj.min[0])/2,(obj.max[1]-obj.min[1])/2,(obj.max[2]-obj.min[2])/2];
+			//	fibers._boundingInfo = new BABYLON.BoundingInfo(new BABYLON.Vector3(-vis[0], -vis[1], -vis[2]), new BABYLON.Vector3(vis[0], vis[1], vis[2]));
+			//	fibers._boundingInfo = new BABYLON.BoundingInfo(new BABYLON.Vector3(obj.min[0], obj.min[1], obj.min[2]), new BABYLON.Vector3(obj.max[0], obj.max[1], obj.max[2]));
 			}
 
 			//fibers.positions = positions;
 			//fibers.plens = plens;
-
+		
+			fibers.alwaysSelectAsActiveMesh = true
             return fibers;
 	}
 
@@ -1428,123 +1547,166 @@ var filename = "test";
 		var ps = markerset.getPoints();
 		if (ps.length < 2)
 			return;
-			
-		function createPath(i,j)
-		{
-			var c1,c2;
+
+	    function getP(i)
+	    {
+	    	var j=i;
 			if (markerset.resorted)
+				j= markerset.resorted[i].i;
+			if (markerset.electrode_properties != undefined && markerset.electrode_properties.directional)
 			{
-				i = markerset.resorted[i].i;
-				j = markerset.resorted[j%ps.length].i;
+				if (j>1)
+					j = j + 1;
 			}
-
-
-
-
-
-			c1 = (ps[i%ps.length].p.coords);
-			var s1 = ps[i%ps.length].p.size;
-			c2 = (ps[j%ps.length].p.coords);
-			var s2 = ps[j%ps.length].p.size;
-			var dd = [c1[0]-c2[0],c1[1]-c2[1],c1[2]-c2[2]];
-			var dnorm = Math.sqrt(dd[0]*dd[0]+dd[1]*dd[1]+dd[2]*dd[2]);
 			
-			c1 = [c1[0]-dd[0]*s1/dnorm,c1[1]-dd[1]*s1/dnorm,c1[2]-dd[2]*s1/dnorm,1];
-			c2 = [c2[0]+dd[0]*s2/dnorm,c2[1]+dd[1]*s2/dnorm,c2[2]+dd[2]*s2/dnorm,1];
-/*
-
-
-
-			c1 = (ps[i%ps.length].p.coords);
-			c2 = (ps[j%ps.length].p.coords);
-
-*/
-
-			c1 = world2GL(c1);
-			c2 = world2GL(c2);
-			c1[0] += 0.00000001; // god (or google) knows why that
+			return ps[j%ps.length]
+	    }
 			
-			var col = new BABYLON.Color3(1,0,0);
+		function createContact(i,active,papa)
+		{
+			var cols = {}
+			cols[-1] = new BABYLON.Color3(0.6,0.6,0.2);
+			cols[1] = new BABYLON.Color3(0.8,0.2,0.2);
+			var def = new BABYLON.Color3(0.2,0.2,0.8)
+			var phi = [0,120,240];
+											  
+            var p0 = getP(i-1).p.coords
+            var p1 = getP(i).p.coords;
+            var p2 = getP(i+1).p.coords;
+
+			var d1 = [p1[0]-p2[0],p1[1]-p2[1],p1[2]-p2[2]];
+			var dnorm1 = Math.sqrt(d1[0]*d1[0]+d1[1]*d1[1]+d1[2]*d1[2]);
+			var d2 = [p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2]];
+			var dnorm2 = Math.sqrt(d2[0]*d2[0]+d2[1]*d2[1]+d2[2]*d2[2]);
+			var s = 0.7;
+			if (s > (dnorm1+dnorm2)*0.25)
+			  s = (dnorm1+dnorm2)*s*0.25;
+			var c1 = [p1[0]-d1[0]*s/dnorm1,p1[1]-d1[1]*s/dnorm1,p1[2]-d1[2]*s/dnorm1,1];
+			var c2 = [p1[0]-d2[0]*s/dnorm2,p1[1]-d2[1]*s/dnorm2,p1[2]-d2[2]*s/dnorm2,1];
+
+			if (markerset.electrode_properties.directional)
+			{
+		            var ank = ps[2].p.coords
+					var t =  ps[1].p.coords
+					var e =  ps[0].p.coords
+					var d1= ank.map((x,i)=>(x-t[i]))
+					var dp= e.map((x,i)=>(x-t[i]))
+					kmath.normalize(d1);
+					kmath.normalize(dp);
+					var d2 = kmath.cross(d1,dp,true)._data;
+				
+					for (var j = 0; j < phi.length; j++)
+					{
+						var q1 = [0,0,0,1];
+						var q2 = [0,0,0,1];
+						var r = 0.2;
+						for (var k = 0; k < 3;k++)
+							{
+								var al = (phi[j] + i*60 )/180*Math.PI;
+								q1[k] = c1[k] + r*(d1[k]*Math.cos(al) + d2[k]*Math.sin(al));
+								q2[k] = c2[k] + r*(d1[k]*Math.cos(al) + d2[k]*Math.sin(al));
+							}
+						var col = def;
+						if (cols[active[j]] != undefined)
+							col = cols[active[j]];
+						var tube = createTube([q1,q2],params.width*0.4,col)
+						tube.parent = papa;
+					}
+					return tube;						
+			}
+			else
+			{			
+				var col = def;
+				if (cols[active] != undefined)
+					col = cols[active];
+				return createTube([c1,c2],params.width*0.7,col)
+			}
+		}
+
+        function backbone_elec()
+        {
+			var col = new BABYLON.Color3(0.2,0.2,0.8);
 			if (params.color) 
 				col = params.color.getBabylon();
+			var p = [];
+			var len = ps.length;
+			if (markerset.electrode_properties.directional)
+				len++;
+			for (var k = 1; k < len;k++)
+				    p.push(getP(k).p.coords)
+			p.push(getP(0).p.coords);
+			return createTube(p,params.width*0.5,col)
+		 }
 
-			var myPath = [(new BABYLON.Vector3(c1[0],c1[1],c1[2])),(new BABYLON.Vector3(c2[0],c2[1],c2[2]))];
-						var tube = BABYLON.MeshBuilder.CreateTube("tube", {path: myPath,radius:params.width,tessellation:10}, scene);
-						tube.parent = grandParent
-						tube.name = markerset.name;
-						tube.isPickable = true;
-						tube.color  = col;
-						tube.material = new BABYLON.StandardMaterial("texture1", scene);
-						tube.material.diffuseColor  = tube.color;
-						tube.material.specularPower = 5
-						//tube.material.wireframe = true;
-						tube.material.specularColor = new BABYLON.Color3(0.8,0.8,0.8)
+        function createTube(coords,wid,col)
+        {
+            var cs = [];
+            for (var k =0;k < coords.length;k++)
+            {
+            	var c= world2GL(coords[k]);
+            	c[0] += 0.000000001;
+            	cs.push(new BABYLON.Vector3(c[0],c[1],c[2]));
+            }
+			var myPath = cs;
+			var tube = BABYLON.MeshBuilder.CreateTube("tube", {path: myPath,radius:wid,tessellation:10}, scene);
+			tube.parent = grandParent
+			tube.name = markerset.name;
+			tube.isPickable = false;
+			tube.color  = col;
+			tube.material = new BABYLON.StandardMaterial("texture1", scene);
+			tube.material.diffuseColor  = tube.color;
+			tube.material.specularPower = 5
+			//tube.material.wireframe = true;
+			tube.material.specularColor = new BABYLON.Color3(0.8,0.8,0.8)
 
-						tube.hoverColor = new BABYLON.Color3(1,1,1);
-						tube.material.backFaceCulling = false;
+			tube.hoverColor = new BABYLON.Color3(1,1,1);
+			tube.material.backFaceCulling = false;
 
-						if (markerset.type == 'freeline' || markerset.type == 'surface')
-						{
-							tube.after = ps[i%ps.length];
-							tube.onHoverEnter = function() {
-								this.material.diffuseColor = tube.hoverColor;
-							}
-							tube.onHoverLeave = function() {
-								this.material.diffuseColor = tube.color;
-							}
-						}
-
-			return tube;
-		}
-
-		var papa = createPath(0,1);
-		for (var k = 1; k < ps.length-1 + (params.closed?1:0);k++)
+			if (markerset.type == 'freeline' || markerset.type == 'surface')
 			{
-				var path = createPath(k,k+1);
-				path.parent = papa;
+				tube.after = ps[i%ps.length];
+				tube.onHoverEnter = function() {
+					this.material.diffuseColor = tube.hoverColor;
+				}
+				tube.onHoverLeave = function() {
+					this.material.diffuseColor = tube.color;
+				}
 			}
 
-
-		return papa;
-	}
-
-	function createElectrode(markerset,params)
-	{
-	    viewer.gl.activateRenderLoop();
-		var ps = markerset.getPoints();
-		if (ps.length < 2)
-			return;
-		var end = ps[0].p.coords; 
-		var tip = ps[1].p.coords; 
-
-		var n = [tip[0]-end[0],tip[1]-end[1],tip[2]-end[2]];
-		var norm = Math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2]);
-		n[0] /= norm; n[1] /= norm; n[2] /= norm;
-			
-		function createPath(i,j)
-		{
-			var c1 = world2GL(ps[i].p.coords);
-			var c2 = world2GL(ps[j].p.coords);
-			c1[0] += 0.00000001; // god (or google) knows why that
-			var myPath = [(new BABYLON.Vector3(c1[0],c1[1],c1[2])),(new BABYLON.Vector3(c2[0],c2[1],c2[2]))];
-						var tube = BABYLON.MeshBuilder.CreateTube("tube", {path: myPath,radius:params.width,tessellation:20}, scene);
-						tube.parent = grandParent
-						tube.name = markerset.name;
-						//tube.isPickable = false;
-						tube.color  = new BABYLON.Color3(1,0,0);
-						tube.hoverColor  = new BABYLON.Color3(1,0.7,0.7);
-						tube.material = new BABYLON.StandardMaterial("texture1", scene);
-						tube.material.diffuseColor  = tube.color;
-						tube.material.backFaceCulling = false;
 			return tube;
 		}
 
-		var papa = createPath(0,1);
-	
-		
+
+        if (markerset.type == 'electrode')
+        {
+			var papa = backbone_elec()	
+			for (var k = 2; k < ps.length;k++)
+				{
+					var p = getP(k);
+					if (p.p.name.search('contact')>-1)
+					{
+						var path = createContact(k,p.active,papa);
+						if (path != undefined)
+						    path.parent = papa;
+					}
+			    }
+        }
+        else if (markerset.type == 'freeline' | markerset.type == 'correspondence')
+        {        
+
+			var col = new BABYLON.Color3(0.2,0.2,0.8);
+			if (params.color) 
+				col = params.color.getBabylon();
+			var p = [];
+            for (var k = 0; k < ps.length;k++)
+			    p.push(getP(k).p.coords)
+			return createTube(p,params.width*0.7,col)
+
+        }
 		return papa;
 	}
 
+	
 	function createMarkerMesh(point)
 	{
 	    viewer.gl.activateRenderLoop();
@@ -1559,7 +1721,7 @@ var filename = "test";
 		a.hoverColor  = new BABYLON.Color3(1,1,1);
 		a.material = new BABYLON.StandardMaterial("texture1", scene);
 		a.material.backFaceCulling = false;
-		a.material.alpha= 0.5;
+		//a.material.alpha= 0.5;
 		a.point = point;	
 		a.parent = grandParent;
 		a.renderOutline = true;
@@ -1573,9 +1735,8 @@ var filename = "test";
 			
 			a.color  = point.p.color.getBabylon();
 			var alpha = point.p.color.getAlpha();
-			//if (alpha == 0 )
-			    alpha = 0.5
 			a.material.alpha = alpha
+			a.material.alphaMode = 2;
 			a.material.diffuseColor = a.color;
 			a.scaling.x = point.p.size*2;
 			a.scaling.y = point.p.size*2;
@@ -1649,9 +1810,13 @@ var filename = "test";
 			});
  		a.onHoverEnter = function(e) {
  			point.onHoverEnter(e);
- 			a.currenthoverdiv = $("<div class='markerhover3d'>" + point.p.name + "</div>" ).appendTo($(document.body));
+ 			a.currenthoverdiv = $("<div class='markerhover3d'>" + point.p.name + "<br>" + point.parentmarkerset.name +  "</div>" ).appendTo($(document.body));
 			a.currenthoverdiv.css('left',e.clientX);
 			a.currenthoverdiv.css('top',e.clientY);
+			setTimeout(function()
+			{
+     			a.onHoverLeave();				
+			},2500)
 
 
  			this.material.diffuseColor = a.hoverColor;
@@ -1665,6 +1830,82 @@ var filename = "test";
  				a.currenthoverdiv = undefined;
  			}
  		}
+
+ 		/*
+
+			obj.contextmenu3D = function(evt,pickResult,p)
+		    {
+				   var contextMenu = KContextMenu(
+					  function() {
+
+						var $menu =  $("<ul class='menu_context'>");
+
+						$menu.append($("<li onchoice='color' > Color  </li>"));
+						$menu.append($("<li onchoice='crop' > xCrop connected comp.  </li>"));
+						return  $menu;
+					  },
+					  function(str,ev)
+					  { if (str == "color")
+						{
+						     var $dummy = KColorSelector(obj.colors,colencode,
+							 function() {viewer.gl.setSurfColor(obj); 
+										if (obj.refRoiView != undefined)
+										{
+											obj.refRoiView.color = obj.color;
+											obj.refRoiView.$colselector.attr('style',colencode(obj.colors[obj.color]));
+											viewer.drawSlice();
+										}
+										$colselector.attr('style',colencode(obj.colors[obj.color]));
+							 },obj);
+							 var e = new jQuery.Event("click");
+							 e.pageX = ev.clientX;
+							 e.pageY = ev.clientY;
+							 $dummy.trigger(e);
+						}
+						else if (str == 'crop')
+						{
+							var p = viewer.gl.flip(pickResult.pickedPoint);
+							p = viewer.gl.GL2world([p.x,p.y,p.z]);
+							var roi = obj.surf.fileinfo.roireference;
+							cropConnectedComponent(roi,p);
+							//var surf = _this.viewer.currentROI.fileinfo.surfreference;
+
+
+     						KViewer.roiTool.update3D(roi);
+						}
+
+
+					  },true);
+				  contextMenu(evt);
+	 		
+		   }
+	*/
+
+	    a.contextmenu = function(ev)
+	    {
+       	    function colencode(c) {	if (c != undefined)
+       	    							return "background:"+RGB2HTML(c[0],c[1],c[2])+";"; 
+       	    					    else
+       	    					    	return "background:"+RGB2HTML(0,0,0)+";"; }
+
+             var dummyobj = {alpha:0}
+			 var $dummy = KColorSelector(KColor.list,colencode,
+			 function(c) {
+			 	 if (dummyobj.alpha != 0)
+			 	 {
+			 	 	point.p.color.color[3] = 255*(1-parseFloat(dummyobj.alpha))
+			 	 }
+		         point.setcolor(c);
+
+			 
+			 },dummyobj,{manual:true});
+			 var e = new jQuery.Event("click");
+			 e.pageX = ev.clientX;
+			 e.pageY = ev.clientY;
+			 $dummy.trigger(e);
+
+	    }
+
 		
 		a.setpoint(point);
 		return a;
@@ -1710,7 +1951,7 @@ var filename = "test";
 			    nii.sizes[i[1]]* nii.voxSize[i[1]]/2,
 			    nii.sizes[i[2]]* nii.voxSize[i[2]]/2 ];
 			var ee =  nii.edges;
-			if (KViewer.mainViewport !== -1)
+			if (KViewer.mainViewport !== -1 && KViewer.navigationMode == 2)
 				 ee = math.multiply(KViewer.reorientationMatrix.matrix, ee);
 
 			var q = math.matrix(math.diag([0,0,0,1]))._data;
@@ -2189,10 +2430,16 @@ var filename = "test";
 							  planesVisibility[fixedPlanarView] = true;
 							  planes[fixedPlanarView].visibility = 1;
 							  planes[fixedPlanarView].isPickable = true;
+							  for (var k=0; k <viewer.objects3D.length;k++)
+								  if (viewer.objects3D[k].fibcut != undefined)
+								  {
+									  viewer.objects3D[k].fibcut = (fixedPlanarView+2)%3;
+								      viewer.objects3D[k].fiberDirColor_shader.setFloat("planesNum",viewer.objects3D[k].fibcut);
+								  }
 							  if (fixedPlanarView == 1)
 							  {						
 								// coronal						  
-								camera.alpha = Math.PI;
+								camera.alpha = 2*Math.PI;
 								camera.beta = Math.PI/2;
 							  } 
 							  else if (fixedPlanarView == 0)
@@ -2207,9 +2454,16 @@ var filename = "test";
 								camera.alpha = Math.PI;
 								camera.beta = 0;
 							  }
+							  updatePicto()							  
 						  }
 						  else
 						  {
+							  for (var k=0; k <viewer.objects3D.length;k++)
+								  if (viewer.objects3D[k].fibcut != undefined)
+								  {
+									  viewer.objects3D[k].fibcut = -1
+								      viewer.objects3D[k].fiberDirColor_shader.setFloat("planesNum",viewer.objects3D[k].fibcut);
+								  }
 							  for (var pl = 0; pl < 3; pl++)
 							  {
 							  	planesVisibility[pl] = true;							  	
@@ -2270,6 +2524,9 @@ var filename = "test";
 							m.gl.camera.inertialPanningX = px;
 							m.gl.camera.inertialPanningY = py;
 							m.gl.camera.inertialRadiusOffset = zoom;
+							m.gl.camera.setPosition(viewer.gl.camera.position)
+							m.gl.camera.setTarget(viewer.gl.camera.target)
+							
 							if (m.gl.camera_picto)
 							{
 								m.gl.camera_picto.alpha= viewer.gl.camera.alpha;
@@ -2296,7 +2553,7 @@ var filename = "test";
 
      var saveRender_id = setInterval(function()
      {
-     	if (Date.now()-gl.lastRenderQuery > 5000)
+     	if (Date.now()-gl.lastRenderQuery > gl.timeout)
      		gl.isidle = true;
      },500);
 
@@ -2340,13 +2597,15 @@ var filename = "test";
 		  camera_picto:camera_picto,
 		  planes:planes,
 		  isidle:false,
+		  timeout:25000,
+		  timeout_default:25000,
 		  lastRenderQuery:Date.now(),
 		  screenShot:screenShot,
 		  doDownload:doDownload,
 		  activateRenderLoop:activateRenderLoop,
 		  createMarkerMesh:createMarkerMesh,
 		  createTrace:createTrace,
-		  createElectrode:createElectrode,
+		//  createElectrode:createElectrode,
 		  updateLayout:updateLayout,
 		  updateObjects:updateObjects,
 		  updatePlanes:updatePlanes,
@@ -2407,6 +2666,11 @@ var filename = "test";
 						camera.radius = gl_props.radius; 
 					if(gl_props.planesVisibility != undefined) 
 						setPlanesVisibility(gl_props.planesVisibility);    
+					if(gl_props.position != undefined) 
+						camera.setPosition(new BABYLON.Vector3(gl_props.position.x,gl_props.position.y,gl_props.position.z) )
+			
+					if(gl_props.target != undefined) 
+						camera.setTarget( new BABYLON.Vector3(gl_props.target.x,gl_props.target.y,gl_props.target.z) )
 				}
 		  	
 		  }
@@ -2529,26 +2793,33 @@ ArcRotateCameraPointersInput.prototype.attachControl = function (element, noPrev
 	function pick_noTransparent(x,y)
 			{
 				if (_this.viewer.gl.planes[0] == undefined)
-					return;
+					return;				
 				_this.viewer.gl.planes[0].isPickable = true;
 				_this.viewer.gl.planes[1].isPickable = true;
 				_this.viewer.gl.planes[2].isPickable = true;
-
 				return pick_();
 
 				function pick_()
 				{
 					var pickResult = _this.scene.pick(x,y,undefined,undefined,_this.viewer.gl.camera);
+
 					if (pickResult.pickedMesh == undefined)
+					{
 						return pickResult;
+					}
+					else
+					{
+						
+					}
+					var notTransparent = _this.viewer.getValueAtWorldPosition(_this.viewer.gl.GL2world_withflip(pickResult.pickedPoint));						
 					if (pickResult.pickedMesh.id.substring(0,6) == 'ground')
 					{
-						var notTransparent = _this.viewer.getValueAtWorldPosition(_this.viewer.gl.GL2world_withflip(pickResult.pickedPoint));						
 						notTransparent = notTransparent && pickResult.pickedMesh.visibility==1;
 						if (!notTransparent)
 						{
 							pickResult.pickedMesh.isPickable = false;
-							return pick_();
+							var alt = pick_();
+							return alt;
 						}
 						else
 							return pickResult;
@@ -2568,18 +2839,21 @@ ArcRotateCameraPointersInput.prototype.attachControl = function (element, noPrev
 			
 			if (pickResult.pickedMesh != undefined)
 			{
-				if(_this._isCtrlPushed  && !_this._isShiftPushed)
+				if((_this._isAltPushed | _this._isCtrlPushed)  && !_this._isShiftPushed)
 				{
 				   var c_val = _this.viewer.currentValueAt3DWorldPick;
 				   var c_point = _this.viewer.currentCoordinateAt3DWorldPick;
 				   if (c_point == undefined)
 					   return;
 
+				   var str = KViewer.atlasTool.update(c_point);
+
 				   var $info3D =  $("<div class='Kinfo3D'> "
 				   +c_point[0].toFixed(1)+ "," 
 				   +c_point[1].toFixed(1)+ "," 
 				   +c_point[2].toFixed(1)+ " (mm) <br> " 
-				   + "value: " + c_val + "" 
+				   + "value: " + c_val + "<br>" 
+				   + str 
 				   + "</div>").appendTo(_this.viewer.$container);
 				   _this.viewer.info3D = $info3D;
 				   $info3D.css('top',evt.offsetY+10);
@@ -2589,7 +2863,7 @@ ArcRotateCameraPointersInput.prototype.attachControl = function (element, noPrev
 				    ( _this._isShiftPushed & _this._isCtrlPushed ) | ( _this._isAltPushed ) )
 				{
             		var fibs = _this.viewer.getCurrentFiberView();
-            		if (fibs != undefined)
+            		if (fibs != undefined && _this.viewer.currentROI == undefined)
             		{
 
             			  var txt ;
@@ -2626,7 +2900,13 @@ ArcRotateCameraPointersInput.prototype.attachControl = function (element, noPrev
 			}
 
 			_this._isRightClick = evt.button === 2;
-			
+            
+            var thres = (x,t) => { if (x < t) return t; else return x;}
+
+            _this.panningSensibility = thres(5000/_this.camera.radius,10);
+			_this.angularSensibilityX = thres(10000/Math.sqrt(_this.camera.radius),1000);
+			_this.angularSensibilityY = thres(10000/Math.sqrt(_this.camera.radius),1000);
+
 			function default_rotate()
 			{                    
 
@@ -2847,7 +3127,6 @@ ArcRotateCameraPointersInput.prototype.attachControl = function (element, noPrev
 			hoverController.onMove(evt);
 
 		
-
 
 			var pickResult = pick_noTransparent(evt.offsetX, evt.offsetY);
 
@@ -3210,12 +3489,28 @@ ArcRotateCameraPointersInput.prototype.attachControl = function (element, noPrev
   	
 		if (event.shiftKey)
 		{
-			function c(amount)
+			var handler = this;
+			function c(incdir)
 			{
-				var fac = 0.8;
-				if (KViewer.defaultFOV_mm)
-					fac = KViewer.defaultFOV_mm/100;
-				return fac*((amount>0)?1:-1);
+				incdir = (incdir>0)?1:-1;
+        		var fac = 0.1;
+                if (handler.cid != undefined)
+                    clearTimeout(handler.cid);
+                handler.cid = setTimeout(function() {
+                	 handler.speed = 0;
+                	 },250);
+                if (math.sign(handler.speed) != math.sign(incdir))
+                    handler.speed = incdir;
+                else
+                    handler.speed += incdir;
+
+				var amount = handler.speed;
+                if (KViewer.lastHoveredViewport)
+                    {
+                    	amount *= KViewer.lastHoveredViewport.nii.voxSize[0]*0.25;
+                    }
+        		
+				return amount;
 			}
 			var amount = (event.wheelDelta || -event.detail);							
 			var pickResult = _this.scene.pick(event.offsetX, event.offsetY,undefined,undefined,_this.viewer.gl.camera);
@@ -3231,8 +3526,8 @@ ArcRotateCameraPointersInput.prototype.attachControl = function (element, noPrev
 			else if (_this.viewer.getCurrentFiberView() != undefined)
 			{
 				
-				_this.viewer.gl.selectionRadius += c(amount)* _this.viewer.computeMaxExtentFac()*0.002;
-				if (_this.viewer.gl.selectionRadius < 0.1) 
+				_this.viewer.gl.selectionRadius += c(amount);//* _this.viewer.computeMaxExtentFac()*0.002;
+				if (_this.viewer.gl.selectionRadius < 0.1 | isNaN(_this.viewer.gl.selectionRadius)) 
 					_this.viewer.gl.selectionRadius = 0.1;
 				if (pickResult.pickedMesh != undefined)
 					_this.viewer.gl.setPencilProps(pickResult);
@@ -3360,12 +3655,7 @@ ArcRotateCameraPointersInput.prototype.getSimpleName = function () {
 
 function initBabylon(onBabylon)
 {
-
      scriptLoader.loadScript('babylon.js', function() { 
-
-     scriptLoader.loadScript('babylon.objFileLoader.js', function() { 
-
-
 
 
 	BABYLON.Effect.ShadersStore.fiberColorVertexShader = "precision highp float;"+
@@ -3377,10 +3667,13 @@ function initBabylon(onBabylon)
 	"uniform mat4 worldToVoxel;"+
 	"uniform vec3 planesPos;" +
 	"uniform float planesNum;" +
+	"uniform float flow;" +
+	"uniform float flow_len;" +
 	"uniform float planesThres;" +
 	"uniform float planesProj;" +
 	"void main(void) { vcolor = color;"+
 	"   ptmp = worldToVoxel * vec4(position,1.0);"+
+	"   if (flow>0.0) { if (abs(flow-color[3]) > flow_len) {  gl_Position = vec4(0.0,0.0,1000000000000.0,0.0); return;} }"+
 	"   if (planesNum < 0.0) { " +
 		"	    gl_Position = worldViewProjection * ptmp; } "+
 	"   else if (planesNum < 0.5) { " +
@@ -3405,10 +3698,10 @@ function initBabylon(onBabylon)
 
 
 	BABYLON.Effect.ShadersStore.fiberColorPixelShader = "precision highp float;"+
-	"varying vec4 vcolor; uniform vec4 col; uniform float alpha; uniform float hover; float tex; float tox=0.7; void main(void) {"+
+	"varying vec4 vcolor; uniform vec4 col; uniform float alpha; uniform float hover; float tex; float tox=1.0; void main(void) {"+
 	" if (col[3]==0.0) "+
 			" { gl_FragColor = vcolor;  }  "+
-	" else {gl_FragColor = col; tex = 0.3*(vcolor[3]-0.5);  "+
+	" else { tox=1.4/(alpha+1.0); gl_FragColor = col; tex = 0.3*(vcolor[3]-0.5);  "+
 			 "  gl_FragColor[0] = vcolor[0]*(1.0-tox)+gl_FragColor[0]*tox+tex; "+
 			 "  gl_FragColor[1] = vcolor[1]*(1.0-tox)+gl_FragColor[1]*tox+tex;  "+
 			 "  gl_FragColor[2] = vcolor[2]*(1.0-tox)+gl_FragColor[2]*tox+tex;}" +
@@ -3462,7 +3755,7 @@ function initBabylon(onBabylon)
 	"			 && (ptmp[2]*planesCut[2] >= 0.5 || planesCut[2] == 0.0))"+
     "        	discard; "+
 	"    vec3 vNormalW = normalize(vec3(worldViewProjection * vec4(vNormal, 0.0)));" +
-	"    if (vNormalW[2] > 0.0 && alpha < 1.0) { discard; } " +	
+	"    if (vNormalW[2] > 0.3 && alpha < 1.0) { discard; } " +	
 	"    fac = pow(abs(vNormalW[2]),gamma);"+
 	"	 gl_FragColor[0] = fac*col[0];"+
 	"	 gl_FragColor[1] = fac*col[1];"+
@@ -3471,7 +3764,19 @@ function initBabylon(onBabylon)
 	"}";
 
 
-	onBabylon();
+		 
+     scriptLoader.loadScript('babylon.objFileLoader.js', function() { 
+
+
+
+
+
+    setTimeout(function() { 
+    		onBabylon()
+    		BABYLON.initialized = true
+    },1000);
+
+//	onBabylon();
 
 
      });

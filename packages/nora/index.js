@@ -1,22 +1,17 @@
-import * as _ from "underscore";
-/*
-import "script-loader!./htdocs/jquery-1.11.2.min.js";
-*/
-//import "script-loader!./htdocs/font-awesome-4.5.0/css/font-awesome.min.css";
 import "script-loader!./htdocs/dicom/daikon.js";
 import "script-loader!./htdocs/dicom/dicomReader.js";
 
+import "script-loader!./htdocs/jquery.js";
 import "./htdocs/alertify.core.css";
 import "./htdocs/alertify.default.css";
-import "./htdocs/styles_main.css";import "script-loader!./htdocs/dicom/daikon.js";
-import "script-loader!./htdocs/dicom/dicomReader.js";
+import "./htdocs/styles_main.css";
 
+import "./htdocs/fontawesome/font-awesome.css";
 import "./htdocs/alertify.core.css";
 import "./htdocs/alertify.default.css";
 import "./htdocs/styles_main.css";
 import "./htdocs/styles_KView.css";
 
-
 import "script-loader!./htdocs/KMiscFuns.js";
 import "script-loader!./htdocs/KForms.js";
 import "script-loader!./htdocs/kmath.js";
@@ -46,11 +41,9 @@ import "script-loader!./htdocs/KTableOperator.js";
 import "script-loader!./htdocs/KView/KView.js";
 import "script-loader!./htdocs/zip/zip.js";
 import "script-loader!./htdocs/zip/inflate.js";
-
 
 import "./htdocs/styles_KView.css";
 
-
 import "script-loader!./htdocs/KMiscFuns.js";
 import "script-loader!./htdocs/KForms.js";
 import "script-loader!./htdocs/kmath.js";
@@ -81,63 +74,68 @@ import "script-loader!./htdocs/KView/KView.js";
 import "script-loader!./htdocs/zip/zip.js";
 import "script-loader!./htdocs/zip/inflate.js";
 
+// Access container element
+const appElement = document.querySelector("#app");
 
+// Access attached data
+const incoming = JSON.parse(appElement.dataset.incoming || "{}");
+const datasetId = incoming.visualization_config.dataset_id;
+const root = incoming.root;
+const metaUrl = `${root}api/datasets/${datasetId}`;
+const dataUrl = `${root}api/datasets/${datasetId}/display`;
 
-setNORAenv({
-	url_pref: window.location.origin + "/static/plugins/visualizations/nora/static/dist/" 
-})
+const base = root + "static/plugins/visualizations/nora/static/";
 
-console.log("starting NORA's viewer");
-console.log(window.location.href);
+const style = document.createElement("style");
+style.textContent =
+`@font-face {
+    font-family: 'FontAwesome';
+    src: url('${base}assets/fontawesome-webfont.eot');
+    src: url('${base}assets/fontawesome-webfont.eot?#iefix') format('embedded-opentype'), url('${base}assets/fontawesome-webfont.woff2') format('woff2'), url('${base}assets/fontawesome-webfont.woff') format('woff'), url('${base}assets/fontawesome-webfont.ttf') format('truetype'), url('${base}assets/fontawesome-webfont.svg#fontawesomeregular') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}`;
 
-stateManager.setDefaultState(); 
+document.head.appendChild(style)
 
-var Datasets = window.bundleEntries.chartUtilities.Datasets;
-
-_.extend(window.bundleEntries || {}, {
-    load: function(options) {
-        var chart = options.chart;
-
-			var $t = $(document.getElementById( options.target ))
-
-			var KViewer = new KView($t.parent());
-			$t.remove();
-
-			KViewer.crosshairMode = true;
-			KViewer.showInfoBar = true;
-			KViewer.globalCoordinates = true;
-			KViewer.startImageLoader = startImageLoader;
-
-			addKeyboardShortcuts()
-
-			ViewerSettings.nVisibleCols = 2
-			ViewerSettings.nVisibleRows = 2
-			ViewerSettings.nVisibleBarports = 0;
-
-			KViewer.ViewerSettings = ViewerSettings;
-			KViewer.defaultFOV_mm = 220;
-
-			KViewer.$screenShot.hide()
-			KViewer.$iron.hide()
-
-			KViewer.applyState()
-
-			//var intendedName = options.dataset.name.replace(/\.gz/g,"")
-			var intendedName = options.dataset.name;
-			var filetype = options.dataset.extension;
-		
-			//	KViewer.setViewPortLayout();
-
-
-
-			console.log(options.dataset);
-  		    var loader = [{url: window.location.host+options.dataset.download_url, 
-				  intendedName: intendedName,
-				  filetype: filetype,
-				  intent: {  }  }   ];
-		    KViewer.startImageLoader(loader,function() {});
-
-       
-        
+async function getData(url) {
+    try {
+        return await $.get(url);
+    } catch (e) {
+        console.error("Failed to retrieve data.", e);
     }
-});
+}
+
+async function render() {
+    const metaData = await getData(metaUrl);
+
+    setNORAenv({ url_pref: `${base}dist/` })
+
+    console.debug("[NORA] Initialization...");
+
+    stateManager.setDefaultState();
+
+    var KViewer = new KView($(appElement).parent());
+
+    KViewer.crosshairMode = true;
+    KViewer.showInfoBar = true;
+    KViewer.globalCoordinates = true;
+    KViewer.startImageLoader = startImageLoader;
+
+    addKeyboardShortcuts()
+
+    ViewerSettings.nVisibleCols = 2
+    ViewerSettings.nVisibleRows = 2
+    ViewerSettings.nVisibleBarports = 0;
+
+    KViewer.ViewerSettings = ViewerSettings;
+    KViewer.defaultFOV_mm = 220;
+    KViewer.$screenShot.hide()
+    KViewer.$iron.hide()
+    KViewer.applyState()
+
+    var loader = [{url: dataUrl, intendedName: metaData.name, filetype: metaData.extension, intent: {}}];
+    KViewer.startImageLoader(loader,function() {});
+}
+
+render();

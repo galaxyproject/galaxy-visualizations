@@ -23,8 +23,17 @@ function KObject3DTool(master)
   that.tracking_panel = KTrackingPanel();
   that.tracking_panel.toggle();
 
+  that.visitmap_res = 2;
+  that.termmap_res = 2;
+  that.termmap_len = 2;
 
   that.name = 'Objects 3D';
+  
+
+
+  that.attach_helper(function(){
+		window.open("https://www.nora-imaging.org/doc/books/nora-documentation/page/fiber-viewer",'_blank');  	
+    })
   
   // the list of 3D objects as key/value pairs
   that.objs = {};
@@ -96,7 +105,7 @@ function KObject3DTool(master)
   that.uid_cnt = 0;
   
 
-  that.cloneFibersFromSelection = function (tck,viewer,parent,name)
+  that.cloneFibersFromSelection = function (tck,viewer,parent,name,color)
   {
   	  var fobj = tck.fibers;
   	  var children; 	  
@@ -121,7 +130,7 @@ function KObject3DTool(master)
 		  fobj.content.selections.push({subset: tck.subsetToDisplay, name:name, signs:tck.fiberSign});
 		  that.update();  	  
 
-		  return that.createFiberView(fobj,viewer,{select: tck.fibers.content.selections.length-1 , parent:parent, donotmakecurrent:true});
+		  return that.createFiberView(fobj,viewer,{select: tck.fibers.content.selections.length-1 , parent:parent, color:color,donotmakecurrent:true,visible:true});
   	  }
   	  else
   	  {
@@ -146,6 +155,8 @@ function KObject3DTool(master)
   	  	 fobj_.filename = name;
 
   	  	 var intent = {parent:parent, donotmakecurrent:true}
+  	  	// if (typeof color == "number")
+  	  	 intent.color = color;
 		 if (tck.subsetToDisplay != undefined)
 		 {
 		 	 fobj_.content.selections = [{subset: tck.subsetToDisplay, name:name}];
@@ -366,16 +377,68 @@ function KObject3DTool(master)
       $(target).parent().parent().toggleClass("selected");
     }
 
-  that.saveTCK = function(tck)
+  that.saveTCK = function(tck,callback)
   {
-  	 if (tck.Selection.name != undefined)
-  	 	tck.fibers.filename = tck.Selection.name.trim()
 
-  	 var fibers = tck.fibers
-  	 var content = fibers.content;
+  	 var fibers = tck.fibers;
+  	 var content = [fibers.content];
+  	 var tot_points = content[0].tot_points;
+  	 var tracts_length = content[0].tracts.length
+  	 if (tck.children != undefined && tck.children.length > 1)
+  	 {
+  	 	content = [];
+  	 	tot_points = 0;
+  	 	tracts_length = 0;
+  	 	for (var k = 0; k < tck.children.length;k++)
+  	 	{
+  	 		if (tck.children[k].Selection && tck.children[k].Selection.subset)
+  	 		{
+  	 			var sset =tck.children[k].Selection.subset;
+  	 			var tmp = [];
+  	 			var tmp_tp = 0;
+  	 			for (var i = 0; i<sset.length;i++)
+  	 			{
+  	 				var t = tck.children[k].fibers.content.tracts[sset[i]];
+                    tmp.push(t);
+                    tmp_tp += t.length/3;                    
+  	 			}
+  	 			content.push({tracts:tmp})
+  	 			tracts_length += sset.length;
+  	 			tot_points += tmp_tp 
+
+  	 		}
+  	 		else
+  	 		{
+				content.push(tck.children[k].fibers.content)
+				tot_points += tck.children[k].fibers.content.tot_points;
+				tracts_length += tck.children[k].fibers.content.tracts.length;
+  	 		}
+
+  	 	}
+  	 }
+	 else if (tck.Selection != undefined && tck.Selection.subset && tck.Selection.subset.length>0)
+	 {
+
+  	 	content = [];
+  	 	tot_points = 0;
+  	 	tracts_length = 0;
+		var sset = tck.Selection.subset
+		var tmp = [];
+		var tmp_tp = 0;
+		for (var i = 0; i<sset.length;i++)
+		{
+			var t = fibers.content.tracts[sset[i]];
+			tmp.push(t);
+			tmp_tp += t.length/3;                    
+		}
+		content.push({tracts:tmp})
+		tracts_length += sset.length;
+		tot_points += tmp_tp 
+		 
+	 }
   	 var utf8encoder = new TextEncoder()
-  	 var hdr = "mrtrix tracks\ndatatype: Float32LE\ncount: "+ content.tracts.length + "\nfile: . 1024\nEND";
-  	 var buf = new ArrayBuffer(1024+ ((content.tot_points*4)*3 + content.tracts.length*4*3 ));
+  	 var hdr = "mrtrix tracks\ndatatype: Float32LE\ncount: "+ tracts_length + "\nfile: . 1024\nEND";
+  	 var buf = new ArrayBuffer(1024+ ((tot_points*4)*3 + tracts_length*4*3 ));
   	 var uint8 = new Uint8Array(buf)
      var hdrbuf = utf8encoder.encode(hdr);
   	 uint8.set(hdrbuf);
@@ -386,35 +449,44 @@ function KObject3DTool(master)
      nanbuf[2] = NaN
 
      var offs = 1024
-     for (var k = 0; k < content.tracts.length;k++)
-     {
-        uint8.set(new Uint8Array(content.tracts[k].buffer),offs);
-        offs = offs + content.tracts[k].buffer.byteLength;
-        uint8.set(new Uint8Array(nanbuf.buffer),offs);
-        offs = offs + nanbuf.buffer.byteLength;
-     }
+     for (var j = 0; j < content.length;j++)
+		 for (var k = 0; k < content[j].tracts.length;k++)
+		 {
+			uint8.set(new Uint8Array(content[j].tracts[k].buffer),offs);
+			offs = offs + content[j].tracts[k].buffer.byteLength;
+			uint8.set(new Uint8Array(nanbuf.buffer),offs);
+			offs = offs + nanbuf.buffer.byteLength;
+		 }
 
 
      fibers.content.buffer = buf;
 
-    fibers.fileinfo = {};
+    if (fibers.fileinfo == undefined)
+        fibers.fileinfo = {}
     fibers.fileID = "TCK_1"
     fibers.filename = fibers.filename.replace("\.tck","")
     fibers.filename = fibers.filename + ".tck"
-
+    fibers.contentType = "tracts"
+    fibers.fileinfo.Tag = "";
 	// add a unique patient id first if not set
 	if (fibers.fileinfo.patients_id == undefined)
 	   extendWithUniquePSID(fibers.fileinfo);
 
 	var zipped = false;
 
+	updateTag(fibers.fileinfo,[],userinfo.username)
+
+
 	if (fibers.fileinfo.patients_id != undefined)
 	 {
+			KViewer.dataManager.setFile(fibers.fileID,fibers);
 			uploadUnregisteredBinary(fibers, {
-				SubFolder: "",
-				permission: "rwp"
+				permission: "rwp",
 			}, that.progressSpinner,
 			function(newid, id) {
+				KViewer.dataManager.delFile(fibers.fileID,true)
+				if (callback)
+				    callback();
 
 			},zipped);
 	}
@@ -422,76 +494,77 @@ function KObject3DTool(master)
 	{
 		alertify.alert("There is no unique patient id set for this file.")
 	}
-      	 
+      	
+    var selections = []; 
+    var offs = 0;
+    for (var j = 0; j < tck.children.length;j++)
+    {
+    	var num_fibs = content[j].tracts.length;
+    	var subset = [];
+    	for (var k = 0; k < num_fibs;k++)
+    	    subset.push(k+offs);
+        selections.push({subset:subset, name: tck.children[j].Selection.name, color:tck.children[j].color})
+        offs += num_fibs;
+    }
+    return selections;
   	 
+
+
   }
 
 
   // save a selection as json
-  that.save = function(fibers,selection,donotupload)
+  that.save = function(fibers,selection,donotupload,name)
   {
       var sels;
-      var name;
       if (selection != undefined)
       {
-      	sels = [selection];
-      	name = selection.name;
+      	 if (Array.isArray(selection))
+      	     sels = selection
+      	 else
+			 sels = [selection];
       }
       else
       	sels = fibers.content.selections;
 
 	  var csels = [];
-	  for (var k = 0; k < sels.length; k++)
+	  if (sels != undefined)
 	  {
-	  	  csels[k]= $.extend(false,{},sels[k]);
-	  	  csels[k].namedivs = undefined;
-	  	  delete csels[k].namedivs;
+		  for (var k = 0; k < sels.length; k++)
+		  {
+			  csels[k]= $.extend(false,{},sels[k]);
+			  csels[k].namedivs = undefined;
+			  delete csels[k].namedivs;
+		  }
 	  }
+	  var fileinfo = fibers.fileinfo;
+	  if (fibers.tckjsonref != undefined)
+	  	  fileinfo = fibers.tckjsonref.fileinfo;
 
   	  var obj = {assoc: {fileID:fibers.fileID,filename:fibers.filename,subfolder:fibers.fileinfo.SubFolder,filepath:fibers.fileinfo.FilePath,md5:fibers.content.md5},
   	             selections: csels };
   	  if (donotupload != undefined && donotupload == true)
 		  return obj;
 
+	
 
- 	  if (name != undefined)
-		 uploadJSON(name,obj,{patients_id:fibers.fileinfo.patients_id,studies_id:fibers.fileinfo.studies_id,subfolder:fibers.fileinfo.SubFolder,tag:'TCKSEL'},function(fobj)
-		 {
-			fibers.tckjsonref = fobj ;
-		 });					
-	  else  	  
-	  {
-	  	 if (electron)
-			 uploadJSON("tract_selections.tck.json",obj,{subfolder:fibers.fileinfo.SubFolder,tag:'TCKSEL'},function(fobj){
-			 	fibers.tckjsonref = fobj;
-			 });					
-	  	 else
-	  	 {
-	  	 	 var def = that.lastSelectionName;
-	  	 	 if (def == undefined)
-	  	 	 {
-                if (fibers.fileinfo.SubFolder != undefined | fibers.fileinfo.SubFolder != "")
-	  	 	 	    def = fibers.fileinfo.SubFolder + "/tract_selections";
-	  	 	 	else 
-	  	 	 	    def = "tract_selections";
-	  	 	 }
-			 alertify.prompt("Enter a name for fiber selections", function(e,name)
-			 {
-				if (e)
-				{
-					that.lastSelectionName = name;
-					var sp = name.split("/");
-					var name = sp[sp.length-1];
-					var subfolder = sp.splice(0,sp.length-1).join("/");
-					uploadJSON(name,obj,{subfolder:subfolder,tag:'TCKSEL'},function(fobj){
-						fibers.tckjsonref = fobj
-					});					
-				}
-			 } ,def);
-	  	 }
 
+	  function saveit(name,finfo)
+	  { 
+			that.lastSaveName = name;
+			
+			finfo.tag = 'TCKSEL';
+			name = spliceSubFolder(name,finfo)
+			uploadJSON(name,obj,finfo,function(e,fobj){
+				//fibers.tckjsonref = fobj
+			});					
+			
 	  }
-
+	  if (name == undefined)
+		  saveDialog("fiber collection",saveit,that.lastSaveName,fileinfo)
+	  else
+		  saveit(name,fileinfo)
+	
 	  return obj;
 
   }
@@ -707,13 +780,21 @@ function KObject3DTool(master)
 
 		}
 
+		var edges = fobj.content.nifti.edges;
+		var fid = fobj.fileID;
+		if (fobj.fileinfo && fobj.fileinfo.roireference)
+			fid = fobj.fileinfo.roireference.fileID		
+		if (KViewer.navigationTool.isinstance && (( master.navigationTool.movingObjs[fid] != undefined & KViewer.navigationMode == 0) )) //| KViewer.navigationMode == 2 ))
+			edges = kmath.multiply(kmath.inv(KViewer.reorientationMatrix.matrix),edges)
+//			edges = kmath.multiply((KViewer.reorientationMatrix.matrix),edges)
+
 		executeImageWorker.createIsoSurf_running = true
 
 		progress("creating isosurface");
 		var worker = executeImageWorker({func:'createISOSurf', 
 				data:fobj.content.nifti.data,
 				sizes:fobj.content.nifti.sizes,
-				edges:fobj.content.nifti.edges,
+				edges:edges,
 				currentTimePoint:fobj.content.nifti.currentTimePoint,
 				detsign:fobj.content.nifti.detsign,
 				label:label
@@ -964,6 +1045,7 @@ function KObject3DTool(master)
 			if (c.normals != null) c.normals= c.normals.getData();
 			else
 			{
+				console.log("computing normals")
 				c.normals = new Float32Array(c.points.length)
 				for (var k = 0;k < c.indices.length/3;k++)
 				{
@@ -1018,7 +1100,7 @@ function KObject3DTool(master)
 			
 			for (var k = 0; k < numTrigs;k++)
 			{
-				var n = [view.getFloat32(pos,LE),view.getFloat32(pos+4,LE),view.getFloat32(pos+8,LE)];
+				var n = [-view.getFloat32(pos,LE),-view.getFloat32(pos+4,LE),-view.getFloat32(pos+8,LE)];
 				normals.push(n[0],n[1],n[2],n[0],n[1],n[2],n[0],n[1],n[2]);
 				var p1 = [view.getFloat32(pos+12,LE),view.getFloat32(pos+16,LE),view.getFloat32(pos+20,LE)];
 				var p2 = [view.getFloat32(pos+24,LE),view.getFloat32(pos+28,LE),view.getFloat32(pos+32,LE)];
@@ -1158,11 +1240,9 @@ function KObject3DTool(master)
 
 	that.importandbuildOcttree = function(fileObject,uint8Response,processinfo,arrived,typ)
 	{
-		    var scriptname = 'KTools/KOctreeImportWorker.js' + '?' +  static_info.softwareversion;;
-			if (typeof url_pref != "undefined")
-			   scriptname = url_pref + scriptname;
+		
 
-			var worker = new Worker(scriptname);
+			var worker = new startWorker('KTools/KOctreeImportWorker.js');
 			fileObject.octreeWorker = worker;
 	
 			worker.queryInProgress = false;
@@ -1188,16 +1268,22 @@ function KObject3DTool(master)
 					var content = e.tracts;					
                     KObject3DTool.unpackTracts(content);
                     content.octreeWorker = worker;
- 				    fileObject.content = content;                    
+ 				    fileObject.content = content;  
+ 				    fileObject.content.buffer = tmp_buf_save;
                     fileObject.content.md5 = e.md5;
 					arrived(content)
 				}
-				else if (e.msg == 'import_failed')			
+				else if (e.msg.substr(0,13) == 'import_failed')			
 				{
+					alertify.error(e.msg);
     				worker.postMessage({message:'kill'},[]);
 					arrived()
 				}
 			}, false);
+
+            var tmp_buf_save; // for local files do nbot discard buffer (for possible upload)
+            if (fileObject.fileID.substring(0,9) == 'localfile')
+                tmp_buf_save = new Uint8Array(uint8Response)
 
 			worker.postMessage({message:'import',typ:typ,buffer: uint8Response },[uint8Response.buffer]);
 	
@@ -1342,7 +1428,7 @@ function KObject3DTool(master)
 					}
 			    if (!found)
 			    {
-			       parent_view = that.createFiberView(fobj,viewer,{isParentView:true})
+			       parent_view = that.createFiberView(fobj,viewer,{visible:false,isParentView:true})
 			       parent_view.Selection = undefined;
 			       viewer.objects3D.push(parent_view);
 			    }
@@ -1353,6 +1439,8 @@ function KObject3DTool(master)
 			intent.parent = parent_view;
 
 			var view = that.createFiberView(fobj,viewer,intent);
+			if (!view)
+			    return
 			if (!intent.isParentView)
 			{
 				view.parent = parent_view;
@@ -1388,18 +1476,18 @@ function KObject3DTool(master)
             var alpha = 1;
 			if (state.viewer.fiberAlpha)
 				alpha = 0.15;
-
+			var fibcut_default = viewer.computeMaxExtentFac()/100
 
             var tck = { fibers:fobj,
                         fiberUpdater:undefined,
                         
                         fibcut:-1,
-                        fibcut_thres:5,
+                        fibcut_thres:fibcut_default,
                         fibcut_proj:-1,
 						color: (viewer.objects3D.length)%KColor.list.length,
 						alpha:alpha,
 						type:"fiber",
-
+					    flow_param:0,
 						annotation_subsets:{},
 						associated_annotation:-1,
                         subsetToDisplay:undefined,
@@ -1419,9 +1507,41 @@ function KObject3DTool(master)
  						fibcut:this.fibcut,
                         fibcut_thres:this.fibcut_thres,
                         fibcut_proj:this.fibcut_proj,
-						alpha:this.alpha
+						alpha:this.alpha,
+						flow_param:this.flow_param
 				};
 			}
+
+			tck.toggleFlow = function()
+				{
+					var viewer  = tck.viewer;
+					if (viewer.flow_id != undefined)
+						clearInterval(viewer.flow_id);
+					if (this.flow_param > 0)
+					{
+						tck.fibers.content.flow_content = 1	;					
+						tck.viewer.gl.timeout = 100000;
+						viewer.flow_time=0; 
+						var flow_param = parseFloat(this.flow_param)
+ 					    tck.fiberDirColor_shader.setFloat("flow_len",0.02);						
+						viewer.flow_id = setInterval(function () 
+						 { 
+							 viewer.flow_time = (viewer.flow_time+0.1*flow_param)%1; 
+							 for (var k = 0; k < viewer.objects3D.length;k++)
+							 {
+								 if (viewer.objects3D[k].flow_param>0)
+									 viewer.objects3D[k].fiberDirColor_shader.setFloat("flow", viewer.flow_time);
+							 }
+						 },50)
+												
+					}
+					else
+					{
+						tck.viewer.gl.timeout = tck.viewer.gl.timeout_default;
+ 					    tck.fiberDirColor_shader.setFloat("flow",-1);						
+					}
+					
+				}
 			if (intent.isParentView && intent.dirvolref == undefined)
 				tck.Selection = undefined;
 
@@ -1433,10 +1553,27 @@ function KObject3DTool(master)
 					var params = that.tracking_panel.params;
 					params.Jitter = scale / 40;
 					params.Stepwidth = scale / 5;
-					that.tracking_panel.update();
+					
 					tck.trackingVolHistoman = intent.dirvolref.histoManager;
 					tck.trackingVol =  intent.dirvolref.nii
 					tck.trackingVolID = intent.dirvolref.currentFileID
+					tck.autogenerate_tracks = true;
+					if (intent.dirvolref.nii.sizes[4]>1)
+					{
+						tck.flow_param = 0.2;
+						params.sign = 1;
+						params.Maxlen=150;
+						params.Minlen=10;
+						params.SmoothWidth=0;
+						params.Density=200;
+						params.Jitter=0;
+						params.t_start_rand=1;
+						
+						params.Stepwidth = 0.01;
+						
+					}
+					that.tracking_panel.update(tck);
+
 				}
 				else
 				{
@@ -1456,6 +1593,13 @@ function KObject3DTool(master)
 							}
 
 							tck.Selection = tck.fibers.content.selections[intent.select];
+                            for (var k = 0; k < intent.parent.children.length;k++)
+                            {
+                                if (intent.parent.children[k].Selection == tck.Selection)
+                                    return false;
+                            }
+
+
 							if (tck.Selection != undefined)
 								tck.subsetToDisplay = tck.Selection.subset;
 						}
@@ -1463,6 +1607,7 @@ function KObject3DTool(master)
 				}
 				tck.parent = intent.parent;
 
+				if (intent.flow_param != undefined) tck.flow_param = intent.flow_param;
 				if (intent.alpha != undefined) tck.alpha = intent.alpha;
 				if (intent.fibcut != undefined) tck.fibcut = intent.fibcut;
 				if (intent.fibcut_thres != undefined) tck.fibcut_thres = intent.fibcut_thres;
@@ -1492,6 +1637,7 @@ function KObject3DTool(master)
 					 	if (tck.Selection.subset != undefined)
 					 	{
 							tck.subsetToDisplay = tck.Selection.subset;
+ 						    tck.subsetParameterColors = tck.Selection.colmode
 							viewer.statusbar.report(tck.subsetToDisplay.length + " fibers shown");
 					 	}				
 					 }
@@ -1535,7 +1681,7 @@ function KObject3DTool(master)
 					  {
 				      	  tck.subsetToDisplay = undefined;
 					 	  selectFibersByROI(tck,vismap,false,0.8,1.5);
-					  }0.4
+					  }
 					
 				  });
 
@@ -1545,31 +1691,46 @@ function KObject3DTool(master)
 			////////////// color context menu
        	    var colors = ["dir"];
        	    colors = colors.concat(KColor.list);
+		
 			var $colselector = KColorSelector(colors,	
 				 function(c) {	if (c=="dir") return ""; else return "background:"+RGB2HTML(c[0],c[1],c[2])+";"; },
 				 function (col,colindex)
 				 {
-				 	if (tck.Selection)
+				 	if (colindex != undefined && tck.Selection)
 				 		tck.Selection.color = colindex;
-				   viewer.gl.activateRenderLoop();
-                    fiberDirColor_shader.setFloat("alpha",tck.alpha);	
+				    viewer.gl.activateRenderLoop();
+                    fiberDirColor_shader.setFloat("alpha",tck.alpha);
+
+					if (col == "flow")
+					{
+						tck.toggleFlow()
+						return;
+					}
+                        
                     if (col != undefined)
                     {					
+	                    if (col.color != undefined)	
+	                        col = col.color;
 						if (col == 'dir')
 							fiberDirColor_shader.setVector4("col",new BABYLON.Vector4(0,0,0,0));
 						else
 							fiberDirColor_shader.setVector4("col",new BABYLON.Vector4(col[0]/255,col[1]/255,col[2]/255,1));
+						if (colindex == undefined)
+						    tck.color = col;
                     }
 
 					if (tck.fiberUpdater && tck.fiberUpdater.nicefibs!= undefined)
 						tck.showNiceFibs();
 
 				 },
-				 tck);
+				 tck,{manual:true,alpha:true});
 
 			if (intent != undefined && intent.color != undefined)
 			{
-				tck.color = intent.color%colors.length ;
+				if (typeof intent.color == "number")
+				    tck.color = intent.color%colors.length ;
+			    else
+                    tck.color = intent.color;
 				if (tck.Selection)
 					tck.Selection.color = tck.color;
 				$colselector.updateColor();
@@ -1627,6 +1788,12 @@ function KObject3DTool(master)
 				  {
 					  var roi = KViewer.roiTool.ROIs[str.substring(8)];
 
+  					  if (roi.content.onVoxels == undefined)
+				  	  {
+					 	  roi.content.onVoxels = KViewer.roiTool.history.initOnVoxels(roi.content);
+				   	  }
+
+                      tck.autogenerate_tracks = false;            
 					  var ret = tck.fiberTracking({roi:roi});
 		
 					  tck.fibers.content = ret;
@@ -1675,7 +1842,12 @@ function KObject3DTool(master)
 						}
 						setAnnotationAssoc(mset.uuid,function()
 						{
-							cloneFibs(mset.name);
+							if (typeof mset.color == "number")
+							    cloneFibs(mset.name,mset.color+1);
+							else
+							{
+							    cloneFibs(mset.name,mset.getPoints()[0].p.color.color);
+							}
 							iterate(k+1);
 						});
 
@@ -1851,29 +2023,183 @@ function KObject3DTool(master)
 
 
 
+		    /***************************************************************************************
+		     *  advanced colors for fiber subsets
+		     ****************************************************************************************/
 
 
+             var advanced_colors = [];
+             var $fiberadvancedcolors = undefined
+             if (tck.Selection)
+             	 advanced_colors = Object.keys(tck.Selection).filter((x) => x != "color" & x != "name" & x != "subset" & x != "namedivs" & x != "colmode" & x != "signs")
 
-			 var $osamp = $("<input title='Spatial undersampling factor of matrix' style='right:50px;width:40px' onchoice='preventSelection' type='number' min='0.5' step='1' max='20'>")
-			 				.val(2);
-			 var $osamp2 = $("<input title='Spatial undersampling factor of matrix' style='right:50px;width:40px' onchoice='preventSelection' type='number' min='0.5' step='1' max='20'>")
-			 				.val(2);
+
+             tck.setColParameters = function(str,intent)
+             {
+             	if (intent == undefined && str == undefined)
+             	    return;
+             	    
+				var $i = $fiberadvancedcolors.find("i")
+
+				var name = ['standard color'].concat(advanced_colors);
+
+				$i.addClass("fa-circle")
+				$colselector.addClass("inactive")
+
+                var obj;
+                if (str != undefined)
+				    obj = {name:name[str] }
+				else
+				{
+                    obj = {name:intent.name}
+				}
+				var vals = tck.Selection[obj.name];
+
+				var minmax = getMinMax(vals,vals.length,500);
+				obj.histogram = comphisto(minmax.min,minmax.max,20,vals,vals.length,500);
+
+				var sidx = tck.Selection.subset;
+				var svals = {}
+				for (var k = 0; k < sidx.length;k++)
+					svals[sidx[k]] = vals[k];
+
+
+				obj.vals = svals;
+
+
+				obj.histoManager = viewer.createHistoManager();
+				obj.histoManager.nii = { datascaling : {e:function(x){return x;} }, 
+										 histogram: obj.histogram};
+				obj.histoManager.onclimchange = function(ev) {				 tck.updateFibers();}
+				obj.histoManager.oncmapchange= function(ev) {				  tck.updateFibers();}
+				obj.histoManager.parentviewbar = tck
+				obj.histoManager.cmapindex = 2;
+
+				var histogram = obj.histogram;
+				obj.histoManager.clim = [histogram.min+0.1*(histogram.max-histogram.min),					
+										 histogram.max+0.1*(histogram.max-histogram.min)]
+
+                if (intent && intent.clim)
+                {
+                	obj.histoManager.clim = intent.clim;
+                	obj.histoManager.cmapindex = intent.cmap;           
+                }
+
+				obj.histoManager.updateHistogramClim();
+				obj.histoManager.layoutHistogram();
+
+
+				tck.Selection.colmode =obj;
+			    selectFibersReset('all')                              		
+             }
+
+
+             if (advanced_colors.length > 0)
+             {
+				 $fiberadvancedcolors = $("<div  class='KViewPort_tool fibers' >  <i   class='fa fa-circle-o fa-1x'></i></div>")
+				                         .appendTooltip("select fiber parameter coloring");
+				 var fibadcol_contextmenu = new KContextMenu(
+					  function() { 
+						 var $menu = $("<ul class='menu_context'>");
+						 var name = ['standard color'].concat(advanced_colors);
+						 for (var k = 0;k <name.length;k++)
+						 {						 	
+						    var sel = ""
+						    if (tck.Selection.colmode)
+						    {
+						    	if (tck.Selection.colmode.name == name[k])
+						    	    sel = "dot-"; 
+						    }
+						    else if (k==0) sel = "dot-";						    
+							$menu.append($("<li  onchoice='"+k+"' > "+name[k]+"  <i  onchoice='"+k+"' class='fa fa-"+sel+"circle-o'></i> </li>"));
+						 }
+
+
+						return $menu; 
+					  },
+					  function(str,ev)
+					  {                            
+                            if (str != "")
+                            {
+                            	 var $i = $fiberadvancedcolors.find("i")
+                            	 $i.removeClass("fa-circle").removeClass("fa-circle-o")
+						         var name = ['standard color'].concat(advanced_colors);
+								 if (tck.Selection.colmode != undefined)
+								 {
+									tck.Selection.colmode.histoManager.remove()
+									delete tck.Selection.colmode;
+								 }
+						         if (str == "0")
+						         {
+                                	 $i.addClass("fa-circle-o")
+                                	$colselector.removeClass("inactive")
+                                	 
+						         }
+						         else
+						         {
+                                    tck.setColParameters(str)
+						         }
+
+						       }
+
+                            
+					  }
+					  );
+				 $fiberadvancedcolors.click(fibadcol_contextmenu);
+             }
+
+
 			 			
-			 var $termlen = $("<input title='length of terminal' style='right:50px;width:40px' onchoice='preventSelection' type='number' min='0.5' step='1' max='20'>").val(2);
 			 var barscontextmenu = new KContextMenu(
 				  function() { 
 				     var numfibs = tck.fibers.content.tracts.length ;
 					 if (tck.Selection && tck.Selection.subset)			 
-					 	numfibs = tck.Selection.subset.length;
-				  
+						numfibs = tck.Selection.subset.length;
+
+
+					 var $osamp = $("<input title='Spatial undersampling factor of matrix' style='right:50px;width:40px' onchoice='preventSelection' type='number' min='0.5' step='1' max='20'>")
+									.val(that.visitmap_res);
+					 $osamp.on("change",function(e) {
+						var change = that.visitmap_res != $(e.target).val();						 
+					 	that.visitmap_res = $(e.target).val();
+						if (e.keyCode == 13) 
+    						$(e.target).parent().trigger("mousedown");
+					 });
+					 var $osamp2 = $("<input title='Spatial undersampling factor of matrix' style='right:50px;width:40px' onchoice='preventSelection' type='number' min='0.5' step='1' max='20'>")
+									.val(that.termmap_res);
+					 $osamp2.on("change",function(e) {
+						var change = that.termmap_res != $(e.target).val();
+					 	that.termmap_res = $(e.target).val();
+						if (e.keyCode == 13) 
+    						$(e.target).parent().trigger("mousedown");
+					 });
+
+		        	 var $termlen = $("<input title='length of terminal' style='right:50px;width:40px' onchoice='preventSelection' type='number' min='0.5' step='1' max='20'>")
+							.val(that.termmap_len);
+
+					 $termlen.on("change",function(e) {
+						var change = that.termmap_len != $(e.target).val();
+					 	that.termmap_len = $(e.target).val();
+
+						if (tck.visitworker_terms && tck.visitworker_terms.active)
+						{
+							tck.visitworker_terms.updateVisit();
+						}						 
+					 });
+
+
 					 var $menu = $("<ul class='menu_context'>");
+					  
 					 if (tck.isParentView && tck.children != undefined && tck.children.length>0)
 					 {
-					 	$menu.append($("<li onchoice='save' ><i class='leftaligned fa fa-save'></i>  save all</li>"));
+					 	$menu.append($("<li onchoice='save' ><i class='leftaligned fa fa-save'></i>  save all selections</li>"));
 					 	$menu.append($("<li onchoice='showall' ><i class='leftaligned fa fa-refresh'></i>  show all selections</li>"));
 					 }
 					 else
-					 	$menu.append($("<li onchoice='save' ><i class='leftaligned fa fa-save'></i>  save selection</li>"));
+					 {
+					 	if (!tck.isParentView)
+					 	    $menu.append($("<li onchoice='save' ><i class='leftaligned fa fa-save'></i>  save selection</li>"));
+					 }
 					 if (tck.subsetToDisplay != undefined && tck.subsetToDisplay.length > 0 && tck.subsetToDisplay.length < numfibs) 
 					 	$menu.append($("<li onchoice='crop' > <i class='leftaligned fa fa-plus'></i>crop selection ("+tck.subsetToDisplay.length+"/"+numfibs+")</li>"));
 					 if (tck.trackingVol != undefined && tck.fibers.content.tracts.length > 0)
@@ -1881,25 +2207,63 @@ function KObject3DTool(master)
 					 
 					 if (!tck.isParentView)
 					 	$menu.append($("<li onchoice='fix' > <i class='leftaligned fa fa-dot-circle-o'></i>fix selection </li>"));
+
+
+					  var numselected = 0;
+					  if (tck.parent && tck.parent.children)
+					  {
+						  for (var k = 0; k < tck.parent.children.length;k++)
+						  {
+							if (tck.parent.children[k].subsetToDisplay && tck.parent.children[k].subsetToDisplay.length > 0)
+								numselected++;
+						  }
+						  if (numselected > 1)
+						  {
+							 $menu.append($("<li onchoice='merge' > <i class='leftaligned fa fa-wedge'>U</i>merge selections </li>"));						  
+							 $menu.append($("<li onchoice='subtract' > <i class='leftaligned fa fa-wedge'>D</i>subtract selections </li>"));						  
+							 $menu.append($("<li onchoice='intersect' > <i class='leftaligned fa fa-wedge'>I</i>intersect selections </li>"));						  
+						  }
+					  }
+							
+										  
 					 if (!tck.visitworker)
 						 $menu.append($("<li onchoice='visitmap' ><i class='leftaligned fa fa-print'></i> render visit map </li>").append($osamp));
 					 else
-						 $menu.append($("<li onchoice='visitmap' ><i class='leftaligned fa fa-print'></i> show visit map </li>"));
+					 {
+					 	if (tck.visitworker.active)
+						   $menu.append($("<li onchoice='visitmap' ><i class='leftaligned fa fa-print'></i> show visit map </li>"));
+					 	else
+						   $menu.append($("<li onchoice='visitmap' ><i class='leftaligned fa fa-print'></i> autoupdate visit map </li>"));
+					 }
 
 
 					 if (!tck.visitworker_terms)
      	 			 	$menu.append($("<li onchoice='termmap' ><i class='leftaligned fa fa-print'></i> render terminal map </li>").append($termlen).append($osamp2));
 					 else
-     	 			 	$menu.append($("<li onchoice='termmap' ><i class='leftaligned fa fa-print'></i> show terminal map </li>"));
+					 {
+					 	if (tck.visitworker_terms.active)					 	
+     	 			     	$menu.append($("<li onchoice='termmap' ><i class='leftaligned fa fa-print'></i> show terminal map </li>").append($termlen));
+     	 			    else
+     	 			     	$menu.append($("<li onchoice='termmap' ><i class='leftaligned fa fa-print'></i> autoupdate terminal map </li>"));
+					 }
 
 					 $menu.append($("<hr width='100%'> ")); 		
 					 var nfp= " <i  onchoice='parametersnv' class='fa button' style='right:30px;'>parameters</i> "
 
 					 $menu.append($("<li onchoice='nicefibs' > Display nice fibers "+nfp+" </li>"));
 					 $menu.append($("<hr width='100%'> ")); 					 
+					 $menu.append($("<li onchoice='roistats' > ROI statistics </li>"));
+					 $menu.append($("<hr width='100%'> ")); 					 
 
-					 $menu.append($("<span class='inactive_menu_point'> &nbsp #tracts: " +
-					 numfibs + "</span>"));
+					 $menu.append($("<span class='inactive_menu_point'> &nbsp #tracts: " + numfibs + " <br></span>"));
+					 if (tck.Selection && tck.Selection.json)
+					 {
+						 var jtck = tck.Selection.json
+				         $menu.append($("<span class='inactive_menu_point'> &nbsp  subset: "+ tck.Selection.name +"<br></span>"));
+						 
+						 $menu.append($("<span class='inactive_menu_point'> &nbsp  " + jtck.patients_id+jtck.studies_id + " " + jtck.SubFolder + "/"+ jtck.Filename + "</span>"));
+						 
+					 }
 					 $menu.append($("<hr width='100%'> ")); 					 
 					
 
@@ -1913,10 +2277,37 @@ function KObject3DTool(master)
 				  	  if (str == 'save')
 				  	  {
 				  	  	 if (tck.fibers.content.md5 != undefined)
-				  	  	     that.save(tck.fibers,tck.Selection);
+				  	  	 {
+				  	  	 	 if (tck.children != undefined && tck.children.length > 0)
+                                that.save(tck.fibers,tck.children.map((x)=>x.Selection));
+				  	  	 	 else
+				  	  	        that.save(tck.fibers,tck.Selection);
+				  	  	 }
 				  	  	 else
 				  	  	 {
-				  	  	     that.saveTCK(tck)
+
+	
+	 						  if (tck.fibers.fileinfo == undefined) tck.fibers.fileinfo = {};
+							  saveDialog("tck collection",
+								  function(name,finfo)
+										{ 
+											that.lastSaveName = name;
+											tck.fibers.fileinfo = $.extend(tck.fibers.fileinfo,finfo)
+											tck.fibers.filename = spliceSubFolder(name,tck.fibers.fileinfo);
+	
+											if (tck.children.length > 0) // save all 
+											    tck.Selection = {};
+											 
+											 var sels = that.saveTCK(tck,function() {
+												 if (sels.length > 0)
+													 that.save(tck.fibers,sels,undefined,name );	
+											 })
+											
+											finfo.tag = 'TCKSEL';
+											
+										} ,that.lastSaveName, tck.fibers.fileinfo ) 
+						
+
 				  	  	 }
 				  	  }
 				  	  else if (str == 'showall')
@@ -1937,25 +2328,132 @@ function KObject3DTool(master)
 				  	  	else
 				  	  		tck.Selection.subset = 	tck.subsetToDisplay;
 				  	  }
+				  	  else if (str == 'merge')
+				  	  {
+						var subs = []
+						var name = [];
+						for (var k = 0; k < tck.parent.children.length;k++)
+							{
+								if (tck.parent.children[k].subsetToDisplay.length > 0)
+								{
+									subs = subs.concat(tck.parent.children[k].subsetToDisplay)
+									name.push(tck.parent.children[k].Selection.name);
+								}
+							}
+						  
+						cloneFibs(name.join(","),1,subs)						  
+				  	  }
+				  	  else if (str == 'intersect')
+				  	  {
+						var subs = []
+						var name = [];
+						for (var k = 0; k < tck.parent.children.length;k++)
+							{
+								if (tck.parent.children[k].subsetToDisplay.length > 0)
+								{
+									subs.push(tck.parent.children[k].subsetToDisplay);
+									name.push(tck.parent.children[k].Selection.name);
+								}
+							}
+						var res = array_to_setObject(subs[0])
+						for (var k = 1; k < subs.length;k++)
+						{
+							res = intersect(array_to_setObject(subs[k]),res)
+						}
+						  
+						cloneFibs(name.join("*"),1,Object.keys(res))						  
+				  	  }						  
+				  	  else if (str == 'subtract')
+				  	  {
+						var left = undefined;
+						var left_name = "";
+						var name = [];
+						var subs = []
+						for (var k = 0; k < tck.parent.children.length;k++)
+							{
+								if (tck.parent.children[k] == tck && tck.parent.children[k].subsetToDisplay.length > 0)
+								{
+									left = tck.parent.children[k].subsetToDisplay
+									left_name = tck.parent.children[k].Selection.name
+								}
+								else if (tck.parent.children[k].subsetToDisplay.length > 0)
+								{
+									subs = subs.concat(tck.parent.children[k].subsetToDisplay)
+									name.push(tck.parent.children[k].Selection.name);
+								}
+							}
+						var C = Object.keys(diff(array_to_setObject(left),array_to_setObject(subs)));
+						cloneFibs(left_name+"-"+name.join(","),1,C)						  
+				  	  }						  
 				  	  else if (str == 'visitmap')
 				  	  {
 				  	  	if (tck.visitworker != undefined)
-				  	  		tck.visitworker.showInViewer(tck.viewer);
+				  	  	{
+				  	  		if (!tck.visitworker.active)
+				  	  		    tck.visitworker.active = true
+				  	  		else
+				  	  		    tck.visitworker.showInViewer(tck.viewer);
+				  	  	}
 				  	  	else
-				  	  		tck.visitworker = createVisitMap(parseFloat($osamp.val()),undefined,true);
+				  	  		tck.visitworker = createVisitMap(parseFloat(that.visitmap_res),undefined,true);
 				  	  }
 				  	  else if (str == 'termmap')
 				  	  {
 				  	  	if (tck.visitworker_terms != undefined)
-				  	  		tck.visitworker_terms.showInViewer(tck.viewer);
-				  	  	else 
-//				  	  	    tck.visitworker_terms = createVisitMap(parseFloat($osamp.val()),undefined,true);
-				  	  
-				  	  	    tck.visitworker_terms = createVisitMap(parseFloat($osamp2.val()),parseFloat($termlen.val()),true);
+				  	  	{
+				  	  		if (!tck.visitworker_terms.active)
+				  	  		    tck.visitworker_terms.active = true
+				  	  		else				  	  	
+				  	  		    tck.visitworker_terms.showInViewer(tck.viewer);
+				  	  	}
+				  	  	else 				  	  
+				  	  	    tck.visitworker_terms = createVisitMap(parseFloat(that.termmap_res),parseFloat(that.termmap_len),true);
 				  	  }
 					  else if (str == 'nicefibs')
 				  	  {
 				  	  	tck.showNiceFibs();
+				  	  }
+					  else if (str == 'roistats')
+				  	  {
+				  	  	var names = [];
+                        var subsets = [];
+                        if (tck.subsetToDisplay != undefined && tck.subsetToDisplay.length > 0)
+                        {
+                        	names.push("current selection");
+                        	subsets.push(tck.subsetToDisplay); 
+                        }
+                        if (tck.children != undefined && tck.children.length > 0)
+                        {
+						   for (var k = 0;k < tck.children.length;k++)
+						   {
+                                names.push(tck.children[k].Selection.name);
+                                subsets.push(tck.children[k].Selection.subset);
+						   }
+                        }
+
+                        if (Object.keys(KViewer.roiTool.ROIs).length == 0)
+                        {
+                        	alertify.error("Load some ROIs into the workspace to do statistics")
+                        	return;
+                        }
+
+
+
+				  	  	fiberROIstats(tck,subsets,KViewer.roiTool.ROIs,0.5,function(res)
+				  	  	{
+				  	  		var str = ";" + Object.keys(res).join(" (vol);") + "(vol); "+ Object.keys(res).join(" (cnt);") + "(cnt);\n"
+							for (var j = 0; j < names.length;j++)
+							{
+    							str += names[j] + ";";	  	  			
+								for (var k in res)
+								   str += res[k][j].len + ";";
+								for (var k in res)
+								   str += res[k][j].cnt + ";";
+								str += "\n";
+							}
+                        popupView({content:str,contentType:"tab"},{intent:{singleview:true}})
+				  	  	});
+				  	  	
 				  	  }
 					  else if (str == 'parametersnv')
 				  	  {
@@ -2020,6 +2518,9 @@ function KObject3DTool(master)
                           	.appendTooltip("dragdropviewport")
                           
                        ];
+
+            if ($fiberadvancedcolors != undefined)
+                tck.divs.splice(tck.divs.length-2,0,$fiberadvancedcolors);
 			//if (tck.Selection == undefined)
 			//	$savediv.addClass("inactive")
 
@@ -2053,7 +2554,22 @@ function KObject3DTool(master)
 				viewer.gl.activateRenderLoop();	
 			});
             $dragdiv.attr("draggable",'true');
-            $dragdiv.on("dragstart", dragstarter({ type:'file', mime: 'tck',  filename: tck.fibers.filename,  fileID: tck.fibers.fileID,close:close }));
+            $dragdiv.on("dragstart", dragstarter(function() {
+                var info = { type:'file', mime: 'tck', 
+				   filename: tck.fibers.filename, 
+				   intent: { color:tck.color },
+				   fileID: tck.fibers.fileID,close:close }
+                   if (tck.parent && tck.parent.fibers)
+                   {
+                   	  for (var k = 0; k < tck.parent.fibers.content.selections.length;k++)
+                   	      if (tck.parent.fibers.content.selections[k] == tck.Selection)
+                   	          info.intent.select = k;
+                   }
+                   return info;
+
+			   }));
+
+
 			viewer.toolbar.attachhandhover($dragdiv);
 			if (tck.Selection  != undefined)
 			{
@@ -2130,8 +2646,9 @@ function KObject3DTool(master)
 				if (this.fibers == undefined)
 					tck.close();
 
-				var subset = tck.subsetToDisplay;
+				var subset = tck.subsetToDisplay;				
 				var content = this.fibers.content; 
+				var subset_colors = tck.subsetParameterColors;
 				var tracts = content.tracts;
 				if (tracts != undefined && tracts.length == 0 && !tck.autogenerate_tracks)
 					return;
@@ -2141,11 +2658,11 @@ function KObject3DTool(master)
 				else
 				    tck.setVisibilityMarkup(true)
 
-				if (tck.visitworker)
+				if (tck.visitworker && tck.visitworker.active )
 				{
 					tck.visitworker.updateVisit();
 				}
-				if (tck.visitworker_terms)
+				if (tck.visitworker_terms && tck.visitworker_terms.active)
 				{
 					tck.visitworker_terms.updateVisit();
 				}
@@ -2155,7 +2672,8 @@ function KObject3DTool(master)
 					tck.fiberUpdater.clear();
 				}
 
-				tck.fiberUpdater = {chunksize:64, current_chunk:0, objs:[]};
+				
+				tck.fiberUpdater = {chunksize:64, current_chunk:0, objs:[],chunk_position:0};
 				var fiberUpdater = tck.fiberUpdater;
 				fiberUpdater.num_chunks = 200;
 
@@ -2172,7 +2690,7 @@ function KObject3DTool(master)
 							seeding = { vol:tck.trackingVol,
 										threshold:tck.trackingVolHistoman.clim[1],
 										threshold_term:tck.trackingVolHistoman.clim[0],
-										numfibs:that.tracking_panel.params.Density*5};
+										numfibs:that.tracking_panel.params.Density};
 							tck.seedID = tck.trackingVolID ;
 						}
 						else
@@ -2180,7 +2698,7 @@ function KObject3DTool(master)
 							seeding = { vol:tck.viewer.nii,
 										threshold:tck.viewer.histoManager.clim[1],
 										threshold_term:tck.viewer.histoManager.clim[0],
-										numfibs:that.tracking_panel.params.Density*5};
+										numfibs:that.tracking_panel.params.Density};
 
 							tck.seedID = tck.viewer.currentFileID;
 						}
@@ -2189,11 +2707,11 @@ function KObject3DTool(master)
 							 signalhandler.detach("overlay_climChange",tck.osid_climchange);
 						if (tck.sid_climchange != undefined)
 							 signalhandler.detach("climChange",tck.sid_climchange);
-
-
+						
+						
 						tck.sid_climchange = signalhandler.attach("climChange", function(ev)
 						{
-							if (tck.seedID == ev.id && tck.subsetToDisplay == undefined) //tck.subsetToDisplay.length >0)
+							if (tck.seedID == ev.id && tck.subsetToDisplay == undefined && !(tck.trackingVol.sizes[4] > 0)) //tck.subsetToDisplay.length >0)
 							    selectFibersReset('all');	
 
 						});
@@ -2247,7 +2765,7 @@ function KObject3DTool(master)
 				}
 
 
-				function createSubset(subset,tracts,done)
+				function createSubset(subset,subset_colors,tracts,done)
 				{
 						if (viewer.gl == undefined)
 						{
@@ -2258,6 +2776,7 @@ function KObject3DTool(master)
 						
 
 						var chunk = []; 	
+						var subset_color_chunk = []; 	
 						if (subset == undefined)
 						{	                 
 							for (var k = 0; k < fiberUpdater.chunksize;k++)
@@ -2294,7 +2813,9 @@ function KObject3DTool(master)
 									}
 									if (chunk.length>0)
 									{
-										fiberUpdater.objs.push(viewer.gl.createFiberBundle(tracts,chunk,'wholebrain',colors[tck.color],fiberDirColor_shader,content));
+										fiberUpdater.objs.push(viewer.gl.createFiberBundle(tracts,chunk,'wholebrain',
+																						   Array.isArray(tck.color)?tck.color:colors[tck.color],
+																						   fiberDirColor_shader,content));
 										done(true)
 										return true;
 									}
@@ -2329,7 +2850,8 @@ function KObject3DTool(master)
 
 								if (chunk.length>0)
 								{
-									fiberUpdater.objs.push(viewer.gl.createFiberBundle(tracts,chunk,'wholebrain',colors[tck.color],fiberDirColor_shader));
+									fiberUpdater.objs.push(viewer.gl.createFiberBundle(tracts,chunk,'wholebrain',Array.isArray(tck.color)?tck.color:colors[tck.color]
+																					   ,fiberDirColor_shader));
 									done(true)
 									return true;
 								}
@@ -2356,13 +2878,55 @@ function KObject3DTool(master)
 						}
 						else if (subset.length > 0)
 						{
-							for (var k = 0; k < fiberUpdater.chunksize & k+fiberUpdater.chunksize*fiberUpdater.current_chunk < subset.length;k++)
-								chunk.push(subset[k+fiberUpdater.chunksize*fiberUpdater.current_chunk]);					
+							if (subset_colors != undefined)
+							{
+                                var cnt = 0;
+                                var lim;
+                                var clim = subset_colors.histoManager.clim;
+                                if (clim[0] < clim[1])
+                                    lim = function(v) { return v > clim[0] }
+                                else 
+                                    lim = function(v) { return v < clim[0] }                                
+                                            
+								for (var k=0;k+fiberUpdater.chunk_position<subset.length;k++)
+								{
+									var idx = k+fiberUpdater.chunk_position
+									var i = subset[idx];
+									if (lim(subset_colors.vals[i]))
+									{
+										subset_color_chunk.push(subset_colors.vals[i]);
+										chunk.push(i);					
+										cnt++;
+										if (cnt > fiberUpdater.chunksize)
+										{
+                                            fiberUpdater.chunk_position += cnt;											
+										    break;
+										}
+									}
+								}
+							}
+							else
+							{
+								for (var k = 0; k < fiberUpdater.chunksize & k+fiberUpdater.chunksize*fiberUpdater.current_chunk < subset.length;k++)
+								{
+									var idx = k+fiberUpdater.chunksize*fiberUpdater.current_chunk
+									chunk.push(subset[idx]);		
+								}
+							}
 						}
 
 						if (chunk.length>0)
 						{
-							fiberUpdater.objs.push(viewer.gl.createFiberBundle(tracts,chunk,'wholebrain',colors[tck.color],fiberDirColor_shader,content));
+							var col = tck.color
+							if (!Array.isArray(col))
+							    col = colors[col]
+                            if (subset_colors != undefined)
+                            {
+                                col = subset_color_chunk;                                
+                                col.cmapping = subset_colors.histoManager
+                            }
+
+							fiberUpdater.objs.push(viewer.gl.createFiberBundle(tracts,chunk,'wholebrain',col,fiberDirColor_shader,content));
 							done(true)
 							return true;
 						}
@@ -2411,10 +2975,10 @@ function KObject3DTool(master)
 
 
 
-				var builder = function(subset,tracts) { return function() {
+				var builder = function(subset,subset_colors,tracts) { return function() {
 							if (fiberUpdater.id == -1)
 								console.log("very strange!!!");
-							createSubset(subset,tracts,function(ret){				
+							createSubset(subset,subset_colors,tracts,function(ret){				
 								fiberUpdater.current_chunk++;
 
 								if (fiberUpdater.current_chunk >= fiberUpdater.num_chunks || !ret)
@@ -2425,7 +2989,7 @@ function KObject3DTool(master)
 
 								}
 							});
-				} }(subset,tracts) ;
+				} }(subset,subset_colors,tracts) ;
 
 				viewer.gl.activateRenderLoop();
 				fiberUpdater.id = setInterval(builder, 50);
@@ -2482,29 +3046,41 @@ function KObject3DTool(master)
 
 				for (var i = 0; i < objs.length;i++)
 				{
-//					var pts = objs[i].positions;
-//			     	var plens_ = objs[i].plens;
-
-                    var plens = [];
-                    var idx = objs[i].getIndices();
-                    var c = 1;
-                    var k = 0;
-                    for (;;)
+                    var pts;
+                    if (objs[i].getVertexBuffer("position") != null)
+                    {                    
+                        pts = objs[i].getVertexBuffer("position")._buffer._data;
+                        objs[i].pts = pts;
+                    }
+                    else
+                        pts = objs[i].pts
+                    
+                    var plens;
+                    if (objs[i].plens != undefined)
+                        plens = objs[i].plens
+                    else
                     {
-                    	if (idx[k+1] != idx[k+2])
-                    	{
-                            plens.push(c+1);
-                            c=0;
-                            //k+=3;
-                    	}
-                    	k+=2;
-                    	c++;
-                    	if (k >= idx.length)
-                    	    break;
+						plens = [];
+						objs[i].plens = plens;
+						var idx = objs[i].getIndices();
+						var c = 1;
+						var k = 0;
+						for (;;)
+						{
+							if (idx[k+1] != idx[k+2])
+							{
+								plens.push(c+1);
+								c=0;
+								//k+=3;
+							}
+							k+=2;
+							c++;
+							if (k >= idx.length)
+								break;
 
+						}
                     }
 
-                    var pts = objs[i].getVertexBuffer("position")._buffer._data;
 
 
 					var offs = 0;
@@ -2693,7 +3269,7 @@ function KObject3DTool(master)
 		     * clone subset and create new view
  		     ****************************************************************************************/
 
-			 function cloneFibs(name)
+			 function cloneFibs(name,color,selection)
 			 { 
 				var parent;
 	
@@ -2702,21 +3278,25 @@ function KObject3DTool(master)
 			    else
 			    	parent = tck.parent;
 
-			    var fv = that.cloneFibersFromSelection(tck,viewer,parent,name) ;
-			  
+			    var fv = that.cloneFibersFromSelection(tck,viewer,parent,name,color) ;
 				fv.fibcut = tck.fibcut;
  				fv.fiberDirColor_shader.setFloat("planesNum",fv.fibcut);	
  							
   			    fv.fibcut_proj = tck.fibcut_proj;
 			    fv.fiberDirColor_shader.setFloat("planesProj",fv.fibcut_proj);
 
-//				  	  	  tck.fibcut_proj =
+				fv.flow_param = tck.flow_param;
+				fv.fiberDirColor_shader.setFloat("flow_len",that.tracking_panel.params['Stepwidth']);	
+				
+
 
 			    if (fv.parent.children == undefined)
 			    	fv.parent.children = [];
 			    fv.parent.children.push(fv);
 			    	
-
+				if (selection != undefined)
+					fv.Selection.subset = selection
+				 
 			    viewer.objects3D.push(fv);
 
 			    tck.subsetToDisplay = [];
@@ -2853,12 +3433,51 @@ function KObject3DTool(master)
 									if (tck.trackingVol)
 									{
 	                        			tck.autogenerate_tracks = false;
-    										
-										var ret = tck.fiberTracking({seed:{_data:coords},radius:point.size,threshold:tck.trackingVolHistoman.clim[1]});
-
+/*    										
+										var ret = tck.fiberTracking({seed:{_data:coords},radius:point.size,threshold:tck.trackingVolHistoman.clim[1]});	
 										tck.fibers.content = ret;
 										tck.subsetToDisplay = undefined;
 										tck.updateFibers();
+										if (typeof ondone == 'function')
+											ondone();					
+*/
+										if (tck.fibtrackWorker == undefined)
+											tck.fibtrackWorker = createFibTrackWorker(tck.trackingVol);
+
+							
+										if (tck.fibtrackWorker.tracking_queue != undefined)
+											tck.fibtrackWorker.tracking_queue = trackit;
+										else	
+										{
+        	                                tck.fibtrackWorker.tracking_queue = trackit;											
+											trackit();
+										}
+
+                                        return
+
+										function trackit()
+										{
+											tck.fibtrackWorker.track({seed:{_data:coords},radius:point.size,threshold:tck.trackingVolHistoman.clim[1]},params,
+												function(ret)
+												{
+                                                    if (tck.fibtrackWorker.tracking_queue != undefined)
+                                                    {
+                                                    	var tmp = tck.fibtrackWorker.tracking_queue;
+                                                        tck.fibtrackWorker.tracking_queue = undefined;
+                                                        tmp();																	 
+                                                    }
+                                                    else
+                                                    {
+														tck.fibers.content = ret;
+														tck.subsetToDisplay = undefined;
+														tck.updateFibers();
+														if (typeof ondone == 'function')
+															ondone();					
+                                                    }
+
+												});
+
+										}	
 									}
 									else if (KObject3DTool.useOctreeWorker)								
 									{
@@ -2961,7 +3580,7 @@ function KObject3DTool(master)
 				else
 					tck.subsetToDisplay = [];
 
-                if (tck.Selection != undefined)
+                if (tck.Selection != undefined && tck.Selection.subset != undefined)
 					tck.subsetToDisplay = kintersect(tck.subsetToDisplay,tck.Selection.subset);
 				for (var k = 1; k < ps.length; k++)
 					tck.subsetToDisplay = kintersect(tck.subsetToDisplay,tck.annotation_subsets[ps[k]]);
@@ -3127,8 +3746,30 @@ function KObject3DTool(master)
 						  {
 							subset = undefined;
 							if (tck.Selection)
+							{
 								subset = tck.Selection.subset;
+							}
 						  }
+
+						  if (tck.Selection != undefined && subset == tck.Selection.subset)
+						  {
+							    if (tck.Selection.colmode)
+							    {
+							    	var subset_ = []
+							    	var lim = tck.Selection.colmode.histoManager.clim[0];
+							    	var v = tck.Selection.colmode.vals
+							    	for (var k = 0; k < subset.length;k++)
+							    	{
+							    		if ( v[subset[k]] > lim)
+							    		    subset_.push(subset[k]);
+							    	}
+							    	subset = subset_;
+							    }
+
+						  }
+
+						  if (endpoints != -1)
+							  endpoints = that.termmap_len 
 
 						  worker.worker = createFiberVisitMap(tck.fibers.content.tracts,subset,endpoints,
 											  fileObject,
@@ -3167,9 +3808,100 @@ function KObject3DTool(master)
 
             tck.createVisitMap = createVisitMap;
 
+			function fiberROIstats(tck,subsetsTCKs,ROIs,threshold,callback)
+			{
+			   var rois_stats = {}
+               var rois = Object.keys(ROIs);
+               iterateROI();
+               function iterateROI()
+               {
+               	  if (rois.length == 0)
+               	  {
+               	  	 callback(rois_stats);
+                     return
+               	  }
+                
+                  var subsets = subsetsTCKs.map(x => x);
 
-	
+                  var roi_id = rois.splice(0,1)[0]
+                  var roi = ROIs[roi_id];
 
+				  if (threshold == undefined)
+				  	threshold = 0.5;
+
+				  var tracts = tck.fibers.content.tracts;
+				  var bbox_max = tck.fibers.content.tracts_max;
+				  var bbox_min = tck.fibers.content.tracts_min;
+				  var edges = math.inv(roi.content.edges);
+				  var sz = roi.content.sizes;
+
+				  viewer.$container.find("div[class='KViewPort_spinner']").show()
+				  viewer.viewport.progressSpinner("building Bounding Box");
+			
+				  KViewer.roiTool.computeBBox(roi);
+				  var roi_bbox_max  = roi.bbox.max;
+				  var roi_bbox_min  = roi.bbox.min;
+
+				  function filter(k)
+				  {
+					   var tract = tracts[k];
+					   var max = [bbox_max[3*k],bbox_max[3*k+1],bbox_max[3*k+2]];
+					   var min = [bbox_min[3*k],bbox_min[3*k+1],bbox_min[3*k+2]];
+					   for (var i = 0; i < 3;i++)
+					   {
+							if (max[i]<roi_bbox_min[i] | roi_bbox_max[i]<min[i])
+								return;
+					   }
+
+
+					   var e =(edges)._data;
+					   var icnt = 0;
+					   for (var j = 0; j < tract.length/3;j++)
+					   {
+						  var p = [Math.round(e[0][0]*tract[3*j] + e[0][1]*tract[3*j+1] + e[0][2]*tract[3*j+2] + e[0][3]),
+								   Math.round(e[1][0]*tract[3*j] + e[1][1]*tract[3*j+1] + e[1][2]*tract[3*j+2] + e[1][3]),
+								   Math.round(e[2][0]*tract[3*j] + e[2][1]*tract[3*j+1] + e[2][2]*tract[3*j+2] + e[2][3])];
+						  if (p[0]>=0 && p[0] < sz[0] &&  p[1]>=0 && p[1] < sz[1] && p[2]>=0 && p[2] < sz[2] 
+							  && roi.content.data[sz[0]*sz[1]*p[2] + sz[0]*p[1] + p[0]] > threshold)
+						  {
+							 len_cnt++;
+							 icnt++;
+						  }
+					   }
+					   if (icnt > 0)
+					       tot_cnt++;
+				  }
+
+				 var len_cnt;
+				 var tot_cnt;
+				 var all_cnts = [];
+
+                 run();
+                 function run()
+                 {
+                 	 if (subsets.length == 0)
+                 	 {
+                        rois_stats[ROIs[roi_id].filename] = all_cnts;
+                        iterateROI(all_cnts);
+                 	 	return;
+                 	 }
+					 var subs = subsets.splice(0,1)[0];
+					 tot_cnt = 0;
+					 len_cnt = 0;
+					 subs.chunk(
+					   function(tract,k) { filter(subs[k]); },2048,1,
+					   function(i) { 
+					   viewer.viewport.progressSpinner("testing " + Math.round(100*i/subs.length) + "%"); },
+					   function()  { 
+					          viewer.viewport.progressSpinner();
+                              all_cnts.push({cnt:tot_cnt,len:len_cnt})
+                              run();
+
+						  });
+                 }
+
+               }
+			}
 
 			function selectFibersByROI(tck,roi,minus,percentage,threshold)
 			{
@@ -3540,11 +4272,16 @@ function KObject3DTool(master)
 				  {
 				  	 tck.fibtrackWorker.kill()
 				  }
+				 
+				  if (tck.flow_id != undefined)
+					 clearInterval(tck.flow_id);
+				 
 
 				  if (tck.visitworker)
 				  	tck.visitworker.kill();
 				  if (tck.visitworker_terms)
 				  	tck.visitworker_terms.kill();
+				  tck.isCurrent = false;
 
 				  if (!tck.isParentView)
 				  {
@@ -3568,7 +4305,7 @@ function KObject3DTool(master)
 				  	  (tck.parent != undefined && tck.parent.fibers.content && tck.parent.fibers.content.octreeWorker !=  tck.fibers.content.octreeWorker   ) )
 				  {
 				  	
-				  	 if (tck.fibers.content.octreeWorker != undefined)
+				  	 if (tck.fibers.content && tck.fibers.content.octreeWorker != undefined)
 					 		tck.fibers.content.octreeWorker.kill();
 				  }
 
@@ -3593,6 +4330,12 @@ function KObject3DTool(master)
 					  if (viewer.objects3D.length == 0 & viewer.nii == undefined)
 						viewer.$canvas3D.hide();
              	  }
+
+
+                  if (tck.Selection != undefined && tck.Selection.colmode != undefined)
+                  {
+                      	tck.Selection.colmode.histoManager.remove()
+                  }
 
              	  for (var k=0; k < viewer.overlays.length;k++)
              	  {
@@ -3656,18 +4399,37 @@ function KObject3DTool(master)
 
 
 			 
-			 if (intent.visible == undefined)
-			 	intent.visible = true;
+			// if (intent.visible == undefined)
+			// 	intent.visible = true;
+			//console.log(tck.isParentView);
 			
-			 if (!intent.donotmakecurrent)
-			 	intent.donotmakecurrent = false;
+			 if (intent.donotmakecurrent == undefined)
+			 {			 	
+			    if (tck.isParentView)
+			    {
+			 	    intent.donotmakecurrent = false;
+			 	    if (intent.visible == undefined)
+			 	     intent.visible = true;
+			    }
+			 	else
+			 	{
+			 	    intent.donotmakecurrent = true;
+			 	    if (intent.select != undefined && intent.visible == undefined)
+			 	        intent.visible = true;
+			 	        
+			 	}
+
+			 }
 
 
 		 	
 			 if (!intent.donotmakecurrent)
 			 {
-			 	makeCurrent();
+ 			     tck.isCurrent = true;
+			     tck.$currentpickerdiv.addClass("current");
+			     tck.$captiondiv.addClass("current");
 			 }
+
 			 if (!intent.visible)
 			 	tck.subsetToDisplay = [];	
 
@@ -3678,8 +4440,15 @@ function KObject3DTool(master)
 				else if (intent.assoc != undefined)
 					setAnnotationAssoc(intent.assoc);		
 			 }
+        
+             if (intent.colmode)
+             {
+				   tck.setColParameters(undefined,intent.colmode)
 
-			 
+             }
+
+			 if (tck.flow_param > 0)
+				tck.toggleFlow()
 
 
 		     tck.updateFibers();
@@ -3701,7 +4470,7 @@ function KObject3DTool(master)
       {
             var viewer = viewer;
             var obj = { surf:fobj,
-                        color: (that.surfacecnter++)%6,
+                        color: 11, //(that.surfacecnter++)%6,
                         alpha:0.8,
                         gamma:1,
 						exposure:0,                        
@@ -3710,7 +4479,7 @@ function KObject3DTool(master)
                         cuts:[0,0,0],
                         overlays:[],
                         beltwidth:0,
-                        pickable:true,
+                        pickable:false,
                         visible:true,
                         type:"surface",
 						uid: KObject3DTool.uidCnter++,
@@ -3724,7 +4493,8 @@ function KObject3DTool(master)
 						alpha:this.alpha,
 						alphaMode:this.alphaMode,
 						cuts:this.cuts,
-						beltwidth:this.beltwidth,						
+						beltwidth:this.beltwidth,	
+						toolbarAttached:this.toolbarAttached,					
 						visible:this.visible};
 			}
 
@@ -3734,6 +4504,41 @@ function KObject3DTool(master)
  		    /***************************************************************************************
 		    * the viewer toolbar
 			****************************************************************************************/
+
+			if (fobj.content.vals != undefined)
+			{
+				obj.histoManager = viewer.createHistoManager();
+				obj.histoManager.nii = { datascaling : {e:function(x){return x;} }, 
+										 histogram: obj.surf.content.histogram};
+				obj.histoManager.onclimchange = function(ev) {				   viewer.gl.activateRenderLoop(); obj.update();}
+				obj.histoManager.oncmapchange= function(ev) {				   viewer.gl.activateRenderLoop(); obj.update();}
+				obj.histoManager.parentviewbar = obj
+
+                obj.histoManager.cmapindex = 2;
+                obj.color=11;
+
+				if (intent.clim)
+					obj.histoManager.clim = [intent.clim[0],intent.clim[1]];
+				else if (intent.windowing)
+					obj.histoManager.clim = [intent.windowing[0],intent.windowing[1]];
+				else
+				{ 									 
+					var histogram = obj.surf.content.histogram;
+					obj.histoManager.clim = [histogram.min+0.1*(histogram.max-histogram.min),					
+                                             histogram.max+0.1*(histogram.max-histogram.min)]
+				}
+			
+                if (intent.cmap)
+                  obj.histoManager.cmapindex = intent.cmap;
+                    
+
+
+				obj.histoManager.updateHistogramClim();
+				obj.histoManager.layoutHistogram();
+
+			}
+
+
 
 			// color contextmenu
 			var cols = [].concat(KColor.list)
@@ -3745,53 +4550,41 @@ function KObject3DTool(master)
        	    					    else
        	    					    	return "background:"+RGB2HTML(0,0,0)+";"; }
 			var $colselector = KColorSelector(obj.colors,colencode,
-				 function() {viewer.gl.setSurfColor(obj); 
-				 			 obj.update();
-				 			 viewer.gl.activateRenderLoop(); },obj);
+				 function(col) {viewer.gl.setSurfColor(obj); 
+							if (col != undefined && col.color != undefined)
+								obj.color = col;
+
+							 obj.update();
+							 
+				 			 if (obj.refRoiView != undefined)
+				 			 {
+				 			 	if (obj.refRoiView.roi != undefined)
+				 			       KViewer.roiTool.setColorGlobal(obj.refRoiView.roi.fileID, obj.color);
+				 			 }
+				 			 viewer.gl.activateRenderLoop(); },obj,{manual:true});
 		
-			var $captiondiv,$cutdiv,$dragdiv,$visdiv,$griddiv,$alphadiv;
+			var $captiondiv,$cutdiv,$dragdiv,$visdiv,$griddiv,$alphadiv,$pickdiv;
             obj.divs = [ 	$("<br style='clear:both' />"),
                           $("<div  class='KViewPort_tool surface persistent'>  <i class='fa fa-close fa-1x'></i></div>").click( close  )
                           .mousedown(viewer.viewport.closeContextMenu(obj)),
                           $cutdiv=$("<div  class='KViewPort_tool surface' >  <i   class='fa fa-cut fa-1x'></i></div>").click( cutContextmenu ),
                           $colselector,
                           $visdiv = $("<div  class='KViewPort_tool surface'>  <i class='fa fa-eye fa-1x'></i></div>").click( toggleVisibility  ),
+                          $visdiv = $("<div  class='KViewPort_tool surface'>  <i class='fa fa-arrows-h fa-1x'></i></div>").click( toggleNormal  ),
                           $alphadiv = $("<div  class='KViewPort_tool surface'>  <i class='fa fa-alpha fa-1x'>&#945;	</i></div>") .click( toggleAlpha  ),                             
+                          $pickdiv = $("<div  class='KViewPort_tool surface'>  <i class='fa fa-dot-circle-o fa-1x'></i></div>") .click( togglePickable  ),                             
                           $griddiv = $("<div  class='KViewPort_tool surface'>  <i class='fa fa-th fa-1x'>	</i></div>") .click( toggleWire  ),                             
                           $captiondiv = $("<div  class='KViewPort_tool surface caption'> "+obj.surf.filename+"</div>"),
                           $dragdiv = $("<div  class='KViewPort_tool draganddrop surface'>  <i class='fa fa-hand-paper-o fa-1x'></i></div>"),
                          
                        ];
 
-			if (fobj.content.vals != undefined)
-			{
-				obj.histoManager = viewer.createHistoManager();
-				obj.histoManager.nii = { datascaling : {e:function(x){return x;} }, 
-										 histogram: obj.surf.content.histogram};
-				obj.histoManager.onclimchange = function(ev) {				   viewer.gl.activateRenderLoop(); obj.update();}
-				obj.histoManager.oncmapchange= function(ev) {				   viewer.gl.activateRenderLoop(); obj.update();}
 
 
 
-				if (intent.clim)
-					obj.histoManager.clim = [intent.clim[0],intent.clim[1]];
-				else
-				{ 									 
-					var histogram = obj.surf.content.histogram;
-					obj.histoManager.clim = [histogram.min+0.1*(histogram.max-histogram.min),					
-                                             histogram.max+0.1*(histogram.max-histogram.min)]
-				}
-			
-
-
-
-				obj.histoManager.updateHistogramClim();
-				obj.histoManager.layoutHistogram();
-
-			}
 
 			if (obj.surf.fileinfo.roireference == undefined || 
-				obj.surf.toolbar_visible)
+				obj.surf.toolbar_visible || (intent && intent.toolbar_visible))
 			{
 				viewer.toolbar.append(obj.divs,'surface')
 				obj.toolbarAttached = true;
@@ -3816,7 +4609,7 @@ function KObject3DTool(master)
 			}
 
 			obj.$captiondiv = $captiondiv;
-
+            obj.$colselector = $colselector;
 
             $dragdiv.attr("draggable",'true');
             $dragdiv.on("dragstart",
@@ -3827,14 +4620,23 @@ function KObject3DTool(master)
 							filename:  obj.surf.filename,
 							fileID:  obj.surf.fileID,
 							intent: {							
-								color:obj.color
+								color:obj.color,
+								toolbar_visible:true
 							},
 							close: close
 						}}));
 
-			obj.contextmenu3D = function(evt,pickResult,p)
+			obj.contextmenu3D = 
+
+
+			function(evt,pickResult,p)
 		    {
-				   var contextMenu = KContextMenu(
+				   var r = viewer.gl.flip(pickResult.pickedPoint);
+ 				   r = viewer.gl.GL2world([r.x,r.y,r.z]);
+		    	   
+                   KViewer.roiTool.contextPicker(evt,viewer,r)
+
+				/*   var contextMenu = KContextMenu(
 					  function() {
 
 						var $menu =  $("<ul class='menu_context'>");
@@ -3871,27 +4673,34 @@ function KObject3DTool(master)
 
 
      						KViewer.roiTool.update3D(roi);
-							/*
-							that.computeIsoSurf2(roi,undefined,viewer.viewport.progressSpinner,function()
-							{
-									for (var j=0;j < obj.surf.content.update.length;j++) 
-											obj.surf.content.update[j]();	
-
-									signalhandler.send('positionChange');
-							});*/
 						}
 
 
 					  },true);
-				  contextMenu(evt);
+				  contextMenu(evt);*/
 	 		
 		   }
 	
 
 
+			if (fobj.content.points && fobj.content.points.length < 256000)
+				obj.pickable = true;
 
 
+			togglePickable(undefined,obj.pickable)
+			function togglePickable(e,s)
+			{
+			 if (s == undefined)
+				 	obj.pickable = !obj.pickable;
+				 else
+				 	obj.pickable = s;
+				 if (obj.pickable)
+					 $pickdiv.css('color','red');
+				 else
+					 $pickdiv.css('color','initial');
+				 update();
 
+			}
 
 			toggleAlpha(undefined,obj.alphaMode)
 			function toggleAlpha(e,s)
@@ -3922,7 +4731,14 @@ function KObject3DTool(master)
 				 update();
 
 			}
-         
+
+         	function toggleNormal()
+			{
+				obj.surf.content.normals = obj.surf.content.normals.map((x)=>-x)
+				obj.update();
+				
+			}
+		  
 			function toggleVisibility(e)
 			{
 				 var $t= $($visdiv.children()[0]);
@@ -4035,6 +4851,11 @@ function KObject3DTool(master)
 			      if (obj.histoManager != undefined) 
 			      		obj.histoManager.remove();
 
+
+                  if (obj.refRoiView && obj.refRoiView.refSurfView)
+                  {
+                  	 obj.refRoiView.refSurfView = undefined;
+                  }
 
 				  if (obj.surf.content != undefined)			  
 					  if (obj.surf.content.update != undefined)  // roi update handler remove
@@ -4323,6 +5144,9 @@ function KObject3DTool(master)
             
             name = name || obj.contour.filename
 
+            obj.select = intent.select;
+           
+
 
             obj.divs = [  $("<br style='clear:both' />"),
                           $("<div  class='KViewPort_tool cmat persistent'>  <i class='fa fa-close fa-1x'></i></div>").click( close  ),
@@ -4338,7 +5162,7 @@ function KObject3DTool(master)
 				$(document.body).addClass("wait");
 				viewer.viewport.progressSpinner("creating ROI from rtstruct ...")
 
-  			    var c = obj.contour.content.Contours[intent.select].ContourSequence.node;
+  			    var c = obj.contour.content.Contours[obj.select].ContourSequence.node;
             	setTimeout(function() {
 					master.roiTool.pushROI(viewer.currentFileID,name, undefined, function(fobj){
 					for (var k = 0; k < c.length;k++)
@@ -4347,10 +5171,10 @@ function KObject3DTool(master)
 						var p = c[k].ContourData;
 						var pts = [];
 						for (var i = 0; i < p.length/3;i++)
-							pts.push([-p[3*i],-p[3*i+1],p[3*i+2],1]);
+							pts.push([p[3*i],p[3*i+1],p[3*i+2],1]);
 						// close the polygon with first point
 						var i = 0;
-						pts.push([-p[3*i],-p[3*i+1],p[3*i+2],1])							
+						pts.push([p[3*i],p[3*i+1],p[3*i+2],1])							
 
 						fillPolygon(pts,fobj.content, false)
 
@@ -4600,7 +5424,8 @@ function KObject3DTool(master)
 
    	    goto: function(x)
     	{
-            if (fibhist.which.isCurrent)
+            if (fibhist.which != undefined && 
+            fibhist.which.isCurrent)
             {
             	if (fibhist.curw+x > 0 | fibhist.curw+x<=-fibhist.qsize)
             	    return;
@@ -5302,7 +6127,7 @@ function realtimeTracking(seeding,nii,params)
 
 				var r = Math.floor(Math.random()*seedvoxels.length);
 				var p = seedvoxels[r]
-				return math.multiply(seeding.roi.content.edges,[p[0]+Math.random(),p[1]+Math.random(),p[2]+Math.random(),1])._data;
+				return math.multiply(seeding.roi.content.edges,[p[0]+Math.random()-0.5,p[1]+Math.random()-0.5,p[2]+Math.random()-0.5,1])._data;
 
 			}
 		}
@@ -5324,13 +6149,14 @@ function realtimeTracking(seeding,nii,params)
 		var jitter_stength = params.Jitter;
 		var ang_thres = params.AngularThreshold;
 		var ang_thres_ = Math.cos(ang_thres/180*Math.PI);
+		var sign_beh = params.sign;
 		var smooth_dist = params.SmoothWidth;					
 		var seedvoxels = [];
 
 	    var numfibs;
 		if (seeding.radius != undefined)
 		{
-	   		 numfibs = Math.floor(dens * Math.sqrt(4/3*Math.PI * Math.pow(seeding.radius,3)));
+	   		 numfibs = dens*10; // Math.floor(dens * Math.sqrt(4/3*Math.PI * Math.pow(seeding.radius,3)));
 		}
 		else if (seeding.threshold != undefined)
 		{
@@ -5361,15 +6187,25 @@ function realtimeTracking(seeding,nii,params)
 		{
 
 			var roi = seeding.roi;
-
 			var edges = roi.content.edges;
 			var sz = roi.content.sizes;
-			for (var z = 0; z < sz[2]; z++)
-				for (var y = 0; y < sz[1]; y++)
-					for (var x = 0; x < sz[0]; x++)
-						if (roi.content.data[sz[0] * sz[1] * z + sz[0] * y + x] > 0.5)
-							seedvoxels.push([x, y, z]);
-			numfibs = dens*seedvoxels.length/10;
+            if (roi.content.onVoxels)
+            {
+                for (var k in roi.content.onVoxels)
+                {
+                	if (roi.content.onVoxels[k] != undefined)
+                	    seedvoxels.push([k%sz[0] , Math.floor(k/sz[0])%sz[1] , Math.floor(k/sz[0]/sz[1])%sz[2] ]);
+                }
+            }
+            else
+            {
+				for (var z = 0; z < sz[2]; z++)
+					for (var y = 0; y < sz[1]; y++)
+						for (var x = 0; x < sz[0]; x++)
+							if (roi.content.data[sz[0] * sz[1] * z + sz[0] * y + x] > 0.5)
+								seedvoxels.push([x, y, z]);
+            }
+			numfibs = dens*10;
 
 			
 		}
@@ -5381,6 +6217,7 @@ function realtimeTracking(seeding,nii,params)
 		var tracts_min = [];
 		var tracts_max = [];
 		var tracts_len = [];
+	    var time_offs = [];
 		var tot_points = 0;
 		var bb_max = [-100000,-100000,-100000];
 		var bb_min = [100000,100000,100000];
@@ -5395,14 +6232,19 @@ function realtimeTracking(seeding,nii,params)
         }
 
 
-
 		var numdirs = nii.sizes[3]/3;
 
-
-
-
 		var getNextDir;
+	    var flow_content = undefined
+		var t_start = 0;
 
+
+		var getstep =  function(d_w,sg)
+		{
+			return stepwidth*sg/Math.sqrt(d_w[0]*d_w[0]+d_w[1]*d_w[1]+d_w[2]*d_w[2]);
+		}
+
+	
 	    if (numdirs > 1)
 	    {
 	  
@@ -5432,8 +6274,47 @@ function realtimeTracking(seeding,nii,params)
 
 
 	    }
-	    else
+	    else if (nii.sizes[4] > 1)
 	    {
+	    	var numT = nii.sizes[4];
+			getNextDir = function(p,last_d,t)
+			{		
+				//t = 0;
+				var best = undefined;
+				var tf = t*(nii.sizes[4]-1)
+				var ti = Math.floor(tf);
+				var tf_ = tf-ti;
+				var d0 = NNInterp3_n(nii, p[0], p[1], p[2], ie,nii.widheidep,nii.widheidep*3*ti,3); 
+				var d1 = NNInterp3_n(nii, p[0], p[1], p[2], ie,nii.widheidep,nii.widheidep*3*(ti+1),3); 
+				if (d0 == undefined & d1 == undefined)
+					return;
+				var d = [d0[0]*(1-tf_) + tf_*d1[0],
+						 d0[1]*(1-tf_) + tf_*d1[1],
+						 d0[2]*(1-tf_) + tf_*d1[2]]
+				var dn = Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]);
+				var ldn = Math.sqrt(last_d[0]*last_d[0]+last_d[1]*last_d[1]+last_d[2]*last_d[2]);
+				var proj = (last_d[0]*d[0]+last_d[1]*d[1]+last_d[2]*d[2])/dn/ldn;						
+				
+				return [d,dn,proj];
+			}
+			params.flow_content = true;
+			if (nii.currentTimePoint && nii.currentTimePoint.t)
+			{
+				t_start = nii.currentTimePoint.t/numT;
+			}
+			var venc = params.venc; //50; //mm/s 
+			var period = params.interval //sec  						
+		    
+			var getstep =  function(d_w,sg)
+			{
+				return period*venc/maxlen/4096 /2;
+			}
+
+			
+
+		}
+		else
+		{
 	    	
 			getNextDir = function(p,last_d)
 			{		
@@ -5446,26 +6327,8 @@ function realtimeTracking(seeding,nii,params)
 				var proj = (last_d[0]*d[0]+last_d[1]*d[1]+last_d[2]*d[2])/dn;						
 				return [d,dn,proj];
 			}
-/*
-			getNextDir = function(p,last_d)
-			{		
-				var best = undefined;
-				var d = NNInterp3_n(nii, p[0], p[1], p[2], ie,nii.widheidep,0,3); 
-
-				if (d == undefined)
-					return;
-				var proj = (last_d[0]*d[0]+last_d[1]*d[1]+last_d[2]*d[2]);
-                for (var k = 0; k < 3;k++)
-				    d[k] = last_d[k] + 0.00001*d[k]*proj;
-				var dn = Math.sqrt(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]);
-				var proj = (last_d[0]*d[0]+last_d[1]*d[1]+last_d[2]*d[2])/dn;							    
-				return [d,dn,proj];
-			}
-*/
 
 	    }
-
-		//console.log('start where mag>' + seeding.threshold + "   stop when mag<" + thres);
 
 		var previous_seed;
 		var max_tries = numfibs*10;
@@ -5478,7 +6341,7 @@ function realtimeTracking(seeding,nii,params)
 			var num = 0;
 			var p,last_d,min,max;
 
-			for (var s = 0; s < 2; s++)
+			for (var s = 0; s < 1; s++)
 			{
 				if (s == 0)
 				{
@@ -5495,6 +6358,8 @@ function realtimeTracking(seeding,nii,params)
 				}
 				else
 				{
+				   if (Math.abs(sign_beh) > 0)
+					   break;
 				   p = previous_seed.p;
 				   last_d = [-previous_seed.last_d[0],-previous_seed.last_d[1],-previous_seed.last_d[2]];
 				}
@@ -5502,16 +6367,17 @@ function realtimeTracking(seeding,nii,params)
 				if (p == false)
 					continue;
 
+				var t_rand = params.t_start_rand*Math.random() + t_start;
 
 
 				var sm_acc = [];
 				var smoother = [0,0,0];
 				var sm_acc = [];
 
-
+				var fac2 = params.t_len;
 				for (var k = 0; k < maxlen; k++)
 				{
-					var best =  getNextDir(p,last_d);
+					var best =  getNextDir(p,last_d,(k/maxlen*fac2+t_rand)%1);
 
 					if (best != undefined)				
 					{
@@ -5524,8 +6390,12 @@ function realtimeTracking(seeding,nii,params)
 						var d_w = [ e[0][0]*d[0] + e[0][1]*d[1] + e[0][2]*d[2] ,
 									e[1][0]*d[0] + e[1][1]*d[1] + e[1][2]*d[2] ,
 									e[2][0]*d[0] + e[2][1]*d[1] + e[2][2]*d[2] ];
-						var sg = Math.sign(proj);
-						var alpha = stepwidth*sg/Math.sqrt(d_w[0]*d_w[0]+d_w[1]*d_w[1]+d_w[2]*d_w[2]);
+                        if (sign_beh == 0)									
+						    sg =  Math.sign(proj);
+						else
+						    sg = sign_beh;
+						
+						var alpha = fac2*getstep(d_w,sg) 
 						p[0] += alpha*d_w[0] + jitter[0];
 						p[1] += alpha*d_w[1] + jitter[1];
 						p[2] += alpha*d_w[2] + jitter[2];				
@@ -5583,6 +6453,7 @@ function realtimeTracking(seeding,nii,params)
 				minmax(min,bb_max,bb_min);
 				minmax(max,bb_max,bb_min);
 				tot_points += tract.length/3;
+				time_offs.push(t_rand)
 
 			}
 			else
@@ -5593,7 +6464,13 @@ function realtimeTracking(seeding,nii,params)
 			}
 		}
 
-		return {tracts:tracts,tot_points:tot_points,tracts_len:tracts_len,tracts_min:tracts_min,tracts_max:tracts_max,min:bb_min,max:bb_max};
+		return {tracts:tracts,
+				tot_points:tot_points,
+				tracts_len:tracts_len,
+				tracts_min:tracts_min,tracts_max:tracts_max,
+				min:bb_min,max:bb_max,
+				time_offs:time_offs,
+				params:params};
 
 
 
@@ -5625,7 +6502,7 @@ function realtimeTracking(seeding,nii,params)
 
 
 
-function KTrackingPanel(tck)
+function KTrackingPanel()
 {
 
     var panel = KPanel($(document.body),"someid","Tracking panel");
@@ -5633,6 +6510,7 @@ function KTrackingPanel(tck)
 	var $container = panel.$container;
 	$container.addClass("DBSpanel");
 	panel.$container.width(400);
+	var lasttck;
 
     var $fileRow = $("<div ></div>").appendTo(panel.$container);
     var $fileRow2 = $("<div class='panel'></div>").appendTo(panel.$container);
@@ -5661,28 +6539,48 @@ function KTrackingPanel(tck)
 		params_[name] = $param;
 		$($param[2]).on("change",function(){
 			params[name] = parseFloat($(this).val());			
+			if (lasttck != undefined)
+			{
+				if (name == "Stepwidth")
+					lasttck.fiberDirColor_shader.setFloat("flow_len",params[name]);	
+				if (name == "colscale") 
+					lasttck.updateFibers()
+			}
+
 		});
 	}
 
-	function update()
-	{
+	function update(tck)
+	{   
+		if (tck != undefined) 
+			lasttck = tck;
 		for (var k in params)
 			$(params_[k]).val(params[k]);
+
 	}
 	panel.update = update;
 
 
 
-	inputParam("Density",10,"#walker");
-	inputParam("Maxlen",250);
+	inputParam("Density",50,"#walker");
+	inputParam("Maxlen",500);
 	inputParam("Minlen",70);
 	inputParam("Stepwidth",0.5);
 	inputParam("Threshold",0);
 	inputParam("AngularThreshold",75,"deg");
 	inputParam("Jitter",0.1);
 	inputParam("SmoothWidth",10);
-	inputParam("numChunks",25);
+	inputParam("numChunks",5);
 	inputParam("climcon",0, "0-bgnd,1-tensor");
+
+	$fileRow2.append($("<hr>"))
+
+	inputParam("sign",0,"sign behave");
+	inputParam("venc",60, "mm/s");
+	inputParam("interval",0.900, "s");
+	inputParam("colscale",1);
+	inputParam("t_start_rand",0);
+	inputParam("t_len",1);
 
 
 

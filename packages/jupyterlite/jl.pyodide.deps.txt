@@ -1,0 +1,8 @@
+contourpy
+fonttools
+kiwisolver
+matplotlib
+numpy
+pandas
+pillow
+rpds-py

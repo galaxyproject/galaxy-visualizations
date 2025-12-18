@@ -17,7 +17,7 @@ export default async function (datasetId, settings, tracks) {
         },
     };
     const config = { responsive: true };
-    const columnsList = await columnsStore.fetchColumns(datasetId, tracks, ["x", "y"]);
+    const columnsList = await columnsStore.fetchColumns(datasetId, tracks, ["label", "x", "y"]);
     const data = [];
     columnsList.forEach((columns, index) => {
         const track = tracks[index];
@@ -25,16 +25,17 @@ export default async function (datasetId, settings, tracks) {
         const stackgroup = track.type === "lines" && settings.stack_lines ? "stackgroup" : undefined;
         const fill = track.type === "lines" && settings.stack_lines ? "tonexty" : undefined;
         data.push({
+            fill: fill,
             marker: {
                 color: track.color,
             },
             mode: mode,
             name: track.name,
+            stackgroup: stackgroup,
+            text: columns.label,
             type: track.type,
             x: columns.x,
             y: columns.y,
-            stackgroup: stackgroup,
-            fill: fill,
         });
     });
     return { data, layout, config };

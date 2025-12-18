@@ -3,18 +3,23 @@
     "version": "0.0.17",
     "type": "module",
     "license": "MIT",
-    "files": ["static"],
+    "files": [
+        "static"
+    ],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --config ./prettier.config.js --write 'package.json' '**/*.{js,jsx,ts,tsx,json,css,md,vue}'",
-        "test": "vitest",
-        "test:watch": "vitest --watch",
-        "test:ui": "vitest --ui"
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:e2e": "npx playwright test",
+        "test:ui": "vitest --ui",
+        "test:unit": "vitest run",
+        "test:watch": "vitest --watch"
     },
     "devDependencies": {
         "@niivue/niivue": "^0.55.0",
+        "@playwright/test": "^1.56.0",
         "@types/node": "^22.9.0",
         "@vitejs/plugin-vue": "^5.0.5",
         "@vitest/ui": "^3.0.9",

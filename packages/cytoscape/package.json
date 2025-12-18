@@ -1,29 +1,34 @@
 {
     "name": "@galaxyproject/cytoscape",
-    "version": "0.0.7",
+    "version": "0.0.9",
     "type": "module",
     "author": "Alireza Heidari",
     "license": "MIT",
     "files": [
-        "static/dist/index.js",
-        "static/dist/index.css"
+        "static"
     ],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
-        "test": "vitest",
-        "test:watch": "vitest --watch",
-        "test:ui": "vitest --ui"
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:e2e": "npx playwright test",
+        "test:ui": "vitest --ui",
+        "test:unit": "vitest run",
+        "test:watch": "vitest --watch"
     },
     "devDependencies": {
+        "@playwright/test": "^1.56.0",
+        "@types/cytoscape": "^3.21.8",
         "@types/node": "^22.9.0",
         "@vitejs/plugin-vue": "^5.0.5",
         "@vitest/ui": "^2.1.4",
         "@vue/test-utils": "^2.4.6",
         "autoprefixer": "^10.4.19",
-        "galaxy-charts": "^0.0.59",
+        "axios": "^1.7.7",
+        "cytoscape": "^3.33.1",
+        "galaxy-charts": "^0.0.87",
         "galaxy-charts-xml-parser": "^1.0.3",
         "jsdom": "^25.0.1",
         "postcss": "^8.4.40",
@@ -33,11 +38,6 @@
         "vite": "^5.3.4",
         "vitest": "^2.1.4",
         "vue": "^3.4.31"
-    },
-    "dependencies": {
-        "@types/cytoscape": "^3.21.8",
-        "axios": "^1.7.7",
-        "cytoscape": "^3.30.3"
     },
     "repository": {
         "type": "git",

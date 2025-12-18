@@ -1,9 +1,14 @@
+try {
 importScripts("../KMiscFuns.js");
 importScripts("../kmath.js");
 importScripts("../KTools/KObject3DTool.js");
 importScripts("../KView/KMedImageViewer.js");
 importScripts("../sparc.js");
-
+}
+catch(err)
+{
+	
+}
 self.addEventListener('message', function(e) {
 	
 	var execObj = e.data;
@@ -31,11 +36,15 @@ self.addEventListener('message', function(e) {
 				return;
             }
 
-
-    	    self.postMessage({msg:'import_done',   md5:md5,  	                          
-    	                             tracts:worker_packTractsForTransfer({content:tracts})    	                           
-    	                      },
-    	                      []);
+            try {
+				self.postMessage({msg:'import_done',   md5:md5,  	                          
+										 tracts:worker_packTractsForTransfer({content:tracts})    	                           
+								  },
+								  []);
+            } catch(err)
+            {
+				self.postMessage({msg:'import_failed: ' + err.message })            	
+            }
 
 			myOctree.fiberstep = math.ceil(tracts.tot_points/15000000);
 			if (myOctree.fiberstep < 1 | myOctree.fiberstep == undefined) 
@@ -233,6 +242,11 @@ function worker_importTCK(uint8Response,processinfo,arrived)
 			   arrived(content);
 
 			});
+	  }
+	  else
+	  {
+            arrived();
+	  	
 	  }
 }
 

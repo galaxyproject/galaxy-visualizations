@@ -1,0 +1,37 @@
+{
+    "name": "@galaxyproject/hyphyvision",
+    "version": "0.0.3",
+    "license": "MIT",
+    "main": "index.js",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "build": "rm -rf static && webpack --mode production && cp public/* static",
+        "dev": "webpack serve --mode development --open",
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}'",
+        "test": "npx playwright test"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.26.0",
+        "@babel/preset-env": "^7.26.0",
+        "@playwright/test": "^1.56.0",
+        "babel-loader": "^9.2.1",
+        "css-loader": "^6.10.0",
+        "fbjs": "^3.0.5",
+        "file-loader": "^6.2.0",
+        "hyphy-vision": "2.15.10",
+        "jquery": "^3.7.1",
+        "mini-css-extract-plugin": "^2.9.1",
+        "prettier": "^3.6.2",
+        "sass": "^1.93.2",
+        "sass-loader": "^16.0.6",
+        "underscore": "^1.13.6",
+        "webpack": "^5.102.1",
+        "webpack-cli": "^5.1.4",
+        "webpack-dev-server": "^5.2.2"
+    },
+    "resolutions": {
+        "**/underscore": "1.13.6"
+    }
+}

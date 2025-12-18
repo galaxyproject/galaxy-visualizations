@@ -1,21 +1,39 @@
 {
     "name": "@galaxyproject/igv",
-    "version": "0.0.0",
+    "version": "0.0.23",
     "type": "module",
+    "license": "MIT",
     "files": [
-        "static/dist/index.js",
-        "static/dist/index.css"
+        "static"
     ],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --write 'package.json' 'src/**/*.js'"
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:e2e": "npx playwright test",
+        "test:ui": "vitest --ui",
+        "test:unit": "vitest run",
+        "test:watch": "vitest --watch"
     },
     "devDependencies": {
-        "axios": "^1.8.4",
-        "igv": "^3.2.5",
-        "prettier": "^3.4.1",
-        "vite": "^6.2.0"
+        "@playwright/test": "^1.56.0",
+        "@types/node": "^22.9.0",
+        "@vitejs/plugin-vue": "^5.0.5",
+        "@vitest/ui": "^3.0.9",
+        "autoprefixer": "^10.4.19",
+        "galaxy-charts": "^0.0.93",
+        "galaxy-charts-xml-parser": "^1.0.3",
+        "igv": "^3.5.0",
+        "jsdom": "^25.0.1",
+        "postcss": "^8.4.40",
+        "prettier": "^3.3.3",
+        "tailwindcss": "^3.4.7",
+        "typescript": "^5.5.4",
+        "vite": "^6.2.2",
+        "vitest": "^3.0.9",
+        "vue": "^3.4.31",
+        "yaml": "^2.8.1"
     }
 }

@@ -7,7 +7,11 @@
  */
 function attachTableOperator($div, initstate, sortable)
 {
-    var $table = $div.find("table");
+    var $table;
+    if ($div.is("table"))
+        $table = $div;
+    else        
+        $table = $div.find("table");
     var $head  = $div.find("thead");
     var $body  = $div.find("tbody");
 
@@ -24,7 +28,7 @@ function attachTableOperator($div, initstate, sortable)
 
 
     initialWidthLayout();
-    $div.on('scroll', stickHead);
+   // $div.on('scroll', stickHead);
     $head.on("contextmenu", colShowHide);
 
 
@@ -37,6 +41,11 @@ function attachTableOperator($div, initstate, sortable)
         var $cols = $head.find("tr:last").children();
         for (var k = 0; k < $cols.length; k++)
         {
+            if (sortable.length > 0)
+            {
+                if (sortable.find((x)=> (x==k)) != undefined)
+                    continue;
+            }
             // works best with mousedown, otherwise sizes are different
             $($cols[k]).mousedown(function(idx) {
                 return function(e)
@@ -60,7 +69,7 @@ function attachTableOperator($div, initstate, sortable)
     function sortbycolumn(target, idx)
     {
         target.sorted = (target.sorted > 0) ? -1 : 1;
-        console.log(target.sorted );
+        //console.log(target.sorted );
         // the caret indicator
         $head.find("i.fa-caret-up").remove();
         $head.find("i.fa-caret-down").remove();
@@ -74,6 +83,10 @@ function attachTableOperator($div, initstate, sortable)
         var vals = [];
         function convert(a)
         {
+            // treat empty string as number
+            if(a=="")
+                return 0
+
             var v = parseFloat(a);
             if (isNaN(v))
                 return a;
@@ -183,6 +196,8 @@ function attachTableOperator($div, initstate, sortable)
         if ($cols.length == 0)
             return
 
+   
+
         var twid = 0;
         for (var k = 0; k < $cols.length; k++)
         {
@@ -208,15 +223,19 @@ function attachTableOperator($div, initstate, sortable)
             }
             // this only makes problems on different browsers
             // why do we refer here to a 'fixedwidth' attribute, but declare css-classes!??!
-            if( $col.attr("fixedwidth") != undefined)
+            if( $col.attr("fixedwidth") != undefined ||  $col.attr("initwidth") != undefined)
             {
-                w = parseInt($col.attr("fixedwidth"))+2;
+                if ($col.attr("fixedwidth") != undefined)   
+                    w = parseInt($col.attr("fixedwidth"))+2;
+                else
+                    w = parseInt($col.attr("initwidth"))+2;
+                
                 if ($col.find("i").length > 0)
                     $col.css('text-overflow','clip');
                     
                 $col.width(w);
                 widths.push(NaN);
-                if (initstate != undefined)
+                if (initstate != undefined && initstate.viscol != undefined)
                     viscol_acc(initstate.viscol[k]);
                 else
                     viscol_acc(true);
@@ -235,7 +254,8 @@ function attachTableOperator($div, initstate, sortable)
                     $col.width(w);
                     widths.push(NaN);
                 }
-                viscol_acc(initstate.viscol[k]);
+                if (initstate.viscol != undefined)
+                    viscol_acc(initstate.viscol[k]);
             }
             else
             {
@@ -276,6 +296,11 @@ function attachTableOperator($div, initstate, sortable)
 
     function isOnSeparatorLeft(e)
     {
+    
+        // for some reason, caret (arrow) has click handler enabled ...        
+        if(e.type=='mousedown' && $(e.target).hasClass('fa'))
+            return false;
+
         var target = getTD(e.target);
         var off = (e.pageX - $(target).offset().left);
         if (math.abs(off) < 4)
@@ -286,6 +311,10 @@ function attachTableOperator($div, initstate, sortable)
 
     function isOnSeparatorRight(e)
     {
+        // for some reason, caret (arrow) has click handler enabled ...        
+        if(e.type=='mousedown' && $(e.target).hasClass('fa'))
+            return false;
+
         var target = getTD(e.target);
         var off = (e.pageX - $(target).offset().left - $(target).outerWidth());
         if (math.abs(off) < 4)
@@ -302,22 +331,26 @@ function attachTableOperator($div, initstate, sortable)
 
         var menu = KContextMenu(
         function(ev) {
+
             var $menu = $("<ul class='menu_context'>")
             for (var k = 0; k < $cols.length; k++)
             {
                 var $icons = $("<span ></span>");
+                if ($($cols[k]).hasClass("nottoggable"))
+                    continue;
 
                 $(" <i  class='fa " + (viscol[k] ? "fa-check-square-o" : "fa-square-o") + " fa-1x'></i>").appendTo($icons);
                 var colname = $($cols[k]).attr('colkey');
                 if (colname != undefined)
-                    if (colname.substring(0, 5) == 'META_' && state.metaindices[colname.substring(5)] != undefined)
+                    if (colname.substring(0, 5) == 'META_' && state.metaindices && state.metaindices[colname.substring(5)] != undefined)
                     {
                         $("<i onchoice='refresh_" + $($cols[k]).attr('colkey') + "' class='fa fa-refresh fa-1x'>   </i>").appendTo($icons);
                         $("<i onchoice='del_" + $($cols[k]).attr('colkey') + "' class='fa fa-trash fa-1x'>   </i>").appendTo($icons);
                     }
                 if ($($cols[k]).text().trim() != "")
                     $menu.append($("<li onchoice=" + k + ">" + $($cols[k]).text() + "</li>").append($icons));
-            }
+            }     
+                   
             return $menu;
         },
         function(str, ev)
@@ -333,16 +366,26 @@ function attachTableOperator($div, initstate, sortable)
                         state.metaindices = e.metaindices;
                         refreshButton();
                     });
+                    return "close"
                 }
                 else if (str.substring(0, 8) == 'refresh_')
                 {
+
+                    var xhr;
+                    var pbar = KProgressBar("updateing meta index "  + str.substring(13) ,"fa-submit",function(x)
+                     {
+                        xhr.abortPHPprocess();
+                     },true)
+
+                    var items = patientTableMirror.selectedItems.map((x) => x.replace(/§#/g,"#"))					
+
                     var jsonString = JSON.stringify({
-                        name: str.substring(13)
+                        name: str.substring(13),
+                        items:items
                     });
 
-                    var pbar = KProgressBar("updateing metaindex " + str.substring(13),"fa-submit",undefined,true);
 
-                    ajaxRequest('command=updateMetaIndex' + '&json=' + jsonString, function(e) {
+                    xhr = ajaxRequest('command=updateMetaIndex' + '&json=' + jsonString, function(e) {
                         pbar.done();
                         refreshButton();
                     });
@@ -383,8 +426,8 @@ function attachTableOperator($div, initstate, sortable)
 
     function attachResizer($part)
     {
-
-        $part.children().on("mousemove", function(e)
+       
+        $part.children().on("pointermove", function(e)
         {
             if (isOnSeparatorLeft(e) | isOnSeparatorRight(e))
             {
@@ -433,7 +476,7 @@ function attachTableOperator($div, initstate, sortable)
 
 
 
-        $part.children().on("mousedown", function(e)
+        $part.children().on("pointerdown", function(e)
         {
             
             var left = isOnSeparatorLeft(e);
@@ -470,14 +513,14 @@ function attachTableOperator($div, initstate, sortable)
                     attachTableOperator.fromResizingPhase = false;
                 });
 
-                $dom.on("mouseup mouseleave", function(ev)
+                $dom.on("pointerup mouseleave", function(ev)
                 {
                     ev.preventDefault();
                     ev.stopImmediatePropagation();
-                    $dom.off("mouseup mousemove mouseleave")
+                    $dom.off("pointerup pointermove mouseleave")
                     attachTableOperator.fromResizingPhase = true;
                 });
-                $dom.on("mousemove", function(ev)
+                $dom.on("pointermove", function(ev)
                 {
                     var minwidth = 24;
                     var dif = ev.clientX - e.clientX;
@@ -491,7 +534,6 @@ function attachTableOperator($div, initstate, sortable)
                     // this will set a minimum size on columns on fixed width tables ....?
                     // => removed
                     $table.width($table.width()+dif);
-                  //  $table.width("");
                     // no interference with width of table ..
                 });
                 e.stopImmediatePropagation();

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
-<visualization name="Heatmap" embeddable="true">
+<visualization name="Heatmap" embeddable="true" requires_login="true">
     <description>Renders a heatmap from matrix data provided in 3-column format (x, y, observation).</description>
     <tags>
         <tag>Heatmap</tag>
@@ -17,10 +16,7 @@
     <params>
         <param required="true">dataset_id</param>
     </params>
-    <requirements>
-        <requirement type="npm" version="0.0.14" package="@galaxyproject/heatmap"/>
-    </requirements>
-    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
     <tracks>
         <input>
             <label>Provide a label</label>

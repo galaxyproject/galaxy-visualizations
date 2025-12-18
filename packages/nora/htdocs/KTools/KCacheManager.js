@@ -119,7 +119,10 @@ function KCacheManager(master)
 										if (k>= loadparams.length || aboutoabort)
 										{
 											if (callback)
-												callback(loadedFobj);
+											{
+												if (loadedFobj.length > 0)
+												     callback(loadedFobj);
+											}
 											return
 										}
 										else
@@ -223,8 +226,21 @@ function KCacheManager(master)
  
   }
 
-
-
+  if (typeof miscupload != "undefined")
+  {
+	  $("<li><a>Open files (nii, etc ...) </a></li>").click(function(){
+				var $xxx = $('<input type="file" id="uploaderId" name="upload" '+
+				'style="visibility: hidden; width: 1px; height: 1px" multiple />').appendTo($(document.body));
+				$xxx[0].addEventListener('change', miscupload);
+				$xxx.trigger('click');
+	   }  ).appendTo($menu);
+	  $("<li><a>Open directory (dicoms)</a></li>").click(function(){
+				var $xxx = $('<input type="file" id="uploaderId" name="upload" '+
+				'style="visibility: hidden; width: 1px; height: 1px" multiple webkitdirectory />').appendTo($(document.body));
+				$xxx[0].addEventListener('change', miscupload);
+				$xxx.trigger('click');
+	   }  ).appendTo($menu);
+  }
 
   $("<li><a>Close All</a></li>").click(function(){
     signalhandler.send("close");
@@ -318,7 +334,7 @@ function KCacheManager(master)
   }
 
   var $table = $("<table cellspacing=0 class='localfiletable'></table>").appendTo($innerDIV);
-  that.handleDrop = function(e)
+  that.handleDrop = function(e,callback)
   {
   	//if (e.isDefaultPrevented && e.isDefaultPrevented()) // what's this???
 	//	return;
@@ -336,6 +352,11 @@ function KCacheManager(master)
 			else      
 				KViewer.dataManager.loadProxy(loadparams[k],false);
 		}
+
+        if (callback != undefined && typeof callback == "function")
+        {
+        	callback(loadparams)
+        }
 
 		KViewer.cacheManager.update();
 
@@ -462,6 +483,8 @@ function KCacheManager(master)
 			KSetContentEditable($namediv,function(sel) { return  function($el) 
 			   {
 						sel.filename = $el.text().trim(); 
+						if (sel.fileinfo && sel.fileinfo.Filename)
+						    sel.fileinfo.Filename = sel.filename;
 						if (sel.namedivs != undefined)
 							for (var i = 0; i < sel.namedivs.length;i++)
 								$(sel.namedivs[i]).text(sel.filename);
@@ -480,6 +503,8 @@ function KCacheManager(master)
        
        if ((fobj.fileinfo.Tag || "").search("/mask/") >= 0)
           $row.append($("<td> ROI </td>"));
+       else if (id.substring(0,5) == "proxy" && fobj.proxyev && fobj.proxyev.file && fobj.proxyev.file.fileobject)
+		  $row.append($("<td>" + toFileSize(fobj.proxyev.file.fileobject.type) + " </td>"));
        else
        {
 		  if (fobj.contentType == "nii")
@@ -490,8 +515,11 @@ function KCacheManager(master)
             $row.append($("<td>" + fobj.contentType +"</td>"));
        }
  
+       if (id.substring(0,5) == "proxy" && fobj.proxyev && fobj.proxyev.file && fobj.proxyev.file.fileobject)
+			   $row.append($("<td>" + toFileSize(fobj.proxyev.file.fileobject.size) + " </td>"));
 
-       $row.append($("<td>" + toFileSize(fobj.fileinfo.filesize) + " </td>"));
+	   else
+	       $row.append($("<td>" + toFileSize(fobj.fileinfo.filesize) + " </td>"));
 
 
 
@@ -503,7 +531,7 @@ function KCacheManager(master)
 
      }
      if (electron)
-	 	that.tablestate = {viscol:[true, false, false, true, false, true, true, true, false, false] };
+	 	that.tablestate = {viscol:[true, false, false, true, true, true, true, true, false, false] };
 	 else 	
 	    if (that.tablestate == undefined)
 	     	that.tablestate = {viscol:[true, true, true, false, true, true, true, true, false, false] };
@@ -513,11 +541,10 @@ function KCacheManager(master)
      if (storage != undefined)
      {
        $diskcachehead.show();
-       function showsum(sum)
+       function showsum(sum,numfiles)
        {        
-          var used = 100*sum/storage.getCapacity();
-//          $diskcache.text("used " + used.toFixed(0) + "%");
-          $diskcache.text("used " + (sum/1024/1024).toFixed(0) + " MB");
+          var used = sum/storage.getCapacity()/1000;
+          $diskcache.text("used " + (sum/1024/1024/1024).toFixed(1) + " GB / " + (storage.getCapacity()/1024/1024/1024).toFixed(0) + "GB in " + numfiles + " files");
           if (used > 95)
           { 
               $diskcachehead.css('color','red');
@@ -533,9 +560,11 @@ function KCacheManager(master)
 
        storage.ls().then(function(docKeys) {
           var sum = 0;
+		  var numfiles = 0;
           var fun = function () {storage.getContents(docKeys[0]).then(
               function(content)
               {
+				  
                   if (docKeys.length > 0)
                   {
                     docKeys.splice(0,1);
@@ -544,12 +573,13 @@ function KCacheManager(master)
                     	var finfo = JSON.parse(content);
                     	if (finfo.filesize != undefined)                    	
                     		sum += finfo.filesize
+						numfiles++;
                     }
                     fun();
                   }
                   else
                   {
-                    showsum(sum);
+                    showsum(sum,numfiles);
                     storage.size = sum;
                   }
               }) };  fun(); })
@@ -601,6 +631,8 @@ function KCacheManager(master)
 
   function uploadAll(usenativePID)
   {
+      $(document.body).addClass('wait');
+
       var fids = KViewer.dataManager.getFileList();
       tempObjectInfo = [];
       for (var k = 0; k < fids.length ;k++)
@@ -613,7 +645,13 @@ function KCacheManager(master)
           if (fids[k].substring(0,5) == 'local' | fids[k].substring(0,5) == 'proxy' | modified)
               tempObjectInfo.push({fileID:fids[k]});
       }
-      uploadFiles(that.progressSpinner,usenativePID);
+      uploadFiles(that.progressSpinner,usenativePID,function()
+      {
+      	 if (usenativePID)
+      	     refreshButton();
+         $(document.body).removeClass('wait');
+      	     
+      });
   }
 
 
@@ -622,9 +660,18 @@ function KCacheManager(master)
    * upload files
    ****************************************************************************************/  
 
-
-  function uploadFiles(progress,usenativePID)
+  function uploadFiles(progress,usenativePID,callback)
   {
+
+
+	 if (projectInfo && projectInfo.rights.readonly == "on")
+	 {
+		alertify.error("project is readonly for user " + userinfo.username)
+		if (callback)
+		    callback();
+		return;
+ 	 }
+
      var filesToUpload = tempObjectInfo;
      tempObjectInfo = [];
 
@@ -639,10 +686,17 @@ function KCacheManager(master)
 		  var finfo = {SubFolder:"",Tag:"",permission:"rwp"};
 		  if (fi.fileinfo && fi.fileinfo.SubFolder)
 		  		finfo.SubFolder = fi.fileinfo.SubFolder.replace(/^\/|\/$/g, "");
+		  if (fi.fileinfo && fi.fileinfo.Tag)
+		  		finfo.Tag = fi.fileinfo.Tag
+          
+          updateTag(finfo,[],userinfo.username);
 
 		  var zip = false;
-		  if (state.viewer.zippedUpload)
+		  if (state.viewer.zippedUpload  && !uploadFiles.ignoreZipSetting)
 		  	zip = true;
+
+          if (fi.fileinfo != undefined && fi.fileinfo.Filename != undefined && fi.fileinfo.Filename.search("\\.gz") != -1)
+              zip = true;
 
           if (!uploadBinary(fi,finfo,
           function (id,response)
@@ -672,13 +726,76 @@ function KCacheManager(master)
                filesToUpload.splice(0,1);
                if (filesToUpload.length > 0)
                    doTheUpload();
+               else
+               {
+               	 that.uploadFiles.ignoreZipSetting = false;
+               	 if (callback)
+                    callback();
+               }
 
           },progress,zip,usenativePID)) { filesToUpload.splice(0); }
      }
-     doTheUpload();
+
+     function cleanTag(tag)
+     { 
+        var tags = tag.split("/").filter((x) => x!="");
+        var obj = {}
+        for (var k in tags)
+            obj[tags[k]] = true;
+        tags = Object.keys(obj);
+        if (tags.length==0)
+            return "";
+        else
+         	return "/" + tags.join("/") + "/"
+     }
+
+     if (filesToUpload[0].fileID.substring(0,5) != "proxy" ) 
+     {
+     	   var str = ""
+           for (var k = 0; k < filesToUpload.length;k++)
+           {
+           	   var f = KViewer.dataManager.getFile(filesToUpload[k].fileID);
+           	   if (f.fileinfo != undefined)
+           	   {
+           	   	   if ((f.fileinfo.patients_id == undefined && k == 0) | usenativePID==undefined)
+           	   	   {
+           	   	   	  doTheUpload()
+           	   	   	  return;
+           	   	   }
+           	   	   var txt = f.fileinfo.patients_id + f.fileinfo.studies_id 
+           	   	   if (f.fileinfo.SubFolder != undefined)
+           	   	   {
+           	   	       txt += " " + f.fileinfo.SubFolder +"/";
+           	   	       if (f.fileinfo.Filename != undefined)
+           	   	           txt +=f.fileinfo.Filename
+           	   	       else
+                           txt +=f.filename;           	   	   }
+           	   	   else
+           	   	       txt += " " + f.filename;
+                   str += '<span  style="float:left"> ' + txt+ ' </span> <br>';
+           	   }
+               else 
+                   str += '<span  style="float:left"> ' + f.filename+ ' </span> <br>';
+           }
+
+
+		   alertify.confirm('Do you really want to upload the following files? <br><br>' + str,
+		   function(e)
+		   {
+		       if (e)
+                   doTheUpload();
+		       else
+		           that.uploadFiles.ignoreZipSetting = false;
+		   });
+
+     }
+     else
+        doTheUpload();
   
   }
   that.uploadFiles = uploadFiles;
+  that.uploadFiles.askonOverwrite = true;
+  that.uploadFiles.ignoreZipSetting = false;
 
   function prepTarget(target)
   {

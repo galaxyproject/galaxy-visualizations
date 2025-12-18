@@ -1,10 +1,10 @@
 
-
 // ======================================================================================
 // ======================================================================================
 // ============= KView
 // ======================================================================================
 // ======================================================================================
+
 
 var myeps = 0.00000001;
 var runningID = 0;
@@ -28,7 +28,6 @@ function KView($parentContainer)
   var $toolbarCell    = $("<div class='KView_DIVCell'></div>").appendTo($container);
   var $viewportCell   = $("<div class='KView_DIVCell' style='width:100%'></div>").appendTo($container);
   var $spinner  = $("<div id='KView_mainSpinner' class='KViewPort_spinner' ><i class='fa fa-spinner fa-spin'></i> <span >Loading</span></div>").appendTo($container);
-
 
   that.progressSpinner = theSpinner($spinner);
   that.$container = $container;
@@ -60,7 +59,8 @@ function KView($parentContainer)
   that.$toolbarContainer = $toolbarContainer;
 
   if(!KViewer.standalone)
-  	var $leftresizer = $("<div id='patient_table_resizer' class='resizer_vertical'><div><div></div></div></div>").appendTo($container).mousedown(resizeViewer);
+  	var $leftresizer = $("<div id='patient_table_resizer' class='resizer_vertical'><div><div></div></div></div>")
+						.appendTo($container).on('pointerdown',resizeViewer);
 
   that.mainViewport = -1;
 
@@ -127,7 +127,7 @@ function KView($parentContainer)
   $layoutParent.append($("<div class='floatports'> floating </div>").append($addfloat))
 
   $addfloat.click(function() {
- 	var panelview = KPanelView(KViewer,"",{showElements:true,addClass:"floatingViewporthidetitle"});
+ 	var panelview = KPanelView(KViewer,"",{showElements:true}); //,addClass:"floatingViewporthidetitle"});
 
 	
   });
@@ -224,7 +224,13 @@ function KView($parentContainer)
        $controlsToggle.toggleClass('KView_tool_enabled');	   
 	   toggleElementsForScreenShot();
   }  
-  
+  that.areControlsVisible = function()
+  {  
+  	  return controlsOn	   
+  }
+
+
+
   var $histoToggle =    $("<div class='KView_tool KView_tool_enabled'><i class='fa fa-area-chart fa-1x'></i></div>").appendTo($toolbarContainer)
                           .click(toggleHistogram)
                           .append( $("<ul class='KView_tool_menu'></ul>").append($("<li>Histograms</li>") )
@@ -471,6 +477,8 @@ function KView($parentContainer)
 
 			for(var i =0; i<ids.length; i++)
 			{
+				if (viewports[ids[i]] == undefined)
+					continue;
 				var $loadEdit = viewports[ids[i]].$container.find('.KViewPort_autoLoaderLiveEdit')
 				if($loadEdit.length == 0)
 				{
@@ -713,12 +721,44 @@ function KView($parentContainer)
   } }(that);
 
 
+  that.setWorldPosition = function(p,update)
+  {
+        var some = that.findMedViewer()
+        if (some != undefined)
+            some.setWorldPosition(p);
+        if (update)
+           signalhandler.send('positionChange');
+         
+  }
+
+  that.getWorldPosition = function(p)
+  {
+        var some = that.findMedViewer()
+        if (some == undefined)
+            return;
+        return some.getWorldPosition();
+  }
+
+  that.setCurrentTimePoint = function(val)
+  {
+		that.iterateMedViewers(function(m)
+		{
+			if (m.nii !=undefined &&  m.$timediv.maxt > 1)
+			{
+				m.updateCurrentTimePoint(val);
+			}
+
+		});
+  }
+
+
   // reset view/position/tilts of all medviewers
   // @function 
 
+
   /** run over all present medviewers
    * @function */
-  function resetCrossHair()
+  function resetCrossHair(event,viewcenter)
   {
      that.currentTilts(0,0).v = 0;
      that.currentTilts(0,1).v = 0;
@@ -728,19 +768,74 @@ function KView($parentContainer)
      that.currentTilts(2,1).v = 0;
      that.reorientationMatrix.matrix =  math.matrix(math.diag([1,1,1,1]));
      //that.currentPoint = math.multiply(that.reorientationMatrix.matrix, [0, 0, 0, 1]);
-     that.currentPoint = math.multiply(that.reorientationMatrix.matrix, that.viewcenter);
-     that.toggleMainViewport(-1);
+
+     if (viewcenter == undefined)
+     {
+        
+		that.iterateMedViewers(function(m)
+		{
+			if (viewcenter == undefined) 
+                viewcenter = m.nii.centerWorld
+		});
+
+     }
+     
+     if (viewcenter == undefined)
+        viewcenter = that.viewcenter;         
+
+     that.currentPoint = math.multiply(that.reorientationMatrix.matrix, viewcenter);
+     that.toggleMainViewport(-1,undefined,true);
+     that.zoomLims = [];
     
+     if (KViewer.navigationTool.enabled)
+     	KViewer.navigationTool.transform.toggle(false)
+
      signalhandler.send("resetHaircrossTilts");
-     signalhandler.send("setZoomLims",[1,0,0]);
+     signalhandler.send("setZoomLims","reset");
      signalhandler.send("positionChange",{mosaicdraw:true});
      signalhandler.send("webglresetcam");
+
+  
+  }
+
+
+
+  that.isMoving = function(id)
+  {
+        if (KViewer.navigationTool == undefined || !KViewer.navigationTool.isinstance)
+            return false;
+        return that.navigationTool.movingObjs[id] != undefined & that.navigationMode == 0  	
   }
 
   that.resetCrossHair =  resetCrossHair;
 
-  that.toggleMainViewport = function(id, keep_enabled)
+  that.toggleMainViewport = function(id, keep_enabled, forgetHCpos)
   {
+      function setPort(theid)
+      {
+      	var medViewer = that.viewports[theid].medViewer;     
+        if (medViewer.niiOriginal != undefined && medViewer.niiOriginal.sizes[2] == 1)
+        {
+        	var wip = "alt"+theid
+        	var nii = that.viewports[id].medViewer.niiOriginal;
+        	var navtool = KViewer.navigationTool;
+            var edges = nii.edges;
+            var slicevx = math.min(nii.voxSize);
+            edges = math.multiply(edges,math.diag([1,1,slicevx/nii.voxSize[2],1]));
+            var voxsz = [nii.voxSize[0],nii.voxSize[1],slicevx];
+
+            if (KViewer.navigationMode == 0 && navtool.movingObjs && navtool.movingObjs[medViewer.currentFileID])
+            	edges = math.multiply(math.inv(KViewer.reorientationMatrix.matrix),edges);
+			create3DViewPort(edges,nii.sizes,voxsz,nii,wip,icon,medViewer.currentFileID)
+		    theid = wip;
+        }
+		that.mainViewport = theid;
+      }
+
+      var oldPort = that.mainViewport;
+
+      if (!forgetHCpos)
+          signalhandler.send("save_old_hc_pos")
 
 	  if (id == -1) // turn off mainviewport in case, otherwise do nothing
 	  {
@@ -755,14 +850,14 @@ function KView($parentContainer)
 
 	  if(that.mainViewport == -1 ) // right now no master is selected. Enable this one.
 	  {
-		that.mainViewport = id;
+	  	setPort(id)
 		if (that.navigationTool)
 			that.navigationTool.updateMasterCaption();
 		icon.addClass('KViewPort_tool_enabled');
 	  }
 	  else   // already selected one. test if is itself or another
 	  {
-		if(that.mainViewport == id) // hit itself. switch off. But only if no keep_enabled was used (startup issues)
+		if(that.mainViewport == id | that.mainViewport == "alt"+id) // hit itself. switch off. But only if no keep_enabled was used (startup issues)
 		{
 		  if(keep_enabled == undefined)
 		  {
@@ -773,14 +868,67 @@ function KView($parentContainer)
 		}
 		else // anther one is master. switch this one off first.
 		{
-		  that.toggleMainViewport( that.mainViewport  );
-		  that.mainViewport = id;
+    	  var icon_old = that.viewports[that.mainViewport].medViewer.toolbar.$mainViewportSelector;
+		  icon_old.removeClass('KViewPort_tool_enabled');
+
+    	//  that.toggleMainViewport( that.mainViewport );    			
+          setPort( id);
 		  icon.addClass('KViewPort_tool_enabled');
 		  that.navigationTool.updateMasterCaption();			
 		}
 	  }
-	  signalhandler.send("reslice positionChange");
 
+
+
+
+
+      var cpoint;
+	  cpoint = that.currentPoint;
+
+      // CONGRU
+	  if (that.mainViewport !== -1)
+	  {
+	  	  if (oldPort == -1)
+              cpoint = math.multiply((that.reorientationMatrix.matrix), cpoint);
+	  }
+      else
+      {
+      	  if (KViewer.navigationMode != 2)
+      	  {      	  	
+      	  	  if (!(that.viewports[oldPort] != undefined && 
+      	  	        that.viewports[oldPort].medViewer.isBackgroundMoving != undefined &&
+      	  	        that.viewports[oldPort].medViewer.isBackgroundMoving()))
+                  cpoint = math.multiply(math.inv(that.reorientationMatrix.matrix), cpoint);
+      	  }
+      }
+
+      if (oldPort == -1 || KViewer.viewports[oldPort].medViewer == undefined || KViewer.viewports[oldPort].medViewer.setWorldPosition == undefined)
+          KViewer.setWorldPosition(cpoint);
+      else
+          KViewer.viewports[oldPort].medViewer.setWorldPosition(cpoint)
+
+	  signalhandler.send("reslice");
+
+/*
+      var is_ch_out = false
+  	  that.iterateMedViewers(function(m)
+	  {				
+			var pos = m.getCanvasCoordinates(cpoint);
+			var cpos = m.$canvas.offset();
+			cpos.top -= m.$container.offset().top;
+			cpos.left -= m.$container.offset().left;
+			var x = pos.x_pix + cpos.left
+			var y = pos.y_pix + cpos.top
+			if (x <0 | x > m.$container.width() | y <0 | y > m.$container.height())
+			{			
+				is_ch_out = true;
+			}	  
+	  });
+
+      if (is_ch_out)
+          signalhandler.send("centralize");
+     
+*/
   }
 
 
@@ -829,8 +977,56 @@ function KView($parentContainer)
   {
     that.reorientationMatrix.notID = true;
     var transform = JSON.parse(ev.content);
-    that.reorientationMatrix.name = transform.name;
-    that.reorientationMatrix.matrix = math.matrix(transform.matrix);
+    if (transform.AffineTransform_float_3_3)
+    {
+    	var a = transform.AffineTransform_float_3_3.map((x) => x[0])
+    	var f = transform.fixed.map((x) => x[0])
+    	var center = [f[0],f[1],f[2],1]
+
+        var matrix = [ [ a[0], a[1], a[2], 0 ],
+					   [ a[3], a[4], a[5], 0 ],
+					   [ a[6], a[7], a[8], 0 ],
+					   [ 0   , 0   , 0   , 1     ] ];
+        var o = math.multiply(matrix,center)._data;					   
+
+        matrix[0][3] = a[9]+f[0] - o[0]
+        matrix[1][3] = a[10]+f[1]- o[1]
+        matrix[2][3] = a[11]+f[2]- o[2]
+
+		that.reorientationMatrix.name = 'ITK affine'
+		that.reorientationMatrix.matrix = math.matrix(matrix);
+
+
+/*
+            m_Center = aff.fixed;
+
+            mat=[reshape(aff.AffineTransform_float_3_3(1:9),[3,3])',aff.AffineTransform_float_3_3(10:12)];
+            m_Translation=mat(:,4);
+            mat=[mat;[0,0,0,1]];
+            for i=1:3
+                m_Offset(i) = m_Translation(i) + m_Center(i);
+                for j=1:3
+                    m_Offset(i) = m_Offset(i)-(mat(i,j) * m_Center(j));  % (i,j) should remain the same since in C indexing rows before cols, too.
+                end
+            end
+
+            m_Offset = m_trans + m_center - M*m_center
+
+            mat(1:3,4)=m_Offset;
+            d=mat.*...
+                [1  1 -1 -1
+                1  1 -1 -1
+                -1 -1  1  1
+                1  1  1  1];
+
+*/
+
+    }
+    else
+    {
+		that.reorientationMatrix.name = transform.name;
+		that.reorientationMatrix.matrix = math.matrix(transform.matrix);
+    }
 	KViewer.navigationTool.transform.update();
     signalhandler.send("reslice");    
   }
@@ -970,9 +1166,9 @@ function KView($parentContainer)
     $(".haircrossFocus").hide();
  
 
-    $(document.body).on("mouseup mouseleave",   mymouseup);
+    $(document.body).on("pointerup mouseleave",   mymouseup);
 //    $(document.body).on("mousemove", moveUnlagger(mymousemove)) ;
-    $(document.body).on("mousemove", mymousemove) ;
+    $(document.body).on("pointermove", mymousemove) ;
     
     function mymousemove(ev)
     {
@@ -1031,7 +1227,7 @@ function KView($parentContainer)
     {
     	ViewerSettings.sizeTablePercent =  Math.round($ptable.width() / $(document.body).width() * 100);
     	
-        $(document.body).off("mousemove mouseup mouseleave");
+        $(document.body).off("pointermove pointerup mouseleave");
         setPatientTableLayout();
         setViewPortLayout();
         signalhandler.send("positionChange");
@@ -1110,10 +1306,11 @@ function KView($parentContainer)
 
   }
 
+	
   /** layouts widths and heights of viewports
    * @inner */ 
   that.setViewPortLayout = setViewPortLayout;
-  function setViewPortLayout(m)
+  function setViewPortLayout(m,widths)
   {
   	
     if(typeof(m)!=='undefined')
@@ -1125,7 +1322,10 @@ function KView($parentContainer)
 		{
 		  var ck = math.floor(k/ViewerSettings.nVisibleCols);
 		  var rk = k%ViewerSettings.nVisibleCols;
-		  viewports[vpAssignment[ck][rk]].width_in_perc = Math.round(100/ViewerSettings.nVisibleCols);
+		  if (widths != undefined && widths[k] != undefined)
+			  viewports[vpAssignment[ck][rk]].width_in_perc = widths[k];
+		  else
+			  viewports[vpAssignment[ck][rk]].width_in_perc = Math.round(100/ViewerSettings.nVisibleCols);
 		}
 
     }
@@ -1334,7 +1534,9 @@ function KView($parentContainer)
 		  viewports.forEach(function(e) {
 			if(e.getCurrentViewer() != undefined)
 			{
-			 if (e.getCurrentViewer().viewerType == 'medViewer')
+			 if (e.getCurrentViewer().viewerType == 'medViewer' | 
+			 	e.getCurrentViewer().viewerType == 'jsonViewer' |
+			 	e.getCurrentViewer().viewerType == 'tableViewer')			 	
 			 {
 			   if (vis)
 			   	  e.getCurrentViewer().showControls();
@@ -1452,7 +1654,9 @@ function KView($parentContainer)
        autoloader_toggle(state.viewer.enableAutoloaders);
      
        reattachViewports(); 
-       setViewPortLayout([ViewerSettings.nVisibleRows, ViewerSettings.nVisibleCols]);
+
+       setViewPortLayout([ViewerSettings.nVisibleRows, ViewerSettings.nVisibleCols],ViewerSettings.viewPortWidths);	  
+
        signalhandler.send("positionChange");
   }
 
@@ -1464,6 +1668,8 @@ function KView($parentContainer)
       ViewerSettings.histoModeDefault 		=  that.histoModeDefault;
       ViewerSettings.showInfoBar			=  that.showInfoBar;
       ViewerSettings.globalCoordinates 		=  that.globalCoordinates;
+      ViewerSettings.viewPortWidths  		=  that.viewports.map((x)=>x.width_in_perc)
+
 
   }
   
@@ -1474,6 +1680,29 @@ function KView($parentContainer)
   }
 
 
+  that.flipViewport = function(x,y)
+	{
+       var a = KViewer.viewports[x]
+       var b = KViewer.viewports[y]
+	   KViewer.viewports[x] = b
+	   KViewer.viewports[y] = a
+	   KViewer.viewports[x].setID(x)
+	   KViewer.viewports[y].setID(y)
+	   swap(KViewer.viewports[x].$container,
+			KViewer.viewports[y].$container)
+
+    	KViewer.viewports[x].$container.attr("id","KViewPort_container_number"+x)
+    	KViewer.viewports[y].$container.attr("id","KViewPort_container_number"+y)
+
+		
+		function swap(a, b) {
+		    a = $(a); b = $(b);
+		    var tmp = $('<span>').hide();
+		    a.before(tmp);
+		    b.before(a);
+		    tmp.replaceWith(b);
+		};
+	}
 
 
   //////////////////////////////////// take a screenshot /////////////////
@@ -1486,7 +1715,7 @@ function KView($parentContainer)
       html2canvas($viewportContainer).then(function(canvas)
       {
          var blob = dataURItoBlob(canvas.toDataURL());
-		 saveScreenShot(blob,{});
+		 saveScreenShot(blob,{},".png",true);
        
       });
    
@@ -1541,15 +1770,17 @@ function KView($parentContainer)
 		if( whattoclose.markerProxy == 1 && markerProxy != undefined)
 			markerProxy.reset();  
 
+		KViewer.lastDummyNifti = undefined;
+
 		signalhandler.send("close");
 		if ( whattoclose.dataManager && ( userinfo.username != guestuser || electron) )
 			KViewer.dataManager.clearMemory();
 
 		that.defaultFOV_mm = state.viewer.defaultFOVwidth_mm;
 
-	//	KViewer.resetCrossHair();				
-		that.currentPoint.reset = true
+	//	that.currentPoint.reset = true
 	
+		KViewer.resetCrossHair();				
 
 		for (var k in KPanel.currentPanels)
 		{
@@ -1557,8 +1788,12 @@ function KView($parentContainer)
 				KPanel.currentPanels[k].close();
 		}
 
-		if (KViewer.roiTool && KViewer.roiTool.closePolyTool)
-		    KViewer.roiTool.closePolyTool();
+		if (KViewer.roiTool)
+		{ 
+		    if (KViewer.roiTool.closePolyTool)		    
+		        KViewer.roiTool.closePolyTool();
+		    KViewer.roiTool.makeCurrentGlobal(undefined);
+		}
 
 
         that.movie.currentTimePoint = 0;
@@ -1589,6 +1824,25 @@ function KView($parentContainer)
 
 	}
 
+	that.isMosaicDrawing = function()
+	{
+		var running = false;
+		that.iterateMedViewers(function(m)
+		{
+			if (m.mosaicview.active & m.mosaicview.interval != -1)
+			   running = true;
+
+		});
+		return running;
+	}
+
+	that.is3DinPrep = function()
+	{
+		return (typeof BABYLON == "undefined" || 
+                   BABYLON.initialized !== true  ||
+					 executeImageWorker.running_workers>0)
+	}
+		
 	// ======================================================================================
 	// Tools
 	// ======================================================================================
@@ -1651,11 +1905,20 @@ function KView($parentContainer)
 								   );
     }
 
+	var $navitool =  $("<div  class='KView_tool '><i  class='fa fa-arrows fa-1x'></i></div>").appendTo($toolbarContainer)
+							   .click( function(){that.navigationTool.toggle()} )
+							   .append( $("<ul class='KView_tool_menu'></ul>").append($("<li>Navigation Tool</li>") )
+								   );
 
 	if (typeof KMarkerTool != "undefined")
 		var $rulerTool =  $("<div  class='KView_tool '><i  class='fa fa-arrows-h fa-1x'></i></div>").appendTo($toolbarContainer)
 							   .click( function(){markerProxy.addRuler()} )
 							   .append( $("<ul class='KView_tool_menu'></ul>").append($("<li>Ruler</li>") )
+								   );
+	
+	var $calcnifti =  $("<div  class='KView_tool '><i  class='fa fa-building fa-1x'></i></div>").appendTo($toolbarContainer)
+							   .click(calcNifti )
+							   .append( $("<ul class='KView_tool_menu'></ul>").append($("<li>Image Calculator</li>") )
 								   );
 
 	if (typeof ironSight != "undefined")
@@ -1697,8 +1960,20 @@ function createParamsLocalFile(file, intent, progressSpinner)
 	
   var params = {};
   params.URLType  = 'localfile';
-  params.fileID = 'localfile_'   + file.name ;
+  params.fileID = 'localfile_'
+  if (file.path != undefined)
+      params.fileID +=  file.path ;
+  else
+      params.fileID +=  file.name ;
+     
 
+  if (file.lastModified)
+  	params.fileID += "_" + file.lastModified
+  if (file.size)
+  	params.fileID += "_" + file.size
+  if (file.filesystem && file.filesystem.name)
+  	params.fileID += "_" + file.filesystem.name
+ 
   runningID++;
   params.filename = 'localfile://' + file.name;
   params.file   = file
@@ -1727,7 +2002,8 @@ document.addEventListener("keydown", function(evt) {
   evt = evt || window.event;
   if ( evt.keyCode == 17)
   {
-     signalhandler.send("hairfocus_receive_event");
+  	 if  ($(':hover').last().offsetParent().hasClass("KViewPort_canvascontainer"))
+         signalhandler.send("hairfocus_receive_event");
   }
 });
 
@@ -1735,6 +2011,7 @@ document.addEventListener("keydown", function(evt) {
 document.addEventListener("keyup",function(evt) {
   evt = evt || window.event;
   if (evt.keyCode == 17 )
+    if (typeof signalhandler != "undefined")
    	 signalhandler.send("hairfocus_ignore_event");
 });
 

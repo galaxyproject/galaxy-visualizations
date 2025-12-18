@@ -71,7 +71,7 @@ function KDataManager()
 					if (params.intent && params.intent.shared)
 						params.intent.shared.already_present = ev;
 					params.callback(ev);
-					});
+					},undefined,{donotcheckforexistence:true});
 			return;
     	}
 	}
@@ -108,6 +108,8 @@ function KDataManager()
 	 	fobj.fileinfo.SubFolder = params.SubFolder;
 
      setFile(fobj.fileID,fobj);
+
+     params.fileID = fobj.fileID;
      if (update == undefined || update == true)
      	KViewer.cacheManager.update();
   }
@@ -131,7 +133,11 @@ function KDataManager()
 		 var reader = new FileReader();
 		 proxy.proxyev.progressSpinner = params.progressSpinner;
 		 proxy.proxyev.callback = params.callback;
-		 reader.onload = function(e) { processLoadedFile(proxy.proxyev,reader);  };
+		 reader.onload = function(e) { 
+				 proxy.proxyev.fileID = "local"+proxy.proxyev.fileID.substring(5)
+		         processLoadedFile(proxy.proxyev,reader);  
+
+		         };
 
 		 delFile(fid);
 
@@ -204,7 +210,7 @@ function KDataManager()
 				that.refetchFile(fobj.fileinfo,function (p) { 
 				    if (p != undefined)
 				        pbar.progress(p*100,"updateing " + txt)
-				     } ,iterate);
+				     } ,iterate, function() {pbar.done()});
 			}
 			else
 				iterate(false);
@@ -213,7 +219,7 @@ function KDataManager()
 
    }
 
-	that.refetchFile = function(fileinfo,progress,callback)
+	that.refetchFile = function(fileinfo,progress,callback,onerror)
 	{
 		ajaxRequest('command=get_fileidentifier&json=' + JSON.stringify({fileID:fileinfo.ID}) ,
 				function(e){
@@ -228,7 +234,8 @@ function KDataManager()
 							 console.log("file " + fileinfo.ID + " was reloaded");
 							 signalhandler.send("updateFilelink",{id:fileinfo.ID});
 							 progress();
-							 callback(true);
+							 if (callback)
+							 	callback(true);
 						}});
 
 					}
@@ -236,8 +243,13 @@ function KDataManager()
 					{
 					    console.log("file " + fileinfo.ID + " is up to date");						
 						progress();						
-						callback(false);
+						if (callback)
+							callback(false);
 					}
+				},undefined,undefined,function(e)
+				{
+					if (onerror)
+						onerror()
 				});
 
 	}
@@ -262,6 +274,8 @@ function KDataManager()
 			   {
 					if (medV.overlays[j].currentFileID == fid)
 					{
+						if (medV.overlays[j].content.refvisit_params)
+						    medV.unlinktck(medV.overlays[j]);
 						medV.overlays[j].close();
 						break;
 					}
@@ -400,7 +414,7 @@ function KDataManager()
 			 	} ); };
     reader.onerror = function(e) { 
 	
-    alertify.error("problem loading file:" + params.filename); 
+    alertify.error("problem loading file:" + params.filename + ";  " +params.name); 
     if (params.callback) params.callback(undefined); };
 	readBufferFromFile(reader,params);
 
@@ -427,7 +441,7 @@ function KDataManager()
 		var suffix = "";
 		var suffix = "?v=" + Date.now();
 		
-		xhr.open('GET', `${window.location.protocol}//${params.url}${suffix}` , true);
+		xhr.open('GET', `${params.url}${suffix}`, true);
 		
 		xhr.setRequestHeader('Cache-Control', 'no-cache');
 		xhr.responseType = 'arraybuffer';
@@ -511,7 +525,10 @@ function KDataManager()
   function loadDataFromServer(params)
   {
     if(params.fileID == undefined)
-     return
+	{
+	   params.callback();
+       return
+	}
       
 	// fileID is actually a search pattern from autoLoader. special tratment: fileID is used as searchpattern. I
     // exception: meta files or PACS files, e.g. from a pacs query
@@ -529,17 +546,39 @@ function KDataManager()
 		{
 
 		}
+		else if (params.fileID == 'fromtobj' | params.fileID.substring(0,7) == 'DPXTOBJ')
+		{
+            var obj = params.intent;
+		    var xhr = ajaxRequest('command=exportmeta&json=' + JSON.stringify(obj.tobj) , function(e)
+			{
+		        params.content = e.content
+		        params.contentType = 'tab';
+				params.callback(params)
+			});
+			return;
+
+		}
 		else if (params.fileID.substring(0,10) == "ROI_ATLAS_")
 		{
-		    var ids = params.fileID.substring(10).split("_"); 
-			var atlas = that.getFile(ids[0])
-			if (atlas == undefined)
-			{
-				atlas = that.getFile(ids[0] + "_" +ids[1]);
-				KViewer.atlasTool.getROIfromSinglelabel(atlas,ids[2],atlas.content.labels[ids[2]].name,atlas,params.callback,params.progressSpinner);
-			}
+			var fobj = that.getFile(params.fileID)
+			if (fobj != undefined)
+				params.callback(fobj)
 			else
-				KViewer.atlasTool.getROIfromSinglelabel(atlas,ids[1],atlas.content.labels[ids[1]].name,atlas,params.callback,params.progressSpinner);
+			{
+			    var ids = params.fileID.substring(10).split("_"); 
+				var atlas = that.getFile(ids[0])
+				if (atlas == undefined)
+				{
+					atlas = that.getFile(ids[0] + "_" +ids[1]);
+					KViewer.atlasTool.getROIfromSinglelabel(atlas,ids[2],atlas.content.labels[ids[2]].name,atlas,params.callback,params.progressSpinner);
+				}
+				else
+				{
+					var keys = ids[1].split(",")
+					//atlas.content.labels[ids[1]].name
+					KViewer.atlasTool.getROIfromSinglelabel(atlas,keys,params.name,atlas,params.callback,params.progressSpinner);
+				}
+			}
 			return;
 		}
 		else if (params.fileID.substring(0,7) != 'PACS://' )
@@ -571,16 +610,24 @@ function KDataManager()
     }
     else if (fids != undefined)
     {
-    	if (params.callback)
-       		params.callback(fids);
+    	if (false & !electron)
+    	{
+			that.refetchFile(fids.fileinfo,function(){},function() {
+				if (params.callback)			
+					params.callback(fids);
+				},function() {
+				if (params.callback)			
+					params.callback(fids);
+				})
+    	}
+        else
+            if (params.callback)
+           	    params.callback(fids);
         return;
     }
 
-    // todo: in case of viewer only!
-	var docid = currentModule + '_' + params.fileID; 
 
-
-	function execServerRequest()
+	function execServerRequest(avoid_storage)
 	{
 		var fileURL   = myownurl().split("?")[0]; 
 		var xhr = new XMLHttpRequest();
@@ -592,7 +639,8 @@ function KDataManager()
 
 		var sigid = signalhandler.attach("close",function() {
 			xhr.abort();
-			params.progressSpinner();
+			if (params.progressSpinner)
+			    params.progressSpinner();
 			signalhandler.detach("close",sigid);
 		});
 
@@ -618,74 +666,111 @@ function KDataManager()
 				}
 				else if(xhr.status === 0)
 				{
-					params.progressSpinner();
+		//			params.progressSpinner();
 					xhr.abort();
+        			signalhandler.detach("close",sigid);
+
 				}
 				else
 				{
 					params.progressSpinner();
 					alertify.error("Connection to server lost!");
 					xhr.abort();
+        			signalhandler.detach("close",sigid);
+					
 				}
 			} 
 		}
 
 		xhr.onprogress = function(pev) {
+
+			var finfo = JSON.parse( xhr.getResponseHeader('DPX-fileinfo') );
+
+			// execute only for first onprogress event and use info to check for file in cache
+			if (xhr.flag==undefined && storage != undefined && params.autoLoaderPattern == undefined)
+			{
+				getFromLocalStorage(finfo)			
+			}
+			xhr.flag = true;
+
 			if (params.progressSpinner != undefined && pev.total > 0)
-			 params.progressSpinner(pev.loaded/pev.total,function() {xhr.abort() } ); };
-	    var json = params.json;
-	    if (json == undefined)  
-	    	json = {project:currentModule}; // projectmode
-	    else if (json.project == "")
-	    	json.project = currentModule;   // ??
+			   params.progressSpinner(pev.loaded/pev.total,function() {
+			    	xhr.abort() 
+  			        signalhandler.detach("close",sigid);
+			 	} ); 
+		}
+		
+		var json = params.json;
+		if (json == undefined)  
+			json = {project:currentModule}; // projectmode
+		else if (json.project == "")
+			json.project = currentModule;   // ??
 		var addjson = "&json=" + JSON.stringify(json);
 		xhr.send('fileID=' + params.fileID + addjson);
-	}
 
+		function getFromLocalStorage(finfo)
+		{
+			var docid = finfo.identifier
+		    storage.getContents(docid).then(function(result) {
+				if (result == undefined | result == "")
+					; //execServerRequest(true)
+				else
+				{				
+					var fileinfo = JSON.parse(result);
+					if (fileinfo.identifier == finfo.identifier)
+					{
+						storage.getAttachment( docid, 'blob' ).then(function(data) {
+								if (data != undefined)
+								{
+									console.log("found " + docid)
+									
+									if (params.progressSpinner != undefined)
+										params.progressSpinner("Retrieving from local disk cache")
 
-	if (storage == undefined || params.autoLoaderPattern != undefined)
-		execServerRequest();
-	else
-	    storage.getContents(docid).then(function(result) {
-			if (result == undefined | result == "")
-				execServerRequest();
-			else
-			{				
-				var fileinfo = JSON.parse(result);
- 				setTimeout(function(){
- 					if (params.progressSpinner != undefined)
- 						 params.progressSpinner("checking for file changes"); 
+									if (fileinfo.num_access == undefined)
+										fileinfo.num_access = 0;
+									fileinfo.num_access++;
+									storage.setContents(docid,JSON.stringify(fileinfo))
+									
+									that.loadData({fileID:params.fileID, 
+												   autoLoaderPattern:params.autoLoaderPattern,
+												   file:data,
+												   URLType:'cachefile',
+												   callback:params.callback,
+												   intent:params.intent,
+												   fileinfo:finfo,
+												   progressSpinner:params.progressSpinner});
+									xhr.abort() 
+									signalhandler.detach("close",sigid);											
+								}
+								else
+								{
+									console.log("Data in local disk cache corrupt! Clean your cache!");
+									storage.rm(docid); //.then((x) => execServerRequest(true));
+									
+								}
+							},function(error){
+								console.log(error);
+								storage.rm(docid); //.then((x) => execServerRequest(true));
+									
+							});
+					}
+					else
+					{
+						console.log("cache was not found to be up-to-date, reloading");
+						console.log(fileinfo.identifier + " != "+finfo.identifier);
+						storage.rm(docid); //.then((x) => execServerRequest(true));
 
-					ajaxRequest('command=get_fileidentifier&json=' + JSON.stringify({fileID:fileinfo.ID}) ,
-						function(e){
-							if (e.identifier == fileinfo.identifier || e.identifier == "")
-							{
-								storage.getAttachment( docid, 'blob' ).then(function(data) {
-										if (data != undefined)
-										{
-											if (params.progressSpinner != undefined)
-												params.progressSpinner("Retrieving from local disk cache")
-											that.loadData({fileID:params.fileID, autoLoaderPattern:params.autoLoaderPattern,file:data,URLType:'cachefile',callback:params.callback,intent:params.intent,fileinfo:fileinfo,progressSpinner:params.progressSpinner});
-										}
-										else
-											console.log("Data in local disk cache corrupt! Clean your cache!");
-									});
-							}
-							else
-							{
-								console.log("cache was not found to be up-to-date, reloading");
-								storage.rm(docid).then(execServerRequest);
-
-							}
-
-						});
- 				   },0);
-
-
+					}
+	
 		     	}
+			});
+		}
+	}	  
 
-	     	});
 
+	execServerRequest();
+	  
   }
 
 
@@ -702,6 +787,7 @@ function KDataManager()
   function processLoadedFile(params,xhr)
   {
     var response;
+    var response_copy = undefined;
 
     function finalize()
 	{
@@ -731,22 +817,36 @@ function KDataManager()
 				
 
 
-				if (fileObject.fileinfo && fileObject.fileinfo.filesize > 250000) // only cache large files
+				if (fileObject.fileinfo && fileObject.fileinfo.filesize > 5000000) // only cache large files
 				{			
 					if (params.URLType == 'serverfile' & storage != undefined) 
 					{
 
-						if (state.project_user.localstoragesizeMB*1000000 < storage.size )
+						if (userinfo.localstoragesizeMB*1000000 < storage.size )
+						{
 							storage.rmOld(tryToSaveInCache,fileObject.fileinfo.filesize);
+							console.log("removing old data from cache")
+						}
 						else
 							tryToSaveInCache();
 							
 						function tryToSaveInCache()
 						{
-							var docid = currentModule + '_' + params.fileID; 
-							var blob = new Blob([response], {type: 'application/octet-binary'});
+							var docid = fileObject.fileinfo.identifier;
+							
+							var blob;
+							if (response_copy != undefined)
+    							blob = new Blob([response_copy], {type: 'application/octet-binary'});
+    						else
+							    blob = new Blob([response], {type: 'application/octet-binary'});
 							var finfo = JSON.parse( xhr.getResponseHeader('DPX-fileinfo') );
-							finfo.timeOfInsertion = (new Date()).getTime();
+							if (finfo != null)
+								finfo.timeOfInsertion = (new Date()).getTime();
+							else 
+							{
+								console.log("DPX-fileinfo missing for " + docid)
+								return
+							}
 							storage.setContents(docid,JSON.stringify(finfo))
 							.then(function() {
 								storage.setAttachment(docid, 'blob',blob).
@@ -856,7 +956,11 @@ function KDataManager()
           fileObject.coreginfo = coreginfo;
 			
 			var coregmat = fileObject.coreginfo.spm_coregmat
-			var psid = fileObject.fileinfo.patients_id + fileObject.fileinfo.studies_id;
+		    var psid 
+		    if (coreginfo.IDspecific != undefined)
+				psid = fileObject.fileinfo.ID;
+			else
+				psid = fileObject.fileinfo.patients_id + fileObject.fileinfo.studies_id;
 			that.setCoregInfo(psid, coreginfo)
 
           //console.log(studycoreg)
@@ -866,13 +970,13 @@ function KDataManager()
     }
 
 
-	  if (params.SubFolder)
+	if (params.SubFolder)
 	 	 fileObject.fileinfo.SubFolder = params.SubFolder;
 
     response = xhr.response;
     var uint8Response = new Uint8Array(response);
-
-    if (fileObject.error !== undefined & fileObject.error !== null)
+	      
+	if (fileObject.error !== undefined & fileObject.error !== null)
     {
 //    	var err = "Sorry, no match: " + decodeURIComponent(fileObject.fileID);
     	var err = fileObject.error;
@@ -1021,7 +1125,7 @@ function KDataManager()
 		*/
 
 		if ( state.viewer.loadBitmapAsNifti &&  
-			( fileObject.filename.search('\\.jpeg') > 0 | fileObject.filename.search('\\.jpg') > 0 | fileObject.filename.search('\\.png') > 0 | fileObject.filename.search('\\.tiff') > 0 | fileObject.filename.search('\\.bmp') > 0)
+			( fileObject.filename.search('\\.jpeg') > 0 | fileObject.filename.search('\\.jpg') > 0 | fileObject.filename.search('\\.png') > 0  | fileObject.filename.search('\\.tif') > 0 | fileObject.filename.search('\\.tiff') > 0 | fileObject.filename.search('\\.bmp') > 0)
 			)
 			{
 				fileObject.filename += '.nii';
@@ -1035,7 +1139,7 @@ function KDataManager()
 
 	function processfileObject(uint8Response)
 	{
-		if(fileObject.filename.search('\\.nii') > 0 | fileObject.filename.search('\\.mgh') > 0  | fileObject.filename.search('\\.mgz') > 0  | fileObject.filename.search('\\.nrrd') > 0)
+		if(fileObject.filename.search('\\.nii') > 0 | fileObject.filename.search('\\.mgh') > 0  | fileObject.filename.search('\\.mgz') > 0  | fileObject.filename.search('\\.nrrd') > 0 | fileObject.filename.search('\\.mif') > 0)
 		{
 			fileObject.contentType = 'nii';
 			//try
@@ -1045,6 +1149,8 @@ function KDataManager()
 				var niibuf;
 				if (fileObject.filename.search('.nrrd') > 0 )
 					niibuf = nrrd.parse(buf)
+				else if (fileObject.filename.search('.mif') > 0 )
+					niibuf = parse_mif(buf)
 				else if (fileObject.filename.search('.mgh') > 0 | fileObject.filename.search('.mgz') > 0)
 					niibuf = parse_mgh(buf)
 				else
@@ -1079,7 +1185,7 @@ function KDataManager()
 			}*/
 
       }
-      else if ( fileObject.filename.search('\\.jpeg') > 0 | fileObject.filename.search('\\.jpg') > 0 | fileObject.filename.search('\\.png') > 0 | fileObject.filename.search('\\.tiff') > 0 | fileObject.filename.search('\\.bmp') > 0)
+      else if ( fileObject.filename.search('\\.jpeg') > 0 | fileObject.filename.search('\\.jpg') > 0 | fileObject.filename.search('\\.png') > 0 | fileObject.filename.search('\\.tiff') > 0  | fileObject.filename.search('\\.tif') > 0 | fileObject.filename.search('\\.bmp') > 0)
       {
         fileObject.contentType = 'bmp';
         fileObject.content =  uint8Response;
@@ -1096,7 +1202,7 @@ function KDataManager()
         	
 
       }      
-      else if (fileObject.filename.search('\\.txt') > 0 | fileObject.filename.search('\\.stats') > 0 | fileObject.filename.search('\\.bexclude') > 0 | fileObject.filename.search('\\.bval') > 0 | fileObject.filename.search('\\.bvec') > 0  | fileObject.filename.search('\\.time') > 0)
+      else if (fileObject.filename.search('\\.py') > 0 | fileObject.filename.search('\\.m') > 0 | fileObject.filename.search('\\.txt') > 0 | fileObject.filename.search('\\.yml') > 0  | fileObject.filename.search('\\.bexclude') > 0 | fileObject.filename.search('\\.bval') > 0 | fileObject.filename.search('\\.bvec') > 0  | fileObject.filename.search('\\.time') > 0)
       {
         fileObject.contentType = 'txt';
         //fileObject.content = ab2str( uint8Response);
@@ -1104,12 +1210,13 @@ function KDataManager()
         if (typeof response == "string")
         	fileObject.content = response;
         else
-        	fileObject.content = utf8ab2str( uint8Response);
+        	fileObject.content = robust_ab2str( uint8Response);
       }
       else if (fileObject.filename.search('\\.csv') > 0)
       {
         fileObject.contentType = 'tab';
-        fileObject.content = ab2str( uint8Response);
+        fileObject.content = robust_ab2str( uint8Response);
+//        fileObject.content = ab2str( uint8Response);
       }
       else if (
                fileObject.filename.search('\\.odt')>0 |
@@ -1121,44 +1228,52 @@ function KDataManager()
         fileObject.contentType = 'doc';
         fileObject.content = ab2str( uint8Response);
       }
-  	 else if (fileObject.filename.search('\\.pdf') > 0)
+	 else if (fileObject.filename.search('\\.html') > 0)
       {
-
-      	  var blob = new Blob([uint8Response], {type: 'application/pdf'});
-
+      	  var blob = new Blob([uint8Response], {type: 'text/html'});
 		  var a = document.createElement("a");
 		  a.style = "display: none";
 		  document.body.appendChild(a);
 		  var url = URL.createObjectURL(blob);
-		  a.href = url; // + "?" + fileObject.fileinfo.SubFolder + "/" +  fileObject.fileinfo.Filename ;
-		 // a.download = 'myFile.pdf'; // gives it a name via an a tag
+		  a.href = url; 
 		  a.target = "_blank_";
 		  a.click();
 
           params.callback(undefined);
 	
 	      return;
-	      /*
-
-	//	const fileObjectURL = URL.createObjectURL(blob); 
-      	window.open(fileObjectURL,"mafile.pdf");
-      	params.callback(undefined);
-      	return;
-        fileObject.contentType = 'doc';
-        fileObject.content = ab2str( uint8Response);
-           */
+	  }
+  	 else if (fileObject.filename.search('\\.pdf') > 0)
+      {
+		  fileObject.content = uint8Response;
+		  fileObject.contentType = 'pdf';
+		  if (params.callback)
+	          params.callback(fileObject);
+	
+	      return;
+	   
       }      
-	  else if (fileObject.filename.search("\\.ano\\.json") != -1  ||  (fileObject.fileinfo.Tag != undefined && fileObject.fileinfo.Tag.search('/ANO/')>-1))
+	  else if (!(params.intent != undefined && params.intent.asjson) & ( fileObject.filename.search("\\.ano\\.json") != -1  ||  
+	           (fileObject.fileinfo.Tag != undefined && fileObject.fileinfo.Tag.search('/ANO/')>-1) ||
+	            fileObject.filename.search("\\.fcsv") > -1))
        {
-       	  try {
-          	fileObject.content = JSON.parse(utf8ab2str( uint8Response)); }
-          catch(err)
-          {
-          	 alertify.error("Error during parsing json");
-          	  params.callback(undefined);
-          	 return;
-          }
 
+       	  if (fileObject.filename.search("\\.fcsv")>-1)
+       	  {
+			 fileObject.content = robust_ab2str( uint8Response);
+       	  }
+       	  else
+       	  {
+			  try {
+				fileObject.content = JSON.parse(robust_ab2str( uint8Response)); }
+			  catch(err)
+			  {
+				 alertify.error("Error during parsing json");
+				  params.callback(undefined);
+				 return;
+			  }
+       	  }
+       	  
 		  var sets;
 		  if (params.intent && params.intent.autocreate_ano)
 		  {
@@ -1169,8 +1284,12 @@ function KDataManager()
 		  	 
 		  }
 		  else
-          	 sets = markerProxy.loadAnnotations(fileObject);
+          	 sets = markerProxy.loadAnnotations(fileObject,undefined,params,true);
 
+
+		  if (params.intent && params.intent.intendedName)
+			  KViewer.markerTool.lastMarkerCollName  = params.intent.intendedName
+		   
           // only show markerTool if no panel / panel not visible
           if(markerProxy.currentSet &&  markerProxy.currentSet.markerPanel && markerProxy.currentSet.markerPanel.panelvisible)
           {
@@ -1182,29 +1301,71 @@ function KDataManager()
 	          	 KViewer.markerTool.toggle();
           }
           
-		  params.callback();
+          if (params.callback)          
+		      params.callback(sets);
           return;
        }
-  	    else if (fileObject.filename.search("\\.batch\\.json") != -1 )
-  	    {
+  	   else if (fileObject.filename.search("\\.batch\\.json") != -1 )
+  	   {
   	    	if (!commandDialog.visible)
   	    	    commandDialog.toggle();
-  	    	commandDialog.pasteit(utf8ab2str( uint8Response));
+		    if (fileObject.fileinfo.SubFolder)
+			    commandDialog.default_save = fileObject.fileinfo.SubFolder + "/" + fileObject.filename
+		    else 
+			    commandDialog.default_save = fileObject.filename
+  	    	commandDialog.pasteit(robust_ab2str( uint8Response));
   	    	params.callback();
   	    	return;
   	    }
 
-     /* else if (fileObject.filename.search('\\.reading') > 0)
-      {
-		fileObject.formid = ( xhr.getResponseHeader('DPX-formid') );
-        fileObject.contentType = 'json';
-        fileObject.content = utf8ab2str( uint8Response);
+       else if ( (fileObject.fileinfo.Tag || "").search('TABCREATOR')>=0 )
+ 	   {
 
-      }*/
-      else if (fileObject.filename.search('\\.json') > 0 || fileObject.filename.search('\\.reading') > 0)
+               var tobj = JSON.parse(robust_ab2str( uint8Response));
+               tobj.fileObject = fileObject;
+		       var handle=getjsonascsv(tobj,function(e,tobj) {
+                        popupView({content:e.content,contentType:"tab"},{intent:{singleview:true,tobj:tobj}})
+					});
+               
+			   var ps = tobj.template_json.map(function(x){ return {URLType:'serverfile', fileID:x.fileID, callback: handle.updateKeySearch} });
+			   for (var k = 0; k < ps.length;k++)
+			       KViewer.dataManager.loadData(ps[k])
+ 			   
+ 			   params.callback();
+			   return;
+
+ 		} 		 		
+//      else if (fileObject.filename.search('\\.mat') > 0 )
+//      {
+//      	    var f = new hdf5.File(uint8Response.buffer,fileObject.filename);
+//      	    f;
+//      }
+	  else if (0) //fileObject.filename == "melodic.json")
+	  {
+		 var str = robust_ab2str( uint8Response);
+		 var data = str.split("\n").map((x)=>x.split(/[\ ]+/).map(parseHexFloat)) 
+         fileObject.content = JSON.parse(str)
+		 for (var k in fileObject.content)
+		 {
+			 var s = fileObject.content[k]
+			 s = s.substring(0,s.length-1).split(";")
+			 fileObject.content[k] = s.map((x)=>x.substring(0,x.length-1).split(/[\,]+/).map(parseHexFloat)) 
+		 }
+		 if (!KViewer.curveTool.enabled)
+			  KViewer.curveool.toggle()
+		 KViewer.curveTool.setstate('mode','fMRI')
+		 KViewer.curveTool.fmri.tmodes = fileObject;
+
+	  }
+		   
+      else if (fileObject.filename.search('\\.json') > 0 || fileObject.filename.search('\\.reading') > 0  || fileObject.filename.search('\\.stats') > 0 || fileObject.filename.search('\\.xml') > 0)
       {
+
+
         fileObject.contentType = 'json';
-        fileObject.content = utf8ab2str( uint8Response);
+        fileObject.content = robust_ab2str( uint8Response);
+
+
         if ( fileObject.content == ""  && typeof response == "string")
          	fileObject.content = response;
         if (params.URLType == 'localfile')
@@ -1213,7 +1374,7 @@ function KDataManager()
 			if (tmp == undefined )
 			{
 				if (params.callback)
-				params.callback(undefined);
+				    params.callback(undefined);
 				return;
 			}
 
@@ -1225,7 +1386,9 @@ function KDataManager()
         }
 		if ((fileObject.fileinfo.Tag || "").search('/TCKSEL/')>-1 | fileObject.filename.search('\\.tck\\.json') > 0 )
 		{
-              var tcksel = JSON.parse(fileObject.content);
+			  var tcksel;
+              tcksel = JSON.parse(fileObject.content);
+			  fileObject.content = tcksel;
               if (tcksel.assoc == undefined)
               {
                     if (tcksel.content != undefined & tcksel.content.assoc != undefined)              	
@@ -1239,18 +1402,23 @@ function KDataManager()
               }
 
 
-              var par = {URLType:'serverfile',fileID:tcksel.assoc.fileID, json:params.json,
-              			 progressSpinner:params.progressSpinner,
-
-						 callback: function(fp){
+	
+			  var fcallback = function(fp){
+						 	
 							  if (fp == undefined)
 							  {
 							  	  var files = KViewer.dataManager.getFileList();
 							  	  for (var k = 0; k < files.length; k++)
 							  	  {
 							  	  	 var fobj = KViewer.dataManager.getFile(files[k]);
-							  	  	 if (fobj.content && fobj.content.md5 == tcksel.assoc.md5)
+							  	  	 if ((fobj.content && fobj.content.md5 == tcksel.assoc.md5))
 							  	  	 {
+							  	  	 	fp = fobj;
+							  	  	 }
+							  	  	 else if (tcksel.assoc.md5 == -1 && tcksel.assoc.filename == fobj.filename) 
+							  	  	 {
+							  	  	 	tcksel.assoc.fileID = undefined
+							  	  	 	
 							  	  	 	fp = fobj;
 							  	  	 }
 							  	  }
@@ -1270,21 +1438,77 @@ function KDataManager()
 								  var fibs = KViewer.dataManager.getFile(fp.fileID) ;
 								  if (params.intent == undefined)
 								  	params.intent = {};
-								  if (params.intent.select == undefined)
-								  		params.intent.select = 'allselections';								  
+								  if (params.intent.select == undefined && params.intent.visible!==false)
+								  {
+									  if (params.intent.drop | params.intent.dblclick)
+								  		params.intent.select = 'all';								  
+								  }
 								  if (fibs.content.selections == undefined)
 									  fibs.content.selections = [];
 								  //fibs.content.selections = fibs.content.selections.concat(tcksel.selections);
-								  fibs.content.selections = tcksel.selections;
-								  fibs.tckjsonref = fileObject;
+
+  								  params.intent.subset_to_open = [];
+								  if (params.intent.select != undefined && params.intent.select != "all")
+									  params.intent.subset_to_open.push(params.intent.select)
+
+								  if (fibs.tckjsonref == undefined)
+									  fibs.tckjsonref = {};
+
+								  if (fibs.tckjsonref[fileObject.fileID] != undefined)
+									  tcksel = fibs.tckjsonref[fileObject.fileID].content;
+
+								  
+								  var current = fibs.content.selections.map((x)=>x.name);
+								  for (var k = 0; k < tcksel.selections.length;k++)
+									  {
+										  tcksel.selections[k].json = fileObject.fileinfo
+										  if (tcksel.selections[k].subset.length == 0)
+											  continue;
+										  if (fibs.tckjsonref[fileObject.fileID] == undefined)
+										  {
+											  var match = current.findIndex((x) => x==tcksel.selections[k].name)
+											  if (match == -1)
+												  fibs.content.selections.push(tcksel.selections[k])
+											  else
+											  {
+													  if (fibs.content.selections[match].subset.length != tcksel.selections[k].subset.length ||
+														  fibs.content.selections[match].subset[0] != tcksel.selections[k].subset[0])
+													  {
+														  var ccnt = 1;
+														  while (match != -1)
+														  {
+															  var nname = tcksel.selections[k].name + "(" + ccnt + ")"
+															  match = current.findIndex((x) => x==nname)
+															  ccnt++;
+														  }
+														  tcksel.selections[k].name = nname;
+														  fibs.content.selections.push(tcksel.selections[k])
+													  }
+											  }
+										  }
+										  if (params.intent.select == "all")
+											  params.intent.subset_to_open.push(tcksel.selections[k].name)
+									  }
+
+
+								  if (params.intent.subset_to_open.length == 0)
+									  params.intent.subset_to_open = undefined;
+								  
+								  if (fibs.tckjsonref[fileObject.fileID] == undefined)
+									  fibs.tckjsonref[fileObject.fileID] = fileObject;
+								  
 								  if (params.callback)
 								  	params.callback(fibs);
 								  
 								  KViewer.obj3dTool.update();
 						      }
-						  } };
+						  } 
 
+		
+              var par = {URLType:'serverfile',fileID: tcksel.assoc.fileID, json:params.json, progressSpinner:params.progressSpinner, callback:fcallback}
 
+			//  par.fileID = 'fiber_sparse.tck PPIZ:ANALYSIS \n ssse.tck PPIZ:ANALYSIS ';
+			
 			  if (electron)
 			  {
 			  	 par.URLType = "localfile";
@@ -1298,7 +1522,7 @@ function KDataManager()
 			  for (var k=0;k<files.length;k++)
 			  {
 			  	  var file = KViewer.dataManager.getFile(files[k]);
-			  	  if (file.content.md5 == tcksel.assoc.md5)
+			  	  if ((file.content.md5 != undefined && file.content.md5 == tcksel.assoc.md5) || file.fileID == tcksel.assoc.fileID)
 				  {
 				  	 par.fileID = files[k];
 				  	 found = true;
@@ -1312,7 +1536,12 @@ function KDataManager()
 				  for (var k = 0; k < files.length; k++)
 				  {
 					 var fobj = KViewer.dataManager.getFile(files[k]);
-					 if (fobj.content && fobj.filename == tcksel.assoc.filename && fobj.fileinfo != undefined && tcksel.assoc.subfolder == fobj.fileinfo.SubFolder)
+					 if (fobj.content && 
+						 fobj.filename == tcksel.assoc.filename &&
+						 fobj.fileinfo != undefined && 
+					     tcksel.assoc.subfolder == fobj.fileinfo.SubFolder && 
+						 (tcksel.assoc.psid == undefined ||
+						 tcksel.assoc.psid == fobj.fileinfo.patients_id + fobj.fileinfo.studies_id))
 					 {
 					//	alertify.error("Warning: tracts associated with selection by md5 hash not found, used association by name");
 						tcksel.assoc.md5 = fobj.content.md5;
@@ -1322,6 +1551,33 @@ function KDataManager()
 				  }
 			  }
 
+
+			  if (fileObject.fileinfo.permission == "link" && 
+				  that.getFile(par.fileID) == undefined)
+			  {
+				  if (fileObject.fileinfo.patients_id == "ANALYSIS")
+				  {
+				    if (tcksel.assoc.subfolder == "")
+					  par.fileID = tcksel.assoc.filename + ' PPIZ:ANALYSIS';
+				    else
+					  par.fileID = tcksel.assoc.subfolder + "/" + tcksel.assoc.filename + ' PPIZ:ANALYSIS';
+				  }
+			  }
+/*
+			  par.callback = function(fp) {
+				  if (fp != undefined)
+					  fcallback(fp)
+				  else
+				  {
+		              var par2 = {URLType:'serverfile',fileID: tcksel.assoc.fileID, json:params.json, progressSpinner:params.progressSpinner, callback:fcallback}
+					  if (tcksel.assoc.subfolder == "")
+						  par2.fileID = tcksel.assoc.filename + ' PPIZ:ANALYSIS';
+					  else
+						  par2.fileID = tcksel.assoc.subfolder + "/" + tcksel.assoc.filename + ' PPIZ:ANALYSIS';
+	                  KViewer.dataManager.loadData(par2);					  
+				  }
+			  }
+*/			
               KViewer.dataManager.loadData(par);
 
 //			  if (found)
@@ -1332,6 +1588,10 @@ function KDataManager()
 
 			  return
 		}
+ 		else if (fileObject.filename.search('\\.ano\\.json') > 0)
+ 		{
+ 			//fileObject.content = JSON.stringify(parseANOjsonForStats(fileObject.content)) 			
+ 		}
  		else if (fileObject.filename.search('\\.cc\\.json') > 0)
  		{
 			if (typeof fileObject.content != "object")
@@ -1349,7 +1609,7 @@ function KDataManager()
        		
 
  		}
- 		else if ( (fileObject.fileinfo.Tag || "").search('workstate')>=0 )
+ 		else if ( (fileObject.fileinfo.Tag || "").search('workstate')>=0 | (fileObject.filename.search('\\.workstate\\.json') > 0))
  		{
  				KViewer.closeAll(function()
  				{
@@ -1373,12 +1633,7 @@ function KDataManager()
 				
  				return;
  		}
- 		else
- 		{
-
-
- 		}
-
+ 		
 
 
       }
@@ -1408,6 +1663,7 @@ function KDataManager()
       
       else if (fileObject.filename.search('.tck') > 0 | fileObject.filename.search('.trk') > 0)
       {      	
+         response_copy = Uint8Array.from(uint8Response);
 		 KViewer.obj3dTool.prepareFiberData(fileObject,uint8Response,function(txt) {
 		 	 if (params.progressSpinner != undefined)
 		    	params.progressSpinner(txt);      
@@ -1567,6 +1823,12 @@ function KDataManager()
       var obs = Object.keys(files);
       for (var k = 0; k< obs.length;k++)
       {
+         if (files[obs[k]].fileinfo &&  files[obs[k]].fileinfo.Tag)
+         {
+         	if (files[obs[k]].fileinfo.Tag.search(/\/static\//) > -1)
+         	    continue;
+         }
+
 		 //if (KViewer.atlasTool.objs[files[obs[k]].fileID] == undefined)
 		 {
 		 	delete files[obs[k]].content;
@@ -1586,6 +1848,7 @@ function KDataManager()
 
   /** clones a nifti as a ROI 
    *  @function */
+  cloneAsROI.cnt = 0;
   function cloneAsROI(id,name,lim,params)
   {
       var fobj = getFile(id);
@@ -1610,6 +1873,8 @@ function KDataManager()
         {
             var newobj =  clone(fobj,fobj.filename+"_"+k,"label"+k);
             files[newobj.fileID] = newobj;
+            if (newobj.fileinfo.Filename != undefined)
+               newobj.fileinfo.Filename = newobj.filename;
             newobj.filename = newobj.filename.replace(".nii","");
             newobj.filename = newobj.filename.replace(".gz","");
             newobj.label = parseInt(k);
@@ -1623,6 +1888,8 @@ function KDataManager()
          var newobj = fobj;
          newobj.modified = false;
          files[newobj.fileID] = newobj;
+         if (newobj.fileinfo.Filename != undefined)
+             newobj.fileinfo.Filename = newobj.filename;
          newobj.filename = newobj.filename.replace(".nii","");
          newobj.filename = newobj.filename.replace(".gz","");
          newobj.fileinfo.Tag = "/mask/" + newobj.fileinfo.Tag;
@@ -1634,7 +1901,9 @@ function KDataManager()
        
          var newobj =  clone(fobj,name,lim);
          files[newobj.fileID] = newobj;
-         newobj.modified = true;
+         newobj.modified = false;
+         if (newobj.fileinfo.Filename != undefined)
+             newobj.fileinfo.Filename = newobj.filename;
          newobj.filename = newobj.filename.replace(".nii","");
          newobj.filename = newobj.filename.replace(".gz","");
          newobj.fileinfo.patients_id = fobj.fileinfo.patients_id;
@@ -1660,10 +1929,8 @@ function KDataManager()
 		  fileObject.fileinfo.Tag = '/mask/';
 
 		  // get a new ID
-		  var roiid = "ROI_0";
-		  var cnt = 1;
-		  while (files[roiid]!=undefined)
-			  roiid = "ROI_" + cnt++;
+		  var roiid = "ROI_" + cloneAsROI.cnt;
+		  cloneAsROI.cnt++
 
 		  if (fobj.intendedROIid != undefined)
 		  	  roiid = fobj.intendedROIid;
@@ -1717,7 +1984,15 @@ function createLoadParamsFileDrop(e, callback, progress)
 
     function validFileExt(p)
     {
-        var exts = ['trk','nii', 'tck', 'json', 'txt', 'jpeg', 'jpg', 'png', 'bmp', 'gii', 'pdf', 'csv', 'bval', 'bvec', 'bmat','mgh','nrrd' ,'mgz', 'stl', 'mat'];
+		if (p.isdicom | p.isbruker)
+			return false;
+		else
+	    	return true;
+        
+		
+		var exts = ['trk','nii', 'tck', 'json', 'txt', 'jpeg', 'jpg', 'png', 'bmp', 'gii', 
+                    'pdf', 'csv', 'bval', 'bvec', 'bmat','mgh','nrrd' ,'mgz', 'stl', 'mat', 
+                    'tif','tiff','ipynb'];
         if (p.filename) // only for local files
         {
             for (var k = 0; k < exts.length; k++)
@@ -1789,20 +2064,7 @@ function createLoadParamsFileDrop(e, callback, progress)
 
         for (var k = 0; k < params.length; k++)
         {
-            if (validFileExt(params[k]))
-            {
-                params[k].progressSpinner = progress;
-                params[k].callback = function() {
-                    progress()
-                }
-                ;
-
-                if (str)
-                    params[k].SubFolder = str.replace(/^\/|\/$/g, "");
-
-                loadParams.push(params[k]);
-            }
-            else if (params[k].filename.search("\\.zip") > -1)
+            if (params[k].filename.search("\\.zip") > -1)
             {
                 progress("analyzing archive");
                 var loadParamsZip = [];
@@ -1864,6 +2126,19 @@ function createLoadParamsFileDrop(e, callback, progress)
 
 
             }
+		    else if (validFileExt(params[k]))
+            {
+                params[k].progressSpinner = progress;
+                params[k].callback = function() {
+                    progress()
+                }
+                ;
+
+                if (str)
+                    params[k].SubFolder = str.replace(/^\/|\/$/g, "");
+
+                loadParams.push(params[k]);
+            }            
         }
         return loadParams;
     }
@@ -1875,6 +2150,8 @@ function createLoadParamsFileDrop(e, callback, progress)
 
     // file drop from local files
     var dt = e.dataTransfer;
+	if (e.clipboardData != undefined)
+		dt = e.clipboardData;
     // this will not work in firefox, that case will be handled below.
     if (dt.items && dt.items[0] && dt.items.length > 0 && dt.items[0].webkitGetAsEntry && dt.items[0].webkitGetAsEntry())
     {
@@ -1884,7 +2161,8 @@ function createLoadParamsFileDrop(e, callback, progress)
 
 
         var workpackages = [];
-
+		var to_be_aborted = false;
+		progress('reading file information',function() { to_be_aborted = true})
         browseDir(ientries, undefined, "", function() {
 
             function runSync()
@@ -1893,7 +2171,11 @@ function createLoadParamsFileDrop(e, callback, progress)
                 {
                     var p = workpackages[0];
                     workpackages = workpackages.slice(1);
-                    syncImport(p.params_arr, runSync);
+                    syncImport(p.params_arr, function(){
+						if (p.params_arr.to_be_aborted)
+							return;
+						runSync()	
+					});
                 }
             }
             runSync();
@@ -1901,7 +2183,8 @@ function createLoadParamsFileDrop(e, callback, progress)
 
         function browseDir(entries, parent, str, cb)
         {
-
+			if (to_be_aborted)
+			  return;
             var params_arr = [];
             params_arr.parent = parent;
 
@@ -1941,7 +2224,17 @@ function createLoadParamsFileDrop(e, callback, progress)
                 }
                 var entry = entries[0];
                 entries = entries.slice(1);
-                readSingleEntry(entry, iterateEntries);
+                if (entry.file == undefined)
+                	readSingleEntry(entry, iterateEntries);
+				else
+					entry.file(function(fileobject){
+						entry.fileobject = fileobject;
+						readSingleEntry(entry, iterateEntries);
+					},function(){
+						console.log("problem accessing " + entry.name)
+						readSingleEntry(entry, iterateEntries);
+
+					})
             }
 
 
@@ -2001,7 +2294,6 @@ function createLoadParamsFileDrop(e, callback, progress)
     }
     else
     {
-
         var params = getloadParamsFromDrop(e, undefined, progress);
         syncImport(params);
 
@@ -2010,3 +2302,22 @@ function createLoadParamsFileDrop(e, callback, progress)
 }
 // end createLoadParamsFileDrop
 
+
+
+
+function parseHexFloat(x)
+{
+    var sg = 1;
+    if (x[0] == "-")
+    {
+        sg = -1;
+        x = x.substring(1)
+    }
+    var p = x.search("p")
+    var q = x.substr(4,x.length-p+3)
+    var z = 1+parseInt(q,16)/Math.pow(16,q.length)
+    var pow = parseInt(x.substr(p+1),16)
+	var res = sg*z * Math.pow(2,pow)
+ 
+    return res
+}

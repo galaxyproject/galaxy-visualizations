@@ -30,7 +30,6 @@ function KPrototypeViewer(viewport, master)
     {
 		if (!that.toolbar.issticky)
 		{
-
         	var $t = $(e.target);
         	for (var k = 0; k < 3;k++)
         	{
@@ -39,11 +38,19 @@ function KPrototypeViewer(viewport, master)
         	    $t = $t.parent()
         	}
 
+			var trg = $(e.target)
+			if (!trg.hasClass("KViewPort_tool"))
+				 trg = trg.parent();
+	        if ( trg.hasClass("draganddrop") ||
+	             trg.hasClass("penciltoggle") ||
+	             trg.hasClass("KToolbar_sticky") ||
+	             trg.hasClass("KViewPort_tool_cmap") )
+	           return;
 
 			if (that.toolbar.stdelay != undefined)
 				clearTimeout(that.toolbar.stdelay)
 			that.toolbar.stdelay = setTimeout(function(){
-			   that.toolbar.show_addons(e);
+			   that.toolbar.show_addons(e,trg);
 			   that.toolbar.stdelay = undefined
 			},150);
 
@@ -52,13 +59,23 @@ function KPrototypeViewer(viewport, master)
 			that.toolbar.id = setTimeout(function(){
 				that.toolbar.hide_addons();
 				that.toolbar.id = undefined;
-			},2500);
+			},25000);
 		}
     });
     that.toolbar.$container.on("mouseleave",function()
     {
     	if (that.toolbar.stdelay != undefined)
     	    clearTimeout(that.toolbar.stdelay)
+
+        if (!that.toolbar.issticky)
+        {
+			if (that.toolbar.id != undefined)
+				clearTimeout(that.toolbar.id);
+			that.toolbar.id = setTimeout(function(){
+				that.toolbar.hide_addons();
+				that.toolbar.id = undefined;
+			},500);
+        }
         
     });
 
@@ -67,7 +84,11 @@ function KPrototypeViewer(viewport, master)
     that.toolbar.$dragdiv.attr("draggable",'true');
     that.toolbar.$dragdiv.on('mousedown',function(e){e.stopPropagation()})
 	that.toolbar.$dragdiv[0].ondragstart = dragstarter(function() { 
-       return { type:'file', mime: that.contentType, filename: that.currentFilename,  fileID: that.currentFileID}; } ) 
+	   var dragobj = { type:'file', mime: that.contentType, filename: that.currentFilename,  fileID: that.currentFileID, fromViewPort : that.viewport.viewPortID}; 
+	   if (that.extendDragObj)
+	       that.extendDragObj(dragobj)
+       return dragobj 
+    }) 
 
 
 
@@ -77,7 +98,12 @@ function KPrototypeViewer(viewport, master)
                      .appendTo(that.toolbar.$container).appendTooltip("zoomviewport")
     that.toolbar.$screenshot = $("<div class='KViewPort_tool'><i class='fa fa-camera fa-1x'></i></div>")
 					 .on('mousedown',function(e){e.stopPropagation()})
-                     .click(takeScreenshot).appendTo(that.toolbar.$container).appendTooltip("screenshot")
+                     .click(function()
+							   {
+								if (that.type != "mainview")
+									takeScreenshot()
+							   }                  
+                     ).appendTo(that.toolbar.$container).appendTooltip("screenshot")
 
 	if (KViewer.standalone)
 	{
@@ -102,17 +128,19 @@ function KPrototypeViewer(viewport, master)
 		 $(	 that.toolbar.$container.find(".KToolbarSep")[0]).prevAll().attr("style","")
 	}
 
-
-	that.toolbar.get_addons = function(e)
+	that.toolbar.get_addons = function(e,trg)
 	{
 		if (e == undefined)
 		    return that.toolbar.$container.find(".KToolbarSep").find(".KViewPort_tool").not("input, .persistent, .caption, .draganddrop, .KViewPort_tool_cmap, .KToolbar_sticky");
 		else
 		{
-			if (e.target != undefined)
+            if (trg == undefined)
+                trg = e.target
+
+			if (trg != undefined)
 			{
-				var $t = $(e.target);
-				return $t.nextUntil("br").add($t.prevUntil("br"))
+				var $t = $(trg);
+				return $t.nextUntil("br").add($t.prevUntil("br")).add($t)
 			}
 			else
 			{
@@ -125,24 +153,45 @@ function KPrototypeViewer(viewport, master)
 	that.toolbar.hide_addons = function()
 	{
 		that.toolbar.get_addons().addClass("KTool_hidden");
-	
 		setTimeout(function(){ 
-		    that.toolbar.get_addons().addClass('KTool_displaynone') 
-	        that.toolbar.$container.find(".KViewPort_tool.caption").addClass("equalwidth");
+			if (!that.toolbar.issticky)
+			{
+				that.toolbar.get_addons().addClass('KTool_displaynone') 
+				that.toolbar.$container.find(".KViewPort_tool.caption").addClass("equalwidth");
+			}
 		},500);
-	}
-	that.toolbar.show_addons = function(e)
-	{	
-	    if (e == undefined || $(e.target).hasClass("KViewPort_tool"))
+	}	    
+
+	that.toolbar.show_addons = function(e,trg)
+	{	/*
+	    var trg;
+	    if (e != undefined)
 	    {
-			var $thesep = that.toolbar.get_addons(e);
+	         trg = $(e.target)
+	         if (!trg.hasClass("KViewPort_tool"))
+	             trg = trg.parent();
+	    }
+	    if (e == undefined || 
+	       (trg.hasClass("KViewPort_tool") && 
+	       !trg.hasClass("draganddrop") &&
+	       !trg.hasClass("penciltoggle") &&
+	       !trg.hasClass("KViewPort_tool_cmap")
+	       ) ) 
+	       */
+
+	    
+	    if (trg == undefined && e != undefined)
+            trg = $(e.target)	       
+	   // if (e == undefined)
+	    {
+			var $thesep = that.toolbar.get_addons(e,trg);
 			if ($thesep.length == 1)
 			{
 				$thesep.addClass('KTool_displaynone');
 				return;
 			}
-			$thesep.removeClass("KTool_hidden KTool_displaynone");
-            $thesep.removeClass("equalwidth");
+			$thesep.removeClass("KTool_hidden KTool_displaynone equalwidth");
+
 
 			if (!that.toolbar.issticky)
 			{
@@ -151,7 +200,7 @@ function KPrototypeViewer(viewport, master)
 				that.toolbar.id = setTimeout(function(){
 					that.toolbar.hide_addons();
 					that.toolbar.id = undefined;
-				},2500);
+				},25000);
 			}
 	    }
 	}
@@ -240,7 +289,7 @@ function KPrototypeViewer(viewport, master)
 	that.toolbar.$info.attr("draggable",'true');
 	that.toolbar.$info.on('mousedown',function(e){e.stopPropagation()})
 	.on("dragstart", dragstarter(function() { 
-    return { intent:{viewport:that.viewport.viewPortID}, type:'file', mime: that.contentType, filename: that.currentFilename,  fileID: that.currentFileID}; } ) );	
+    return { fromViewPort : that.viewport.viewPortID, intent:{viewport:that.viewport.viewPortID}, type:'file', mime: that.contentType, filename: that.currentFilename,  fileID: that.currentFileID}; } ) );	
 
 	that.toolbar.$info.click(function(ev){
 		
@@ -406,10 +455,19 @@ function KPrototypeViewer(viewport, master)
 
 	}
 
+
+	that.setInfoText = function(txt)
+	{
+		if (that.$infobar != undefined)
+			$(that.$infobar[0]).html(txt)
+	}
+
+
+    that.takeScreenshot = takeScreenshot
     /** @function */
     function takeScreenshot()
     {
-
+    
 	  // find normal or 3D canvas, whichever is visible
 	  var $C = that.$container.find(".KViewPort_canvas:visible, .KViewPort_canvas3D:visible");
 	  if($C.length > 0)
@@ -417,7 +475,7 @@ function KPrototypeViewer(viewport, master)
 
 		 var blob = dataURItoBlob($C.get(0).toDataURL());
 		 var finfo = that.viewport.getCurrentViewer().currentFileinfo;
-		 saveScreenShot(blob,finfo);		
+		 saveScreenShot(blob,finfo,".png",true);		
 		 $(".KViewPort_container").removeClass('noBorder');
 		
 	  }
@@ -479,7 +537,10 @@ function KPrototypeViewer(viewport, master)
         that.content = ev;
         
         viewport.setCurrentViewer(that);
-    	that.toolbar.$info.html(ev.filename);
+        if (ev.fileinfo && ev.fileinfo.SubFolder != undefined && ev.fileinfo.SubFolder != "")
+    	    that.toolbar.$info.html(ev.fileinfo.patients_id + ev.fileinfo.studies_id + " " + ev.fileinfo.SubFolder+"/"+ev.filename);
+    	else
+    	    that.toolbar.$info.html(ev.filename);
 		if (params && params.hideControls)
         	that.toolbar.hide();
         else
@@ -509,7 +570,7 @@ function KPrototypeViewer(viewport, master)
     }
  
 
-    signalhandler.attach("close",function() { that.close() });
+    that.sigid_close = signalhandler.attach("close",function() { that.close() });
 
     that.closeUnreferenced = function()
     {
@@ -543,32 +604,23 @@ function KPrototypeViewer(viewport, master)
 // ======================================================================================
 // ======================================================================================
 
-function KViewerJS(parent_viewport_, master_)
+function KViewerJS(viewport, master)
 {
-  var that = new Object();
+  var that = KPrototypeViewer(viewport, master);
 
-  that.viewerType = 'ViewerJS';
+  that.viewerType = 'genViewer';
 
-  var viewport = parent_viewport_;
-  var master = master_;
+  var toolbar = that.toolbar;
 
-  var $container = $("<div class='KViewPort_icontainer'></div>");that.$container = $container;
-  var $topRow    = $("<div id='KViewPort_topRow'></div>").appendTo($container);
 
-  var toolbar = new Object();
-  toolbar.$container = $("<div class='KViewPort_toolbar'></div>").appendTo($topRow);
-  toolbar.$close = $("<div  class='KViewPort_tool KViewPort_tool_close'>  <i class='fa fa-close fa-1x'></i></div>").click(function() { close(); }).appendTo(toolbar.$container)
-                     .mousedown(viewport.closeContextMenu());
+  var $container = that.$container 
+  var $topRow    = that.$topRow;
 
-  toolbar.$zoom = $("<div class='KViewPort_tool'><i class='fa fa-expand fa-1x'></i></div>").click(function() { 
-
-  viewport.zoomViewPort(); }).hide().appendTo(toolbar.$container);
-
+	
   that.toolbar = toolbar;
 
+  that.scrolltop = 0;
   var $div =  $("<div class='KViewPort_ViewerJS'></div>").appendTo($container);
-
-  var $viewer;
 
 
 
@@ -576,29 +628,35 @@ function KViewerJS(parent_viewport_, master_)
 
   function setContent(ev)
   {
-    that.currentFileID = ev.fileID;
-    that.currentFilename = ev.filename;
+	    that.currentFileID = ev.fileID;
+	    that.currentFilename = ev.filename;
+	
+	    viewport.setCurrentViewer(that);
+	
+		that.prepViewer(ev);
 
-    viewport.setCurrentViewer(that);
-    var caller = '/VEO/ViewerJS/#' + myownurl + '?fileID=' + ev.fileID + "&asuser="+userinfo.username + "#" + ev.filename;
-
-    $viewer = $("<iframe id='viewerjs' src = '"+caller+"' ></iframe>");
-
-
-    $div.append($viewer);
-    $div.show();
-
-    toolbar.$zoom.show();
-    toolbar.$close.show();
-
-    setImageLayout();
+	    if (typeof pdfjsLib == "undefined")		
+		    scriptLoader.loadScript('pdf/pdf.min.js', function() { 			
+			    scriptLoader.loadScript('pdf/pdf.worker.min.js', function() { 
+					renderPdfBlobToIframe(ev.content.buffer,$div[0])
+			}) })
+		else
+		    renderPdfBlobToIframe(ev.content.buffer,$div[0])
+	
+		  
+	    $div.show();
+	
+	    toolbar.$zoom.show();
+	    toolbar.$close.show();
+	    toolbar.$info.show()
+	
+	    setImageLayout();
 
   }
 
   that.detachContent = detachContent;
   function detachContent()
   {
-    //$container.detach();
   }
 
   that.setInnerLayout = setImageLayout;
@@ -607,11 +665,9 @@ function KViewerJS(parent_viewport_, master_)
     $ref = viewport.isZoomed()?master.$zoomedPortContainer:viewport.$container;
     $container.width($ref.width());
     $container.height($ref.height());
-    if ($ref.find("#viewerjs").length == 0)
-        $container.appendTo($ref);
-
-    $viewer.width($container.width()*1);
-    $viewer.height($container.height()*1);
+	$div.children().css('width',$ref.width()-10)
+	if (that.pdf)
+		$div.scrollTop(that.scrolltop*($div.children().height()*that.pdf.numPages))
 
   }
 
@@ -623,16 +679,64 @@ function KViewerJS(parent_viewport_, master_)
 			toolbar.$zoom.hide();
 
 			that.currentFileID = undefined;
-			$viewer.remove();
-			$div.hide();
+			$div.children().remove()
+			$div.hide()
 			viewport.close();
     	}
 
     }
     that.close = close;
     signalhandler.attach("close",close);
-
-
+	var layoutbar = that.layoutbar
+	function zoom(fac)
+		{
+		   var wid = parseInt($div.children().css('width'))
+		   var left
+		   if ($ref.width()/wid > 1)
+		       left = ($ref.width()-wid*fac*Math.floor($ref.width()/wid))/2
+		   else
+			   left = ($ref.width()-wid*fac)/2
+  	       $div.children().css('width',wid*fac)
+		   $div.children().css('left',left)
+		}
+	  layoutbar.$zoomin.on("mousedown", function(e){zoom(1.1)  })	
+	  layoutbar.$zoomout.on("mousedown", function(e)  { zoom(1/1.1)   })	
+	
+    $div.on("scroll",function(e)
+    {
+       var scrolltop = $div.scrollTop()
+	   that.scrolltop = scrolltop/($div.children().height()*that.pdf.numPages)
+      
+	})
+	
+	async function renderPdfBlobToIframe(arrayBuffer, $container) {
+      $ref = viewport.isZoomed()?master.$zoomedPortContainer:viewport.$container;
+		
+	  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+	  const pdf = await loadingTask.promise;
+	  that.pdf = pdf;
+	
+	  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+	    const page = await pdf.getPage(pageNum);
+	    const viewport = page.getViewport({ scale: 1.5 });
+	
+	    const canvas = document.createElement('canvas');
+	    canvas.width = viewport.width;
+	    canvas.height = viewport.height;
+	
+	    const context = canvas.getContext('2d');
+	    const renderContext = {
+	      canvasContext: context,
+	      viewport: viewport
+	    };
+	
+	    await page.render(renderContext).promise;
+		$container.appendChild(canvas);
+		$(canvas).width($ref.width()-10)
+	  }
+		
+	}
+		
   return that;
 
 }
@@ -657,6 +761,56 @@ function KJsonViewer(viewport,master)
   that.viewerType = 'jsonViewer';
 
   var toolbar = that.toolbar;
+
+	
+	
+	
+  that.unfolded = false;
+  function unfold()
+  {
+			that.unfolded = !that.unfolded
+            var labels = $a.find("label");
+
+            var s = $(labels[0]).next()[0].checked;
+
+            for (var k = 0; k < labels.length;k++)
+            {
+            	if ($(labels[k]).next()[0].checked == s)
+            	   $(labels[k]).trigger("click")
+            }
+
+
+  }
+
+  that.getState = function () {
+	var state = [];
+    var nodes = $a.find("input");
+	for ( var k = 0; k < nodes.length;k++)
+		state.push(nodes[k].checked)
+	  
+  	return {fold:state};
+  }
+
+
+  that.setState = function (s) {
+    var nodes = $a.find("input");
+	for ( var k = 0; k < nodes.length;k++)
+		nodes[k].checked = s.fold[k];
+	  
+  }	
+
+  toolbar.$fold = $("<div class='KViewPort_tool'><i class='fa fa-folder-open fa-1x'></i></div>")
+		        .click(unfold);
+     
+  toolbar.$download = $("<div class='KViewPort_tool'><i class='fa fa-download fa-1x'></i></div>")
+        .click(function() { 
+            var fname = that.content.filename;
+            if (fname.search("\\.json") == -1)
+                fname += '.json'
+			initiateDownload(that.content.content,  fname);		
+         });
+     
+
   toolbar.$save = $("<div class='KViewPort_tool'><i class='fa fa-save fa-1x'></i></div>")
         .click(function() { 
 			var myquery = [[]];
@@ -677,7 +831,10 @@ function KJsonViewer(viewport,master)
 
 					myquery[0].push({command:'save_patientinfo_studyinfo' ,json:{piz:psid[0],sid:sid,content:obj }});
 					ajaxRequest( myquery, function(e) {
-						alertify.success("studyinfo saved");
+						if (e.json[0].success == 1)
+						    alertify.success("studyinfo saved");
+						else
+                            alertify.error("studyinfo saving failed: " + e.json[0].msg );						
 
 						});
 				}
@@ -688,17 +845,49 @@ function KJsonViewer(viewport,master)
          	}
          	else
          	{
+                  var suggested = that.currentFileinfo.Filename;
+                  if (that.currentFileinfo.SubFolder != undefined && that.currentFileinfo.SubFolder != "")
+                      suggested = that.currentFileinfo.SubFolder + "/" + suggested
 
+				  saveDialog("json",
+					  function(name,finfo)
+							{ 
+								var subfolder;    
+								if (name && name.split("/").length > 1)
+								{
+									var split = name.split("/");
+									name = split[split.length-1];
+									if (split.length > 1)
+									{
+										split.pop();
+										subfolder = split.join("/");
+										finfo.SubFolder = subfolder;
+									}
+
+								}
+							    uploadJSON(name,json_obj,finfo);  	
+                                that.content.content=JSON.stringify(json_obj)
+							     
+
+							} ,suggested,that.currentFileinfo) 
+
+  
+      					
+/*
 			  uploadJSON(that.currentFileinfo.Filename,json_obj,{subfolder:that.currentFileinfo.SubFolder});  	 
               that.content.content=JSON.stringify(json_obj)
-
+*/
          	}
 
          	 });
   toolbar.attach(toolbar.$save);
+  toolbar.attach(toolbar.$download);
+  toolbar.attach(toolbar.$fold);
   that.layoutbar.$container.hide()
 
   var json_obj;
+  that.getJson = () => json_obj;
+	
 
   var $div =  $("<div class='KViewPort_jsonViewer'></div>").appendTo(that.$container);
 
@@ -711,26 +900,78 @@ function KJsonViewer(viewport,master)
 
   function setContent(params,ev)
   {
+	if (ev.obj != undefined)
+	  	that.currentFileinfo = ev.obj.fileinfo
 
-    if (ev && ev.intent && ev.intent.singleview)
+    if (ev && ev.intent)
     {
-    	toolbar.$dragdiv.hide();
-    	toolbar.$screenshot.hide()
-    	toolbar.$close.hide();
-    	toolbar.$zoom.hide();
-    }
-
-    var str = params.content;
-	try { d = JSON.parse(str.replace(/\n/g,"\\n")); } catch(e)
+		if ( ev.intent.singleview)
 		{
-			try { eval('d='+str); } catch(e)
+	    	toolbar.$dragdiv.hide();
+	    	toolbar.$screenshot.hide()
+	    	toolbar.$close.hide();
+	    	toolbar.$zoom.hide();
+		}
+		if ( ev.intent.unfold & !ev.intent.state)
+		{
+			setTimeout(unfold,0);
+		}
+		
+    }
+	  
+
+    var d;
+    var str = params.content;
+	if (str.content !=undefined)
+		d = str.content;
+    else
+	{
+		try { 
+	
+		    if (params.filename.search("\\.xml")>-1)
+			{
+				var xml  = xml2js(str);
+				d = convxml(xml.elements)
+	
+				if (params.filename.substring(0,6) == "catROI" | params.filename.substring(0,7) == "catsROI")
+					d = convCAT12(d);
+			
+			}
+			else if (params.filename.search("\\.stats")>-1)
+	     	{
+				d  = parseFSstatAsJSON(str);
+	       	}
+			else if (params.filename == 'melodic.json')
+			{
+				 d = JSON.parse(str)
+				 for (var k in d)
+				 {
+					 var s = d[k]
+					 s = s.substring(0,s.length-1).split(";")
+					 var tmp = s.map((x)=>x.substring(0,x.length-1).split(/[\,]+/).map(parseHexFloat));
+					 d[k] =  tmp[0].map((_, colIndex) => tmp.map(row => row[colIndex]));
+				 }
+				params.content = {content:d};
+			//	 if (!KViewer.curveTool.enabled)
+			//		  KViewer.curveTool.toggle()
+				 KViewer.curveTool.setstate('mode','fMRI')
+				 KViewer.curveTool.fmri = d;				
+			}
+	       	else
+	       	{
+	    	  var d = sertry(() => JSON.parse(str.replace(/\n/g,"\\n")),
+	    	                  () => JSON.parse(str.replace(/\n/g,"\\n").replaceAll('\\"','\"')),
+	    	                  () =>  eval('d='+str))
+	
+	       	}
+		} catch(e)
 			{
 				 KViewer.dataManager.delFile(params.fileID);
 				 KViewer.cacheManager.update()
-				alertify.error('Error: The json in this file seems to be corrupt!');
-				return false;
-			}
-		}	
+				 alertify.error('Error: The json in this file seems to be corrupt!');
+	  			 return false;			
+			}	
+	}
 	if (d == undefined)
 	{
 		 KViewer.dataManager.delFile(params.fileID);
@@ -805,10 +1046,15 @@ function KJsonViewer(viewport,master)
   	that.prepViewer(params);
 
     var id = that.viewport.viewPortID;
+    var subid = 0;
     $a.children().remove();
 
 	addChildren(undefined,$a,d,undefined,editable);
 
+
+	if (ev && ev.intent && ev.intent.state)
+		setTimeout(function() { that.setState(ev.intent.state)},100)
+	  
 	json_obj = d;
 
 
@@ -844,7 +1090,7 @@ function KJsonViewer(viewport,master)
 					   {
 						var sobj = {};
 						var obj = sobj;
-						index = val.split(",");
+						index = val.split(".");
 						for (var k = 0; k <index.length-1;k++)
 						{
 							obj[index[k]] = {};
@@ -866,7 +1112,7 @@ function KJsonViewer(viewport,master)
  				if (path != undefined)
  				{
  					var obj = json_obj;
- 					index = path.split(",");
+ 					index = path.split(".");
  					for (var k = 0; k <index.length-1;k++)
  						obj = obj[index[k]];
  					delete obj[index[index.length-1]];
@@ -888,32 +1134,52 @@ function KJsonViewer(viewport,master)
 				def = index[index.length-2] + '_' + index[index.length-1];
 			  else
 				def = index[index.length-1];
+			  def = def.replace("\\.","_");
 
-			  alertify.prompt({msg:'Please give a name for the metaindex (no special chars).<br>Start with "/" to share with all users.' + index.toString() ,opt:["FLOAT","INT","STRING","MEDIUMTEXT"], optMsg:"Datatype of Index"},				  
+			  var index_sug = index.map((x)=>x.replace(/\./g,"\\.")).join(".");
+			 
+			  alertify.prompt([{msg:'Create meta index with key sequence:'},{msg:'Give a name for the metaindex (no special chars).<br>Start with "/" to share with all users.' 
+							 ,opt:["FLOAT","INT","STRING","MEDIUMTEXT"], optMsg:"Datatype of Index"}],				  
 			  function(e,val)
 					{ 
 					   if (e)
 					   {
-						 var name = val.str;
+						 var name = val.str[1];
+						 var theindex = val.str[0].split(/(?<!\\)\./).map((x)=>x.replace(/\\./,"."))
 						 var shared = false; if(name[0] == "/"){ shared = 1; name = name.substring(1)};
-						   	
+
+						 if (theindex[0] != "STUDY" && theindex[0] != "PATIENT")
+							 theindex[0] = "/" + theindex[0];
+						   
 						 name = name.replace(/[^\w\s]/gi, '_').replace(/ /g,'_');
 						 var type = val.option;
 						 if (type == 'STRING')
 							type = "CHAR(64)";
-						 createMetaIndex_local(name, index, type, level, shared);
+						 createMetaIndex_local(name, theindex, type, level, shared);
 					   }
-					},def);
+					},[index_sug,def]);
 
 				function createMetaIndex_local(name,index,type,level, shared)
 				{					
 
 
-				    var pbar = KProgressBar("updateing metaindex " + name,"fa-submit",undefined,true);
+					 var xhr;
+					 var pbar = KProgressBar("adding meta index","fa-submit",function(x)
+					 {
+						xhr.abortPHPprocess();
+						refreshButton();
+					 },true)
 
-					
-					var jsonString = JSON.stringify({name:name,index:index,type:type,level:level, shared:shared});
-					ajaxRequest('command=addMetaIndex'+'&json=' + jsonString , function(e) {
+
+                    var items = patientTableMirror.selectedItems.map((x) => x.replace(/§#/g,"#"))					
+					var jsonString = JSON.stringify({name:name,index:index,type:type,level:level, shared:shared,items:items});
+					xhr = ajaxRequest('command=addMetaIndex'+'&json=' + jsonString , function(e) {
+
+						var colstate = 'colstate_' + state.viewer.selectionMode[1];
+						var tstate = state.table[colstate];
+						tstate.viscol.push(true)
+						tstate.widths.push(undefined);
+						
 						state.metaindices = e.metaindices; 
 					    pbar.done();
 						refreshButton();
@@ -934,13 +1200,15 @@ function KJsonViewer(viewport,master)
                 
 				if (params.fileinfo.meta)		
 				{		
-					index = path.split(",");
+					index = path.split(".");
 					level = params.fileinfo.type;
 				}
 				else
 				{
-					index = [params.filename.replace('.json','')];
-					index = index.concat(path.split(","));
+					var subf = params.fileinfo.SubFolder;
+					if (subf != "") subf = subf + "/";
+					index = [subf + params.filename.replace('.json','')];
+					index = index.concat(path.split(/(?<!\\)\./));
 					level = 'study';
 				}
 					
@@ -972,12 +1240,29 @@ function KJsonViewer(viewport,master)
 
     function addChildren($parent, $currentNode, obj,attrarr,editable)
     {
-    
+      var theid = id + "_" + subid;
+      subid++;
+      
       if (attrarr == undefined)
       	attrarr = [];
       var isarray = Array.isArray(obj);
+      if (isarray & $.isNumeric(obj[0]) & obj.length>50)
+	  {
+		 var $tmp = $("<li ></li>")
+		 var $info = addChart($tmp,obj,attrarr);
+		 var $label = $parent.find("label");
+		 $label.text("")
+ 	     $label.append($info);
+		  
+		 $currentNode.append($tmp);
+ 	     if ($parent != undefined)
+     	    $parent.append($currentNode);
+		 return $currentNode;	  
+	  }
+		
       var keys = Object.keys(obj);
-      keys.sort();
+	  if (!isarray)
+	      keys.sort();
       if (keys.length > 1000)
       {
       	 $currentNode.append($("<li class='file'>max children number exceeded!!</li>"));
@@ -993,7 +1278,7 @@ function KJsonViewer(viewport,master)
 			{
 			  var children_editable = editable;
 			  var children = obj[property];
-			  if (property.substr(0,6) == "[FORM]" | property.substr(0,5) == "[SQL]" | property.substr(0,6) == "[META]")
+			  if (property.substr(0,6) == "[FORM]" | property.substr(0,5) == "[SQL]" | property.substr(0,6) == "[META]" | property.substr(0,7) == "[DICOM]")
 			  {
 			  	children_editable = false;
 			  	obj[property] = undefined;
@@ -1001,7 +1286,7 @@ function KJsonViewer(viewport,master)
 
 			  }
 
-			  var $newNode = $("<li><label class="+(children_editable?"'jsoncontenteditable'":"")+ " for='"+id+'_'+property+"'>"+property+"</label><input type='checkbox' id='"+id+'_'+property+"' /></li>");
+			  var $newNode = $("<li><label class="+(children_editable?"'jsoncontenteditable'":"")+ " for='"+theid+'_'+property+"'>"+property+"</label><input type='checkbox' id='"+theid+'_'+property+"' /></li>");
 			  //$newNode.append( addChildren($("<ol/>"), obj[property],subattr));
 			  setTimeout(function(a,b,c,d,e) { return function() {
 			  	addChildren(a,b,c,d,e);
@@ -1027,14 +1312,32 @@ function KJsonViewer(viewport,master)
               var val = obj[property] ;
               if (val === "")
               	val ="&nbsp";
-              $currentNode. append($("<li  path='"+ subattr.toString() + "' class='file'> <span class='key' >"+property +
+			  subattr = subattr.map((x) => x.replace(".","\\."))
+              $currentNode. append($("<li  path='"+ subattr.join(".") + "' class='file'> <span class='key' >"+property +
                "</span> : <span class="+(editable?"'jsoncontenteditable'":"")+ " contenteditable='"+(editable?"true":"false")+"' >"+val+ "</span></li>")
               .on('contextmenu',function(e){contextmenu(e)})
+              .on('dragstart',function(e){
+				  var $x = $(e.target);
+				  for (var k = 0; k < 3;k++)
+				  {
+					  if ($x.attr('path') != undefined)
+						  break;
+					  else
+						  $x = $x.parent();
+				  }
+				  var p = $x.attr('path');
+				  var str;
+				  if (that.currentFileinfo.SubFolder != "")
+					  str = that.currentFileinfo.SubFolder + "/" + that.currentFileinfo.Filename + " " + p;
+				  else 
+					  str = that.currentFileinfo.Filename + " " + p;
+				  e.originalEvent.dataTransfer.setData('text/plain',str);
+			   })
               .on('keyup',function(e)
               {
               	var $txt =  $(e.target);
               	var $tr =getOnParentPath( $txt,function(x) { return x.attr('path') != undefined; });
-				var index = $tr.attr('path').split(",");
+				var index = $tr.attr('path').split(".");
 				if (!$txt.hasClass("key"))
 				{
 					var obj = json_obj;
@@ -1065,11 +1368,54 @@ function KJsonViewer(viewport,master)
     setInnerLayout();
   }
 
+  function addChart($tmp,obj,attr) {
+	    var pts = "";
+	    var min = math.min(obj);
+	    var max = math.max(obj);
+	    var N = obj.length
+	    for (var k = 0; k < N;k++)
+			{
+				pts += k+","+(obj[k]-min)/(max-min)+" "
+			}
+	    var vb = 'viewBox="0 '+0+' '+N+' '+1+'"'
+	  	var poly =[]
+	    var wid = 0.02
+	    var zero = -min/(max-min);
+		poly.push("<polyline points='0,"+zero+" "+N+","+zero+"' style='fill:none;stroke:black;stroke-width:"+wid+"' />");
+		poly.push("<polyline points='"+pts+"' style='fill:none;stroke:red;stroke-width:"+wid*5+"' />");
+	  
+		var str = "<div class=Kjsoninlinechart> <svg preserveAspectRatio='none' "+vb+">" + poly.join(" ") + "</svg></div>"
+	    var info = attr[1] + ", #T:"+N + " min:"+niceFormatNumber(min) + " max:"+niceFormatNumber(max)
+	    if (that.currentFilename == "melodic.json")
+		{
+			var tp = attr[1]
+		    var info = attr[1] + ", #T:"+N 
+			
+			info += " expl. var.:"+niceFormatNumber(json_obj.ICstats[0][tp]);
+			info += " of tot. var.:"+niceFormatNumber(json_obj.ICstats[1][tp]);
+			//info += " s2:"+niceFormatNumber(json_obj.ICstats[2][tp]);
+			//info += " s3:"+niceFormatNumber(json_obj.ICstats[3][tp]);
+		    info = "<div> "+info+" </div>"
+		    var $info = $(info);	    
+			$info.click(function(e) {e.preventDefault(); KViewer.setCurrentTimePoint(tp)})
+		}
+	    else
+		{
+		    info = "<div> "+info+" </div>"
+		    var $info = $(info);	    
+		}
+	    $tmp.append($(str));
+	    return $info
+
+	}
+  		
+	
+
   that.setInnerLayout = setInnerLayout;
   function setInnerLayout()
   {
   	that.setInnerLayout_parent();
-    $div.appendTo(that.$container);
+  //  $div.appendTo(that.$container);
   }
 
   that.customClose = function()
@@ -1101,11 +1447,27 @@ function KTXTViewer(viewport,master)
   that.viewerType = 'txtViewer';
   var toolbar = that.toolbar;
 
-  var $div =  $("<div contenteditable='true' class='KViewPort_txtViewer'></div>").appendTo(that.$container);
 
+  toolbar.$search = $("<div class='KViewPort_tool'><i class='fa fa-search fa-1x'></i></div>")
+        .click(function() { KTXTSearchPanel();  });
+  toolbar.attach(toolbar.$search);
+
+  that.$container.addClass("KTxtViewerEditor")
+  var $div =  $("<div contenteditable='true' class='KViewPort_txtViewer'></div>").appendTo(that.$container);
+  var $textarea =  $("<textarea  class='KTxtViewerEditor'></textarea>").appendTo(that.$container);
+  //var $div0 =  $("<div><textarea  class='KTxtViewerEditor'></textarea></div>").appendTo(that.$container);
+  //var $div = $div0.find("textarea")
+
+  var editor,codetype;
+
+	
   function getText()
   {
-	   var str = $div.html();
+	   var str
+	   if (editor != undefined)
+		   str = editor.getValue(); 
+	   else
+		  str = $div.html();
   
 	   str = str.replace(/<div>/g, "\n");
 	   str = str.replace(/<\/div>/g, "");
@@ -1120,28 +1482,71 @@ function KTXTViewer(viewport,master)
   var toolbar = that.toolbar;
   toolbar.$save = $("<div class='KViewPort_tool'><i class='fa fa-save fa-1x'></i></div>")
         .click(function() { 
-           var fobj  = KViewer.dataManager.getFile(that.currentFileID);
- 		   fobj.content =  getText();
- 		   uploadBinary(fobj,{},function(){
-               that.toolbar.$save.removeClass('notsaved');
-
- 		   },that.viewport.progressSpinner,false,"usenativePID");
-		   
+		  if (that.currentFileID == "WorkstatePostCode")
+	      {
+		     KViewer.WorkstatePostCode = getText();
+ 		     that.toolbar.$save.removeClass('notsaved');
+			 saveWorkstate(KViewer)
+			  
+	      }
+		  else 
+		  {
+	           var fobj  = KViewer.dataManager.getFile(that.currentFileID);
+	 		   fobj.content =  getText();
+	           updateTag(fobj.fileinfo,[], userinfo.username), 		   
+	 		   uploadBinary(fobj,{},function(){
+	               that.toolbar.$save.removeClass('notsaved'); 		   
+	 		   },that.viewport.progressSpinner,false,"usenativePID");
+		  }
 
          });
   toolbar.attach(toolbar.$save);
 
+  toolbar.$play = $("<div class='KViewPort_tool'><i class='fa fa-play fa-1x'></i></div>")
+  toolbar.attach( toolbar.$play)
+  toolbar.$play.hide();
+  toolbar.$play.click(function(){
+	  eval("var thefun = " + getText());
+	  thefun(()=>1);
+  })
+
+	
   function textFromObjectToDiv()
-  {
-     var fobj  = KViewer.dataManager.getFile(that.currentFileID);   
-     if (fobj != undefined)
-     	fobj.content = getText();
+  {	 
+	 if (that.currentFileID == "WorkstatePostCode")
+	 {
+		 KViewer.WorkstatePostCode = getText();
+	 }
+	 else
+	 {
+	     var fobj  = KViewer.dataManager.getFile(that.currentFileID);   
+	     if (fobj != undefined)
+		 {
+			fobj.content = getText()
+		 }
+	 }
+	 
   }
   function textFromDivToObject()
   {
-  
-     var fobj  = KViewer.dataManager.getFile(that.currentFileID);   
-     $div[0].innerHTML = ((fobj.content)); 	
+	 if (that.currentFileID == "WorkstatePostCode")
+	 {
+		 if (KViewer.WorkstatePostCode == undefined)
+			 editor.setValue("function(callback)\n{\n  alertify.success('run');\n  callback()\n}")
+		 else
+			 editor.setValue(KViewer.WorkstatePostCode)
+	 }
+	 else
+	 {
+	     var fobj  = KViewer.dataManager.getFile(that.currentFileID);   
+		 if (editor != undefined)
+			 editor.setValue(fobj.content); 	
+		 else
+		     $div[0].innerHTML = ((fobj.content)); 	
+		 
+	 }
+	 if (editor != undefined)
+	     editor.refresh();
   }
 
   $div.on("blur",textFromObjectToDiv);
@@ -1162,21 +1567,76 @@ function KTXTViewer(viewport,master)
     }
   	
   	that.prepViewer(ev);  	
+
+	codetype = undefined;
+	if (that.currentFileID == "WorkstatePostCode")
+	    codetype = "javascript";
+	if (that.currentFilename.search("\\.py")>-1)
+		codetype = "python"
+	if (that.currentFilename.search("\\.m")>-1)
+		codetype = "octave"
+	  
+	if (codetype != undefined)
+	{
+		$textarea.show();
+		$div.hide()
+		editor = CodeMirror.fromTextArea($textarea.get(0), {
+			lineNumbers: true,
+			lineWrapping: true,
+			mode: codetype,
+			matchBrackets: true,
+			extraKeys: {
+				Tab: betterTab
+			},
+			height: "100px",
+		});
+        editor.on('change', function(e) {
+			  	if (e.ctrlKey)
+			  	    return;
+			    that.toolbar.$save.addClass('notsaved');
+                })
+ 	}
+	else
+	{
+		$textarea.hide();
+		$div.show()
+		
+	}
+	  
     textFromDivToObject();
-    $div.appendTo(that.$container);
-    $div.show();
     if (ev.modified == true)
         that.toolbar.$save.addClass('notsaved');
     else
         that.toolbar.$save.removeClass('notsaved');
 
+    if (that.currentFileID == "WorkstatePostCode")
+	{  
+	  that.toolbar.$play.show()
+	}	  
     setInnerLayout();
+
+    if(state.txtsearchpanel != undefined)
+    {
+    	var txt = KTXTSearchPanel_runSearch($div.html())
+    	$div.html(txt)
+    	$div.attr("contenteditable", false)
+    	$div.css('user-select', 'text')
+    	$div.addClass("KViewPort_txtViewer_txtsearch")
+    }
+
   }
 
   that.setInnerLayout = setInnerLayout;
   function setInnerLayout()
   {
   	that.setInnerLayout_parent();  
+	
+	if (editor)
+	{
+		if (editor.cid != undefined)
+			clearTimeout(editor.cid)
+		editor.cid = setTimeout(function() {editor.refresh(); editor.cid = undefined;},100);
+	}
   }
 
   that.customClose = function()
@@ -1232,9 +1692,9 @@ function KBmpViewer(viewport, master)
    })
 
 	//************* better slidezoomer **********
-    layoutbar.$slidezoom   = $("<span class='KViewPort_tool_layout'> <i class='fa fa-search fa-1x'></i> </span>");
-    layoutbar.attach(layoutbar.$slidezoom)
-	attachMouseSlider(layoutbar.$slidezoom, 
+   layoutbar.$slidezoom   = $("<span class='KViewPort_tool_layout'> <i class='fa fa-search fa-1x'></i> </span>");
+   layoutbar.attach(layoutbar.$slidezoom)
+   attachMouseSlider(layoutbar.$slidezoom, 
         {
             mousedown: function(ev)
             { 
@@ -1259,27 +1719,69 @@ function KBmpViewer(viewport, master)
 
 
 
+    that.toolbar.$tonii = $("<div class='KViewPort_tool'><i class='fa fa-1x'>nii</i></div>")
+					 .on('mousedown',function(e){e.stopPropagation()})
+                     .click(function()
+				     {
+						    function getImageBuffer(img) {
+						            // Create a canvas element
+						            const canvas = document.createElement('canvas');
+						            const ctx = canvas.getContext('2d');
+						
+						            // Set canvas dimensions to match the image
+						            canvas.width = img.naturalWidth;
+						            canvas.height = img.naturalHeight;
+						
+						            // Draw the image on the canvas
+						            ctx.drawImage(img, 0, 0);
+						
+									var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+						            var data = imageData.data;
+						
+						            return {buf: data, size: [canvas.width, canvas.height]}
+							}	
+			
+						    var name = that.currentFilename.split(/\./)[0];
+						    alertify.prompt([{msg:'Pixel sizes'},
+										   {msg:'Name:'}],
+						    function(e,val)
+								{ 
+								   if (e)
+								   {									 
+										var im = getImageBuffer($img[0])
+									    var psz = val[0].split(",").map(parseFloat)
+									    var edges = math.eye(4);
+									    edges._data[0][0] = psz[0];
+									    edges._data[1][1] = psz[1];
+										var res = createNifti({edges:edges,voxSize:[psz[0],psz[1],1],sizes:[im.size[0],im.size[1],1]},val[1],'uint16',1,{})
+									    for (var k = 0; k < im.size[0]*im.size[1]; k++)
+											{
+												res.data[im.size[0]*im.size[1]-k] = im.buf[4*k]+im.buf[4*k+1]+im.buf[4*k+2];
+											}
 
-
-  var $img =  $("<img  class='KViewPort_img'></img>").appendTo(that.$container);
-  $img.on('dragstart',function(e) { 
-  e.preventDefault() });
-  $img.click(function() {
-
+								   }
+								},['1,1',name])
+				      }
+						
+                     ).appendTooltip("to nifti")
+    that.toolbar.attach(that.toolbar.$tonii)
+    var $img =  $("<img  class='KViewPort_img'></img>").appendTo(that.$container);
+    $img.on('dragstart',function(e) { 
+    e.preventDefault() });
+    $img.click(function() {
   	 
-  	if (!that.moved)
-  	{
-		if (viewport.viewPortID != KViewer.zoomedViewport)
-  			KViewer.unZoomViewport();
-		viewport.zoomViewPort();  		
+		  	if (!that.moved)
+		  	{
+				if (viewport.viewPortID != KViewer.zoomedViewport)
+		  			KViewer.unZoomViewport();
+				viewport.zoomViewPort();  		
+		
+		  		that.$container.off('mousemove mouseup');
+		  	}
+    });
 
-  		that.$container.off('mousemove mouseup');
-  	}
-
-  });
-
-  $img.on('load', function()
-  {  
+    $img.on('load', function()
+    {  
    	     
     	  setInnerLayout();
           //$img.fadeIn(200);
@@ -1294,137 +1796,137 @@ function KBmpViewer(viewport, master)
 			  icontainer.attachEvent("onmousewheel", MouseWheelHandler);
 	
 		  that.$container.on('mousedown',MouseButtonHandler);
-  });
+    });
 
-  that.setContent = setContent;
+    that.setContent = setContent;
 
-  function setContent(ev)
-  {
-    //$img.detach();
- 	$img.hide();
-
-	that.prepViewer(ev);
-
-    that.zoom = 1;
-    that.offX =0;
-    that.offY =0;
-
-	if( ev.contentType == 'nii')
+	function setContent(ev)
 	{
-		// ************ convert a single slice RGB nifti to png using a canvas **********
-		var canvas = document.createElement('canvas');
-		var ctx = canvas.getContext('2d');
-		var imgData=ctx.createImageData(ev.content.sizes[0],ev.content.sizes[1]);
-		canvas.width = ev.content.sizes[0];
-		canvas.height = ev.content.sizes[1];
-		for (var k=0;k<ev.content.data.length/3;k++)
-		{
-			imgData.data[4*k+0] =ev.content.data[3*k+0];
-			imgData.data[4*k+1] =ev.content.data[3*k+1];
-			imgData.data[4*k+2] =ev.content.data[3*k+2];
-			imgData.data[4*k+3] =255;
-		}
-		ctx.putImageData(imgData,0,0);
-		var imageUrl = canvas.toDataURL();
-	}
-	else
-	{
-	    var blob = new Blob( [ ev.content ], { type: "image" } );
-    	var urlCreator = window.URL || window.webkitURL;
-    	var imageUrl = urlCreator.createObjectURL( blob );   
-	}
-    
- 	
-    $img.attr('src',imageUrl); 
-	that.currentFileID = ev.fileID;
-
-  }
-
-  function zoom(amount,delta)
-  {
-  		var fac = 1;
-		if (amount > 0)
-		   fac +=0.01*delta;
-		else
-		   fac -=0.01*delta;
-		that.zoom *= fac;
-		setInnerLayout();
-
-  }
-
-
-  var MouseWheelHandler = function(e)
-  {
-	  var amount = (e.wheelDelta || -e.detail);
-	  if(e.ctrlKey)
-	  {
-		e.preventDefault();
-		zoom(amount,1);
-	  }
-
-  }
-
-  var MouseButtonHandler = function(e)
-  {
- 	  var X = that.offX - e.clientX; 
- 	  var Y = that.offY - e.clientY; 
-      that.moved = false;
-  	 
-	 // if (e.ctrlKey)
-	  {
-	  	 e.preventDefault();
-		 that.$container.on('mousemove', function(ev)
-		 {
-			 that.offX = X + ev.clientX; 
-			 that.offY = Y + ev.clientY; 
-			 that.moved = true;
-			 setInnerLayout();
-			 that.$container.on('mouseup', function()
-			 {
-			 	that.$container.off('mousemove mouseup');
-			 });
-
-		 });
-
-
-	  }	  
-
-
-  	
-  }
-
-
-  that.setInnerLayout = setInnerLayout;
-  function setInnerLayout( force)
-  {
-  	    that.setInnerLayout_parent();
-  	
-		if (that.currentFileID != undefined)
-		{
+	    //$img.detach();
+	 	$img.hide();
 	
-
-		  var hei = $img.get(0).naturalHeight;
-		  var wid = $img.get(0).naturalWidth;
-		  //console.log(force);
-		  
-		  var   fac = that.$container[0].offsetWidth/wid*that.zoom;
- 		  if ( that.$container[0].offsetHeight - hei*fac <= 0)
- 		     fac = that.$container[0].offsetHeight/hei*that.zoom;
-
-		  wid = wid *fac;
-		  hei = hei * fac;
-		  var widoffs = (that.$container[0].offsetWidth - wid)/2;
-		  var heioffs = (that.$container[0].offsetHeight - hei)/2;
-
-		  widoffs += that.offX;
-		  heioffs += that.offY;
-		  //console.log(widoffs);
-		  $img.css({height: math.round(hei) -2 + 'px', width:  math.round(wid)-2 + 'px', top: math.round(heioffs) + 'px', left:  math.round(widoffs) + 'px'});
-		  //$img.appendTo(that.$container);
+		that.prepViewer(ev);
+	
+	    that.zoom = 1;
+	    that.offX =0;
+	    that.offY =0;
+	
+		if( ev.contentType == 'nii')
+		{
+			// ************ convert a single slice RGB nifti to png using a canvas **********
+			var canvas = document.createElement('canvas');
+			var ctx = canvas.getContext('2d');
+			var imgData=ctx.createImageData(ev.content.sizes[0],ev.content.sizes[1]);
+			canvas.width = ev.content.sizes[0];
+			canvas.height = ev.content.sizes[1];
+			for (var k=0;k<ev.content.data.length/3;k++)
+			{
+				imgData.data[4*k+0] =ev.content.data[3*k+0];
+				imgData.data[4*k+1] =ev.content.data[3*k+1];
+				imgData.data[4*k+2] =ev.content.data[3*k+2];
+				imgData.data[4*k+3] =255;
+			}
+			ctx.putImageData(imgData,0,0);
+			var imageUrl = canvas.toDataURL();
 		}
-  	
-  }
-
+		else
+		{
+		    var blob = new Blob( [ ev.content ], { type: "image" } );
+	    	var urlCreator = window.URL || window.webkitURL;
+	    	var imageUrl = urlCreator.createObjectURL( blob );   
+		}
+	    
+	 	
+	    $img.attr('src',imageUrl); 
+		that.currentFileID = ev.fileID;
+	
+	  }
+	
+	  function zoom(amount,delta)
+	  {
+	  		var fac = 1;
+			if (amount > 0)
+			   fac +=0.01*delta;
+			else
+			   fac -=0.01*delta;
+			that.zoom *= fac;
+			setInnerLayout();
+	
+	  }
+	
+	
+	  var MouseWheelHandler = function(e)
+	  {
+		  var amount = (e.wheelDelta || -e.detail);
+		  if(e.ctrlKey)
+		  {
+			e.preventDefault();
+			zoom(amount,1);
+		  }
+	
+	  }
+	
+	  var MouseButtonHandler = function(e)
+	  {
+	 	  var X = that.offX - e.clientX; 
+	 	  var Y = that.offY - e.clientY; 
+	      that.moved = false;
+	  	 
+		 // if (e.ctrlKey)
+		  {
+		  	 e.preventDefault();
+			 that.$container.on('mousemove', function(ev)
+			 {
+				 that.offX = X + ev.clientX; 
+				 that.offY = Y + ev.clientY; 
+				 that.moved = true;
+				 setInnerLayout();
+				 that.$container.on('mouseup', function()
+				 {
+				 	that.$container.off('mousemove mouseup');
+				 });
+	
+			 });
+	
+	
+		  }	  
+	
+	
+	  	
+	  }
+	
+	
+	  that.setInnerLayout = setInnerLayout;
+	  function setInnerLayout( force)
+	  {
+	  	    that.setInnerLayout_parent();
+	  	
+			if (that.currentFileID != undefined)
+			{
+		
+	
+			  var hei = $img.get(0).naturalHeight;
+			  var wid = $img.get(0).naturalWidth;
+			  //console.log(force);
+			  
+			  var   fac = that.$container[0].offsetWidth/wid*that.zoom;
+	 		  if ( that.$container[0].offsetHeight - hei*fac <= 0)
+	 		     fac = that.$container[0].offsetHeight/hei*that.zoom;
+	
+			  wid = wid *fac;
+			  hei = hei * fac;
+			  var widoffs = (that.$container[0].offsetWidth - wid)/2;
+			  var heioffs = (that.$container[0].offsetHeight - hei)/2;
+	
+			  widoffs += that.offX;
+			  heioffs += that.offY;
+			  //console.log(widoffs);
+			  $img.css({height: math.round(hei) -2 + 'px', width:  math.round(wid)-2 + 'px', top: math.round(heioffs) + 'px', left:  math.round(widoffs) + 'px'});
+			  //$img.appendTo(that.$container);
+			}
+	  	
+	  }
+	
 
 	signalhandler.attach("updateFilelink",function(ev)
 		{

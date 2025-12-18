@@ -1,0 +1,8 @@
+{
+    "name": "@galaxyproject/plotly_box",
+    "version": "0.0.0",
+    "license": "MIT",
+    "scripts": {
+        "prepublishOnly": "XML=plotly_box && rm -f static/$XML.xml && cp ../plotly/public/$XML.xml static/$XML.xml"
+    }
+}

@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="Vizarr Viewer" embeddable="true">
     <description>Display Zarr-Images like OME-Zarr</description>
     <tags>
@@ -7,10 +6,7 @@
         <tag>OME-Zarr</tag>
         <tag>Microscopy</tag>
     </tags>
-    <requirements>
-        <requirement type="npm" version="0.1.7" package="@galaxyproject/vizarr"/>
-    </requirements>
-    <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+    <entry_point entry_point_type="script" src="index.js" />
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>

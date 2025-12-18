@@ -8,7 +8,6 @@
 // ======================================================================================
 // ======================================================================================
 
-
 function KRoiTool(master)
 {
     var $menu = $("<ul class='KView_tool_menu'></ul>").append($("<li>ROI Tool</li>"));
@@ -31,6 +30,12 @@ function KRoiTool(master)
     var currentROI = undefined;
 
     that.$topRow.addClass("RoiTool_topmenu")
+
+
+    that.attach_helper(function(){
+		window.open("https://www.nora-imaging.org/doc/books/nora-documentation/page/roi-tool",'_blank');  	
+    })
+
 
     /***************************************************************************************
     * the roi menu
@@ -235,7 +240,7 @@ function KRoiTool(master)
 
             //var $row = $("<tr> <td>Image</td> <td>T</td> <td>ROI</td>  <td></td> <td>mean</td>  <td>std</td>  <td>vol (mL)</td>  <td>area (cm2)</td>  </tr>").appendTo( $("<thead></thead>").appendTo($table ));
 
-            var $row = $("<tr> <td>Image</td> <td>T</td> <td>ROI</td> <td>T</td> <td></td> <td>median</td> <td>iqr1</td> <td>iqr2</td> <td>mean</td>  <td>std</td>  <td>vol (mL)</td>  <td>area (cm2)</td>  </tr>").appendTo( $("<thead></thead>").appendTo($table ));
+            var $row = $("<tr> <td>psid</td> <td>Image</td> <td>T</td> <td>ROI</td> <td>T</td> <td></td> <td>median</td> <td>iqr1</td> <td>iqr2</td> <td>mean</td>  <td>std</td>  <td>vol (mL)</td>  <td>area (cm2)</td>  </tr>").appendTo( $("<thead></thead>").appendTo($table ));
 
             var $tbody = $("<tbody></tbody>").appendTo($table);
 
@@ -260,18 +265,25 @@ function KRoiTool(master)
                         if(k==0)
                         {
                             var filename =  x.currentFileinfo.SubFolder + x.currentFilename  ;
+                            var psid = x.currentFileinfo.patients_id + x.currentFileinfo.studies_id;
                             var tclass = ""
                         }
                         else
                         {
                             var filename = "";
+                            var psid = "";
                             var tclass = "noupperborder"
                         }
                         var roicolor = "rgb(" + KColor.list[roi.color].join(',') +")";
 
                         if( t > 0)
+                        {
                             filename = "";
+                            psid = "";
+                        }
 
+                        $("<td class='"+tclass+"'>" + psid + "</td>").appendTo($trow);
+                        
                         $("<td class='"+tclass+"'>" + filename + "</td>").appendTo($trow);
                         if(stats.mean.length>1)
                             var tp = ("0"+ (t+1).toString()).slice(-2);
@@ -281,6 +293,19 @@ function KRoiTool(master)
                         var currentTimePointROI =  t>roi.content.numTimePoints-1?roi.content.numTimePoints-1:t
                         var currentTimePointIMG =  t>img.numTimePoints-1?img.numTimePoints-1:t
 
+                        // use the xdata from timesries if available
+        				if(img.extension && img.extension.content)
+        				{
+        					try {
+        						var content = JSON.parse(img.extension.content);
+        						if(content.xdata)
+        						{
+        							currentTimePointIMG = content.xdata[currentTimePointIMG];
+        						}
+        					} catch (error) {
+        						
+        					}
+        				}
 
                         $("<td class=''>" + currentTimePointIMG + "</td>").appendTo($trow);
 
@@ -374,6 +399,7 @@ function KRoiTool(master)
         thres_low:0,
         thres_high:"off"
     };
+
     that.pencil = pencil;
     that.smartpaw = false;
     that.regionGrow = false;
@@ -386,7 +412,13 @@ function KRoiTool(master)
     {
         if (ev.myScrollAmount !== undefined) // pensizechange was triggered by shift + mousescroll
         {
-            var newval = pencil[which] + ev.myScrollAmount;
+            var max_extent_perc;
+            if (that.unitsmm)
+                max_extent_perc = medViewer.computeMaxExtentFac() / 100;
+            else
+                max_extent_perc = 1;
+
+            var newval = pencil[which] + ev.myScrollAmount*max_extent_perc;
             if (newval >= 0)
             {
                 pencil[which] = newval;
@@ -409,7 +441,7 @@ function KRoiTool(master)
     var $innerDIV = $("<div class='roiToolContainer'></div>").appendTo(that.$container);
 
     that.$panelcontainer = $("<div class='roiToolPanelContainer'></div>").appendTo($innerDIV);
-    that.$tablecontainer = $("<div class=''></div>").appendTo($innerDIV);
+    that.$tablecontainer = $("<div class='roiToolTableContainer'></div>").appendTo($innerDIV);
     var $table = $("<table class='localfiletable'></table>").appendTo(that.$tablecontainer);
 
 
@@ -420,7 +452,10 @@ function KRoiTool(master)
     var colors = KColor.list;
     that.colors = colors;
     function componentToHex(c) {
-        var hex = c.toString(16);
+		if (typeof c == "string")
+	        var hex = parseInt(c).toString(16);
+		else
+	        var hex = c.toString(16);
         return hex.length == 1 ? "0" + hex : hex;
     }
     function RGB2HTML(r, g, b) {
@@ -451,7 +486,12 @@ function KRoiTool(master)
     {
 
         for (var r in ROIs)
+        {
+            if (ROIs[r].ccanalysis && ROIs[r].ccanalysis.enabled && ROIs[r].worker)
+                ROIs[r].worker.kill();
             deleteReferencesOnROI(ROIs[r].fileID);
+
+        }
 
         ROIs = {};
         that.ROIs = ROIs;
@@ -493,7 +533,11 @@ function KRoiTool(master)
         }
         alertify.prompt("ROI name", function(e, name) {
             if (e)
+            {
+                name = name.replace(/\.nii$|\.nii\.gz$/)
+                name += ".nii.gz"
                 pushROI(fid, name);
+            }
         });
     }
 
@@ -573,7 +617,7 @@ function KRoiTool(master)
         ev.stopPropagation();
         if (that.viewport != undefined)
             that.viewport.hideDropIndicators();
-        if (ev.originalEvent.dataTransfer.getData("fromfiletable"))
+        if (ev.originalEvent.dataTransfer.getData("fromfiletable") || ev.originalEvent.dataTransfer.getData('fromviewport'))
         {
             for (var k = 0; k < tempObjectInfo.length; k++)
             {
@@ -620,11 +664,14 @@ function KRoiTool(master)
         for (var k = 0; k < roinames.length; k++)
         {
             var name = roinames[k].trim().replace(/\s/g, '');
+            name = name.replace(/\.nii$|\.nii\.gz$/)
+            name += ".nii.gz"
 
             // lims shall be 'upper_<number>' if set ...
             pushROI(templateFileID, name, lims,
             function arrived(fobj)
             {
+                fobj.modified = true;
                 if (viewport != undefined) // set only in one specific
                 {
                     viewport.setContent(fobj, {
@@ -661,12 +708,50 @@ function KRoiTool(master)
 
     function pushROI(params_or_fid, name, lim, arrived, progress,createparams)
     {
-        // why this? do not re-create a ROI?
-        // with this set, we cannot clone a ROI ...
-        /*
-        if (ROIs[params_or_fid] != undefined)
-            return;
-        */
+
+
+        if (name != "untitled" && (createparams==undefined || !createparams.donotcheckforexistence)) // test for existing filename
+        {
+
+
+
+            var current_files = [];
+            for (var k in KViewer.roiTool.ROIs)
+               current_files.push(KViewer.roiTool.ROIs[k].filename)
+                
+            $("tr.fileRow").each(function(i) 
+            {
+               var fname = $(this).attr('data-filename');
+               if (fname != undefined)
+               {
+                 var fc = fname.split(".");               
+                 current_files.push(fc[0])
+               }
+            });
+
+            var found = true;
+            var splits = name.split(".")
+            var name_test = splits[0];
+            var cnt = 1;
+
+            for(;;)
+            {
+                found = current_files.filter( (x) => x==name_test ).length > 0
+                if (found)
+                {
+                    name_test = name + "_" + cnt;
+                    cnt++;
+                }
+                else
+                    break;
+            } 
+            if (splits.length > 1)
+                name = name_test + "." + splits.slice(1).join(".");
+            else
+                name = name_test;
+
+        }
+
 
 
         if (progress == undefined)
@@ -690,8 +775,6 @@ function KRoiTool(master)
             progressSpinner: function(perc, t) {},
             callback: function()
             {
-                if (name == 'mask_untitled')
-                    name = name + Object.keys(ROIs).length;
 
                 var fobjs = master.dataManager.cloneAsROI(params.fileID, name, lim,createparams);
 
@@ -699,11 +782,10 @@ function KRoiTool(master)
                 {
                     var fobj = fobjs[k];
 
-
                     if (ROIs[fobj.fileID] == undefined)
                     {
                         ROIs[fobj.fileID] = fobj;
-                        fobj.color = Object.getOwnPropertyNames(ROIs).length % colors.length;
+                        fobj.color = (Object.getOwnPropertyNames(ROIs).length - 1) % colors.length;
                         if (KViewer.defaults.ROI)
                         {
                             if (KViewer.defaults.ROI.color)
@@ -712,11 +794,12 @@ function KRoiTool(master)
                         // unique color for rois
                     }
                 }
-                that.update();
+                fobj.content.isROI=true
                 if (arrived != undefined)
                     arrived(fobj);
 
                 signalhandler.send("roiListUpdate");
+                that.update();
 
                 signalhandler.send("positionChange");
                 progress();
@@ -737,6 +820,22 @@ function KRoiTool(master)
         $table.find( $("[id='KROI_" + roi.fileID + "']") ).find('.roivolume').text('---');
    }
 
+
+    /***************************************************************************************
+    * roiinfo for hover
+    ****************************************************************************************/
+
+    that.roiinfo = function(fobj) { 
+      return function()
+      {
+            if (fobj.fileinfo == undefined)
+                return fobj.filename 
+            else
+                return fobj.fileinfo.patients_id + fobj.fileinfo.studies_id +  "<br>"  + fobj.fileinfo.SubFolder + "/" + fobj.filename                 
+      }
+    }
+
+
     /***************************************************************************************
    * creation/updating of the ROI table
    ****************************************************************************************/
@@ -746,6 +845,10 @@ function KRoiTool(master)
 
         that.currentrow = undefined;
         $table.children().remove();
+
+        var voldisp = 'mL'
+        if (KViewer.defaultFOV_mm < 50)
+            voldisp = 'µL';
 
 
 
@@ -772,10 +875,20 @@ function KRoiTool(master)
         $row.append($("<td class='fixedwidth' fixedwidth='9'> </td>"));
         $row.append($("<td class='fixedwidth' fixedwidth='9'> </td>"));
         $row.append($("<td class='fixedwidth' fixedwidth='9'> </td>"));
-        $row.append($("<td style='white-space:nowrap'>&nbsp;<i class='fa fa-refresh'></i> &nbsp; mL </td>").click( calcVolumes)  );
+        $row.append($("<td style='white-space:nowrap'>&nbsp;<i class='fa fa-refresh'></i> &nbsp; "+voldisp+" </td>").click( calcVolumes)  );
         $row.append($("<td>matrix </td>"));
         $row.append($("<td>patientID</td>"));
         $row.append($("<td>studyID</td>"));
+
+
+        function printVol(vol) // vol comes mm^3
+        {
+            if (voldisp == 'mL')
+                vol = Math.round( (vol/1000 * 1000))/1000; // in mL
+            else
+                vol = Math.round( (vol * 1000))/1000; // in muL
+            return vol;
+        }
 
         function calcVolumes()
         {
@@ -788,10 +901,9 @@ function KRoiTool(master)
                     if (r.data[j] > 0.5)
                         numvox++;
                 var vol = numvox * r.voxSize[0] * r.voxSize[1] * r.voxSize[2]; // in mm³
-                vol = Math.round( (vol/1000 * 100))/100; // in mL
 
                 var $td = $table.find( $("[id='KROI_" + ROIs[k].fileID + "']") ).find('.roivolume');
-                $td.text(vol);
+                $td.text(printVol(vol));
             }
         }
 
@@ -873,7 +985,12 @@ function KRoiTool(master)
                 }
             }(k);
 
-            $row.append($("<td class='fixedwidth'><i class='vis fa fa-fw fa-square-o'></i> </td>").click(function(e)
+
+            var checkvis = "fa-square-o"
+            if (that.visibleROIs[fobj.fileID])
+                checkvis = "fa-check-square-o"
+            
+            $row.append($("<td class='fixedwidth'><i class='vis fa fa-fw "+checkvis+"'></i> </td>").click(function(e)
             {
                 toggle_visibility(e.target);
                 signalhandler.send("positionChange");
@@ -891,32 +1008,21 @@ function KRoiTool(master)
                 function(c) {
                     return "background:" + RGB2HTML(c[0], c[1], c[2]) + ";";
                 },
-                function(obj,id){return function()
+                function(obj,id){return function(col)
                 {
+					if (col != undefined && col.color != undefined)
+						obj.color = col;
                      that.setColorGlobal(id, obj.color)
                 }}(fobj,id)
-                ,fobj
-               );
+                ,fobj,{'manual':true} );
             $row.append($colselector)
             $colselector.find("i").css('margin-right', '-5px')
 
             var $namediv = $("<span  id ='KROINAME_" + id + "' contenteditable='false' >" + fobj.filename + " </span>")
-            .keydown(function(ev) {
-                if (ev.keyCode == 13) {
-                    $(ev.target).blur();
-                    return false
-                }
-            })
-            .keyup(function(sel) {
-                return function(ev)
-                {
-                    sel.filename = $(ev.target).text().trim();
-                    if (sel.namedivs != undefined)
-                        for (var i = 0; i < sel.namedivs.length; i++)
-                            $(sel.namedivs[i]).text(sel.filename);
-                }
-            }(fobj)
-            )
+
+            attachNameDivHandler(fobj, $namediv, function() {});
+            $namediv.appendTooltip(that.roiinfo(fobj))
+
             
             if(KViewer.static.roilist_contextmenu !== false)
                 makeEditableOnDoubleClick($namediv)
@@ -955,6 +1061,7 @@ function KRoiTool(master)
                 $menu.append($("<li onchoice='clear'> clear  </li>"));
                 $menu.append($("<li onchoice='clone'> clone  </li>"));
                 $menu.append($("<li onchoice='invert'> invert  </li>"));
+                $menu.append($("<li onchoice='reslice'> reformat/fov  </li>"));
                 $menu.append($("<hr>"));                
                 $menu.append($("<li onchoice='mergeAND'> intersection of selected ROIs </li>"));
                 $menu.append($("<li onchoice='mergeOR'> union of selected ROIs  </li>"));
@@ -1012,7 +1119,7 @@ function KRoiTool(master)
                 while (!$(target).is("tr"))
                     target = $(target).parent();
                 var id = $(target).attr("id").substring(5);
-                set_to_center(ROIs[id].content);
+                set_to_center(ROIs[id]);
             }));
 
             var $currentdiv = $("<td class='fixedwidth'> <i class='tablebutton fa fa-fw fa-pencil-square-o'></td>").appendTooltip('toggleedit');
@@ -1072,7 +1179,7 @@ function KRoiTool(master)
                 $(".KROI_"+id).remove()
                 }
             }(fobj,id)).appendTooltip('clear'));
-            $row.append($("<td class='fixedwidth'> <i class='tablebutton fa fa-fw fa-trash'></td>").click(delROI).appendTooltip('delete'))
+            $row.append($("<td class='fixedwidth'> <i class='tablebutton fa fa-fw fa-trash'></td>").click(delROI_and_check_unsaved).appendTooltip('delete'))
             $row.append($("<td style='text-align:right' class='roivolume'>---</td>"));
             $row.append($("<td><span>" + fobj.content.sizes[0] + "," + fobj.content.sizes[1] + "," + fobj.content.sizes[2]+ "," + fobj.content.sizes[3] + "</span></td>"));
             $row.append($("<td>" + fobj.fileinfo.patients_id + "</td>"));
@@ -1088,6 +1195,8 @@ function KRoiTool(master)
                         var $row = $("<tr class='islandrow KROI_" + id + "' kid='KROI_" + id + "' label='" + j +"'></tr>").appendTo($tbody);
                         if (currentROI == fobj)
                             $row.addClass('selected')
+                        if (cc.selected[cc.persistent[j].id])
+                            $row.addClass('selectedisland')
                         $row.on("contextmenu", function(fobj,conncomp_label) { return function(ev) {
                             contextMenuLabel(fobj,conncomp_label,undefined,ev)
                         }
@@ -1113,15 +1222,34 @@ function KRoiTool(master)
 
                          function jumpTo(e)
                          {
+
                                 var target = e.target;
                                 while (!$(target).is("tr"))
                                     target = $(target).parent();
                                 var id = $(target).attr("kid").substring(5);
                                 var label = $(target).attr("label");
-                                $(target).parent().find("tr").removeClass("current");
+                                var row = $(target).parent().find("tr")
+                                row.removeClass("current");
                                 $(target).addClass("current");
                                 var cc = ROIs[id].ccanalysis;
                                 var v = cc.persistent[label].cog;
+
+
+                                if (e.ctrlKey)
+                                {
+                                    if (cc.selected[cc.persistent[label].id])
+                                    {
+                                       $(target).removeClass("selectedisland")                                        
+                                       delete cc.selected[cc.persistent[label].id]
+                                    }
+                                    else
+                                    {
+                                        cc.selected[cc.persistent[label].id] = 1;
+                                        $(target).addClass("selectedisland")
+                                    }
+                                }
+
+
                                 KViewer.currentPoint = math.multiply(ROIs[id].content.edges,[v[0],v[1],v[2],1]);
                                 signalhandler.send('positionChange',{point:KViewer.currentPoint});
 
@@ -1157,11 +1285,11 @@ function KRoiTool(master)
                          if (cc.persistent[j].idx != undefined)
                          {
                              var r = ROIs[id].content;
-                             var clusterVolume = cc.cc.clusterSize[cc.persistent[j].idx] *r.voxSize[0] * r.voxSize[1] * r.voxSize[2] / 1000;
+                             var clusterVolume = cc.cc.clusterSize[cc.persistent[j].idx] *r.voxSize[0] * r.voxSize[1] * r.voxSize[2] ;
                          }
                          else
                              clusterVolume = 0;
-                             $row.append($("<td> "+ math.round(clusterVolume*100)/100 +"</td>"));
+                         $row.append($("<td> "+ printVol(clusterVolume) +"</td>"));
                     }
                 }
             }
@@ -1181,7 +1309,7 @@ function KRoiTool(master)
                 cp = cropConnectedComponent2(fobj,undefined, point)
             signalhandler.send("updateImage",{id: fobj.fileID});
             KViewer.roiTool.history.record('startRecording', undefined ,fobj, 'use_as_last');
-            KViewer.roiTool.history.add(cp, 1,fobj);
+            KViewer.roiTool.history.add(cp, 0,fobj);
         }
         that.delROI_component = delROI_component;
         function keepROI_component(fobj, point,timerange)
@@ -1200,6 +1328,33 @@ function KRoiTool(master)
         }
         that.keepROI_component = keepROI_component;
 
+
+        function delROI_and_check_unsaved(ev)
+        {
+            var target = ev.target;
+            while (!$(target).is("tr"))
+                target = $(target).parent();
+            var target_id = $(target).attr("id").substring(5);
+
+            var rtool = KViewer.roiTool;
+            rois = Object.keys(rtool.ROIs);
+            for (var k = 0; k < rois.length; k++)
+            {
+                if (rtool.ROIs[rois[k]].fileID == target_id)
+                {
+                    if (rtool.ROIs[rois[k]].modified)
+                    {
+                        alertify.confirm("Are you sure to delete this unsaved ROI?", function(e)
+                        {
+                            if (e) delROI(ev);
+                        });
+                        return;
+                    }
+                    delROI(ev);
+                }
+            }
+        }
+        
         function delROI(ev)
         {
             var id;
@@ -1246,6 +1401,7 @@ function KRoiTool(master)
             var roi = ROIs[id];
 
             saveROI(roi)
+            that.update();
         }
 
 
@@ -1296,6 +1452,13 @@ function KRoiTool(master)
 
     function saveROI(roi, saveas)
     {
+        
+        if (typeof projectInfo != "undefined" &&  projectInfo.rights && projectInfo.rights.readonly == "on")
+        {
+            alertify.error("project is readonly for user " + userinfo.username)
+            return;
+        }
+        
         runROIworker('clean',roi,{noupdate:true}, function()
         {
 
@@ -1317,22 +1480,37 @@ function KRoiTool(master)
 
                     var zipped = true;
 
-                    if (roi.fileinfo && roi.fileinfo.Filename && roi.fileinfo.Filename.search("\\.gz") == -1)
-                        zipped = false;
+
                     if (roi.notzipped)
                         zipped = false;
+            
 
                     if (roi.fileinfo.patients_id != undefined)
                     {
+                            $(document.body).addClass('wait');
+                        
+                            updateTag(roi.fileinfo,['mask'], userinfo.username);
                             uploadUnregisteredBinary(roi, {
                                 SubFolder: roi.subfolder,
-                                Tag: "/mask/",
                                 permission: "rwp"
                             }, that.progressSpinner,
                             function(newid, id) {
-                                ROIs[newid] = roi;
-                                delete ROIs[id];
-                                that.update();
+                                if (newid != id)
+                                {
+                                    ROIs[newid] = roi;
+                                    delete ROIs[id];
+                                    that.update();
+                                }
+                                roi.modified = false;
+                                KViewer.iterateMedViewers(function(viewer)
+                                {
+                                    for (var k = 0; k < viewer.ROIs.length; k++)
+                                        if (viewer.ROIs[k].roi == roi)
+                                            viewer.ROIs[k].$save.removeClass("notsaved")
+                                });
+
+                                $(document.body).removeClass('wait');
+
                             },zipped);
                     }
                     else
@@ -1371,8 +1549,7 @@ function KRoiTool(master)
                 else
                     doUpload();
             }
-        }
-        )
+        }     )
     }
 
     /***************************************************************************************
@@ -1384,6 +1561,8 @@ function KRoiTool(master)
         {
             saveROI( that.ROIs[k], false);
         }
+        that.update();
+
 
     }
     that.saveAllROIs = saveAllROIs;
@@ -1450,8 +1629,11 @@ function KRoiTool(master)
                 }
                 else
                 {
-                   for (var k = 0; k < surf.content.update.length; k++)
-                        surf.content.update[k]();
+                   if (surf.content != undefined)
+                   {
+                       for (var k = 0; k < surf.content.update.length; k++)
+                            surf.content.update[k]();
+                   }
                 }
                 surf.hangingUpdate = 0;
 
@@ -1463,6 +1645,7 @@ function KRoiTool(master)
 
     function runROIworker(func,fobj,params,callback,progress)
     {  
+            
         $(document.body).addClass('wait');
 
         if (params == undefined)
@@ -1482,16 +1665,14 @@ function KRoiTool(master)
             fobj.content.data = new Uint8Array(fobj.content.buffer,fobj.content.hdroffset);
             if (!eobj.noupdate)
             {
-                signalhandler.send("positionChange");
-                update3D(fobj);
+                signalhandler.send("updateImage",{id:fobj.fileID});
             }
             var changedPoints = e.execObj.changedPoints
             if (changedPoints != undefined)
                 that.history.add(e.execObj.changedPoints, 1,fobj);
+            $(document.body).removeClass('wait');
             if (callback)
                 callback()
-            $(document.body).removeClass('wait');
-
         })
     }
 
@@ -1503,24 +1684,37 @@ function KRoiTool(master)
 
         var fobj = ROIs[id];
 
+
+        if (str == "clone")
+        {
+            createRoisFromFileID(id, "upper0.5", undefined, undefined)
+            return;
+        }
+
+        
         KViewer.roiTool.history.record('startRecording', that.roiPanel.getParentViewer(),fobj);
         var changedPoints = [];
         var valtoset;
         if (str == "invert")
         {
             runROIworker('invert',fobj)
+            return;
         }
         else if (str == "opening")
         {
             runROIworker('opening',fobj)
+            return;
         }
         else if (str == "closing")
         {
             runROIworker('closing',fobj)
+            return;
+
         }
         else if (str == "removesalt")
         {
             runROIworker('removesalt',fobj,{threshold:removesalt.threshold})
+            return;
         }
         else if (str == "splatter")
         {
@@ -1539,29 +1733,86 @@ function KRoiTool(master)
         else if (str == "erode")
         {
             runROIworker('erode',fobj)
+            return;
         }
         else if (str == "dilate")
         {
             runROIworker('dilate',fobj)
+            return;
         }
         else if (str == "clear")
         {
             changedPoints = clearROI(fobj)
         }
-        else if (str == "clone")
+        else if (str == "reslice")
         {
-            createRoisFromFileID(id, "upper0.5", undefined, undefined)
-            //pushROI(id, "untitled", );
+			  alertify.prompt({msg:'New resolution in (mm):' ,
+                               opt:["keep",
+                                    "bounding box 5%",
+                                    "bounding box 25%",
+                                    "enlarge 5%",
+                                    "enlarge 25%",
+                                    "enlarge 50%"], optMsg:"Field of View"},				  
+              function(e,str)
+              {
+                if (e)
+                {            
+                    var fac = eval(str.str);
+                    fac = fac.map((x,i)=>x/fobj.content.voxSize[i])
+
+                    if (fobj.fileinfo && fobj.fileinfo.surfreference)
+                        fobj.fileinfo.surfreference.cache =undefined
+                    
+                    if (str.option != "keep")
+                    {
+                        if (str.option.search("bounding") > -1)
+                        {                        
+                            var perc = parseInt(str.option.substring(13))
+                            computeBBox(fobj)
+                            var b = fobj.bbox
+                            var wid = b.max.map((x,i)=>x-b.min[i])
+                            var min = b.min.map((x,i)=>x-wid[i]*perc/100)
+                            var max = b.max.map((x,i)=>x+wid[i]*perc/100)
+                        }
+                        else
+                        {
+                            var perc = parseInt(str.option.substring(8))
+                            var p0 = math.multiply(fobj.content.edges,[0,0,0,1])._data      
+                            var sh = fobj.content.sizes.slice(0,3).map((x) => x-1).concat([1])
+                            var p1 = math.multiply(fobj.content.edges,sh)._data                            
+                            var min_ = p0.map((x,i)=>math.min(x,p1[i]))
+                            var max_ = p0.map((x,i)=>math.max(x,p1[i]))
+                            var wid = max_.map((x,i)=>x-min_[i])
+                            var min = min_.map((x,i)=>x-wid[i]*perc/100)
+                            var max = max_.map((x,i)=>x+wid[i]*perc/100)
+                            
+                        }
+                        changeFOVofNifti(fobj,min,max,fac)
+                        
+                    }
+                    else
+                    {                        
+                        resliceNifti(fobj,fac);
+                    }
+
+                    KViewer.cacheManager.update();
+                    KViewer.roiTool.update()
+
+                }
+
+            },"["+fobj.content.voxSize.join(",")+"]");
+            
+
         }
         else if (str == "fillholes")
         {
             runROIworker('fillholes',fobj)
+            return;
 
         }
         else if (str == "mirror")
         {
             mirror_roi(fobj, $(ev.target).attr('dim'));
-            //runROIworker('fillholes',fobj)
         }
         else if (str == "threshold_upper" | str == "threshold_lower")
         {
@@ -1588,7 +1839,15 @@ function KRoiTool(master)
             {
                 var sz = roi.sizes[0] * roi.sizes[1] * roi.sizes[2];
                 for (var z = 0; z < sz; z++)
-                    roi.data[z] = eqfun(parentnii.data[z]);
+                {
+                    var dest = eqfun(parentnii.data[z]);
+                    if (!( (dest>0 & roi.data[z]>0) | (dest==0 & roi.data[z]==0) ))
+                    {
+                        changedPoints.push(z)
+                        roi.data[z] = eqfun(parentnii.data[z]);
+                    }
+                    
+                }
 
             }
             else
@@ -1597,7 +1856,15 @@ function KRoiTool(master)
                 for (var z = 0; z < roi.sizes[2]; z++)
                     for (var y = 0; y < roi.sizes[1]; y++)
                         for (var x = 0; x < roi.sizes[0]; x++)
-                            roi.data[roi.sizes[1] * roi.sizes[0] * z + roi.sizes[0] * y + x] = eqfun(trilinInterp(parentnii, x, y, z, A, 0));
+                        {
+                            var idx = roi.sizes[1] * roi.sizes[0] * z + roi.sizes[0] * y + x
+                            var dest = eqfun(trilinInterp(parentnii, x, y, z, A, 0));
+                            if (!( (dest>0 & roi.data[idx]>0) | (dest==0 & roi.data[idx]==0) ))
+                            {
+                                changedPoints.push(idx)
+                                roi.data[idx] = dest;
+                            }
+                        }
             }
             signalhandler.send("positionChange");
             update3D(fobj);
@@ -1631,7 +1898,7 @@ function KRoiTool(master)
             var nii = fobj.content;
             for (var j = 0; j < rois.length; j++)
             {
-                if ( ROIs[rois[j]].content == undefined)
+                if ( ROIs[rois[j]] == undefined || (ROIs[rois[j]] != undefined && ROIs[rois[j]].content == undefined))
                     continue;
                 var roi = ROIs[rois[j]].content;
                 roi.A = (math.multiply(math.inv(roi.edges), nii.edges))._data;
@@ -1713,9 +1980,11 @@ function KRoiTool(master)
         else if (str == "saveas")
         {
             saveROI(fobj, true)
+            that.update();
+
         }
         else if (str == "close")
-            delROI(id);
+            that.deleteROI(id);
 
         if (changedPoints != undefined && changedPoints.length > 0)
             that.history.add(changedPoints, valtoset,fobj);
@@ -1743,9 +2012,12 @@ function KRoiTool(master)
         var $b = $(target).find(".vis");
         $b.toggleClass("fa-square-o").toggleClass("fa-check-square-o");
         if ($b.hasClass("fa-square-o"))
+        {
             delete visibleROIs[id];
+        }
         else
             visibleROIs[id] = true;
+
     }
 
     function toggle_all_visible()
@@ -1766,7 +2038,7 @@ function KRoiTool(master)
     };
 
 
-    function keepExclusive(changedPoints,medViewer,ev)
+    function keepExclusive(changedPoints,setOnPoints,medViewer,ev)
     {
         var type = that.roiMode;
 
@@ -1777,9 +2049,9 @@ function KRoiTool(master)
         var nii =  medViewer.currentROI.content;
         for (var k = 0; k < medViewer.ROIs.length;k++)
         {
-            if (medViewer.currentROI != medViewer.ROIs[k].roi &&
-                medViewer.ROIs[k].nii.edges._data.toString() ==
-                medViewer.currentROI.content.edges._data.toString())
+            if (medViewer.ROIs[k].visible && medViewer.currentROI != medViewer.ROIs[k].roi &&
+            math.matrices_equal(medViewer.ROIs[k].nii.edges._data,medViewer.currentROI.content.edges._data))
+
             {
                 rois.push(medViewer.ROIs[k].roi);
 
@@ -1791,18 +2063,18 @@ function KRoiTool(master)
 
 
         var roilen = rois.length;
-        var plen = changedPoints.length;
         if (type == "override")
         {
+            var plen = setOnPoints.length;
             for (var k = 0; k < roilen;k++)
             {
                 var cp_r = [];
                 var data = rois[k].content.data;
                 for (var j = 0 ;j < plen; j++)
                 {
-                    if (data[changedPoints[j]] > 0)
-                        cp_r.push(changedPoints[j])
-                    data[changedPoints[j]]=0;
+                    if (data[setOnPoints[j]] > 0)
+                        cp_r.push(setOnPoints[j])
+                    data[setOnPoints[j]]=0;
                 }
                 that.history.add(cp_r, 0,rois[k]);
             }
@@ -1812,6 +2084,7 @@ function KRoiTool(master)
         }
         if (type == "block")
         {
+            var plen = changedPoints.length;            
             var changedPoints_new = [];
             for (var j = 0 ;j < plen; j++)
             {
@@ -1836,44 +2109,112 @@ function KRoiTool(master)
     }
     that.keepExclusive = keepExclusive
 
+
+
+    that.mousebuffer = [];
     that.modifyRoi = function(ev, medViewer,callback)
     {
 
         if (!that.penEnabled)
             return false;
 
-        var valtoset = (ev.buttons == 1) | ( ev.buttons == 0);
+        var valtoset = (ev.buttons == 0) | ( ev.buttons == 1);
+        if (that.buttonInverse | ev.ctrlKey)
+            valtoset = !valtoset;
         if (ev.roipreview)
             valtoset = 255;
 
 
+        var evClientX = ev.clientX
+        var evClientY = ev.clientY
+
+        if (that.smoothmouse && that.smoothmouse>0)
+        {
+            var now = Date.now();
+            that.mousebuffer.push([ev.clientX, ev.clientY,now])
+            var N = 50;
+            var mb = that.mousebuffer;
+            if (mb.length>N)
+            {
+                mb.shift();
+            }
+            
+            if (ev.type == "pointermove" | ev.type == "mousemove")
+            {
+                var now = Date.now();
+                that.mousebuffer.push([ev.clientX, ev.clientY,now])
+                var p = [0,0];
+                var s = 0;
+                var ps = that.smoothmouse;
+                for (var k = 0; k < mb.length;k++)
+                    {
+                        var f = Math.pow(ps,0.01*(now-mb[k][2]));
+                      //  var f = Math.pow(0.99,mb.length-k)
+                        p[0] += mb[k][0]*f;
+                        p[1] += mb[k][1]*f;
+                        s += f;
+                    }
+                p[0] /= s; p[1] /= s;
+                that.$pencil.css('transform','translate(' + (p[0]-ev.clientX) + 'px,'+ (p[1]-ev.clientY) + 'px)')
+                evClientX = p[0];
+                evClientY = p[1];
+            }
+            else 
+            {
+                that.mousebuffer = [];
+                that.$pencil.css('transform','translate(0px,0px)');
+            }
+        }
+
         // careful, firefox and chrome might behave differently
-        var points_wc = medViewer.getRealWorldCoordinatesFromMouseEvent(ev.clientX, ev.clientY)._data;
+        var points_wc = medViewer.getRealWorldCoordinatesFromMouseEvent(evClientX, evClientY)._data;
         // the function calculates real world coordinates based on the mouse event
         var slicing = medViewer.getSlicingDimOfArray();
 
-        if (ev.type == "mousedown")
+
+        if (ev.type == "mousedown" | ev.type == "pointerdown")
         {
             that.resetRoiVolume(currentROI);
+            if (that.autopensize)
+                that.pencil.radius_auto = that.getAutoPencilSize(points_wc, medViewer)
+        }
+
+        if (ev.type == "mouseup"  | ev.type == "pointerup")
+        {
+            that.resetRoiVolume(currentROI);
+            if (that.autopensize)
+                that.pencil.radius_auto = undefined;
         }
 
 
-        if ((!that.regionGrow && !that.regionGrowRestric) || valtoset == 0)
+        if (that.warpMode)
         {
-            // here was the evil bug!
-            // ROI was modified on mouseup, but this was explicitely NOT added to history
-            // For now, only allow roi modification in normal pen mode on mousedonw and mousemove, not mouseup (return)
-            if(ev.type == "mouseup")
+            if (ev.type == "mousedown" | ev.type == "pointerdown" )
+            {
+                initWarp(medViewer.currentROI,points_wc)
+            }
+            else if (ev.type == "mousemove" | ev.type == "pointermove" )
+            {
+                that.genWarp(points_wc)
+            }
+            else
+            {
+                that.destroyWarp();
+            }
+            callback();
+
+        }        
+        else if ((!that.regionGrow && !that.regionGrowRestric) || valtoset == 0)
+        {
+            if(ev.type == "mouseup" | ev.type == "pointerup")
             {
                 callback();
                 return false;
             }
 
-            that.modifyRoiInternal(points_wc, valtoset, slicing, medViewer, undefined, function(changedPoints)
+            that.modifyRoiInternal(points_wc, valtoset, slicing, medViewer, undefined, function(changedPoints,setOnPoints)
             {
-                // evil bug remainder, not sure why this was used in the first place, but had some reason once.
-                 //if (ev.type != "mouseup" && valtoset != 2)
-                changedPoints=keepExclusive(changedPoints,medViewer,ev);
+                changedPoints=keepExclusive(changedPoints,setOnPoints,medViewer,ev);
                 if (!ev.roipreview)
                     that.history.add(changedPoints, valtoset);
                 callback(changedPoints);
@@ -1881,7 +2222,7 @@ function KRoiTool(master)
         }
         else if (that.regionGrowRestric)
         {
-            if (ev.type == "mousedown")
+            if (ev.type == "mousedown" | ev.type == "pointerdown")
             {
                if (regionGrow.timeout != -1)
                {
@@ -1890,9 +2231,9 @@ function KRoiTool(master)
                    for (var k = 0; k < regionGrow.changedPoints.length;k++)
                        medViewer.currentROI.content.data[regionGrow.changedPoints[k]] = 0;
                }
-                that.modifyRoiInternal(points_wc, valtoset, slicing, medViewer, undefined, function(changedPoints)
+                that.modifyRoiInternal(points_wc, valtoset, slicing, medViewer, undefined, function(changedPoints,setOnPoints)
                 {
-                    changedPoints = keepExclusive(changedPoints,medViewer,ev)
+                    changedPoints = keepExclusive(changedPoints,setOnPoints,medViewer,ev)
                     if (!ev.roipreview)
                         that.history.add(changedPoints, valtoset);
                     callback(changedPoints);
@@ -1901,11 +2242,11 @@ function KRoiTool(master)
 
                regionGrow.changedPoints = [];
             }
-            else if (ev.type == "mousemove" | ev.type == "mousewheel")
+            else if (ev.type == "pointermove" | ev.type == "mousemove" | ev.type == "mousewheel")
             {
-                that.modifyRoiInternal(points_wc, valtoset, slicing, medViewer, undefined, function(changedPoints)
+                that.modifyRoiInternal(points_wc, valtoset, slicing, medViewer, undefined, function(changedPoints,setOnPoints)
                 {
-                    changedPoints = keepExclusive(changedPoints,medViewer,ev)
+                    changedPoints = keepExclusive(changedPoints,setOnPoints,medViewer,ev)
                     if (!ev.roipreview)                    
                         that.history.add(changedPoints, valtoset);
                     callback(changedPoints);
@@ -1919,7 +2260,7 @@ function KRoiTool(master)
         }
         else
         {
-            if (ev.type == "mousedown")
+            if (ev.type == "mousedown" | ev.type == "pointerdown")
             {
                 that.$pencil.addClass('leftright busy')
                 regionGrow.helper.downev = ev;
@@ -1930,7 +2271,7 @@ function KRoiTool(master)
                    callback(changedPoints);
                 });
             }
-            if (ev.type == "mousemove")
+            if (ev.type == "mousemove" | ev.type == "pointermove")
             {
                 regionGrow.helper.simscaling = (ev.clientX - regionGrow.helper.downev.clientX);
                 points_wc = medViewer.getRealWorldCoordinatesFromMouseEvent(regionGrow.helper.downev.clientX, regionGrow.helper.downev.clientY)._data;
@@ -1940,7 +2281,7 @@ function KRoiTool(master)
                    callback(changedPoints);
                 });
             }
-            if (ev.type == "mouseup" || ev.type == "mouseleave")
+            if (ev.type == "mouseup"  || ev.type == "pointerup"  || ev.type == "mouseleave")
             {
                 KViewer.roiTool.$pencil.removeClass('leftright busy')
 
@@ -1966,6 +2307,111 @@ function KRoiTool(master)
 
 
 
+    function initWarp(roi,p0)
+    {
+
+
+      var nii = roi.content
+      roi.content.data_original = roi.content.data;
+      roi.content.data = roi.content.data.slice();
+
+      var sizes = [32,32,32];
+
+	  var voxsz = [0,0,0,1];
+ 	  for (var i=0; i< 3;i++)
+ 	  	 voxsz[i] = (nii.sizes[i]-1)*nii.voxSize[i]/(sizes[i]-1);
+
+      var Order = KMedViewer.getPermutationOrder();
+      var perm = Order.perm;
+  
+	  var edges = math.multiply(nii.edges,math.diag([voxsz[0]/nii.voxSize[0],voxsz[1]/nii.voxSize[1],voxsz[2]/nii.voxSize[2],1]))
+ 	  var invedges = math.inv(edges);
+      
+      var e = edges._data
+      var tot = sizes[0]*sizes[1]*sizes[2];
+      var data = new Float32Array(tot*3)
+        
+      var last_p
+      function genWarp(p)
+      {
+          var r = math.multiply(invedges,p)._data;
+          var dif = [p0[0]-p[0],p0[1]-p[1],p0[2]-p[2]]
+          var sig = that.pencil.radius/voxsz[0];
+          //var dif2 = 0.01*(dif[0]*dif[0]+dif[1]*dif[1]+dif[2]*dif[2])/voxsz[0]
+          //sig = sig + dif2;
+          var sigma2 = 1/(sig*sig)
+		  for (var z=0;z < sizes[2];z++)
+		  for (var y=0;y < sizes[1];y++)
+		  for (var x=0;x < sizes[0];x++)
+		  {
+              var s = [(x-r[0]),(y-r[1]),(z-r[2])]
+              var d2 = s[0]*s[0]+s[1]*s[1]+s[2]*s[2];
+              var f  = Math.exp(-d2*sigma2)
+
+			  var idx = x+sizes[0]*y+sizes[0]*sizes[1]*z
+			  for (var i = 0; i < 3; i++)
+			  {
+                 data[idx+i*tot] = e[i][0]*x + e[i][1]*y + e[i][2]*z + e[i][3] 	
+                 data[idx+i*tot] += f*dif[i];                 				 
+			  }
+
+		  }
+		  last_p=p;
+      }
+      that.destroyWarp = function()
+      {
+            if (last_p == undefined)
+                return;
+            var pm = math.multiply(math.add(last_p,p0),0.5)
+            var p0_vx = math.multiply(math.inv(nii.edges),pm)._data;
+            var scale = that.pencil.radius/nii.voxSize[0];
+            var bound = [[p0_vx[0]-scale,p0_vx[0]+scale],
+                         [p0_vx[1]-scale,p0_vx[1]+scale],
+                         [p0_vx[2]-scale,p0_vx[2]+scale]]
+            for (var k = 0;k < 3;k++)
+            {
+                bound[k][0] = math.round(bound[k][0]);
+                bound[k][1] = math.round(bound[k][1]);
+            }
+
+
+            var def = that.tmpWarp       
+            var def_edges_inv = math.inv(def.edges);
+
+            var A = math.inv(nii.edges)._data
+            var Adef = math.multiply(def_edges_inv, nii.edges)._data;
+
+            var mapCoords = function (x,y,z)
+            {
+               return [trilinInterp(def,x,y,z,Adef,def.widheidep*0),
+                       trilinInterp(def,x,y,z,Adef,def.widheidep*1),
+                       trilinInterp(def,x,y,z,Adef,def.widheidep*2)]
+            }
+
+		    for (var z=bound[2][0];z < bound[2][1];z++)
+		    for (var y=bound[1][0];y < bound[1][1];y++)
+		    for (var x=bound[0][0];x < bound[0][1];x++)
+		    {
+		        var idx = x+y*nii.wid+z*nii.widhei;
+		        var p = mapCoords(x,y,z)
+		        nii.data_original[idx] = trilinInterp(nii,p[0],p[1],p[2],A,def.widheidep*0) > 0.5;
+		    }
+        
+
+
+          if (roi.content.data_original)
+          {
+              delete roi.content.data 
+              roi.content.data = roi.content.data_original 
+              roi.content.data_original = undefined;
+          }
+      }
+      that.genWarp = genWarp;
+      that.tmpWarp = {sizes:sizes,edges:edges,data:data,wid:sizes[0],widhei:sizes[0]*sizes[1],widheidep:sizes[0]*sizes[1]*sizes[2]}
+      genWarp(p0)
+
+
+    }
     function applyPerm(idx, perm)
     {
         var newidx = [];
@@ -1976,8 +2422,8 @@ function KRoiTool(master)
 
     that.modifyRoiInternal = function(points_wc, valtoset, slicing, medViewer, params, callback)
     {
-
-        function updateVal(valtoset,currentIndex)
+    
+        function updateVal_ordinary(valtoset,currentIndex)
         {
             if (valtoset < 2 )
             {
@@ -2010,6 +2456,47 @@ function KRoiTool(master)
                 }
             }
         }
+        function updateVal_override(valtoset,currentIndex)
+        {
+            if (valtoset < 2 )
+            {
+                if (nii.data[currentIndex] != undefined)
+                {
+                   if (valtoset>0)
+                   {
+                       if (nii.data[currentIndex] == 0)
+                       {
+                           changedPoints.push(currentIndex);
+                           nii.data[currentIndex] = valtoset;
+                       }
+                       setOnPoints.push(currentIndex);
+
+                   }
+                   else
+                   {
+                       if (nii.data[currentIndex] > 0)
+                       {
+                           changedPoints.push(currentIndex);
+                           nii.data[currentIndex] = valtoset;
+                       }
+                   }
+                }
+            }
+            else
+            {
+                if (nii.data[currentIndex] == 0 | nii.data[currentIndex] == 2 )
+                {
+                    changedPoints.push(currentIndex);
+                    nii.data[currentIndex] = valtoset;
+                }
+            }
+        }
+
+        var updateVal = updateVal_ordinary
+        if (that.roiMode == 'override')
+           updateVal = updateVal_override
+
+
 
        // if (master.mainViewPort != -1)
        //     points_wc = math.multiply(math.inv(master.reorientationMatrix.matrix), points_wc);
@@ -2021,7 +2508,11 @@ function KRoiTool(master)
         {
             var nii = medViewer.currentROI.content;
             var that_ = that;
-            var max_extent_perc = medViewer.computeMaxExtentFac() / 300;
+            var max_extent_perc
+            if (that.unitsmm)
+                max_extent_perc = 0.5;
+            else
+                max_extent_perc = medViewer.computeMaxExtentFac() / 300;
         }
         else
         {
@@ -2042,74 +2533,71 @@ function KRoiTool(master)
 
         }
 
+        var slicing_roi = nii.permutationOrder.indexOf(medViewer.getSlicingDimOfWorld());
+
+
         var pencil_ = that_.pencil;
+
+        var pencil_radius = pencil_.radius;
+        if (pencil_.radius_auto != undefined)
+            pencil_radius = pencil_.radius_auto;
 
 
         var nii_ondraw = medViewer.nii;
 
-        slicing = applyInvPerm(nii.permutationOrder, nii_ondraw.permutationOrder[slicing]);
+        var pradz = pencil_.radius_z;
+		if (that.singleerase && valtoset==0)
+			pradz = 0;
 
-        var p = [0,1,2];
-        var radiusx = math.floor(((slicing == p[0]) ? pencil_.radius_z : pencil_.radius) / nii.voxSize[p[0]] * max_extent_perc);
-        var radiusy = math.floor(((slicing == p[1]) ? pencil_.radius_z : pencil_.radius) / nii.voxSize[p[1]] * max_extent_perc);
-        var radiusz = math.floor(((slicing == p[2]) ? pencil_.radius_z : pencil_.radius) / nii.voxSize[p[2]] * max_extent_perc);
-        var sx2 = nii.voxSize[p[0]] * nii.voxSize[p[0]] / max_extent_perc / max_extent_perc;
-        var sy2 = nii.voxSize[p[1]] * nii.voxSize[p[1]] / max_extent_perc / max_extent_perc;
-        var sz2 = nii.voxSize[p[2]] * nii.voxSize[p[2]] / max_extent_perc / max_extent_perc;
+        var rfun = (i,slicing,nii) => (((slicing == i) ? pradz : pencil_radius) / nii_ondraw.voxSize[i] * max_extent_perc);
+        var radiusx = rfun(0,slicing,nii)
+        var radiusy = rfun(1,slicing,nii)
+        var radiusz = rfun(2,slicing,nii)
+        var sxfun = (i) => nii_ondraw.voxSize[i] * nii_ondraw.voxSize[i] / max_extent_perc / max_extent_perc;
+        var sx2 = sxfun(0);
+        var sy2 = sxfun(1);
+        var sz2 = sxfun(2);
 
+        var distance_to_center_2 = makefunction_distance_to_center_2(sx2, sy2, sz2, slicing, that_.shape);
 
 
         // calculate vectors in plane to draw
         var ie = math.inv(nii.edges);
         var rectilinear = true;
-        var R =  (medViewer.getTiltMat(slicing));
 
         if (KViewer.mainViewport != -1) // && !isIdentity(R))
             rectilinear = false;
 
+        var iee;
+        var points;
 
-        if (KViewer.navigationMode == 0 || KViewer.mainViewport == -1 )
-        {
-            var U =  math.multiply(math.inv(nii.edges),nii_ondraw.edges);
-            var iee = math.multiply(math.multiply(U,R),math.inv(U));
-        }
+        var Wtraf = (KViewer.reorientationMatrix.matrix);
+        if (KViewer.mainViewport != -1  && KViewer.navigationMode == 0)
+           points = math.multiply(ie, math.multiply(math.inv(Wtraf),points_wc))._data;
         else
-        {
-            var W = (KViewer.reorientationMatrix.matrix);
-            var iee = math.multiply(math.multiply(math.inv(nii.edges),W),nii.edges);
-        }
+           points = math.multiply(ie, points_wc)._data;
+
+
+        if (KViewer.mainViewport != -1  && KViewer.navigationMode != 0)
+            iee = math.multiply(math.multiply(math.inv(nii.edges),Wtraf),nii_ondraw.edges);
+        else
+            iee = math.multiply(math.inv(nii.edges),nii_ondraw.edges);
+
+
         var vx = math.multiply(iee,  [1,0,0,0])._data;
         var vy = math.multiply(iee,  [0,1,0,0])._data;
         var vz = math.multiply(iee,  [0,0,1,0])._data;
 
 
-        var points = math.multiply(ie, points_wc)._data;
-        points[0] = Math.round(points[0])
-        points[1] = Math.round(points[1])
-        points[2] = Math.round(points[2])
-
         var radiusx_up = radiusx;
         var radiusx_down = radiusx;
-        if (radiusx_up >= nii.sizes[0]-points[0])
-            radiusx_up = nii.sizes[0]-points[0]-1;
-        if (points[0]-radiusx_down <= 0 )
-            radiusx_down = points[0];
-
         var radiusy_up = radiusy;
         var radiusy_down = radiusy;
-        if (radiusy_up >= nii.sizes[1]-points[1])
-            radiusy_up = nii.sizes[1]-points[1]-1;
-        if (points[1]-radiusy_down <= 0 )
-            radiusy_down = points[1];
-
         var radiusz_up = radiusz;
         var radiusz_down = radiusz;
-        if (radiusz_up >= nii.sizes[2]-points[2])
-            radiusz_up = nii.sizes[2]-points[2]-1;
-        if (points[2]-radiusz_down <= 0 )
-            radiusz_down = points[2];
 
 
+      
         // prepare vars for our own in line add (math add is very slow)
         var currentVoxel = [0, 0, 0];
         var currentIndex = 0;
@@ -2118,11 +2606,80 @@ function KRoiTool(master)
 
         // for the history
         var changedPoints = [];
-
+        var setOnPoints = [];
 
         var dx = rectilinear?1:0.5;
         var dy = rectilinear?1:0.5;
         var dz = rectilinear?1:0.5;
+
+        var dx = 1/math.sqrt(vx[0]*vx[0]+vx[1]*vx[1]+vx[2]*vx[2])
+        var dy = 1/math.sqrt(vy[0]*vy[0]+vy[1]*vy[1]+vy[2]*vy[2])
+        var dz = 1/math.sqrt(vz[0]*vz[0]+vz[1]*vz[1]+vz[2]*vz[2])
+
+        if (radiusz>0 & radiusz_down < dz)
+        {
+            radiusz_down = dz;
+            radiusz_up = dz;
+        }
+        if (radiusx>0 & radiusx_down < dx)
+        {
+            radiusx_down = dx;
+            radiusx_up = dx;
+        }
+        if (radiusy>0 & radiusy_down < dy)
+        {
+            radiusy_down = dy;
+            radiusy_up = dy;
+        }
+
+
+        if (that_.drawdirection == "down")
+        {
+            if (slicing == 0)
+            {
+                radiusx_up = 0.000001;
+                radiusx_down = 2*radiusx_down;
+                radiusx_down = radiusx_down - radiusx_down%dx;
+            }
+            else if (slicing == 1)
+            {
+                radiusy_up = 0.000001
+                radiusy_down = 2*radiusy_down
+                radiusy_down = radiusy_down - radiusy_down%dy;
+            }
+            else if (slicing == 2)
+            {
+                radiusz_up = 0.000001;
+                radiusz_down = 2*radiusz_down;
+                radiusz_down = radiusz_down - radiusz_down%dz;
+            }
+        }
+        else if (that_.drawdirection == "up")
+        {
+            if (slicing == 0)
+            {
+                radiusx_up = radiusx_up * 2;
+                radiusx_down = 0;
+            }
+            else if (slicing == 1)
+            {
+                radiusy_up = radiusy_up * 2;
+                radiusy_down = 0;
+            }
+            else if (slicing == 2)
+            {
+                radiusz_up = radiusz_up * 2;
+                radiusz_down = 0;
+            }
+        }
+
+
+
+
+
+
+
+
 
         // mode4D
         /*
@@ -2184,15 +2741,23 @@ function KRoiTool(master)
         if (that_.threspen > 0)
         {
              if (thres[0] == "off" & thres[1] != "off")
-                comp = function(x) { return x < thres[1]}
+                comp = function(x) { return x <= thres[1]}
              if (thres[0] != "off" & thres[1] == "off")
-                comp = function(x) { return x > thres[0]}
+                comp = function(x) { return x >= thres[0]}
              if (thres[0] != "off" & thres[1] != "off")
-                comp = function(x) { return x > thres[0] & x < thres[1]}
+                comp = function(x) { return x >= thres[0] & x <= thres[1]}
+        }
+
+        var sz0_ = nii.sizes[0]
+        var sz1_ = nii.sizes[1]
+        var sz2_ = nii.sizes[2]
+        function isOnVol(x,y,z)
+        {
+            return x>=0 && x<sz0_ && y>=0 && y<sz1_ && z>=0 && z<sz2_ 
         }
 
         // always delete all on right click with threspen, therefore here also != 0
-        if (  ( that_.smartpaw | ( that_.threspen > 0 & !(that_.regionGrowRestric | that_.regionGrow) & valtoset != 0 ) ) )
+        if (  ( that_.smartpaw | ( that_.threspen > 0 & !(that_.regionGrowRestric | that_.regionGrow) & (valtoset != 0 | that.smarterase ) ) ))
         {
 
 
@@ -2224,12 +2789,16 @@ function KRoiTool(master)
                 for (var x = -radiusx_down; x <= radiusx_up; x+=dx)
                     for (var y = -radiusy_down; y <= radiusy_up; y+=dy)
                     {
-                        var d2 = x * x * sx2 + y * y * sy2 + z * z * sz2;
-                        if (d2 <= pencil_.radius * pencil_.radius)
+                        var d2 = distance_to_center_2(x, y, z);
+                        if (d2 <= pencil_radius * pencil_radius)
                         {
                             currentVoxel[0] = Math.round(points[0] + x * vx[0] + y * vy[0] + z * vz[0]);
                             currentVoxel[1] = Math.round(points[1] + x * vx[1] + y * vy[1] + z * vz[1]);
                             currentVoxel[2] = Math.round(points[2] + x * vx[2] + y * vy[2] + z * vz[2]);
+
+                            if (!isOnVol(currentVoxel[0],currentVoxel[1],currentVoxel[2]))
+                                continue;
+
 
                             currentVoxel_im[0] = Math.round(points_im[0] + x * vx_im[0] + y * vy_im[0] + z * vz_im[0]);
                             currentVoxel_im[1] = Math.round(points_im[1] + x * vx_im[1] + y * vy_im[1] + z * vz_im[1]);
@@ -2241,7 +2810,7 @@ function KRoiTool(master)
 
                             if (that_.smartpaw)
                             {
-                                if (grayValdif(currentIndex_im) + d2 / (pencil_.radius * pencil_.radius) * 0.1 < 0.2 &
+                                if (grayValdif(currentIndex_im) + d2 / (pencil_radius * pencil_radius) * 0.1 < 0.2 &
                                 (!(that_.threspen == 1 | that_.threspen == 3) | centerval > thres) &
                                 (!(that_.threspen == 2 | that_.threspen == 4) | centerval < thres))
                                 {
@@ -2257,7 +2826,7 @@ function KRoiTool(master)
                     }
 
         }
-        else if ( valtoset != 0 && (that_.regionGrow | that_.regionGrowRestric) )
+        else if ( (that.smarterase | valtoset != 0) && (that_.regionGrow | that_.regionGrowRestric) )
         {
 
             currentVoxel[0] = Math.round(points[0]);
@@ -2270,7 +2839,7 @@ function KRoiTool(master)
             if (KViewer.navigationMode == 0 || KViewer.mainViewport == -1 )
               B = math.multiply(math.inv(medViewer.niiOriginal.edges),nii.edges)._data;
             else
-              B = math.multiply(math.multiply(math.inv(medViewer.niiOriginal.edges),math.inv(KViewer.reorientationMatrix.matrix)),nii.edges)._data;
+              B =  math.multiply(math.multiply(math.inv(medViewer.nii.edges),math.inv(KViewer.reorientationMatrix.matrix)),nii.edges)._data;
             var A = math.multiply(math.inv(medViewer.niiOriginal.edges),nii.edges)._data;
 
             // if threspen is enabled, take these (hard) clims, otherwise take histogram clims
@@ -2288,22 +2857,33 @@ function KRoiTool(master)
                 var clims = medViewer.histoManager.clim;
             }
 
-            var rv = [nii.voxSize[0]/nii_ondraw.voxSize[0],nii.voxSize[1]/nii_ondraw.voxSize[1],nii.voxSize[2]/nii_ondraw.voxSize[2]]
-
+            //var rv = [nii.voxSize[0]/nii_ondraw.voxSize[0],nii.voxSize[1]/nii_ondraw.voxSize[1],nii.voxSize[2]/nii_ondraw.voxSize[2]]
+            var rv = [1,1,1];
             var roidata
 
             if (nii.numTimePoints > currentTimePoint)
-               roidata = new Uint8Array(nii.data.buffer,nii.hdroffset+currentTimePoint*nii.widheidep);
+            {
+                   roidata = new Uint8Array(nii.data.buffer,nii.hdroffset+currentTimePoint*nii.widheidep);
+            }
             else
                roidata = new Uint8Array(nii.data.buffer,nii.hdroffset);
 
             if (current_t_contrast >= medViewer.niiOriginal.numTimePoints)
                 current_t_contrast=0;
+            if (medViewer.showcolored)
+                current_t_contrast *=3;
+            
+            if (radiusx < 1)
+                radiusx = 1;
+            if (radiusy < 1)
+                radiusy = 1;
+            if (radiusz < 1)
+                radiusz = 1;
 
             regionGrow(medViewer.niiOriginal,roidata,A,B,nii.sizes, currentVoxel, valtoset,
                     clims, that_.regionGrowRestric,
                     radiusx*rv[0],radiusy*rv[1],radiusz*rv[2],
-                    sx2/(rv[0]*rv[0]), sy2/(rv[1]*rv[1]), sz2/(rv[2]*rv[2]), pencil_.radius * pencil_.radius, callback, current_t_contrast);
+                    sx2/(rv[0]*rv[0]), sy2/(rv[1]*rv[1]), sz2/(rv[2]*rv[2]), pencil_radius * pencil_radius, callback, current_t_contrast, undefined, slicing, that_.shape, that_.drawdirection,medViewer.showcolored);
 
 
 
@@ -2312,29 +2892,179 @@ function KRoiTool(master)
         }
         else
         {
-            var dx = rectilinear?1:0.5;
-            var dy = rectilinear?1:0.5;
-            var dz = rectilinear?1:0.5;
-            for (var z = -radiusz_down; z <= radiusz_up; z+=dz)
-                for (var x = -radiusx_down; x <= radiusx_up; x+=dx)
-                    for (var y = -radiusy_down; y <= radiusy_up; y+=dy)
-                        if (x * x * sx2 + y * y * sy2 + z * z * sz2 <= pencil_.radius * pencil_.radius)
+            for (var z = -radiusz_down; z <= radiusz_up; z+=dz) {
+                for (var x = -radiusx_down; x <= radiusx_up; x+=dx) {
+                    for (var y = -radiusy_down; y <= radiusy_up; y+=dy) {
+                        if (distance_to_center_2(x, y, z) <= pencil_radius * pencil_radius)
                         {
 
                             currentVoxel[0] = Math.round(points[0] + x * vx[0] + y * vy[0] + z * vz[0]);
                             currentVoxel[1] = Math.round(points[1] + x * vx[1] + y * vy[1] + z * vz[1]);
                             currentVoxel[2] = Math.round(points[2] + x * vx[2] + y * vy[2] + z * vz[2]);
 
+                            if (!isOnVol(currentVoxel[0],currentVoxel[1],currentVoxel[2]))
+                                continue;
+
                             currentIndex = nii.sizes[0] * nii.sizes[1] * currentVoxel[2] + currentVoxel[1] * nii.sizes[0] + currentVoxel[0] + nii.widheidep*(currentTimePoint);
 
                             updateVal(valtoset,currentIndex);
                         }
+                    }
+                }
+            }
         }
 
-        callback(changedPoints);
+        callback(changedPoints,setOnPoints);
 
 
     }
+
+
+    that.getAutoPencilSize = function(points_wc, medViewer)
+    {
+    
+        var nii = medViewer.currentROI.content;
+        var that_ = that;
+        var max_extent_perc;
+        if (that.unitsmm)
+            max_extent_perc = 0.5;
+        else
+            max_extent_perc = medViewer.computeMaxExtentFac() / 300;
+
+        var slicing = medViewer.getSlicingDimOfArray();
+
+        var pencil_ = that_.pencil;
+
+        var nii_ondraw = medViewer.nii;
+
+        var p = [0,1,2];
+        var radiusx = (((slicing == p[0]) ? pencil_.radius_z : pencil_.radius) / nii_ondraw.voxSize[p[0]] * max_extent_perc);
+        var radiusy = (((slicing == p[1]) ? pencil_.radius_z : pencil_.radius) / nii_ondraw.voxSize[p[1]] * max_extent_perc);
+        var radiusz = (((slicing == p[2]) ? pencil_.radius_z : pencil_.radius) / nii_ondraw.voxSize[p[2]] * max_extent_perc);
+        var sx2 = nii_ondraw.voxSize[p[0]] * nii_ondraw.voxSize[p[0]] / max_extent_perc / max_extent_perc;
+        var sy2 = nii_ondraw.voxSize[p[1]] * nii_ondraw.voxSize[p[1]] / max_extent_perc / max_extent_perc;
+        var sz2 = nii_ondraw.voxSize[p[2]] * nii_ondraw.voxSize[p[2]] / max_extent_perc / max_extent_perc;
+
+        var distance_to_center_2 = makefunction_distance_to_center_2(sx2, sy2, sz2, slicing, that_.shape);
+
+
+        // calculate vectors in plane to draw
+        var ie = math.inv(nii.edges);
+        var rectilinear = true;
+
+        if (KViewer.mainViewport != -1) // && !isIdentity(R))
+            rectilinear = false;
+
+        var iee;
+        var points;
+
+        var Wtraf = (KViewer.reorientationMatrix.matrix);
+        if (KViewer.mainViewport != -1  && KViewer.navigationMode == 0)
+           points = math.multiply(ie, math.multiply(math.inv(Wtraf),points_wc))._data;
+        else
+           points = math.multiply(ie, points_wc)._data;
+
+
+        if (KViewer.mainViewport != -1  && KViewer.navigationMode != 0)
+            iee = math.multiply(math.multiply(math.inv(nii.edges),Wtraf),nii_ondraw.edges);
+        else
+            iee = math.multiply(math.inv(nii.edges),nii_ondraw.edges);
+
+
+        var vx = math.multiply(iee,  [1,0,0,0])._data;
+        var vy = math.multiply(iee,  [0,1,0,0])._data;
+        var vz = math.multiply(iee,  [0,0,1,0])._data;
+
+
+        var radiusx_up = radiusx;
+        var radiusx_down = radiusx;
+        var radiusy_up = radiusy;
+        var radiusy_down = radiusy;
+        var radiusz_up = radiusz;
+        var radiusz_down = radiusz;
+
+        // prepare vars for our own in line add (math add is very slow)
+        var currentVoxel = [0, 0, 0];
+        var currentIndex = 0;
+
+        var sigma = math.abs(medViewer.histoManager.clim[1] - medViewer.histoManager.clim[0]);
+
+        // for the history
+        var changedPoints = [];
+        var setOnPoints = [];
+
+        var dx = rectilinear?1:0.5;
+        var dy = rectilinear?1:0.5;
+        var dz = rectilinear?1:0.5;
+
+        var dx = 1/math.sqrt(vx[0]*vx[0]+vx[1]*vx[1]+vx[2]*vx[2])
+        var dy = 1/math.sqrt(vy[0]*vy[0]+vy[1]*vy[1]+vy[2]*vy[2])
+        var dz = 1/math.sqrt(vz[0]*vz[0]+vz[1]*vz[1]+vz[2]*vz[2])
+
+        var current_t_contrast = 0;
+        if (medViewer.nii.numTimePoints > 1)
+            current_t_contrast = medViewer.nii.currentTimePoint.t;
+        else
+            if (nii.numTimePoints > 1)
+                current_t_contrast =  nii.currentTimePoint.t;
+
+
+        var currentTimePoint = current_t_contrast;
+        if (currentTimePoint > nii.numTimePoints-1)
+            currentTimePoint = nii.numTimePoints-1;
+
+
+        var sz0_ = nii.sizes[0]
+        var sz1_ = nii.sizes[1]
+        var sz2_ = nii.sizes[2]
+        function isOnVol(x,y,z)
+        {
+            return x>=0 && x<sz0_ && y>=0 && y<sz1_ && z>=0 && z<sz2_ 
+        }
+
+
+        currentVoxel[0] = Math.round(points[0]);
+        currentVoxel[1] = Math.round(points[1]);
+        currentVoxel[2] = Math.round(points[2]);
+
+        currentIndex = nii.sizes[0] * nii.sizes[1] * currentVoxel[2] + currentVoxel[1] * nii.sizes[0] + currentVoxel[0] + nii.widheidep*(currentTimePoint);;
+
+        var ison = nii.data[currentIndex]>0;
+
+
+        var maxd =  pencil_.radius*pencil_.radius;
+        for (var z = -radiusz_down; z <= radiusz_up; z+=dz) {
+                for (var x = -radiusx_down; x <= radiusx_up; x+=dx) {
+                    for (var y = -radiusy_down; y <= radiusy_up; y+=dy) {
+                        var d = distance_to_center_2(x, y, z);
+                        if (d <= pencil_.radius * pencil_.radius)
+                        {
+
+                            currentVoxel[0] = Math.round(points[0] + x * vx[0] + y * vy[0] + z * vz[0]);
+                            currentVoxel[1] = Math.round(points[1] + x * vx[1] + y * vy[1] + z * vz[1]);
+                            currentVoxel[2] = Math.round(points[2] + x * vx[2] + y * vy[2] + z * vz[2]);
+
+                            if (!isOnVol(currentVoxel[0],currentVoxel[1],currentVoxel[2]))
+                                continue;
+
+                            currentIndex = nii.sizes[0] * nii.sizes[1] * currentVoxel[2] + currentVoxel[1] * nii.sizes[0] + currentVoxel[0] + nii.widheidep*(currentTimePoint);
+                            if ( (nii.data[currentIndex]>0) != ison)
+                            {
+                                if (d < maxd)
+                                {
+                                    maxd = d;
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+        return Math.sqrt(maxd);
+
+
+    }
+
+
 
 
     /***************************************************************************************
@@ -2366,6 +3096,13 @@ function KRoiTool(master)
             that.history.goto(-1);
             evt.preventDefault();evt.stopPropagation();return false;
         }
+
+        if (evt.which == 81)
+        {
+            that.testTFJS()
+
+            
+        }
     });
 
 
@@ -2377,7 +3114,18 @@ function KRoiTool(master)
         if (whichROI == undefined || whichROI.content == undefined)
             return;
 
-        whichROI.modified = true;
+        if (!whichROI.modified)
+        {
+            whichROI.modified = true;
+            KViewer.cacheManager.update()
+
+            KViewer.iterateMedViewers(function(viewer)
+            {
+                for (var k = 0; k < viewer.ROIs.length; k++)
+                    if (viewer.ROIs[k].roi == whichROI)
+                        viewer.ROIs[k].$save.addClass("notsaved")
+            });
+        }
 
         if (operation_type == 'use_as_last')
              that.history.lastROImodified = whichROI;
@@ -2542,6 +3290,8 @@ function KRoiTool(master)
             // if backward, increment AFTER
             h.current += step;
 
+
+
         update3D(whichROI);
 
         signalhandler.send("updateImage",{id:whichROI.fileID});
@@ -2673,8 +3423,9 @@ function KRoiTool(master)
     * set current position to center of ROI
     ****************************************************************************************/
 
-    function set_to_center(roi)
+    function set_to_center(fobj)
     {
+        var roi = fobj.content
         var cx = 0;
         var cy = 0;
         var cz = 0;
@@ -2696,7 +3447,12 @@ function KRoiTool(master)
         cz /= cnt;
         if (cnt > 0)
         {
-            var p = math.multiply(roi.edges, [cx, cy, cz, 1]);
+           var reorient = math.eye(4);
+           if (KViewer.navigationTool.isinstance &&
+               ((KViewer.navigationTool.movingObjs[fobj.fileID] != undefined & KViewer.navigationMode == 0) | KViewer.navigationMode == 2 ) )
+                reorient = math.inv(KViewer.reorientationMatrix.matrix);
+
+            var p = math.multiply(reorient,math.multiply(roi.edges, [cx, cy, cz, 1]));
             master.currentPoint = p;
             signalhandler.send("positionChange",{point:p});
         }
@@ -2705,9 +3461,10 @@ function KRoiTool(master)
 
 
 
-      function contextPicker(ev,viewer)
+      function contextPicker(ev,viewer,point)
       {
-          var point = viewer.getRealWorldCoordinatesFromMouseEvent(ev.clientX,ev.clientY);
+          if (point == undefined)
+             point = viewer.getRealWorldCoordinatesFromMouseEvent(ev.clientX,ev.clientY);
 
 
           var R;
@@ -2836,10 +3593,10 @@ function KRoiTool(master)
 
                 return $menu;
             },
-            function(str, ev2)
+            function(str, ev2,ev)
             {
                 if (point == undefined)
-                    point = math.multiply(fobj.content.edges, [conncomp_label.cog[0],conncomp_label.cog[1],conncomp_label.cog[2],1]);
+                    point = math.multiply(fobj.content.edges, [conncomp_label.firstpoint[0],conncomp_label.firstpoint[1],conncomp_label.firstpoint[2],1]);
 
                 if (str == undefined)
                     return;
@@ -2862,7 +3619,8 @@ function KRoiTool(master)
                             }
                             else
                             {
-                                var intendedName = KViewer.dataManager.getNextIteratedFilename( fobj.filename + "_c" );
+                                var fname_pref = fobj.filename.replace("\.nii","").replace("\.gz","")
+                                var intendedName = KViewer.dataManager.getNextIteratedFilename( fname_pref + "_c" );
                             }
 
                             // if no color specified, choose next available
@@ -2908,10 +3666,12 @@ function KRoiTool(master)
                                 if (nfobj.ccanalysis)
                                     nfobj.ccanalysis.persistent.push(conncomp_label);
                             }
+                            KViewer.roiTool.update()
 
 
                             // if ROI not yet present put into viewer
                             setContentwithROI(nfobj,{intent:{ROI:true,color:color}},fobj.fileID);
+                            signalhandler.send("updateImage",{id: fobj.fileID});
                             signalhandler.send("updateImage",{id: nfobj.fileID});
 
 
@@ -2977,8 +3737,6 @@ function KRoiTool(master)
 
     function hidePen(medViewer)
     {
-
-        that.enabled = false;
         that.$pencil.hide();
         medViewer.$canvas.css('cursor', 'default');
     };
@@ -2999,15 +3757,31 @@ function KRoiTool(master)
     ****************************************************************************************/
     function drawPen(ev, medViewer)
     {
-        if ( medViewer.currentROI != undefined && (that.penEnabled & !that.polyEnabled && ( $(ev.target).hasClass("KViewPort_canvas") )))
+        if ( medViewer.currentROI != undefined && (that.penEnabled & !that.polyEnabled && ( $(ev.target).hasClass("KViewPort_canvas") |  $(ev.target).hasClass("KViewPort_icontainer"))))
+//        if ( medViewer.currentROI != undefined && (that.penEnabled & !that.polyEnabled && ( $(ev.target).hasClass("KViewPort_canvas") )))
         {
 
-            var max_extent_perc = medViewer.computeMaxExtentFac() / 300
+            var point = medViewer.getRealWorldCoordinatesFromMouseEvent(ev.clientX,ev.clientY);
+            
+            var max_extent_perc;
+            if (that.unitsmm)
+                max_extent_perc = 0.5;
+            else
+                max_extent_perc = medViewer.computeMaxExtentFac() / 300;
+
             var fac = medViewer.embedrelfac * medViewer.zoomFac;
-            var r = (2 * (pencil.radius)) * fac * max_extent_perc;
+
+            var rad = pencil.radius;
+
+            if (pencil.radius_auto != undefined)
+                rad = pencil.radius_auto
+            else if (that.autopensize)
+                rad = that.getAutoPencilSize(point,  medViewer);
+
+            var r = (2 * rad) * fac * max_extent_perc;
 
             that.$pencil.show();
-            that.enabled = true;
+            //that.enabled = true;
             medViewer.$canvas.css('cursor', 'none');
 
             if (that.regionGrow)
@@ -3037,8 +3811,8 @@ function KRoiTool(master)
             return true;
         }
         else
-        {
-            that.enabled = false;
+        {          
+       //     that.enabled = false;
             that.$pencil.hide();
             medViewer.$canvas.css('cursor', 'default');
             return false;
@@ -3055,10 +3829,47 @@ function KRoiTool(master)
     * tools for dynamic context manu based on passing the roi id
    ****************************************************************************************/
 
-    var roitools_contextmenu = function() {
+    var roitools_contextmenu = function(fobj) {
         var $menu = $("<ul class='menu_context'>");
         $menu.append($("<li onchoice='invert'> invert  </li>"));
         $menu.append($("<li onchoice='clear'> clear  </li>"));
+        $menu.append($("<li onchoice='reslice'> reformat/fov  </li>"));
+        $menu.append($("<li onchoice='clone'> clone  </li>"));
+
+        if (fobj != undefined)
+        {
+            if (fobj.fileID.substring(0,9) == 'ROI_ATLAS')
+            {
+                $menu.append($("<hr>"));
+                
+                var atlas = KViewer.dataManager.getFile(fobj.fileID.split("_")[2])
+                var $keys = $("<input contenteditable='false' onchoice='preventSelection' type='string' >").val(fobj.fileID.split("_")[3])
+
+                $menu.append($("<span> &nbsp <i class='fa leftaligned fa-shopping-basket fa-1x'></i> Atlas "+atlas.filename +"  &nbsp</span>"));
+                var $atlaskeys = $("<li onchoice='preventSelection'> set selection in panel </li>").append($keys);
+                $atlaskeys.click(function()
+                        {
+                            if (atlas.panel == undefined)
+                                atlas.panel = KAtlasPanel(atlas);
+                            else
+                                if (!atlas.panel.visible)
+                                    atlas.panel.toggle();
+                           atlas.panel.hideAll();
+                            var labels = {}; $keys.val().split(",").map((x) => labels[x] = 1);
+                           atlas.panel.setPersistent(labels)
+                        })
+                $menu.append($atlaskeys.append($keys));
+                var $updateSelection = $("<li onchoice='preventSelection'> update label selection </li>").click(function() {
+                     updateAtlasLabelSet(atlas,fobj) 
+                });
+                    
+            
+                $menu.append($updateSelection);
+                
+                
+            }
+        }
+        
         $menu.append($("<hr>"));
         $menu.append($("<li onchoice='fillholes'> fill holes  </li>"));
         var thres = removesalt.threshold;
@@ -3079,8 +3890,8 @@ function KRoiTool(master)
         $menu.append($("<li onchoice='closing'> closing  </li>"));
         $menu.append($("<li onchoice='erode'> erode  </li>"));
         $menu.append($("<li onchoice='dilate'> dilate  </li>"));
-        $menu.append($("<li onchoice='mirror' class='mirror_roi_dimspan'> mirror  <span dim='X'>LR</span> <span dim='Y'>AP</span> <span dim='Z'>Z</span> <span dim='C'>custom</span></li>"));
         $menu.append($("<hr>"));
+        $menu.append($("<li onchoice='mirror' class='mirror_roi_dimspan'> mirror  <span dim='X'>LR</span> <span dim='Y'>AP</span> <span dim='Z'>Z</span> <span dim='C'>custom</span></li>"));
         $menu.append($("<li onchoice='threshold_upper'> upper threshold  </li>"));
         $menu.append($("<li onchoice='threshold_lower'> lower threshold </li>"));
         return $menu;
@@ -3120,35 +3931,45 @@ function KRoiTool(master)
             visible: true
         };
 
-
-        obj.color = Object.getOwnPropertyNames(ROIs).length % colors.length;
+        if (obj.color == undefined)
+            obj.color = Object.getOwnPropertyNames(ROIs).length % colors.length;
         if (intent != undefined & intent.color != undefined)
         {
-            obj.color = intent.color;
-            fobj.color = intent.color; // overwrite color with intent color
+			var col = intent.color;
+			if (typeof intent.color == "string")
+				col = intent.color.split(",")
+            obj.color = col;
+            fobj.color = col;
         }
 
         // color contextmenu
         obj.$colselector = KColorSelector(colors,
         function(c) {
+			if (c.color != undefined) c = c.color;
             return "background:" + RGB2HTML(c[0], c[1], c[2]) + ";";
         },
-        function() {
+        function(col) {
+			if (col != undefined && col.color != undefined)
+				obj.color = col;
+            that.setColorGlobal(obj.roi.fileID, obj.color)
+                        
             if (obj.refSurfView != undefined)
             {
                 obj.refSurfView.color = obj.color;
-                viewer.gl.setSurfColor(obj.refSurfView);
+                if (viewer.gl)
+                    viewer.gl.setSurfColor(obj.refSurfView);
             }
             viewer.drawSlice({
                 mosaicdraw: true
             });
 
-        }, obj);
+        }, obj,{manual:true});
 
 
 
         // tools contextmenu
-        var tools_contextmenu = new KContextMenu(roitools_contextmenu,
+        var tools_contextmenu = new KContextMenu(function() { return roitools_contextmenu(fobj) } ,
+      //  var tools_contextmenu = new KContextMenu(roitools_contextmenu,
         function(fobj) {
             return function(str, ev) {
                 tools(str, ev, fobj.fileID,viewer)
@@ -3158,21 +3979,23 @@ function KRoiTool(master)
         /***************************************************************************************
         * the subviews toolbar
         ****************************************************************************************/
-        var $captiondiv, $cutdiv, $currentpickerdiv, $dragdiv,$wrench,$createOutlines, $toggleVisible;
+        var $captiondiv,$createIso, $cutdiv, $currentpickerdiv, $save, $dragdiv,$wrench,$createOutlines, $toggleVisible;
 
 
         obj.divs = [
             $("<br style='clear:both' />"),
             $("<div  class='KViewPort_tool persistent roi'>  <i class='fa fa-close fa-1x'></i></div>").appendTooltip("closeROI")
             .click(close).mousedown(viewer.viewport.closeContextMenu(obj)),
-            $("<div  class='KViewPort_tool roi'>  <i class='fa fa-save fa-1x'></i></div>").appendTooltip("saveuploadROI")
+            $save = $("<div  class='KViewPort_tool roi'>  <i class='fa fa-save fa-1x'></i></div>").appendTooltip("saveuploadROI")
             .click(function() {
                 saveROI(obj.roi)
+                that.update();
+                
             }),
             $("<div  class='KViewPort_tool roi'> <i class='fa  fa-binoculars'></i></div> ").appendTooltip("jumptoROI")
             .click(function(roi) {
                 return function() {
-                    set_to_center(roi.content);
+                    set_to_center(roi);
                 }
             }(obj.roi)),
             $createOutlines = $("<div  class='KViewPort_tool roi'>  <i class='fa fa-1x fa-lemon-o'></i></div>").appendTooltip("outline"),
@@ -3180,13 +4003,20 @@ function KRoiTool(master)
             $wrench = $("<div  class='KViewPort_tool roi'>  <i class='fa fa-wrench fa-1x'></i></div>").click(tools_contextmenu).appendTooltip("roitools"),
             $toggleVisible = $("<div  class='KViewPort_tool roi '>").append($("<i class='fa fa-eye fa-1x'></i></div>").appendTooltip("showhide"))
             .click(function(e){obj.toggle(e)}),
-            $currentpickerdiv = $("<div  class='KViewPort_tool roi '>  <i class='currentFiberset fa fa-pencil-square-o fa-1x'></i></div>").appendTooltip("makecurrent")
-            .click(makeCurrent),
 
             $captiondiv = $("<div  class='KViewPort_tool roi caption'> " + obj.roi.filename + "</div>"),
+            $currentpickerdiv = $("<div  class='KViewPort_tool roi persistent penciltoggle'>  <i class='currentFiberset fa fa-pencil-square-o fa-1x'></i></div>").appendTooltip("makecurrent")
+            .click(makeCurrent),
             obj.$colselector.appendTooltip("selectcolor"),
             $dragdiv = $("<div  class='KViewPort_tool  draganddrop'>  <i class='fa fa-hand-paper-o fa-1x'></i></div>").appendTooltip("dragdropviewport"),
         ];
+
+
+        $captiondiv.on('mousedown',function(ev){		
+            if (ev.button == 2)
+                showInfoContextNifti(obj,ev)                
+        });
+        $captiondiv.appendTooltip(that.roiinfo(obj.roi))
 
         if(obj.nii.numTimePoints > 1)
         {
@@ -3272,6 +4102,10 @@ function KRoiTool(master)
         if (typeof KMedImg3D == "undefined")
             $createIso.hide()
 
+        obj.$save = $save;
+        if (fobj.modified)            
+            $save.addClass("notsaved")
+        
         obj.$currentpickerdiv = $currentpickerdiv;
         obj.$captiondiv = $captiondiv;
         if (obj.isCurrent)
@@ -3287,6 +4121,8 @@ function KRoiTool(master)
         else
             obj.hideview = true;
 
+        if ( intent != undefined && intent.nosave )
+            obj.$save.hide();
 
 
 		$createOutlines.click(function(ev) {
@@ -3305,31 +4141,11 @@ function KRoiTool(master)
 		});
 
 
-
-        /*
-            if (obj.roi.namedivs == undefined)
-                obj.roi.namedivs = [];
-            obj.roi.namedivs.push($captiondiv);
-            $captiondiv.keydown(function(ev) { if (ev.keyCode == 13) { $(ev.target).blur(); return false } })
-   						.keyup(function(ev)
-            {
-                obj.roi.filename = $captiondiv.text();
-                if (obj.roi.namedivs != undefined)
-                    for (var i = 0; i < obj.roi.namedivs.length;i++)
-                    {
-                        if ($captiondiv != obj.roi.namedivs[i])
-                            obj.roi.namedivs[i].text(obj.roi.filename);
-                    }
-                that.update();
-            }	);
-
-*/
         attachNameDivHandler(obj.roi, $captiondiv, that.update);
 
 
 
         $dragdiv.attr("draggable", 'true');
-        //            $dragdiv.on("dragstart", dragstarter({ type:'file', tag: '/mask/', mime: 'nii', filename: obj.roi.filename,  fileID: obj.roi.fileID }));
 
         $dragdiv.on("dragstart", dragstarter(function() {
             return {
@@ -3372,6 +4188,20 @@ function KRoiTool(master)
 
         }    );
 
+        $currentpickerdiv.on("pointerdown",function(ev)
+        {
+                var id = setTimeout(function()
+                {
+                    that.fromInverseButtonHandler = true;
+                    KViewer.roiTool.toggleInverseButtons();
+                },500);
+                $(this).on("mouseleave mouseup",function(ev)
+                {
+                     clearTimeout(id);
+                     $(this).off("mouseleave mouseup");
+                });
+
+        }    );
 
 
 
@@ -3392,7 +4222,9 @@ function KRoiTool(master)
                 viewer.toggle3D()
             }
             else
+            {
                 viewer.attachSurfaceRef(obj,fobj,viewer.viewport.progressSpinner,intent)
+            }
 
 
         }
@@ -3431,39 +4263,17 @@ function KRoiTool(master)
             ****************************************************************************************/
         function makeCurrent()
         {
-            // currentROI is global now for all viewports
+            if (that.fromInverseButtonHandler)
+            {
+                that.fromInverseButtonHandler = undefined;
+                return;
+            }
+            if (that.buttonInverse)
+            {
+                that.toggleInverseButtons();
+                return;
+            }
             that.makeCurrentGlobal(obj.roi.fileID);
-            /*
-				currentROI = obj.roi!==currentROI?obj.roi:undefined;
-			 	for(var v = 0; v<KViewer.viewports.length; v++)
-			 	{
-
-					var viewer = KViewer.viewports[v].getCurrentViewer();
-					if(viewer==undefined)
-						continue;
-
-					 viewer.currentROI = undefined;
-					 for (var k = 0; k < viewer.ROIs.length;k++)
-					 {
-
-						if (obj.roi == viewer.ROIs[k].roi & viewer.ROIs[k].isCurrent == false)
-						{
-						   viewer.ROIs[k].isCurrent = true;
-						   viewer.currentROI = viewer.ROIs[k].roi;
-						   viewer.ROIs[k].$currentpickerdiv.addClass("current");
-						}
-						else
-						{
-							viewer.ROIs[k].isCurrent = false;
-							viewer.ROIs[k].$currentpickerdiv.removeClass("current");
-						}
-					 }
-
-			 	}
-
-			 	checkForAnyActiveRoi();
-				that.roiPanel.update();
-				*/
         }
 
         obj.makeCurrent = makeCurrent;
@@ -3479,13 +4289,11 @@ function KRoiTool(master)
         ****************************************************************************************/
         function close()
         {
-
             if (that.visibleROIs[obj.roi.fileID])
             {
                 delete that.visibleROIs[obj.roi.fileID];
             }
             
-
 
             if (viewer.currentROI == obj.roi)
             {
@@ -3542,20 +4350,29 @@ function KRoiTool(master)
     /***************************************************************************************
     * set the color of a roi in all viewports and layers (2D, 3D, 3D-objects)
     ****************************************************************************************/
-    that.setColorGlobal = function(id, color)
+    that.setColorGlobal = function(id, color_)
     {
+        
         if(typeof id == "object")
             id = id.fileID;
 
 	    // we have this mess with colors being indices or rga or whatever
 		// here, we need an index (a color number), so find it if necessary
 
-        if(color instanceof KColor)
-            color = KColor.findColorIndex(color.color) ;
+		var color = color_;
+		
+        if(color_ instanceof KColor	)   
+            color = KColor.findColorIndex(color_.color) ;			
+		if (Array.isArray(color_))
+            color = KColor.findColorIndex(color_) ;			
 
-        if(Array.isArray(color))
-            color = KColor.findColorIndex(color) ;
+		if (color != -1)
+            color = new KColor(KColor.list[color])
+		else	
+			color = color_
 
+        var tr = that.$container.find("tr[id='KROI_"+id + "']").find(".KViewPort_tool_cmap");
+        tr.css('background',color.getCSS());
 
         if (that.ROIs[id])
             that.ROIs[id].color = color;
@@ -3572,7 +4389,10 @@ function KRoiTool(master)
                     if(viewer.ROIs[k].refSurfView != undefined)
                     {
                         viewer.ROIs[k].refSurfView.color = viewer.ROIs[k].color;
-                        viewer.gl.setSurfColor(viewer.ROIs[k].refSurfView);
+                        if (viewer.gl != undefined)
+                            viewer.gl.setSurfColor(viewer.ROIs[k].refSurfView);
+                        if (viewer.ROIs[k].refSurfView.$colselector)
+                            viewer.ROIs[k].refSurfView.$colselector.updateColor();
                     }
                     if (viewer.ROIs[k].$colselector)
                         viewer.ROIs[k].$colselector.updateColor();
@@ -3591,6 +4411,30 @@ function KRoiTool(master)
     that.lastCurrentROIID = undefined;
     that.toggleCurrentROI = function()
     {
+
+        var rois = {};
+        KViewer.iterateMedViewers(function(viewer)
+        {
+            for (var k = 0; k < viewer.ROIs.length; k++)
+            {
+                var r = viewer.ROIs[k].roi.fileID;
+                if (rois[r] == undefined) 
+                    rois[r] = 1;
+            }
+        });
+
+        var ids = Object.keys(rois);
+        var curidx;
+        if (currentROI != undefined)
+        {
+            curidx = ids.findIndex((x) => (x==currentROI.fileID))
+            curidx = (curidx+1)%(ids.length+1)  ;
+        }
+        else 
+            curidx = 0;
+
+        that.makeCurrentGlobal(ids[curidx]);
+        /*
         if(currentROI)
         {
             signalhandler.send("updateImage",{id: currentROI.fileID,no3d:true});
@@ -3602,19 +4446,49 @@ function KRoiTool(master)
             that.makeCurrentGlobal(that.lastCurrentROIID)
             document.body.dispatchEvent(new Event('mousemove')); // show pen again
             that.lastCurrentROIID = undefined;
-        }
+        }*/
     }
 
 
+
+    var inv_sheet = document.createElement('style')
+    document.body.appendChild(inv_sheet);    
+    that.buttonInverse = false;
+    that.toggleInverseButtons = function()
+        {
+            that.buttonInverse = !that.buttonInverse;
+            if (that.buttonInverse)
+                inv_sheet.innerHTML = ".KViewPort_tool.current {background: red !important;}";
+            else
+                inv_sheet.innerHTML = "";
+        }
+    
     /***************************************************************************************
     * make roi current in all viewports
     ****************************************************************************************/
+    that.roiThresholds = {};  // remember thresholds for ROIs (roiID->[thresh0, thresh1])
     that.makeCurrentGlobal = function(id)
     {
+        var $threshInput =  that.$container.find("#threshInput");
+        var $threshInput2 = that.$container.find("#threshInput2");
+        if (currentROI != undefined)
+        {
+            that.roiThresholds[currentROI.fileID] = [$threshInput.val(), $threshInput2.val()];
+        }
+        if (that.roiThresholds[id] != undefined)
+        {
+            $threshInput.val(that.roiThresholds[id][0]);
+            $threshInput2.val(that.roiThresholds[id][1]);
+        }
+        
         if (currentROI == that.ROIs[id]) // same id again, so toggle
         {
             currentROI = undefined;
             id = undefined
+            inv_sheet.innerHTML = "";
+            that.buttonInverse = false;
+            
+            
         }
         else
         {
@@ -3652,10 +4526,26 @@ function KRoiTool(master)
         $row.addClass('selected');
         $row.find(".fa-pencil-square-o").addClass("selected");
         checkForAnyActiveRoi();
+
+        if (currentROI != undefined && currentROI.fileID.substring(0,9) == 'ROI_ATLAS')
+        {
+                var atlas = KViewer.dataManager.getFile(currentROI.fileID.split("_")[2])
+                var keys = (currentROI.fileID.split("_")[3]).split(",")
+			    console.log(currentROI.filename)
+                if (atlas.panel != undefined)
+                {
+                    var labels = {}; keys.map((x) => labels[x] = 1);
+                   atlas.panel.setPersistent(labels)
+                }
+        }
+        
+        /*
         if (id == undefined)
             that.roiPanel.disable();
         else
             that.roiPanel.enable();
+            */
+        that.roiPanel.enable();
         that.roiPanel.update();
     }
 
@@ -3673,13 +4563,278 @@ function KRoiTool(master)
         }
         else
         {
-            that.roiPanel.hide();
+            //that.roiPanel.hide();
             // deselect any active ROI
-            if(currentROI)
-                that.makeCurrentGlobal(currentROI.fileID)
+            //if(currentROI)
+            //    that.makeCurrentGlobal(currentROI.fileID)
         }
     }
 
+
+that.initTensorONNX = function(callback)
+{
+	
+     scriptLoader.loadScript('tfjs/ort.min.js', async function() { 
+
+		ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/";
+
+         console.log("loading model")
+		 
+         that.onnx_model = await ort.InferenceSession.create('tfjs/sammed3d/sammed3d_v0_2.onnx', { executionProviders: ['wasm'] });
+		 
+         console.log("model loaded")
+         if (callback != undefined)
+            callback()
+     })
+}
+
+that.testTFJS = function()
+{    
+    if (typeof ort == "undefined")
+        KViewer.roiTool.initTensorONNX(run)
+    else 
+        run();
+
+    async function run()
+    {
+        
+        var mv = KViewer.findMedViewer(function(mv) { return mv.viewport.hasMouse });
+        var nii  = mv.nii;
+        var niiOriginal = mv.niiOriginal
+        var roi = mv.currentROI.content
+        var slicing = mv.getSlicingDimOfArray();   
+		var center = getCenter(roi)
+
+		
+        var histoman = mv.histoManager
+        var clim0 = histoman.nii.datascaling.e(histoman.clim[0])
+        var clim1 = histoman.nii.datascaling.e(histoman.clim[1])
+
+		
+		var img_crop =  niiCrop(nii,center,[1.5,1.5,1.5],[128,128,128,1],Float32Array)
+		reslice(img_crop,nii);
+
+		
+		var roi_crop =  niiCrop(nii,center, [6,6,6],[32,32,32,1],Float32Array)
+		reslice(roi_crop,roi);
+
+		var m = 0;
+		var m2 = 0;
+		for (var k = 0; k < img_crop.data.length;k++)
+		{
+			/*if (img_crop.data[k] > clim1)
+				img_crop.data[k] = clim1;
+			if (img_crop.data[k] < clim0)
+				img_crop.data[k] = clim0;*/
+			m += img_crop.data[k];
+			m2 += img_crop.data[k]*img_crop.data[k];
+		}
+		m = m/img_crop.data.length
+		m2 = m2/img_crop.data.length
+		var std = Math.sqrt(m2-m*m)+0.001;
+		for (var k = 0; k < img_crop.data.length;k++)
+			img_crop.data[k] = (img_crop.data[k] - m)/std;
+		
+		
+		// image data 
+        const imageTensor = new ort.Tensor('float32', img_crop.data, [1,1,128,128,128]);
+
+       // Point Coords
+        const pointCoordsData = new Float32Array([64,64,64])
+        const coordsTensor = new ort.Tensor('float32', pointCoordsData, [1,1,3]);
+
+        // Point Labels (int64 -> BigInt64Array)
+        const pointLabelsData = new BigInt64Array([1n])
+        const labelsTensor = new ort.Tensor('int64', pointLabelsData, [1,1]); // Explicitly use 'int64' type
+
+        // Input Mask
+        const maskInputTensor = new ort.Tensor('float32',  roi_crop.data, [1,1,32,32,32]);		
+		
+
+        const outputNames = ['output_mask', 'iou_predictions']; // Match Python script
+        const results = await that.onnx_model.run({
+								            'input_image': imageTensor,
+								            'point_coords': coordsTensor,
+								            'point_labels': labelsTensor,
+								            'input_mask': maskInputTensor // Make sure this name matches your model ('mask_input'?)
+								        }, outputNames);
+
+		var roi_crop_hr =  niiCrop(nii,center,[1.5,1.5,1.5],[128,128,128,1],Float32Array)
+		
+		roi_crop_hr.data = results.output_mask.cpuData
+		reslice(roi,roi_crop_hr,undefined,0.5);  // write back
+
+        signalhandler.send("updateImage",{id:mv.currentROI.fileID});
+
+	}
+
+	function niiCrop(nii,center,vx_dest,shape_dest,Type)
+	{
+
+		var vx_orig = nii.voxSize;
+		center = math.multiply(math.inv(nii.edges),center)._data
+
+		var fac = [vx_dest[0]/vx_orig[0],vx_dest[1]/vx_orig[1],vx_dest[2]/vx_orig[2]]
+		var edges = math.multiply(nii.edges,[ [fac[0],0,0,center[0]-shape_dest[0]*fac[0]/2],
+											  [0,fac[1],0,center[1]-shape_dest[1]*fac[1]/2],
+											  [0,0,fac[2],0,center[2]-shape_dest[2]*fac[2]/2],
+											  [0,0,0,1] ])
+		var nii_dest = {data:new Type(shape_dest[0]*shape_dest[1]*shape_dest[2]),
+					   sizes:shape_dest,
+						edges:edges,
+						wid:shape_dest[0],
+						widhei:shape_dest[0]*shape_dest[1],
+						widheidep:shape_dest[0]*shape_dest[1]*shape_dest[2]
+					   }		
+		return nii_dest
+	}
+
+	function getCenter(roi)
+	{
+	  
+        var cx = 0;
+        var cy = 0;
+        var cz = 0;
+        var cnt = 0;
+        for (var z = 0; z < roi.sizes[2]; z++)
+            for (var y = 0; y < roi.sizes[1]; y++)
+                for (var x = 0; x < roi.sizes[0]; x++)
+                {
+                    if (roi.data[roi.sizes[0] * roi.sizes[1] * z + roi.sizes[0] * y + x] > 0.5)
+                    {
+                        cx += x;
+                        cy += y;
+                        cz += z;
+                        cnt++;
+                    }
+                }
+        cx /= cnt;
+        cy /= cnt;
+        cz /= cnt;	
+		var p = math.multiply(roi.edges,[cx,cy,cz,1])
+		return p._data
+			
+	}
+
+}
+/*        
+
+that.initTensorFlowJS = function(callback)
+{
+    var n = 256
+     scriptLoader.loadScript('tfjs/tf.min.js', async function() { 
+         that.tf_model =  await tf.loadLayersModel('tfjs/testjs/model.json');
+        // var r = await that.tf_model.predict([tf.ones([1,n,n,1]),tf.ones([1,n,n,2])])
+         var r = await that.tf_model.predict([tf.ones([1,n,n,2])])
+         console.log("model loaded")
+         if (callback != undefined)
+            callback()
+     })
+}
+
+that.testTFJS = function()
+{    
+    if (typeof tf == "undefined")
+        KViewer.roiTool.initTensorFlowJS(run)
+    else 
+        run();
+
+    async function run()
+    {
+        
+        var mv = KViewer.findMedViewer(function(mv) { return mv.viewport.hasMouse });
+        var nii  = mv.nii;
+        var niiOriginal = mv.niiOriginal
+        var roi = mv.currentROI.content
+        var slicing = mv.getSlicingDimOfArray();            
+
+
+        var histoman = mv.histoManager
+
+
+        var clim0 = histoman.nii.datascaling.e(histoman.clim[0])
+        var clim1 = histoman.nii.datascaling.e(histoman.clim[1])
+        
+        var sl = mv.getCurrentSlice();
+        
+        var n = 256;
+        var xin = new Float32Array(n*n)
+        var ypro = new Float32Array(n*n*2)
+    
+        var sz = nii.sizes;
+        var szR = roi.sizes;
+        var RA = math.multiply(math.inv(niiOriginal.edges),mv.nii.edges)._data;
+        var RB = math.multiply(math.inv(roi.edges),nii.edges)._data;
+        if (slicing == 2)
+        {
+            var getP = function(x,y) {  return [x/n*sz[0],y/n*sz[1],sl]}
+            var setP = function(x,y,val) { var v = math.multiply(RB,[x/n*sz[0],y/n*sz[1],sl,1])._data;                                                                                    
+                                        roi.data[Math.round(v[0])+Math.round(v[1])*szR[0]+Math.round(v[2])*szR[0]*szR[1]] = val; }
+        }
+        if (slicing == 1)
+        {
+            var getP = function(x,y) {  return [x/n*sz[0],sl,y/n*sz[2]]}
+            var setP = function(x,y,val) { var v = math.multiply(RB,[x/n*sz[0],sl,y/n*sz[2],1])._data;                                                                                    
+                                        roi.data[Math.round(v[0])+Math.round(v[1])*szR[0]+Math.round(v[2])*szR[0]*szR[1]] = val; }
+        }
+        if (slicing == 0)
+        {
+            var getP = function(x,y) {  return [sl,x/n*sz[1],y/n*sz[2]]}
+            var setP = function(x,y,val) { var v = math.multiply(RB,[sl,x/n*sz[1],y/n*sz[2],1])._data;                                                                                    
+                                        roi.data[Math.round(v[0])+Math.round(v[1])*szR[0]+Math.round(v[2])*szR[0]*szR[1]] = val; }
+        }
+    
+
+        var m=0;
+        var m2=0
+        for (var x = 0; x < n; x++)
+            for (var y = 0; y < n; y++)
+                {
+                    var a = getP(x,y);
+                    var g = trilinInterp(niiOriginal, a[0], a[1], a[2], RA,0)
+                    g = (g - clim0) / (clim1-clim0);
+                    if (g == undefined | isNaN(g)) g = 0;
+                    
+                    g = (g<0)?0:g;
+                    g = (g>1)?1:g;
+                    var r = trilinInterp(roi, a[0], a[1], a[2], RB,0)
+                    xin[y+x*n]=g;
+                    ypro[2*(y+x*n)+1]=r>0;                
+                    m+=g;
+                    m2+=g*g;
+                }
+        m = m/(n*n);
+        var s = Math.sqrt(m2/(n*n) - m*m);
+        
+        for (var i = 0; i < n*n;i++)
+            {xin[i] = (xin[i]-m)/s;
+             ypro[2*i] = xin[i]; }
+    
+        var tfx = tf.tensor(xin,[1,n,n,1])
+        var tfy = tf.tensor(ypro,[1,n,n,2])
+        
+        var r = await that.tf_model.predict([tfy])
+
+        var buf = r.bufferSync().values
+
+        for (var x = 0; x < n; x++)
+            for (var y = 0; y < n; y++)
+                {
+                    setP(x,y,buf[y+x*n]>0);
+                }
+        signalhandler.send("updateImage",{id:mv.currentROI.fileID});
+
+    }
+    
+}
+
+
+
+*/
+
+
+
+    
     var roiPanel = that.roiPanel = new KRoiPanel(that);
 
     that.getState = roiPanel.getState;
@@ -3692,7 +4847,6 @@ function KRoiTool(master)
     // return the roi tool
     return that;
 }
-
 
 
 // ======================================================================================
@@ -3728,6 +4882,11 @@ function cropConnectedComponent2(fobj,fobj2,p,t_offset)
 
     function findseed()
     {
+		var	a = p[0];
+		var	b = p[1];
+		var	c = p[2];
+		if (data[a + w * b + wh * c + offs] > 0.5)
+			return [a, b, c];
         for (var n = 0; n < 3; n++)
             for (var x = -n; x < n; x++)
                 for (var y = -n; y < n; y++)
@@ -3886,7 +5045,7 @@ regionGrow.currentStacksize = 0;
 regionGrow.currentStack = undefined;
 
 function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedToPen,
-         radiusx, radiusy, radiusz, sx2, sy2, sz2, r2,callback, offset,offset_target)
+         radiusx, radiusy, radiusz, sx2, sy2, sz2, r2,callback, offset,offset_target, slicing, shape, drawdirection,tsim)
 {
     if (offset == undefined)
         offset = 0;
@@ -3908,12 +5067,13 @@ function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedTo
     regionGrow.changedPoints = [];
 
     var changedPoints = regionGrow.changedPoints;
+    var setOnPoints = []
 
 
+    var mxst =50000000;
     var mystacksize = size[0] * size[1] * size[2];
-    if (mystacksize > regionGrow.currentStacksize)
+    if (mystacksize > regionGrow.currentStacksize & regionGrow.currentStacksize != mxst)
         {
-            var mxst =50000000;
             if (mystacksize>mxst)
                 mystacksize = mxst;
             regionGrow.currentStack = new Uint32Array(mystacksize );
@@ -3969,8 +5129,12 @@ function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedTo
         if (cnt < mystacksize)
         {
             mystack[cnt] = x;
-            if (valtoset > 0 && vol[x] == 0)
-                changedPoints.push(x);
+            if (valtoset > 0)
+            {
+                if (vol[x] == 0)
+                    changedPoints.push(x);
+                setOnPoints.push(x)
+            }
             vol[x+offset_target] = valtoset;
             cnt++;
         }
@@ -3985,18 +5149,56 @@ function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedTo
 
     var restriction = function() {
         return true
+    };
+
+    var distance_to_center_2 = makefunction_distance_to_center_2(sx2, sy2, sz2, slicing, shape);
+
+    var restrict_direction; // function to restrict the regiongrow in drawdirection
+    if (drawdirection == "both")
+    {
+        restrict_direction = function(x_, y_, z_) {return true}
     }
-    ;
+    else if (drawdirection == "up")
+    {
+        if (slicing == 0)
+            restrict_direction = function(x_, y_, z_) {return x_ >= 0}
+        else if (slicing == 1)
+            restrict_direction = function(x_, y_, z_) {return y_ >= 0}
+        else if (slicing == 2)
+            restrict_direction = function(x_, y_, z_) {return z_ >= 0}
+        else
+            throw Error("slicing out of range.");
+    }
+    else if (drawdirection == "down")
+    {
+        if (slicing == 0)
+            restrict_direction = function(x_, y_, z_) {return x_ <= 1}
+        else if (slicing == 1)
+            restrict_direction = function(x_, y_, z_) {return y_ <= 1}
+        else if (slicing == 2)
+            restrict_direction = function(x_, y_, z_) {return z_ <= 1}
+        else
+            throw Error("slicing out of range.");
+    }
+    else
+    {
+        throw Error("invalid drawdirection.");
+    }
+
     if (restrictedToPen)
     {
       if (isIdentity(B))
       {
         restriction = function(idx)
         {
-            var x = math.floor(math.abs(idx % w - seed[0]));
-            var y = math.floor(math.abs(idx / w % h - seed[1]));
-            var z = math.floor(math.abs(idx / wh - seed[2]));
-            return x <= radiusx && y <= radiusy && z <= radiusz && x * x * sx2 + y * y * sy2 + z * z * sz2 < r2;
+            var x_ = idx % w - seed[0];
+            var y_ = idx / w % h - seed[1];
+            var z_ = idx / wh - seed[2];
+           // console.debug("DEBUG: z_:", z_);
+            var x = math.floor(math.abs(x_));
+            var y = math.floor(math.abs(y_));
+            var z = math.floor(math.abs(z_));
+            return x <= radiusx && y <= radiusy && z <= radiusz && restrict_direction(x_, y_, z_) && distance_to_center_2(x, y, z) < r2;
         }
       }
       else
@@ -4006,12 +5208,16 @@ function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedTo
             var x_ = (idx % w ) -seed[0];
             var y_ = (idx / w % h ) -seed[1];
             var z_ = (idx / wh ) -seed[2];
-            var x = math.floor(math.abs(B[0][0]*x_ + B[0][1]*y_ + B[0][2]*z_ ));
-            var y = math.floor(math.abs(B[1][0]*x_ + B[1][1]*y_ + B[1][2]*z_ ));
-            var z = math.floor(math.abs(B[2][0]*x_ + B[2][1]*y_ + B[2][2]*z_ ));
+            var x__ = B[0][0]*x_ + B[0][1]*y_ + B[0][2]*z_;
+            var y__ = B[1][0]*x_ + B[1][1]*y_ + B[1][2]*z_;
+            var z__ = B[2][0]*x_ + B[2][1]*y_ + B[2][2]*z_;
+            //console.debug("DEBUG: z_:", z_);
+            var x = math.floor(math.abs(x__));
+            var y = math.floor(math.abs(y__));
+            var z = math.floor(math.abs(z__));
 
 
-            return x <= radiusx && y <= radiusy && z <= radiusz && x * x * sx2 + y * y * sy2 + z * z * sz2 < r2;
+            return x <= radiusx && y <= radiusy && z <= radiusz && restrict_direction(x__, y__, z__) && distance_to_center_2(x, y, z) < r2;
 
         }
       }
@@ -4033,7 +5239,7 @@ function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedTo
     var trans;
     var e;
 
-    if (0) //t > 1)
+    if (t > 1 && tsim)
     {
 
         function trans(a)
@@ -4144,7 +5350,7 @@ function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedTo
 
     if (!e(startidx) ) //| vol[startidx] > 0)
     {
-        callback(changedPoints);
+        callback(changedPoints,setOnPoints);
         return;
     }
 
@@ -4189,7 +5395,7 @@ function regionGrow(contrast, vol, A, B ,size, seed,valtoset, clim, restrictedTo
             regionGrow.timeout = -1;
             if (restrictedToPen)
                regionGrow.changedPoints = [];
-            callback(changedPoints);
+            callback(changedPoints,setOnPoints);
         }
 
         //callback(changedPoints)
@@ -4217,21 +5423,30 @@ function createConnCompAnalysis(fobj)
        fobj.ccanalysis = {
        enabled:true,
        inprogress:0,
+       selected:{},
        update: function()
-       {
+       {            
             if (this.cid != undefined)
             {
                 clearTimeout(this.cid);
                 fobj.ccanalysis.inprogress--;
             }
+            if (!this.enabled)
+                return;
+
+
             fobj.ccanalysis.inprogress++;
             this.cid = setTimeout( function()
             {
                 this.cid = undefined;
-                bwconncomp_worker(fobj.content.data, fobj.content.sizes,1,function (res)
+                bwconncomp_worker(fobj.content.data, fobj.content.sizes,0,function (res)
                 {
                     fobj.ccanalysis.inprogress--;
                     fobj.ccanalysis.cc = res;
+                    function thename(i,p)
+                    {
+                        return i + " (" + p[0] + "," + p[1] + "," +p[2]+")";
+                    }
                     if (fobj.ccanalysis.persistent == undefined)
                     {
                         fobj.ccanalysis.persistent = [];
@@ -4240,7 +5455,8 @@ function createConnCompAnalysis(fobj)
                         {
                             var v = res.centerOfGrav[k];
                             var p = math.round(math.multiply(fobj.content.edges,[v[0],v[1],v[2],1])._data);
-                            fobj.ccanalysis.persistent[fobj.ccanalysis.persistent.cnt++] = {name: conncompdesc + p[0] + "," + p[1] + "," +p[2], idx:k , cog:v};
+                            fobj.ccanalysis.persistent[fobj.ccanalysis.persistent.cnt] = {name: thename(fobj.ccanalysis.persistent.cnt,p), idx:k , cog:v,firstpoint:res.firstpoint[k]};
+                            fobj.ccanalysis.persistent.cnt++
                         }
 
                     }
@@ -4279,7 +5495,13 @@ function createConnCompAnalysis(fobj)
                                var v = res.centerOfGrav[k];
                                var p = math.round(math.multiply(fobj.content.edges,[v[0],v[1],v[2],1])._data);
 
-                               fobj.ccanalysis.persistent.push({name:  p[0] + "," + p[1] + "," +p[2], idx:k , cog:res.centerOfGrav[k]} )
+                               fobj.ccanalysis.persistent.push(
+
+                               {name: thename(fobj.ccanalysis.persistent.cnt,p),
+                                                                idx:k , 
+                                                                id:fobj.ccanalysis.persistent.cnt,
+                                                                cog:res.centerOfGrav[k],
+                                                                firstpoint:res.firstpoint[k]} )
                                fobj.ccanalysis.persistent.cnt++
                             }
                         }
@@ -4403,6 +5625,7 @@ output: obj = {labels,clusterSize , changedPoints}
        clusterSize - sizes array of clusters
        changedPoints - if target given the voxels that switched to zero */
 
+
 function bwconncomp(data, size, comp, clustthres, target)
 {
 
@@ -4417,41 +5640,56 @@ function bwconncomp(data, size, comp, clustthres, target)
 
     var map = {}
 
-    var cur_label = 2147483648;
+    var max = 2147483648
+    var cur_label = max;
     for (var z = 0; z < size[2]; z++)
+    {
+        var wh_ = wh;
+        if (z==0)
+            wh_  = 0;
+
         for (var y = 0; y < size[1]; y++)
+        {
+            var w_ = w;
+            if (y==0)
+                w_  = 0;
             for (var x = 0; x < size[0]; x++)
             {
                 var idx = x+w*y+wh*z;
                 if (comp(data[idx]))
                 {
-                    var l = 0
-                    if (labels[idx - 1] == 0 && labels[idx - w] == 0 && labels[idx - wh] == 0)
+                    var e_ = 1;
+                    if (x==0)
+                        e_  = 0;
+
+                    if (labels[idx - e_] == 0 && labels[idx - w_] == 0 && labels[idx - wh_] == 0)
                     {
                         labels[idx] = cur_label--;
                         continue;
                     }
 
 
-                    mmi(1,w,wh)
-                    mmi(w,1,wh)
-                    mmi(wh,1,w)
+                    if (!mmi(e_,w_,wh_))
+                    if (!mmi(w_,e_,wh_))
+                         mmi(wh_,e_,w_)
 
                     function mmi(a,b,c)
                     {
-                        if (labels[idx - a] >= labels[idx - b]  && labels[idx - a] >= labels[idx - c])
+                        var A = labels[idx - a] 
+                        var B = labels[idx - b] 
+                        var C = labels[idx - c] 
+                        if (A >= B  && A >= C)
                         {
-                            l = labels[idx - a];
-                            labels[idx] = l;
-                            if (labels[idx - b] > 0 && l != labels[idx - b])
+                            labels[idx] = A;
+                            if (B > 0 && A != labels[idx - b])
                             {
-                                map[labels[idx - b]] = l;
-                                labels[idx - b] = l;
+                                setref(B,A)
+                                labels[idx - b] = A;
                             }
-                            if (labels[idx - c] > 0 && l != labels[idx - c])
+                            if (C > 0 && A != C)
                             {
-                                map[labels[idx - c]] = l;
-                                labels[idx - c] = l;
+                                setref(C,A)
+                                labels[idx - c] = A;
                             }
                             return true;
                         }
@@ -4459,88 +5697,136 @@ function bwconncomp(data, size, comp, clustthres, target)
 
 
 
+                    function setref(x,y)
+                    {
+
+                        if (map[x] == undefined)
+                            map[x] = y;
+                        else
+                        {
+                            if (map[x] == y)
+                             return;
+
+                            // x < y 
+                            var r = map[x];
+                            if (y < r) // x < y < r
+                            {
+                                map[x] = y;
+                                setref(y,r)
+                            }
+                            else
+                            {
+                                if (x > r)  // r<x<y
+                                {
+                                  setref(r,x)
+                                   map[x] = y;
+                                }
+                                else   // x<r<y
+                                {
+                                   setref(x,r)
+                                   setref(r,y)
+                                }
+                            }
+
+                        }
+                    }
+
+
                 }
             }
+        }
+    }
 
-            var keys = Object.keys(map);
-            function look(a)
+    var keys = Object.keys(map);
+    function look(a)
+    {
+        if (map[a] == undefined)
+            return a;
+        else
+        {
+            var x = look(map[a]); 
+            map[a] = x;
+            return x;
+        }
+    }
+
+    for (var k = 0; k < keys.length;k++)
+        map[keys[k]] = look(keys[k]);
+
+    var clustsize = {};
+    var cog = {};
+    var firstpoint = {};
+    for (var z = 0; z < whd; z++)
+        if (comp(data[z]))
+        {
+            var k = map[labels[z]];
+            if (k == undefined)
+                k = labels[z];
+            labels[z] = k;
+            if (clustsize[k] == undefined)
             {
-                if (map[a] == undefined)
-                    return a;
-                else
-                    return look(map[a]);
+                clustsize[k] = 1;
+                cog[k] = [z%w,Math.floor(z/w)%h,Math.floor(z/wh)%d]
+                firstpoint[k] = [z%w,Math.floor(z/w)%h,Math.floor(z/wh)%d]
             }
-            for (var k = 0; k < keys.length;k++)
-                map[keys[k]] = look(keys[k]);
-
-            var clustsize = {};
-            var cog = {};
-            for (var z = 0; z < whd; z++)
-                if (comp(data[z]))
-                {
-                    var k = map[labels[z]];
-                    if (k == undefined)
-                        k = labels[z];
-                    labels[z] = k;
-                    if (clustsize[k] == undefined)
-                    {
-                        clustsize[k] = 1;
-                        cog[k] = [z%w,Math.floor(z/w)%h,Math.floor(z/wh)%d]
-                    }
-                    else
-                    {
-                        clustsize[k]++;
-                        cog[k][0] += z%w
-                        cog[k][1] += Math.floor(z/w)%h
-                        cog[k][2] += Math.floor(z/wh)%d;
-                    }
-
-                }
-
-            var clusts = Object.keys(clustsize);
-            var indic = {};
-            var clusterSize = {};
-            var centerOfGrav ={}
-            var cnum = 1;
-            for (var k = 0 ; k < clusts.length;k++)
+            else
             {
-                if (clustsize[clusts[k]] > clustthres)
-                {
-
-                    clusterSize[cnum] = clustsize[clusts[k]];
-                    var v = [ cog[clusts[k]][0]/clustsize[clusts[k]],
-                              cog[clusts[k]][1]/clustsize[clusts[k]],
-                              cog[clusts[k]][2]/clustsize[clusts[k]] ];
-                    centerOfGrav[cnum] = v;
-                    indic[clusts[k]] = cnum;
-                    cnum++;
-                }
+                clustsize[k]++;
+                cog[k][0] += z%w
+                cog[k][1] += Math.floor(z/w)%h
+                cog[k][2] += Math.floor(z/wh)%d;
             }
 
+        }
 
-            for (var z = 0; z < whd; z++)
-                if (comp(data[z]))
-                {
+    var clusts = Object.keys(clustsize);
+    var indic = {};
+    var clusterSize = {};
+    var centerOfGrav ={}
+    var firstPoint ={}
+    var cnum = 1;
+    for (var k = 0 ; k < clusts.length;k++)
+    {
+        if (clustsize[clusts[k]] > clustthres)
+        {
 
-                    if (!indic[labels[z]])
-                    {
-                        if (target != undefined)
-                            target[z] = 0;
-                        labels[z] = 0;
-                        changedPoints.push(z);
-                    }
-                    else
-                        labels[z] = indic[labels[z]];
-                }
-                else
-                    if (target != undefined)
-                        target[z] = 0;
+            clusterSize[cnum] = clustsize[clusts[k]];
+            centerOfGrav[cnum] = [ cog[clusts[k]][0]/clustsize[clusts[k]],
+                      cog[clusts[k]][1]/clustsize[clusts[k]],
+                      cog[clusts[k]][2]/clustsize[clusts[k]] ];
+            firstPoint[cnum] = [ firstpoint[clusts[k]][0],
+                      firstpoint[clusts[k]][1],
+                      firstpoint[clusts[k]][2] ];
+            indic[clusts[k]] = cnum;
+            cnum++;
+        }
+    }
 
 
-           return {centerOfGrav:centerOfGrav,changedPoints:changedPoints,labels:labels,clusterSize:clusterSize};
+    for (var z = 0; z < whd; z++)
+        if (comp(data[z]))
+        {
+
+            if (!indic[labels[z]])
+            {
+                if (target != undefined)
+                    target[z] = 0;
+                labels[z] = 0;
+                changedPoints.push(z);
+            }
+            else
+                labels[z] = indic[labels[z]];
+        }
+        else
+            if (target != undefined)
+                target[z] = 0;
+
+
+   return {firstpoint:firstPoint,centerOfGrav:centerOfGrav,changedPoints:changedPoints,labels:labels,clusterSize:clusterSize};
 
 
 }
+
 
 function dilate(data, size)
 {
@@ -4653,11 +5939,15 @@ function KRoiPanel(parent)
         if (foundViewer == undefined)
             for (var v = 0; v < KViewer.viewports.length; v++)
             {
-                var viewer = KViewer.viewports[v].getCurrentViewer();
-                if (viewer !== undefined)
+                var vp = KViewer.viewports[v];
+                if (vp != undefined)
                 {
-                    foundViewer = viewer;
-                    break;
+                    var viewer = KViewer.viewports[v].getCurrentViewer();
+                    if (viewer !== undefined)
+                    {
+                        foundViewer = viewer;
+                        break;
+                    }
                 }
 
             }
@@ -4869,23 +6159,79 @@ function KRoiPanel(parent)
     });
     //$history.append($stepBack).append($stepFwd);
     $history.append($("<span>undo</span>")).append($stepBack).append($("<i class='flexspacer'></i><span>redo</span>")).append($stepFwd);
-    // ----------- the pen
 
+
+
+    /***********************************************************
+    * shape and direction
+    ************************************************************/
+    $("<div class='roiTool_panel_caption'>Shape and Direction</div>").appendTo($container);
+    var $shapeDirectionRow = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
+    $shapeDirectionRow.append("<i class='flexspacer'></i>");
+
+    // --------- shape -----------
+    var $shapeSelector = $("<select></select>");
+    var shapeList = [{"title": "Sphere", "value": "sphere"}, {"title": "Cylinder", "value": "cylinder"}]
+    roiTool.shape = shapeList[0].value;  // setting default value
+    shapeList.forEach(function (item) {
+        $('<option>' + item.title + '</option>').val(item.value).appendTo($shapeSelector);
+    });
+    $shapeDirectionRow.append($("<div>")).append($shapeSelector);
+    $shapeSelector.on('change', function (evt) {
+        roiTool.shape = $shapeSelector.val();
+    });
+    $shapeDirectionRow.append("<i class='flexspacer'></i>");
+
+    // --------- direction -----------
+    roiTool.drawdirection = "both";
+    var $drawdirectionButton = $("<i class='RoiPen KViewPort_tool fa fa-unsorted'></i>").click(
+        function(ev)
+        {
+            setDrawDirection(ev);
+        }
+    );
+    $drawdirectionButton.appendTo($shapeDirectionRow);
+    function setDrawDirection(ev,drawdirection)
+    {
+        if (drawdirection == "down" | (drawdirection==undefined & roiTool.drawdirection == "both"))
+        {
+            roiTool.drawdirection = "down";
+            $drawdirectionButton.removeClass("fa-unsorted").removeClass("fa-arrow-circle-up");
+            $drawdirectionButton.addClass('fa-arrow-circle-down');
+        }
+        else if (drawdirection == "up" | (drawdirection==undefined & roiTool.drawdirection == "down"))
+        {
+            roiTool.drawdirection = "up";
+            $drawdirectionButton.removeClass("fa-arrow-circle-down").removeClass('fa-unsorted')
+            $drawdirectionButton.addClass('fa-arrow-circle-up');
+        }
+        else if (drawdirection == "both" | (drawdirection==undefined & roiTool.drawdirection == "up"))
+        {
+            roiTool.drawdirection = "both";
+            $drawdirectionButton.removeClass("fa-arrow-circle-up").removeClass("fa-arrow-circle-down");
+            $drawdirectionButton.addClass('fa-unsorted');
+        }
+    }
+    $shapeDirectionRow.append("<i class='flexspacer'></i>");
+
+
+
+    // ----------- the pen
     $container.append( $("<div class='roiTool_panel_flex'><span>Size XY</span><i class='flexspacer'></i><span>Size Z</span></div>") );
 
     var $circlePenRow = $("<div class='roiTool_panel_flex'></div>").appendTo($container);
-    var $inplaneradius = $(" <input type___ = 'number' min='0' max='100' value='" + roiTool.pencil.radius + "' /> ").on('change', function(ev) {
+    var $inplaneradius = $(" <input id='inplaneradius' type___ = 'number' min='0' max='100' value='" + roiTool.pencil.radius + "' /> ").on('change', function(ev) {
         roiTool.pensizechange(ev, "radius")
     });
     var $outplaneradius = $(" <input type___ = 'number' min='0' max='100' value='" + roiTool.pencil.radius_z + "' /> ").on('change', function(ev) {
         roiTool.pensizechange(ev, "radius_z")
     });
-    $circlePenRow.append($("<i class='flexspacer'></i>")).append($inplaneradius).append($outplaneradius);
+    $circlePenRow.append($("<i class='flexspacer'></i>")).append($inplaneradius).append("<div></div>").append($outplaneradius);
     that.$inplaneradius = $inplaneradius;
 
 
 	KMouseSlider( $inplaneradius, {min:0, incrementPerPixel: .1, logScaling:10 });
-	KMouseSlider( $outplaneradius, {min:0, incrementPerPixel: .1, logScaling:10 });
+	KMouseSlider( $outplaneradius, {min:0, incrementPerPixel: 1, logScaling:10 });
 
 
 
@@ -4936,8 +6282,8 @@ function KRoiPanel(parent)
     }
 
 
-    var $thresInput  = $(" <input value='" + roiTool.pencil.thres_low + "' style='_width:100%' /> ").on('change', changeTreshInput).on('click', function(ev) { return false });
-    var $thresInput2 = $(" <input value='" + roiTool.pencil.thres_high + "' style='_width:100%' /> ").on('change', changeTreshInput2).on('click', function(ev) { return false });
+    var $thresInput  = $(" <input id='threshInput' value='" + roiTool.pencil.thres_low + "' style='_width:100%' /> ").on('change', changeTreshInput).on('click', function(ev) { return false });
+    var $thresInput2 = $(" <input id='threshInput2' value='" + roiTool.pencil.thres_high + "' style='_width:100%' /> ").on('change', changeTreshInput2).on('click', function(ev) { return false });
     function changeTreshInput(ev)
     {
         var vval = $thresInput.val();
@@ -4994,9 +6340,10 @@ function KRoiPanel(parent)
     var $smartPenBtn = $("<i class='RoiPen KViewPort_tool fa fa-magic'></i>").click(selectPen).appendTooltip("drawonlyonsimilarcolors");
     var $regionGrowPenBtn = $("<i class='RoiPen  KViewPort_tool fa fa-fw fa-map-pin'></i>").click(selectPen).appendTooltip("regionfillsimilarcolors");
     var $regionGrowPenBtnRestric = $("<i class='RoiPen KViewPort_tool fa fa-fw fa-map-marker'></i>").click(selectPen).appendTooltip("regionfillwithinpen");
+    var $warpPen = $("<i class='RoiPen KViewPort_tool fa fa-fw fa-comment'></i>").click(selectPen).appendTooltip("warppen");
     // 	   var $tresh =  $(" <input type = 'number' min='0' max='100' value='"+pencil.radius+"' /> ").on('change', function (ev) { pensizechange(ev,"radius")});
     // 	   var $direction = $("<i class='KViewPort_tool fa fa-arrow-up'></i>");
-    $smartPenRow.append($smartPenBtn).append($regionGrowPenBtnRestric).append($regionGrowPenBtn).append($("<i class='flexspacer'></i>"));
+    $smartPenRow.append($smartPenBtn).append($regionGrowPenBtnRestric).append($regionGrowPenBtn).append($warpPen).append($("<i class='flexspacer'></i>"));
     //.append($direction).append($tresh);
 
 
@@ -5097,6 +6444,73 @@ function KRoiPanel(parent)
     $("<div class='roiTool_panel_caption'></div>").appendTo($container);
 
 
+
+    /***********************************************************
+    * auto pensize
+    ************************************************************/
+    var $autopensize;
+    roiTool.autopensize = false;
+
+    that.togglautopensize = function(val)
+    {
+      if (val != undefined)
+        roiTool.autopensize = val;
+      else
+        roiTool.autopensize =!roiTool.autopensize ;
+      if (roiTool.autopensize)
+            $autopensize.addClass("fa-check-square").removeClass("fa-square")
+      else
+            $autopensize.removeClass("fa-check-square").addClass("fa-square")
+    }
+    var $autopensizeRow = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
+    $autopensizeRow.append($("<div class='' >smart pensize</div>")).append( $("<i class='flexspacer'></i>") );
+    var $autopensize = $("<i class='fa fa-square'></i>").click(function() {that.togglautopensize()}).appendTo($autopensizeRow);
+    that.togglautopensize( roiTool.autopensize )
+
+    /***********************************************************
+    * smart erase
+    ************************************************************/
+    roiTool.singleerase = false;
+
+    that.toggleSingleErase = function(val)
+    {
+      if (val != undefined)
+        roiTool.singleerase = val;
+      else
+        roiTool.singleerase =!roiTool.singleerase ;
+      if (roiTool.singleerase)
+            $singleerase.addClass("fa-check-square").removeClass("fa-square")
+      else
+            $singleerase.removeClass("fa-check-square").addClass("fa-square")
+    }
+    var $singleeraseRow = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
+    $singleeraseRow.append($("<div class='' >single-z erase</div>")).append( $("<i class='flexspacer'></i>") );
+    var $singleerase = $("<i class='fa fa-square'></i>").click(function() {that.toggleSingleErase()}).appendTo($singleeraseRow);
+    that.toggleSingleErase( roiTool.singleerase )
+	
+    /***********************************************************
+    * smart erase
+    ************************************************************/
+    var $smarterase;
+    roiTool.smarterase = false;
+
+    that.toggleSmartErase = function(val)
+    {
+      if (val != undefined)
+        roiTool.smarterase = val;
+      else
+        roiTool.smarterase =!roiTool.smarterase ;
+      if (roiTool.smarterase)
+            $smarterase.addClass("fa-check-square").removeClass("fa-square")
+      else
+            $smarterase.removeClass("fa-check-square").addClass("fa-square")
+    }
+    var $smarteraseRow = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
+    $smarteraseRow.append($("<div class='' >smart erase</div>")).append( $("<i class='flexspacer'></i>") );
+    var $smarterase = $("<i class='fa fa-square'></i>").click(function() {that.toggleSmartErase()}).appendTo($smarteraseRow);
+    that.toggleSmartErase( roiTool.smarterase )
+
+
     /***********************************************************
     * livepreview
     ************************************************************/
@@ -5119,7 +6533,21 @@ function KRoiPanel(parent)
     var $livepreview = $("<i class='fa fa-square'></i>").click(function() {that.toggleLivePreview()}).appendTo($livePrevRow);
     that.toggleLivePreview( roiTool.livepreview )
 
-
+    /***********************************************************
+    * smoothmouse
+    ************************************************************/    
+    var $smoothmouseRow = $("<div class='roiTool_panel_flex'>mouseblur</div>").appendTo($container);
+    if (roiTool.smoothmouse == undefined)    
+        roiTool.smoothmouse = 0;
+    var $smoothmouse = $(" <input type___ = 'number' min='0' max='1' value='" + roiTool.smoothmouse + "' /> ").on('change', function(ev) {
+        roiTool.smoothmouse = parseFloat(ev.currentTarget.value);
+        roiTool.$pencil.css('transform','translate(0px,0px)');
+        roiTool.mousebuffer = [];
+        
+    });
+    $smoothmouseRow.append($("<i class='flexspacer'></i>")).append($smoothmouse)
+  	KMouseSlider( $smoothmouse, {min:0, max:1,incrementPerPixel: .01, logScaling:100 });
+  
 
     /***********************************************************
     * 4D mode
@@ -5137,29 +6565,56 @@ function KRoiPanel(parent)
             $mode4DButton.removeClass("fa-check-square").addClass("fa-square")
     }
 
+   /***********************************************************
+    * units mmmode4D
+    ************************************************************/
+    var $unitsmm = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
+    $unitsmm.append($("<div class='' >units mm</div>")).append( $("<i class='flexspacer'></i>") );
+    var $unitsmmBut = $("<i class='fa fa-square'></i>").appendTo($unitsmm).click(function(){toggleUnits()});
+
+    function toggleUnits(force)
+    {
+        roiTool.unitsmm = force==undefined?(!roiTool.unitsmm):force;
+        if (roiTool.unitsmm)
+            $unitsmmBut.addClass("fa-check-square").removeClass("fa-square")
+        else
+            $unitsmmBut.removeClass("fa-check-square").addClass("fa-square")
+    }
 
 
     /***********************************************************
     * outlines
     ************************************************************/
-    that.toggleOutlines = function(val)
+
+    $("<div class='roiTool_panel_caption'>Appearence</div>").appendTo($container);
+
+
+    var $opacityRow = $("<div class='roiTool_panel_flex'>opacity</div>").appendTo($container);
+    var $opacityinput = $(" <input type___ = 'number' min='0' max='100' value='" + (1-state.viewer.roiTransparency).toFixed(2)+ "' /> ").on('change', function(ev) {
+
+        state.viewer.roiTransparency = 1-parseFloat(ev.currentTarget.value);
+        signalhandler.send("positionChange");
+
+    });
+    $opacityRow.append($("<i class='flexspacer'></i>")).append($opacityinput)
+
+
+	KMouseSlider( $opacityinput, {min:0, max:1,incrementPerPixel: .01, logScaling:100 });
+
+
+
+
+    function updateAllOutlines()
     {
-      if (val != undefined)
-        state.viewer.showOutlines = val;
-      else
-        state.viewer.showOutlines =!state.viewer.showOutlines ;
-      if (state.viewer.showOutlines)
-            $outlines.addClass("fa-check-square").removeClass("fa-square")
-      else
-            $outlines.removeClass("fa-check-square").addClass("fa-square")
       KViewer.iterateMedViewers(function(viewer)
       {
           for (var k = 0; k < viewer.ROIs.length; k++)
           {
              var obj = viewer.ROIs[k];
-             if (state.viewer.showOutlines && obj.outlines == undefined)
+             if (state.viewer.showOutlines)
              {
-				obj.outlines = Outlines(obj)
+                if (obj.outlines == undefined)
+			 	   obj.outlines = Outlines(obj)
 			    obj.outlines.update(viewer);
 
              }
@@ -5171,7 +6626,19 @@ function KRoiPanel(parent)
                 
           }
       })
+    }
 
+    that.toggleOutlines = function(val)
+    {
+      if (val != undefined)
+        state.viewer.showOutlines = val;
+      else
+        state.viewer.showOutlines =!state.viewer.showOutlines ;
+      if (state.viewer.showOutlines)
+            $outlines.addClass("fa-check-square").removeClass("fa-square")
+      else
+            $outlines.removeClass("fa-check-square").addClass("fa-square")
+      updateAllOutlines();
     }
     var $outlinesRow = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
     $outlinesRow.append($("<div class='' >outlines</div>")).append( $("<i class='flexspacer'></i>") );
@@ -5180,18 +6647,65 @@ function KRoiPanel(parent)
 
 
 
-    var $opacityRow = $("<div class='roiTool_panel_flex'>opacity</div>").appendTo($container);
-    var $opacityinput = $(" <input type___ = 'number' min='0' max='100' value='" + (1-state.viewer.roiTransparency)+ "' /> ").on('change', function(ev) {
+    var $smoothoutlineRow = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
+    $smoothoutlineRow.append($("<div class='' >smooth outl.</div>")).append( $("<i class='flexspacer'></i>") );
+    var $smoothoutline = $("<i class='fa fa-square'></i>").click(function() {
+        
+        if (!state.viewer.smoothedOutline) 
+        {
+            state.viewer.smoothedOutline = true;
+            $smoothoutline.addClass("fa-check-square").removeClass("fa-square")
 
-        state.viewer.roiTransparency = 1-parseFloat(ev.currentTarget.value);
-        signalhandler.send("positionChange");
+            if (!state.viewer.showOutlines)
+                that.toggleOutlines()
+        }
+        else
+        {
+         
+            $smoothoutline.removeClass("fa-check-square").addClass("fa-square")
+            state.viewer.smoothedOutline = false;
+        }
+        updateAllOutlines();
 
-    });
-    $opacityRow.append($("<i class='flexspacer'></i>")).append($opacityinput)
+        }).appendTo($smoothoutlineRow);
 
 
-	KMouseSlider( $opacityinput, {min:0, max:1,incrementPerPixel: .01, logScaling:100 });
+    if (state.viewer.smoothedOutline) 
+        $smoothoutline.addClass("fa-check-square").removeClass("fa-square")
+    else
+        $smoothoutline.removeClass("fa-check-square").addClass("fa-square")
 
+
+
+
+
+
+    var $areaRow = $("<div class='roiTool_panel_flex' ></div>").appendTo($container);
+    $areaRow.append($("<div class='' >show area</div>")).append( $("<i class='flexspacer'></i>") );
+    var $area = $("<i class='fa fa-square'></i>").click(function() {
+        
+        if (!state.viewer.showArea) 
+        {
+            state.viewer.showArea = true;
+            $area.addClass("fa-check-square").removeClass("fa-square")
+
+            if (!state.viewer.showOutlines)
+                that.toggleOutlines()
+        }
+        else
+        {
+         
+            $area.removeClass("fa-check-square").addClass("fa-square")
+            state.viewer.showArea = false;
+        }
+        updateAllOutlines();
+
+        }).appendTo($areaRow);
+
+    if (state.viewer.showArea) 
+        $area.addClass("fa-check-square").removeClass("fa-square")
+    else
+        $area.removeClass("fa-check-square").addClass("fa-square")
 
 
 
@@ -5228,6 +6742,8 @@ function KRoiPanel(parent)
                 $whichbtn = $regionGrowPenBtn;
             else if(pen == 'regionGrowRestric')
                 $whichbtn = $regionGrowPenBtnRestric;
+            else if(pen == 'warpPen')
+                $whichbtn = $warpPen;
             else
             {
                 $whichbtn  = $();
@@ -5245,6 +6761,7 @@ function KRoiPanel(parent)
         roiTool.smartpaw = false;
         roiTool.regionGrow = false;
         roiTool.regionGrowRestric = false;
+        roiTool.warpMode = false;
         //roiTool.togglePen(false);
 
         if ($whichbtn.is($activePen) && pen == undefined)
@@ -5279,6 +6796,12 @@ function KRoiPanel(parent)
                 roiTool.regionGrowRestric = true;
                 roiTool.togglePen(true);
             }
+            else if ($whichbtn.is($warpPen))
+           {
+                setThreshPen(undefined, 0);
+                roiTool.warpMode = true;
+                roiTool.togglePen(true);
+            }
           /*  else if ($whichbtn.is($polygonPenBtn))
             {
                 polygonTool.enable(getParentViewer());
@@ -5297,11 +6820,14 @@ function KRoiPanel(parent)
             {
                 $regionGrowPenBtn.removeClass('inactive')
                 $regionGrowPenBtnRestric.removeClass('inactive')
+                $warpPen.removeClass('inactive')
             }
             else
             {
                 $regionGrowPenBtn.addClass('inactive')
                 $regionGrowPenBtnRestric.addClass('inactive')
+                $warpPen.addClass('inactive')
+
             }
         }
     }
@@ -5312,43 +6838,42 @@ function KRoiPanel(parent)
     ****************************************************************************************/
     that.getState  = function getState()
     {
+
         var s =
         {
             pencil:    roiTool.pencil,
             activePen: 0,
             threspen: roiTool.threspen,
             mode4D: roiTool.mode4D,
-            roiMode: roiTool.roiMode
+            unitsmm: roiTool.unitsmm,
+            smoothmouse: roiTool.smoothmouse,
+            smarterase: roiTool.smarterase,
+            singleerase: roiTool.singleerase,
+            smoothmouse: roiTool.smoothmouse,
+            autopensize: roiTool.autopensize,
+            roiMode: roiTool.roiMode,
+            shape: "sphere",
+            drawdirection: "both"
         };
 
-        if(roiTool.smartPaw)
-            s.activePen = 'smartPaw';
+        if(roiTool.smartpaw)
+            s.activePen = 'smartpaw';
         else if(roiTool.regionGrow)
             s.activePen = 'regionGrow';
         else if(roiTool.regionGrowRestric)
-            s.activePen = 'regionGrowRestric';
+            s.activePen = 'regionGrowRestric';        
+        else if(roiTool.warpMode)
+            s.activePen = 'warpPen';
+
+        if (roiTool.drawdirection != undefined)
+            s.drawdirection = roiTool.drawdirection        
+        if (roiTool.shape != undefined)
+            s.shape = roiTool.shape        
 
 
         return s;
 
     }
-
-    /***************************************************************************************
-    * generic state
-    ****************************************************************************************/
-    /*
-    that.getGenericState  = function getGenericState()
-    {
-        var s =
-        {
-            pencil:    { radius:20, radius_z:4,   thres:100 },
-            activePen: 0,
-            threspen: 0,
-        };
-        return s;
-
-    }
-    */
 
     /***************************************************************************************
     * Set the state of this tool
@@ -5359,23 +6884,68 @@ function KRoiPanel(parent)
         // to be complete, first get the current state , then extend
         var s = that.getState();
         $.extend(true, s, snew);
-
+        if (s.shape != undefined)
+        {
+           $shapeSelector[0].value = s.shape;
+           parent.shape = s.shape;
+        }
+        if (s.drawdirection != undefined)
+           setDrawDirection(undefined,s.drawdirection);
         selectPen(undefined, s.activePen);
         setThreshPen(undefined, s.threspen);
 
         $inplaneradius.val( s.pencil.radius );
         $outplaneradius.val( s.pencil.radius_z );
 
+        if(s.singleerase != undefined)
+            that.toggleSingleErase(s.singleerase)
+        if(s.smarterase != undefined)
+            that.toggleSmartErase(s.smarterase)
         if(s.mode4D != undefined)
             togglemode4D(s.mode4D)
+        if(s.unitsmm != undefined)
+            toggleUnits(s.unitsmm)
+        if(s.autopensize != undefined)
+            that.togglautopensize(s.autopensize)
+        if(s.smoothmouse != undefined)
+        {
+            $smoothmouse.val(s.smoothmouse)
+            roiTool.smoothmouse = s.smoothmouse
+        }
 
         if (s.roiMode != undefined)
         {
             $roiModeSelector.val(s.roiMode);
             roiTool.roiMode = s.roiMode;
         }
+
+        if (state.viewer.smoothedOutline == undefined)
+            state.viewer.smoothedOutline = true;
+        if (state.viewer.showArea == undefined)
+            state.viewer.showArea = false;
+ 
+        if (state.viewer.smoothedOutline) 
+            $smoothoutline.addClass("fa-check-square").removeClass("fa-square")
+        else
+            $smoothoutline.removeClass("fa-check-square").addClass("fa-square")
+        if (state.viewer.showArea) 
+            $area.addClass("fa-check-square").removeClass("fa-square")
+        else
+            $area.removeClass("fa-check-square").addClass("fa-square")
+
+
+
     }
 
+
+
+
+
+
+
+
+
+    
     $container.find("input").on("dragstart", function(){return false});
 
     that.disable();
@@ -5384,9 +6954,41 @@ function KRoiPanel(parent)
 }
 
 
+function updateAtlasLabelSet(atlas,fobj)
+{
+    $(document.body).addClass('wait');
+    var oldkey = fobj.fileID;
+    var keys = Object.keys(atlas.panel.persistentLabels);
+    KViewer.atlasTool.renderROIfromLabel(atlas,fobj,Object.keys(atlas.panel.persistentLabels),function()
+         {
+                    
+             fobj.fileID = "ROI_ATLAS_" + atlas.fileID + "_" +keys;
+             KViewer.dataManager.setFile(fobj.fileID,fobj)
+             signalhandler.send("updateFilelink",{id:fobj.fileID});
 
+             KViewer.roiTool.ROIs[fobj.fileID] = fobj;             
+             delete KViewer.roiTool.ROIs[oldkey];
+             KViewer.dataManager.delFile(oldkey,true);
+             if (fobj.fileinfo && fobj.fileinfo.surfreference)
+                 fobj.fileinfo.surfreference.cache = {}
+             KViewer.roiTool.update3D(fobj,function(p) {
+                if (p==undefined) $(document.body).removeClass('wait');    
+             });
 
-
+             /* 
+             fobj.fileID = "ROI_ATLAS_" + atlas.fileID + "_" +keys;
+             KViewer.dataManager.setFile(fobj.fileID,fobj)
+             KViewer.dataManager.delFile(oldkey,true);
+             signalhandler.send("updateFilelink",{id:fobj.fileID});
+             if (fobj.fileinfo && fobj.fileinfo.surfreference)
+                 fobj.fileinfo.surfreference.cache = {}
+             KViewer.roiTool.update3D(fobj,function(p) {
+                if (p==undefined) $(document.body).removeClass('wait');    
+             });
+             */
+             
+         });                            
+}
 
 /***************************************************************************************
 * the polygon tool
@@ -5772,6 +7374,8 @@ KPolygonTool = function()
         return;
 
     }
+
+
     return that;
 
 }
@@ -6251,6 +7855,23 @@ PolyK.Raycast = function(p, x, y, dx, dy, isc)
     return (isc.dist != Infinity) ? isc : null ;
 }
 
+PolyK.ClosestPoint= function(p, x, y)
+{
+    var l = p.length/2;
+    var d = 999999;
+    var idx = -1;
+    for (var k = 0; k < l;k++)
+    {
+        var s = (p[2*k]-x)*(p[2*k]-x) + (p[2*k+1]-y)*(p[2*k+1]-y) 
+        if (s < d)
+        {
+            d = s;
+            idx = k;
+        }
+    }
+    return {x: p[2*idx] , y: p[2*idx+1]}
+}
+
 PolyK.ClosestEdge = function(p, x, y, isc)
 {
     var l = p.length - 2;
@@ -6632,6 +8253,7 @@ function mirror_roi(fobj, dim)
 		if(mode=="newroi")
 		{
 			var name =  fobj.filename.replace(/\.nii$|\.nii\.gz$/) + "_mirr"
+			name += ".nii.gz"
 
 			KViewer.roiTool.pushROI(fobj.fileID, name, "lower0.0",
 				function arrived(fobj)

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="Multiple Sequence Alignment and Sequence Logo" embeddable="true">
+    <tags>
+        <tag>multiple</tag>
+        <tag>sequence</tag>
+        <tag>alignment</tag>
+    </tags>
+    <description>Advanced Multiple Sequence Alignment Viewer</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">a2m</test>
+            <test test_attr="ext">fasta</test>
+            <test test_attr="ext">stockholm</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.a2m" ftype="a2m" />
+        </test>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.stockholm" ftype="stockholm" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is Multiple Sequence Alignment and Sequence Logo?
+
+This tool provides an **interactive multiple sequence alignment (MSA) viewer** powered by **Alignment Viewer 2.0**. It is designed for high performance, enabling visualization and analysis of very large alignments directly in the browser.
+
+## Key Features
+
+- **Scalable Visualization**: View entire alignments or zoom in to individual residues.
+- **Sequence Types**: Supports DNA, RNA, and protein alignments in FASTA or Stockholm format.
+- **Analysis Tools**: Displays sequence logos, consensus sequences, conservation, and gap statistics.
+
+Learn more at: [https://github.com/sanderlab/AlignmentViewer2.0](https://github.com/sanderlab/AlignmentViewer2.0)
+    ]]></help>
+</visualization>

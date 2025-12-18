@@ -21,23 +21,24 @@ async function main() {
         // Dynamically import the XML parser utility, used for parsing visualization configurations
         const { parseXML } = await import("galaxy-charts-xml-parser");
 
+        // Determine page url in dev environment, `window.location` is not available in production
+        const pageUrl = new URL(window.location.href);
+
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             visualization_config: {
-                // Placeholder for dataset URL (can be replaced during actual development)
-                dataset_url: "MY_DATASET_URL",
                 // Placeholder for dataset ID
-                dataset_id: process.env.dataset_id,
+                dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
                 // Placeholder for additional visualization settings
                 settings: {},
             },
             // Parse and load the visualization XML configuration
-            visualization_plugin: await parseXML("plotly.xml"),
+            visualization_plugin: await parseXML(`${pageUrl.searchParams.get("xml") || "plotly"}.xml`),
         };
 
         // Find the root app element and attach the mock data as a JSON string to its data-incoming attribute
-        const appElement = document.querySelector("#app");
-        appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+        const appElement = document.getElementById(container);
+        appElement.dataset.incoming = JSON.stringify(dataIncoming);
     }
 
     /**

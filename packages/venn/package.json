@@ -1,18 +1,15 @@
 {
     "name": "@galaxyproject/venn",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "type": "module",
     "license": "MIT",
-    "files": [
-        "static/dist/index.js",
-        "static/dist/index.css"
-    ],
+    "files": ["static"],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
-        "test": "vitest",
+        "test": "vitest --run",
         "test:watch": "vitest --watch",
         "test:ui": "vitest --ui"
     },
@@ -23,7 +20,7 @@
         "autoprefixer": "^10.4.19",
         "d3": "^7.9.0",
         "fmin": "^0.0.4",
-        "galaxy-charts": "^0.0.59",
+        "galaxy-charts": "^0.0.73",
         "galaxy-charts-xml-parser": "^1.0.3",
         "jsdom": "^25.0.1",
         "postcss": "^8.4.40",

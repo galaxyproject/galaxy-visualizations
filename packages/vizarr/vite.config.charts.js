@@ -23,7 +23,7 @@ if (process.env.GALAXY_KEY) {
 // https://vitejs.dev/config/
 export const viteConfigCharts = defineConfig({
   build: {
-    outDir: "./static/dist",
+    outDir: "./static",
     emptyOutDir: true,
     rollupOptions: {
       output: {

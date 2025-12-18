@@ -1,11 +1,8 @@
 {
     "name": "@galaxyproject/vitessce",
-    "version": "0.0.2",
+    "version": "0.0.5",
     "type": "module",
-    "files": [
-        "static/dist/index.js",
-        "static/dist/index.css"
-    ],
+    "files": ["static"],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
@@ -28,6 +25,6 @@
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "vite": "^6.2.6",
-        "vitessce": "^3.5.11"
+        "vitessce": "^3.8.2"
     }
 }

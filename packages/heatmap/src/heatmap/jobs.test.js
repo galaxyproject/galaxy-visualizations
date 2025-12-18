@@ -1,4 +1,4 @@
-import { buildToolDict } from "./jobs.js";
+import { buildJobDict } from "./jobs.js";
 
 const tracks = [
     {
@@ -14,7 +14,7 @@ const tracks = [
 ];
 
 test("to tool dictionary conversion", () => {
-    expect(buildToolDict("heatmap", "dataset_id", tracks)).toEqual({
+    expect(buildJobDict("heatmap", "dataset_id", tracks, ["x", "y", "z"])).toEqual({
         inputs: {
             columns: "x_0:2, y_0:3, z_0:4, x_1:5, y_1:6, z_1:7",
             input: {

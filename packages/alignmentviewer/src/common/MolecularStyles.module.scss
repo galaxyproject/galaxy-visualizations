@@ -1,0 +1,817 @@
+/**
+ * MolecularStyles.module.scss
+ * 
+ * Style definitions for amino acids and nucleotides in e.g. an alignment or logo.
+ *  
+ * INDIVIDUAL AMINO ACID / NUCLEOTIDE CLASSES
+ * The Ace editor prefixes all classes it adds in the alignment mode with "resi_". Because
+ * of this, any other components (e.g., logo plots) should also apply classes with this
+ * prefix. Amino acids and nucleotides will be styled with the single letter upper case
+ * character, prefixed with resi_ (e.g., Alanine and Adenine would both be resi_A).
+ * 
+ * Positional modifying classes can be accessed via 4 exported parameters:
+ *    queryClass:          final resi_ prefixed class name to indicate a residue matches 
+ *                            the query sequence 
+ *    consensusClass:      final resi_ prefixed class name to indicate a residue matches    
+ *                            the consensus sequence
+ *
+ * TOP LEVEL STYLING
+ * Style of an alignment or logo are dictated by 3 parent element classes #1, #2, #3.
+ * All 3 are required and must be on the same parent element. The top level classes
+ * are "exported" and should be read by typescript and the value placed as the classes:
+ *  Class  Exported Parameter    Description
+ *  -----  ------------------    -----------
+ *    #1   aaAlignTypeClass            style alignment as amino acid sequences
+ *    #1   ntAlignTypeClass            style alignment as nucleotide sequences
+ *
+ *    #2   styPosAllClass              style all positions 
+ *    #2   styPosQueryClass            style only positions that have the resi_query class 
+ *    #2   styPosQueryDiffClass        style only positions that don't have the resi_query class 
+ *    #2   styPosConsensusClass        style only positions that have the resi_consensus class 
+ *    #2   styPosConsensusDiffClass    style only positions that don't have the resi_consensus class 
+ *
+ *    #3   aaStyClass_{STYLENAME}      amino acid style with name {STYLENAME} excluding curly braces
+ *    #3   aaStyColorOrder_{STYLENAME} order of amino acids in the colors object for this style. this
+ *                                     string is comma space (, ) delimited.
+ *    #3   aaStyColors_{STYLENAME}     colors for all amino acids for this style. this string is 
+ *                                     comma space (, ) delimited.
+ *    #3   ntStyClass_{STYLENAME}      nucleotide style with name {STYLENAME} excluding curly braces
+ *    #3   ntStyColorOrder_{STYLENAME} order of nucleotides in the colors object for this style. this
+ *                                     string is comma space (, ) delimited.
+ *    #3   ntStyColors_{STYLENAME}     colors for all nucleotides for this style. this string is 
+ *                                     comma space (, ) delimited.
+ *
+ *
+ * Example: e.g.:
+ *   <div class="$alignTypeAA $aaStyleDefault $styPosQuery">
+ *     <logo .../> || <msa .../>
+ *   </div>
+ */
+
+@use 'sass:math';
+
+//general props
+$resiPrefix: resi_;
+$queryClass: q;
+$consensusClass: c;
+$residueParentClass: $resiPrefix + line; //directly above residues
+
+//general global propsqueryClass
+$aaStyleClassPrefix: aa-alignment-style-;
+$ntStyleClassPrefix: nt-alignment-style-;
+$styPosClassPrefix: alignment-positions-tostyle-;
+$defaultBackgroundAlpha: 0.25;
+$defaultLetterColor: #cccccc;
+
+//residue style
+$darkHueClass: dark-residues;
+$lightHueClass: light-residues;
+$lettersOnlyHueClass: letters-only-residues;
+
+//which positions should get styled?
+$styPosAll: $styPosClassPrefix + all;
+$styPosQuery: $styPosClassPrefix + query;
+$styPosQueryDiff: $styPosClassPrefix + query-diff;
+$styPosConsensus: $styPosClassPrefix + consensus;
+$styPosConsensusDiff: $styPosClassPrefix + consensus-diff;
+
+/*
+ *
+ * COLOR SCHEMES
+ * most colors taken from / inspired by https://github.com/wilzbach/msa-colorschemes
+ * and https://www.jalview.org/help/html/colourSchemes/
+ *
+ */
+
+//amino acid props
+$aaProps: (
+  topLevelAlignmentClass: alignment-aa,
+  styles: (
+    Default: (
+      description: "Default",
+      topLevelClass: $aaStyleClassPrefix + default,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #33cc00,
+        R: #cc0000,
+        N: #6600cc,
+        D: #0033ff,
+        C: #ffff00,
+        Q: #6600cc,
+        E: #0033ff,
+        G: #33cc00,
+        H: #009900,
+        I: #33cc00,
+        L: #33cc00,
+        K: #cc0000,
+        M: #33cc00,
+        F: #009900,
+        P: #33cc00,
+        S: #0099ff,
+        T: #0099ff,
+        W: #009900,
+        Y: #009900,
+        V: #33cc00,
+      ),
+    ),
+    Buried: (
+      description: "Buried Index",
+      topLevelClass: $aaStyleClassPrefix + buried,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #00a35c,
+        R: #00fc03,
+        N: #00eb14,
+        D: #00eb14,
+        C: #0000ff,
+        Q: #00f10e,
+        E: #00f10e,
+        G: #009d62,
+        H: #00d52a,
+        I: #0054ab,
+        L: #007b84,
+        K: #00ff00,
+        M: #009768,
+        F: #008778,
+        P: #00e01f,
+        S: #00d52a,
+        T: #00db24,
+        W: #00a857,
+        Y: #00e619,
+        V: #005fa0,
+        B: #00eb14,
+        //X: #00b649,
+          Z: #00f10e,
+      ),
+    ),
+    Cinema: (
+      description: "Cinema",
+      topLevelClass: $aaStyleClassPrefix + cinema,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #bbbbbb,
+        B: #808080,
+        C: #ffff00,
+        D: #ff0000,
+        E: #ff0000,
+        F: #ff00ff,
+        G: #a52a2a,
+        H: #00ffff,
+        I: #bbbbbb,
+        J: #ffffff,
+        K: #00ffff,
+        L: #bbbbbb,
+        M: #bbbbbb,
+        N: #008000,
+        O: #ffffff,
+        P: #a52a2a,
+        Q: #008000,
+        R: #00ffff,
+        S: #008000,
+        T: #008000,
+        U: #ffffff,
+        V: #bbbbbb,
+        W: #ff00ff,
+        //X: #808080,
+          Y: #ff00ff,
+        Z: #808080,
+      ),
+    ),
+    /* // WEIRD white background on N and Q
+    Clustal: (
+      description: "Clustal",
+      topLevelClass: $aaStyleClassPrefix + clustal,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #ffa500,
+        B: #ffffff,
+        C: #008000,
+        D: #ff0000,
+        E: #ff0000,
+        F: #0000ff,
+        G: #ffa500,
+        H: #ff0000,
+        I: #008000,
+        J: #ffffff,
+        K: #ff0000,
+        L: #008000,
+        M: #008000,
+        N: #ffffff,
+        O: #ffffff,
+        P: #ffa500,
+        Q: #ffffff,
+        R: #ff0000,
+        S: #ffa500,
+        T: #ffa500,
+        U: #ffffff,
+        V: #008000,
+        W: #0000ff,
+        //X: #ffffff,
+          Y: #0000ff,
+        Z: #ffffff,
+      ),
+    ),*/
+    Clustal: (
+      description: "Clustal",
+      topLevelClass: $aaStyleClassPrefix + clustal,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #80a0f0,
+        R: #f01505,
+        N: #00ff00,
+        D: #c048c0,
+        C: #f08080,
+        Q: #00ff00,
+        E: #c048c0,
+        G: #f09048,
+        H: #15a4a4,
+        I: #80a0f0,
+        L: #80a0f0,
+        K: #f01505,
+        M: #80a0f0,
+        F: #80a0f0,
+        P: #ffff00,
+        S: #00ff00,
+        T: #00ff00,
+        W: #80a0f0,
+        Y: #15a4a4,
+        V: #80a0f0,
+        B: #ffffff,
+        //X: #ffffff,
+          Z: #ffffff,
+      ),
+    ),
+    Helix: (
+      description: "Helix Propensity",
+      topLevelClass: $aaStyleClassPrefix + helix,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #e718e7,
+        R: #6f906f,
+        N: #1be41b,
+        D: #778877,
+        C: #23dc23,
+        Q: #926d92,
+        E: #ff00ff,
+        G: #00ff00,
+        H: #758a75,
+        I: #8a758a,
+        L: #ae51ae,
+        K: #a05fa0,
+        M: #ef10ef,
+        F: #986798,
+        P: #00ff00,
+        S: #36c936,
+        T: #47b847,
+        W: #8a758a,
+        Y: #21de21,
+        V: #857a85,
+        B: #49b649,
+        //X: #758a75,
+          Z: #c936c9,
+      ),
+    ),
+    Hydrophobicity: (
+      description: "Hydrophobicity",
+      topLevelClass: $aaStyleClassPrefix + hydrophobicity,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      /*
+      colors based on: https://www.sigmaaldrich.com/life-science/metabolomics/learning-center/amino-acid-reference-chart.html
+      to get hex in python:
+          from matplotlib import cm
+          def rgb2hex(r,g,b):
+            return "#{:02x}{:02x}{:02x}".format(r,g,b)
+
+          redBlueColormap = cm.get_cmap('bwr', 155)
+          aas = {  
+            'F': 100,   'I': 99,  'W': 97,  'L': 97,  'V': 76,  'M': 74, 'Y': 63,  
+            'C': 49,  'A': 41,   'T': 13,  'H': 8,  'G': 0, 'S': -5,  'Q': -10,   
+            'R': -14,  'K': -23,  'N': -28,  'E': -31, 'P': -46,  'D': -55
+          }
+
+          //normalize and convert to rgb
+          rgba = {}
+          for aa in aas.keys(): 
+            rgba[aa] = redBlueColormap(aas[aa]+55)
+
+          hex = {}
+          for aa in aas.keys(): 
+              hex[aa] = rgb2hex(int(rgba[aa][0]*255), int(rgba[aa][1]*255), int(rgba[aa][2]*255))
+
+          print(hex);
+      */
+        colors:
+        (
+          F: #ff0000,
+          I: #ff0000,
+          W: #ff0606,
+          L: #ff0606,
+          V: #ff4c4c,
+          M: #ff5252,
+          Y: #ff7777,
+          C: #ffa5a5,
+          A: #ffc0c0,
+          T: #e1e1ff,
+          H: #d0d0ff,
+          G: #b6b6ff,
+          S: #a5a5ff,
+          Q: #9595ff,
+          R: #8787ff,
+          K: #6969ff,
+          N: #5959ff,
+          E: #4f4fff,
+          P: #1d1dff,
+          D: #0000ff,
+        ),
+    ),
+    Lesk: (
+      description: "Lesk",
+      topLevelClass: $aaStyleClassPrefix + lesk,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #ffa500,
+        B: #ffffff,
+        C: #008000,
+        D: #ff0000,
+        E: #ff0000,
+        F: #008000,
+        G: #ffa500,
+        H: #ff00ff,
+        I: #008000,
+        J: #ffffff,
+        K: #ff0000,
+        L: #008000,
+        M: #008000,
+        N: #ff00ff,
+        O: #ffffff,
+        P: #008000,
+        Q: #ff00ff,
+        R: #ff0000,
+        S: #ffa500,
+        T: #ffa500,
+        U: #ffffff,
+        V: #008000,
+        W: #008000,
+        // X: #ffffff,
+          Y: #008000,
+        Z: #ffffff,
+      ),
+    ),
+    MAE: (
+      description: "MAE",
+      topLevelClass: $aaStyleClassPrefix + mae,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #77dd88,
+        B: #ffffff,
+        C: #99ee66,
+        D: #55bb33,
+        E: #55bb33,
+        F: #9999ff,
+        G: #77dd88,
+        H: #5555ff,
+        I: #66bbff,
+        J: #ffffff,
+        K: #ffcc77,
+        L: #66bbff,
+        M: #66bbff,
+        N: #55bb33,
+        O: #ffffff,
+        P: #eeaaaa,
+        Q: #55bb33,
+        R: #ffcc77,
+        S: #ff4455,
+        T: #ff4455,
+        U: #ffffff,
+        V: #66bbff,
+        W: #9999ff,
+        //X: #ffffff,
+          Y: #9999ff,
+        Z: #ffffff,
+      ),
+    ),
+    Strand: (
+      description: "Strand Propensity",
+      topLevelClass: $aaStyleClassPrefix + strand,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #5858a7,
+        R: #6b6b94,
+        N: #64649b,
+        D: #2121de,
+        C: #9d9d62,
+        Q: #8c8c73,
+        E: #0000ff,
+        G: #4949b6,
+        H: #60609f,
+        I: #ecec13,
+        L: #b2b24d,
+        K: #4747b8,
+        M: #82827d,
+        F: #c2c23d,
+        P: #2323dc,
+        S: #4949b6,
+        T: #9d9d62,
+        W: #c0c03f,
+        Y: #d3d32c,
+        V: #ffff00,
+        B: #4343bc,
+        //X: #797986,
+          Z: #4747b8,
+      ),
+    ),
+    Taylor: (
+      description: "Taylor",
+      topLevelClass: $aaStyleClassPrefix + taylor,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #ccff00,
+        R: #0000ff,
+        N: #cc00ff,
+        D: #ff0000,
+        C: #ffff00,
+        Q: #ff00cc,
+        E: #ff0066,
+        G: #ff9900,
+        H: #0066ff,
+        I: #66ff00,
+        L: #33ff00,
+        K: #6600ff,
+        M: #00ff00,
+        F: #00ff66,
+        P: #ffcc00,
+        S: #ff3300,
+        T: #ff6600,
+        W: #00ccff,
+        Y: #00ffcc,
+        V: #99ff00,
+        B: #ffffff,
+        //X: #ffffff,
+          Z: #ffffff,
+      ),
+    ),
+    Turn: (
+      description: "Turn Propensity",
+      topLevelClass: $aaStyleClassPrefix + turn,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #2cd3d3,
+        R: #708f8f,
+        N: #ff0000,
+        D: #e81717,
+        C: #a85757,
+        Q: #3fc0c0,
+        E: #778888,
+        G: #ff0000,
+        H: #708f8f,
+        I: #00ffff,
+        L: #1ce3e3,
+        K: #7e8181,
+        M: #1ee1e1,
+        F: #1ee1e1,
+        P: #f60909,
+        S: #e11e1e,
+        T: #738c8c,
+        W: #738c8c,
+        Y: #9d6262,
+        V: #07f8f8,
+        B: #f30c0c,
+        //X: #7c8383,
+          Z: #5ba4a4,
+      ),
+    ),
+    Zappo: (
+      description: "Zappo",
+      topLevelClass: $aaStyleClassPrefix + zappo,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #ffafaf,
+        R: #6464ff,
+        N: #00ff00,
+        D: #ff0000,
+        C: #ffff00,
+        Q: #00ff00,
+        E: #ff0000,
+        G: #ff00ff,
+        H: #6464ff,
+        I: #ffafaf,
+        L: #ffafaf,
+        K: #6464ff,
+        M: #ffafaf,
+        F: #ffc800,
+        P: #ff00ff,
+        S: #00ff00,
+        T: #00ff00,
+        W: #ffc800,
+        Y: #ffc800,
+        V: #ffafaf,
+        B: #ffffff,
+        //X: #ffffff,
+          Z: #ffffff,
+      ),
+    ),
+  ),
+);
+
+//amino acid props
+$ntProps: (
+  topLevelAlignmentClass: alignment-nt,
+  styles: (
+    Default: (
+      description: "Default",
+      topLevelClass: $ntStyleClassPrefix + default,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #5050ff,
+        C: #e00000,
+        G: #00c000,
+        T: #e6e600,
+        U: #cc9900,
+        R: #2e8b57,
+        Y: #ff8c00,
+      ),
+    ),
+    Nucleotide: (
+      description: "Nucleotide",
+      topLevelClass: $ntStyleClassPrefix + nucleotide,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #64f73f,
+        C: #ffb340,
+        G: #eb413c,
+        T: #3c88ee,
+        U: #3c88ee,
+      ),
+    ),
+    Purine: (
+      description: "Purine/Pyrimidine",
+      topLevelClass: $ntStyleClassPrefix + purine,
+      backgroundAlpha: $defaultBackgroundAlpha,
+      defaultLetterColor: $defaultLetterColor,
+      colors: (
+        A: #ff83fa,
+        C: #40e0d0,
+        G: #ff83fa,
+        R: #ff83fa,
+        T: #40e0d0,
+        U: #40e0d0,
+        Y: #40e0d0,
+      ),
+    ),
+  ),
+);
+
+/*
+ *
+ *
+ * FUNCTIONS
+ *
+ *
+ */
+
+//get the equivalant hex color of an alpha-transformed hex.
+//see: https://makandracards.com/makandra/42500-sass-how-to-convert-an-rgba-color-to-its-rgb-look-alike
+@function getNonTransparantAlphaEquivalant($color, $alpha) {
+  @return mix($color, #fff, $alpha * 100%);
+}
+
+//same as getNonTransparantAlphaEquivalant but in bulk (takes a list rather
+//than a single color)
+@function getNonTransparantAlphaEquivalantList($colorsArr, $alpha) {
+  $toReturn: ();
+  @each $color in $colorsArr {
+    $toReturn: append(
+      $toReturn,
+      getNonTransparantAlphaEquivalant($color, $alpha),
+      $separator: comma
+    );
+  }
+  @return $toReturn;
+}
+
+//see https://stackoverflow.com/questions/11867545
+@function brightness($color) {
+  @return math.div((red($color) * 299) + (green($color) * 587) + (blue($color) * 114), 1000);
+  //@return ((red($color) * 299) + (green($color) * 587) + (blue($color) * 114)) /
+  //  1000;
+}
+
+//get the letter color for the dark color scheme depending on the lightness
+//of the background: will return black if the background color is light and
+//white if the background color is dark
+@function getLetterColor($bgColor) {
+  $letterColor: white;
+  @if brightness($bgColor) > 125 {
+    $letterColor: black;
+  }
+  @return $letterColor;
+}
+
+//same as getLetterColor but in bulk (takes a list rather
+//than a single color)
+@function getLetterColors($bgColorsArr) {
+  $toReturn: ();
+  @each $bgColor in $bgColorsArr {
+    $toReturn: append($toReturn, getLetterColor($bgColor), $separator: comma);
+  }
+  @return $toReturn;
+}
+
+//
+//Output all selectors for nt and aa props.
+//
+@mixin outputMajorSelectors($propsObj) {
+  $alignmentClass: map-get($propsObj, topLevelAlignmentClass);
+
+  @each $styleName, $styleObj in map-get($propsObj, styles) {
+    $styleClass: map-get($styleObj, topLevelClass);
+    $backgroundAlpha: map-get($styleObj, backgroundAlpha);
+
+    //set default letter color for letters - used for unstyled residues
+    // (i.e., dashes, dots, unrecognized letters, lowercase letters)
+    $defaultColor: map-get($styleObj, defaultLetterColor);
+    :global
+      .#{$alignmentClass}
+      .#{$residueParentClass}
+      [class^="#{$resiPrefix}"] {
+      color: $defaultColor;
+      fill: $defaultColor;
+    }
+
+    //
+    // letters only class - this is a trick that relies on the the
+    // default "light hue" class to actually color the residues, then
+    // using lettersOnlyHueClass only  removes the background
+    //
+    :global
+      .#{$alignmentClass}.#{$lettersOnlyHueClass}
+      [class^="#{$resiPrefix}"] {
+      background-color: transparent !important;
+    }
+
+    @each $aa, $color in map-get($styleObj, colors) {
+      $aaClass: $resiPrefix + $aa;
+
+      //
+      // dark hues
+      //
+      :global
+        .#{$alignmentClass}.#{$darkHueClass}.#{$styleClass}.#{$styPosAll}
+        .#{$aaClass},
+      :global
+        .#{$alignmentClass}.#{$darkHueClass}.#{$styleClass}.#{$styPosConsensus}
+        .#{$aaClass}.#{$consensusClass},
+      :global
+        .#{$alignmentClass}.#{$darkHueClass}.#{$styleClass}.#{$styPosConsensusDiff}
+        .#{$aaClass}:not(.#{$consensusClass}),
+      :global
+        .#{$alignmentClass}.#{$darkHueClass}.#{$styleClass}.#{$styPosQuery}
+        .#{$aaClass}.#{$queryClass},
+      :global
+        .#{$alignmentClass}.#{$darkHueClass}.#{$styleClass}.#{$styPosQueryDiff}
+        .#{$aaClass}:not(.#{$queryClass}) {
+        //set letter color based on brightness of background color
+        color: getLetterColor($color) !important;
+        background-color: $color !important;
+      }
+
+      //
+      // light hues - default of no class is added and also for logo
+      //
+      :global .#{$alignmentClass}.#{$styleClass}.#{$styPosAll} .#{$aaClass},
+      :global
+        .#{$alignmentClass}.#{$styleClass}.#{$styPosConsensus}
+        .#{$aaClass}.#{$consensusClass},
+      :global
+        .#{$alignmentClass}.#{$styleClass}.#{$styPosConsensusDiff}
+        .#{$aaClass}:not(.#{$consensusClass}),
+      :global
+        .#{$alignmentClass}.#{$styleClass}.#{$styPosQuery}
+        .#{$aaClass}.#{$queryClass},
+      :global
+        .#{$alignmentClass}.#{$styleClass}.#{$styPosQueryDiff}
+        .#{$aaClass}:not(.#{$queryClass}) {
+        color: $color;
+        background-color: getNonTransparantAlphaEquivalant(
+          $color,
+          $backgroundAlpha
+        );
+          fill: $color;
+      }
+    }
+  }
+}
+
+/*
+ *
+ *
+ * OUTPUT CSS
+ *
+ *
+ */
+@include outputMajorSelectors($aaProps);
+@include outputMajorSelectors($ntProps);
+
+/*
+ *
+ * EXPORT
+ * export alignment type classes, color scheme classes, position coloring classes,
+ * and then individual colors for use in javascript.
+ *
+ */
+:export {
+  resiPrefix: $resiPrefix;
+  queryClass: $queryClass;
+  consensusClass: $consensusClass;
+  queryClass: $queryClass;
+  consensusClass: $consensusClass;
+  residueParentClass: $residueParentClass;
+  darkHueClass: $darkHueClass;
+  lightHueClass: $lightHueClass;
+  lettersOnlyHueClass: $lettersOnlyHueClass;
+
+  aaAlignTypeClass: map-get($aaProps, topLevelAlignmentClass);
+  ntAlignTypeClass: map-get($ntProps, topLevelAlignmentClass);
+
+  styPosAllClass: $styPosAll;
+  styPosQueryClass: $styPosQuery;
+  styPosQueryDiffClass: $styPosQueryDiff;
+  styPosConsensusClass: $styPosConsensus;
+  styPosConsensusDiffClass: $styPosConsensusDiff;
+}
+
+//export colors for amino acids
+:export {
+  @each $styleName, $styleObj in map-get($aaProps, styles) {
+    #{unquote("aaStyClass_"+$styleName)}: map-get($styleObj, topLevelClass);
+    #{unquote("aaStyDesc_"+$styleName)}: unquote(
+      map-get($styleObj, description)
+    );
+    #{unquote("aaStyDefaultLetterColor_"+$styleName)}: map-get(
+      $styleObj,
+      defaultLetterColor
+    );
+    #{unquote("aaStyBackgroundAlpha_"+$styleName)}: map-get(
+      $styleObj,
+      backgroundAlpha
+    );
+    #{unquote("aaStyColorOrder_"+$styleName)}: map-keys(
+      map-get($styleObj, colors)
+    );
+    #{unquote("aaStyColors_"+$styleName)}: map-values(
+      map-get($styleObj, colors)
+    );
+    #{unquote("aaStyBackgroundColorsLightTheme_"+$styleName)}: getNonTransparantAlphaEquivalantList(
+      map-values(map-get($styleObj, colors)),
+      map-get($styleObj, backgroundAlpha)
+    );
+    #{unquote("aaStyLetterColorsDarkTheme_"+$styleName)}: getLetterColors(
+      map-values(map-get($styleObj, colors))
+    );
+  }
+}
+//export colors for nucleotides
+:export {
+  @each $styleName, $styleObj in map-get($ntProps, styles) {
+    #{unquote("ntStyClass_"+$styleName)}: map-get($styleObj, topLevelClass);
+    #{unquote("ntStyDesc_"+$styleName)}: unquote(
+      map-get($styleObj, description)
+    );
+    #{unquote("ntStyDefaultLetterColor_"+$styleName)}: map-get(
+      $styleObj,
+      defaultLetterColor
+    );
+    #{unquote("ntStyBackgroundAlpha_"+$styleName)}: map-get(
+      $styleObj,
+      backgroundAlpha
+    );
+    #{unquote("ntStyColorOrder_"+$styleName)}: map-keys(
+      map-get($styleObj, colors)
+    );
+    #{unquote("ntStyColors_"+$styleName)}: map-values(
+      map-get($styleObj, colors)
+    );
+    #{unquote("ntStyBackgroundColorsLightTheme_"+$styleName)}: getNonTransparantAlphaEquivalantList(
+      map-values(map-get($styleObj, colors)),
+      map-get($styleObj, backgroundAlpha)
+    );
+    #{unquote("ntStyLetterColorsDarkTheme_"+$styleName)}: getLetterColors(
+      map-values(map-get($styleObj, colors))
+    );
+  }
+}

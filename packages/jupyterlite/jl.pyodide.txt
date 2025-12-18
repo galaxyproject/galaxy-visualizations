@@ -1,0 +1,4 @@
+plotly==6.5.0
+nbformat==5.10.4
+seaborn==0.13.2
+typing_extensions==4.15.0

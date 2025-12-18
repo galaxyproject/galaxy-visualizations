@@ -47,7 +47,7 @@ var resources = {
             selectcolor: "select a different color",
             saveuploadROI: "upload/save ROI",
             closeROI: "close view of ROI",
-            createroi: "create ROI",
+            createroi: "miscellaneous overlay",
             createemptyroi: "create empty ROI",
             makecurrent: "enable ROI for drawing",
 
@@ -57,6 +57,7 @@ var resources = {
             regionfillsimilarcolors: "unrestricted region filling (use colormap limits and mouse left/right to control sensitivity)",
             regionfillwithinpen: "region filling within pen",
             misctools: "miscellaneous tools",
+
 
             mcpsys: "create mcp reorientation system from two/three markers",
             addnewanno: "add new marker to annotation",
@@ -100,7 +101,11 @@ if (typeof jQuery != "undefined")
 
                 $("#KJobinfoTooltip").remove();
                 var ttips = resources.tooltips[resources.lang];
-                var text = ttips[id];
+                var text 
+                if (typeof id == "function")
+                    text = id();
+                else 
+                    text = ttips[id];
                 if (text == undefined)
                     text = id;
                 var $div = $("<div id='standardTooltip'> " + text + " </div>");
@@ -150,15 +155,44 @@ if (typeof jQuery != "undefined")
 
 
 
-
-
-
-
-
-
-
-
 }
+
+
+/* 
+ * Make a function that calculates the distance squared of (x, y, z) to the center of the sphere at (0, 0, 0) or to the center of the cylinder (0, 0)
+ * @param sx2: squared scaling factor for x.
+ * @param sy2: squared scaling factor for y.
+ * @param sz2: squared scaling factor for z.
+ * @param slicing (int): in case of tool shape cylinder, the dimension the cylinder extends over
+ * @param shape (string): "sphere", "cylinder", the shape of the tool
+ * @return (function(x, y, z))
+ */
+function makefunction_distance_to_center_2(sx2, sy2, sz2, slicing, shape)
+{
+    var distance_to_center_2;
+    if (shape == "cylinder")
+    {
+        if (slicing == 0)  // to get a cylinder, calculate the distance to the center only with two dims. the dims depend on the view the user clicked on.
+            distance_to_center_2 = function(x, y, z) { return y * y * sy2 + z * z * sz2; };
+        else if (slicing == 1)
+            distance_to_center_2 = function(x, y, z) { return x * x * sx2 + z * z * sz2; };
+        else if (slicing == 2)
+            distance_to_center_2 = function(x, y, z) { return x * x * sx2 + y * y * sy2; };    
+    }
+    else if (shape == "sphere")   // regular sphere shaped tool
+    {
+        distance_to_center_2 = function(x, y, z) { return x * x * sx2 + y * y * sy2 + z * z * sz2; };
+    }
+    else
+    {
+        throw Error("Invalid tool shape.");
+    }
+    return distance_to_center_2;
+}
+
+
+
+
 
 
 function zeroPad(num, places) {
@@ -180,97 +214,100 @@ if (typeof alertify != "undefined")
         }    	
     }
 
-
-Array.prototype.chunk = 
-Object.defineProperty(Array.prototype, 'chunk', {
-    value:  
-    function(fn, chunksize, delay, aggregate, onready)
-    {
-        var forchunk = function(_this, fn, chunksize, delay)
+if (Array.prototype.chunk == undefined)
+{
+    
+    Array.prototype.chunk = 
+    Object.defineProperty(Array.prototype, 'chunk', {
+        value:  
+        function(fn, chunksize, delay, aggregate, onready)
         {
-            if (delay == undefined)
-                delay = 0;
-            _this.interval_id = setInterval(function(_this) {
-                return function()
-                {
-                    if (_this.cnt == undefined)
-                        _this.cnt = 0;
-                    for (var k = 0; k < chunksize & k + _this.cnt < _this.length; k++)
+            var forchunk = function(_this, fn, chunksize, delay)
+            {
+                if (delay == undefined)
+                    delay = 0;
+                _this.interval_id = setInterval(function(_this) {
+                    return function()
                     {
-                        fn(_this[k + _this.cnt], k + _this.cnt, _this);
+                        if (_this.cnt == undefined)
+                            _this.cnt = 0;
+                        for (var k = 0; k < chunksize & k + _this.cnt < _this.length; k++)
+                        {
+                            var resval = fn(_this[k + _this.cnt], k + _this.cnt, _this);
+                        }
+                        if (aggregate)
+                        {
+                            aggregate(_this.cnt);
+                        }
+    
+                        _this.cnt += chunksize;
+                        if (_this.cnt >= _this.length | resval === false)
+                        {
+                            clearInterval(_this.interval_id);
+                            delete _this.cnt;
+                            delete _this.interval_id;
+                            if (onready != undefined)
+                                onready();
+                        }
+    
                     }
-                    if (aggregate)
-                    {
-                        aggregate(_this.cnt);
-                    }
-
-                    _this.cnt += chunksize;
-                    if (_this.cnt >= _this.length)
-                    {
-                        clearInterval(_this.interval_id);
-                        delete _this.cnt;
-                        delete _this.interval_id;
-                        if (onready != undefined)
-                            onready();
-                    }
-
-                }
-            }(_this), delay);
-
-
+                }(_this), delay);
+    
+    
+            }
+            ;
+    
+            forchunk(this, fn, chunksize, delay);
         }
-        ;
-
-        forchunk(this, fn, chunksize, delay);
-    }
-});
-
-//Float32Array.prototype.chunk =
-Object.defineProperty(Float32Array.prototype, 'chunk', {
-    value:  
-    function(fn, chunksize, delay, aggregate, onready)
-    {
-        var forchunk = function(_this, fn, chunksize, delay)
+    });
+    
+    //Float32Array.prototype.chunk =
+    Object.defineProperty(Float32Array.prototype, 'chunk', {
+        value:  
+        function(fn, chunksize, delay, aggregate, onready)
         {
-            if (delay == undefined)
-                delay = 0;
-            _this.interval_id = setInterval(function(_this) {
-                return function()
-                {
-                    if (_this.cnt == undefined)
-                        _this.cnt = 0;
-                    for (var k = 0; k < chunksize & k + _this.cnt < _this.length; k++)
+            var forchunk = function(_this, fn, chunksize, delay)
+            {
+                if (delay == undefined)
+                    delay = 0;
+                _this.interval_id = setInterval(function(_this) {
+                    return function()
                     {
-                        fn(_this[k + _this.cnt], k + _this.cnt, _this);
+                        if (_this.cnt == undefined)
+                            _this.cnt = 0;
+                        for (var k = 0; k < chunksize & k + _this.cnt < _this.length; k++)
+                        {
+                            fn(_this[k + _this.cnt], k + _this.cnt, _this);
+                        }
+                        if (aggregate)
+                        {
+                            aggregate(_this.cnt);
+                        }
+    
+                        _this.cnt += chunksize;
+                        if (_this.cnt >= _this.length)
+                        {
+                            clearInterval(_this.interval_id);
+                            delete _this.cnt;
+                            delete _this.interval_id;
+                            if (onready != undefined)
+                                onready();
+                        }
+    
                     }
-                    if (aggregate)
-                    {
-                        aggregate(_this.cnt);
-                    }
-
-                    _this.cnt += chunksize;
-                    if (_this.cnt >= _this.length)
-                    {
-                        clearInterval(_this.interval_id);
-                        delete _this.cnt;
-                        delete _this.interval_id;
-                        if (onready != undefined)
-                            onready();
-                    }
-
-                }
-            }(_this), delay);
-
-
+                }(_this), delay);
+    
+    
+            }
+            ;
+    
+            forchunk(this, fn, chunksize, delay);
         }
-        ;
-
-        forchunk(this, fn, chunksize, delay);
     }
+    );
+    
 }
-);
-
-
+    
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////// Octree
@@ -567,22 +604,57 @@ Octree.Cell.prototype.findNearbyPoints = function(p, r, result, options) {
 ;
 
 
+function getWorkerScriptAsBlob(scriptName)
+{
+
+   if (scriptStore[scriptName] == undefined)
+   {
+       console.error("script " +scriptName+ " not found")     
+       return;
+   }
+    
+   var r = /importScripts\([\"\'](?<id>[\w\/\.]+.js)[\"\']\)/g; 
+   var code = '';
+   var m;
+   var str = scriptStore[scriptName];
+   while ((m = RegExp(r).exec(str)) !== null)
+       {
+         var id = m.groups.id
+         if (id.substring(0,3) == '../')
+             id = id.substring(3);
+         if (scriptStore[id] == undefined)
+             console.log("script " +id+ " not found")
+         code += scriptStore[id] + "\n";
+       }
+   code += scriptStore[scriptName];
+   
+   blob = new Blob([code], {type: 'application/javascript'});
+   return URL.createObjectURL(blob)
+}
+
+function startWorker(scriptname)
+{
+        if (typeof url_pref != "undefined")
+        {
+           if (url_pref == "import:")
+               scriptname = getWorkerScriptAsBlob(scriptname)
+           else
+               scriptname = url_pref + scriptname+ '?' +  static_info.softwareversion;
+
+        }
+       
+        return new Worker(scriptname);
+}
 
 
-
-
-
-
+executeImageWorker.running_workers = 0;
 function executeImageWorker(execObj,Buffers,progress,onready,worker)
 {
 
         if (worker == undefined)
         {
-            var scriptname = 'KImageProcWorker.js' + '?' +  static_info.softwareversion;
-            if (typeof url_pref != "undefined")
-               scriptname = url_pref + scriptname;
            
-            worker = new Worker(scriptname);
+            worker = startWorker('KImageProcWorker.js');
             worker.postMessage = worker.webkitPostMessage || worker.postMessage;
             worker.addEventListener('message', function(e) {
                 e = e.data;
@@ -590,6 +662,7 @@ function executeImageWorker(execObj,Buffers,progress,onready,worker)
                 {
                     if (progress != undefined)
                         progress();
+                    executeImageWorker.running_workers--;
                     onready(e);
                 }
                 else
@@ -599,13 +672,21 @@ function executeImageWorker(execObj,Buffers,progress,onready,worker)
 
             worker.kill = function()
             {
+                executeImageWorker.running_workers--;
                 worker.postMessage({'msg':'kill'},[]);
             }
         }
 
-
-		worker.postMessage(execObj,Buffers); // Send data to our worker.
-
+        executeImageWorker.running_workers++;
+        setTimeout(function() {
+            try{
+        		worker.postMessage(execObj,Buffers); // Send data to our worker.
+            } catch (err)
+            {
+                console.log(execObj)
+                throw err
+            }
+        },250);
 		return worker;		
 }
 
@@ -702,7 +783,7 @@ function KContextMenu(themenu, theselfun, loose, keepOpenAfterClick, eventonmenu
                     $target = $target.parent();
             }
 
-            if (str != 'preventSelection')
+            if (str != 'preventSelection' && !$target.hasClass("inactive"))
             {
                 ev2.preventDefault();
                 ev2.stopPropagation();
@@ -717,7 +798,9 @@ function KContextMenu(themenu, theselfun, loose, keepOpenAfterClick, eventonmenu
                     return;
 
                 if (keepOpenAfterClick)
+                {
                     createFun(last_ev);
+                }
 
             }
         }
@@ -726,7 +809,7 @@ function KContextMenu(themenu, theselfun, loose, keepOpenAfterClick, eventonmenu
 
         $(document.body).append($cmdiv);
 
-
+/*
         var uls = $cmdiv.find("ul,div");
         var left = 0;
         for (var k = 0; k < uls.length;k++)
@@ -741,7 +824,13 @@ function KContextMenu(themenu, theselfun, loose, keepOpenAfterClick, eventonmenu
             if (k==0)
                 left = $ul.offset().left + $ul.width()-20 ;
         }
+*/
 
+        var disp = $cmdiv.css('display');
+        if ($cmdiv.offset().left  + $cmdiv.width() > $(document.body).width())
+            $cmdiv.css('left', -( $cmdiv.width() - $(document.body).width())- offs_left-5);
+        if ($(document.body).height() != 0 && $cmdiv.offset().top + $cmdiv.height() > $(document.body).height())
+            $cmdiv.css('top', -( $cmdiv.height() - $(document.body).height())- offs_top-10);
 
         var $which = $(document.body);
         if (eventonmenu)
@@ -815,7 +904,19 @@ function openSharedLink(sharedLink,onready)
     // etabslish tree state
     if (userinfo.username != guestuser && sharedLink.project != undefined)
     {
-        selectProject(sharedLink.project, function() {
+        if (sharedLink.onlyContent)
+        {
+            // set settings
+            if (sharedLink.ViewerSettings !== undefined)
+            {
+                state.viewer = sharedLink.ViewerSettings;
+                stateManager.applyState(state);
+            } 
+            sharedLink.project = currentModule;
+            loadSharedContent()
+        }
+        else 
+            selectProject(sharedLink.project, function() {
 
 
             // set settings
@@ -824,6 +925,9 @@ function openSharedLink(sharedLink,onready)
                 state.viewer = sharedLink.ViewerSettings;
                 stateManager.applyState(state);
             }
+
+            state.search_row = sharedLink.search_row;
+            state.search_row_a = sharedLink.search_row_a;
 
             switchto(state.viewer.selectionMode,undefined,function()
             {
@@ -915,8 +1019,19 @@ function openSharedLink(sharedLink,onready)
                 },
                 callback: KViewer.atlasTool.addAtlas
             });
+        
+        if (sharedLink.fmri_tmodes != undefined)
+           KViewer.dataManager.loadData({
+                URLType: 'serverfile',
+                fileID: sharedLink.fmri_tmodes
+            });
 
-
+        if (sharedLink.dummyNifti_params)
+        {
+            var dumpa = sharedLink.dummyNifti_params
+            KViewer.lastDummyNifti = createDummyNifti(dumpa.sizes,dumpa.bbox_max,dumpa.bbox_min,dumpa.perm,dumpa.flip)
+        }
+        
         // load viewport content
         var params = sharedLink.viewports || [];
         var q = [];
@@ -928,17 +1043,20 @@ function openSharedLink(sharedLink,onready)
         if (sharedLink.atlases != undefined & !electron)
             for (var k = 0; k < sharedLink.atlases.length; k++)
             {            
-               var param = ({ URLType: 'serverfile', fileID:sharedLink.atlases[k].fileID,json:{project:sharedLink.atlases[k].project},intent:{atlas:true,project:sharedLink.atlases[k].project}});
+               var param = ({ URLType: 'serverfile', fileID:sharedLink.atlases[k].fileID,
+                        json:{project:sharedLink.atlases[k].project},intent:{atlas:true,project:sharedLink.atlases[k].project}});
                if (param.json.project == undefined)
                   param.json.project =    sharedLink.project    
                q.push(param);     
             }
 
+        var asyncjobs = {};
+
         for (var k = 0; k < params.length; k++)
         {
             if (params[k])
             {
-                if (params[k].fileID.refvisit_tck)
+                if (params[k].fileID && params[k].fileID.refvisit_tck)
                 {
                     derived_q.push(params[k])
                     continue;
@@ -954,13 +1072,20 @@ function openSharedLink(sharedLink,onready)
                             project: sharedLink.project
                             //static_info.atlas.project
                         };
+                    params[k].intent.atlas=true;
                     params[k].fileID = params[k].fileID.replace("atlas_", "");
                 }
                 else
                     params[k].json = {
                         project: sharedLink.project
                     }
-
+                if (params[k].intent)
+                {
+                    if (params[k].intent.isosurf != undefined)
+                    {
+                        asyncjobs["isosurf"] = true;
+                    }
+                }
 
                 q.push(params[k]);
             }
@@ -973,8 +1098,28 @@ function openSharedLink(sharedLink,onready)
             {
                 var filepath = q[k].fileID; 
 
-                if (sharedLink.absolutePath)
-                    filepath = path.join(sharedLink.absolutePath,filepath);
+                var overwritten = false;
+                if (openSharedLink.overrides != undefined )
+                {
+                    if (openSharedLink.overrides[q[k].fileID] != undefined)
+                        filepath = q[k].fileID
+                    else if (openSharedLink.overrides[q[k].name] != undefined)
+                        filepath = q[k].name
+                    if (openSharedLink.overrides[filepath] != undefined)
+                    {
+                        console.log("override " + filepath + "=>" + openSharedLink.overrides[filepath])
+                        filepath = openSharedLink.overrides[filepath]
+                        openSharedLink.overrides[q[k].fileID] = filepath;
+                        openSharedLink.overrides[q[k].name] = filepath;
+                        overwritten=true;
+                    }
+                }
+
+                if (!overwritten)
+                {
+                    if (sharedLink.absolutePath)
+                        filepath = path.join(sharedLink.absolutePath,filepath);
+                }
 
                 filepath = filepath.replace(/\\/g,"/"); // for windows
 
@@ -984,6 +1129,12 @@ function openSharedLink(sharedLink,onready)
                 q[k].fileID = "localfile:"+filepath;
             }
         }
+
+        if (sharedLink.WorkstatePostCode != undefined && sharedLink.WorkstatePostCode.trim() != "")
+        {
+            KViewer.WorkstatePostCode = sharedLink.WorkstatePostCode
+        }
+        
         setTimeout(function(){
             $(document.body).addClass("wait");		
             loadingQueue.execQueue(q, function() {
@@ -994,13 +1145,23 @@ function openSharedLink(sharedLink,onready)
                         KViewer.dataManager.getFile(sharedLink.navi_movingObjs[k]);
                     KViewer.navigationTool.updateMoving();
                 }
+                if (sharedLink.navi_warp_enabled)
+                {
+                     KViewer.navigationTool.transform.toggle();
+                }
                 if (sharedLink.mainviewport != undefined)
-                    KViewer.toggleMainViewport(sharedLink.mainviewport, true);
-
-                //	KViewer.resetCrossHair();
-                if (sharedLink.position)
+                {
                     KViewer.currentPoint = math.matrix(sharedLink.position);
+                    KViewer.toggleMainViewport(sharedLink.mainviewport, true);
+                }
+                else
+                    KViewer.resetCrossHair( math.matrix(sharedLink.position));
 
+                if (sharedLink.tracking_params)
+                {
+                    $.extend(KViewer.obj3dTool.tracking_panel.params,sharedLink.tracking_params);
+                    KViewer.obj3dTool.tracking_panel.update();
+                }
 
                 if (sharedLink.ironSight)
                 {
@@ -1029,7 +1190,10 @@ function openSharedLink(sharedLink,onready)
                     {
                         var vport_id = derived_q[k].fileID.viewport_id;
                         var vmap_params = derived_q[k].fileID.refvisit_params;
-                        var fibid = derived_q[k].fileID.refvisit_tck;                      
+                        var fibid = derived_q[k].fileID.refvisit_tck;      
+                        var medv = KViewer.viewports[vport_id].medViewer                
+                        if (medv == undefined)
+                            continue;
                         var objs = KViewer.viewports[vport_id].medViewer.objects3D;
                         for (var j = 0; j < objs.length;j++)
                             if (KViewer.viewports[vport_id].medViewer.objects3D[j].fibers && 
@@ -1077,11 +1241,44 @@ function openSharedLink(sharedLink,onready)
                 if (sharedLink.zoomedViewport != -1 &&  KViewer.viewports[sharedLink.zoomedViewport] != undefined )
                     KViewer.viewports[sharedLink.zoomedViewport].zoomViewPort();
 
-
                 $(document.body).removeClass("wait");		
                 $("#KLoadingFrame").css('display','none')
 
+                if (KViewer.hasControlsOn() != sharedLink.controlsOn)
+                    KViewer.toggleElementsForScreenShot();
 
+/*                
+                var ival = 100;
+                function waitForAsyncs()
+                {
+                     if (asyncjobs['isosurf'] != undefined)
+                     {
+                         if (typeof BABYLON == "undefined" || 
+                             BABYLON.initialized !== true  ||
+                             executeImageWorker.running_workers>0)
+                         {
+                            setTimeout(waitForAsyncs,ival)
+                            return;
+                         }
+                     }
+                     if (openSharedLink.callback != undefined)
+                         openSharedLink.callback.execute();
+                }
+                setTimeout(waitForAsyncs,100)
+*/
+
+                var post_fun = function() {}
+                if (openSharedLink.callback != undefined)
+                   post_fun = openSharedLink.callback.execute;
+                
+                if (sharedLink.WorkstatePostCode != undefined)
+                {
+                    eval("var wdpc_fun = " +sharedLink.WorkstatePostCode);
+                    wdpc_fun(post_fun)
+                }
+                else
+                    post_fun();
+                
                 if (onready)
                     onready();
 
@@ -1100,17 +1297,22 @@ function saveWorkstate(that)
     var s = gatherState('savestate');
     if (electron)
     {
-        uploadJSON("workstate.json",s,{subfolder:'workstates',tag:'workstate'},function(){});					
+        uploadJSON("workstate.json",s,{subfolder:'workstates',tag:'/workstate/'},function(){});					
     }
     else
-        alertify.prompt("Enter a name for of state", function(e,name)
+    {
+
+        saveDialog("workstate", function(name,finfo)
         {
-            if (e)
-            {
+         
+                finfo.tag = '/workstate/';
+                finfo.subfolder = "workstates";
                 that.lastProjectStatename = name;
-                uploadJSON(name,s,{subfolder:'workstates',tag:'workstate'},function(){});					
-            }
+                uploadJSON(name,s,finfo,function(){});					
         } ,that.lastProjectStatename);
+
+
+    }
 
 }
 
@@ -1141,6 +1343,11 @@ function gatherState(issuer)
             id = obj.currentFileID;
         if (obj.trackingVolID)
             id = obj.trackingVolID;
+        if (id == undefined && obj.atlas)
+        {
+            id =obj.atlas.fileID
+        }
+
         if (id == undefined)
             return undefined;
         if (electron)
@@ -1155,7 +1362,6 @@ function gatherState(issuer)
         }
     }
 
-
     // gather viewport content and overlays
     var imgs = [];
     for (var k = 0; k < KViewer.viewports.length; k++)
@@ -1166,24 +1372,27 @@ function gatherState(issuer)
             var viewer = KViewer.viewports[k].getCurrentViewer();
         else
             viewer = undefined;   
+        var viewportProperties = undefined;
+        if (KViewer.viewports[k].getProperties)
+            viewportProperties = KViewer.viewports[k].getProperties();
+    
+        
         if (viewer != undefined 
             && ( ( viewer.currentFileID != undefined & viewer.currentFileID != "") || (viewer.nii != undefined && viewer.nii.dummy != undefined) ) )
         {
             var myid = "ID" + viewer.currentFileID;
+            if (viewer.currentFileID=="WorkstatePostCode")
+                continue;
             if (viewer.viewerType == "medViewer")
             {
 
-                /*  that.zoomFac = zl[0];
-                that.zoomOriginY = zl[1];// / hei_cm * $canvas.height();
-                that.zoomOriginX =
-	*/
-
-
                 var gl_props;
-                if (viewer.isGLenabled())
+                if (viewer.isGLenabled() && viewer.gl != undefined)
                     gl_props = {alpha:viewer.gl.camera.alpha,
                                   beta:viewer.gl.camera.beta,
                                   radius:viewer.gl.camera.radius,
+                                  target:viewer.gl.camera.target,
+                                  position:viewer.gl.camera.position,
                                   planesVisibility:viewer.gl.getPlanesVisibility()};
 
 
@@ -1198,9 +1407,10 @@ function gatherState(issuer)
                         intent:
                         {
                             viewportID: k,
+                            viewportProperties:viewportProperties,
                             zooms: viewer.getRelativeZoomLims(),
                             cmap: viewer.histoManager.cmapindex,
-                            clim: viewer.histoManager.getManuallyEnteredClim(issuer == 'savestate'),
+                            windowing: viewer.histoManager.getManuallyEnteredClim(issuer == 'savestate'),
                             gl: viewer.isGLenabled(),
                             gl_props:gl_props,
                             isosurf: (viewer.refSurfView!=undefined)?viewer.refSurfView.getViewProperties():undefined,
@@ -1218,7 +1428,10 @@ function gatherState(issuer)
                           nx_cont: viewer.mosaicview.nx_cont,
                           zoom: viewer.mosaicview.zoom,
                           start:viewer.mosaicview.start,
-                          end:viewer.mosaicview.end};
+                          end:viewer.mosaicview.end,
+                          clipratio:viewer.mosaicview.clipratio,
+                          number_color:viewer.mosaicview.number_color
+                                          };
                     }
         
                     if (viewer.nii && viewer.nii.quiver_params)
@@ -1246,7 +1459,7 @@ function gatherState(issuer)
                                 isosurf: (viewer.overlays[j].refSurfView!=undefined)?viewer.overlays[j].refSurfView.getViewProperties():undefined,
                                 cmap: viewer.overlays[j].histoManager.cmapindex,
                                 transparent: viewer.overlays[j].histoManager.blending,
-                                clim: viewer.overlays[j].histoManager.getManuallyEnteredClim(issuer=='savestate'),
+                                windowing: viewer.overlays[j].histoManager.getManuallyEnteredClim(issuer=='savestate'),
                                 showcolored:viewer.overlays[j].showcolored,
                                 showcolored_type:viewer.overlays[j].showcolored_type,
                                 posnegsym:viewer.overlays[j].histoManager.posnegsym,
@@ -1265,25 +1478,57 @@ function gatherState(issuer)
                 if (viewer.ROIs != undefined)
                     for (var j = 0; j < viewer.ROIs.length; j++)
                     {
-                        var myid = "ID" + viewer.ROIs[j].roi.fileID;
-                        var roi = viewer.ROIs[j].roi;
-                        var isosurf;
-                       // if (viewer.ROIs[j].refSurfView != undefined)
-                         //   isosurf = true;
-                        imgs.push({
-                            id: myid + "roi",
-                            fileID: mapID(roi),
-                            name:roi.filename,
-                            URLType: 'serverfile',
-                            intent:
-                            {
-                                roi: true,
-                                isosurf: (viewer.ROIs[j].refSurfView!=undefined)?viewer.ROIs[j].refSurfView.getViewProperties():undefined,
-                                color: viewer.ROIs[j].color,
-                                viewportID: k,
-                                visible:viewer.ROIs[j].visible
-                            }
-                        });
+                        var col;
+                        if (viewer.ROIs[j].color.color != undefined)
+                            col  = viewer.ROIs[j].color.getjson();
+                        else
+                            col = viewer.ROIs[j].color;
+                        if (typeof col == "string")
+                            col = col.join(",")
+                        
+                        if (viewer.ROIs[j].roi.fileID.substring(0,10) == 'ROI_ATLAS_')
+                        {
+                            var tmp =  viewer.ROIs[j].roi.fileID.substring(10)
+                            var fid = tmp.substring(0,tmp.lastIndexOf("_"))
+                            var myid = "ID" + fid;
+                            var akeys = tmp.substring(tmp.lastIndexOf("_")+1).split(",");
+                            imgs.push({
+                                id: myid + "roi",
+                                fileID: mapID(KViewer.dataManager.getFile(fid)),
+                                name:viewer.ROIs[j].roi.filename,
+                                URLType: 'serverfile',
+                                intent:
+                                {
+                                    atlaskey:akeys,
+                                    labelname:viewer.ROIs[j].roi.filename,
+                                    roi: true,
+                                    isosurf: (viewer.isGLenabled() && viewer.ROIs[j].refSurfView!=undefined)?viewer.ROIs[j].refSurfView.getViewProperties():undefined,
+                                    color: col,
+                                    viewportID: k,
+                                    visible:viewer.ROIs[j].visible
+                                }
+                            });
+                        }
+                        else
+                        {
+                            
+                            var myid = "ID" + viewer.ROIs[j].roi.fileID;
+                            var roi = viewer.ROIs[j].roi;
+                            imgs.push({
+                                id: myid + "roi",
+                                fileID: mapID(roi),
+                                name:roi.filename,
+                                URLType: 'serverfile',
+                                intent:
+                                {
+                                    roi: true,
+                                    isosurf: (viewer.ROIs[j].refSurfView!=undefined)?viewer.ROIs[j].refSurfView.getViewProperties():undefined,
+                                    color: col,
+                                    viewportID: k,
+                                    visible:viewer.ROIs[j].visible
+                                }
+                            });
+                        }
                     }
                 if (viewer.objects3D != undefined)
                     for (var j = 0; j < viewer.objects3D.length; j++)
@@ -1304,21 +1549,27 @@ function gatherState(issuer)
                             if (obj.fibers)
                             {
                                 fid = mapID(obj.fibers);     
-                                if (obj.fibers.tckjsonref)                       
-                                    fid = mapID(obj.fibers.tckjsonref);
+                                if (obj.fibers.tckjsonref)  
+                                {
+                                    fid = [];
+                                    for (var ik in obj.fibers.tckjsonref)                                        
+                                        fid.push(mapID(obj.fibers.tckjsonref[ik]));
+                                }
                                 else
                                 {
                                     if (obj.children && obj.children.length > 0)
                                     {
+                                        if (obj.fibers.fileinfo == undefined)
+                                           continue; 
+                                        
                                         var json = KViewer.obj3dTool.save(obj.fibers,undefined,true)
                                         more_intent.jsonsubsets = json;
                                     }
                                 }
                                 if (obj.Selection && obj.parent)
                                     more_intent.select = obj.Selection.name;
-                                else
-                                    more_intent.select = 'all';
 
+                                more_intent.from_sharedlink = true;
                                 if ((obj.subsetToDisplay != undefined && obj.subsetToDisplay.length > 0) | 
                                       (obj.isParentView && obj.subsetToDisplay == undefined))
 
@@ -1330,12 +1581,18 @@ function gatherState(issuer)
                                 {
                                     more_intent.visible = false; // not yet
                                     more_intent.donotmakecurrent = true; // not yet
-
                                 }
                                 if (obj.isCurrent)
                                   more_intent.donotmakecurrent = false;
                                     
+                                if (obj.Selection && obj.Selection.colmode)
+                                {
+                                    more_intent.colmode = { name: obj.Selection.colmode.name,
+                                                                clim:obj.Selection.colmode.histoManager.clim,
+                                                                cmap:obj.Selection.colmode.histoManager.cmapindex}
 
+                                }
+        
                                 if (obj.trackingVol)
                                 {
                                     fid = mapID(obj);
@@ -1367,25 +1624,33 @@ function gatherState(issuer)
 
                         var atlasiso = undefined
                         var project = undefined;
-                        if (obj.surf != undefined)
+                        var clim;
+                        var cmap;
+                        if (obj.surf != undefined && obj.surf.fileID.substring(0,5) != "SURF_")
                         {                            
                             fid = mapID(obj.surf);
                             for (var jj=0;jj <obj.overlays.length; jj++)
                             {
                                 var ovl = obj.overlays[jj];
+                                var intent = {surfcol: fid,
+                                              viewportID: k}
+                                if (ovl.histoManager)
+                                {
+                                    intent.cmap =  ovl.histoManager.cmapindex
+                                    intent.clim = ovl.histoManager.clim 
+                                    intent.posnegsym = ovl.histoManager.posnegsym 
+                                    
+                                }
+
+                                intent.hasPanel = ( ovl.atlas != undefined && ovl.atlas.panel != undefined)? ovl.atlas.panel.getState() : undefined
+
+
                                 imgs.push({
-                                    id: myid + "roi",
+                                    id: myid,                          
                                     fileID: mapID(ovl),
                                     URLType: 'serverfile',
                                     name:ovl.filename,
-                                    intent:
-                                    {
-                                        surfcol: fid,
-                                        cmap: ovl.histoManager.cmapindex,
-                                        clim:ovl.histoManager.clim,
-                                        viewportID: k,
-
-                                    }})
+                                    intent:intent})
                             }                            
                             if (obj.surf.atlasref)
                             {
@@ -1396,29 +1661,50 @@ function gatherState(issuer)
                             else if (obj.refRoiView != undefined)
                                 continue;
                         }
+
+                        if (obj.surf != undefined && obj.refRoiView != undefined)
+                            continue;
                      
+                        if (obj.histoManager)
+                        {
+                            cmap =  obj.histoManager.cmapindex
+                            clim = obj.histoManager.clim 
+                        }
+
                         if (obj.cmat != undefined)
                         {
                             fid = mapID(obj.cmat);
                             clim = obj.histoManager.getManuallyEnteredClim(issuer == 'savestate');
                         }
-                        imgs.push({
-                            id: fid + (atlasiso?"atlas":"") + "3D",
-                            fileID: fid,
-                            project: project,
-                            name:obj.filename,
-                            URLType: 'serverfile',
-                            intent: $.extend(
+
+                        if (Array.isArray(fid))
+                            for (var ik in fid)
+                                {
+                                    pushit(fid[ik])
+                                }
+                        else
+                            pushit(fid);
+                        function pushit(fid_)                        
                             {
-                                GL: true,
-                                gl: true,
-                                atlasiso:atlasiso,
-                                viewportID: k,
-                                cuts: obj.cuts,
-                                assoc_annot: assoc_annot,
-                                clim: clim
-                            },more_intent)
-                        });
+                            imgs.push({
+                                id: fid_ + (atlasiso?"atlas":"") + "3D",
+                                fileID: fid_,
+                                project: project,
+                                name:obj.filename,
+                                URLType: 'serverfile',
+                                intent: $.extend(
+                                {
+                                    GL: true,
+                                    gl: true,
+                                    atlasiso:atlasiso,
+                                    viewportID: k,
+                                    cuts: obj.cuts,
+                                    assoc_annot: assoc_annot,
+                                    windowing: clim,
+                                    cmap:cmap
+                                },more_intent)
+                            });
+                            }
 
                         if (obj.surf != undefined)
                         {
@@ -1431,12 +1717,14 @@ function gatherState(issuer)
                     {
                         var obj = viewer.atlas[j];
                         imgs.push({
-                            id: myid + "atlas",
+                            id: myid + "atlas" +k,
                             fileID: mapID(obj.atlas),
                             project: obj.atlas.project,
+                            name:obj.atlas.filename,
                             URLType: 'serverfile',
                             intent:
                             {
+                                atlas:true,
                                 viewportID: k,
                                 hasPanel :   ( obj.atlas.panel != undefined)? obj.atlas.panel.getState() : undefined,
                             }
@@ -1451,11 +1739,13 @@ function gatherState(issuer)
                 {
                     var fid = KViewer.formManager.getFormByID(viewer.currentFormID).name;
                     imgs.push({
-                        id: "ID" + fid + 'formNA',
+                        id: "ID" + fid + 'formNA'  + Math.random(),
                         fileID: fid,
                         URLType: 'form',
                         intent: {
-                            viewportID: k
+                            viewportID: k,
+                            viewportProperties:viewportProperties,
+                            
                         }
                     });
                 }
@@ -1467,7 +1757,9 @@ function gatherState(issuer)
                         fileID: fid,
                         URLType: 'serverfile',
                         intent: {
-                            viewportID: k
+                            viewportID: k,
+                            viewportProperties:viewportProperties,
+                            
                         }
                     });
                 }
@@ -1475,15 +1767,30 @@ function gatherState(issuer)
             else
             {
                 var fid = mapID(viewer);
-                imgs.push({
+                var obj = {
                     id: "ID" + fid,
                     fileID: mapID(viewer),
                     filename: viewer.currentFilename,
+                    name:viewer.currentFilename,
                     URLType: 'serverfile',
                     intent: {
-                        viewportID: k
+                        viewportID: k,
+                        viewportProperties:viewportProperties,
+                        
                     }
-                });
+                }
+                if (viewer.viewerType == "jsonViewer")
+                {
+                   obj.intent.unfold = viewer.unfolded;
+                   obj.intent.state = viewer.getState();
+                }
+                if (viewer.viewerType == "tableViewer")
+                {
+                    obj.intent.tablestate = viewer.getState();
+                    obj.intent.tobj = viewer.getTobj();
+                }
+
+                imgs.push(obj);
             }
 
         }
@@ -1499,6 +1806,11 @@ function gatherState(issuer)
         atlases.push({fileID:KViewer.atlasTool.objs[a].fileID,
                        project:KViewer.atlasTool.objs[a].project});
 
+    var fmri_tmodes = undefined
+    if (KViewer.curveTool.fmri.tmodes != undefined)
+        fmri_tmodes = KViewer.curveTool.fmri.tmodes.fileID;
+
+    
     var WMQLpanels = [];
     if (typeof KWMQLpanel != "undefined")
     for (var k in KWMQLPanel.panels)
@@ -1510,11 +1822,9 @@ function gatherState(issuer)
             
     }
 
-
     // gather settings
+    KViewer.saveState()
     var vset = $.extend(true, {}, ViewerSettings);
-   // delete vset.SearchText;
-   // delete vset.SearchText_a;
     vset.crosshairModeDefault = KViewer.crosshairMode;
     vset.histoModeDefault = KViewer.histoMode;
 
@@ -1537,6 +1847,17 @@ function gatherState(issuer)
     if (typeof ironSight != "undefined" && ironSight.visible)
         iron_visible = true;
    
+    var navi_reorientationMatrix
+    var navi_warp_enabled;
+    if (KViewer.navigationTool.isinstance)
+    {
+        navi_warp_enabled = KViewer.navigationTool.transform.$toggle.hasClass("KViewPort_tool_enabled")
+        navi_reorientationMatrix =
+        {
+            matrix:KViewer.reorientationMatrix.matrix,
+            notID:KViewer.reorientationMatrix.notID
+        }
+    }
 
 
     var shareinfo = {
@@ -1545,25 +1866,40 @@ function gatherState(issuer)
         position: position,
         annotations: annotations,
         currentAnnot:currentAnnot,
-        SearchText:state.SearchText,
-        SearchText_a:state.SearchText_a,
+        search_row:state.search_row,
+        search_row_a: state.search_row_a,        
         WMQLpanels:WMQLpanels,
         ironSight:iron_visible,
         naviMode:KViewer.navigationMode,
         navi_movingObjs: Object.keys(KViewer.navigationTool.movingObjs),
-        navi_reorientationMatrix: KViewer.reorientationMatrix,
+        navi_reorientationMatrix: navi_reorientationMatrix,
+        navi_warp_enabled : navi_warp_enabled,
         mainviewport: KViewer.mainViewport,
         ViewerSettings: vset,
         atlas_defField: atlas_defField,
         atlases:atlases,
+        fmri_tmodes:fmri_tmodes,
         TableHidden: TableHidden,
+        WorkstatePostCode:KViewer.WorkstatePostCode,
         enabledTool: KTool_enabled(),
         toolstate: KToolWindow.getToolsState(),
         styletheme:userinfo.styletheme,
         zoomedViewport:KViewer.zoomedViewport,
+        controlsOn:KViewer.hasControlsOn(),
         electron:electron
     };
 
+    if (KViewer.obj3dTool.tracking_panel && KViewer.obj3dTool.tracking_panel.params)
+    {
+        shareinfo.tracking_params = KViewer.obj3dTool.tracking_panel.params
+    }
+
+    if (KViewer.lastDummyNifti != undefined)
+    {
+        shareinfo.dummyNifti_params = KViewer.lastDummyNifti.dummy_params
+    }
+
+    
     if (typeof projectInfo != "undefined")
         shareinfo.project = projectInfo.name;
 
@@ -1609,18 +1945,50 @@ function gatherState(issuer)
 function shareLink()
 {
     var shareinfo = gatherState('savestate');
+    shareinfo.date = createSQLDate();
+    shareinfo.ViewerSettings.owner = userinfo.username
+    
     var sharedID = "";
+    var uid = ""
     if (sharedLink && sharedLink.shareID)
-        sharedID = "&shareID=" + sharedLink.shareID + "&ID=" + sharedLink.ID;
+    {
+        uid = sharedLink.shareID;
 
-    // store all this as a shared link
-    ajaxRequest('command=share&json=' + encodeURIComponent(JSON.stringify(shareinfo)) + sharedID, function(result) {
-        var url = myownurl() + "?sharelink=" + result.id;
-        if (sharedID != "")
-            alertify.prompt("Copy the link below to clipboard (old shared link was overwritten): Ctrl+C, Enter", function() {}, url);
-        else
-            alertify.prompt("Copy the link below to clipboard: Ctrl+C, Enter", function() {}, url);
-    });
+        alertify.confirm("Overwrite old link (or create new)?",function(e) {
+            if (e)
+            {
+                sharedID = "&shareID=" + uid + "&ID=" + sharedLink.ID;
+                ajaxRequest('command=share&json=' + encodeURIComponent(JSON.stringify(shareinfo)) + sharedID, function(result) { })
+            }
+            else
+                createnew();
+        });
+
+    }
+    else
+       createnew()
+    function createnew()
+    {
+        uid = generateRandomString(32)
+        var url = myownurl() + "?sharelink=" +uid;
+        alertify.prompt( [{msg:"Copy the link below to clipboard: Ctrl+C, Enter"},
+                          {msg:"Optional comment"}],
+            function(e,str) {
+            if (e)
+            {
+                uid = str[0].split("=")[1];
+                if (uid != undefined && uid.length > 10)
+                {
+                    shareinfo.comment = str[1];
+                    sharedID = "&shareID=" + uid
+                    ajaxRequest('command=share&json=' + encodeURIComponent(JSON.stringify(shareinfo)) + sharedID, function(result) { 
+                    });
+                }
+                else
+                    alertify.error("invalid shareID")
+            }
+            }, url);
+    }
 
 
 }
@@ -1695,8 +2063,19 @@ function startAutoloader(loader, psid, onerror, callback)
 			continue;
 		}
 
+		var pat = currentLoader.pattern;
 
-		var pat = currentLoader.pattern.replace("$USER",userinfo.username);
+        if (ViewerSettings.forms_user_specific_naming)
+        {
+            if (pat.search("\\$USER") == -1)
+            {
+                pat = pat.replace("\.form\.json",".$USER.form.json");
+            }
+        }
+       
+		pat = pat.replace("\$USER",userinfo.username);
+
+       
 		if(psid != undefined) 
 		{
 			// check if the pattern contains a specific piz (with this, an image from the same set can be loaded for all patients, e.g. for atlases)
@@ -1765,6 +2144,7 @@ function startAutoloader(loader, psid, onerror, callback)
 						// auto loader defaults
 						var finalLoader =  new Object();
 						finalLoader.clim = undefined;
+						finalLoader.windowing = undefined;
 						finalLoader.cmap = undefined;
 						finalLoader.transparent = undefined;
 						finalLoader.overlay = false;
@@ -1790,6 +2170,11 @@ function startAutoloader(loader, psid, onerror, callback)
                         // additional information could be stored in clims. not so nice, add field for that in future. and ideally as object
                         if( finalLoader.clim !== undefined)
                             $.extend(true, finalLoader, extractDetailsFromClimString(currentLoader.clim) )
+                        if( finalLoader.windowing !== undefined)
+                        {
+                            if (currentLoader.windowing != undefined)
+                                $.extend(true, finalLoader, extractDetailsFromClimString(currentLoader.windowing))
+                        }
 
                         finalLoader = $.extend(true,{viewportID:ids[j], slicing:slicing[j]},finalLoader)
 						finalLoader.shared =shared;
@@ -1856,13 +2241,11 @@ function startAutoloader(loader, psid, onerror, callback)
 			 		{
 			 			if (queue[k].intent && queue[k].intent.defaultform)
 			 			{
-							 var m = queue[k].fileID.match(/FFilename:\w+/);
-							 if (m.length>0)
-							 {
-							 	queue[k].URLType = 'form';
-							 	queue[k].fileID = m[0].substring(10);
-							 	resolved.push(queue[k]);
-							 }
+			 			     var m = translatepatterntoname(queue[k].fileID);
+                             queue[k].URLType = 'form';
+                             var s = m.split("/"); s = s[s.length-1];                             
+                             queue[k].fileID = s.split("\.")[0];
+							 resolved.push(queue[k]);
 
 			 			}
 			 			if (queue[k].intent && queue[k].intent.autocreateroi)
@@ -1900,7 +2283,8 @@ function startAutoloader(loader, psid, onerror, callback)
  							}
  							else // simple spattern style
  							{
-                                return pattern.split(" ")[0];
+ 							    var ps = pattern.split(/[ \n]/)
+                                return ps[0];
 
  							}
 
@@ -1952,15 +2336,16 @@ function startAutoloader(loader, psid, onerror, callback)
 			    {
 				   loadingQueue.execQueue(resolved,function() 
 				   {
-						if(ViewerSettings.autoloaders) // new version of settings
+  						if(ViewerSettings.autoloaders) // new version of settings
 						{
-							KViewer.toggleMainViewport(ViewerSettings.mainViewport,true);
+                            setTimeout(function() {
+    							KViewer.toggleMainViewport(ViewerSettings.mainViewport,true);
+                            },250);
 						}
 						else
 						{
 							KViewer.toggleMainViewport(ViewerSettings.viewPortAutoDefaults.mainViewPort,true);
 						}
-
 						if (ViewerSettings.calcpanel && ViewerSettings.calcpanel.enabled)
 						{
 							var autoinput = [];
@@ -2049,6 +2434,55 @@ function startAutoloader(loader, psid, onerror, callback)
 
 
 
+function openItemByFileSelectorPattern(psid,pattern)
+{
+    /*
+    psid = "11296343#20151203135549"
+    // pattern = "resolution/ADC_s*.nii
+    # a simple bash call 
+echo "<mark class=\"link\" onclick=\"openItemByFileSelectorPattern(psid,pattern)\"> ddk </mark>"
+*/
+
+    var x = psid.split("#")
+    var p ;
+    if (x.length == 1)
+       p = "PPIZ:"+x[0];
+    else
+       p = "PPIZ:"+x[0] + " SStudyID:#"+x[1]
+    var fileQuerys = [pattern + " " + p]
+
+    ajaxRequest('command=resolve_file_query&json=' + JSON.stringify({fileQuerys:fileQuerys}) , function(result)
+    {
+
+            var queue = [];
+            for (var k = 0; k < result.resolved_files.length;k++)
+            {
+                if ( result.resolved_files[k] == "")  // file not present, create file in case
+                {
+                    alertify.error("file not found!")
+                    return;			 		
+                }
+                else
+                {
+
+	                KViewer.dataManager.delFile( result.resolved_files[k][0],true);
+                    var q = {}
+                    q.URLType = "serverfile"
+                    q.fileID = result.resolved_files[k][0]
+                    q.intent = {}
+                    queue.push(q)                       
+                }
+            }
+            loadingQueue.execQueue(queue,function(res) 
+               {
+                    signalhandler.send("updateFilelink",{id:res[0].fileID});                                       
+                    var panelview = KPanelView(KViewer,"",{addClass:"floatingViewporthidetitle"});
+                    panelview.setContent(res[0],{})
+                    res;
+               });
+
+    })
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2136,7 +2570,19 @@ var loadingQueue =
         var item = loadingQueue.queue.pop();
         var targetViewer;
         if (item.intent.viewportID != undefined)
-            targetViewer = KViewer.viewports[item.intent.viewportID];
+        {
+            if (item.intent.viewportID>50)
+            {
+                var options = {showElements:true};
+                if (item.intent.viewportProperties)
+                    options = $.extend(options,item.intent.viewportProperties)
+                targetViewer = KPanelView(KViewer,"",options); //,{addClass:"floatingViewporthidetitle"});                
+            }
+            else
+                targetViewer = KViewer.viewports[item.intent.viewportID];
+
+
+        }
 
 
 
@@ -2269,10 +2715,22 @@ function permMat_noscale(nii)
     return P;
 }
 
+function sameGeometry(nii1,nii2)
+{
+    var i = isIdentity(math.multiply(nii1.edges,math.inv(nii2.edges)));
+    var s = nii1.sizes[0] == nii2.sizes[0] & nii1.sizes[1] == nii2.sizes[1] & nii1.sizes[2] == nii2.sizes[2];
+    return i & s; 
+}
 
 
 function isIdentity(R)
 {
+    if (R == undefined)
+        return true;
+    
+    if (R._data != undefined)
+        R = R._data
+
     var eps = 0.001;
     var identity = true;
     for (var k = 0; k < R.length;k++)
@@ -2332,6 +2790,8 @@ function invert(arr, len)
 
 
 function componentToHex(c) {
+    if (typeof c == "string")
+        c = parseInt(c);
     var hex = c.toString(16);
     return hex.length == 1 ? "0" + hex : hex;
 }
@@ -2365,7 +2825,7 @@ function hexToRgb(hex) {
     } : null ;
 }
 
-function KColorSelector(colorlist, colencode, onchange, obj)
+function KColorSelector(colorlist, colencode, onchange, obj, params)
 {
     var colors = colorlist;
 
@@ -2373,10 +2833,17 @@ function KColorSelector(colorlist, colencode, onchange, obj)
     {
         if (colidx == undefined)
             return colencode([0,0,0])
-        if (colidx.length == 3)
+        if (colidx.length == 3 | colidx.length == 4)
             return colencode(colidx)
+        if (colidx.color != undefined)
+            return colencode(colidx.color)
         else
-            return colencode(colors[colidx]);
+        {
+            if (colors[colidx] != undefined)
+                return colencode(colors[colidx]);
+            else
+                return colencode(colors[0]);
+        }
     }
 
     var $colselector = $("<div  class='KViewPort_tool KViewPort_tool_cmap fibers' style='" + robustcolencode(obj.color) + ";'>  <i class='fa fa-empty fa-1x'>&nbsp&nbsp&nbsp&nbsp</i></div>");
@@ -2394,7 +2861,12 @@ function KColorSelector(colorlist, colencode, onchange, obj)
 
     $colselector.updateColor = function()
     {
-        $colselector.attr('style', colencode(colors[obj.color]));
+        if (typeof obj.color == "number")
+            $colselector.attr('style', colencode(colors[obj.color]));            
+        else if (obj.color.color != undefined)
+            $colselector.attr('style', colencode(obj.color.color));
+        else
+            $colselector.attr('style', colencode(obj.color));
     }
 
     var color_contextmenu = new KContextMenu(
@@ -2406,7 +2878,30 @@ function KColorSelector(colorlist, colencode, onchange, obj)
                 var c = colors[k];
                 $menu.append($("<div style=' " + colencode(c) + "' onchoice='" + k + "' ><div> </div>  </div>"));
             }
-            if (obj.alpha != undefined)
+            if (params == undefined)
+                params = {}
+            
+            if (params.manual)
+            {
+                var $col = $("<input id='colorselec23' type='color'>").
+                on('input', function(ev) {
+                    var $input = $(ev.target);
+                    onchange(new KColor($input.val()));
+                     $colselector.updateColor();
+                });
+                $menu.append($("<li  onchoice='preventSelection'> </li>").append($col));
+            }
+            if (obj.flow_param != undefined | params.flow_param)
+            {
+                var $flow = $("<input onchoice='preventSelection' type='number' step='0.05' min='0' max='1'>").val(obj.flow_param).
+                on('change', function(ev) {
+                    var $input = $(ev.target);
+                    obj.flow_param = $input.val();
+                    onchange("flow");
+                });
+                $menu.append($("<li  onchoice='preventSelection'> Flow: </li>").append($flow));
+            }
+            if (obj.alpha != undefined | params.alpha)
             {
                 var $alpha = $("<input onchoice='preventSelection' type='number' step='0.05' min='0' max='1'>").val(obj.alpha).
                 on('change', function(ev) {
@@ -2454,11 +2949,18 @@ function KColor(c)
         this.color = c.slice(0);
     else if (typeof c == 'string')
     {
-        var tmp = hexToRgb(c);
-        if (tmp.a != undefined)
-            this.color = [tmp.r,tmp.g,tmp.b,tmp.a];
-        else
-            this.color = [tmp.r,tmp.g,tmp.b];
+        if (c[0] == '#')
+        {
+            var tmp = hexToRgb(c);
+            if (tmp.a != undefined)
+                this.color = [tmp.r,tmp.g,tmp.b,tmp.a];
+            else
+                this.color = [tmp.r,tmp.g,tmp.b];
+        }
+        else if (c.search('rgba') > -1)
+        {
+            this.color = c.substring(5,c.length-1).split(",");
+        }
     }
     else // and some more, which are not yet implemented
         this.color = c.slice(0);
@@ -2487,7 +2989,12 @@ KColor.prototype.getHEX = function ()
 KColor.prototype.getCSS = function()
 {
     if (this.color.length == 4)
-        return 'rgba(' + this.color.toString() + ')'
+    {
+        if (this.color[3] != undefined)
+            return 'rgba(' + this.color.toString() + ')'
+        else
+            return 'rgb(' + this.color.slice(0,3).toString() + ')'
+    }
     else
         return 'rgb(' + this.color.toString() + ')'
 }
@@ -2510,9 +3017,18 @@ KColor.prototype.darken = function(a)
         this.color[2] *= a;
         return this;
 }
+KColor.prototype.getjson = function(a)
+{
+    var idx = KColor.findColorIndex(this);
+    if (idx == -1)
+        return this.color
+    else
+        return idx;
+}
+
 KColor.findColorIndex = function(color)
 {
-    var retcolor = 0;
+    var retcolor = -1;
     for(var k=0; k< KViewer.roiTool.colors.length; k++)
     {
         var cc = KViewer.roiTool.colors[k];
@@ -2531,7 +3047,7 @@ KColor.findColorIndex = function(color)
 }
 
  
-KColor.list =[[255,0,0],[0,255,0],[0,0,255],[255,255,0],[255,0,255],[0,255,255],[255,128,0],[255,0,128],[128,255,128],[0,128,255],[128,128,128],[185,170,155]];
+KColor.list =[[255,0,0],[0,255,0],[0,0,255],[255,0,255],[0,255,255],[255,255,0],[255,128,0],[255,0,128],[128,255,128],[0,128,255],[128,128,128],[185,170,155]];
 
 function KColorSelectorSimple($selectordiv, onchange, obj)
 {
@@ -2546,6 +3062,8 @@ function KColorSelectorSimple($selectordiv, onchange, obj)
 
     if(obj.color instanceof KColor)
         $selectordiv.css('background', obj.color.getCSS());
+    else if(Array.isArray(obj.color))
+        $selectordiv.css('background', (new KColor(obj.color)).getCSS());
     else
         $selectordiv.css('background', (new KColor(KColor.list[obj.color])).getCSS() );
       
@@ -2592,6 +3110,21 @@ function KColorSelectorSimple($selectordiv, onchange, obj)
 /***************************************************************************************
 *  logout
 ****************************************************************************************/
+
+function logout_and_check_unsaved()
+{
+    var unsaved = unsavedChanges();
+    if (unsaved != "")
+    {
+        alertify.confirm("Are you sure that you want to logout? There are unsaved " + unsaved + "!", function(e)
+        { 
+            if (e) logout();
+        });
+        return;
+    }
+    logout();
+}
+
 function logout()
 {
     clearTimeout(updatePatientTimerID);
@@ -2681,10 +3214,47 @@ var dicomupload = function(e) {
     this.value = null ;
     // otherwise onchange is only triggered if file really changes
 }
+
+
+
+function popupView(fobj,params)
+{
+
+        var panelview = KPanelView(KViewer,"",{addClass:"floatingViewporthidetitle"});
+     /*   panelview.sigid = signalhandler.attach("close",function() {
+            panelview.kill()
+            signalhandler.detach("close",panelview.sigid);
+        });*/
+        panelview.setContent(fobj,params)
+
+}
+
+
+
+var miscupload  = function(e) {
+
+    if (!KViewer.cacheManager.enabled)
+        KViewer.cacheManager.toggle()
+
+    var progress = KViewer.cacheManager.progressSpinner;
+	createLoadParamsFileDrop({dataTransfer:this}, function (loadparams)
+	{
+		for (var k = 0; k < loadparams.length;k++)
+		{
+			loadparams[k].progressSpinner = progress;		 
+			if (userinfo.username == guestuser | $.isNumeric(loadparams[k].fileID) | loadparams[k].buffer != undefined)
+				KViewer.dataManager.loadData(loadparams[k]);
+			else      
+				KViewer.dataManager.loadProxy(loadparams[k],false);
+		}
+
+		KViewer.cacheManager.update();
+
+	},progress);
+
+
+}
 ;
-
-
-
 
 
 
@@ -2733,8 +3303,9 @@ function SignalHandler()
                 }
                 else
                 {
-                    for (var i = 0; i < s.length; i++)
-                        s[i].handler(event);
+                    var s_ = s.map((x)=>x); 
+                    for (var i = 0; i < s_.length; i++)
+                        s_[i].handler(event);
                 }
             }
         }
@@ -2880,7 +3451,7 @@ function dragstarter(info)
             ev = ev.originalEvent;
 
         if (ev.dataTransfer != undefined)
-            ev.dataTransfer.setData("fromfiletable", "yea");
+            ev.dataTransfer.setData("fromviewport", "yea");
         tempObjectInfo.shiftKey = ev.shiftKey;
 
         buildDragImg(ev);
@@ -2910,8 +3481,11 @@ function detectmob() {
 function allocateLocalstorage(done)
 {
 
+    var sz = UserSettingsDialog.getLocalStorageSize();
+    if (sz == 0 | sz == undefined)
+        sz = 1;
     // Specify desired capacity in bytes
-    var desiredCapacity = 1024 * 1024 * state.project_user.localstoragesizeMB;
+    var desiredCapacity = 1024 * 1024 * sz;
 
     try {
         if (desiredCapacity > 0)
@@ -2989,7 +3563,10 @@ function allocateLocalstorage(done)
                                 {
                                     var finfo = JSON.parse(content);
                                     finfo.docid = docKeys[0];
-                                    objs[finfo.timeOfInsertion] = finfo;
+                                    if (finfo.num_access == undefined)
+                                        finfo.num_access = 0;
+                                    var key = (finfo.num_access+"_").padStart(10,"0") + (""+finfo.timeOfInsertion).padStart(20,"0")
+                                    objs[key] = finfo;
                                 }
                                 docKeys.splice(0, 1);
                                 fun();
@@ -3048,6 +3625,11 @@ function readBufferFromFile(reader, ev)
             reader.onload(ev);
         if (reader.onloadend)
             reader.onloadend(ev);
+    }
+    else if (ev.file === undefined && ev.buffer == undefined)
+    {
+
+         reader.onload(ev);
     }
     // firefox behaves very differently here. Observed [object FileEntry], [object FilySystemFileEntry], [object File]
     // maybe ev.file.isFile is more universal
@@ -3129,8 +3711,8 @@ function extendWithUniquePSID(finfo)
     if (finfo.patients_id == "undefined" | finfo.studies_id == "undefined" | finfo.patients_id == undefined | finfo.studies_id == undefined)
     {
 
-        cPSID = patientTableMirror.getCurrentUniquePSID();
-        if (cPSID === false && userinfo.username != guestuser)
+        var cPSID = patientTableMirror.getCurrentUniquePSID();
+        if (cPSID.studies_id == undefined && userinfo.username != guestuser)
         {
             $.notify("Error: You have to select/expand a unique study for upload!", "error");
             return false;
@@ -3145,11 +3727,177 @@ function extendWithUniquePSID(finfo)
 
 
 
+function saveDialog(typ,callback,defaultname,finfo_ext,params)
+{
+      if (params == undefined) 
+          params = { askonOverwrite:true };
+    
+      var finfo = patientTableMirror.getCurrentUniquePSID()
+      if (finfo == false && finfo_ext == undefined)
+          alertify.error('Please select a unique patient/study for saving by expanding a node in the patienttable or selection a row.')
+      else
+      {
 
-uploadJSON.askonOverwrite = true;
+          if (finfo == false)
+          {
+               finfo = {};
+               finfo.patients_id = finfo_ext.patients_id;
+               finfo.studies_id = finfo_ext.studies_id;
+          }
+          
+          var strr = "";
+          if (finfo.patients_id != undefined)
+          {
+              if (finfo.patients_id == "ANALYSIS")
+                  strr = " in analysis folder " + finfo.studies_id
+              else
+                  strr = " in subject " + finfo.patients_id
+          }
+     	  
+          if (defaultname == undefined && finfo_ext != undefined && finfo_ext.Filename != undefined)
+          {
+              if (finfo_ext.SubFolder != "")
+                defaultname = finfo_ext.SubFolder+ "/" +  finfo_ext.Filename 
+              else
+                defaultname = finfo_ext.Filename 
+          }
+              
+
+      	  var potential_studies = undefined;
+      	  var study_names = undefined
+          var studies = undefined;
+          var found_study = -1;
+          potential_studies = finfo.potential_studies;
+          study_names = finfo.study_names;
+          studies = [];
+          if (potential_studies == undefined)
+          {
+            potential_studies = [ finfo.patients_id + finfo.studies_id ];
+            study_names = [""]
+          }
+          for (var k = 0; k < potential_studies.length;k++)             
+             studies.push(potential_studies[k] + " " + study_names[k])
+          if (finfo_ext != undefined)
+             for (var k = 0; k < potential_studies.length;k++)             
+                if (potential_studies[k] == finfo_ext.patients_id + finfo_ext.studies_id)
+                {
+                    found_study = k;
+                    break;
+                }
+
+
+          var note = ""
+          if (found_study == -1)
+          {
+              if (finfo_ext != undefined &&  finfo_ext.patients_id != undefined)
+                  note = "<br> <b> <font color=red> Warning! </font> Item originally stems from " + finfo_ext.patients_id + finfo_ext.studies_id + ", but is not selected as save location. </b>"  
+              found_study = 0;
+          }
+          
+          promptForName()
+
+          function promptForName()
+          {
+               var msgtxt = 'Name of ' + typ + ' to be saved'+strr+':'+note
+              
+    		   alertify.prompt({msg:msgtxt,
+    		                   opt:studies, 
+    		                   val:[...Array(studies.length).keys()],
+    		                   optMsg:"Study to save"},				  
+                  function(e,val)
+    			  { 
+    			    if (e) { 
+    				 if (val.option != undefined)
+    				 {
+    				    if (val.str == "")
+                        {
+                            alertify.error("please enter a valid name")
+                            return
+                        }
+                        var psid = potential_studies[val.index];
+                        var psid_ = psid.split("#");
+                        var finfo_ = {piz:psid_[0],
+                                     patients_id: psid_[0],
+                                     study:"#"+psid_[1],
+                                     studies_id:"#"+psid_[1]
+                                     }
+    					testOverwrite(val.str,finfo_); 
+    				 }
+    				 else
+    				 {         
+    				    if (val == "")           
+    				    {
+                            alertify.error("please enter a valid name")
+                            return;
+    				    }
+    					testOverwrite(val,finfo) 
+    			 	 }
+    			  } },
+                  [defaultname,found_study]);  
+          }
+      }
+
+
+    function testOverwrite(val,finfo)
+    {
+            
+        if (params.askonOverwrite)
+        {
+            var df = {};
+            var name = spliceSubFolder(val,df)
+            if ($('#patientTable').find("tr[data-piz='" + finfo.patients_id + "'][data-sid='" + finfo.studies_id + "'][data-subfolder='" + df.SubFolder + "'][data-filename='" + df.Filename + "']").length > 0)
+            {
+                alertify.confirm('The file `' + df.SubFolder + '/' + df.Filename + '` already exists for in study '+finfo.patients_id + finfo.studies_id + '. Overwrite?', function(e, str)
+                {
+                    if (e)
+                       callback(val,finfo)
+                    else
+                       promptForName()
+                      
+                });
+            }
+            else
+                callback(val,finfo)
+        }
+        else 
+             callback(val,finfo)
+    }
+
+
+
+
+    
+}
+
+
+function spliceSubFolder(name,finfo)
+{
+    var sp = name.split("/");
+    var name = sp[sp.length-1];
+    if (sp.length > 1)
+    {
+        var subfolder = sp.splice(0,sp.length-1).join("/");
+        finfo.SubFolder = subfolder;
+    }
+    else 
+        finfo.SubFolder = "";
+    finfo.Filename = name;
+    return name;     
+}
+
+
+
 uploadJSON.quiet = false;
 function uploadJSON(name, content, finfoextension, onsuccess)
 {
+
+
+    if (typeof projectInfo != "undefined" && projectInfo != undefined && projectInfo.rights.readonly == "on")
+    {
+        alertify.error("project is readonly for user " + userinfo.username)
+        return;
+    }
+
 
     var out = new Object();
     out.name = name;
@@ -3160,6 +3908,8 @@ function uploadJSON(name, content, finfoextension, onsuccess)
     var tag = "";
     if (out.tag)
         tag = out.tag;
+    else 
+        out.tag = "";
     if (tag[0] != '/')
         tag = "/" + tag;
     if (tag[tag.length - 1] != '/')
@@ -3207,7 +3957,14 @@ function uploadJSON(name, content, finfoextension, onsuccess)
 
 
     out.content = content
+    if (out.SubFolder != undefined)
+        out.subfolder = out.SubFolder;
+    if (out.subfolder == undefined) 
+        out.subfolder = "";
 
+    
+
+/*    
     if (uploadJSON.askonOverwrite && $('#patientTable').find("tr[data-piz='" + out.piz + "'][data-sid='" + out.study + "'][data-subfolder='" + out.subfolder + "'][data-filename='" + out.name + "']").length > 0)
     {
         alertify.prompt('The file `' + out.subfolder + '/' + out.name + '` already exists for this study. Overwrite?', function(e, str)
@@ -3220,11 +3977,15 @@ function uploadJSON(name, content, finfoextension, onsuccess)
     }
     else
         saveit();
+*/
+    
+    saveit();
 
     function saveit()
     {
 
-
+        if (!electron)
+            updateTag(out,[],userinfo.username)
 
         var json = JSON.stringify(out);
 
@@ -3244,7 +4005,10 @@ function uploadJSON(name, content, finfoextension, onsuccess)
             ajaxRequest('command=save_json&json=' + encodeURIComponent(json), function(e)
             {
                 if (!uploadJSON.quiet)
-                    $.notify(out.piz + out.study + " " + out.name + " saved.", "success");
+                {
+                    var subfolder = out.SubFolder==undefined?out.subfolder:out.SubFolder;
+                    $.notify(out.piz + out.study + " " + subfolder + "/" + out.name + " saved.", "success");
+                }
                 if (e.fileID == undefined)
                 {
                     patientTableMirror.mirrorState();     
@@ -3289,6 +4053,59 @@ function str2ab(str) {
     return buf;
 }
 
+function updateTag(fileinfo,tags,user)
+{
+    if (user == undefined | user == "")
+        return;
+
+
+    var current_tags = {};
+    var old_user ;
+
+    var tagfield; 
+    if (fileinfo.Tag !== undefined)
+        tagfield = 'Tag';
+    if (fileinfo.tag !== undefined)
+        tagfield = 'tag';
+
+    if (tagfield == undefined)
+    {
+        console.warn("no tagfield to update")
+        return;
+    }
+    
+    if (fileinfo[tagfield] == undefined)
+        fileinfo[tagfield] = "";
+
+    var tags_ = fileinfo[tagfield].split("/")
+    for (var k = 0; k < tags_.length;k++)
+        if (tags_[k] != "")
+        {
+            var t = tags_[k].replace(/\//g,"")
+            if (t.substring(0,1) == "$")
+                old_user = t.substring(1);
+            else
+                current_tags[t] = 1;
+        }
+
+    for (var k = 0; k < tags.length;k++)
+    {
+        current_tags[tags[k]] = 1;
+    }
+
+
+    var thetag = "/" + Object.keys(current_tags).join("/") + "/";
+    if (user != undefined && user != "")
+        thetag = thetag + "$" + user + "/"
+    else if (old_user != undefined)
+        thetag = thetag + "$" + old_user + "/"
+    
+    thetag = thetag.replace(/\/\//g,"/");
+
+    fileinfo[tagfield] = thetag;
+
+}
+
 function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID)
 {
 
@@ -3301,7 +4118,7 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
     {
         if (finfo.patients_id == undefined || finfo.studies_id == undefined)
         {
-            alertify.error("No PID/SID assigned to " + fobj.filename + ", cannot upload!");
+            alertify.error("No PID/SID assigned to " + fobj.filename + ", cannot upload! Drop item on a unique study.");
             return;
         }
         finfo.usenativePID = true;
@@ -3312,6 +4129,8 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
         var backup_sid = finfo.studies_id;
         delete finfo.patients_id;
         delete finfo.studies_id;
+        delete finfo.FilePath;
+        
         if (extendWithUniquePSID(finfo) == false)
         {
             finfo.patients_id = backup_pid;
@@ -3324,6 +4143,19 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
     finfo.Filename = fobj.filename;
     if (fobj.contentType == 'nii')
     {
+        if (fobj.content.filetype == "nrrd")
+        {
+
+        }
+        else if (fobj.content.filetype == "mgh")
+        {
+
+        }
+        else if (fobj.content.filetype == "mgz")
+        {
+
+        }
+        else 
         if (fobj.filename.search("\\.nii") == -1)
         {
             if (fobj.notzipped == undefined | !fobj.notzipped)
@@ -3337,13 +4169,13 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
     if (zip == undefined)
         zip = true;
 
-    var exts = ['json', 'txt', 'jpeg', 'jpg', 'png', 'bmp', 'txt', 'bvec', 'bval','bmat', 'mgh'];
+    var exts = ['json', 'txt', 'jpeg', 'jpg', 'png', 'bmp', 'tif','tiff', 'txt', 'bvec', 'bval','bmat', 'mgh'];
     for (var j = 0; j < exts.length; j++)
         zip = zip & finfo.Filename.search("\\." + exts[j]) == -1;
 
     var alreadyZipped = finfo.Filename.search("\\.gz") != -1 || finfo.Filename.search("\\.mgz") != -1
 
-    if (fobj.modified)
+    if (!(fobj.fileinfo && fobj.fileinfo.identifier != undefined))
         // if this upload originates from local changes, keep the zip state
         zip = alreadyZipped;
 
@@ -3363,7 +4195,7 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
     //build filepath on php side
 
     if (progress)
-        progress('packing ' + fobj.filename);
+        progress('uploading ' + fobj.filename);
 
 
     finfo.Filename = finfo.Filename.trim();
@@ -3387,7 +4219,7 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
         var obj = {
             fileID: fobj.fileID,
             userinfo: userinfo,
-            projectInfo: projectInfo,
+            projectInfo: {name:projectInfo.name},
             myownurl: myownurl(),
             zip: zip,
             alreadyZipped: alreadyZipped,
@@ -3413,6 +4245,55 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
         }
         else
         {
+
+            if (fobj.proxyev.file.toString() == '[object FileEntry]')
+                fobj.proxyev.file.file(fetchfile)
+            else if (fobj.proxyev.file.compressionMethod != undefined) // this comes from a zip Archive
+            {
+                 var reader = new FileReader();
+        		 reader.onload = function(e) { 
+                     obj.buffer = reader.result;
+                     executeUploadWorker(obj, progress, onsaved);                     
+		         };
+        		 readBufferFromFile(reader,fobj.proxyev);                
+            }
+            else 
+                fetchfile(fobj.proxyev.file)
+
+            
+            function fetchfile(file){ 
+
+                var xhr = new XMLHttpRequest();
+        		var formData = new FormData();
+        
+        
+        		// send the post
+        		formData.append("theROI",  file);
+        		formData.append("theROIinfo", JSON.stringify(fobj.fileinfo));
+        
+        		xhr.upload.addEventListener('progress', function(finfo) { return function(e){
+          			progress('uploading ' + finfo.Filename + " " + Math.ceil(e.loaded/e.total * 100 )+ '%',
+                            function (e){
+                                xhr.abort();
+                                progress();
+                            });
+                    
+        		} }(fobj.fileinfo), false);
+        
+        		xhr.open('post', myownurl() + "?asuser=" + userinfo.username + "&project="+ projectInfo.name);
+        		xhr.send(formData);
+        		xhr.onload = function(finfo) { return function(e)
+        			{
+                       if (progress)
+                         progress();
+                       onsaved(fobj.fileID,e)
+   
+        		}  }(fobj.fileinfo);
+
+
+                }
+
+            /*
             var reader = new FileReader();
             reader.onload = function(e) {
                 obj.buffer = reader.result;
@@ -3421,6 +4302,9 @@ function uploadBinary(fobj, finfoextension, onsaved, progress, zip, usenativePID
                 executeUploadWorker(obj, progress, onsaved);
             }
             readBufferFromFile(reader, fobj.proxyev)
+            */
+
+      
         }
 
         return true;
@@ -3483,6 +4367,7 @@ function executeUploadWorker(obj, progress, onsaved)
         obj.userinfo.update = undefined;
     }
 
+
     worker.postMessage(obj);
     // Send data to our worker.
 
@@ -3503,6 +4388,12 @@ function saveNiftilocal(fobj)
         if (fobj.filename.search("\\.nii") == -1)
             fobj.filename = fobj.filename + ".nii";
     }
+
+    
+
+    if (fobj.fileinfo.filename != undefined && fobj.fileinfo.filename.search("\\.gz") != -1)
+        zipped = true;
+
 
     // pack the file as blob
     var x = new Uint8Array(fobj.content.buffer);
@@ -3542,11 +4433,13 @@ function saveBlob_electron(blob, fobj)
 							properties: [],
 							defaultPath: fobj.fileinfo.SubFolder + "/" + fobj.filename
 						})
-        if (res.then)
-            res.then(saveit)
-        else
-            saveit(res);
-
+        if (res != undefined)
+        {
+            if (res.then)
+                res.then(saveit)
+            else
+                saveit(res);
+        }
 
 		function saveit(savename)
 						{
@@ -3570,7 +4463,7 @@ function saveBlob_electron(blob, fobj)
                                 if (fobj.contentType != "nii")
                                 {
                                     var obj = JSON.parse(Buffer.from(event.target.result).toString('utf8'));
-                                    if (obj.tag == 'workstate')
+                                    if (obj.tag.search("\/workstate\/") > -1)
                                     {
                                         var content = obj.content;
                                         var wspath = path.dirname(savename);
@@ -3689,6 +4582,7 @@ function KPanel($target, id, title)
 
     $('div[id="'+id+'"]').remove();
     var $container = $("<div id='" + id + "' class='panel_floatable roiTool_panel panel' ></div>");
+    
     $container.appendTo($target);
 
     panel.$container = $container
@@ -3699,6 +4593,12 @@ function KPanel($target, id, title)
 
     }
 
+    panel.setTitle = function(tit)
+    {
+        $caption.text(tit);
+        $container.show();
+
+    }
 
 
     panel.close =function()
@@ -3725,6 +4625,31 @@ function KPanel($target, id, title)
             panel.hide();
     }
 
+    panel.minimize = function()
+    {
+
+        if ($mini.hasClass("fa-window-minimize"))
+        {
+            $mini.addClass("fa-window-maximize")   
+            $mini.removeClass("fa-window-minimize")   
+            panel.minimize.last_height = $container.height();
+            if (!$container.hasClass("panel_floatable_simple_resize"))            
+                $container.css('overflow','hidden');
+            $container.height(25);
+            $container.children().last().hide()
+        }
+        else
+        {
+            $container.children().last().show()
+            $mini.removeClass("fa-window-maximize")   
+            $mini.addClass("fa-window-minimize")   
+            if (!$container.hasClass("panel_floatable_simple_resize"))            
+                $container.css('overflow','');
+            $container.height(panel.minimize.last_height);
+        }
+
+    }
+
     panel.$spinner = $("<div class='KViewPort_spinner' ><i class='fa fa-spinner fa-spin'></i> <span >Loading</span></div>").appendTo(panel.$container);
     /** spinner callback for this tool (see {@link module:MiscFunctions~theSpinner}) */
     panel.progressSpinner = theSpinner(panel.$spinner);
@@ -3737,19 +4662,21 @@ function KPanel($target, id, title)
     panel.$topRow = $topRow;
     $mover = $("<i class='KViewPort_tool fa fa-hand-paper-o '></i>");
     var $caption = $("<span>" + title + "</span>");
+    var $mini = $("<i class='KViewPort_tool panel_toprow fa mini fa-window-minimize'></i>").click(
+      function() { panel.minimize() } );
     var $close = $("<i class='KViewPort_tool panel_toprow fa fa-close'></i>").click(
       function() { if (panel.closeOnHide)
                         panel.close()
                    else
                         panel.hide() } );
-    $topRow.append($caption).append($("<i class='flexspacer'></i>")).append($close);
+    $topRow.append($caption).append($("<i class='flexspacer'></i>")).append($mini).append($close);
 
 
     $container.css('left',100);
-    $topRow.mousedown(function(ev) {
+    $topRow.on('pointerdown',function(ev) {
         var starDiffX = -ev.clientX + parseInt($container.css('left'));
         var starDiffY = ev.clientY - parseInt($container.css('top'));
-        $(document.body).mousemove(function(ev)
+        $(document.body).on('pointermove',function(ev)
         {
             var dx = starDiffX + ev.clientX;
             //if (dx > 0)
@@ -3761,8 +4688,8 @@ function KPanel($target, id, title)
             if (dy > 0)
                 $container.css('top', dy);
         });
-        $(document.body).on('mouseup mouseleave', function(ev) {
-            $(this).off('mousemove');
+        $(document.body).on('pointerup mouseleave', function(ev) {
+            $(this).off('pointermove');
         });
 
     });
@@ -3881,7 +4808,7 @@ var ironSight = {
             var p = 0;
             var vp = KViewer.viewports[p];
             var mv = vp.getCurrentViewer()
-            if (mv == undefined)
+            if (mv == undefined || mv.getCurrenVoxel == undefined)
                 {
                     //alertify.error('load the MIP into viewport')
                     return;
@@ -4227,6 +5154,13 @@ var createGif = {
         if (createGif.$viewportContainer == undefined)
             createGif.$viewportContainer = KViewer.$viewportContainer;
 
+        if (KViewer.viewports[20].getCurrentViewer() != undefined)
+        {
+            createGif.$viewportContainer = KViewer.viewports[20].$container;
+
+        }
+
+
         if (createGif.animate) 
             createGif.animate.cnt = undefined;
 
@@ -4280,6 +5214,8 @@ var createGif = {
                         createGif.$start.removeClass('KViewPort_tool_enabled');
                         createGif.$progress.text("");
                        
+                        for (var k = 0; k < gif.freeWorkers.length;k++)
+                            gif.freeWorkers[k].terminate()
 
                     });
 
@@ -4321,9 +5257,9 @@ var createGif = {
         $("<div class='roiTool_panel_caption'></div>").appendTo(panel.$container);
 
         var $delayRow = $("<div class='roiTool_panel_flex'></div>").appendTo(panel.$container);
-        panel.$delay = $(" <span> delay:  </span><input type = 'number' min='0' max='100' value='20'/> ").appendTo($delayRow);
+        panel.$delay = $(" <span> delay:  </span><input style='width:50px;' type = 'number' min='0' max='100' value='20'/> ").appendTo($delayRow);
         var $maxFrames = $("<div class='roiTool_panel_flex'></div>").appendTo(panel.$container);
-        panel.$max = $(" <span> max #:  </span><input type = 'number' min='0' max='100' value='360'/> ").appendTo($maxFrames);
+        panel.$max = $(" <span> max #:  </span><input style='width:50px;' type = 'number' min='0' max='1000' value='360'/> ").appendTo($maxFrames);
 
     }
 
@@ -4357,12 +5293,7 @@ if (0)
 function executeUnpackWorker(abuf, progress, onready)
 {
 
-    var scriptname = 'KunpackWorker.js' + '?' +  static_info.softwareversion;;
-    if (typeof url_pref != "undefined")
-       scriptname = url_pref + scriptname;
-
-    var worker = new Worker(scriptname);
-
+    var worker = startWorker('KunpackWorker.js');
 
     worker.postMessage = worker.webkitPostMessage || worker.postMessage;
 
@@ -4372,7 +5303,7 @@ function executeUnpackWorker(abuf, progress, onready)
         {
             if (progress != undefined)
                 progress();
-            logProcess("unzip done");
+           // logProcess("unzip done");
             onready(e);
         }
         else if (e.msg == 'error')
@@ -4399,7 +5330,7 @@ function executeUnpackWorker(abuf, progress, onready)
             }
     }, false);
 
-    logProcess("unzip started");
+   // logProcess("unzip started");
     worker.postMessage(abuf.buffer, [abuf.buffer]);
     // Send data to our worker.
 
@@ -4480,7 +5411,8 @@ function showProgressFrameAboveDiv($div)
     $progressframe.append($close)
     $progressframe.appendTo($(document.body));
     $close.click(function() { 
-        ptablexhr.abort(); 
+        ptablexhr.abortPHPprocess();
+        $(document.body).removeClass("wait");		         
         hideProgressFrame();
     })
 
@@ -4528,7 +5460,7 @@ function JSONparse_lazy(str)
  * @param {number} length of data array
  * @param {number} number of samples
  */
-function comphisto(min, max, nbins, data, n, numsamples,nonormalization)
+function comphisto(min, max, nbins, data, n, numsamples,nonormalization,ignoreZero)
 {
     var EPSILON = 0.01;
 
@@ -4537,6 +5469,9 @@ function comphisto(min, max, nbins, data, n, numsamples,nonormalization)
         min: min,
         max: max
     };
+
+    if (ignoreZero == undefined)
+        ignoreZero = true;
 
     if (numsamples > n)
         numsamples = n;
@@ -4549,7 +5484,7 @@ function comphisto(min, max, nbins, data, n, numsamples,nonormalization)
     for (var i = 0; i < n; i += step )
     {
         var val = math.floor(nbins * (data[i] - min) / (max - min));
-        if (!isNaN(val) & val >= 0 & val < nbins & data[i] != 0)
+        if (!isNaN(val) & val >= 0 & val < nbins & (!ignoreZero | data[i] != 0))
         {
             histogram.accus[val]++;
             cnt++;
@@ -4641,7 +5576,8 @@ function KSetContentEditable($element, callback,defaultname,ondblclick,bluronent
             $(this).trigger('blur'); 
             return false;
         }
-	    if($element.html().replace(/\s*[<br\s*/>]/g, '') == "")
+//	    if($element.html().replace(/\s*[<br\s*/>]/g, '') == "")  // not sure 
+	    if($element.html().replace(/<br[\/]*>/g, '') == "")
             $element.html(defaultname);
         callback($element,ev);
     });
@@ -4706,11 +5642,13 @@ function theSpinner($spinner)
     {
         if (aborter)
         {
+            progressfun.abort_loader = aborter
             abortfun = aborter
             $abort.show();
         }
         else
         {
+            progressfun.abort_loader = undefined;
             abortfun = undefined;
             $abort.hide();
         }
@@ -4852,31 +5790,45 @@ function randperm(maxValue) {
  * @param {callback} progress - called during upload
  * @param {callback} callback - called after upload
  */
-function uploadUnregisteredBinary(fobj, finfo, progress, callback,zipped)
+function uploadUnregisteredBinary(fobj, finfo, progress, callback,zipped, params)
 {
+    if (params == undefined) params = {};
+
+
     uploadBinary(fobj, finfo,
     function(id, response)
     {
         var newid = response.fileID;
         var roi = KViewer.dataManager.getFile(id);
+
+
         if (roi != undefined)
         {
+            var nametoshow = roi.filename
+            if (roi.fileinfo)
+                nametoshow = roi.fileinfo.patients_id + roi.fileinfo.studies_id + " " + roi.fileinfo.SubFolder + "/" + roi.fileinfo.Filename;
+
             roi.modified = false;
             if (newid != id)
             {
                 roi.fileID = newid;
                 roi.fileinfo = $.extend(roi.fileinfo, finfo);
                 KViewer.dataManager.setFile(newid, roi);
-                KViewer.dataManager.delFile(id);
+                if (!params.dontremoveoldinstance)
+                    KViewer.dataManager.delFile(id,true);
                 callback(newid, id);
 
                 patientTableMirror.mirrorState();
-                KViewer.cacheManager.update();
             }
-            alertify.success('successfully saved ' + roi.filename);
+            else
+                callback(id,id)
+            alertify.success('Successfully saved ' + nametoshow);
         }
-        else
+        else  
+        {      
             alertify.success('successfully saved ' + fobj.filename);
+        }
+        KViewer.cacheManager.update();
 
     }, progress, zipped, "usenativePID");
 }
@@ -4909,7 +5861,7 @@ function attachMouseSlider($target, callbacks, options)
     var speed = 1;
     var allowSpeedChange = false;
 
-    $target.mousedown( mousedown )
+    $target.on("pointerdown", mousedown);
     function mousedown(ev)
     {
         ev.stopPropagation();
@@ -4922,9 +5874,13 @@ function attachMouseSlider($target, callbacks, options)
         var lastY = starDiffY;
 
         if(callbacks.mousedown)
+        {
             var mousedownvar =  callbacks.mousedown(ev);
+        }
         else
+        {
             var mousedownvar = undefined;
+        }
 
         
         if(1) // always who the slider bar
@@ -4986,11 +5942,12 @@ function attachMouseSlider($target, callbacks, options)
         }
 
 
-        $(document.body).mousemove(function(ev)
+        $(document.body).on("pointermove", mousemove);
+        function mousemove(ev)
         {
             var dx = starDiffX + ev.clientX;
             var dy = starDiffY + ev.clientY;
-            
+
             var wasinrange = true;
             
             //  allow to change speed
@@ -5040,13 +5997,13 @@ function attachMouseSlider($target, callbacks, options)
                 }
                 $ball.css('top', dy + 'px');
             }
-        });
+        }
 
-        $(document.body).on('mouseup mouseleave', function(ev)
+        $(document.body).on('pointerup mouseleave', function(ev)
         {
             $indicator.remove();
             $currentVal.remove();
-            $(document.body).off('mousemove mouseup mouseleave');
+            $(document.body).off('pointermove pointerup mouseleave');
             if (callbacks.mouseup)
                 callbacks.mouseup(ev);
             return false
@@ -5084,7 +6041,15 @@ function KMouseSlider($targetinput, options_in)
         mousedown: function(ev, dx, dy, mousedownvar)
         {
             //if(options.updateonstart) not implemented, since it would only make sense to pass a special function...
-            return {startval: parseFloat($targetinput.val()) }
+            var $float_targetinput_val = parseFloat($targetinput.val());
+            
+            $targetinput.parent().find('input').css('pointer-events','none') // to avoid scribble interaction on ipad
+            
+            if (isNaN($float_targetinput_val))
+            {
+                $float_targetinput_val = 0;
+            }
+            return {startval: $float_targetinput_val };
         },
         mousemove: function(ev, dx, dy, mousedownvar)
         {
@@ -5095,6 +6060,10 @@ function KMouseSlider($targetinput, options_in)
                 newval = math.round(newval)
                 
            wasinrange = false;
+           if (newval < options.min)
+            newval = options.min;
+           if (newval > options.max)
+            newval = options.max;
            if(newval >= options.min && newval <= options.max)
            {
                 $targetinput.val( newval  );
@@ -5106,6 +6075,8 @@ function KMouseSlider($targetinput, options_in)
         },
         mouseup: function()
         {
+            $targetinput.parent().find('input').css('pointer-events','all')
+            
             if(options.updateonrelease)
                 $targetinput.trigger("change");
         }
@@ -5134,7 +6105,7 @@ function movableWindowMousedownFn(ev, $container, callbackAfterMove, ignoreClass
 
     var starDiffX = -ev.clientX + $container.offset().left;
     var starDiffY = -ev.clientY + $container.offset().top
-    $(document.body).mousemove(function(ev)
+    $(document.body).on('pointermove',function(ev)
     {
         var dx = starDiffX + ev.clientX;
         var dy = starDiffY + ev.clientY;
@@ -5146,10 +6117,10 @@ function movableWindowMousedownFn(ev, $container, callbackAfterMove, ignoreClass
         });
 
     });
-    $(document.body).on('mouseup mouseleave', function(ev)
+    $(document.body).on('pointerup mouseleave', function(ev)
     {
         //$(this).off('mousemove'); // "this" is the body ...? so why?
-        $(document.body).off('mousemove mouseup mouseleave');
+        $(document.body).off('pointermove pointerup mouseleave');
         // must remove the mouseup handler again!!
         if (callbackAfterMove != undefined)
             callbackAfterMove();
@@ -5431,10 +6402,15 @@ function ab2str(buf) {
 
 /** converts utf8 encoded ArrayBuffer to String 
  * @function */
+
 function utf8ab2str(array) {
+    return utf8ab2str_(array).out;
+}
+
+function utf8ab2str_(array) {
     var out, i, len, c;
     var char2, char3;
-
+    var tripplecnt = 0;
     out = "";
     len = array.length;
     i = 0;
@@ -5466,14 +6442,37 @@ function utf8ab2str(array) {
             out += String.fromCharCode(((c & 0x0F) << 12) |
             ((char2 & 0x3F) << 6) |
             ((char3 & 0x3F) << 0));
+            tripplecnt++;
             break;
         }
     }
-    return out;
+    return {out:out,tripplecnt:tripplecnt};
+}
+
+
+function robust_ab2str(array) {
+    var {out, tripplecnt} = utf8ab2str_(array)
+    if (tripplecnt > 0) // if there some strange chinese characters assume this is not utf;
+    {
+        console.warn("some strange chracters found, switching from utf-8 encoding to default")
+        return ab2str(array);
+    }
+    else
+        return out;
 }
 
 
 
+
+
+function _i(...args)
+{
+    for (var k = 0; k < args.length;k++)
+        if (args[k] != undefined)
+            return args[k]
+    
+    return undefined;
+}
 
 
 
@@ -5483,16 +6482,151 @@ function utf8ab2str(array) {
  * @param {string} type - either uint8,float,uint16
  * @param {integer} tdim - size of the fourth dimension
  */
-function createNifti(nii,name,type,tdim)
+function createNifti(nii,name,type,tdim,params)
 {
      nii.pixdim = [1,nii.voxSize[0],nii.voxSize[1],nii.voxSize[2]];
-     var fobj = cloneNifti({content:nii}, name + ".nii", type, tdim);
+     var fobj = cloneNifti({content:nii}, name + ".nii", type, tdim,undefined,params);
      fobj.fileID = name; 
      KViewer.dataManager.setFile(fobj.fileID,fobj);
      KViewer.cacheManager.update();     
      return fobj.content;
  
 }
+
+
+function changeFOVofNifti(fobj,min,max,fac)
+{
+    
+    
+    var nii = fobj.content;
+    var min = kmath.mdiv(nii.edges,math.matrix(min.concat([1])))._data
+    var max = kmath.mdiv(nii.edges,math.matrix(max.concat([1])))._data
+    var vmin = min.map((x,i) => math.floor(math.min(x,max[i])))
+    var vmax = min.map((x,i) => math.ceil(math.max(x,max[i])))
+    var sz = (vmax.map((x,i) => x-vmin[i]));
+    sz[3] = nii.sizes[3]
+    vmin[3] = 0;
+    var offs = math.multiply(nii.edges,math.matrix(vmin))
+    var edges = math.matrix(nii.edges)
+    edges._data[0][3] += offs._data[0];
+    edges._data[1][3] += offs._data[1];
+    edges._data[2][3] += offs._data[2];
+    var fileObject = cloneNifti({fileinfo:fobj.fileinfo,
+                                 content:{edges:edges,endian:nii.endian,
+                                          sizes:sz,
+                                          voxSize:nii.voxSize} }
+                                     
+                                     ,"dummy",fobj.content.datatype,'sametdim',fac);
+    copyNNdata(fileObject.content,fobj.content,fac,vmin)
+    fobj.content = fileObject.content;
+    if (fobj.fileinfo && fobj.fileinfo.surfreference)
+         fobj.fileinfo.surfreference.content.nifti = fobj.content;
+
+    signalhandler.send("updateFilelink",{id:fobj.fileID});
+
+    
+}
+
+
+
+function copyNNdata(nii,old_nii,fac, offs)
+{
+
+    var w = nii.sizes[0]
+    var h = nii.sizes[1]
+    var d = nii.sizes[2]
+    var T = nii.sizes[3]
+    var ow = old_nii.sizes[0]
+    var oh = old_nii.sizes[1]
+    var od = old_nii.sizes[2]
+    var ow = old_nii.sizes[0];
+    var owh = old_nii.sizes[0]* old_nii.sizes[1];
+    var owhd = old_nii.sizes[0]* old_nii.sizes[1] * old_nii.sizes[2];
+    for (var t = 0; t < T;t++)
+    for (var x = 0; x < w;x++)
+    {
+      var nx = Math.round(fac[0]*x+offs[0]);
+      if (!(nx>=0 & nx < ow))
+          continue      
+      for (var y = 0; y < h;y++)
+      {      
+        var ny = Math.round(fac[1]*y+offs[1]);        
+        if (!(ny>=0 & ny < oh))
+          continue      
+        for (var z = 0; z < d;z++)
+        {
+          var nz = Math.round(fac[2]*z+offs[2]);        
+          if (!(nz>=0 & nz < od))
+            continue      
+          nii.data[x+w*y+w*h*z+w*h*d*t] = 
+                            old_nii.data[nx+ny*ow+nz*owh+owhd*t] 
+        }    
+      }
+    }
+}
+
+function resliceNifti(fobj,fac)
+{
+    var fileObject = cloneNifti(fobj,"dummy",fobj.content.datatype,'sametdim',fac);
+    copyNNdata(fileObject.content,fobj.content,fac,[0,0,0])
+    fobj.content = fileObject.content;
+    if (fobj.fileinfo && fobj.fileinfo.surfreference)
+         fobj.fileinfo.surfreference.content.nifti = fobj.content;
+    signalhandler.send("updateFilelink",{id:fobj.fileID});
+}
+
+function reslice(nii,old_nii,affine,threshold)
+{
+
+    var w = nii.sizes[0]
+    var h = nii.sizes[1]
+    var d = nii.sizes[2]
+    var T = nii.sizes[3]
+    var ow = old_nii.sizes[0]
+    var oh = old_nii.sizes[1]
+    var od = old_nii.sizes[2]
+    var ow = old_nii.sizes[0];
+    var owh = old_nii.sizes[0]* old_nii.sizes[1];
+    var owhd = old_nii.sizes[0]* old_nii.sizes[1] * old_nii.sizes[2];
+
+    if (affine != undefined)
+        var A = math.multiply(math.multiply(kmath.inv(old_nii.edges), affine), nii.edges)._data;
+    else
+        var A = math.multiply(kmath.inv(old_nii.edges), nii.edges)._data;
+
+    for (var t = 0; t < T;t++)
+    for (var x = 0; x < w;x++)
+    {
+      for (var y = 0; y < h;y++)
+      {      
+        for (var z = 0; z < d;z++)
+        {
+            var c = trilinInterp(old_nii,x,y,z,A,old_nii.widheidep*t)
+            if (threshold != undefined)
+                c = c>threshold;
+            if (c != NaN & c != undefined)
+                 nii.data[x+w*y+w*h*z+w*h*d*t] =  c;
+        }    
+      }
+    }
+}
+
+function resliceNifti_affine(fobj,affine)
+{
+    var fileObject = cloneNifti(fobj,"dummy",fobj.content.datatype,'sametdim');
+    var dest = fileObject.content;
+    var src  = fobj.content;
+    dest.edges = math.multiply((affine),dest.edges)
+    
+    reslice(fileObject.content,fobj.content,math.eye(4))
+    fobj.content = fileObject.content;
+    if (fobj.fileinfo && fobj.fileinfo.surfreference)
+         fobj.fileinfo.surfreference.content.nifti = fobj.content;
+    signalhandler.send("updateFilelink",{id:fobj.fileID});
+}
+
+
+
 
 
 /** clones a nifti object
@@ -5502,7 +6636,7 @@ function createNifti(nii,name,type,tdim)
  * @param {integer} tdim - size of the fourth dimension
  * @param {float} fac - undersampling factor
  */
-function cloneNifti(fobj, name, type, tdim,fac)
+function cloneNifti(fobj, name, type, tdim,fac,params)
 {
     var fileObject = {};
 
@@ -5515,11 +6649,14 @@ function cloneNifti(fobj, name, type, tdim,fac)
         tdim = nii.sizes[3];
 
     if (fac == undefined)
-        fac = 1;
+        fac = [1,1,1];
+
+    if (!Array.isArray(fac))
+        fac = [fac,fac,fac]
 
 
 
-    // set the bruker header to nifti header
+    // set the nifti header
     var niihdr = [92, 1, 0, 0, 117, 105, 110, 116, 49, 54, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 114, 0, 1, 0, 16, 0, 16, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 16, 0, 0, 0, 0, 0, 128, 191, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 128, 63, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 110, 111, 110, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 191, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 191, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 110, 105, 49, 0, 0, 0, 0, 0];
     var hdrbuffer = (new Uint8Array(niihdr)).buffer;
 
@@ -5528,6 +6665,10 @@ function cloneNifti(fobj, name, type, tdim,fac)
 
 
     var types = {
+        "int8": {
+            type: 256,
+            bitpix: 8
+        },
         "uint8": {
             type: 2,
             bitpix: 8
@@ -5543,12 +6684,20 @@ function cloneNifti(fobj, name, type, tdim,fac)
         "uint16": {
             type: 512,
             bitpix: 16
+        },
+        "int32": {
+            type: 8,
+            bitpix: 32
+        },
+        "uint32": {
+            type: 768,
+            bitpix: 32
         }
     }
     var t = types[type];
 
-    var sizes = [math.floor(nii.sizes[0]/fac),math.floor(nii.sizes[1]/fac),math.floor(nii.sizes[2]/fac) ];
-
+    var sizes = [math.floor(nii.sizes[0]/fac[0]),math.floor(nii.sizes[1]/fac[1]),math.floor(nii.sizes[2]/fac[2]) ];
+    sizes = sizes.map((x)=>(x==0)?1:x);
 
     var buffer = new Uint8Array(hdrbuffer.byteLength + t.bitpix / 8 * sizes[0] * sizes[1] * sizes[2] * tdim);
     buffer = buffer.buffer;
@@ -5590,31 +6739,33 @@ function cloneNifti(fobj, name, type, tdim,fac)
         edges = math.transpose(edges);
     }
 
-    view.setFloat32(280 + 0 * 4, edges._data[0][0]*fac, littleEndian);
-    view.setFloat32(280 + 1 * 4, edges._data[0][1]*fac, littleEndian);
-    view.setFloat32(280 + 2 * 4, edges._data[0][2]*fac, littleEndian);
+    view.setFloat32(280 + 0 * 4, edges._data[0][0]*fac[0], littleEndian);
+    view.setFloat32(280 + 1 * 4, edges._data[0][1]*fac[1], littleEndian);
+    view.setFloat32(280 + 2 * 4, edges._data[0][2]*fac[2], littleEndian);
     view.setFloat32(280 + 3 * 4, edges._data[0][3], littleEndian);
 
-    view.setFloat32(280 + 4 * 4, edges._data[1][0]*fac, littleEndian);
-    view.setFloat32(280 + 5 * 4, edges._data[1][1]*fac, littleEndian);
-    view.setFloat32(280 + 6 * 4, edges._data[1][2]*fac, littleEndian);
+    view.setFloat32(280 + 4 * 4, edges._data[1][0]*fac[0], littleEndian);
+    view.setFloat32(280 + 5 * 4, edges._data[1][1]*fac[1], littleEndian);
+    view.setFloat32(280 + 6 * 4, edges._data[1][2]*fac[2], littleEndian);
     view.setFloat32(280 + 7 * 4, edges._data[1][3], littleEndian);
 
-    view.setFloat32(280 + 8 * 4, edges._data[2][0]*fac, littleEndian);
-    view.setFloat32(280 + 9 * 4, edges._data[2][1]*fac, littleEndian);
-    view.setFloat32(280 + 10* 4, edges._data[2][2]*fac, littleEndian);
+    view.setFloat32(280 + 8 * 4, edges._data[2][0]*fac[0], littleEndian);
+    view.setFloat32(280 + 9 * 4, edges._data[2][1]*fac[1], littleEndian);
+    view.setFloat32(280 + 10* 4, edges._data[2][2]*fac[2], littleEndian);
     view.setFloat32(280 + 11* 4, edges._data[2][3], littleEndian);
 
     if (nii.pixdim == undefined)
     {
-        nii.pixdim = [nii.sizes.length];
-        nii.pixdim = nii.pixdim.concat(nii.sizes);
+        nii.pixdim = [1];
+        nii.pixdim = nii.pixdim.concat(nii.voxSize);
     }
 
+    for(var i=0; i<3; i++) 
+        nii.pixdim[1+i] *= fac[i];
 
     for(var i=0; i<nii.pixdim.length; i++) {
        if (i > 0 &&  i <= 3)
-        view.setFloat32(76+4*i, nii.pixdim[i]*fac, littleEndian)
+        view.setFloat32(76+4*i, nii.pixdim[i], littleEndian)
     }
 
 
@@ -5643,14 +6794,22 @@ function cloneNifti(fobj, name, type, tdim,fac)
     view.setInt16(72, t.bitpix, littleEndian);
 
 
+    if (params)
+    {
+        if (params.descrip)
+        {
+            var enc = new TextEncoder(); 
+            var buf = enc.encode(params.descrip)
+            for (var k = 0;k < math.max(buf.length,80);k++)
+                view.setUint8(148+k,buf[k],littleEndian)
+        }
+    }
+
 
 
     fileObject.buffer = buffer;
 
-    // parse nifti
-    fileObject.content = prepareMedicalImageData(parse(fileObject.buffer), fileObject);
-    fileObject.contentType = "nii";
-
+    // inherit fileinfo stuff
     var subfolder;    
     if (name && name.split("/").length > 1)
     {
@@ -5661,10 +6820,7 @@ function cloneNifti(fobj, name, type, tdim,fac)
             split.pop();
             subfolder = split.join("/");
         }
-
     }
-
-
     fileObject.filename = name;
     fileObject.editable = true;
     fileObject.fileinfo = {};
@@ -5673,7 +6829,16 @@ function cloneNifti(fobj, name, type, tdim,fac)
         fileObject.fileinfo.patients_id = fobj.fileinfo.patients_id;
         fileObject.fileinfo.studies_id = fobj.fileinfo.studies_id;
         fileObject.fileinfo.SubFolder = subfolder;
+        fileObject.fileinfo.Filename = name;
     }
+
+
+
+ 
+    // parse nifti
+    fileObject.content = prepareMedicalImageData(parse(fileObject.buffer), fileObject);
+    fileObject.contentType = "nii";
+
 
 
 
@@ -5796,6 +6961,130 @@ function resizeNifti(fobj, edges, sizes)
 
 
 }
+
+
+function calcNifti()
+{
+    var files = KViewer.dataManager.getFileList().map(KViewer.dataManager.getFile).filter((x)=>x.contentType=="nii")
+
+    var str = "<table class='Ktablecolsel'> <head> <tr> <td> name </td> <td> name </td> </tr> </head>";
+    str += "<body>";
+    var fis = [];
+    for (var k = 0; k < files.length;k++)					
+    {
+        str += "<tr>"
+        str += "<td> image"+(k+1)+"</td>";
+        fis[k] = files[k].fileinfo.SubFolder+"/"+files[k].fileinfo.Filename;
+        str += "<td>"+fis[k]+"</td>"
+        str += "</tr>"
+    }
+    str += "</body>";
+    str += "</table>";
+
+    if (fis.length == 0)
+    {
+        alertify.error("Load some nifits into workspace first!!")
+        return;
+    }
+
+    if (calcNifti.lastexpr == undefined)
+    {
+        calcNifti.lastexpr = "result = image1"
+        calcNifti.lastname = "derived/compresult.nii"
+    }
+    alertify.prompt(
+    
+     [{msg:"<b>Image calculator</b> <br> The computations are based on the current images in workspace:<br>"+str+"<br> Put here your arithmentric expression (any js code is allowed):"},
+      {msg:"Name of output nifti",optMsg:"reference matrix",opt:fis}]
+                    
+    ,function(e,ret)
+    {
+        if (e)
+        {
+            var runningid =  (calcNifti.runid++)
+            var master = files[ret.index]
+            var name = ret.str[1];
+            var fileObject = cloneNifti(master,name,master.content.datatype,'sametdim');
+            fileObject.fileID = "COMPIMG" + name + runningid; 
+            //fileObject.fileinfo = {SubFolder:"derived",Filename:name}
+            fileObject.modified = true;
+            var nii = fileObject.content;
+            var w = nii.sizes[0]
+            var h = nii.sizes[1]
+            var d = nii.sizes[2]
+            var T = nii.sizes[3]
+
+            var get = [];
+            var ims = [];
+            for (var k = 0;k < files.length;k++)
+            {
+                if (!sameGeometry(files[k].content,master.content))
+                {
+                    var A = math.multiply(math.inv(files[k].content.edges),master.content.edges);
+                    get[k] = function(data,A) { return function (x,y,z)
+                    {    
+                        var xs = A[0][0] * x + A[0][1] * y + A[0][2] * z + A[0][3];
+                        var ys = A[1][0] * x + A[1][1] * y + A[1][2] * z + A[1][3];
+                        var zs = A[2][0] * x + A[2][1] * y + A[2][2] * z + A[2][3];
+                        return data[xs+w*ys+w*h*zs+w*h*d*t]
+                    } }(files[k].content.data,A._data)
+                    
+                }
+                else
+                {
+                    get[k] = function(data) { return function (x,y,z)
+                    {                    
+                        return data[x+w*y+w*h*z+w*h*d*t]
+                    } }(files[k].content.data)
+                }
+                
+            }
+            
+            var t = 0
+            var code = ret.str[0];
+            calcNifti.lastexpr = code;
+            var precode = "";
+            for (var k = 0; k < files.length;k++)
+            {
+                var im = "image"+(k+1);
+                if (code.search(im) > -1)
+                    precode += "var "+im+"=get["+(k)+"](x,y,z);";
+
+            }
+            code = precode + code;
+
+            var chunksize = math.round(nii.sizes[2]/50)+1;
+            $(document.body).addClass('wait');
+
+            new Array(nii.sizes[2]).chunk(function(dummy,z)
+            {
+                var x,y;
+
+                eval("function run() { "+code+"; return result; }")
+                for (y = 0; y < nii.sizes[1];y++)
+                for (x = 0; x < nii.sizes[0];x++)
+                   nii.data[x+w*y+w*h*z+w*h*d*t] = run();
+                   
+            },chunksize,20,undefined,function() {
+                fileObject.content = prepareMedicalImageData(parse(fileObject.buffer), fileObject, {});
+                KViewer.dataManager.setFile(fileObject.fileID,fileObject)
+                KViewer.cacheManager.update();
+                KViewer.iterateMedViewers(function(v)
+                {
+                    if (v.currentFileID == master.fileID)
+                        v.setContent(fileObject,{intent:{overlay:true}});                                       
+                });                      
+ 		        $(document.body).removeClass('wait');
+				 
+			});
+
+
+        
+        }
+    }, [calcNifti.lastexpr,calcNifti.lastname]);
+
+}
+calcNifti.runid = 0;
 
 
 /** used to unlag mouse move events in firefox 
@@ -5941,7 +7230,7 @@ function UserSettingsDialog()
    var that = new dialog_generic();
    that.$frame.width("500px").height("800px");
 
-	
+   var sz = UserSettingsDialog.getLocalStorageSize();
    var form = 
    { 
 	name 		: "usersettings",
@@ -5962,6 +7251,7 @@ function UserSettingsDialog()
 		,{name:"styletheme"		        , type: 'option',  style:"",  title:" Styling theme",
   	    	choices: ["classic blue","greenish","redish"],
   	    	ids:     ["classic", "green", "red"] ,defaultval:'classic' }
+		,{name:"localstoragesizeMB"     , type: 'input',  	 defaultval:sz    , title:'Size of local hard disk cache, use this if you are remote (in MB)'   }
 
 	] }
 
@@ -5974,7 +7264,7 @@ function UserSettingsDialog()
 
 
     var $div = $("<div class='usersettings'></div>").appendTo(that.$container);
-    KForm.createForm(form, content, $div, onchange);
+    KForm.createForm(form, content, $div, undefined);
 
 
     var $style = $div.find("div[name='styletheme']").find("select");
@@ -6036,12 +7326,17 @@ function UserSettingsDialog()
 
 	that.ontoggle = function()
 	{
-		if(content.modified)
+		if(that.$frame.css('display') != "none")
 		{
 			delete content.modified;
 			that.saveChanges();
 
-		}
+        }
+        else
+        {
+            userinfo.localstoragesizeMB = UserSettingsDialog.getLocalStorageSize();
+            userinfo.update("localstoragesizeMB")
+        }
 	}
 	
 	that.passwdChange = function(oldpasswd, newpwd, whendone)
@@ -6055,7 +7350,9 @@ function UserSettingsDialog()
 		function whendone(result)
 		{
 			if (onsave)
-			 onsave();
+			   onsave();
+            document.cookie = "localstoragesizeMB="+userinfo.localstoragesizeMB+";";
+            
 		}
 // 		var userinfo_tmp = $.extend(true,{},userinfo);
 // 		delete userinfo_tmp.passwd;
@@ -6070,13 +7367,226 @@ function UserSettingsDialog()
 		    street: userinfo.street,
 		    styletheme: userinfo.styletheme,
 		}
-
 		ajaxRequest('command=userTable_save&json=' + encodeURIComponent(JSON.stringify([userinfo_tmp])) , whendone);
+        
 	}
+
+
+    return that;
+}
+UserSettingsDialog.getLocalStorageSize = function()
+    {
+            var toks = document.cookie.split(";")
+            try {
+                return parseInt(toks.find((x) => x.search("localstoragesizeMB=")>=0).split("=")[1]);
+            } catch (err)
+            {  return 1;}
+        
+    }
+
+function ChangePatIDDialog(obj)
+{
+   
+   var that = new dialog_generic();
+   that.$frame.width("500px").height("auto");
+
+	
+   var form = 
+   { 
+	name 		: "changeiddialog",
+	lastchange  : "",
+	layout: 
+	[
+					 { type: 'title', val: "Edit patient/study information", css: ["font-size","20px",'display','inline-block'] },
+					 { type: 'input', name:"PIZ",   title: "Patients ID",  
+							 defaultval: ""},
+					 { type: 'input', name:"StudyID",   title: "Studies ID" , class:"Study"},
+					 { type: 'input', name:"StudyDescription",   title: "StudyDescription" , class:"Study" },
+					 { type: 'input', name:"StudyInstanceUID",   title: "StudyInstanceUID" , class:"Study" },
+
+					 { type: 'separator', css: ["height","5px"] },
+                     { type: 'input',  name:"GivenName",   title: "Given name",  
+											 defaultval: ""},
+									  { type: 'input',  name:"FamilyName",   title: "Family name",  
+											 defaultval: ""},					
+					 { type: 'separator', css: ["height","5px"] },
+							 
+					 { type: 'option', name:"Sex",  title: "Sex", 
+							 style:"radio vert", 
+							 choices: ["Male","Female"], 
+							 ids: ["M","F"] , 
+							 defaultval:"" },
+					 { type: 'input', name:"BirthDate", title: "Birthdate",  
+							 defaultval: ""},
+/*
+					 { type: 'input', name:"PatientsAge",   title: "Age",  
+							 defaultval: ""},
+					 { type: 'input', name:"PatientsWeight",   title: "Weight",  
+							 defaultval: ""},
+					 { type: 'input', name:"PatientsSize",   title: "Size",  
+							 defaultval: ""},*/
+					 { type: 'separator', css: ["height","5px"] },
+                    {type: 'customelement',  val: applyChanges   , css:['display','inline-block']   },
+                    {type: 'customelement',  val: anonymization   , css:['display','inline-block']   },
+					 { type: 'separator', css: ["height","25px"] },
+                        
+	] }
+	function anonymization(content)
+	{
+	    
+		var $div1 = $("<span class='modernbutton large green'><i class='fa fa-1x fa-user-secret'></i>anonymize</span>").click(function(e){                
+      
+             pid_hashfun("",content.PIZ,function(ppid)    {
+                ppid = ppid.substr(0,10);
+                content.BirthDate = "01012000"
+                content.FamilyName = ppid
+                content.GivenName = "anonym"
+                content.PIZ = ppid
+                content.Sex = "X"
+                content.update("BirthDate");
+                content.update("FamilyName");
+                content.update("GivenName");
+                content.update("PIZ");
+                content.update("Sex");
+             });
+                
+		});;
+	    var $div = $("<div></div>").append($div1);
+		return $div;
+	}
+	function applyChanges(content)
+	{
+	    
+		var $div1 = $("<span class='modernbutton large green'><i class='fa fa-1x fa-refresh'></i>Apply Changes</span>").click(function(e){                
+
+		   alertify.confirm('Are you sure to change basis information? This might break references',
+		   function(e)
+		   {
+		       if (e)
+		       {
+               $(document.body).addClass("wait");		
+
+                that.saveChanges(function(){                    
+                    refreshButton();
+                    that.toggle();
+                    $(document.body).removeClass("wait");		
+
+                })
+		       }
+		   });
+		});;
+	    var $div = $("<div></div>").append($div1);
+		return $div;
+	}
+
+    var content= {};
+    var oldobj = {}
+    KForm.getFormContent(form, content);
+
+
+
+
+    var $div = $("<div class='changeiddlg'></div>").appendTo(that.$container);
+
+
+	that.ontoggle = function()
+	{
+
+	}
+	
+
+	that.saveChanges = function(callback)
+	{
+
+	    var str = ""
+	    if (content.StudyID)
+	    {
+	       if (content.StudyID[0] != '#')
+	           content.StudyID = "#" + content.StudyID;
+	       oldobj.FamilyName = oldobj['[SQL]PATIENT'].FamilyName
+	       oldobj.GivenName = oldobj['[SQL]PATIENT'].GivenName
+	       oldobj.Sex = oldobj['[SQL]PATIENT'].Sex
+	       oldobj.BirthDate = oldobj['[SQL]PATIENT'].BirthDate
+	    }
+	    for (var k in oldobj)
+	    {
+          if (content[k] != undefined && content[k] != oldobj[k] & k != "PIZ"  & k != "StudyID")
+              str += k+":'"+content[k]+"' ";
+	    }
+	    if (content.StudyID)
+	    {
+	       str = "'" + oldobj['[SQL]PATIENT'].PIZ +  oldobj.StudyID + "' '" +  content['PIZ'] + content.StudyID + "' " + str;
+	    }
+        else
+	       str = oldobj['PIZ'] +  " " +  content['PIZ'] + " " + str;
+        var json = JSON.stringify({exec:str});
+		ajaxRequest('command=changePID&json=' + encodeURIComponent(json) , function(res)
+		{
+		    console.log(res.content);
+		    var m = res.content.match(/moved/g);
+		    if (m != undefined)
+		    {
+                var movecnt = res.content.match(/moved/g).length
+                if (movecnt>0)
+                {   
+                    alertify.success("sucessfully moved study ("+movecnt+")");
+                }
+		    }
+		    else
+		    {
+		        alertify.error(res.content)
+		    }
+		    console.log(res.content);
+		    callback();
+
+		})
+	}
+
+
+
+    var params = {URLType: "serverfile", fileID: obj.fileID, 
+           callback:function(e)
+            {
+                oldobj = JSON.parse(e.content);                
+
+                var pat = oldobj;
+                if (oldobj['[SQL]PATIENT'])
+                {
+                    pat = oldobj['[SQL]PATIENT'];
+                    if (oldobj.StudyID[0] != '#')
+                       oldobj.StudyID = '#' + oldobj.StudyID;
+                   
+                    content.StudyID = oldobj.StudyID;
+                    content.StudyDescription = oldobj.StudyDescription;
+                    content.StudyInstanceUID = oldobj.StudyInstanceUID;
+                }
+
+
+
+                content.GivenName = pat.GivenName;
+                content.FamilyName = pat.FamilyName;
+                content.Sex = pat.Sex;
+                content.BirthDate = pat.BirthDate;
+                content.PIZ = pat.PIZ;
+
+                KForm.createForm(form, content, $div, onchange);
+                if (!oldobj['[SQL]PATIENT'])
+                    $div.find(".Study").hide();
+
+                that.toggle();
+
+            }};
+      KViewer.dataManager.loadData(params)
+
+
 
     return that;
 }
 
+function OpenPatientInfo(obj)
+{
+    var x = ChangePatIDDialog(obj); 
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -6237,7 +7747,8 @@ function dialog_generic()
             }
             else
             {
-                that.$frame.show(); 
+                that.$frame.css('visibility','hidden')
+                that.$frame.show();
                 var $elems = that.toggle.$elems;
                 var scpos = that.toggle.scpos;  
                 if ($elems)
@@ -6248,6 +7759,10 @@ function dialog_generic()
                 bringToFront(that.$frame)
                 if (that.onPastToggle)
                     that.onPastToggle(true)
+                setTimeout(function(){
+                that.$frame.css('visibility','visible')
+                },0);
+
                 return true;
             }
 
@@ -6365,9 +7880,19 @@ function KList(struct)
 	/**********************************
 	append items
 	**********************************/	
-	klm.append = function(uid, title, content, onclick, addons)
+	klm.append = function(uid, title_, content, onclick, addons)
 	{
-		
+		var title, addon;
+		addon = "";
+	    if (typeof title_ == "string")
+	       title = title_;
+	    else 
+	    {
+	       title = title_.title
+	       addon = title_.addon;
+	    }
+
+
 		/**********************************
 		sub-tree with groups
 		**********************************/
@@ -6377,7 +7902,7 @@ function KList(struct)
 			var group= temp[0];
 			var ititle = temp.slice(1).join('/');
 
-			var $li = $("<li class='KListItem KListItem_subitem'><a>"+ititle+"</a></li>").hide();
+			var $li = $("<li class='KListItem KListItem_subitem'><a>"+ititle+"</a>"+addon+"</li>").hide();
 			var $parent = klm.$ul.find('ul[klist_groupid="'+group+'"]')
 			var selstr = "right"
 			if(	klm.groupsexpanded[group])
@@ -6405,7 +7930,7 @@ function KList(struct)
 		}
 		else
 		{
-			var $li = $("<li class='KListItem'><a>"+title+"</a></li>").appendTo(klm.$ul);
+			var $li = $("<li class='KListItem'><a>"+title+"</a>"+addon+"</li>").appendTo(klm.$ul);
 		}
 
 		if(uid == 'spacer')
@@ -6840,21 +8365,29 @@ function ScriptLoader()
 	that.scripts = new Array();
 	that.loadScript = function(scriptName, whendone)
 	{
-		//var url = myownurl().substr(0, myownurl().lastIndexOf('/')) + "/" + scriptName;
-		var url = url_pref + "/" + scriptName;
+        var url;
+        if (url_pref == "import:")
+        {
+               //blob = new Blob([scriptStore[scriptName]], {type: 'application/javascript'});
+    		   if(that.scripts[scriptName] === undefined)            
+                  eval.call(null,scriptStore[scriptName]);
+               that.scripts[scriptName] = true;
+               if(whendone)
+                   whendone();
+               return;
+        }     
+        else
+        {
+    		 url = url_pref + "/" + scriptName;        
+             if (url.substring(0,1) == "/")
+                 url = url.substring(1);
 
-        if (url.substring(0,1) == "/")
-            url = url.substring(1);
+    		 if(that.scripts[scriptName] === undefined)
+    			$.getScript(url, function()				{ that.scripts[scriptName] = true; if (whendone) whendone();});
+    		else 		{if(whendone)whendone();}
+            
+        }
 
-		if(that.scripts[scriptName] === undefined)// & $(document.head).find("#"+scriptName).length ==0 )
-		{
-			// synchrounus loading  .... no so nice
-			//var script = $("  <script type='text/javascript' defer='defer'  id='"+ scriptName +"'></script>").attr('src', url).appendTo(document.head);
-			//that.scripts[scriptName] = true;
-			// async: hard: must wait in 3D viewer
-			$.getScript(url, function()				{ that.scripts[scriptName] = true; if (whendone) whendone();});
-		}
-		else 		{if(whendone)whendone();}
 	}
 
 	return that;
@@ -7049,7 +8582,17 @@ function prepObjectInfo(target)
    	    type = "filecache";
    }
 
-  if (type == "filecache")
+  if ($(target).hasClass('atlasdrag selectedBold')) // from atlas panel for multi regions
+  {
+     var selected = $(target).parent().find(".selectedBold")
+     var keys = [];
+     for (var k = 0; k < selected.length;k++)
+        eval("keys.push({"+$(selected[k]).attr("data-intent")+"}.atlaskey)")
+     var obj = packObjectInfo(target);
+     obj.intent = {labelname:"collection",atlaskey:keys};
+     tempObjectInfo= [obj];
+  }
+  else if (type == "filecache")
   {
   	   var selected = $(target).parent().find(".selected")
   	   if (selected.length==0)
@@ -7132,6 +8675,11 @@ function prepObjectInfoFromPatientSelection(target)
 			else
 			{
 				var ids = patientTableMirror.selectedItems[i].split(riddelim);
+		        if (state.viewer.selectionMode[1] == 's')
+    			{
+    			    if (ids[0] == 'ANALYSIS')
+    			     continue;
+    			}				
 				target.push({type:'study',piz:ids[0],sid:ids[1]});				
 			}
 		}
@@ -7177,7 +8725,6 @@ function packObjectInfo(target)
 
 function loadOrthoview(params,offset,cb)
    {
-
        var vp,sl;
        if (ViewerSettings.nVisibleVertports > 0)
        {
@@ -7186,6 +8733,7 @@ function loadOrthoview(params,offset,cb)
        }
        else
        {
+            offset = Math.floor(offset/4)*4;
             vp = [0+offset,1+offset,2+offset];
             sl = [1,0,2];
        }
@@ -7197,7 +8745,9 @@ function loadOrthoview(params,offset,cb)
 		 $.extend(true,{intent: {viewportID:vp[1],slicing:sl[1],gl:false}},params),
 		 $.extend(true,{intent: {viewportID:vp[2],slicing:sl[2],gl:false}},params)
 		  ],
-		 function () { signalhandler.send(" reslice positionChange"); 
+		 function () { 
+		               //signalhandler.send("reslice"); 
+		               signalhandler.send("positionChange"); 
                        if (cb) 
                         cb();
 		 } );
@@ -7304,8 +8854,12 @@ function getOnParentPath(obj,condition,depth)
 function createDummyNifti(sizes,bbox_max,bbox_min,perm,flip)
 {
 	  var voxsz = [0,0,0,1];
+	  var centerWorld = [0,0,0,1];
  	  for (var i=0; i< 3;i++)
+ 	  {
  	  	 voxsz[i] = (bbox_max[i]-bbox_min[i])/sizes[i];
+ 	  	 centerWorld[i] = (bbox_max[i]+bbox_min[i])*0.5;
+ 	  }
 
   
 	  var edges = math.matrix(math.diag(voxsz));
@@ -7321,8 +8875,10 @@ function createDummyNifti(sizes,bbox_max,bbox_min,perm,flip)
 		  sizes: sizes,//  newsizes,
 		  permutationOrder:perm,
 		  arrayReadDirection:flip, 
+		  centerWorld:math.matrix(centerWorld),
 		  dummy:true,
-		  detsign:math.sign(math.det(edges))
+		  detsign:math.sign(math.det(edges)),
+          dummy_params: {sizes:sizes,bbox_max:bbox_max,bbox_min:bbox_min,perm:perm,flip:flip}
 	   }
 	return nii;
 }
@@ -7593,7 +9149,15 @@ sbox.appendResizer = function appendResizer($a, callback)
 function isDragFromFileTable(ev)
 {
   for(var i=0;i<ev.dataTransfer.types.length;i++)
-      if (ev.dataTransfer.types[i] == "fromfiletable")
+      if (ev.dataTransfer.types[i] == "fromfiletable" | ev.dataTransfer.types[i] == "fromviewport")
+      	  return true;
+  return false;
+}
+
+function isDragFromViewport(ev)
+{
+  for(var i=0;i<ev.dataTransfer.types.length;i++)
+      if (ev.dataTransfer.types[i] == "fromviewport")
       	  return true;
   return false;
 }
@@ -7606,8 +9170,20 @@ function isDragFromBatchtool(ev)
   return false;
 }
 
+function isDragFromMarkertool(ev)
+{
+  for(var i=0;i<ev.dataTransfer.types.length;i++)
+      if (ev.dataTransfer.types[i] == "frommarkertool")
+      	  return true;
+  return false;
+}
+
 function isDragFromCacheTable(ev)
 {
+  if (ev.dataTransfer == undefined)
+      return false;
+  if (ev.dataTransfer.types == undefined)
+    return false;
   for(var i=0;i<ev.dataTransfer.types.length;i++)
       if (ev.dataTransfer.types[i] == "fromcachetable")
       	  return true;
@@ -7651,7 +9227,13 @@ function addKeyboardShortcuts()
     {
 
             lastmove_sincekey = lastmove
-            if(evt.keyCode == 89 || evt.keyCode == 88 )
+            if(evt.keyCode==33 || evt.keyCode==34){
+                   evt.preventDefault();
+               }            
+        /* slice navigation: XY for QWERTZ; XZ for QWERTY */
+        if ((evt.keyCode == 89 || evt.keyCode == 88 || evt.keyCode == 90) &&
+            /* do not capture alt, ctrl, shift */
+            !(evt.ctrlKey || evt.altKey || evt.shiftKey))
             {
                 if(!evt.shiftKey && evt.target == document.body && KViewer)
                 {
@@ -7688,6 +9270,8 @@ function addKeyboardShortcuts()
                 if ($obj.hasClass('fileCell') | $obj.hasClass('studyCell') | $obj.hasClass('patientCell')) 
                 {
                     //console.log($obj)
+                    if ($obj.hasClass("cellEditable")) 
+                        return;
                     patientTableContextMenu(lastmove,true)
                 }
             }
@@ -7698,58 +9282,62 @@ function addKeyboardShortcuts()
     document.addEventListener("keyup",function(evt) 
     {
 
-      evt = evt || window.event;
+          evt = evt || window.event;
 
-    // a reading is enabled, overwrite this handler
-    if(typeof KViewer.readingTool != "undefined" && KViewer.readingTool.isinstance && KViewer.readingTool.readingIsActive)
-    {
-        var res = KViewer.readingTool.handleKeyEvent(evt);
-        if(!res)
-            return false;
-    }
-
-      if (false & state.viewer.selectionMode[0] == "w")
-      {
-        if (!$(evt.target).is("input"))
+        // a reading is enabled, overwrite this handler
+        if(typeof KViewer.readingTool != "undefined" && KViewer.readingTool.isinstance && KViewer.readingTool.readingIsActive)
         {
-          if (evt.keyCode == 40) {
-            var nextStudy = $("tr[id="+patientTableMirror.selectedItems[0]+"]").next();
-            while (!nextStudy.hasClass("study") & nextStudy.length != 0) nextStudy = nextStudy.next();
-            if (nextStudy.length==0)
-                return;
-            patientTableMirror.tree_click({},nextStudy.attr("id"));
-          }
-          if (evt.keyCode == 38) {
-            var nextStudy = $("tr[id="+patientTableMirror.selectedItems[0]+"]").prev();
-            while (!nextStudy.hasClass("study") & nextStudy.length != 0) nextStudy = nextStudy.prev();
-            if (nextStudy.length==0)
-                return;
-            patientTableMirror.tree_click({},nextStudy.attr("id"));
-
-          }
+            var res = KViewer.readingTool.handleKeyEvent(evt);
+            if(!res)
+                return false;
         }
-      }
 
-      // ESC key
-      if (evt.keyCode == 27) {
-
-          if (typeof projectInfo != "undefined" && projectInfo.rights && projectInfo.rights.batchtool == "on")
+          if (false & state.viewer.selectionMode[0] == "w")
           {
-              if (commandDialog && commandDialog.$frame && commandDialog.$frame.css("display") != "none")
-                 commandDialog.toggle();
-              if (gridjobsDialog.$frame.css("display") != "none")
-                 gridjobsDialog.toggle();
-          }
-          if ($(".patientTableContextmenu").css("display") != "none")
-             $(".patientTableContextmenu").remove();
-          if (typeof settingsDialog != "undefined" &&  settingsDialog.dialog != undefined)
-              if (settingsDialog.dialog.$frame.css("display") != "none")
-                settingsDialog.dialog.toggle();
-          if (typeof userSettingsDialog != "undefined"  && userSettingsDialog != undefined)
-              if (userSettingsDialog.$frame.css("display") != "none")
-                userSettingsDialog.toggle();
+            if (!$(evt.target).is("input"))
+            {
+              if (evt.keyCode == 40) {
+                var nextStudy = $("tr[id="+patientTableMirror.selectedItems[0]+"]").next();
+                while (!nextStudy.hasClass("study") & nextStudy.length != 0) nextStudy = nextStudy.next();
+                if (nextStudy.length==0)
+                    return;
+                patientTableMirror.tree_click({},nextStudy.attr("id"));
+              }
+              if (evt.keyCode == 38) {
+                var nextStudy = $("tr[id="+patientTableMirror.selectedItems[0]+"]").prev();
+                while (!nextStudy.hasClass("study") & nextStudy.length != 0) nextStudy = nextStudy.prev();
+                if (nextStudy.length==0)
+                    return;
+                patientTableMirror.tree_click({},nextStudy.attr("id"));
 
-      }
+              }
+            }
+          }
+
+          // ESC key
+          if (evt.keyCode == 27) {
+
+              if (typeof projectInfo != "undefined" && projectInfo.rights && projectInfo.rights.batchtool == "on")
+              {
+                  if (commandDialog && commandDialog.$frame)
+                  { 
+                     if (commandDialog.zoomBatch() == "notzoomed")
+                        if (commandDialog.$frame.css("display") != "none")
+                            commandDialog.toggle();
+                  }
+                  if (gridjobsDialog.$frame.css("display") != "none")
+                     gridjobsDialog.toggle();
+              }
+              if ($(".patientTableContextmenu").css("display") != "none")
+                 $(".patientTableContextmenu").remove();
+              if (typeof settingsDialog != "undefined" &&  settingsDialog.dialog != undefined)
+                  if (settingsDialog.dialog.$frame.css("display") != "none")
+                    settingsDialog.dialog.toggle();
+              if (typeof userSettingsDialog != "undefined"  && userSettingsDialog != undefined)
+                  if (userSettingsDialog.$frame.css("display") != "none")
+                    userSettingsDialog.toggle();
+
+          }
 
         /***************************************************
          key schortcuts:
@@ -7763,6 +9351,15 @@ function addKeyboardShortcuts()
 			{
 				if( ktagpanel.handleKeyEvent(evt) )
 					return 
+			}
+
+			if (evt.keyCode == 82)
+			{
+			     KViewer.resetCrossHair() 
+			}
+			if (evt.keyCode == 67)
+			{
+			    signalhandler.send("centralize");
 			}
 
             if( evt.keyCode >= 48 && evt.keyCode < 57)
@@ -7809,6 +9406,45 @@ function addKeyboardShortcuts()
                 if( KViewer.roiTool.isinstance &&  KViewer.roiTool.getCurrentGlobal()!=undefined )
                     KViewer.roiTool.makeCurrentGlobal( undefined );
             } 
+            //************ v: visible vvroi 
+            else if(evt.keyCode == 86)
+            {
+             
+                if( KViewer.roiTool.isinstance)
+                {
+                    if (addKeyboardShortcuts.ROIs_visibility == undefined)
+                    {
+                        addKeyboardShortcuts.ROIs_visibility = {}
+                        KViewer.iterateMedViewers(function(medviewer)
+                        {
+                            for (var k = 0; k < medviewer.ROIs.length;k++)
+                            {
+                               if (medviewer.ROIs[k].visible)
+                               {
+                                   medviewer.ROIs[k].toggle({shiftKey:true})
+                                   var id = medviewer.viewport.viewPortID;
+                                   addKeyboardShortcuts.ROIs_visibility[id+"_"+k] = true;
+                               }
+                            }
+                        })
+                    }
+                    else
+                    {
+                        for (var k in addKeyboardShortcuts.ROIs_visibility)
+                        {
+                            var x = k.split("_");
+                            var v = KViewer.viewports[x[0]].medViewer;
+                            var r = v.ROIs[x[1]]  
+                            if (r != undefined)
+                            {
+                                if (!r.visible)
+                                    r.toggle({shiftKey:true});
+                            }
+                        }
+                        addKeyboardShortcuts.ROIs_visibility = undefined;
+                    }
+                 }
+            } 
             //************ up / down arrow in single mode: got next case
             else if(evt.keyCode == 38 || evt.keyCode == 40 )
             {
@@ -7830,23 +9466,65 @@ function addKeyboardShortcuts()
                     }
                 }
             }		
-            else if(evt.keyCode == 66)
+            else if(evt.keyCode == 66 & !evt.shiftKey & !evt.ctrlKey)
             {
                 commandDialog.toggle();
             }	
-            else if(evt.keyCode == 83)
+            else if(evt.keyCode == 67 & evt.shiftKey & !evt.ctrlKey)
+            {
+                settingsDialog.dialog.toggle();
+        		settingsDialog.selectDialog('projectManagement',"clin_info");        		
+            }
+            else if(evt.keyCode == 82 & !evt.shiftKey & !evt.ctrlKey)
+            {
+                settingsDialog.dialog.toggle();
+        		settingsDialog.selectDialog('projectManagement',"rights");        	
+            }
+            else if(evt.keyCode == 83 & !evt.shiftKey & !evt.ctrlKey)
             {
                 settingsDialog.dialog.toggle();
             }	
+            else if(evt.keyCode == 80 & evt.shiftKey)
+            {
+                addWorkstatePostCode()
+            }	
+            else if (evt.keyCode ==71) // gridstats
+            {
+                gridjobsDialog.toggle()
+
+            }
+          
 
         }
-
-
     });
 
 
 }
 
+
+if (typeof $ != "undefined")
+{
+    $(document).bind('keydown', function(e) {
+      if(e.ctrlKey && (e.which == 83)) {
+         if (commandDialog.visible)
+         {
+            e.preventDefault();
+            commandDialog.$container.find(".KListItem.active").find(".fa-save").click()     
+            return false;
+         }  
+     
+      }
+      if(e.ctrlKey && (e.which == 68)) {
+         if (gridjobsDialog.$container.is(':visible'))
+         {
+            e.preventDefault();
+            gridjobs_cleardead();     
+            return false;
+         }  
+     
+      }
+    });
+}
 
 function waiter(condition,callback,delta,maxtimes)
 {
@@ -7925,11 +9603,12 @@ function dryimport_Patient(StudyInstanceUID,whendone)
 
 function executeExternalCall()
 {
-    // if (extern_call.suid == undefined)
-    //    logout();
-         if (extern_call.piz)
+         if (extern_call.pid)
          {
-             openPatient({PatientID:extern_call.piz,SID:""});
+             var sid = "";
+             if (extern_call.sid != undefined)
+                 sid = "#"+extern_call.sid;        
+             openPatient({PatientID:extern_call.pid,SID:sid});
          }
          else if (extern_call.suid)
          {
@@ -7946,8 +9625,26 @@ function executeExternalCall()
              $("#KLoadingFrame").css('display','none')
          }
 
+        
+         function removeAccessTokenFromUrl() {
+              const { history, location } = window
+              const { search } = location
+              if (search && search.indexOf('call') !== -1 && history && history.replaceState) {
+                // remove access_token from url
+                var cleanSearch = search.replace(/(\&|\?)call(.*)/g, '').replace(/^&/, '?')
+                // replace search params with clean params
+                var cleanURL = location.toString().replace(search, cleanSearch)
+                if (extern_call.token != undefined)
+                    delete extern_call.token
+                cleanURL += "&call="+JSON.stringify(extern_call)
+                // use browser history API to clean the params
+                history.replaceState({}, '', cleanURL)
+              }
+        }
 
-
+        removeAccessTokenFromUrl()
+        // => https://site.com?haha=false&lol=true
+    
          function SIUID_call(siuid,whendone)
          {
 
@@ -7983,8 +9680,16 @@ function executeExternalCall()
 
          function openPatient(patinfo)
          {
-                presetManager.applyPresetByName("preset(0)")
-              
+                if (extern_call.preset)
+                    presetManager.applyPresetByName(extern_call.preset)
+                if (extern_call.selmode)
+                    switchto(extern_call.selmode)
+
+                if (patinfo.SID != "")
+                    $("input[name='PIZ']")[0].value = patinfo.PatientID + patinfo.SID;
+                else
+                    $("input[name='PIZ']")[0].value = patinfo.PatientID
+             
                 patientTable_jumpToRow( patinfo.PatientID + patinfo.SID,currentModule ,function()
                 {
    
@@ -7995,13 +9700,15 @@ function executeExternalCall()
                         if (all_patients.length == 0)
                         {
                             alertify.error("patient not found")
+                            $("#KLoadingFrameText").html("patient not found")
                             return;
                         }
                     
-                      
-                        var autoloader = [{enabled: true, viewportID: 0, 
-                                           pattern: "FFilename:recent.json↵FSubFolder:workstates", intent:{}
-                                           } ];
+
+                        var autoloader = ViewerSettings.autoloaders
+                        //var autoloader = [{enabled: true, viewportID: 0, 
+                         //                  pattern: "FFilename:recent.json↵FSubFolder:workstates", intent:{}
+                          //                 } ];
                         startAutoloader(autoloader, {piz:patinfo.PatientID , sid: patinfo.SID} , undefined, function() {
                             if (extern_call.hide_nav)
                             {
@@ -8059,8 +9766,14 @@ function KProgressBar(txt,fa,onclose,noprogressinformation)
 
 	progressBar.progress = function(perc,text)
 	{
+	    if (perc != -1)
+	    {
 	    	progressBar.$bar.width(perc + "%");			
-			progressBar.$text.text(text);
+	    	noprogressinformation = false;
+	    }
+	    else
+	    	noprogressinformation = true;
+        progressBar.$text.text(text);
 				
 	}
 	progressBar.done = function(text)
@@ -8077,9 +9790,12 @@ function KProgressBar(txt,fa,onclose,noprogressinformation)
     {
         progressBar.blinker_state = 0;
         progressBar.blinker = setInterval(function() {
-            progressBar.blinker_state += 2;
-            progressBar.blinker_state = progressBar.blinker_state % 100;
-            progressBar.$bar.width(progressBar.blinker_state+"%");			
+            if (noprogressinformation)
+            {
+                progressBar.blinker_state += 2;
+                progressBar.blinker_state = progressBar.blinker_state % 100;
+                progressBar.$bar.width(progressBar.blinker_state+"%");			
+            }
         },50);
     }
 
@@ -8188,10 +9904,6 @@ function transpose_array(arr)
 function KCalcPanel(calcset,inputfiles,pinfo)
 {
 
-    
-
-
-
     var panel = KPanel($(document.body), "CalcPanel", "Application panel");
  
     panel.$container.width(400)
@@ -8205,6 +9917,22 @@ function KCalcPanel(calcset,inputfiles,pinfo)
     var $save = $("<div class='modernbutton small green'><i class='fa fa-save'></i>Save all </div>").appendTo(buts)
         
 
+    var during_init = true;
+    function addButton(title,callback)
+    {
+       if (!during_init)
+        return;
+       var $but = $("<div class='modernbutton small green'><i class='fa fa-save'></i>"+title+" </div>").appendTo(buts)
+       $but.click(callback);
+    }
+    function submitFAVjob(name,queue)
+    {
+        if (commandDialog.buildCommandDialog)
+           commandDialog.buildCommandDialog();
+        commandDialog.submitCommandBatch(usercmdlist[name].def,
+             [{piz:currentPSID.patients_id,sid:currentPSID.studies_id}],undefined,true,undefined,queue);
+    }
+
 
     var stats = KViewer.roiTool.computeStats;
 
@@ -8217,8 +9945,12 @@ function KCalcPanel(calcset,inputfiles,pinfo)
         alertify.error("problem in calcpanel code: "+ err.message)
     }
 
+    during_init = false;
+
     $("<div class='roiTool_panel_caption'></div>").appendTo(panel.$container);
     var $div = $("<div class='some'></div>").appendTo(panel.$container);
+
+
 
 
 
@@ -8232,26 +9964,28 @@ function KCalcPanel(calcset,inputfiles,pinfo)
 
     var content = {}
     KForm.createForm(inputform, content, $div, function(e) { });
-
+console.log(content);
     for (var k in inputfiles)
     {
         if (inputfiles[k] != undefined && inputfiles[k].drawAllPoints != undefined)
         {
             var mset = inputfiles[k];
-            var msetpanel = mset.showPanel();
-            var $mtable = msetpanel.$container.find(".markerTable")
-            var $mtpm = msetpanel.$container.find(".markerTemplates")
-            msetpanel.$container.detach();
-            $mtpm.appendTo(panel.$container)
-            $mtable.appendTo(panel.$container)
-            //msetpanel.$container.attr('class','')
+            if (mset.type == 'pointset')
+            {
+                var msetpanel = mset.showPanel();
+                var $mtable = msetpanel.$container.find(".markerTable")
+                var $mtpm = msetpanel.$container.find(".markerTemplates")
+                msetpanel.$container.detach();
+                $mtpm.appendTo(panel.$container)
+                $mtable.appendTo(panel.$container)
+                //msetpanel.$container.attr('class','')
+            }
         }
     }
 
 
     $save.click(function()
     {
-       uploadJSON.askonOverwrite =false
        KViewer.roiTool.saveAllROIs();
        var objs = {};
        for (var k in inputfiles)
@@ -8262,7 +9996,6 @@ function KCalcPanel(calcset,inputfiles,pinfo)
       
             }
        }
-       uploadJSON.askonOverwrite =true
     
 
 
@@ -8319,11 +10052,17 @@ function KCalcPanel(calcset,inputfiles,pinfo)
 
 
             // this does the actual execution of the exec function;
-            var obj = exec(objs,pinfo);
+            var obj = exec(objs,pinfo,inputfiles);
             if (obj != undefined)
             {
+
+                for (k in obj)
+                {
+                    content[k] = obj[k];
+                    content.update(k);                    
+                }
                 content.result = obj.text;
-                content.update();
+                content.update("result");
                 
                 // this compses a json, which can be saved via "save ALL"
                 if (obj.json)
@@ -8353,7 +10092,6 @@ function KCalcPanel(calcset,inputfiles,pinfo)
           panel.lasterr = err.message;
 
        }
-       content.update("result");
     }
 
 
@@ -8413,7 +10151,7 @@ function KJSONEditor(struct, field,  options_in)
 
 	if(options.copybutton)
 	{
-		var $copy= $("<div class='modernbutton small gray' style='position:absolute;top:0;right:10px'><i class='fa fa-copy'></i>copy top clipboard</div>")
+		var $copy= $("<div class='modernbutton small gray' style='position:absolute;top:0;right:10px'><i class='fa fa-copy'></i>copy to clipboard</div>")
 			.appendTo($container).click( function(){jsoneditor.copyText()} );
 	}
 
@@ -8490,7 +10228,7 @@ function KJSONEditor(struct, field,  options_in)
 
 				eval('var parsed  = ' + text );
 				struct[field] = parsed;
-				jsoneditor.JSONstringify();
+				//jsoneditor.JSONstringify();
 			}
 			// this will run the code directly. Difference is, that code is not an object or array, but does return
 			else
@@ -8677,7 +10415,7 @@ KTagPanel = function()
 
 	
 	/******************************************************************
-	  customize --> these values actually come from the markerset!!
+	  state 
 	*******************************************************************/
 	that.state = 
 	{
@@ -8919,7 +10657,7 @@ KTagPanel = function()
 		if(ttt && ttt.getCurrentViewer() && ttt.getCurrentViewer().currentFileID)
 		{
 			tobj = {tag:params.tag,objs:[]};
-			tobj.objs.push(ttt.getCurrentViewer().currentFileID);
+			tobj.objs.push({fileID: ttt.getCurrentViewer().currentFileID});
 			var str = "tag_files";
 			var $filerow = $('.fileRow[data-fileid="' + ttt.getCurrentViewer().currentFileID + '"]');
 
@@ -9033,6 +10771,268 @@ KTagPanel = function()
 
 
 
+
+
+// ======================================================================================
+// ======================================================================================
+// ============= TagPanel
+// ======================================================================================
+// ======================================================================================
+var ktextsearchpanel
+
+KTXTSearchPanel = function()
+{
+	var that = new Object();
+	that.enabled = true;
+
+	/******************************************************************
+	* build the tool
+	*******************************************************************/
+	if(1 && typeof(ktxtsearchpanel) != "undefined" && ktxtsearchpanel != undefined)
+	{
+		ktxtsearchpanel.show();
+		return;
+	}
+	ktxtsearchpanel = that;
+	var $container = $("<div id='KTextSearchPanel"+"' class='markerPanel movableWindows' style='width:auto; min-width:150px;'></div>").appendTo($(document.body));
+
+
+	var pp = getPixelPosition($(document.body));
+	//$container.position({left:"10px", top:"450px"})
+ 	$container.css("left", "10px")
+ 	$container.css("top", "210px"  );
+
+ 	$container.height("auto").width("240px");
+
+    $container.show();
+	/******************************************************************************
+	  tools
+	*******************************************************************************/
+	var $topRow  = that.$topRow = $("<div class='roiTool_panel_flex persistent' style='background: hsl(206, 64%, 37%); padding:2px;' ></div>").appendTo($container);
+	var $caption = $("<span> <b> Text Search </b></span>");
+	var $close = that.$close = $("<i class='KViewPort_tool fa fa-close'></i>").click( function(){that.close()} );
+	$topRow.append($caption).append($("<i class='flexspacer'></i>")).append($close);
+	$topRow.mousedown( function(ev) { movableWindowMousedownFn(ev, $container) } );
+
+	that.close = function()
+	{
+		$container.remove();
+		that.enabled = false;
+	}
+
+	/************************************************
+	* search panel
+	************************************************/
+	var $tools = $("<div class='' style='display:flex;'></div>").appendTo($container)
+	var $inner = $("<div class='KListView' style='display:flex;background:hsl(0,0%,30%)'></div>").appendTo($container)
+	var $left  = $("<div style='flex-grow:1;display:flex;flex-direction:column' class=''></div>").appendTo($inner);
+	var $right = $("<div style='flex-grow:1;background:red'></div>").appendTo($inner);
+
+	$right.hide();
+	$tools.hide();
+
+
+	/************************************************
+	* load Fuse => fuse does not work, too fuzzy
+	************************************************/
+//     scriptLoader.loadScript("./fuse.min.js")
+//         const options = 
+//         {
+//             isCaseSensitive: false,
+//             minMatchCharLength: -2,
+//             includeScore: true,
+//             includeMatches: true,
+//             findAllMatches: true,
+//             ignoreLocation: true,
+//             threshold: 0,
+//             location:0,
+
+//         }
+
+//         var list = [txt];
+//         var list = ["Old eins zwei drei ", "The Lock Artist"]
+//         const fuse = new Fuse(list, options)
+
+//         const result = fuse.search('drei')
+//         console.log(result[0]);
+//var tt = result[0].matches[0].indices[4];
+       // console.log(txt.substr(tt[0], tt[1]-tt[0],))
+
+
+
+	/******************************************************************
+	  state
+	*******************************************************************/
+	that.state = 
+	{
+		visible:true,
+		searchfor:""
+	}
+	
+	// save the taglist in state
+	if(state.txtsearchpanel != undefined)
+	{
+		that.state = state.txtsearchpanel;
+	}
+	else
+	{
+		state.txtsearchpanel = that.state;
+	}
+
+
+    //var sobj =defaultsobj ;
+//     var jsoneditor = new KJSONEditor(sobj, "searchfor",  { parseonblur:true });
+//     $left.append(jsoneditor.$container);
+
+
+	var $textarea = $("<textarea autocorrect='off' autocapitalize='off' spellcheck='false' style='resize:none;flex-grow:1;resize: vertical;height:200px'>"+that.state.searchfor+"</textarea>").appendTo($container).appendTo($left)
+	   .on('change', function(){that.state.searchfor = $textarea.val();})
+	var $dummy = $("<textarea autocorrect='off' readonly=true spellcheck='false' style='resize:none;flex-grow:0;height:120px;background:hsl(0,0%,70%)'>Search is triggered on file reload/autoloader\nUse following Format:\n============\nkeyword1\nkeyword3|keyword4</textarea>").appendTo($container).appendTo($left);
+    //var $dummy = $("<div class='' style='_flex-grow:1;'>tumor<br></br>ACI|MCI</div>").appendTo($left)
+
+     var $sandbox= $("<div class='modernbutton small gray' style=''>sandbox</div>")
+         .click(function(){ $right.toggle() }).appendTo($tools);
+
+     var $preview= $("<div class='modernbutton small green' style=''>preview</div>")
+         .click(function(){ jsoneditor.JSONparse(); runSearch($right) }).appendTo($tools);
+
+	
+	/******************************************************************
+	* close
+	*******************************************************************/
+	that.close = function()
+	{
+		$container.hide();
+		that.enabled = false;
+	}
+
+	
+	/******************************************************************
+	* close
+	*******************************************************************/
+	that.show = function()
+	{
+		$container.show();
+		that.enabled = true;
+	}
+
+
+    return that;
+
+// 	/******************************************************************************
+// 	  tools
+// 	*******************************************************************************/
+// 	var $topRow  = that.$topRow = $("<div class='roiTool_panel_flex persistent' style='background: hsl(206, 64%, 37%); padding:2px;' ></div>").appendTo($container);
+// 	var $caption = $("<span> <b> TagPanel </b></span>");
+// 	var $close = that.$close = $("<i class='KViewPort_tool fa fa-close'></i>").click( that.close );
+// 	$topRow.append($caption).append($("<i class='flexspacer'></i>")).append($close);
+// 	$topRow.mousedown( function(ev) { movableWindowMousedownFn(ev, $container) } );
+
+
+// 	/******************************************************************************
+// 	  toggle a stat var
+// 	*******************************************************************************/
+// 	function switch_enabled(prop, force, invert)
+// 	{
+// 		that.state[prop] = typeof(force)!=="boolean"?(that.state[prop]?false:true):force;
+// 		btns["$"+prop][that.state[prop]?"addClass":"removeClass"]('KViewPort_tool_enabled');
+// 		return that.state[prop];
+// 	}
+	
+// 	return that;
+}	
+/************************************************
+* run search
+************************************************/
+function KTXTSearchPanel_runSearch(txt, $div)
+{
+    /************************************************
+    * parse items in certain format
+    ************************************************/
+    function parseSearchItems()
+    {
+        var lines = state.txtsearchpanel.searchfor.split("\n");
+        var searchfor = []
+        for(var k=0; k<lines.length; k++)
+        {
+            if(lines[k].trim() != "")
+            {
+                var tkeyword = lines[k];
+                searchfor.push(tkeyword);
+            }
+        }
+        return searchfor;
+    }
+
+    var lorem = "Super befund Text aus enem Structuriertem Frakturanzeichen befund ";
+
+    txt = txt || lorem;
+
+    // walk over all searched items
+    var tlist = [];
+    var searchfor = parseSearchItems();
+    for(var k in searchfor)
+    {
+        if(typeof(searchfor[k]) == "string")
+            var kw = searchfor[k].replace(" ", '\\s');
+        else
+            var kw = searchfor[k].keywords.replace(" ", '\\s');
+
+
+        var rr = new RegExp(kw, "g");
+        var matches = txt.matchAll(rr);
+        for (const tmatch of matches) 
+        {
+            //console.log(tmatch)
+            tlist.push({start:tmatch.index, length: tmatch[0].length, index:k, word:tmatch[0]});
+        }
+
+    }
+    // sort match indexes
+    tlist = tlist.sort(function(a,b){return (a.start<b.start?-1:1) });
+    var htxt = "";
+    var tind = 0;
+    var bgopac = 1;
+    var colorlist = 
+    [
+        "255,100,255",
+        "100,255,255",
+        "55,255,55",
+        "255,0,0",
+        "195,195,255",
+        "100,100,255",
+    ]
+
+    for(var k=0; k<tlist.length; k++)
+    {
+        var tt = tlist[k];
+        var tcolor =  tt.color;
+        var tcolor = colorlist[tt.index%(colorlist.length-1)];
+
+        htxt += txt.substr(tind, tt.start-tind);
+        //tstyle = "background:"+ tt.color +";";
+        var tstyle = "";
+        tstyle += "position:relative;";
+        tstyle += "font-weight:bold"
+
+        tstyle += "scolor:" +  tcolor +";";
+        tstyle += "background-color:rgba("+tcolor+","+ bgopac +");";
+
+        htxt += "<span style='" + tstyle +"'>";
+        htxt += txt.substr(tt.start, tt.length);
+        //htxt += "<div style='position:absolue; top:5px:background:"+tcolor+"'>";
+        htxt += "</span>";
+        tind = tt.start+tt.length;
+    }
+    htxt += txt.substr(tind, txt.length-tind);
+    //console.log(txt);
+    //console.log(htxt);
+
+   if($div != undefined)
+       $div.html(htxt);
+   return htxt
+
+}
 
 
 
@@ -9181,7 +11181,7 @@ function KExcelFunctions()
 
 		whichtable.obj = {};
 
-		var rows = txt.split("\n");
+		var rows = txt.split(/[\n\ ]/g);
 		var trow, cells, uid, val, xx
 		var obj = {};
 		whichtable.doublettes = 0;
@@ -9338,6 +11338,17 @@ function KExcelFunctions()
 	return that;
 }
 
+
+function getCurrentAnalysisFolders() {
+    if (getCurrentAnalysisFolders.analysisfolders == undefined)
+        getCurrentAnalysisFolders.analysisfolders = {}
+    for (var k = 0; k < all_analysis.length; k++)
+        getCurrentAnalysisFolders.analysisfolders[all_analysis[k]] = true;
+
+    return Object.keys(getCurrentAnalysisFolders.analysisfolders);
+}
+
+
 function setNORAenv(toadd)
 {
     var p = {}
@@ -9386,5 +11397,164 @@ function setNORAenv(toadd)
     {
          window[k] = toadd[k]
     }
+
+}
+
+function generateRandomString(N)
+{
+
+    var s = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    return Array(N).join().split(',').map(function() { return s.charAt(Math.floor(Math.random() * s.length)); }).join('');
+}
+
+
+function moveObjKey(a,b,obj)
+{
+    var tmp = {}
+    var tomove;
+    for (var k in obj)
+        {
+            if (k==a)
+                tomove = obj[k];
+            else
+                tmp[k] = obj[k];
+            delete obj[k]
+        }
+    for (var k in tmp)
+        {
+            obj[k] = tmp[k]            
+            if (k==b)
+                obj[a] = tomove;
+        }
+    
+}
+
+
+
+function draghint(element,text)
+{
+    var $div;
+    element.addEventListener("dragover",function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if ($div != undefined)
+            return;
+        $div = $("<div id='standardTooltip'> " + text + " </div>");
+        $div.css("top", event.clientY);
+        $div.appendTo($(document.body));
+        $div.css("left", event.clientX -$div.width()-20);
+        if ($div.position().left + $div.width() > $(document.body).width())
+        {
+            $div.css('left', $(document.body).width() - $div.width() - 10);
+            $div.css('top', $div.position().top + 15);
+        }
+        if ($div.position().top + $div.height() > $(document.body).height())
+            $div.css('top', $(document.body).height() - $div.height() - 10);
+        
+
+        $(event.target).parent().find("input,textarea").addClass("KCmdToDrop")
+
+    });
+    element.addEventListener("drop",function(event) {  
+            $(event.target).parent().find("input,textarea").removeClass("KCmdToDrop")
+            if ($div != undefined)
+                $div.remove()
+            $("#standardTooltip").remove()
+            $div = undefined 
+    })
+
+    element.addEventListener("dragleave",function(event) {
+        $(event.target).parent().find("input,textarea").removeClass("KCmdToDrop")
+
+        if ($div != undefined)
+        {
+            $div.remove();
+            $("#standardTooltip").remove()
+            $div = undefined;
+        }
+    })
+
+}
+
+
+function sertry(...args)
+{
+    for (var k = 0; k < args.length;k++)
+    {
+        try {
+            var res = args[k]();
+            return res;
+        }
+        catch(err)
+        {
+            if (k==args.length-1)
+                throw err; 
+        }
+    }
+}
+function tryit(f)
+{
+    try {
+       var ret = f();
+       return ret; 
+    }
+    catch(err)
+    {
+        
+    }
+}
+
+
+
+function waitFor(condition,interval,fun)
+{
+    var cid = setInterval(function()
+                          {
+                              if (condition())
+                              {
+                                  fun()
+                                  clearInterval(cid)
+                                  return;
+                              }
+                          },interval)
+    
+}
+
+
+
+function addWorkstatePostCode()
+{
+
+        popupView({fileID:"WorkstatePostCode",
+                   filename:"WorkstatePostCode",
+                   contentType:"txt"}
+                  ,{intent:{singleview:true}})
+  
+    
+}
+
+function appendSVGtoViewport(name,vp,callback)
+{
+    var jv = KViewer.viewports[vp].getCurrentViewer().$container
+
+    $.get(name,function(e) { 
+        var svg=e;
+        var svg0;
+        KViewer.viewports[vp].getCurrentViewer().$container.find("svg").remove();
+        if (typeof svg == "string")
+        {
+            var tmp = $("<div>" + svg + "</div>").find("svg")
+            svg0 = tmp[0];
+            jv.append(tmp)
+        }
+        else
+        {
+            svg0 = svg.documentElement;
+            jv.append(svg0)
+        }
+
+        if (callback)
+            callback(svg0);
+         })
 
 }

@@ -2,9 +2,21 @@ import asyncio
 import json
 import os
 import pyodide_js
-from js import XMLHttpRequest, File, FormData, fetch, Promise
+from js import XMLHttpRequest, File, FormData, fetch
 from pyodide.ffi import create_proxy, to_js
 
+# identifer types
+IDENTIFIER_TYPES = {
+    "hid": "hid-eq",
+    "name": "name-contains",
+    "tag": "tag-eq",
+}
+
+# text extensions
+TEXT_EXTENSIONS = {
+    "csv", "bed", "fasta", "fastq", "gff", "gtf", "json",
+    "tabular", "tsv", "txt", "sam", "vcf", "xml", "yaml"
+}
 
 async def api(endpoint, method="GET", data=None):
     """
@@ -33,7 +45,7 @@ async def api(endpoint, method="GET", data=None):
         return text
 
 
-async def get(datasets_identifiers, identifier_type='hid', history_id=None, retrieve_datatype=False):
+async def get(datasets_identifiers, identifier_type="hid", history_id=None, retrieve_datatype=False):
     """
     Downloads dataset(s) from the current Galaxy history.
     In JupyterLite, saves files to virtual filesystem using `open()`.
@@ -43,62 +55,49 @@ async def get(datasets_identifiers, identifier_type='hid', history_id=None, retr
         - Optionally, datatype(s) if `retrieve_datatype=True`
     """
 
+    # download datasets by id without filtering
+    datasets = []
+    if identifier_type == "id":
+        if not isinstance(datasets_identifiers, list):
+            datasets_identifiers = [datasets_identifiers]
+        for identifers in datasets_identifiers:
+            ds = await api(f"/api/datasets/{identifers}")
+            datasets.append(ds)
+    else:
+        # collect all datasets from the history
+        history_id = history_id or await get_history_id()
+        history_datasets = await get_history(history_id, datasets_identifiers, identifier_type)
+
+        # backend vs client filtered results
+        if _is_api_filter(datasets_identifiers, identifier_type):
+            datasets = history_datasets
+        else:
+            # convert to list
+            if not isinstance(datasets_identifiers, list):
+                datasets_identifiers = [datasets_identifiers]
+            # match regex
+            if identifier_type == "regex":
+                datasets = _find_matching_datasets(history_datasets, datasets_identifiers)
+            else:
+                # match attributes
+                for ds in history_datasets:
+                    if identifier_type not in ds:
+                        raise Exception(f"Unavailable dataset identifier type: {identifier_type}")
+                    if ds[identifier_type] in datasets_identifiers:
+                        datasets.append(ds)
+
+    # download datasets
     file_path_all = []
     datatypes_all = []
-
-    # collect all datasets from the history
-    history_id = history_id or await get_history_id()
-    history_datasets = await get_history(history_id)
-
-    # filter datasets
-    if not isinstance(datasets_identifiers, list):
-        datasets_identifiers = [datasets_identifiers]
-    if identifier_type == "regex":
-        identifier_type = "hid"
-        datasets_identifiers = _find_matching_ids(history_datasets, datasets_identifiers, identifier_type)
-
-    # ensure directory
-    os.makedirs(f"/{history_id}", exist_ok=True)
-
-    # index datasets
-    datasets = {ds[identifier_type]: ds for ds in history_datasets}
-
-    # download filtered datasets
-    for dataset_id in datasets_identifiers:
-        if identifier_type == "hid":
-            dataset_id = int(dataset_id)
-        if dataset_id not in datasets:
-            raise Exception(f"Unavailable dataset identifer: {dataset_id}")
-        ds = datasets[dataset_id]
-        path = f"/{history_id}/{dataset_id}"
-
-        # download only if not already written
-        if not os.path.exists(path):
-            if ds["history_content_type"] == "dataset":
-                url = get_api(f"/api/datasets/{ds['id']}/display")
-                response = await fetch(url)
-                if not response.ok:
-                    raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
-                content_type = response.headers.get("Content-Type", "")
-                if content_type.startswith("text/"):
-                    content = await response.text()
-                    with open(path, "w") as f:
-                        f.write(content)
-                else:
-                    buffer = await response.arrayBuffer()
-                    data = bytearray(buffer.to_py())
-                    with open(path, "wb") as f:
-                        f.write(data)
-                file_path_all.append(path)
-            elif ds["history_content_type"] == "dataset_collection":
-                raise Exception("Not implemented.")
-        else:
-            file_path_all.append(path)
+    for ds in datasets:
+        path = await _download_dataset(ds)
+        file_path_all.append(path)
         if retrieve_datatype:
-            datatypes_all.append({dataset_id: ds["extension"]})
+            datatypes_all.append({ds["id"]: ds["extension"]})
+
     if retrieve_datatype:
         if len(file_path_all) == 1:
-            return file_path_all, datatypes_all[0][dataset_id]
+            return file_path_all, datatypes_all[0][ds["id"]]
         else:
             datatype_multi = {}
             for dt in datatypes_all:
@@ -124,22 +123,6 @@ def get_api(url):
     return f"{root}/api/{trimmed}"
 
 
-async def get_history(history_id=None):
-    """
-       Get all visible dataset infos of user history.
-       Return a list of dict of each dataset.
-    """
-    import json
-    from js import fetch
-    history_id = history_id or await get_history_id()
-    url = get_api(f"/api/histories/{history_id}/contents")
-    response = await fetch(url)
-    if not response.ok:
-        raise Exception(f"Failed to fetch history {history_id}: {response.status}")
-    text = await response.text()
-    return json.loads(text)
-
-
 def get_environment():
     """
     Returns the Galaxy environment configuration injected into the runtime.
@@ -149,25 +132,39 @@ def get_environment():
     raise RuntimeError("__gxy__ not found in environment")
 
 
+async def get_history(history_id=None, datasets_identifiers=None, identifier_type=None):
+    """
+       Get all visible dataset infos of user history.
+       Return a list of dict of each dataset.
+    """
+    import json
+    from js import fetch
+
+    # identify target history
+    history_id = history_id or await get_history_id()
+
+    # use backend filtering if single identifer from map is provided
+    query = ""
+    if _is_api_filter(datasets_identifiers, identifier_type):
+        query = f"?v=dev&q={IDENTIFIER_TYPES[identifier_type]}&qv={datasets_identifiers}"
+    url = get_api(f"/api/histories/{history_id}/contents{query}")
+
+    # perform request
+    response = await fetch(url)
+    if not response.ok:
+        raise Exception(f"Failed to fetch history {history_id}: {response.status}")
+    text = await response.text()
+    return json.loads(text)
+
+
 async def get_history_id():
     """
     Returns the history ID associated with the current dataset.
     """
-    gxy = get_environment()
-    dataset_id = gxy.get("dataset_id")
-    if not dataset_id:
-        raise ValueError("Missing 'dataset_id' in gxy")
-    url = get_api(f"/api/datasets/{dataset_id}")
-    response = await fetch(url)
-    if not response.ok:
-        raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
-    text = await response.text()
-    data = json.loads(text)
-    if "history_id" not in data:
-        raise ValueError("Missing 'history_id' in dataset metadata", text)
-    history_id = data["history_id"]
+    environment = get_environment()
+    history_id = environment.get("history_id")
     if not history_id:
-        raise ValueError("Undefined 'history_id' in dataset metadata", text)
+        raise ValueError("Missing 'history_id' in environment")
     return history_id
 
 
@@ -200,36 +197,76 @@ async def put(name, output=None, ext="auto", dbkey="?", history_id=None):
     xhr.open("POST", get_api("/api/tools/fetch"))
     xhr.send(form)
     response = await future
-    return response.responseText
+    try:
+        return json.loads(response.responseText)
+    except Exception:
+        return response.responseText
 
 
-def _find_matching_ids(history_datasets, list_of_regex_patterns, identifier_type='hid'):
+async def _download_dataset(dataset):
     """
-    Given a list of regex patterns, return matching dataset HIDs or IDs
+    Given a dataset object, its content is downloaded from Galaxy and stored in Pyodide’s virtual filesystem.
+
+    Args:
+        dataset: Object of dataset
+
+    Returns:
+        String path of stored file
+    """
+    dataset_id = dataset['id']
+    extension = dataset['extension']
+    hid = dataset['hid']
+    history_content_type = dataset["history_content_type"]
+
+    # prep output file
+    is_text = extension in TEXT_EXTENSIONS
+    file_type = "txt" if is_text else "dat"
+    file_name = f"{hid}.{extension}.{dataset_id}.{file_type}"
+
+    # download only if not already written
+    if not os.path.exists(file_name):
+        if history_content_type == "dataset":
+            url = get_api(f"/api/datasets/{dataset_id}/display")
+            response = await fetch(url)
+            if not response.ok:
+                raise Exception(f"Failed to fetch dataset {dataset_id}: {response.status}")
+            buffer = await response.arrayBuffer()
+            data = bytes(bytearray(buffer.to_py()))
+            with open(file_name, "wb") as f:
+                f.write(data)
+        elif history_content_type == "dataset_collection":
+            raise Exception("Not implemented.")
+
+    return file_name
+
+
+def _find_matching_datasets(history_datasets, list_of_regex_patterns):
+    """
+    Given a list of regex patterns, return matching dataset objects
     from the current Galaxy history.
 
     Args:
         list_of_regex_patterns: List of strings (regexes)
-        identifier_type: 'hid' or 'id'
-        history_id: Optional history ID
 
     Returns:
-        List of matching identifiers (hid or id)
+        List of matching dataset objects (non-redundant)
     """
     import re
     if isinstance(list_of_regex_patterns, str):
         list_of_regex_patterns = [list_of_regex_patterns]
     patterns = [re.compile(pat, re.IGNORECASE) for pat in list_of_regex_patterns]
-    matching_ids = []
+    matching_datasets = {}
     for dataset in history_datasets:
         fname = dataset["name"]
         fid = dataset["id"]
-        fhid = dataset["hid"]
         for pat in patterns:
-            if pat.match(fname):
-                print(f"🔍 Matched pattern on item {fhid} ({fid}): '{fname}'")
-                matching_ids.append(fhid if identifier_type == "hid" else fid)
-    return list(set(matching_ids))
+            if pat.search(fname):
+                print(f"🔍 Matched pattern on item {fid}: '{fname}'")
+                matching_datasets[fid] = dataset
+    return list(matching_datasets.values())
 
+
+def _is_api_filter(datasets_identifiers, identifier_type):
+    return identifier_type in IDENTIFIER_TYPES and not isinstance(datasets_identifiers, list) and datasets_identifiers
 
 __all__ = ["api", "get", "get_environment", "get_history", "get_history_id", "put"]

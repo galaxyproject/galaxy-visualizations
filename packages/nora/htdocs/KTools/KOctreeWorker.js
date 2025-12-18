@@ -1,8 +1,11 @@
+try {
 importScripts("../KMiscFuns.js");
 importScripts("../kmath.js");
 importScripts("../KTools/KObject3DTool.js");
 importScripts("../KView/KMedImageViewer.js");
-
+}
+catch(err)
+{}
 self.addEventListener('message', function(e) {
 	
 	var execObj = e.data;

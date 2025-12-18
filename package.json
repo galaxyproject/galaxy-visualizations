@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "repository": "git@github.com:galaxyproject/galaxy-visualizations.git",
-  "author": "Dannon Baker <dannon.baker@gmail.com>",
+  "author": "Galaxy Contributors",
   "license": "MIT",
   "devDependencies": {
     "lerna": "^4.0.0"

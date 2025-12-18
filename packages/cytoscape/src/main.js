@@ -19,13 +19,19 @@ async function main() {
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             visualization_config: {
-                // Placeholder for dataset URL (can be replaced during actual development)
-                dataset_url:
-                    "https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/refs/heads/master/cytoscape.json",
                 // Placeholder for dataset ID
-                dataset_id: "MY_DATASET_ID",
+                dataset_id: process.env.dataset_id || "__test__",
                 // Placeholder for additional visualization settings
-                settings: {},
+                settings: {
+                    curve_style: "bezier",
+                    layout_name: "preset",
+                    directed: false,
+                    search_algorithm: undefined,
+                    graph_traversal: undefined,
+                    color_picker_nodes: "#C00000",
+                    color_picker_edges: "#2bff00ff",
+                    color_picker_highlighted: "#003cffff",
+                },
             },
             // Parse and load the visualization XML configuration
             visualization_plugin: await parseXML("cytoscape.xml"),

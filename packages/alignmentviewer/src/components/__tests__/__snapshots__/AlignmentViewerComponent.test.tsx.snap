@@ -1,0 +1,628 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`AlignmentViewer Should render 1`] = `
+<div
+  className="alignment-viewer"
+>
+  <div
+    className="minimap"
+    style={
+      Object {
+        "display": "none",
+      }
+    }
+  >
+    <Provider
+      store={
+        Object {
+          "dispatch": [Function],
+          "getState": [Function],
+          "replaceReducer": [Function],
+          "subscribe": [Function],
+          Symbol(observable): [Function],
+        }
+      }
+    >
+      <MiniMap
+        alignHorizontal="right"
+        alignment={
+          Alignment {
+            "aceEditorMode": undefined,
+            "allUpperAlphaLettersInAlignmentSorted": Array [],
+            "consensus": Object {
+              "id": "consensus",
+              "sequence": "",
+            },
+            "globalAlphaLetterCounts": Object {},
+            "maxSequenceLength": NaN,
+            "name": "",
+            "positionalLetterCounts": Map {},
+            "predictedNT": true,
+            "querySequence": undefined,
+            "sequences": Map {
+              SequenceSorter {
+                "description": "As input",
+                "isQuerySequenceDependent": false,
+                "key": "as-input",
+                "sortFn": [Function],
+                "targetAlignmentType": "both",
+              } => Array [],
+            },
+            "uuid": "10000000-1000-4000-8000-100000000000",
+          }
+        }
+        alignmentStyle={
+          NucleotideAlignmentStyle {
+            "alignmentType": AlignmentTypes {
+              "allColorSchemes": Array [
+                Object {
+                  "backgroundAlpha": 0.25,
+                  "backgroundColorsLightTheme": Object {
+                    "": "",
+                  },
+                  "className": "mock-nt-class",
+                  "colors": Object {
+                    "": "",
+                  },
+                  "commonName": "Default",
+                  "defaultLetterColor": "#ffffff",
+                  "description": "mock-nt-style-desc",
+                  "letterColorsDarkTheme": Object {
+                    "": "",
+                  },
+                },
+              ],
+              "className": undefined,
+              "description": "Nucleotide Sequences",
+              "key": "nucleotide-alignment",
+            },
+            "allColorSchemes": Array [
+              Object {
+                "backgroundAlpha": 0.25,
+                "backgroundColorsLightTheme": Object {
+                  "": "",
+                },
+                "className": "mock-nt-class",
+                "colors": Object {
+                  "": "",
+                },
+                "commonName": "Default",
+                "defaultLetterColor": "#ffffff",
+                "description": "mock-nt-style-desc",
+                "letterColorsDarkTheme": Object {
+                  "": "",
+                },
+              },
+            ],
+            "colorScheme": Object {
+              "backgroundAlpha": 0.25,
+              "backgroundColorsLightTheme": Object {
+                "": "",
+              },
+              "className": "mock-nt-class",
+              "colors": Object {
+                "": "",
+              },
+              "commonName": "Default",
+              "defaultLetterColor": "#ffffff",
+              "description": "mock-nt-style-desc",
+              "letterColorsDarkTheme": Object {
+                "": "",
+              },
+            },
+            "positionsToStyle": PositionsToStyle {
+              "className": undefined,
+              "description": "All",
+              "key": "all",
+            },
+            "residueDetail": ResidueStyle {
+              "className": undefined,
+              "description": "Light",
+              "key": "light",
+            },
+          }
+        }
+        resizable="horizontal"
+        sortBy={
+          SequenceSorter {
+            "description": "As input",
+            "isQuerySequenceDependent": false,
+            "key": "as-input",
+            "sortFn": [Function],
+            "targetAlignmentType": "both",
+          }
+        }
+        startingWidth={100}
+        verticalHeight="div"
+      />
+    </Provider>
+  </div>
+  <div
+    className="av-widget av-barplot-holder"
+    key="0-entropy|gaps"
+  >
+    <div
+      className="av-annotation"
+    >
+      Entropy / Gaps
+    </div>
+    <div
+      className="av-content"
+    >
+      <SequenceBarplotComponent
+        alignment={
+          Alignment {
+            "aceEditorMode": undefined,
+            "allUpperAlphaLettersInAlignmentSorted": Array [],
+            "consensus": Object {
+              "id": "consensus",
+              "sequence": "",
+            },
+            "globalAlphaLetterCounts": Object {},
+            "maxSequenceLength": NaN,
+            "name": "",
+            "positionalLetterCounts": Map {},
+            "predictedNT": true,
+            "querySequence": undefined,
+            "sequences": Map {
+              SequenceSorter {
+                "description": "As input",
+                "isQuerySequenceDependent": false,
+                "key": "as-input",
+                "sortFn": [Function],
+                "targetAlignmentType": "both",
+              } => Array [],
+            },
+            "uuid": "10000000-1000-4000-8000-100000000000",
+          }
+        }
+        dataSeriesSet={
+          Array [
+            Object {
+              "color": "#000000",
+              "cssClass": "barplot-shannon-entropy",
+              "getBars": [Function],
+              "id": "entropy",
+              "name": "Entropy",
+              "plotOptions": Object {
+                "fixYMax": [Function],
+              },
+            },
+            Object {
+              "color": "#b7b7b7",
+              "cssClass": "barplot-gaps",
+              "getBars": [Function],
+              "id": "gaps",
+              "name": "Gaps",
+              "plotOptions": Object {
+                "fixYMax": [Function],
+              },
+            },
+          ]
+        }
+        height="100px"
+        positionWidth={0}
+        scrollerLoaded={[Function]}
+        scrollerUnloaded={[Function]}
+      />
+    </div>
+  </div>
+  <div
+    className="av-widget av-sequence-logo-holder"
+  >
+    <div
+      className="av-annotation"
+    >
+      Logo:
+    </div>
+    <div
+      className="av-content"
+    >
+      <SequenceLogoComponent
+        alignment={
+          Alignment {
+            "aceEditorMode": undefined,
+            "allUpperAlphaLettersInAlignmentSorted": Array [],
+            "consensus": Object {
+              "id": "consensus",
+              "sequence": "",
+            },
+            "globalAlphaLetterCounts": Object {},
+            "maxSequenceLength": NaN,
+            "name": "",
+            "positionalLetterCounts": Map {},
+            "predictedNT": true,
+            "querySequence": undefined,
+            "sequences": Map {
+              SequenceSorter {
+                "description": "As input",
+                "isQuerySequenceDependent": false,
+                "key": "as-input",
+                "sortFn": [Function],
+                "targetAlignmentType": "both",
+              } => Array [],
+            },
+            "uuid": "10000000-1000-4000-8000-100000000000",
+          }
+        }
+        glyphWidth={0}
+        height="100px"
+        logoType="Bar Plot"
+        scrollerLoaded={[Function]}
+        scrollerUnloaded={[Function]}
+        style={
+          NucleotideAlignmentStyle {
+            "alignmentType": AlignmentTypes {
+              "allColorSchemes": Array [
+                Object {
+                  "backgroundAlpha": 0.25,
+                  "backgroundColorsLightTheme": Object {
+                    "": "",
+                  },
+                  "className": "mock-nt-class",
+                  "colors": Object {
+                    "": "",
+                  },
+                  "commonName": "Default",
+                  "defaultLetterColor": "#ffffff",
+                  "description": "mock-nt-style-desc",
+                  "letterColorsDarkTheme": Object {
+                    "": "",
+                  },
+                },
+              ],
+              "className": undefined,
+              "description": "Nucleotide Sequences",
+              "key": "nucleotide-alignment",
+            },
+            "allColorSchemes": Array [
+              Object {
+                "backgroundAlpha": 0.25,
+                "backgroundColorsLightTheme": Object {
+                  "": "",
+                },
+                "className": "mock-nt-class",
+                "colors": Object {
+                  "": "",
+                },
+                "commonName": "Default",
+                "defaultLetterColor": "#ffffff",
+                "description": "mock-nt-style-desc",
+                "letterColorsDarkTheme": Object {
+                  "": "",
+                },
+              },
+            ],
+            "colorScheme": Object {
+              "backgroundAlpha": 0.25,
+              "backgroundColorsLightTheme": Object {
+                "": "",
+              },
+              "className": "mock-nt-class",
+              "colors": Object {
+                "": "",
+              },
+              "commonName": "Default",
+              "defaultLetterColor": "#ffffff",
+              "description": "mock-nt-style-desc",
+              "letterColorsDarkTheme": Object {
+                "": "",
+              },
+            },
+            "positionsToStyle": PositionsToStyle {
+              "className": undefined,
+              "description": "All",
+              "key": "all",
+            },
+            "residueDetail": ResidueStyle {
+              "className": undefined,
+              "description": "Light",
+              "key": "light",
+            },
+          }
+        }
+      />
+    </div>
+  </div>
+  <div
+    className="av-widget av-consensus-seq-holder"
+  >
+    <div
+      className="av-annotation"
+    >
+      Consensus:
+    </div>
+    <div
+      className="av-content"
+    >
+      <div
+        className="consensusseq-box"
+      >
+        <AceConsensusSequenceComponent
+          alignment={
+            Alignment {
+              "aceEditorMode": undefined,
+              "allUpperAlphaLettersInAlignmentSorted": Array [],
+              "consensus": Object {
+                "id": "consensus",
+                "sequence": "",
+              },
+              "globalAlphaLetterCounts": Object {},
+              "maxSequenceLength": NaN,
+              "name": "",
+              "positionalLetterCounts": Map {},
+              "predictedNT": true,
+              "querySequence": undefined,
+              "sequences": Map {
+                SequenceSorter {
+                  "description": "As input",
+                  "isQuerySequenceDependent": false,
+                  "key": "as-input",
+                  "sortFn": [Function],
+                  "targetAlignmentType": "both",
+                } => Array [],
+              },
+              "uuid": "10000000-1000-4000-8000-100000000000",
+            }
+          }
+          classNames="ace-consensusseq    mock-nt-class"
+          editorLoaded={[Function]}
+          fontSize={13}
+          sortBy={
+            SequenceSorter {
+              "description": "As input",
+              "isQuerySequenceDependent": false,
+              "key": "as-input",
+              "sortFn": [Function],
+              "targetAlignmentType": "both",
+            }
+          }
+        />
+      </div>
+    </div>
+  </div>
+  <div
+    className="av-widget av-query-seq-holder"
+  >
+    <div
+      className="av-annotation"
+    >
+      Query:
+    </div>
+    <div
+      className="av-content"
+    >
+      <div
+        className="queryseq-box"
+      >
+        <AceQuerySequenceComponent
+          alignment={
+            Alignment {
+              "aceEditorMode": undefined,
+              "allUpperAlphaLettersInAlignmentSorted": Array [],
+              "consensus": Object {
+                "id": "consensus",
+                "sequence": "",
+              },
+              "globalAlphaLetterCounts": Object {},
+              "maxSequenceLength": NaN,
+              "name": "",
+              "positionalLetterCounts": Map {},
+              "predictedNT": true,
+              "querySequence": undefined,
+              "sequences": Map {
+                SequenceSorter {
+                  "description": "As input",
+                  "isQuerySequenceDependent": false,
+                  "key": "as-input",
+                  "sortFn": [Function],
+                  "targetAlignmentType": "both",
+                } => Array [],
+              },
+              "uuid": "10000000-1000-4000-8000-100000000000",
+            }
+          }
+          characterSizeChanged={[Function]}
+          classNames="ace-queryseq    mock-nt-class"
+          editorLoaded={[Function]}
+          fontSize={13}
+          sortBy={
+            SequenceSorter {
+              "description": "As input",
+              "isQuerySequenceDependent": false,
+              "key": "as-input",
+              "sortFn": [Function],
+              "targetAlignmentType": "both",
+            }
+          }
+        />
+      </div>
+    </div>
+  </div>
+  <div
+    className="av-widget av-position-indicator-holder"
+  >
+    <div
+      className="av-annotation"
+    >
+      Position:
+    </div>
+    <div
+      className="av-content"
+    >
+      <div
+        className="position-box"
+      >
+        <AceTextualRulerComponent
+          alignment={
+            Alignment {
+              "aceEditorMode": undefined,
+              "allUpperAlphaLettersInAlignmentSorted": Array [],
+              "consensus": Object {
+                "id": "consensus",
+                "sequence": "",
+              },
+              "globalAlphaLetterCounts": Object {},
+              "maxSequenceLength": NaN,
+              "name": "",
+              "positionalLetterCounts": Map {},
+              "predictedNT": true,
+              "querySequence": undefined,
+              "sequences": Map {
+                SequenceSorter {
+                  "description": "As input",
+                  "isQuerySequenceDependent": false,
+                  "key": "as-input",
+                  "sortFn": [Function],
+                  "targetAlignmentType": "both",
+                } => Array [],
+              },
+              "uuid": "10000000-1000-4000-8000-100000000000",
+            }
+          }
+          classNames="ace-positions"
+          editorLoaded={[Function]}
+          fontSize={13}
+        />
+      </div>
+    </div>
+  </div>
+  <div
+    className="av-widget webgl-alignment-holder"
+  >
+    <div
+      className="av-annotation"
+    >
+      WEBGL:
+    </div>
+    <div
+      className="av-content"
+    >
+      <Provider
+        store={
+          Object {
+            "dispatch": [Function],
+            "getState": [Function],
+            "replaceReducer": [Function],
+            "subscribe": [Function],
+            Symbol(observable): [Function],
+          }
+        }
+      >
+        <AlignmentDetails
+          alignment={
+            Alignment {
+              "aceEditorMode": undefined,
+              "allUpperAlphaLettersInAlignmentSorted": Array [],
+              "consensus": Object {
+                "id": "consensus",
+                "sequence": "",
+              },
+              "globalAlphaLetterCounts": Object {},
+              "maxSequenceLength": NaN,
+              "name": "",
+              "positionalLetterCounts": Map {},
+              "predictedNT": true,
+              "querySequence": undefined,
+              "sequences": Map {
+                SequenceSorter {
+                  "description": "As input",
+                  "isQuerySequenceDependent": false,
+                  "key": "as-input",
+                  "sortFn": [Function],
+                  "targetAlignmentType": "both",
+                } => Array [],
+              },
+              "uuid": "10000000-1000-4000-8000-100000000000",
+            }
+          }
+          alignmentStyle={
+            NucleotideAlignmentStyle {
+              "alignmentType": AlignmentTypes {
+                "allColorSchemes": Array [
+                  Object {
+                    "backgroundAlpha": 0.25,
+                    "backgroundColorsLightTheme": Object {
+                      "": "",
+                    },
+                    "className": "mock-nt-class",
+                    "colors": Object {
+                      "": "",
+                    },
+                    "commonName": "Default",
+                    "defaultLetterColor": "#ffffff",
+                    "description": "mock-nt-style-desc",
+                    "letterColorsDarkTheme": Object {
+                      "": "",
+                    },
+                  },
+                ],
+                "className": undefined,
+                "description": "Nucleotide Sequences",
+                "key": "nucleotide-alignment",
+              },
+              "allColorSchemes": Array [
+                Object {
+                  "backgroundAlpha": 0.25,
+                  "backgroundColorsLightTheme": Object {
+                    "": "",
+                  },
+                  "className": "mock-nt-class",
+                  "colors": Object {
+                    "": "",
+                  },
+                  "commonName": "Default",
+                  "defaultLetterColor": "#ffffff",
+                  "description": "mock-nt-style-desc",
+                  "letterColorsDarkTheme": Object {
+                    "": "",
+                  },
+                },
+              ],
+              "colorScheme": Object {
+                "backgroundAlpha": 0.25,
+                "backgroundColorsLightTheme": Object {
+                  "": "",
+                },
+                "className": "mock-nt-class",
+                "colors": Object {
+                  "": "",
+                },
+                "commonName": "Default",
+                "defaultLetterColor": "#ffffff",
+                "description": "mock-nt-style-desc",
+                "letterColorsDarkTheme": Object {
+                  "": "",
+                },
+              },
+              "positionsToStyle": PositionsToStyle {
+                "className": undefined,
+                "description": "All",
+                "key": "all",
+              },
+              "residueDetail": ResidueStyle {
+                "className": undefined,
+                "description": "Light",
+                "key": "light",
+              },
+            }
+          }
+          fontSize={13}
+          residueWidth={10}
+          scrollerLoaded={[Function]}
+          scrollerUnloaded={[Function]}
+          sortBy={
+            SequenceSorter {
+              "description": "As input",
+              "isQuerySequenceDependent": false,
+              "key": "as-input",
+              "sortFn": [Function],
+              "targetAlignmentType": "both",
+            }
+          }
+        />
+      </Provider>
+    </div>
+  </div>
+</div>
+`;
