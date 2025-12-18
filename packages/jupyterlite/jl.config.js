@@ -12,7 +12,7 @@ const INJECTION = `
     config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
         __gxy__: JSON.stringify(searchParams)
     };
-    config.settingsOverrides ||= {};
+    config.settingsOverrides = {};
     config.settingsOverrides[AI_SETTINGS] = {
         defaultProvider: "jnaut",
         useSameProviderForChatAndCompleter: false,
@@ -32,7 +32,7 @@ const INJECTION = `
 // Read contents
 const file = path.resolve("static/dist/_output/config-utils.js");
 if (!fs.existsSync(file)) {
-    console.error(`❌ Patch failed: ${file} not found. Did you run 'jupyter lite build' first?`);
+    console.error(`[jl.config.js] ❌ Patch failed: ${file} not found. Did you run 'jupyter lite build' first?`);
     process.exit(1);
 }
 
@@ -40,18 +40,17 @@ let contents = fs.readFileSync(file, "utf-8");
 
 // Ensure marker exists before mutation
 if (!contents.includes(MARKER)) {
-    console.error("❌ Patch failed: marker line not found in config-utils.js.");
+    console.error("[jl.config.js] ❌ Patch failed: marker line not found.");
     process.exit(1);
 }
 
 // Remove previous injection if present
-const idx = contents.indexOf(UNIQUE);
-if (idx !== -1) {
-    contents = contents.slice(0, idx);
-}
+const uniqueEsc = UNIQUE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const blockRe = new RegExp(`${uniqueEsc}[\\s\\S]*?${uniqueEsc}\\n?`, "g");
+contents = contents.replace(blockRe, "");
 
 // Inject fresh block
 const patched = contents.replace(MARKER, `${MARKER}\n${UNIQUE}\n${INJECTION}\n${UNIQUE}`);
 
 fs.writeFileSync(file, patched, "utf-8");
-console.log("✅ Patched config-utils.js.");
+console.log("✅ Successfully injected dynamic configuration.");

@@ -53,7 +53,7 @@ console.log(`✅ Copied GXY wheel → ${GXY_TARGET_WHEEL}`);
 
 // ---- Pyodide dependencies ----
 const INSTALL = [];
-const dependenciesPath = path.join(__dirname, "pyodide.deps.txt");
+const dependenciesPath = path.join(__dirname, "jl.pyodide.deps.txt");
 const deps = fs.readFileSync(dependenciesPath, "utf-8").split(/\r?\n/);
 for (const line of deps) {
     const v = line.trim();
@@ -63,7 +63,7 @@ for (const line of deps) {
 }
 
 // ---- Download additional wheels ----
-const requirementsPath = path.join(__dirname, "pyodide.txt");
+const requirementsPath = path.join(__dirname, "jl.pyodide.txt");
 const pipDownload = spawnSync("pip", ["download", "--dest", PYPI_DIR, "-r", requirementsPath], {
     stdio: "inherit",
 });
@@ -161,3 +161,13 @@ const EMPTY_DIR_JSON = {
 };
 fs.writeFileSync(allJsonPath, JSON.stringify(EMPTY_DIR_JSON, null, 2));
 console.log(`✅ Created placeholder contents file: ${allJsonPath}`);
+
+// ---- Injecting dynamic configuration ----
+const configScriptPath = path.join(__dirname, "jl.config.js");
+const configInstall = spawnSync("node", [configScriptPath], {
+    stdio: "inherit"
+});
+if (configInstall.status !== 0) {
+    console.error("❌ patching configuration failed.");
+    process.exit(1);
+}
