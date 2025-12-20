@@ -165,7 +165,7 @@ console.log(`✅ Created placeholder contents file: ${allJsonPath}`);
 // ---- Injecting dynamic configuration ----
 const configScriptPath = path.join(__dirname, "jl.config.js");
 const configInstall = spawnSync("node", [configScriptPath], {
-    stdio: "inherit"
+    stdio: "inherit",
 });
 if (configInstall.status !== 0) {
     console.error("❌ patching configuration failed.");

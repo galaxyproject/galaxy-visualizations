@@ -4,9 +4,10 @@ import axios from "axios";
 
 import TEMPLATE from "./template.json";
 
-const EXTENSION = "ipynb";
+const EXTENSION_FILE = "txt";
+const EXTENSION_NOTEBOOK = "ipynb";
 
-function getPayload(name: string, history_id: string, content: string) {
+function getPayload(name: string, history_id: string, content: string, ext: string) {
     return {
         auto_decompress: true,
         files: [],
@@ -17,7 +18,7 @@ function getPayload(name: string, history_id: string, content: string) {
                 elements: [
                     {
                         dbkey: "?",
-                        ext: EXTENSION,
+                        ext: ext,
                         name: `${name}`,
                         paste_content: content,
                         src: "pasted",
@@ -101,9 +102,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 app.commands.commandExecuted.connect(async (_: any, args: any) => {
                     if (args.id === "docmanager:open") {
                         args.result.then(async (widget: any) => {
-                            const model = widget?.content?.model;
                             const context = widget?.context;
-                            if (context && model?.toJSON) {
+                            if (context) {
                                 if (context.path?.startsWith("Untitled")) {
                                     const name = getTimestamp();
                                     await context.rename(name);
@@ -114,9 +114,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
                     } else if (args.id === "docmanager:save") {
                         args.result.then(async () => {
                             const widget = app.shell.currentWidget;
-                            const model = (widget as any)?.content?.model;
                             const context = (widget as any)?.context;
-                            if (context && model?.toJSON) {
+                            if (context) {
                                 let path = context.path || "";
                                 let name = path.split("/").pop() || getTimestamp();
                                 const input = await InputDialog.getText({
@@ -126,9 +125,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                 });
                                 if (input.button.accept && input.value) {
                                     name = input.value;
-                                    const content = JSON.stringify(model.toJSON(), null, 2);
-                                    if (historyId) {
-                                        const payload = getPayload(name, historyId, content);
+                                    const item = await app.serviceManager.contents.get(path, { content: true });
+                                    const content =
+                                        typeof item.content === "string"
+                                            ? item.content
+                                            : JSON.stringify(item.content, null, 2);
+                                    const ext = item.type === "notebook" ? EXTENSION_NOTEBOOK : EXTENSION_FILE;
+                                    if (content && historyId) {
+                                        const payload = getPayload(name, historyId, content, ext);
                                         axios
                                             .post(`${root}api/tools/fetch`, payload)
                                             .then(() => {
@@ -138,7 +142,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                                 console.error(`❌ Could not save "${name}" to history:`, err);
                                             });
                                     } else {
-                                        console.error("❌ Could not load history identifier.");
+                                        console.error("❌ Could not load content or history identifier.");
                                     }
                                 } else {
                                     console.log("🚫 Export to Galaxy canceled by user");
