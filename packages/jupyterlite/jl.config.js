@@ -23,7 +23,7 @@ const INJECTION = `
                 provider: "generic",
                 model: "jnaut",
                 apiKey: "jnaut",
-                baseURL: searchParams.root + "api/ai/visualizations/jupyterlite"
+                baseURL: searchParams.root + "api/ai/plugins/jupyterlite"
             }
         ]
     };
