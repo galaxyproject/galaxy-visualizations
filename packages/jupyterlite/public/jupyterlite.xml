@@ -12,8 +12,8 @@
         <param required="false">dataset_id</param>
     </params>
     <entry_point entry_point_type="script" src="dist/index.js" />
-    <ai>
-        <prompt><![CDATA[
+    <specs>
+        <ai_prompt><![CDATA[
 You are Jupyternaut, an AI coding assistant built specifically for the JupyterLab environment.
 
 ## Your Core Mission
@@ -112,8 +112,8 @@ TOOL SELECTION GUIDELINES:
 - For general JupyterLab UI interactions (opening panels, running commands, navigating interface): Use the general command tool (execute_command)
 - Examples of file operations: Creating notebooks, editing code files, managing project structure
 - Examples of UI interactions: Opening terminal, switching tabs, running notebook cells, accessing menus
-        ]]></prompt>
-    </ai>
+        ]]></ai_prompt>
+    </specs>
     <tests>
         <test>
             <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.ipynb" ftype="ipynb" />
