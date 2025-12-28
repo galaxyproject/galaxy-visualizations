@@ -54,8 +54,6 @@ test("basic", async ({ page }) => {
     // start
     await page.goto("http://localhost:5173/");
     await expect(page).toHaveScreenshot("basic.png", { maxDiffPixelRatio });
-    await page.click(".n-button");
-    await expect(page).toHaveScreenshot("basic_expand_form.png", { maxDiffPixelRatio });
     await page.getByRole("button", { name: "Add New Track" }).click();
     await expect(page).toHaveScreenshot("basic_add_track.png", { maxDiffPixelRatio });
 
@@ -74,7 +72,6 @@ test("basic", async ({ page }) => {
     // start pie
     await page.goto("http://localhost:5173?xml=plotly_pie");
     await expect(page).toHaveScreenshot("pie.png", { maxDiffPixelRatio });
-    await page.click(".n-button");
     await page.getByRole("button", { name: "Add New Track" }).click();
     await expect(page).toHaveScreenshot("pie_add_track.png", { maxDiffPixelRatio });
 
