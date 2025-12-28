@@ -545,7 +545,8 @@ galaxy-charts-xml-parser@^1.0.3:
 
 galaxy-charts@^0.0.97:
   version "0.0.97"
-  resolved "file:../../../galaxy-charts"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.0.97.tgz"
+  integrity sha512-S5IcmHgHiTY8EfILXheEML9C22gfZHJ8Q0hOCz8O90HleWAxDUlslLhEkxbdRNNjwjn+U+mf5YEBnp7NeheO8g==
 
 get-intrinsic@^1.2.6:
   version "1.3.0"
