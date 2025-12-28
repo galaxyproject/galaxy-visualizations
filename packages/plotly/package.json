@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/plotly",
-    "version": "0.0.25",
+    "version": "0.0.26",
     "type": "module",
     "license": "MIT",
     "files": [
@@ -15,21 +15,20 @@
     },
     "devDependencies": {
         "@playwright/test": "^1.52.0",
+        "@tailwindcss/vite": "^4.1.18",
         "@types/node": "^22.9.0",
-        "@vitejs/plugin-vue": "^5.0.5",
-        "@vitest/ui": "^2.1.4",
-        "autoprefixer": "^10.4.19",
-        "galaxy-charts": "^0.0.87",
+        "@vitejs/plugin-vue": "^6.0.3",
+        "@vitest/ui": "^4.0.16",
+        "galaxy-charts": "^0.0.97",
         "galaxy-charts-xml-parser": "^1.0.3",
-        "jsdom": "^25.0.1",
-        "postcss": "^8.4.40",
-        "prettier": "^3.3.3",
+        "happy-dom": "^20.0.11",
         "playwright": "^1.52.0",
-        "plotly.js-dist": "^2.35.2",
-        "tailwindcss": "^3.4.7",
-        "typescript": "^5.5.4",
-        "vite": "^5.3.4",
-        "vitest": "^2.1.4",
-        "vue": "^3.4.31"
+        "plotly.js-dist": "^3.3.1",
+        "prettier": "^3.7.4",
+        "tailwindcss": "^4.1.18",
+        "typescript": "^5.9.3",
+        "vite": "^7.3.0",
+        "vitest": "^4.0.16",
+        "vue": "^3.5.26"
     }
 }
