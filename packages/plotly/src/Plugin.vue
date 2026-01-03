@@ -24,10 +24,6 @@ const emit = defineEmits<{
 const message = ref();
 const viewport = ref(null);
 
-if (!props.tracks?.[0]?.values) {
-    emit("update", { collapse: false });
-}
-
 async function render() {
     let wrapper = null;
     switch (props.specs?.variant) {
@@ -55,7 +51,11 @@ async function render() {
         if (warning) {
             message.value = warning;
         }
-        Plotly.newPlot(viewport.value, data, layout, config);
+        if (data?.length === 0) {
+            emit("update", { collapse: false });
+        } else {
+            Plotly.newPlot(viewport.value, data, layout, config);
+        }
     } catch (e) {
         message.value = `Failed to render: ${e}`;
         console.error(e);
