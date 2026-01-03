@@ -389,7 +389,7 @@ function trackDrop(event: DragEvent) {
         console.debug("[igv] Dropped Content", raw);
     } else {
         const newTracks = [...props.tracks, ...droppedDatasets.map((d) => ({ urlDataset: d }))];
-        emit("update", { track: newTracks });
+        emit("update", { tracks: newTracks });
         message.value = "";
         console.debug("[igv] Dropped Tracks", newTracks);
     }

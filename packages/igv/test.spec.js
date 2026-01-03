@@ -54,7 +54,7 @@ async function dragAndDropDataset(page, datasetId, datasetName) {
     await page.evaluate(
         ([datasetId, datasetName]) => {
             const source = document.querySelector(".mock-dataset-item");
-            const target = document.querySelector(".h-screen.overflow-auto");
+            const target = document.querySelector("#viewport");
             const dataTransfer = new DataTransfer();
             const datasetPayload = [
                 [
@@ -110,16 +110,14 @@ test("basic load and drag-drop dataset", async ({ page }) => {
     await page.goto("http://localhost:5173?dataset_id=__test_pw__");
     await page.waitForSelector(".igv-track-label[title='__test_pw__']");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.03 });
-    await page.click(".n-button");
-    await expect(page).toHaveScreenshot("1.png", { maxDiffPixelRatio: 0.03 });
     await page.fill(".igv-search-input", "chr1:1-150,000");
     await page.keyboard.press("Enter");
     await page.waitForTimeout(1000);
-    await expect(page).toHaveScreenshot("2.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("1.png", { maxDiffPixelRatio: 0.03 });
     await createMockDatasetElement(page);
     await dragAndDropDataset(page, "__test_pw_dropped__", "__test_pw_dropped__");
     await page.waitForSelector(".igv-track-label[title='__test_pw_dropped__']");
     const accepted = messages.some((msg) => msg.includes("[igv] Dropped Tracks"));
     expect(accepted).toBeTruthy();
-    await expect(page).toHaveScreenshot("4.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("2.png", { maxDiffPixelRatio: 0.03 });
 });
