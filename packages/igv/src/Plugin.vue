@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { onMounted, onBeforeUnmount, type Ref, ref, watch } from "vue";
 
 import igv from "igv";
 import { LastQueue } from "./lastQueue";
@@ -55,6 +55,7 @@ const emit = defineEmits<{
 }>();
 
 const dragging = ref(false);
+const dragTarget: Ref<EventTarget | null> = ref(null);
 const loading = ref(false);
 const message = ref("");
 const showModal = ref(false);
@@ -346,6 +347,17 @@ function locusValid(locus: string): boolean {
     }
 }
 
+function trackDragEnter(event: DragEvent) {
+    dragging.value = true;
+    dragTarget.value = event.target;
+}
+
+function trackDragLeave(event: DragEvent) {
+    if (dragTarget.value === event.target) {
+        dragging.value = false;
+    }
+}
+
 function trackDrop(event: DragEvent) {
     let invalid = false;
     const droppedDatasets = [];
@@ -484,8 +496,9 @@ async function tracksResolve() {
 <template>
     <div
         class="h-screen overflow-auto relative"
-        @dragover.prevent="dragging = true"
-        @dragleave.prevent="dragging = false"
+        @dragenter.prevent="trackDragEnter"
+        @dragleave.prevent="trackDragLeave"
+        @dragover.prevent
         @drop.prevent="trackDrop">
         <div v-if="dragging" class="igv-overlay border-3 border-dashed border-sky-500 rounded-lg">
             <div class="igv-overlay-title">Drop Track Datasets!</div>

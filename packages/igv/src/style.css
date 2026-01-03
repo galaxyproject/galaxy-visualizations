@@ -2,9 +2,9 @@
 
 @layer components {
     .igv-overlay {
-        @apply absolute inset-0 z-[4096] flex items-center justify-center bg-sky-100/30 text-sky-500 text-xl font-semibold pointer-events-none;
+        @apply absolute inset-0 z-[4096] flex items-center justify-center bg-sky-100/30 text-sky-500 text-xl font-semibold pointer-events-auto;
     }
     .igv-overlay-title {
-        @apply bg-white/90 rounded py-1 px-3 pointer-events-none;
+        @apply bg-white/90 rounded py-1 px-3 pointer-events-auto;
     }
 }
