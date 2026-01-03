@@ -504,12 +504,3 @@ async function tracksResolve() {
             @close="showModal = false" />
     </div>
 </template>
-
-<style scoped>
-.igv-overlay {
-    @apply absolute inset-0 z-[4096] flex items-center justify-center bg-sky-100 bg-opacity-30 text-sky-500 text-xl font-semibold;
-}
-.igv-overlay-title {
-    @apply bg-white bg-opacity-90 rounded py-1 px-3 pointer-events-none;
-}
-</style>
