@@ -24,7 +24,7 @@ const emit = defineEmits<{
 const message = ref();
 const viewport = ref(null);
 
-if (props.tracks?.length === 0) {
+if (!props.tracks?.[0]?.values) {
     emit("update", { collapse: false });
 }
 
