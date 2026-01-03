@@ -49,7 +49,6 @@ const props = defineProps<{
     tracks: Track[];
 }>();
 
-// Emit events with TypeScript
 const emit = defineEmits<{
     (event: "update", config: any): void;
 }>();

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import Plotly from "plotly.js-dist";
 import { onMounted, ref, watch } from "vue";
 
@@ -17,8 +17,16 @@ const props = defineProps({
     tracks: Array,
 });
 
+const emit = defineEmits<{
+    (event: "update", config: any): void;
+}>();
+
 const message = ref();
 const viewport = ref(null);
+
+if (props.tracks?.length === 0) {
+    emit("update", { collapse: false });
+}
 
 async function render() {
     let wrapper = null;
