@@ -610,10 +610,10 @@ hasown@^2.0.2:
   dependencies:
     function-bind "^1.1.2"
 
-igv@^3.5.0:
-  version "3.5.0"
-  resolved "https://registry.npmjs.org/igv/-/igv-3.5.0.tgz"
-  integrity sha512-OLWwrqhBmbbU5GGQves8zS2nZPPKscrM7bNGxLijtjtHTe0bOVPb7tWQy3HvNaRuKyZ0HLjrCX9MZMHN/OB7fw==
+igv@^3.7.1:
+  version "3.7.1"
+  resolved "https://registry.npmjs.org/igv/-/igv-3.7.1.tgz"
+  integrity sha512-gam3JV4azn79D6671GqCP4vrwO2YVtEFFHKz5iIwXCgjfwGRo7hDh49PVfkzjgV2I/SVCxAnBkfGH+HsK1JRGw==
 
 jiti@^2.6.1, jiti@>=1.21.0:
   version "2.6.1"

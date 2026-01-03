@@ -51,7 +51,7 @@ const props = defineProps<{
 
 // Emit events with TypeScript
 const emit = defineEmits<{
-    (event: "update", newSettings: any, newTracks?: any): void;
+    (event: "update", config: any): void;
 }>();
 
 const dragging = ref(false);
@@ -102,7 +102,7 @@ async function create() {
             // emit update
             const newSettings = source ? { source } : {};
             const newTracks = [{ urlDataset: { id: dataset.id } }];
-            emit("update", newSettings, newTracks);
+            emit("update", { settings: newSettings, tracks: newTracks });
             console.debug("[igv] Updating values.", newSettings, newTracks);
         }
     } else {
@@ -291,7 +291,7 @@ async function loadTracks(force: boolean = false) {
 // Add event listener and update locus
 function locusChange() {
     if (igvBrowser) {
-        emit("update", { locus: locusCurrent() });
+        emit("update", { settings: { locus: locusCurrent() } });
     }
 }
 
@@ -389,7 +389,7 @@ function trackDrop(event: DragEvent) {
         console.debug("[igv] Dropped Content", raw);
     } else {
         const newTracks = [...props.tracks, ...droppedDatasets.map((d) => ({ urlDataset: d }))];
-        emit("update", {}, newTracks);
+        emit("update", { track: newTracks });
         message.value = "";
         console.debug("[igv] Dropped Tracks", newTracks);
     }
@@ -487,7 +487,7 @@ async function tracksResolve() {
         @dragover.prevent="dragging = true"
         @dragleave.prevent="dragging = false"
         @drop.prevent="trackDrop">
-        <div v-if="dragging" class="igv-overlay border-4 border-dashed border-sky-500 rounded pointer-events-none">
+        <div v-if="dragging" class="igv-overlay border-3 border-dashed border-sky-500 rounded-lg">
             <div class="igv-overlay-title">Drop Track Datasets!</div>
         </div>
         <div v-else-if="loading" class="igv-overlay">

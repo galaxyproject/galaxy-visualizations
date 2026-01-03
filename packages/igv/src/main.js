@@ -26,7 +26,9 @@ async function main() {
 
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
+            // Default root of server
             root: "/",
+            // Visualization details
             visualization_config: {
                 // Placeholder for dataset ID
                 dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
@@ -39,7 +41,7 @@ async function main() {
 
         // Find the root app element and attach the mock data as a JSON string to its data-incoming attribute
         const appElement = document.getElementById(container);
-        appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
+        appElement.dataset.incoming = JSON.stringify(dataIncoming);
     }
 
     /**
