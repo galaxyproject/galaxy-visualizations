@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 
-import tailwindcss from "tailwindcss";
 import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
 import yaml from "./vite.yml.js";
 
 import { viteConfigCharts } from "./vite.config.charts";
@@ -11,7 +11,7 @@ export default defineConfig({
     plugins: [vue(), tailwindcss(), yaml()],
     test: {
         globals: true,
-        environment: "jsdom",
+        environment: "happy-dom",
         include: ["src/**/*.test.{js,ts,jsx,tsx}"],
     },
 });
