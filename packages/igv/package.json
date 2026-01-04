@@ -23,7 +23,7 @@
         "@types/node": "^22.19.3",
         "@vitejs/plugin-vue": "^6.0.3",
         "@vitest/ui": "^4.0.16",
-        "galaxy-charts": "^0.1.2",
+        "galaxy-charts": "^0.1.5",
         "galaxy-charts-xml-parser": "^1.0.3",
         "happy-dom": "^20.0.11",
         "igv": "^3.7.1",
