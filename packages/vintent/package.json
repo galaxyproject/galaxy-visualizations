@@ -1,0 +1,41 @@
+{
+    "name": "vintent",
+    "version": "0.0.0",
+    "type": "module",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "npm run build && vite",
+        "build": "npm run build:pyodide && npm run build:vintent && vite build",
+        "build:pyodide": "node pyodide.install.js",
+        "build:vintent": "cd vintent && python -m build --wheel",
+        "preview": "vite preview",
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
+        "test": "npm run test:unit",
+        "test:ui": "vitest --ui",
+        "test:unit": "vitest run",
+        "test:watch": "vitest --watch"
+    },
+    "devDependencies": {
+        "@heroicons/vue": "^2.2.0",
+        "@tailwindcss/vite": "^4.1.18",
+        "@types/node": "^22.9.0",
+        "@vitejs/plugin-vue": "^6.0.3",
+        "@vitest/ui": "^4.0.16",
+        "@vueuse/core": "^14.1.0",
+        "galaxy-charts": "^0.1.5",
+        "galaxy-charts-xml-parser": "^1.0.3",
+        "happy-dom": "^20.0.11",
+        "prettier": "^3.7.4",
+        "pyodide": "^0.29.0",
+        "tailwindcss": "^4.1.18",
+        "typescript": "^5.9.3",
+        "vega-embed": "^7.1.0",
+        "vite": "^7.3.0",
+        "vite-plugin-static-copy": "^3.1.4",
+        "vitest": "^4.0.16",
+        "vue": "^3.5.26"
+    }
+}

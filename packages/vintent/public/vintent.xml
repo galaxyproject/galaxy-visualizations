@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="VIntent" embeddable="true">
+    <description>Intent driven Charts</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">csv</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <specs>
+        <ai_prompt><![CDATA[
+You are a visualization planning agent.
+
+You must NOT generate code.
+You must NOT generate Vega-Lite, JSON specifications, or prose.
+
+You must ONLY communicate by calling the tools that are provided to you.
+You always must at least call one tool.
+
+Rules:
+- Only use the provided tool schemas.
+- Only use values allowed by the tool parameters.
+- Do not invent shell identifiers.
+- Do not invent or rename dataset fields.
+- Do not explain your reasoning.
+
+The client controls the workflow and which tools are available.
+        ]]></ai_prompt>
+        <ui>
+            <chat>true</chat>
+        </ui>
+    </specs>
+    <help format="markdown"><![CDATA[
+# What is VIntent
+
+VIntent lets you build Vega Lite charts by simply describing what you want to see.
+
+It turns requests like “show me a histogram of x” or “compare x and y” into Vega Lite charts.
+
+## Why It’s Useful
+
+- **Fast exploration**
+  Go from data to a chart in seconds without writing Vega Lite by hand.
+
+- **Guided chart building**
+  VIntent picks sensible chart types and only asks for what’s needed, so you stay focused on the data instead of syntax.
+
+- **Iterative and playful**
+  Tweak encodings, fields, and structure incrementally and see the result right away.
+
+## What You Can Do With It
+
+- Quickly visualize new datasets
+- Try different chart types without starting over
+- Refine colors, axes, groupings, and aggregations interactively
+- Explore data patterns through clear, repeatable chart designs
+
+VIntent is for thinking with your data visually and getting to insights faster.
+]]></help>
+
+</visualization>
