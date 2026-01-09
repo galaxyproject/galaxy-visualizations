@@ -9,8 +9,8 @@ MAX_SHELLS = 50
 MAX_FIELDS_PER_ENCODING = 100
 
 
-def build_choose_extract_tool(
-    extract_processes: Dict[str, Process],
+def build_choose_process_tool(
+    processes: Dict[str, Process],
     profile: DatasetProfile,
     context: Any = None,
 ) -> Dict[str, Any]:
@@ -22,8 +22,9 @@ def build_choose_extract_tool(
             "additionalProperties": False,
         }
     ]
-    for process_id in sorted(extract_processes.keys()):
-        process = extract_processes[process_id]
+
+    for process_id in sorted(processes.keys()):
+        process = processes[process_id]
         schema = process.get("schema")
         if not schema:
             continue
@@ -41,13 +42,14 @@ def build_choose_extract_tool(
                 "additionalProperties": False,
             }
         )
+
     return {
         "type": "function",
         "function": {
             "name": "choose_process",
             "description": (
-                "Optionally select a single extract step to apply before visualization."
-                "Use id=none if no extraction is needed."
+                "Optionally select a single data processing step to apply "
+                "before visualization."
             ),
             "parameters": {"oneOf": variants},
         },
