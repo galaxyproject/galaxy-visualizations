@@ -8,7 +8,7 @@ from .schemas import CompletionsMessage, CompletionsReply, TranscriptMessageType
 from .shells import SHELLS
 from .tools import (
     NO_PROCESS_ID,
-    build_choose_extract_tool,
+    build_choose_process_tool,
     build_choose_shell_tool,
     build_fill_shell_params_tool,
 )
@@ -39,17 +39,14 @@ class Runner:
         # STEP 0: Choose process
         process_reply = await self._completions(
             transcripts,
-            [build_choose_extract_tool(PROCESSES.EXTRACT, profile)],
+            [build_choose_process_tool(PROCESSES.EXTRACT, profile)],
         )
 
         process_id: Optional[str] = None
         params: Dict[str, Any] = {}
 
         if process_reply:
-            chosen = get_tool_call(
-                "choose_process",
-                process_reply.get("choices", [{}])[0].get("message", {}).get("tool_calls"),
-            )
+            chosen = get_tool_call("choose_process", process_reply)
             if chosen:
                 pid = chosen.get("id")
                 if pid and pid != NO_PROCESS_ID:
@@ -63,7 +60,31 @@ class Runner:
             if process and "log" in process:
                 logs.append(process["log"](params))
 
-        # STEP 1: Choose shell
+        # STEP 1: Choose analyze
+        analyze_reply = await self._completions(
+            transcripts,
+            [build_choose_process_tool(PROCESSES.ANALYZE, profile, context=transcripts)],
+        )
+
+        analyze_id: Optional[str] = None
+        analyze_params: Dict[str, Any] = {}
+
+        if analyze_reply:
+            chosen = get_tool_call("choose_process", analyze_reply)
+            if chosen:
+                pid = chosen.get("id")
+                if pid and pid != NO_PROCESS_ID:
+                    analyze_id = pid
+                    analyze_params = chosen.get("params", {})
+
+        if analyze_id:
+            analyze = PROCESSES.ANALYZE.get(analyze_id)
+            values = run_process(analyze, values, analyze_params)
+            profile = profile_rows(values)
+            if analyze and "log" in analyze:
+                logs.append(analyze["log"](analyze_params))
+
+        # STEP 2: Choose shell
         choose_reply = await self._completions(
             transcripts,
             [build_choose_shell_tool(profile)],
@@ -73,10 +94,7 @@ class Runner:
             logs.append("No visualization could be selected.")
             return dict(logs=logs, widgets=widgets)
 
-        choose_shell = get_tool_call(
-            "choose_shell",
-            choose_reply.get("choices", [{}])[0].get("message", {}).get("tool_calls"),
-        )
+        choose_shell = get_tool_call("choose_shell", choose_reply)
 
         if not choose_shell or not choose_shell.get("shellId"):
             logs.append("No compatible visualization shell available.")
@@ -93,7 +111,7 @@ class Runner:
         print("[vintent]", profile)
 
         """
-        # STEP 2: Transform for later, leave outcommented
+        # STEP 3: Transform for later, leave outcommented
         if shell.process_transform:
             values = run_process(
                 PROCESS_PHASE.TRANSFORM,
@@ -103,7 +121,7 @@ class Runner:
             profile = profile_rows(values)
         """
 
-        # STEP 3: Fill parameters
+        # STEP 4: Fill parameters
         params = {}
         fill_tool = build_fill_shell_params_tool(shell, profile)
         if fill_tool:
@@ -112,14 +130,11 @@ class Runner:
                 [fill_tool],
             )
             if param_reply:
-                filled = get_tool_call(
-                    "fill_shell_params",
-                    param_reply.get("choices", [{}])[0].get("message", {}).get("tool_calls"),
-                )
+                filled = get_tool_call("fill_shell_params", param_reply)
                 if filled:
                     params.update(filled)
 
-        # STEP 4: Finalize
+        # STEP 5: Finalize
         if shell.process_finalize:
             processes = shell.process_finalize(params)
             for p in processes:
@@ -135,13 +150,13 @@ class Runner:
                         logs.append(process["log"](process_params))
             print("[vintent] Post-finalize: ", profile)
 
-        # STEP 5: Validate
+        # STEP 6: Validate
         validation = shell.validate(params, profile)
         if not validation.get("ok"):
             logs.append("Visualization parameters invalid.")
             return dict(logs=logs, widgets=widgets)
 
-        # STEP 6: Compile
+        # STEP 7: Compile
         spec = shell.compile(params, values, "vega-lite")
         if spec:
             widgets.append(spec)

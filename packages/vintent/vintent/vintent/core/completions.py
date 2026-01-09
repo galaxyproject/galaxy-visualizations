@@ -69,10 +69,10 @@ async def completions_post(payload):
     )
 
 
-def get_tool_call(name, tool_calls):
+def get_tool_call(name, reply):
     result = {}
     found = False
-
+    tool_calls = reply.get("choices", [{}])[0].get("message", {}).get("tool_calls")
     if tool_calls:
         for call in tool_calls:
             fn = call.get("function")

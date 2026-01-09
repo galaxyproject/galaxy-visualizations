@@ -1,5 +1,6 @@
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
+from .analyze.pca import PROCESS as pca
 from .extract.categorical_filter import PROCESS as categorical_filter
 from .extract.project_columns import PROCESS as project_columns
 from .extract.range_filter import PROCESS as range_filter
@@ -9,7 +10,6 @@ from .finalize.compute_bins import PROCESS as compute_bins
 from .finalize.correlation_matrix import PROCESS as correlation_matrix
 from .finalize.linear_regression import PROCESS as linear_regression
 
-
 class Process(TypedDict):
     id: str
     run: Callable[[List[Dict[str, Any]], Dict[str, Any]], List[Dict[str, Any]]]
@@ -18,6 +18,13 @@ class Process(TypedDict):
 
 
 class PROCESSES:
+    ANALYZE = {
+    p["id"]: p
+        for p in [
+            pca,
+        ]
+    }
+
     EXTRACT = {
         p["id"]: p
         for p in [
