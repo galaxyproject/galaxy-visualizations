@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 from .analyze.covariance import PROCESS as covariance
+from .analyze.group_aggregate import PROCESS as group_aggregate
 from .analyze.pca import PROCESS as pca
 from .extract.categorical_filter import PROCESS as categorical_filter
 from .extract.project_columns import PROCESS as project_columns
@@ -23,6 +24,7 @@ class PROCESSES:
     p["id"]: p
         for p in [
             covariance,
+            group_aggregate,
             pca,
         ]
     }
