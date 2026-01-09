@@ -4,6 +4,7 @@ import { onMounted, onUnmounted, ref, watch } from "vue";
 import {
     AcademicCapIcon,
     ArrowPathIcon,
+    BoltIcon,
     CheckIcon,
     ClockIcon,
     ExclamationTriangleIcon,
@@ -127,7 +128,9 @@ async function processUserRequest() {
                 const reply = await runVintent(pyodide, config, sanitized, DATASET_NAME);
                 const newWidgets = reply.widgets;
                 console.debug("[vintent]", sanitized);
-                console.debug("[vintent]", reply.logs);
+                reply.logs.forEach((log: string) => {
+                    consoleMessages.value.push({ content: log, icon: BoltIcon });
+                });
                 if (newWidgets.length > 0) {
                     widgets.value.push(...newWidgets);
                     consoleMessages.value.push({ content: MESSAGE_SUCCESS, icon: CheckIcon });
