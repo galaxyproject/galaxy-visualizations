@@ -1,5 +1,6 @@
 import csv
 import io
+import math
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -81,7 +82,10 @@ def infer_column_type(values: List[Any]) -> FieldType:
 
 def cast_value(raw: str) -> Any:
     if is_numeric(raw):
-        return float(raw)
+        v = float(raw)
+        if not math.isfinite(v):
+            return None
+        return v
     dt = parse_date(raw)
     if dt is not None:
         return dt
