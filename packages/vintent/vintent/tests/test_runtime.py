@@ -1,12 +1,9 @@
-import os
 import json
 import pytest
 
 from vintent.config import config
 from vintent.runtime import run
-from . import build_inputs, mock_completions
-
-package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from . import build_inputs, mock_completions, dataset_path
 
 @pytest.mark.asyncio
 async def test_histogram(monkeypatch, tmp_path):
@@ -18,7 +15,6 @@ async def test_histogram(monkeypatch, tmp_path):
     }
     monkeypatch.setattr("vintent.modules.runner.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Create a histogram of age with age > 50")
-    dataset_path = os.path.join(package_root, "../test-data", "dataset.csv")
     result = await run(config, inputs, dataset_path)
     assert "Filter rows where Age is between 50 and 100." in result["logs"]
     assert "Selected shell: histogram" in result["logs"]

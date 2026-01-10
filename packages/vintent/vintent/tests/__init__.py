@@ -3,6 +3,10 @@ import os
 from vintent.core.completions import completions_post
 from vintent.config import MESSAGE_INITIAL, PROMPT_DEFAULT
 
+
+package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+dataset_path = os.path.join(package_root, "../test-data", "dataset.csv")
+
 def build_inputs(query):
     return {
         "transcripts": [
