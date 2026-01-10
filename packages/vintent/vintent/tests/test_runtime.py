@@ -27,7 +27,7 @@ async def test_linear_regression(monkeypatch):
         0: [dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=0, max=50)))],
         1: [dict(name="choose_process", arguments=dict(id="none"))],
         2: [dict(name="choose_shell", arguments=dict(shellId="linear_regression"))],
-        3: [dict(name="fill_shell_params", arguments=dict())],
+        3: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
     }
     monkeypatch.setattr("vintent.modules.runner.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show linear regression of Glucose and Insuling with age < 50")
