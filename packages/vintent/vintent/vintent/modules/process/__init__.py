@@ -12,6 +12,7 @@ from .finalize.covariance import PROCESS as covariance
 from .finalize.group_aggregate import PROCESS as group_aggregate
 from .finalize.linear_regression import PROCESS as linear_regression
 from .finalize.pca import PROCESS as pca
+from .finalize.summary_statistics import PROCESS as summary_statistics
 
 
 class Process(TypedDict):
@@ -44,6 +45,7 @@ class PROCESSES:
             linear_regression,
             group_aggregate,
             pca,
+            summary_statistics,
         ]
     }
 

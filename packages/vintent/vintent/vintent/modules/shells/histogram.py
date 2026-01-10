@@ -29,7 +29,7 @@ class HistogramShell(BaseShell):
             return False
         return any(meta.get("type") == "quantitative" for meta in profile.get("fields", {}).values())
 
-    def process_finalize(self, params: ShellParamsType):
+    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
         field = params.get("field")
         if not field:
             return []
