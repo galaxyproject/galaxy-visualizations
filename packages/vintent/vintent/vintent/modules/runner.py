@@ -87,7 +87,7 @@ class Runner:
 
         # STEP 3: Finalize
         if shell.process_finalize:
-            processes = shell.process_finalize(params)
+            processes = shell.process_finalize(profile, params)
             for p in processes:
                 finalize_id = p["id"]
                 process_params = p.get("params", {})

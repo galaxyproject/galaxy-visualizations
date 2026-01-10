@@ -7,7 +7,9 @@ from .heatmap_correlation import HeatmapCorrelationShell
 from .histogram import HistogramShell
 from .line_time import LineTimeShell
 from .linear_regression import LinearRegressionShell
+from .pca import PCAShell
 from .scatter import ScatterShell
+from .summary_statistics import SummaryStatisticsShell
 
 SHELLS = {
     "bar_aggregate": BarAggregateShell(),
@@ -19,5 +21,7 @@ SHELLS = {
     "heatmap_correlation": HeatmapCorrelationShell(),
     "histogram": HistogramShell(),
     "line_time": LineTimeShell(),
+    "pca": PCAShell(),
     "scatter": ScatterShell(),
+    "summary_statistics": SummaryStatisticsShell(),
 }
