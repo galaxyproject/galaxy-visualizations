@@ -1,4 +1,7 @@
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 MESSAGE_INITIAL = "Hi, I can a pick a tool for you."
 PROMPT_DEFAULT = "Choose and parameterize one of the provided tools. YOU MUST choose a tool!"
@@ -17,7 +20,7 @@ for key in env:
     env[key] = os.environ.get(key) or env[key]
 
 if env["GALAXY_KEY"] is None:
-    raise Exception("GALAXY_KEY missing in environment.")
+    logger.warning("GALAXY_KEY missing in environment.")
 
 config = {
     "ai_api_key": env["AI_API_KEY"] or env["GALAXY_KEY"],
