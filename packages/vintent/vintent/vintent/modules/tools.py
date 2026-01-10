@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional
 
 from .process import Process
@@ -7,6 +8,8 @@ from .shells import SHELLS
 NO_PROCESS_ID = "none"
 MAX_SHELLS = 50
 MAX_FIELDS_PER_ENCODING = 100
+
+logger = logging.getLogger(__name__)
 
 
 def build_choose_process_tool(
@@ -47,10 +50,7 @@ def build_choose_process_tool(
         "type": "function",
         "function": {
             "name": "choose_process",
-            "description": (
-                "Optionally select a single data processing step to apply "
-                "before visualization."
-            ),
+            "description": ("Optionally select a single data processing step to apply " "before visualization."),
             "parameters": {"oneOf": variants},
         },
     }
@@ -75,7 +75,7 @@ def build_choose_shell_tool(profile: DatasetProfile) -> Dict[str, Any]:
         if len(compatible_shells) >= MAX_SHELLS:
             break
     shell_ids = [s["id"] for s in compatible_shells]
-    print(f"[vintent] Compatible shells: {shell_ids}.")
+    logger.debug(f"[vintent] Compatible shells: {shell_ids}.")
     return {
         "type": "function",
         "function": {

@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Any, Dict, List
+
 from vintent.modules.utility import user_asked_for
 
 PROCESS_ID = "group_aggregate"
@@ -8,6 +10,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 AGG_OPS = {"mean", "sum", "min", "max", "count"}
+
 
 def schema(profile, context=None):
     if not user_asked_for(context, ["group", "aggregate", "average", "mean", "sum", "count"]):
@@ -35,6 +38,7 @@ def schema(profile, context=None):
             "additionalProperties": False,
         },
     }
+
 
 def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
     if not rows:
@@ -69,6 +73,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
             out.append({group_by: key, metric: float(agg)})
     return out
 
+
 def log(params: Dict[str, Any]) -> str:
     group_by = params.get("group_by")
     op = params.get("op")
@@ -76,6 +81,7 @@ def log(params: Dict[str, Any]) -> str:
     if op == "count":
         return f"Grouped by {group_by} and counted rows."
     return f"Grouped by {group_by} and computed {op} of {metric}."
+
 
 PROCESS = {
     "id": PROCESS_ID,

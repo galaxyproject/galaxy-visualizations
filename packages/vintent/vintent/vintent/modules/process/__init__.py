@@ -12,6 +12,7 @@ from .finalize.compute_bins import PROCESS as compute_bins
 from .finalize.correlation_matrix import PROCESS as correlation_matrix
 from .finalize.linear_regression import PROCESS as linear_regression
 
+
 class Process(TypedDict):
     id: str
     run: Callable[[List[Dict[str, Any]], Dict[str, Any]], List[Dict[str, Any]]]
@@ -21,7 +22,7 @@ class Process(TypedDict):
 
 class PROCESSES:
     ANALYZE = {
-    p["id"]: p
+        p["id"]: p
         for p in [
             covariance,
             group_aggregate,
