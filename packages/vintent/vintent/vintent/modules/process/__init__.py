@@ -1,8 +1,5 @@
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
-from .analyze.covariance import PROCESS as covariance
-from .analyze.group_aggregate import PROCESS as group_aggregate
-from .analyze.pca import PROCESS as pca
 from .extract.categorical_filter import PROCESS as categorical_filter
 from .extract.project_columns import PROCESS as project_columns
 from .extract.range_filter import PROCESS as range_filter
@@ -10,7 +7,10 @@ from .extract.rank_top_k import PROCESS as rank_top_k
 from .extract.sort_rows import PROCESS as sort_rows
 from .finalize.compute_bins import PROCESS as compute_bins
 from .finalize.correlation_matrix import PROCESS as correlation_matrix
+from .finalize.covariance import PROCESS as covariance
+from .finalize.group_aggregate import PROCESS as group_aggregate
 from .finalize.linear_regression import PROCESS as linear_regression
+from .finalize.pca import PROCESS as pca
 
 
 class Process(TypedDict):
@@ -21,14 +21,6 @@ class Process(TypedDict):
 
 
 class PROCESSES:
-    ANALYZE = {
-        p["id"]: p
-        for p in [
-            covariance,
-            group_aggregate,
-            pca,
-        ]
-    }
 
     EXTRACT = {
         p["id"]: p
@@ -46,7 +38,10 @@ class PROCESSES:
         for p in [
             compute_bins,
             correlation_matrix,
+            covariance,
             linear_regression,
+            group_aggregate,
+            pca,
         ]
     }
 

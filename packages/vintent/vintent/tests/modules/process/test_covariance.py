@@ -1,5 +1,5 @@
 import pytest
-from vintent.modules.process.analyze.covariance import schema, run
+from vintent.modules.process.finalize.covariance import schema, run
 
 def test_schema_returns_none_when_not_asked():
     profile = {
