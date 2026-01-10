@@ -75,7 +75,7 @@ def build_choose_shell_tool(profile: DatasetProfile) -> Dict[str, Any]:
         if len(compatible_shells) >= MAX_SHELLS:
             break
     shell_ids = [s["id"] for s in compatible_shells]
-    logger.debug(f"[vintent] Compatible shells: {shell_ids}.")
+    logger.debug(f"Shells: {shell_ids}.")
     return {
         "type": "function",
         "function": {
