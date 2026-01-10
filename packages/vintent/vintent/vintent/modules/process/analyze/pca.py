@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from typing import Any, Dict, List
-from vintent.modules.utility import user_asked_for
+
 import numpy as np
+
+from vintent.modules.utility import user_asked_for
 
 PROCESS_ID = "pca"
 PROCESS_PHASE = "analyze"
@@ -13,10 +16,7 @@ def schema(profile, context=None):
     if not user_asked_for(context, ["pca", "principal", "component"]):
         return None
 
-    quantitative_columns = [
-        name for name, meta in profile["fields"].items()
-        if meta.get("type") == "quantitative"
-    ]
+    quantitative_columns = [name for name, meta in profile["fields"].items() if meta.get("type") == "quantitative"]
     if len(quantitative_columns) < 2:
         return None
 
