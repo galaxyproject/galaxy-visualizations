@@ -73,7 +73,7 @@ def infer_column_type(values: List[Any]) -> FieldType:
     if not values:
         return "nominal"
     types = {type(v) for v in values}
-    if types == {float}:
+    if types.issubset({int, float}):
         return "quantitative"
     if types == {datetime}:
         return "temporal"
