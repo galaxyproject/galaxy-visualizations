@@ -1,5 +1,9 @@
 import os
 
+MESSAGE_INITIAL = "Hi, I can a pick a tool for you."
+PROMPT_DEFAULT = "Choose and parameterize one of the provided tools. YOU MUST choose a tool!"
+
+
 env = {
     "AI_API_KEY": None,
     # "AI_BASE_URL": "http://localhost:11434/v1",
