@@ -7,6 +7,9 @@ from vintent.config import MESSAGE_INITIAL, PROMPT_DEFAULT
 package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dataset_path = os.path.join(package_root, "../test-data", "dataset.csv")
 
+def assert_log(assertion, result):
+    assert any(assertion in l for l in result["logs"])
+
 def build_inputs(query):
     return {
         "transcripts": [
