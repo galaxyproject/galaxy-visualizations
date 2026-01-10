@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional
 
 from vintent.core.completions import completions_post, get_tool_call
@@ -12,6 +13,8 @@ from .tools import (
     build_choose_shell_tool,
     build_fill_shell_params_tool,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Runner:
@@ -108,7 +111,7 @@ class Runner:
             return dict(logs=logs, widgets=widgets)
 
         logs.append(f"Selected shell: {shell_id}")
-        print("[vintent]", profile)
+        logger.debug(f"Profile: ${profile}")
 
         """
         # STEP 3: Transform for later, leave outcommented
@@ -148,7 +151,7 @@ class Runner:
                     profile = profile_rows(values)
                     if process and "log" in process:
                         logs.append(process["log"](process_params))
-            print("[vintent] Post-finalize: ", profile)
+            logger.debug("Post-finalize: ", profile)
 
         # STEP 6: Validate
         validation = shell.validate(params, profile)
