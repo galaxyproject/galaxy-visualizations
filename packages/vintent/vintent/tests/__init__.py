@@ -1,9 +1,18 @@
 import json
 import os
 from vintent.core.completions import completions_post
+from vintent.config import MESSAGE_INITIAL, PROMPT_DEFAULT
 
+def build_inputs(query):
+    return {
+        "transcripts": [
+            {"content": PROMPT_DEFAULT, "role": "system"},
+            {"content": MESSAGE_INITIAL, "role": "assistant"},
+            {"content": query, "role": "user"},
+        ]
+    }
 
-def completions_backend(mock_sequence):
+def mock_completions(mock_sequence):
     if os.environ.get("GALAXY_KEY"):
         async def real(payload):
             return await completions_post(payload)
@@ -12,16 +21,16 @@ def completions_backend(mock_sequence):
 
 def mock_tool_sequence(sequence):
     state = {"i": 0}
-    async def fake_completions(payload):
+    async def mock_completions(payload):
         i = state["i"]
         state["i"] += 1
         calls = sequence.get(i)
         if calls is None:
             return None
-        return tool_calls(calls)
-    return fake_completions
+        return mock_tool_calls(calls)
+    return mock_completions
 
-def tool_calls(calls):
+def mock_tool_calls(calls):
     return {
         "choices": [
             {
