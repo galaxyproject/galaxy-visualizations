@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@layer components {
+    .tabular-header {
+        @apply border border-gray-200 px-2 py-1 text-left font-semibold text-gray-700 whitespace-nowrap;
+    }
+
+    .tabular-row {
+        @apply border border-gray-200 px-2 py-1 text-gray-800 whitespace-nowrap;
+    }
+    .vintent-button {
+        @apply cursor-pointer rounded border-gray-500 hover:bg-gray-500 hover:text-white;
+    }
+}

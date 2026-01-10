@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vintent"
+version = "0.0.0"
+description = "Visualization Intent (VIntent)"
+dependencies = ["numpy", "pandas"]
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+authors = [{ name = "Galaxy Team" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+
+[project.scripts]
+vintent = "vintent.cli:main"
+
+[project.optional-dependencies]
+dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio"]
+
+[tool.black]
+line-length = 120
+target-version = ["py37"]
+
+[tool.ruff]
+select = ["E","F","I"]
+ignore = []
+line-length = 120
+
+[tool.mypy]
+python_version = "3.7"
+strict = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["vintent*"]
