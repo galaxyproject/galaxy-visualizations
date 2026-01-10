@@ -24,7 +24,7 @@ class LinearRegressionShell(BaseShell):
     def is_applicable(self, profile: DatasetProfile) -> bool:
         return sum(1 for f in profile.get("fields", {}).values() if f.get("type") == "quantitative") >= 2
 
-    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
+    def processes(self, profile: DatasetProfile, params: ShellParamsType):
         return [
             {
                 "id": linear_regression_id,

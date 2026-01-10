@@ -33,7 +33,7 @@ class BarAggregateShell(BaseShell):
         has_quant = any(v.get("type") == "quantitative" for v in fields.values())
         return has_nominal and has_quant
 
-    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
+    def processes(self, profile: DatasetProfile, params: ShellParamsType):
         return [
             {
                 "id": group_aggregate_id,

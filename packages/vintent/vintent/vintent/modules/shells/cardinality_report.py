@@ -20,7 +20,7 @@ class CardinalityReportShell(BaseShell):
     def is_applicable(self, profile: DatasetProfile) -> bool:
         return bool(profile.get("fields"))
 
-    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
+    def processes(self, profile: DatasetProfile, params: ShellParamsType):
         return [
             {
                 "id": cardinality_report_id,

@@ -17,7 +17,7 @@ class PCAShell(BaseShell):
         fields = profile.get("fields", {})
         return sum(1 for v in fields.values() if v.get("type") == "quantitative") >= 2
 
-    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
+    def processes(self, profile: DatasetProfile, params: ShellParamsType):
         columns = [
             k for k, v in profile.get("fields", {}).items()
             if v.get("type") == "quantitative"

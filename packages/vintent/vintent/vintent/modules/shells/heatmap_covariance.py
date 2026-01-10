@@ -28,7 +28,7 @@ class HeatmapCovarianceShell(BaseShell):
             if f.get("type") == "quantitative"
         ) >= 2
 
-    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
+    def processes(self, profile: DatasetProfile, params: ShellParamsType):
         fields = [
             k for k, v in profile.get("fields", {}).items()
             if v.get("type") == "quantitative"
