@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from vintent.core.completions import completions_post, get_tool_call
 
-from .process import PROCESSES, run_process
+from .process import PROCESSES, Process, run_process
 from .profiler import DatasetProfile, profile_rows, rows_from_csv
 from .schemas import CompletionsMessage, CompletionsReply, TranscriptMessageType
 from .shells import SHELLS
@@ -43,79 +43,40 @@ class Runner:
         logger.debug(f"transcripts: {transcripts}")
 
         # STEP 0: Choose process
-        extract_reply = await self._completions(
-            transcripts,
-            [build_choose_process_tool(PROCESSES.EXTRACT, profile)],
-        )
-
-        extract_id: Optional[str] = None
-        params: Dict[str, Any] = {}
-
-        if extract_reply:
-            logger.debug(f"choose_process_tool (extract): {extract_reply}")
-            chosen = get_tool_call("choose_process", extract_reply)
-            if chosen:
-                pid = chosen.get("id")
-                if pid and pid != NO_PROCESS_ID:
-                    extract_id = pid
-                    params = chosen.get("params", {})
-
-        if extract_id:
-            process = PROCESSES.EXTRACT.get(extract_id)
-            values = run_process(process, values, params)
+        extracted = await self._run_process(PROCESSES.EXTRACT, profile, transcripts, values)
+        if extracted:
+            params = extracted["params"]
+            process = extracted["process"]
+            values = extracted["values"]
             profile = profile_rows(values)
             if process and "log" in process:
                 logs.append(process["log"](params))
 
         # STEP 1: Choose analyze
-        analyze_reply = await self._completions(
-            transcripts,
-            [build_choose_process_tool(PROCESSES.ANALYZE, profile, context=transcripts)],
-        )
-
-        analyze_id: Optional[str] = None
-        analyze_params: Dict[str, Any] = {}
-
-        if analyze_reply:
-            logger.debug(f"choose_process_tool (analyze): {analyze_reply}")
-            chosen = get_tool_call("choose_process", analyze_reply)
-            if chosen:
-                pid = chosen.get("id")
-                if pid and pid != NO_PROCESS_ID:
-                    analyze_id = pid
-                    analyze_params = chosen.get("params", {})
-
-        if analyze_id:
-            analyze = PROCESSES.ANALYZE.get(analyze_id)
-            values = run_process(analyze, values, analyze_params)
+        analyzed = await self._run_process(PROCESSES.ANALYZE, profile, transcripts, values)
+        if analyzed:
+            params = analyzed["params"]
+            process = analyzed["process"]
+            values = analyzed["values"]
             profile = profile_rows(values)
-            if analyze and "log" in analyze:
-                logs.append(analyze["log"](analyze_params))
+            if process and "log" in process:
+                logs.append(process["log"](params))
 
         # STEP 2: Choose shell
-        choose_reply = await self._completions(
-            transcripts,
-            [build_choose_shell_tool(profile)],
-        )
-
+        choose_reply = await self._completions(transcripts, [build_choose_shell_tool(profile)])
         if not choose_reply:
             logs.append("No visualization could be selected.")
             return dict(logs=logs, widgets=widgets)
-
         logger.debug(f"choose_shell_tool: {choose_reply}")
         choose_shell = get_tool_call("choose_shell", choose_reply)
-
         if not choose_shell or not choose_shell.get("shellId"):
             logs.append("No compatible visualization shell available.")
             return dict(logs=logs, widgets=widgets)
-
         shell_id = choose_shell["shellId"]
         shell = SHELLS.get(shell_id)
-
         if not shell:
             logs.append(f"Unknown shell selected: {shell_id}")
             return dict(logs=logs, widgets=widgets)
-
         logs.append(f"Selected shell: {shell_id}")
         logger.debug(f"profile: {profile}")
 
@@ -186,6 +147,33 @@ class Runner:
                 tools=tools,
             )
         )
+
+    async def _run_process(
+        self,
+        processes: Dict[str, Process],
+        profile: DatasetProfile,
+        transcripts: List[TranscriptMessageType],
+        values: List[Dict[str, Any]],
+    ):
+        reply = await self._completions(
+            transcripts,
+            [build_choose_process_tool(processes, profile, context=transcripts)],
+        )
+        process_id: Optional[str] = None
+        params: Dict[str, Any] = {}
+        if reply:
+            chosen = get_tool_call("choose_process", reply)
+            if chosen:
+                logger.debug(f"choose_process_tool: {chosen}")
+                pid = chosen.get("id")
+                if pid and pid != NO_PROCESS_ID:
+                    process_id = pid
+                    params = chosen.get("params", {})
+        if process_id:
+            process = processes.get(process_id)
+            values = run_process(process, values, params)
+            return dict(params=params, process=process, values=values)
+        return None
 
 
 def _sanitize_transcripts(
