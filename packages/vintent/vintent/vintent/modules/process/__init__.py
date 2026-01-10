@@ -5,6 +5,7 @@ from .extract.project_columns import PROCESS as project_columns
 from .extract.range_filter import PROCESS as range_filter
 from .extract.rank_top_k import PROCESS as rank_top_k
 from .extract.sort_rows import PROCESS as sort_rows
+from .finalize.cardinality_report import PROCESS as cardinality_report
 from .finalize.compute_bins import PROCESS as compute_bins
 from .finalize.correlation_matrix import PROCESS as correlation_matrix
 from .finalize.covariance import PROCESS as covariance
@@ -36,6 +37,7 @@ class PROCESSES:
     FINALIZE = {
         p["id"]: p
         for p in [
+            cardinality_report,
             compute_bins,
             correlation_matrix,
             covariance,
