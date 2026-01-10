@@ -19,9 +19,7 @@ async def test_histogram(monkeypatch):
     assert_log("Filter rows where Age is between 50 and 100", result)
     assert_log("Selected shell: histogram", result)
     assert_log("Computed histogram bins", result)
-    spec = result["widgets"][0]
-    assert spec["mark"]["type"] == "bar"
-    assert_output(spec, "test_histogram")
+    assert_output(result["widgets"][0], "test_histogram")
 
 @pytest.mark.asyncio
 async def test_linear_regression(monkeypatch):
@@ -37,4 +35,4 @@ async def test_linear_regression(monkeypatch):
     assert_log("Filter rows where Age is between 0 and 50", result)
     assert_log("Selected shell: linear_regression", result)
     assert_log("Computed linear regression", result)
-
+    assert_output(result["widgets"][0], "test_linear_regression")
