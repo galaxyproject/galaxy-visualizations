@@ -1,17 +1,16 @@
 import argparse
 import asyncio
 import os
+
 import vintent
 
-from .config import config
+from .config import MESSAGE_INITIAL, PROMPT_DEFAULT, config
 
 # Get the package root directory
 package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-MESSAGE_INITIAL = "Hi, I can a pick a tool for you."
 MESSAGE_USER = "Create a histogram of age"
-PROMPT_DEFAULT = "Choose and parameterize one of the provided tools. YOU MUST choose a tool!"
 
 
 async def main_async():
