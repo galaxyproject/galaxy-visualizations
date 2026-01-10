@@ -96,12 +96,10 @@ def build_choose_shell_tool(profile: DatasetProfile) -> Dict[str, Any]:
         },
     }
 
-
 def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optional[Dict[str, Any]]:
     properties: Dict[str, Any] = {}
     required: List[str] = []
     fields_by_type = _field_names_by_type(profile)
-
     def fields_for_type(expected_type: str) -> List[str]:
         if expected_type == "any":
             names: List[str] = []
@@ -109,9 +107,8 @@ def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optiona
                 names.extend(v)
             return names
         return list(fields_by_type.get(expected_type, []))
-
     required_specs = getattr(shell, "required", None) or {}
-    for encoding, spec in required_specs.items():
+    for name, spec in required_specs.items():
         if is_encoding_spec(spec):
             if isinstance(spec.get("aggregate"), str):
                 continue
@@ -120,21 +117,24 @@ def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optiona
                 return None
             if len(fields) > MAX_FIELDS_PER_ENCODING:
                 fields = fields[:MAX_FIELDS_PER_ENCODING]
-            if encoding == "values":
-                properties[encoding] = {"type": "array", "items": {"type": "string", "enum": fields}, "minItems": 2}
+            if name == "values":
+                properties[name] = {"type": "array", "items": {"type": "string", "enum": fields}, "minItems": 2}
             else:
-                properties[encoding] = {"type": "string", "enum": fields}
-                required.append(encoding)
-
+                properties[name] = {"type": "string", "enum": fields}
+            required.append(name)
+        else:
+            properties[name] = spec
+            required.append(name)
     optional_specs = getattr(shell, "optional", None) or {}
-    for encoding, spec in optional_specs.items():
+    for name, spec in optional_specs.items():
         if is_encoding_spec(spec):
             fields = fields_for_type(spec["type"])
             if fields:
                 if len(fields) > MAX_FIELDS_PER_ENCODING:
                     fields = fields[:MAX_FIELDS_PER_ENCODING]
-                properties[encoding] = {"type": "string", "enum": fields}
-
+                properties[name] = {"type": "string", "enum": fields}
+        else:
+            properties[name] = spec
     return {
         "type": "function",
         "function": {
@@ -148,7 +148,6 @@ def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optiona
             },
         },
     }
-
 
 def is_encoding_spec(spec: Any) -> bool:
     return isinstance(spec, dict) and "type" in spec and isinstance(spec["type"], str)
