@@ -67,7 +67,6 @@ class Runner:
         if not choose_reply:
             logs.append("No visualization could be selected.")
             return dict(logs=logs, widgets=widgets)
-        logger.debug(f"choose_shell_tool: {choose_reply}")
         choose_shell = get_tool_call("choose_shell", choose_reply)
         if not choose_shell or not choose_shell.get("shellId"):
             logs.append("No compatible visualization shell available.")
@@ -78,20 +77,10 @@ class Runner:
             logs.append(f"Unknown shell selected: {shell_id}")
             return dict(logs=logs, widgets=widgets)
         logs.append(f"Selected shell: {shell_id}")
+        logger.debug(f"choose_shell_tool: {shell_id}")
         logger.debug(f"profile: {profile}")
 
-        """
-        # STEP 3: Transform for later, leave outcommented
-        if shell.process_transform:
-            values = run_process(
-                PROCESS_PHASE.TRANSFORM,
-                shell.process_transform["id"],
-                values,
-            )
-            profile = profile_rows(values)
-        """
-
-        # STEP 4: Fill parameters
+        # STEP 3: Fill parameters
         params = {}
         fill_tool = build_fill_shell_params_tool(shell, profile)
         if fill_tool:
@@ -100,12 +89,12 @@ class Runner:
                 [fill_tool],
             )
             if param_reply:
-                logger.debug(f"fill_shell_params_tool: {param_reply}")
                 filled = get_tool_call("fill_shell_params", param_reply)
                 if filled:
                     params.update(filled)
+                    logger.debug(f"fill_shell_params_tool: {params}")
 
-        # STEP 5: Finalize
+        # STEP 4: Finalize
         if shell.process_finalize:
             processes = shell.process_finalize(params)
             for p in processes:
@@ -121,13 +110,13 @@ class Runner:
                         logs.append(process["log"](process_params))
             logger.debug(f"finalize: {profile}")
 
-        # STEP 6: Validate
+        # STEP 5: Validate
         validation = shell.validate(params, profile)
         if not validation.get("ok"):
             logs.append("Visualization parameters invalid.")
             return dict(logs=logs, widgets=widgets)
 
-        # STEP 7: Compile
+        # STEP 6: Compile
         spec = shell.compile(params, values, "vega-lite")
         if spec:
             widgets.append(spec)
