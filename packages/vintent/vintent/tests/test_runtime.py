@@ -36,3 +36,17 @@ async def test_linear_regression(monkeypatch):
     assert_log("Selected shell: linear_regression", result)
     assert_log("Computed linear regression", result)
     assert_output(result["widgets"][0], "test_linear_regression")
+
+
+@pytest.mark.asyncio
+async def test_correlation_matrix(monkeypatch):
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_process", arguments=dict(id="none"))],
+        2: [dict(name="choose_shell", arguments=dict(shellId="heatmap_correlation"))],
+        3: [dict(name="fill_shell_params", arguments=dict())],
+    }
+    monkeypatch.setattr("vintent.modules.runner.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Show heatmap of all columns")
+    result = await run(config, inputs, dataset_path)
+    assert_output(result["widgets"][0], "test_correlation_matrix")
