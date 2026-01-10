@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Any, Dict, List, Optional
 
 from vintent.core.completions import completions_post, get_tool_call
@@ -107,7 +108,7 @@ class Runner:
             return dict(logs=logs, widgets=widgets)
 
         # STEP 5: Compile
-        spec = shell.compile(params, values, "vega-lite")
+        spec = shell.compile(params, _sanitize_values(values), "vega-lite")
         if spec:
             widgets.append(spec)
         return dict(logs=logs, widgets=widgets)
@@ -169,3 +170,16 @@ def _sanitize_transcripts(
                 }
             )
     return sanitized
+
+
+def _sanitize_values(rows):
+    out = []
+    for r in rows:
+        clean = {}
+        for k, v in r.items():
+            if isinstance(v, float) and not math.isfinite(v):
+                clean[k] = None
+            else:
+                clean[k] = v
+        out.append(clean)
+    return out

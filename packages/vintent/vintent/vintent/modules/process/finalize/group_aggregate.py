@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List
 
 PROCESS_ID = "group_aggregate"
 
 AGG_OPS = {"mean", "sum", "min", "max", "count"}
+
+
+def _is_finite(v: Any) -> bool:
+    return isinstance(v, (int, float)) and math.isfinite(v)
 
 
 def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -24,7 +29,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         if op == "count":
             out.append({group_by: key, "count": len(group)})
         else:
-            values = [r.get(metric) for r in group if isinstance(r.get(metric), (int, float))]
+            values = [r.get(metric) for r in group if _is_finite(r.get(metric))]
             if not values:
                 continue
             if op == "mean":
@@ -36,6 +41,8 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
             elif op == "max":
                 agg = max(values)
             else:
+                continue
+            if not math.isfinite(agg):
                 continue
             out.append({group_by: key, metric: float(agg)})
     return out
