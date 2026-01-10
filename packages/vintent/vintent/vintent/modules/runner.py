@@ -39,25 +39,29 @@ class Runner:
         values = rows_from_csv(csv_text)
         profile: DatasetProfile = profile_rows(values)
 
+        # Incoming transcripts
+        logger.debug(f"transcripts: {transcripts}")
+
         # STEP 0: Choose process
-        process_reply = await self._completions(
+        extract_reply = await self._completions(
             transcripts,
             [build_choose_process_tool(PROCESSES.EXTRACT, profile)],
         )
 
-        process_id: Optional[str] = None
+        extract_id: Optional[str] = None
         params: Dict[str, Any] = {}
 
-        if process_reply:
-            chosen = get_tool_call("choose_process", process_reply)
+        if extract_reply:
+            logger.debug(f"choose_process_tool (extract): {extract_reply}")
+            chosen = get_tool_call("choose_process", extract_reply)
             if chosen:
                 pid = chosen.get("id")
                 if pid and pid != NO_PROCESS_ID:
-                    process_id = pid
+                    extract_id = pid
                     params = chosen.get("params", {})
 
-        if process_id:
-            process = PROCESSES.EXTRACT.get(process_id)
+        if extract_id:
+            process = PROCESSES.EXTRACT.get(extract_id)
             values = run_process(process, values, params)
             profile = profile_rows(values)
             if process and "log" in process:
@@ -73,6 +77,7 @@ class Runner:
         analyze_params: Dict[str, Any] = {}
 
         if analyze_reply:
+            logger.debug(f"choose_process_tool (analyze): {analyze_reply}")
             chosen = get_tool_call("choose_process", analyze_reply)
             if chosen:
                 pid = chosen.get("id")
@@ -97,6 +102,7 @@ class Runner:
             logs.append("No visualization could be selected.")
             return dict(logs=logs, widgets=widgets)
 
+        logger.debug(f"choose_shell_tool: {choose_reply}")
         choose_shell = get_tool_call("choose_shell", choose_reply)
 
         if not choose_shell or not choose_shell.get("shellId"):
@@ -111,7 +117,7 @@ class Runner:
             return dict(logs=logs, widgets=widgets)
 
         logs.append(f"Selected shell: {shell_id}")
-        logger.debug(f"Profile: ${profile}")
+        logger.debug(f"profile: {profile}")
 
         """
         # STEP 3: Transform for later, leave outcommented
@@ -133,6 +139,7 @@ class Runner:
                 [fill_tool],
             )
             if param_reply:
+                logger.debug(f"fill_shell_params_tool: {param_reply}")
                 filled = get_tool_call("fill_shell_params", param_reply)
                 if filled:
                     params.update(filled)
@@ -141,17 +148,17 @@ class Runner:
         if shell.process_finalize:
             processes = shell.process_finalize(params)
             for p in processes:
-                process_id = p["id"]
+                finalize_id = p["id"]
                 process_params = p.get("params", {})
-                if process_id:
-                    process = PROCESSES.FINALIZE.get(process_id)
+                if finalize_id:
+                    process = PROCESSES.FINALIZE.get(finalize_id)
                     if not process:
-                        raise Exception(f"Unknown finalize process: {process_id}")
+                        raise Exception(f"Unknown finalize process: {finalize_id}")
                     values = run_process(process, values, process_params)
                     profile = profile_rows(values)
                     if process and "log" in process:
                         logs.append(process["log"](process_params))
-            logger.debug("Post-finalize: ", profile)
+            logger.debug(f"finalize: {profile}")
 
         # STEP 6: Validate
         validation = shell.validate(params, profile)
