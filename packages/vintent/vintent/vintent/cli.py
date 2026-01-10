@@ -6,7 +6,6 @@ import vintent
 
 from .config import MESSAGE_INITIAL, PROMPT_DEFAULT, config
 
-# Get the package root directory
 package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

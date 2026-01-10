@@ -6,7 +6,6 @@ from vintent.config import config, MESSAGE_INITIAL, PROMPT_DEFAULT
 from vintent.runtime import run
 from . import completions_backend
 
-# Get the package root directory
 package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 @pytest.mark.asyncio
