@@ -21,7 +21,7 @@ class SummaryStatisticsShell(BaseShell):
         fields = profile.get("fields", {})
         return any(v.get("type") == "quantitative" for v in fields.values())
 
-    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
+    def processes(self, profile: DatasetProfile, params: ShellParamsType):
         return [
             {
                 "id": summary_statistics_id,

@@ -86,8 +86,8 @@ class Runner:
                     logger.debug(f"fill_shell_params_tool: {params}")
 
         # STEP 3: Finalize
-        if shell.process_finalize:
-            processes = shell.process_finalize(profile, params)
+        if shell.processes:
+            processes = shell.processes(profile, params)
             for p in processes:
                 finalize_id = p["id"]
                 process_params = p.get("params", {})

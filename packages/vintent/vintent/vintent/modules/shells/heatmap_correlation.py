@@ -25,7 +25,7 @@ class HeatmapCorrelationShell(BaseShell):
             return False
         return sum(1 for f in profile.get("fields", {}).values() if f.get("type") == "quantitative") >= 2
 
-    def process_finalize(self, profile: DatasetProfile, params: ShellParamsType):
+    def processes(self, profile: DatasetProfile, params: ShellParamsType):
         return [
             {
                 "id": correlation_matrix_id,

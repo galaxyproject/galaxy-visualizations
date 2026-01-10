@@ -31,7 +31,7 @@ class BaseShell:
     signatures: Optional[List[List[FieldType]]] = None
 
     # processes
-    process_finalize = None
+    processes = None
 
     def is_applicable(self, profile: DatasetProfile) -> bool:
         if not self.signatures:
