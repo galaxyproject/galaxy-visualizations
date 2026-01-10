@@ -1,41 +1,5 @@
 import pytest
-from vintent.modules.process.finalize.covariance import schema, run
-
-def test_schema_returns_none_when_not_asked():
-    profile = {
-        "fields": {
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-        }
-    }
-    context = [{"role": "user", "content": "show me correlations"}]
-    assert schema(profile, context) is None
-
-def test_schema_returns_none_with_insufficient_quantitative_columns():
-    profile = {
-        "fields": {
-            "a": {"type": "quantitative"},
-            "b": {"type": "nominal"},
-        }
-    }
-    context = [{"role": "user", "content": "covariance"}]
-    assert schema(profile, context) is None
-
-def test_schema_valid_with_typo_and_two_quantitative_columns():
-    profile = {
-        "fields": {
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "nominal"},
-        }
-    }
-    context = [{"role": "user", "content": "covariace"}]
-    s = schema(profile, context)
-    assert s is not None
-    assert s["id"] == "covariance"
-    assert s["phase"] == "analyze"
-    props = s["params"]["properties"]["columns"]["items"]["enum"]
-    assert set(props) == {"a", "b"}
+from vintent.modules.process.finalize.covariance import run
 
 def test_run_computes_covariance_matrix_shape():
     rows = [

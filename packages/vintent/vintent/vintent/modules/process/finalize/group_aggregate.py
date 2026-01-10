@@ -2,42 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from vintent.modules.utility import user_asked_for
-
 PROCESS_ID = "group_aggregate"
-PROCESS_PHASE = "analyze"
-REQUIRES_SHAPE = "rowwise"
-PRODUCES_SHAPE = "rowwise"
 
 AGG_OPS = {"mean", "sum", "min", "max", "count"}
-
-
-def schema(profile, context=None):
-    if not user_asked_for(context, ["group", "aggregate", "average", "mean", "sum", "count"]):
-        return None
-    fields = profile.get("fields", {})
-    groupable = [k for k, v in fields.items() if v.get("type") == "nominal"]
-    quantitative = [k for k, v in fields.items() if v.get("type") == "quantitative"]
-    if not groupable:
-        return None
-    properties: Dict[str, Any] = {
-        "group_by": {"type": "string", "enum": groupable},
-        "op": {"type": "string", "enum": sorted(AGG_OPS)},
-    }
-    required = ["group_by", "op"]
-    if quantitative:
-        properties["metric"] = {"type": "string", "enum": quantitative}
-    return {
-        "id": PROCESS_ID,
-        "phase": PROCESS_PHASE,
-        "description": "Group rows by a categorical field and compute an aggregate statistic.",
-        "params": {
-            "type": "object",
-            "properties": properties,
-            "required": required,
-            "additionalProperties": False,
-        },
-    }
 
 
 def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -85,10 +52,6 @@ def log(params: Dict[str, Any]) -> str:
 
 PROCESS = {
     "id": PROCESS_ID,
-    "phase": PROCESS_PHASE,
-    "requires_shape": REQUIRES_SHAPE,
-    "produces_shape": PRODUCES_SHAPE,
-    "schema": schema,
     "log": log,
     "run": run,
 }
