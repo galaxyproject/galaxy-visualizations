@@ -21,7 +21,6 @@ class BarAggregateShell(BaseShell):
         "group_by": {"type": "nominal"},
         "metric": {"type": "quantitative"},
         "op": {
-            "type": "string",
             "enum": ["mean", "sum", "min", "max", "count"],
         },
     }

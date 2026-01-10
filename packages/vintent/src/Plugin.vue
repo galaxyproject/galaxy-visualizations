@@ -86,7 +86,7 @@ async function loadPrompt() {
         transcripts.push({ content: MESSAGE_INITIAL, role: "assistant" });
         if (isTestData) {
             //transcripts.push({ content: "Plot a histogram of age.", role: "user" });
-            transcripts.push({ content: "Plot a heatmap of all values.", role: "user" });
+            transcripts.push({ content: "Plot an aggregate bar of mean values.", role: "user" });
         }
         emit("update", { transcripts });
     }
