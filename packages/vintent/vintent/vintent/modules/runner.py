@@ -52,17 +52,7 @@ class Runner:
             if process and "log" in process:
                 logs.append(process["log"](params))
 
-        # STEP 1: Choose analyze
-        analyzed = await self._run_process(transcripts, PROCESSES.ANALYZE, profile, values)
-        if analyzed:
-            params = analyzed["params"]
-            process = analyzed["process"]
-            values = analyzed["values"]
-            profile = profile_rows(values)
-            if process and "log" in process:
-                logs.append(process["log"](params))
-
-        # STEP 2: Choose shell
+        # STEP 1: Choose shell
         choose_reply = await self._completions(transcripts, [build_choose_shell_tool(profile)])
         if not choose_reply:
             logs.append("No visualization could be selected.")
@@ -80,7 +70,7 @@ class Runner:
         logger.debug(f"choose_shell_tool: {shell_id}")
         logger.debug(f"profile: {profile}")
 
-        # STEP 3: Fill parameters
+        # STEP 2: Fill parameters
         params = {}
         fill_tool = build_fill_shell_params_tool(shell, profile)
         if fill_tool:
@@ -94,7 +84,7 @@ class Runner:
                     params.update(filled)
                     logger.debug(f"fill_shell_params_tool: {params}")
 
-        # STEP 4: Finalize
+        # STEP 3: Finalize
         if shell.process_finalize:
             processes = shell.process_finalize(params)
             for p in processes:
@@ -110,13 +100,13 @@ class Runner:
                         logs.append(process["log"](process_params))
             logger.debug(f"finalize: {profile}")
 
-        # STEP 5: Validate
+        # STEP 4: Validate
         validation = shell.validate(params, profile)
         if not validation.get("ok"):
             logs.append("Visualization parameters invalid.")
             return dict(logs=logs, widgets=widgets)
 
-        # STEP 6: Compile
+        # STEP 5: Compile
         spec = shell.compile(params, values, "vega-lite")
         if spec:
             widgets.append(spec)

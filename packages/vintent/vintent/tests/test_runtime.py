@@ -9,9 +9,8 @@ from . import assert_log, assert_output, build_inputs, mock_completions, dataset
 async def test_histogram(monkeypatch):
     mock_replies = {
         0: [dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=50, max=100)))],
-        1: [dict(name="choose_process", arguments=dict(id="none"))],
-        2: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
-        3: [dict(name="fill_shell_params", arguments=dict(field="Age"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
+        2: [dict(name="fill_shell_params", arguments=dict(field="Age"))],
     }
     monkeypatch.setattr("vintent.modules.runner.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Create a histogram of age with age > 50")
@@ -25,9 +24,8 @@ async def test_histogram(monkeypatch):
 async def test_linear_regression(monkeypatch):
     mock_replies = {
         0: [dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=0, max=50)))],
-        1: [dict(name="choose_process", arguments=dict(id="none"))],
-        2: [dict(name="choose_shell", arguments=dict(shellId="linear_regression"))],
-        3: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="linear_regression"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
     }
     monkeypatch.setattr("vintent.modules.runner.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show linear regression of Glucose and Insuling with age < 50")
@@ -42,9 +40,8 @@ async def test_linear_regression(monkeypatch):
 async def test_correlation_matrix(monkeypatch):
     mock_replies = {
         0: [dict(name="choose_process", arguments=dict(id="none"))],
-        1: [dict(name="choose_process", arguments=dict(id="none"))],
-        2: [dict(name="choose_shell", arguments=dict(shellId="heatmap_correlation"))],
-        3: [dict(name="fill_shell_params", arguments=dict())],
+        1: [dict(name="choose_shell", arguments=dict(shellId="heatmap_correlation"))],
+        2: [dict(name="fill_shell_params", arguments=dict())],
     }
     monkeypatch.setattr("vintent.modules.runner.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show heatmap of all columns")
