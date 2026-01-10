@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from vintent.core.completions import completions_post
 from vintent.config import MESSAGE_INITIAL, PROMPT_DEFAULT
 
@@ -9,6 +10,38 @@ dataset_path = os.path.join(package_root, "../test-data", "dataset.csv")
 
 def assert_log(assertion, result):
     assert any(assertion in l for l in result["logs"])
+
+def assert_output(content, file_name, update_on_mismatch=False):
+    file_path = Path(os.path.join(package_root, f"../test-results/{file_name}.json"))
+    content_to_compare = json.dumps(content, indent=2, sort_keys=True)
+    if file_path.exists():
+        existing_content = file_path.read_text()
+        if existing_content.strip() == content_to_compare.strip():
+            return True
+        if update_on_mismatch:
+            print(f"Warning: Content mismatch in '{file_name}'. Updating file.")
+            file_path.write_text(content_to_compare)
+            return False
+        else:
+            import difflib
+            diff = list(difflib.unified_diff(
+                existing_content.splitlines(keepends=True),
+                content_to_compare.splitlines(keepends=True),
+                fromfile=f'Existing ({file_name})',
+                tofile='New content'
+            ))
+            raise AssertionError(
+                f"Content mismatch in '{file_name}':\n" +
+                ''.join(diff[:50]) +  # Limit diff output
+                ("\n... (diff truncated)" if len(diff) > 50 else "")
+            )
+    else:
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content_to_compare)
+        raise FileNotFoundError(
+            f"File '{file_name}' was created with the expected content.\n"
+            f"Please review it and re-run the test."
+        )
 
 def build_inputs(query):
     return {
