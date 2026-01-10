@@ -3,7 +3,7 @@ import pytest
 
 from vintent.config import config
 from vintent.runtime import run
-from . import assert_log, build_inputs, mock_completions, dataset_path
+from . import assert_log, assert_output, build_inputs, mock_completions, dataset_path
 
 @pytest.mark.asyncio
 async def test_histogram(monkeypatch):
@@ -21,6 +21,7 @@ async def test_histogram(monkeypatch):
     assert_log("Computed histogram bins", result)
     spec = result["widgets"][0]
     assert spec["mark"]["type"] == "bar"
+    assert_output(spec, "test_histogram")
 
 @pytest.mark.asyncio
 async def test_linear_regression(monkeypatch):
