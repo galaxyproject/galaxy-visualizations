@@ -43,7 +43,7 @@ class Runner:
         logger.debug(f"transcripts: {transcripts}")
 
         # STEP 0: Choose process
-        extracted = await self._run_process(PROCESSES.EXTRACT, profile, transcripts, values)
+        extracted = await self._run_process(transcripts, PROCESSES.EXTRACT, profile, values)
         if extracted:
             params = extracted["params"]
             process = extracted["process"]
@@ -53,7 +53,7 @@ class Runner:
                 logs.append(process["log"](params))
 
         # STEP 1: Choose analyze
-        analyzed = await self._run_process(PROCESSES.ANALYZE, profile, transcripts, values)
+        analyzed = await self._run_process(transcripts, PROCESSES.ANALYZE, profile, values)
         if analyzed:
             params = analyzed["params"]
             process = analyzed["process"]
@@ -150,9 +150,9 @@ class Runner:
 
     async def _run_process(
         self,
+        transcripts: List[TranscriptMessageType],
         processes: Dict[str, Process],
         profile: DatasetProfile,
-        transcripts: List[TranscriptMessageType],
         values: List[Dict[str, Any]],
     ):
         reply = await self._completions(
