@@ -22,6 +22,9 @@ import { runVintent } from "./pyodide-runner";
 const props = defineProps<{
     datasetId: string;
     root: string;
+    settings: {
+        widgets?: [];
+    };
     specs: {
         ai_api_base_url?: string;
         ai_api_key?: string;
@@ -31,9 +34,6 @@ const props = defineProps<{
         ai_temperature?: string;
         ai_top_p?: string;
         ai_contract?: any;
-    };
-    settings: {
-        widgets?: [];
     };
     transcripts: TranscriptMessageType[];
 }>();
@@ -159,6 +159,8 @@ function removeWidget(widgetIndex: number) {
 }
 
 onMounted(() => {
+    const collapse = !!props.settings?.widgets?.length;
+    emit("update", { collapse });
     loadPrompt();
     loadPyodide();
 });
