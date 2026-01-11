@@ -10,7 +10,7 @@
         "dev": "npm run build && vite",
         "build": "npm run build:pyodide && npm run build:vintent && vite build",
         "build:pyodide": "node pyodide.install.js",
-        "build:vintent": "cd vintent && rm -rf build && python -m build --wheel",
+        "build:vintent": "cd vintent && rm -rf build dist vintent.egg-info && python -m build --wheel",
         "preview": "vite preview",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
         "test": "npm run test:unit",
