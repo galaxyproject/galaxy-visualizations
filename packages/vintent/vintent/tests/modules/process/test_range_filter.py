@@ -1,6 +1,10 @@
 import pytest
 from vintent.modules.process.extract.range_filter import schema, run, log
 
+# Context with a user message containing a filter keyword
+FILTER_CONTEXT = [{"role": "user", "content": "Show values greater than 5"}]
+
+
 def test_schema_returns_none_without_quantitative_columns():
     profile = {
         "fields": {
@@ -8,7 +12,19 @@ def test_schema_returns_none_without_quantitative_columns():
             "b": {"type": "nominal"},
         }
     }
-    assert schema(profile) is None
+    # With filter keywords but no quantitative columns, should return None
+    assert schema(profile, context=FILTER_CONTEXT) is None
+
+
+def test_schema_returns_false_without_filter_keywords():
+    profile = {
+        "fields": {
+            "a": {"type": "quantitative"},
+        }
+    }
+    # Without filter keywords in context, should return False
+    assert schema(profile, context=[{"role": "user", "content": "show me a chart"}]) is False
+
 
 def test_schema_valid_with_quantitative_columns():
     profile = {
@@ -18,7 +34,7 @@ def test_schema_valid_with_quantitative_columns():
             "c": {"type": "quantitative"},
         }
     }
-    s = schema(profile)
+    s = schema(profile, context=FILTER_CONTEXT)
     assert s is not None
     assert s["id"] == "range_filter"
     assert s["phase"] == "extract"
