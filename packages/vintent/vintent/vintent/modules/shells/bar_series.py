@@ -69,8 +69,8 @@ class BarSeriesShell(BaseShell):
 
     def validate(
         self,
-        params: ShellParamsType,
         profile: DatasetProfile,
+        params: ShellParamsType,
     ) -> ValidationResult:
         fields = params.get("values")
 

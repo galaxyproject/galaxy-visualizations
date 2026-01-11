@@ -18,10 +18,7 @@ class PCAShell(BaseShell):
         return sum(1 for v in fields.values() if v.get("type") == "quantitative") >= 2
 
     def processes(self, profile: DatasetProfile, params: ShellParamsType):
-        columns = [
-            k for k, v in profile.get("fields", {}).items()
-            if v.get("type") == "quantitative"
-        ]
+        columns = [k for k, v in profile.get("fields", {}).items() if v.get("type") == "quantitative"]
         return [
             {
                 "id": pca_id,
@@ -57,8 +54,8 @@ class PCAShell(BaseShell):
 
     def validate(
         self,
-        params: ShellParamsType,
         profile: DatasetProfile,
+        params: ShellParamsType,
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 

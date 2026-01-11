@@ -71,8 +71,8 @@ class BarAggregateShell(BaseShell):
 
     def validate(
         self,
-        params: ShellParamsType,
         profile: DatasetProfile,
+        params: ShellParamsType,
     ) -> ValidationResult:
         group_by = params.get("group_by")
         op = params.get("op")

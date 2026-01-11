@@ -44,8 +44,8 @@ class HistogramShell(BaseShell):
 
     def validate(
         self,
-        params: ShellParamsType,
         profile: DatasetProfile,
+        params: ShellParamsType,
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 

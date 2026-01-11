@@ -102,7 +102,7 @@ class Runner:
             logger.debug(f"finalize: {profile}")
 
         # STEP 4: Validate
-        validation = shell.validate(params, profile)
+        validation = shell.validate(profile, params)
         if not validation.get("ok"):
             logs.append("Visualization parameters invalid.")
             return dict(logs=logs, widgets=widgets)

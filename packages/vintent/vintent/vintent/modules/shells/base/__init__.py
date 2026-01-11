@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
-from vintent.modules.process import Process
 from vintent.modules.profiler import DatasetProfile
 from vintent.modules.schemas import FieldType
 

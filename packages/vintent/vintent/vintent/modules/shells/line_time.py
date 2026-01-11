@@ -53,8 +53,8 @@ class LineTimeShell(BaseShell):
 
     def validate(
         self,
-        params: ShellParamsType,
         profile: DatasetProfile,
+        params: ShellParamsType,
     ) -> ValidationResult:
         x_field = params.get("x")
         y_field = params.get("y")

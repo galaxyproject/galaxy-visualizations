@@ -10,9 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 class HeatmapCovarianceShell(BaseShell):
     name = "Covariance Heatmap"
-    description = (
-        "Visualize pairwise covariance between quantitative fields as a heatmap."
-    )
+    description = "Visualize pairwise covariance between quantitative fields as a heatmap."
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
@@ -23,16 +21,10 @@ class HeatmapCovarianceShell(BaseShell):
     def is_applicable(self, profile: DatasetProfile) -> bool:
         if not super().is_applicable(profile):
             return False
-        return sum(
-            1 for f in profile.get("fields", {}).values()
-            if f.get("type") == "quantitative"
-        ) >= 2
+        return sum(1 for f in profile.get("fields", {}).values() if f.get("type") == "quantitative") >= 2
 
     def processes(self, profile: DatasetProfile, params: ShellParamsType):
-        fields = [
-            k for k, v in profile.get("fields", {}).items()
-            if v.get("type") == "quantitative"
-        ]
+        fields = [k for k, v in profile.get("fields", {}).items() if v.get("type") == "quantitative"]
         return [
             {
                 "id": covariance_id,
@@ -75,11 +67,10 @@ class HeatmapCovarianceShell(BaseShell):
             },
         }
 
-
     def validate(
         self,
-        params: ShellParamsType,
         profile: DatasetProfile,
+        params: ShellParamsType,
     ) -> ValidationResult:
         fields = profile.get("fields", {})
         if not {"x", "y", "value"}.issubset(fields):

@@ -4,9 +4,8 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from vintent.modules.utility import user_asked_for
-
 PROCESS_ID = "pca"
+
 
 def run(rows: List[Dict[str, Any]], params: Dict[str, Any]):
     columns = params.get("columns") or []

@@ -13,7 +13,7 @@ def test_validate_ok_with_correct_types():
             "value": {"type": "quantitative"},
         }
     )
-    result = shell.validate(params, profile)
+    result = shell.validate(profile, params)
     assert result["ok"] is True
     assert result["errors"] == []
 
@@ -25,7 +25,7 @@ def test_validate_missing_required_encodings():
             "value": {"type": "quantitative"},
         }
     )
-    result = shell.validate({"x": "category"}, profile)
+    result = shell.validate(profile, {"x": "category"})
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "missing_required_encoding"
 
@@ -37,7 +37,7 @@ def test_validate_unknown_field():
             "value": {"type": "quantitative"},
         }
     )
-    result = shell.validate(params, profile)
+    result = shell.validate(profile, params)
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "unknown_field"
 
@@ -50,7 +50,7 @@ def test_validate_invalid_x_type():
             "other": {"type": "quantitative"},
         }
     )
-    result = shell.validate(params, profile)
+    result = shell.validate(profile, params)
     assert result["ok"] is False
     err = result["errors"][0]
     assert err["code"] == "invalid_field_type"
@@ -65,7 +65,7 @@ def test_validate_invalid_y_type():
             "group": {"type": "nominal"},
         }
     )
-    result = shell.validate(params, profile)
+    result = shell.validate(profile, params)
     assert result["ok"] is False
     err = result["errors"][0]
     assert err["code"] == "invalid_field_type"

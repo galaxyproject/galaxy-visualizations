@@ -13,7 +13,7 @@ def test_validate_ok_with_two_quantitative_fields():
             "b": {"type": "quantitative"},
         }
     )
-    result = shell.validate(params, profile)
+    result = shell.validate(profile, params)
     assert result["ok"] is True
     assert result["errors"] == []
 
@@ -38,7 +38,7 @@ def test_validate_unknown_field():
             "b": {"type": "quantitative"},
         }
     )
-    result = shell.validate(params, profile)
+    result = shell.validate(profile, params)
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "unknown_field"
 
@@ -51,7 +51,7 @@ def test_validate_invalid_field_types():
             "b": {"type": "quantitative"},
         }
     )
-    result = shell.validate(params, profile)
+    result = shell.validate(profile, params)
     assert result["ok"] is False
     err = result["errors"][0]
     assert err["code"] == "invalid_field_type"
