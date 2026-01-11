@@ -105,9 +105,7 @@ def get_tool_call(name, reply):
                             f"Failed to parse tool call arguments for '{name}': {e}. "
                             f"Raw arguments: {truncated_args}"
                         )
-                        parse_errors.append(
-                            {"tool": name, "error": str(e), "raw": args[:500]}
-                        )
+                        parse_errors.append({"tool": name, "error": str(e), "raw": args[:500]})
 
     if parse_errors:
         logger.debug(f"Tool call parse errors: {parse_errors}")

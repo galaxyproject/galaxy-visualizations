@@ -5,10 +5,10 @@ from typing import Any, Dict, List, Optional
 from vintent.core.completions import completions_post, get_tool_call
 from vintent.core.exceptions import DataError, VintentError
 
-from .process import PROCESSES, Process, run_process
+from .process import Process, run_process
 from .profiler import DatasetProfile, profile_rows, rows_from_csv
+from .registry import PROCESSES, SHELLS
 from .schemas import CompletionsMessage, CompletionsReply, TranscriptMessageType
-from .shells import SHELLS
 from .tools import (
     NO_PROCESS_ID,
     build_choose_process_tool,
@@ -65,9 +65,7 @@ class Runner:
             logger.debug(f"transcripts: {transcripts}")
 
             # STEP 0: Choose process
-            extracted = await self._run_process(
-                transcripts, PROCESSES.EXTRACT, profile, values
-            )
+            extracted = await self._run_process(transcripts, PROCESSES.EXTRACT, profile, values)
             if extracted:
                 params = extracted["params"]
                 process = extracted["process"]
@@ -77,9 +75,7 @@ class Runner:
                     logs.append(process["log"](params))
 
             # STEP 1: Choose shell
-            choose_reply = await self._completions(
-                transcripts, [build_choose_shell_tool(profile)]
-            )
+            choose_reply = await self._completions(transcripts, [build_choose_shell_tool(profile)])
             if not choose_reply:
                 logs.append("No visualization could be selected.")
                 return dict(logs=logs, widgets=widgets, errors=errors)

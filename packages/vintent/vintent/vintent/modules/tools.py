@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from .process import Process
 from .profiler import DatasetProfile
-from .shells import SHELLS
+from .registry import SHELLS
 
 NO_PROCESS_ID = "none"
 MAX_SHELLS = 50

@@ -8,7 +8,7 @@ from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 
-class ECDFShell(BaseShell):
+class EcdfShell(BaseShell):
     name = "ECDF"
     description = (
         "Empirical cumulative distribution function for a quantitative field. "

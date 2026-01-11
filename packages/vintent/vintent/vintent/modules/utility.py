@@ -20,7 +20,6 @@ def user_asked_for(context, keywords):
     return False
 
 
-
 def _edit_distance_leq_one(a, b):
     la = len(a)
     lb = len(b)

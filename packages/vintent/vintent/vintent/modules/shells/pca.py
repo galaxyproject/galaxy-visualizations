@@ -8,7 +8,7 @@ from vintent.modules.schemas import DatasetProfile, ValidationResult
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 
-class PCAShell(BaseShell):
+class PcaShell(BaseShell):
     name = "PCA Scatter"
     description = "Project data into principal component space and visualize PC1 vs PC2."
     semantics: Literal["rowwise", "aggregate"] = "rowwise"

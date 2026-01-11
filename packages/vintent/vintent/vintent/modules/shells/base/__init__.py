@@ -63,9 +63,7 @@ class BaseShell:
 
         return False
 
-    def validate(
-        self, profile: DatasetProfile, params: ShellParamsType
-    ) -> ValidationResult:
+    def validate(self, profile: DatasetProfile, params: ShellParamsType) -> ValidationResult:
         """Validate shell parameters against the dataset profile.
 
         Subclasses should override this method to implement validation logic.
@@ -75,9 +73,7 @@ class BaseShell:
         """
         return {"ok": True, "errors": [], "warnings": []}
 
-    def validate_or_raise(
-        self, profile: DatasetProfile, params: ShellParamsType
-    ) -> None:
+    def validate_or_raise(self, profile: DatasetProfile, params: ShellParamsType) -> None:
         """Validate parameters and raise ShellError if invalid.
 
         This method calls validate() and raises ShellError if validation fails,

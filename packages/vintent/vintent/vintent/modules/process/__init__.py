@@ -2,27 +2,6 @@ from typing import Any, Callable, Dict, List, Literal, Optional, TypedDict
 
 from vintent.core.exceptions import ProcessError
 
-from .analyze.cardinality_report import PROCESS as cardinality_report
-from .analyze.compute_bins import PROCESS as compute_bins
-from .analyze.correlation_matrix import PROCESS as correlation_matrix
-from .analyze.covariance import PROCESS as covariance
-from .analyze.density_estimate import PROCESS as density_estimate
-from .analyze.drop_missing import PROCESS as drop_missing
-from .analyze.ecdf import PROCESS as ecdf
-from .analyze.group_aggregate import PROCESS as group_aggregate
-from .analyze.group_summary_statistics import PROCESS as group_summary_statistics
-from .analyze.linear_regression import PROCESS as linear_regression
-from .analyze.pca import PROCESS as pca
-from .analyze.quantiles import PROCESS as quantiles
-from .analyze.standardize_columns import PROCESS as standardize_columns
-from .analyze.summary_statistics import PROCESS as summary_statistics
-from .extract.categorical_filter import PROCESS as categorical_filter
-from .extract.project_columns import PROCESS as project_columns
-from .extract.range_filter import PROCESS as range_filter
-from .extract.rank_top_k import PROCESS as rank_top_k
-from .extract.sort_rows import PROCESS as sort_rows
-
-
 # Type aliases for clarity
 DataShape = Literal["rowwise", "aggregate"]
 ProcessPhase = Literal["extract", "analyze"]
@@ -55,73 +34,7 @@ class Process(TypedDict, total=False):
     produces_shape: DataShape
 
 
-def validate_process(process_dict: Dict[str, Any]) -> Process:
-    """Validate a process definition has required fields.
-
-    Args:
-        process_dict: The process definition dict to validate
-
-    Returns:
-        The validated process dict (cast to Process type)
-
-    Raises:
-        ValueError: If required fields are missing
-    """
-    required_keys = {"id", "run", "log"}
-    missing = required_keys - set(process_dict.keys())
-    if missing:
-        process_id = process_dict.get("id", "unknown")
-        raise ValueError(f"Process '{process_id}' missing required keys: {missing}")
-    return process_dict  # type: ignore
-
-
-def _build_registry(processes: List[Dict[str, Any]]) -> Dict[str, Process]:
-    """Build a process registry from a list of process definitions.
-
-    Validates each process and creates a dict keyed by process ID.
-    """
-    registry: Dict[str, Process] = {}
-    for p in processes:
-        validated = validate_process(p)
-        registry[validated["id"]] = validated
-    return registry
-
-
-class PROCESSES:
-
-    ANALYZE = _build_registry(
-        [
-            cardinality_report,
-            compute_bins,
-            correlation_matrix,
-            covariance,
-            density_estimate,
-            ecdf,
-            group_aggregate,
-            group_summary_statistics,
-            linear_regression,
-            pca,
-            quantiles,
-            standardize_columns,
-            summary_statistics,
-        ]
-    )
-
-    EXTRACT = _build_registry(
-        [
-            range_filter,
-            categorical_filter,
-            drop_missing,
-            sort_rows,
-            rank_top_k,
-            project_columns,
-        ]
-    )
-
-
-def run_process(
-    process: Process, rows: List[Dict[str, Any]], params: Dict[str, Any]
-) -> List[Dict[str, Any]]:
+def run_process(process: Process, rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Execute a data processing step.
 
     Args:
@@ -160,3 +73,23 @@ def run_process(
             f"Process '{process_id}' failed: {e}",
             details={"process_id": process_id, "original_error": str(e)},
         )
+
+
+def validate_process(process_dict: Dict[str, Any]) -> Process:
+    """Validate a process definition has required fields.
+
+    Args:
+        process_dict: The process definition dict to validate
+
+    Returns:
+        The validated process dict (cast to Process type)
+
+    Raises:
+        ValueError: If required fields are missing
+    """
+    required_keys = {"id", "run", "log"}
+    missing = required_keys - set(process_dict.keys())
+    if missing:
+        process_id = process_dict.get("id", "unknown")
+        raise ValueError(f"Process '{process_id}' missing required keys: {missing}")
+    return process_dict  # type: ignore

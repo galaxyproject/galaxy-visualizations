@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal
 
 from vintent.modules.process.analyze.group_aggregate import PROCESS_ID as group_aggregate_id
-
 from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType

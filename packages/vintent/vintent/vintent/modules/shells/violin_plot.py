@@ -10,10 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 class ViolinPlotShell(BaseShell):
     name = "Violin Plot"
-    description = (
-        "Show the distribution of a quantitative field across categories "
-        "using mirrored density plots."
-    )
+    description = "Show the distribution of a quantitative field across categories " "using mirrored density plots."
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 

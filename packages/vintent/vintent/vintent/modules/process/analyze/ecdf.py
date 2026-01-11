@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
 import math
+from typing import Any, Dict, List
 
 PROCESS_ID = "ecdf"
 PROCESS_PHASE = "analyze"

@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+
 from vintent.modules.utility import user_asked_for
 
 PROCESS_ID = "rank_top_k"

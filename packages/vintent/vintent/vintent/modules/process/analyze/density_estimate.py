@@ -26,7 +26,7 @@ def _kde_1d(x: np.ndarray, grid: np.ndarray) -> np.ndarray:
     if bw <= 0 or not math.isfinite(bw):
         return np.zeros_like(grid)
     diff = (grid[:, None] - x[None, :]) / bw
-    return np.exp(-0.5 * diff ** 2).sum(axis=1) / (n * bw * math.sqrt(2 * math.pi))
+    return np.exp(-0.5 * diff**2).sum(axis=1) / (n * bw * math.sqrt(2 * math.pi))
 
 
 def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:

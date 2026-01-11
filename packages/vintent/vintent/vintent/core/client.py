@@ -83,10 +83,7 @@ class BrowserHttpClient(HttpClient):
 
             if attempt < MAX_RETRIES - 1:
                 backoff = INITIAL_BACKOFF * (2**attempt)
-                logger.warning(
-                    f"HTTP {status}, retrying in {backoff}s "
-                    f"(attempt {attempt + 1}/{MAX_RETRIES})"
-                )
+                logger.warning(f"HTTP {status}, retrying in {backoff}s " f"(attempt {attempt + 1}/{MAX_RETRIES})")
                 await asyncio.sleep(backoff)
 
         raise last_error
@@ -141,10 +138,7 @@ class ServerHttpClient(HttpClient):
 
             if attempt < MAX_RETRIES - 1:
                 backoff = INITIAL_BACKOFF * (2**attempt)
-                logger.warning(
-                    f"HTTP {status}, retrying in {backoff}s "
-                    f"(attempt {attempt + 1}/{MAX_RETRIES})"
-                )
+                logger.warning(f"HTTP {status}, retrying in {backoff}s " f"(attempt {attempt + 1}/{MAX_RETRIES})")
                 await asyncio.sleep(backoff)
 
         raise last_error
