@@ -1,0 +1,355 @@
+diff --git a/packages/vintent/src/Plugin.vue b/packages/vintent/src/Plugin.vue
+index c090e45..cd37ae0 100644
+--- a/packages/vintent/src/Plugin.vue
++++ b/packages/vintent/src/Plugin.vue
+@@ -86,7 +86,7 @@ async function loadPrompt() {
+         transcripts.push({ content: MESSAGE_INITIAL, role: "assistant" });
+         if (isTestData) {
+             //transcripts.push({ content: "Plot a histogram of age.", role: "user" });
+-            transcripts.push({ content: "Plot a heatmap of all values.", role: "user" });
++            transcripts.push({ content: "Apply a the correlation matrix process and plot a heatmap of all values.", role: "user" });
+         }
+         emit("update", { transcripts });
+     }
+@@ -134,7 +134,9 @@ async function processUserRequest() {
+                 if (newWidgets.length > 0) {
+                     widgets.value.push(...newWidgets);
+                     consoleMessages.value.push({ content: MESSAGE_SUCCESS, icon: CheckIcon });
+-                    transcripts.push({ content: MESSAGE_SUCCESS, role: "assistant" });
++                    reply.logs.forEach((log: string) => {
++                        transcripts.push({ content: log, role: "assistant" });
++                    });
+                 } else {
+                     consoleMessages.value.push({ content: MESSAGE_FAILED, icon: ExclamationTriangleIcon });
+                     transcripts.push({ content: MESSAGE_FAILED, role: "assistant" });
+diff --git a/packages/vintent/vintent/vintent/modules/process/__init__.py b/packages/vintent/vintent/vintent/modules/process/__init__.py
+index 2f5349f..c914eb7 100644
+--- a/packages/vintent/vintent/vintent/modules/process/__init__.py
++++ b/packages/vintent/vintent/vintent/modules/process/__init__.py
+@@ -24,8 +24,11 @@ class PROCESSES:
+     ANALYZE = {
+         p["id"]: p
+         for p in [
++            compute_bins,
++            correlation_matrix,
+             covariance,
+             group_aggregate,
++            linear_regression,
+             pca,
+         ]
+     }
+@@ -44,9 +47,6 @@ class PROCESSES:
+     FINALIZE = {
+         p["id"]: p
+         for p in [
+-            compute_bins,
+-            correlation_matrix,
+-            linear_regression,
+         ]
+     }
+ 
+diff --git a/packages/vintent/vintent/vintent/modules/process/finalize/compute_bins.py b/packages/vintent/vintent/vintent/modules/process/finalize/compute_bins.py
+deleted file mode 100644
+index 7eeafa3..0000000
+--- a/packages/vintent/vintent/vintent/modules/process/finalize/compute_bins.py
++++ /dev/null
+@@ -1,63 +0,0 @@
+-from typing import Any, Dict, List
+-
+-PROCESS_ID = "compute_bins"
+-
+-DEFAULT_BINS = 10
+-MAX_BINS = 50
+-
+-
+-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+-    if not rows:
+-        return []
+-    field = params.get("field")
+-    bins = params.get("bins", DEFAULT_BINS)
+-    values: List[float] = []
+-    for row in rows:
+-        v = row.get(field)
+-        if isinstance(v, (int, float)):
+-            values.append(float(v))
+-    if not values:
+-        return []
+-    min_v = min(values)
+-    max_v = max(values)
+-    if min_v == max_v:
+-        return [
+-            {
+-                "bin": f"[{min_v}, {max_v}]",
+-                "bin_start": min_v,
+-                "bin_end": max_v,
+-                "count": len(values),
+-            }
+-        ]
+-    width = (max_v - min_v) / bins
+-    counts = [0] * bins
+-    for v in values:
+-        idx = int((v - min_v) / width)
+-        if idx == bins:
+-            idx = bins - 1
+-        counts[idx] += 1
+-    out: List[Dict[str, object]] = []
+-    for i, c in enumerate(counts):
+-        start = min_v + i * width
+-        end = start + width
+-        out.append(
+-            {
+-                "bin": f"[{start}, {end}]",
+-                "bin_start": start,
+-                "bin_end": end,
+-                "count": float(c),
+-            }
+-        )
+-    return out
+-
+-
+-def log(params: Dict[str, Any]) -> str:
+-    bins = params.get("bins", DEFAULT_BINS)
+-    return f"Computed histogram bins with {bins} bins."
+-
+-
+-PROCESS = {
+-    "id": PROCESS_ID,
+-    "log": log,
+-    "run": run,
+-}
+diff --git a/packages/vintent/vintent/vintent/modules/process/finalize/correlation_matrix.py b/packages/vintent/vintent/vintent/modules/process/finalize/correlation_matrix.py
+deleted file mode 100644
+index 7113565..0000000
+--- a/packages/vintent/vintent/vintent/modules/process/finalize/correlation_matrix.py
++++ /dev/null
+@@ -1,72 +0,0 @@
+-import math
+-from typing import Any, Dict, List
+-
+-PROCESS_ID = "correlation_matrix"
+-
+-
+-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+-    if not rows:
+-        return []
+-
+-    numeric_fields: List[str] = []
+-    for key, value in rows[0].items():
+-        if isinstance(value, (int, float)):
+-            numeric_fields.append(key)
+-
+-    if len(numeric_fields) < 2:
+-        return []
+-
+-    series: Dict[str, List[float]] = {}
+-    for field in numeric_fields:
+-        values: List[float] = []
+-        for row in rows:
+-            v = row.get(field)
+-            if isinstance(v, (int, float)):
+-                values.append(float(v))
+-        if values:
+-            series[field] = values
+-
+-    fields = list(series.keys())
+-    if len(fields) < 2:
+-        return []
+-
+-    out: List[Dict[str, object]] = []
+-
+-    for x in fields:
+-        xs = series[x]
+-        mean_x = sum(xs) / len(xs)
+-        var_x = sum((v - mean_x) ** 2 for v in xs)
+-
+-        for y in fields:
+-            ys = series[y]
+-            mean_y = sum(ys) / len(ys)
+-            var_y = sum((v - mean_y) ** 2 for v in ys)
+-
+-            cov = 0.0
+-            n = min(len(xs), len(ys))
+-            for i in range(n):
+-                cov += (xs[i] - mean_x) * (ys[i] - mean_y)
+-
+-            denom = math.sqrt(var_x * var_y)
+-            value = cov / denom if denom != 0 else 0.0
+-
+-            out.append(
+-                {
+-                    "x": x,
+-                    "y": y,
+-                    "value": value,
+-                }
+-            )
+-
+-    return out
+-
+-
+-def log(params: Dict[str, Any]) -> str:
+-    return "Computed correlation matrix."
+-
+-
+-PROCESS = {
+-    "id": PROCESS_ID,
+-    "log": log,
+-    "run": run,
+-}
+diff --git a/packages/vintent/vintent/vintent/modules/process/finalize/linear_regression.py b/packages/vintent/vintent/vintent/modules/process/finalize/linear_regression.py
+deleted file mode 100644
+index 651a6e2..0000000
+--- a/packages/vintent/vintent/vintent/modules/process/finalize/linear_regression.py
++++ /dev/null
+@@ -1,59 +0,0 @@
+-from typing import Any, Dict, List
+-
+-PROCESS_ID = "linear_regression"
+-
+-
+-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+-    if not rows:
+-        return []
+-
+-    xcol = params.get("x")
+-    ycol = params.get("y")
+-    if not xcol or not ycol:
+-        return rows
+-
+-    xs: List[float] = []
+-    ys: List[float] = []
+-
+-    for row in rows:
+-        xv = row.get(xcol)
+-        yv = row.get(ycol)
+-        if isinstance(xv, (int, float)) and isinstance(yv, (int, float)):
+-            xs.append(float(xv))
+-            ys.append(float(yv))
+-
+-    if len(xs) < 2:
+-        return rows
+-
+-    xm = sum(xs) / len(xs)
+-    ym = sum(ys) / len(ys)
+-
+-    den = sum((x - xm) ** 2 for x in xs)
+-    if den == 0:
+-        return rows
+-
+-    slope = sum((x - xm) * (y - ym) for x, y in zip(xs, ys)) / den
+-    intercept = ym - slope * xm
+-
+-    out: List[Dict[str, object]] = []
+-    for row in rows:
+-        xv = row.get(xcol)
+-        new_row = dict(row)
+-        if isinstance(xv, (int, float)):
+-            new_row["yhat"] = slope * float(xv) + intercept
+-        else:
+-            continue
+-        out.append(new_row)
+-
+-    return out
+-
+-
+-def log(params: Dict[str, Any]) -> str:
+-    return "Computed linear regression."
+-
+-
+-PROCESS = {
+-    "id": PROCESS_ID,
+-    "log": log,
+-    "run": run,
+-}
+diff --git a/packages/vintent/vintent/vintent/modules/shells/heatmap_correlation.py b/packages/vintent/vintent/vintent/modules/shells/heatmap_correlation.py
+index 467aafe..e567609 100644
+--- a/packages/vintent/vintent/vintent/modules/shells/heatmap_correlation.py
++++ b/packages/vintent/vintent/vintent/modules/shells/heatmap_correlation.py
+@@ -1,13 +1,9 @@
+ from __future__ import annotations
+-
+ from typing import Any, Dict, List, Literal
+-
+-from vintent.modules.process.finalize.correlation_matrix import PROCESS_ID as correlation_matrix_id
++from vintent.modules.process.analyze.correlation_matrix import PROCESS_ID as correlation_matrix_id
+ from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
+-
+ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
+ 
+-
+ class HeatmapCorrelationShell(BaseShell):
+     name = "Correlation Heatmap"
+     description = (
+@@ -15,6 +11,7 @@ class HeatmapCorrelationShell(BaseShell):
+         "Best for high dimensional numeric datasets."
+     )
+     semantics: Literal["rowwise", "aggregate"] = "aggregate"
++    process_analyze = correlation_matrix_id
+ 
+     signatures: List[List[FieldType]] = [
+         ["quantitative", "quantitative"],
+@@ -25,14 +22,6 @@ class HeatmapCorrelationShell(BaseShell):
+             return False
+         return sum(1 for f in profile.get("fields", {}).values() if f.get("type") == "quantitative") >= 2
+ 
+-    def process_finalize(self, params: ShellParamsType):
+-        return [
+-            {
+-                "id": correlation_matrix_id,
+-                "params": {},
+-            }
+-        ]
+-
+     def compile(
+         self,
+         params: ShellParamsType,
+@@ -41,7 +30,6 @@ class HeatmapCorrelationShell(BaseShell):
+     ) -> Dict[str, Any]:
+         if renderer != "vega-lite":
+             return {}
+-
+         return {
+             "$schema": VEGA_LITE_SCHEMA,
+             "data": {"values": values},
+@@ -67,20 +55,4 @@ class HeatmapCorrelationShell(BaseShell):
+         params: ShellParamsType,
+         profile: DatasetProfile,
+     ) -> ValidationResult:
+-        fields = profile.get("fields", {})
+-
+-        if not {"x", "y", "value"}.issubset(fields):
+-            return {
+-                "errors": [{"code": "missing_derived_fields"}],
+-                "ok": False,
+-                "warnings": [],
+-            }
+-
+-        if fields["value"].get("type") != "quantitative":
+-            return {
+-                "errors": [{"code": "invalid_value_type"}],
+-                "ok": False,
+-                "warnings": [],
+-            }
+-
+         return {"errors": [], "ok": True, "warnings": []}
+diff --git a/packages/vintent/vintent/vintent/modules/shells/histogram.py b/packages/vintent/vintent/vintent/modules/shells/histogram.py
+index fd4debe..a8c88df 100644
+--- a/packages/vintent/vintent/vintent/modules/shells/histogram.py
++++ b/packages/vintent/vintent/vintent/modules/shells/histogram.py
+@@ -29,7 +29,7 @@ class HistogramShell(BaseShell):
+             return False
+         return any(meta.get("type") == "quantitative" for meta in profile.get("fields", {}).values())
+ 
+-    def process_finalize(self, params: ShellParamsType):
++    """def process_finalize(self, params: ShellParamsType):
+         field = params.get("field")
+         if not field:
+             return []
+@@ -40,7 +40,7 @@ class HistogramShell(BaseShell):
+                     "field": field,
+                 },
+             }
+-        ]
++        ]"""
+ 
+     def validate(
+         self,

@@ -2,19 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
-from vintent.modules.process.analyze.ecdf import PROCESS_ID as ecdf_id
+from vintent.modules.process.analyze.quantiles import PROCESS_ID as quantiles_id
 from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 
-class ECDFShell(BaseShell):
-    name = "ECDF"
-    description = (
-        "Empirical cumulative distribution function for a quantitative field. "
-        "Shows the fraction of observations below a given value."
-    )
-
+class QuantileShell(BaseShell):
+    name = "Quantile Plot"
+    description = "Visualize quantiles of a quantitative field, optionally grouped by category."
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [
@@ -31,7 +27,8 @@ class ECDFShell(BaseShell):
     }
 
     def is_applicable(self, profile: DatasetProfile) -> bool:
-        return any(v.get("type") == "quantitative" for v in profile.get("fields", {}).values())
+        fields = profile.get("fields", {})
+        return any(v.get("type") == "quantitative" for v in fields.values())
 
     def processes(
         self,
@@ -40,7 +37,7 @@ class ECDFShell(BaseShell):
     ):
         return [
             {
-                "id": ecdf_id,
+                "id": quantiles_id,
                 "params": {
                     "field": params["field"],
                     "group_by": params.get("group_by"),
@@ -57,35 +54,29 @@ class ECDFShell(BaseShell):
         if renderer != "vega-lite":
             return {}
 
-        field = params["field"]
-
         encoding: Dict[str, Any] = {
             "x": {
-                "field": field,
+                "field": "quantile",
                 "type": "quantitative",
-                "title": field,
+                "title": "Quantile",
             },
             "y": {
-                "field": "ecdf",
+                "field": "value",
                 "type": "quantitative",
-                "title": "ECDF",
-                "axis": {"format": ".2f"},
+                "title": params["field"],
             },
         }
 
         if params.get("group_by"):
             encoding["color"] = {
-                "field": params["group_by"],
+                "field": "group",
                 "type": "nominal",
             }
 
         return {
             "$schema": VEGA_LITE_SCHEMA,
             "data": {"values": values},
-            "mark": {
-                "type": "line",
-                "interpolate": "step-after",
-            },
+            "mark": {"type": "line", "point": True},
             "encoding": encoding,
         }
 
@@ -96,18 +87,12 @@ class ECDFShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
         field = params.get("field")
+        group_by = params.get("group_by")
 
         if not field or field not in fields:
             return {
                 "ok": False,
                 "errors": [{"code": "invalid_field"}],
-                "warnings": [],
-            }
-
-        if "ecdf" not in fields:
-            return {
-                "ok": False,
-                "errors": [{"code": "missing_ecdf_field"}],
                 "warnings": [],
             }
 
@@ -118,11 +103,18 @@ class ECDFShell(BaseShell):
                 "warnings": [],
             }
 
-        if fields["ecdf"].get("type") != "quantitative":
-            return {
-                "ok": False,
-                "errors": [{"code": "ecdf_not_quantitative"}],
-                "warnings": [],
-            }
+        if group_by:
+            if group_by not in fields:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "invalid_group_by"}],
+                    "warnings": [],
+                }
+            if fields[group_by].get("type") != "nominal":
+                return {
+                    "ok": False,
+                    "errors": [{"code": "group_by_not_nominal"}],
+                    "warnings": [],
+                }
 
         return {"ok": True, "errors": [], "warnings": []}

@@ -14,6 +14,7 @@ from .line_time import LineTimeShell
 from .linear_regression import LinearRegressionShell
 from .normalized_stacked_bar import NormalizedStackedBarShell
 from .pca import PCAShell
+from .quantile import QuantileShell
 from .scatter import ScatterShell
 from .stacked_bar_aggregate import StackedBarAggregateShell
 from .strip_plot import StripPlotShell
@@ -37,6 +38,7 @@ SHELLS = {
     "linear_regression": LinearRegressionShell(),
     "normalized_stacked_bar": NormalizedStackedBarShell(),
     "pca": PCAShell(),
+    "quantile": QuantileShell(),
     "scatter": ScatterShell(),
     "stacked_bar_aggregate": StackedBarAggregateShell(),
     "strip_plot": StripPlotShell(),

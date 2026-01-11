@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
+from vintent.modules.process.analyze.density_estimate import PROCESS_ID as density_id
 from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
@@ -9,9 +10,12 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 class ViolinPlotShell(BaseShell):
     name = "Violin Plot"
-    description = "Show the distribution of a quantitative field across categories " "using mirrored density plots."
+    description = (
+        "Show the distribution of a quantitative field across categories "
+        "using mirrored density plots."
+    )
 
-    semantics: Literal["rowwise", "aggregate"] = "rowwise"
+    semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [
         ["nominal", "quantitative"],
@@ -28,9 +32,24 @@ class ViolinPlotShell(BaseShell):
 
     def is_applicable(self, profile: DatasetProfile) -> bool:
         fields = profile.get("fields", {})
-        has_nominal = any(v.get("type") == "nominal" for v in fields.values())
-        has_quant = any(v.get("type") == "quantitative" for v in fields.values())
-        return has_nominal and has_quant
+        return any(v.get("type") == "nominal" for v in fields.values()) and any(
+            v.get("type") == "quantitative" for v in fields.values()
+        )
+
+    def processes(
+        self,
+        profile: DatasetProfile,
+        params: ShellParamsType,
+    ):
+        return [
+            {
+                "id": density_id,
+                "params": {
+                    "group_by": params["x"],
+                    "field": params["y"],
+                },
+            }
+        ]
 
     def compile(
         self,
@@ -41,41 +60,32 @@ class ViolinPlotShell(BaseShell):
         if renderer != "vega-lite":
             return {}
 
-        x = params["x"]
-        y = params["y"]
-
-        encoding: Dict[str, Any] = {
-            "x": {"field": x, "type": "nominal"},
-            "y": {
-                "aggregate": "density",
-                "field": y,
-                "type": "quantitative",
-                "title": "Density",
-            },
-            "row": {"field": y, "type": "quantitative"},
-        }
-
-        if params.get("color"):
-            encoding["color"] = {
-                "field": params["color"],
-                "type": "nominal",
-            }
+        group = params["x"]
 
         return {
             "$schema": VEGA_LITE_SCHEMA,
             "data": {"values": values},
-            "transform": [
-                {
-                    "density": y,
-                    "groupby": [x],
-                    "as": [y, "density"],
-                }
-            ],
-            "mark": {"type": "area", "orient": "horizontal"},
+            "mark": {
+                "type": "area",
+                "orient": "horizontal",
+                "interpolate": "monotone",
+            },
             "encoding": {
-                "y": {"field": y, "type": "quantitative"},
-                "x": {"field": "density", "type": "quantitative", "stack": "center"},
-                "row": {"field": x, "type": "nominal"},
+                "y": {
+                    "field": "value",
+                    "type": "quantitative",
+                    "title": params["y"],
+                },
+                "x": {
+                    "field": "density",
+                    "type": "quantitative",
+                    "stack": "center",
+                    "title": "Density",
+                },
+                "row": {
+                    "field": group,
+                    "type": "nominal",
+                },
             },
         }
 
@@ -86,27 +96,24 @@ class ViolinPlotShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 
-        x = params.get("x")
-        y = params.get("y")
-
-        if not x or not y:
+        if not {"value", "density"}.issubset(fields):
             return {
                 "ok": False,
-                "errors": [{"code": "missing_required_encoding"}],
+                "errors": [{"code": "missing_density_fields"}],
                 "warnings": [],
             }
 
-        if fields.get(x, {}).get("type") != "nominal":
+        if fields["value"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "x_not_nominal"}],
+                "errors": [{"code": "value_not_quantitative"}],
                 "warnings": [],
             }
 
-        if fields.get(y, {}).get("type") != "quantitative":
+        if fields["density"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "y_not_quantitative"}],
+                "errors": [{"code": "density_not_quantitative"}],
                 "warnings": [],
             }
 

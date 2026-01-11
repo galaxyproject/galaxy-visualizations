@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
+from vintent.modules.process.analyze.quantiles import PROCESS_ID as quantiles_id
 from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
@@ -33,6 +34,21 @@ class BoxPlotGroupedShell(BaseShell):
             v.get("type") == "quantitative" for v in fields.values()
         )
 
+    def processes(
+        self,
+        profile: DatasetProfile,
+        params: ShellParamsType,
+    ):
+        return [
+            {
+                "id": quantiles_id,
+                "params": {
+                    "field": params["y"],
+                    "group_by": params["x"],
+                },
+            }
+        ]
+
     def compile(
         self,
         params: ShellParamsType,
@@ -42,19 +58,17 @@ class BoxPlotGroupedShell(BaseShell):
         if renderer != "vega-lite":
             return {}
 
-        encoding: Dict[str, Any] = {
-            "x": {"field": params["x"], "type": "nominal"},
-            "y": {"field": params["y"], "type": "quantitative"},
-        }
-
-        if params.get("color"):
-            encoding["color"] = {"field": params["color"], "type": "nominal"}
-
         return {
             "$schema": VEGA_LITE_SCHEMA,
             "data": {"values": values},
             "mark": {"type": "boxplot"},
-            "encoding": encoding,
+            "encoding": {
+                "x": {"field": params["x"], "type": "nominal"},
+                "y": {
+                    "field": "median",
+                    "type": "quantitative",
+                },
+            },
         }
 
     def validate(
@@ -64,34 +78,10 @@ class BoxPlotGroupedShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 
-        x = params.get("x")
-        y = params.get("y")
-
-        if not x or not y:
+        if not {"min", "q1", "median", "q3", "max"}.issubset(fields):
             return {
                 "ok": False,
-                "errors": [{"code": "missing_required_encoding"}],
-                "warnings": [],
-            }
-
-        if x not in fields or y not in fields:
-            return {
-                "ok": False,
-                "errors": [{"code": "unknown_field"}],
-                "warnings": [],
-            }
-
-        if fields[x].get("type") != "nominal":
-            return {
-                "ok": False,
-                "errors": [{"code": "x_not_nominal"}],
-                "warnings": [],
-            }
-
-        if fields[y].get("type") != "quantitative":
-            return {
-                "ok": False,
-                "errors": [{"code": "y_not_quantitative"}],
+                "errors": [{"code": "missing_quantile_fields"}],
                 "warnings": [],
             }
 

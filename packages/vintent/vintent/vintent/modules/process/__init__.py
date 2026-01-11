@@ -4,9 +4,15 @@ from .analyze.cardinality_report import PROCESS as cardinality_report
 from .analyze.compute_bins import PROCESS as compute_bins
 from .analyze.correlation_matrix import PROCESS as correlation_matrix
 from .analyze.covariance import PROCESS as covariance
+from .analyze.density_estimate import PROCESS as density_estimate
+from .analyze.drop_missing import PROCESS as drop_missing
+from .analyze.ecdf import PROCESS as ecdf
 from .analyze.group_aggregate import PROCESS as group_aggregate
+from .analyze.group_summary_statistics import PROCESS as group_summary_statistics
 from .analyze.linear_regression import PROCESS as linear_regression
 from .analyze.pca import PROCESS as pca
+from .analyze.quantiles import PROCESS as quantiles
+from .analyze.standardize_columns import PROCESS as standardize_columns
 from .analyze.summary_statistics import PROCESS as summary_statistics
 from .extract.categorical_filter import PROCESS as categorical_filter
 from .extract.project_columns import PROCESS as project_columns
@@ -31,9 +37,14 @@ class PROCESSES:
             compute_bins,
             correlation_matrix,
             covariance,
-            linear_regression,
+            density_estimate,
+            ecdf,
             group_aggregate,
+            group_summary_statistics,
+            linear_regression,
             pca,
+            quantiles,
+            standardize_columns,
             summary_statistics,
         ]
     }
@@ -43,6 +54,7 @@ class PROCESSES:
         for p in [
             range_filter,
             categorical_filter,
+            drop_missing,
             sort_rows,
             rank_top_k,
             project_columns,
