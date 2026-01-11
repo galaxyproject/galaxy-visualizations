@@ -8,6 +8,7 @@ from .config import MESSAGE_INITIAL, PROMPT_DEFAULT, config
 
 package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 async def main_async():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
