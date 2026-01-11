@@ -1,18 +1,18 @@
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
+from .analyze.cardinality_report import PROCESS as cardinality_report
+from .analyze.compute_bins import PROCESS as compute_bins
+from .analyze.correlation_matrix import PROCESS as correlation_matrix
+from .analyze.covariance import PROCESS as covariance
+from .analyze.group_aggregate import PROCESS as group_aggregate
+from .analyze.linear_regression import PROCESS as linear_regression
+from .analyze.pca import PROCESS as pca
+from .analyze.summary_statistics import PROCESS as summary_statistics
 from .extract.categorical_filter import PROCESS as categorical_filter
 from .extract.project_columns import PROCESS as project_columns
 from .extract.range_filter import PROCESS as range_filter
 from .extract.rank_top_k import PROCESS as rank_top_k
 from .extract.sort_rows import PROCESS as sort_rows
-from .finalize.cardinality_report import PROCESS as cardinality_report
-from .finalize.compute_bins import PROCESS as compute_bins
-from .finalize.correlation_matrix import PROCESS as correlation_matrix
-from .finalize.covariance import PROCESS as covariance
-from .finalize.group_aggregate import PROCESS as group_aggregate
-from .finalize.linear_regression import PROCESS as linear_regression
-from .finalize.pca import PROCESS as pca
-from .finalize.summary_statistics import PROCESS as summary_statistics
 
 
 class Process(TypedDict):
@@ -24,18 +24,7 @@ class Process(TypedDict):
 
 class PROCESSES:
 
-    EXTRACT = {
-        p["id"]: p
-        for p in [
-            range_filter,
-            categorical_filter,
-            sort_rows,
-            rank_top_k,
-            project_columns,
-        ]
-    }
-
-    FINALIZE = {
+    ANALYZE = {
         p["id"]: p
         for p in [
             cardinality_report,
@@ -46,6 +35,17 @@ class PROCESSES:
             group_aggregate,
             pca,
             summary_statistics,
+        ]
+    }
+
+    EXTRACT = {
+        p["id"]: p
+        for p in [
+            range_filter,
+            categorical_filter,
+            sort_rows,
+            rank_top_k,
+            project_columns,
         ]
     }
 

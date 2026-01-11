@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
-from vintent.modules.process.finalize.pca import PROCESS_ID as pca_id
+from vintent.modules.process.analyze.pca import PROCESS_ID as pca_id
 from vintent.modules.schemas import DatasetProfile, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType

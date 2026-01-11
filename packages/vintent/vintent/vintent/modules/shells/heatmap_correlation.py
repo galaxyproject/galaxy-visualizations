@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
-from vintent.modules.process.finalize.correlation_matrix import PROCESS_ID as correlation_matrix_id
+from vintent.modules.process.analyze.correlation_matrix import PROCESS_ID as correlation_matrix_id
 from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType

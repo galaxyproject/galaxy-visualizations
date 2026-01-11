@@ -85,21 +85,21 @@ class Runner:
                     params.update(filled)
                     logger.debug(f"fill_shell_params_tool: {params}")
 
-        # STEP 3: Finalize
+        # STEP 3: Analyze
         if shell.processes:
             processes = shell.processes(profile, params)
             for p in processes:
-                finalize_id = p["id"]
+                process_id = p["id"]
                 process_params = p.get("params", {})
-                if finalize_id:
-                    process = PROCESSES.FINALIZE.get(finalize_id)
+                if process_id:
+                    process = PROCESSES.ANALYZE.get(process_id)
                     if not process:
-                        raise Exception(f"Unknown finalize process: {finalize_id}")
+                        raise Exception(f"Unknown analyze process: {process_id}")
                     values = run_process(process, values, process_params)
                     profile = profile_rows(values)
                     if process and "log" in process:
                         logs.append(process["log"](process_params))
-            logger.debug(f"finalize: {profile}")
+            logger.debug(f"analyze: {profile}")
 
         # STEP 4: Validate
         validation = shell.validate(profile, params)

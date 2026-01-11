@@ -1,5 +1,5 @@
 import pytest
-from vintent.modules.process.finalize.correlation_matrix import run, log
+from vintent.modules.process.analyze.correlation_matrix import run, log
 
 def test_run_empty_rows_returns_empty():
     assert run([], {}) == []

@@ -1,5 +1,5 @@
 import pytest
-from vintent.modules.process.finalize.covariance import run
+from vintent.modules.process.analyze.covariance import run
 
 def test_run_computes_covariance_matrix_shape():
     rows = [

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
-from vintent.modules.process.finalize.linear_regression import PROCESS_ID as linear_regression_id
+from vintent.modules.process.analyze.linear_regression import PROCESS_ID as linear_regression_id
 from vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType

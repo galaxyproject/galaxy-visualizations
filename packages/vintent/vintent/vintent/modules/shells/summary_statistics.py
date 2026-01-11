@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal
 
-from vintent.modules.process.finalize.summary_statistics import PROCESS_ID as summary_statistics_id
+from vintent.modules.process.analyze.summary_statistics import PROCESS_ID as summary_statistics_id
 from vintent.modules.schemas import DatasetProfile, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
