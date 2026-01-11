@@ -1,6 +1,9 @@
 import json
+import logging
 
 from .client import http
+
+logger = logging.getLogger(__name__)
 
 MIN = 0.0000001
 MAX = 999999999
@@ -70,8 +73,20 @@ async def completions_post(payload):
 
 
 def get_tool_call(name, reply):
+    """Extract tool call arguments from an LLM response.
+
+    Args:
+        name: The name of the tool to extract
+        reply: The LLM response containing tool calls
+
+    Returns:
+        A dict of parsed arguments if the tool was found, None otherwise.
+        Logs warnings for JSON parse errors but continues processing.
+    """
     result = {}
     found = False
+    parse_errors = []
+
     tool_calls = reply.get("choices", [{}])[0].get("message", {}).get("tool_calls")
     if tool_calls:
         for call in tool_calls:
@@ -83,8 +98,19 @@ def get_tool_call(name, reply):
                     try:
                         parsed = json.loads(args)
                         result.update(parsed)
-                    except Exception:
-                        continue
+                    except json.JSONDecodeError as e:
+                        # Log the error instead of silently continuing
+                        truncated_args = args[:200] + "..." if len(args) > 200 else args
+                        logger.warning(
+                            f"Failed to parse tool call arguments for '{name}': {e}. "
+                            f"Raw arguments: {truncated_args}"
+                        )
+                        parse_errors.append(
+                            {"tool": name, "error": str(e), "raw": args[:500]}
+                        )
+
+    if parse_errors:
+        logger.debug(f"Tool call parse errors: {parse_errors}")
 
     return result if found else None
 

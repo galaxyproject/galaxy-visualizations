@@ -3,6 +3,9 @@ from typing import Any, Dict, List
 import pandas as pd
 
 PROCESS_ID = "pivot_long_to_wide"
+PROCESS_PHASE = "analyze"
+REQUIRES_SHAPE = "rowwise"
+PRODUCES_SHAPE = "aggregate"
 
 
 def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -36,6 +39,9 @@ def log(params: Dict[str, Any]) -> str:
 
 PROCESS = {
     "id": PROCESS_ID,
+    "phase": PROCESS_PHASE,
+    "requires_shape": REQUIRES_SHAPE,
+    "produces_shape": PRODUCES_SHAPE,
     "log": log,
     "run": run,
 }

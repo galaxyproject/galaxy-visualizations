@@ -59,11 +59,20 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
+def log(params: Dict[str, Any]) -> str:
+    col = params.get("sort_by", "unknown")
+    order = params.get("order", "desc")
+    limit = params.get("limit", 0)
+    direction = "highest" if order == "desc" else "lowest"
+    return f"Selected top {limit} rows by {direction} {col}."
+
+
 PROCESS = {
     "id": PROCESS_ID,
     "phase": PROCESS_PHASE,
     "requires_shape": REQUIRES_SHAPE,
     "produces_shape": PRODUCES_SHAPE,
     "schema": schema,
+    "log": log,
     "run": run,
 }

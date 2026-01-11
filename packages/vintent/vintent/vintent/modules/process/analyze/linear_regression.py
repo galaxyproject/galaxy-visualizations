@@ -1,6 +1,9 @@
 from typing import Any, Dict, List
 
 PROCESS_ID = "linear_regression"
+PROCESS_PHASE = "analyze"
+REQUIRES_SHAPE = "rowwise"
+PRODUCES_SHAPE = "rowwise"
 
 
 def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
@@ -54,6 +57,9 @@ def log(params: Dict[str, Any]) -> str:
 
 PROCESS = {
     "id": PROCESS_ID,
+    "phase": PROCESS_PHASE,
+    "requires_shape": REQUIRES_SHAPE,
+    "produces_shape": PRODUCES_SHAPE,
     "log": log,
     "run": run,
 }

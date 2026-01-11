@@ -43,11 +43,19 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
+def log(params: Dict[str, Any]) -> str:
+    field = params.get("field", "unknown")
+    order = params.get("order", "asc")
+    direction = "descending" if order == "desc" else "ascending"
+    return f"Sorted rows by {field} in {direction} order."
+
+
 PROCESS = {
     "id": PROCESS_ID,
     "phase": PROCESS_PHASE,
     "requires_shape": REQUIRES_SHAPE,
     "produces_shape": PRODUCES_SHAPE,
     "schema": schema,
+    "log": log,
     "run": run,
 }

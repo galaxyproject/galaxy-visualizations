@@ -4,6 +4,9 @@ import math
 from typing import Any, Dict, List
 
 PROCESS_ID = "group_summary_statistics"
+PROCESS_PHASE = "analyze"
+REQUIRES_SHAPE = "rowwise"
+PRODUCES_SHAPE = "aggregate"
 
 
 def _is_finite(v: Any) -> bool:
@@ -67,6 +70,9 @@ def log(params: Dict[str, Any]) -> str:
 
 PROCESS = {
     "id": PROCESS_ID,
+    "phase": PROCESS_PHASE,
+    "requires_shape": REQUIRES_SHAPE,
+    "produces_shape": PRODUCES_SHAPE,
     "log": log,
     "run": run,
 }

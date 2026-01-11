@@ -49,11 +49,22 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
+def log(params: Dict[str, Any]) -> str:
+    cols = params.get("columns", [])
+    if len(cols) == 0:
+        return "No columns selected."
+    elif len(cols) == 1:
+        return f"Selected column: {cols[0]}."
+    else:
+        return f"Selected {len(cols)} columns: {', '.join(cols)}."
+
+
 PROCESS = {
     "id": PROCESS_ID,
     "phase": PROCESS_PHASE,
     "requires_shape": REQUIRES_SHAPE,
     "produces_shape": PRODUCES_SHAPE,
     "schema": schema,
+    "log": log,
     "run": run,
 }

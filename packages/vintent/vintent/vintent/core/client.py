@@ -1,4 +1,15 @@
+import asyncio
 import json
+import logging
+
+from .exceptions import HttpError
+
+logger = logging.getLogger(__name__)
+
+# Retry configuration
+RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 1.0  # seconds
 
 
 class HttpClient:
@@ -46,11 +57,39 @@ class BrowserHttpClient(HttpClient):
         if body is not None:
             options["body"] = json.dumps(body)
             headers.setdefault("Content-Type", "application/json")
-        response = await self._fetch(url, self._to_js(options))
-        if not response.ok:
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            response = await self._fetch(url, self._to_js(options))
+            if response.ok:
+                return await parse_response(response)
+
+            status = response.status
             text = await response.text()
-            raise Exception(f"HTTP {response.status}: {text}")
-        return await parse_response(response)
+
+            if status not in RETRY_STATUS_CODES:
+                # Don't retry client errors (except 429)
+                raise HttpError(
+                    f"HTTP {status}: {text}",
+                    status_code=status,
+                    details={"url": url, "method": method},
+                )
+
+            last_error = HttpError(
+                f"HTTP {status}: {text}",
+                status_code=status,
+                details={"url": url, "method": method},
+            )
+
+            if attempt < MAX_RETRIES - 1:
+                backoff = INITIAL_BACKOFF * (2**attempt)
+                logger.warning(
+                    f"HTTP {status}, retrying in {backoff}s "
+                    f"(attempt {attempt + 1}/{MAX_RETRIES})"
+                )
+                await asyncio.sleep(backoff)
+
+        raise last_error
 
 
 # ----------------------------
@@ -65,22 +104,50 @@ class ServerHttpClient(HttpClient):
         self._aiohttp = aiohttp
 
     async def request(self, method, url, headers=None, body=None):
-        async with self._aiohttp.ClientSession() as session:
-            data = None
-            if body is not None:
-                data = json.dumps(body)
-                headers = headers or {}
-                headers.setdefault("Content-Type", "application/json")
-            async with session.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                data=data,
-            ) as response:
-                if response.status >= 400:
+        data = None
+        if body is not None:
+            data = json.dumps(body)
+            headers = headers or {}
+            headers.setdefault("Content-Type", "application/json")
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            async with self._aiohttp.ClientSession() as session:
+                async with session.request(
+                    method=method.upper(),
+                    url=url,
+                    headers=headers,
+                    data=data,
+                ) as response:
+                    if response.status < 400:
+                        return await parse_response(response)
+
+                    status = response.status
                     text = await response.text()
-                    raise Exception(f"HTTP {response.status}: {text}")
-                return await parse_response(response)
+
+                    if status not in RETRY_STATUS_CODES:
+                        # Don't retry client errors (except 429)
+                        raise HttpError(
+                            f"HTTP {status}: {text}",
+                            status_code=status,
+                            details={"url": url, "method": method},
+                        )
+
+                    last_error = HttpError(
+                        f"HTTP {status}: {text}",
+                        status_code=status,
+                        details={"url": url, "method": method},
+                    )
+
+            if attempt < MAX_RETRIES - 1:
+                backoff = INITIAL_BACKOFF * (2**attempt)
+                logger.warning(
+                    f"HTTP {status}, retrying in {backoff}s "
+                    f"(attempt {attempt + 1}/{MAX_RETRIES})"
+                )
+                await asyncio.sleep(backoff)
+
+        raise last_error
 
 
 # ----------------------------
