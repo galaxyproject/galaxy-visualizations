@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-from vintent.modules.utility import user_asked_for
-
 PROCESS_ID = "categorical_filter"
 PROCESS_PHASE = "extract"
 REQUIRES_SHAPE = "rowwise"
@@ -9,8 +7,6 @@ PRODUCES_SHAPE = "rowwise"
 
 
 def schema(profile, context=None):
-    if not user_asked_for(context, ["=", "equal", "is", "where", "only", "filter", "with value"]):
-        return False
     categorical_columns = [name for name, meta in profile["fields"].items() if meta.get("type") == "nominal"]
     if not categorical_columns:
         return None
@@ -28,7 +24,11 @@ def schema(profile, context=None):
     return {
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
-        "description": ("Filter rows by exact match on categorical fields."),
+        "description": (
+            "Filter rows by categorical value. Use when the user wants to keep only "
+            "rows where a field equals specific values, like 'only show sales from USA' "
+            "or 'filter to category X'."
+        ),
         "params": {
             "type": "object",
             "properties": properties,

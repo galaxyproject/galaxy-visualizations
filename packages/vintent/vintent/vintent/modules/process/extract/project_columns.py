@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-from vintent.modules.utility import user_asked_for
-
 PROCESS_ID = "project_columns"
 PROCESS_PHASE = "extract"
 REQUIRES_SHAPE = "rowwise"
@@ -11,8 +9,6 @@ MAX_PROJECT_COLUMNS = 100
 
 
 def schema(profile, context=None):
-    if not user_asked_for(context, ["select", "consider", "only", "keep", "use", "columns", "fields"]):
-        return False
     columns = list(profile["fields"].keys())
     if not columns:
         return None
@@ -21,7 +17,10 @@ def schema(profile, context=None):
     return {
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
-        "description": "Select a subset of columns and drop all others.",
+        "description": (
+            "Select specific columns. Use when the user wants to focus on certain "
+            "fields, keep only specific columns, or exclude irrelevant columns from the visualization."
+        ),
         "params": {
             "type": "object",
             "properties": {

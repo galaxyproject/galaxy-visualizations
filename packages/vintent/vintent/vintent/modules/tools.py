@@ -23,9 +23,11 @@ def build_choose_process_tool(
             "properties": {"id": {"const": NO_PROCESS_ID}},
             "required": ["id"],
             "additionalProperties": False,
+            "description": "No preprocessing needed - use the data as-is.",
         }
     ]
 
+    process_descriptions: List[str] = []
     for process_id in sorted(processes.keys()):
         process = processes[process_id]
         schema = process.get("schema")
@@ -34,6 +36,7 @@ def build_choose_process_tool(
         spec = schema(profile, context)
         if not spec:
             continue
+        description = spec.get("description", "")
         variants.append(
             {
                 "type": "object",
@@ -43,14 +46,25 @@ def build_choose_process_tool(
                 },
                 "required": ["id", "params"],
                 "additionalProperties": False,
+                "description": description,
             }
         )
+        if description:
+            process_descriptions.append(f"- {spec['id']}: {description}")
+
+    # Build a helpful description that lists all available processes
+    tool_description = (
+        "Select a data preprocessing step if needed before visualization. "
+        "Choose 'none' if no preprocessing is required."
+    )
+    if process_descriptions:
+        tool_description += "\n\nAvailable processes:\n" + "\n".join(process_descriptions)
 
     return {
         "type": "function",
         "function": {
             "name": "choose_process",
-            "description": ("Optionally select a single data processing step to apply " "before visualization."),
+            "description": tool_description,
             "parameters": {"oneOf": variants},
         },
     }

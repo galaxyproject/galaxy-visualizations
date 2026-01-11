@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-from vintent.modules.utility import user_asked_for
-
 PROCESS_ID = "range_filter"
 PROCESS_PHASE = "extract"
 REQUIRES_SHAPE = "rowwise"
@@ -9,8 +7,6 @@ PRODUCES_SHAPE = "rowwise"
 
 
 def schema(profile, context=None):
-    if not user_asked_for(context, [">", "<", ">=", "<=", "above", "below", "greater", "less", "between", "range"]):
-        return False
     quantitative_columns = [name for name, meta in profile["fields"].items() if meta.get("type") == "quantitative"]
     if not quantitative_columns:
         return None
@@ -18,8 +14,9 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Filter rows using numeric comparisons on quantitative fields."
-            "Use for greater than, less than, above, below, or between conditions."
+            "Filter rows by numeric range. Use when the user wants to filter data "
+            "using comparisons like greater than, less than, above, below, between, "
+            "or within a specific range of values."
         ),
         "params": {
             "type": "object",
