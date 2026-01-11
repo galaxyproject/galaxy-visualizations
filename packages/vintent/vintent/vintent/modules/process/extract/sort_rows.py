@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+from vintent.modules.utility import user_asked_for
 
 PROCESS_ID = "sort_rows"
 PROCESS_PHASE = "extract"
@@ -7,6 +8,8 @@ PRODUCES_SHAPE = "rowwise"
 
 
 def schema(profile, context=None):
+    if not user_asked_for(context, ["sort", "order", "ascending", "descending"]):
+        return False
     columns = list(profile["fields"].keys())
     if not columns:
         return None

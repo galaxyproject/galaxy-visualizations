@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+from vintent.modules.utility import user_asked_for
 
 PROCESS_ID = "range_filter"
 PROCESS_PHASE = "extract"
@@ -7,6 +8,8 @@ PRODUCES_SHAPE = "rowwise"
 
 
 def schema(profile, context=None):
+    if not user_asked_for(context, [">", "<", ">=", "<=", "above", "below", "greater", "less", "between", "range"]):
+        return False
     quantitative_columns = [name for name, meta in profile["fields"].items() if meta.get("type") == "quantitative"]
     if not quantitative_columns:
         return None

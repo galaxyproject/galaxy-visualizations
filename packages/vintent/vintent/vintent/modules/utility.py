@@ -11,9 +11,14 @@ def user_asked_for(context, keywords):
     words = last.split()
     for w in words:
         for k in keywords:
-            if _edit_distance_leq_one(w, k):
-                return True
+            if len(k) <= 5:
+                if w == k:
+                    return True
+            else:
+                if _edit_distance_leq_one(w, k):
+                    return True
     return False
+
 
 
 def _edit_distance_leq_one(a, b):
