@@ -32,6 +32,9 @@ const props = defineProps<{
         ai_top_p?: string;
         ai_contract?: any;
     };
+    settings: {
+        widgets?: [];
+    };
     transcripts: TranscriptMessageType[];
 }>();
 
@@ -67,7 +70,7 @@ const datasetContent = ref();
 const consoleMessages = ref<ConsoleMessageType[]>([]);
 const isLoadingPyodide = ref<boolean>(true);
 const isProcessingRequest = ref<boolean>(false);
-const widgets = ref<any>([]);
+const widgets = ref<any>(props.settings?.widgets ?? []);
 
 // Create orchestra
 const config = {
@@ -123,18 +126,18 @@ async function processUserRequest() {
             isProcessingRequest.value = true;
             const transcripts = [...props.transcripts];
             try {
-                consoleMessages.value.push({ content: "Processing user request...", icon: ClockIcon });
+                consoleMessages.value.push({ content: "Processing request...", icon: ClockIcon });
                 const sanitized = sanitzeTranscripts(transcripts);
                 const reply = await runVintent(pyodide, config, sanitized, DATASET_NAME);
-                const newWidgets = reply.widgets;
-                console.debug("[vintent]", sanitized);
                 reply.logs.forEach((log: string) => {
                     consoleMessages.value.push({ content: log, icon: BoltIcon });
                 });
+                const newWidgets = reply.widgets;
                 if (newWidgets.length > 0) {
                     widgets.value.push(...newWidgets);
                     consoleMessages.value.push({ content: MESSAGE_SUCCESS, icon: CheckIcon });
                     transcripts.push({ content: MESSAGE_SUCCESS, role: "assistant" });
+                    emit("update", { settings: { widgets } });
                 } else {
                     consoleMessages.value.push({ content: MESSAGE_FAILED, icon: ExclamationTriangleIcon });
                     transcripts.push({ content: MESSAGE_FAILED, role: "assistant" });
@@ -152,6 +155,7 @@ async function processUserRequest() {
 
 function removeWidget(widgetIndex: number) {
     widgets.value.splice(widgetIndex, 1);
+    emit("update", { settings: { widgets } });
 }
 
 onMounted(() => {
