@@ -126,11 +126,8 @@ class Runner:
                             logs.append(process["log"](process_params))
                 logger.debug(f"analyze: {profile}")
 
-            # STEP 4: Validate
-            validation = shell.validate(profile, params)
-            if not validation.get("ok"):
-                logs.append("Visualization parameters invalid.")
-                return dict(logs=logs, widgets=widgets, errors=errors)
+            # STEP 4: Validate (raises ShellError if invalid)
+            shell.validate_or_raise(profile, params)
 
             # STEP 5: Compile
             spec = shell.compile(params, _sanitize_values(values), "vega-lite")

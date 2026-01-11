@@ -1,5 +1,7 @@
 import pytest
+from vintent.core.exceptions import ShellError
 from vintent.modules.shells.scatter import ScatterShell
+
 
 def _profile(fields):
     return {"fields": fields}
@@ -88,3 +90,71 @@ def test_compile_non_vega_renderer_returns_empty():
     shell = ScatterShell()
     spec = shell.compile({}, [], renderer="svg")
     assert spec == {}
+
+
+# Tests for validate_or_raise()
+
+
+def test_validate_or_raise_passes_when_valid():
+    shell = ScatterShell()
+    params = {"x": "a", "y": "b"}
+    profile = _profile(
+        {
+            "a": {"type": "quantitative"},
+            "b": {"type": "quantitative"},
+        }
+    )
+    # Should not raise
+    shell.validate_or_raise(profile, params)
+
+
+def test_validate_or_raise_raises_shell_error_on_missing_encoding():
+    shell = ScatterShell()
+    profile = _profile(
+        {
+            "a": {"type": "quantitative"},
+            "b": {"type": "quantitative"},
+        }
+    )
+    with pytest.raises(ShellError) as exc_info:
+        shell.validate_or_raise(profile, {"x": "a"})  # missing y
+
+    assert exc_info.value.code == "SHELL_ERROR"
+    assert "missing_required_encoding" in exc_info.value.message
+    assert "validation_errors" in exc_info.value.details
+
+
+def test_validate_or_raise_raises_shell_error_on_invalid_type():
+    shell = ScatterShell()
+    params = {"x": "a", "y": "b"}
+    profile = _profile(
+        {
+            "a": {"type": "nominal"},  # wrong type
+            "b": {"type": "quantitative"},
+        }
+    )
+    with pytest.raises(ShellError) as exc_info:
+        shell.validate_or_raise(profile, params)
+
+    assert exc_info.value.code == "SHELL_ERROR"
+    assert "invalid_field_type" in exc_info.value.message
+    # Details should include the validation error details
+    assert "validation_errors" in exc_info.value.details
+
+
+def test_validate_or_raise_includes_error_details():
+    shell = ScatterShell()
+    params = {"x": "a", "y": "b"}
+    profile = _profile(
+        {
+            "a": {"type": "nominal"},
+            "b": {"type": "quantitative"},
+        }
+    )
+    with pytest.raises(ShellError) as exc_info:
+        shell.validate_or_raise(profile, params)
+
+    details = exc_info.value.details
+    assert len(details["validation_errors"]) > 0
+    # The encoding details should be merged into the error details
+    assert "encoding" in details or "validation_errors" in details

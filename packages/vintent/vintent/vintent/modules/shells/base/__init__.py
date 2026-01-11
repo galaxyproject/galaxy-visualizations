@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
+from vintent.core.exceptions import ShellError
 from vintent.modules.profiler import DatasetProfile
-from vintent.modules.schemas import FieldType
+from vintent.modules.schemas import FieldType, ValidationResult
 
 VEGA_LITE_SCHEMA = "https://vega.github.io/schema/vega-lite/v5.json"
 
@@ -61,6 +62,56 @@ class BaseShell:
                 return True
 
         return False
+
+    def validate(
+        self, profile: DatasetProfile, params: ShellParamsType
+    ) -> ValidationResult:
+        """Validate shell parameters against the dataset profile.
+
+        Subclasses should override this method to implement validation logic.
+
+        Returns:
+            ValidationResult with ok=True if valid, ok=False with errors otherwise.
+        """
+        return {"ok": True, "errors": [], "warnings": []}
+
+    def validate_or_raise(
+        self, profile: DatasetProfile, params: ShellParamsType
+    ) -> None:
+        """Validate parameters and raise ShellError if invalid.
+
+        This method calls validate() and raises ShellError if validation fails,
+        providing consistency with how ProcessError is used for process failures.
+
+        Args:
+            profile: The dataset profile
+            params: Shell parameters to validate
+
+        Raises:
+            ShellError: If validation fails
+        """
+        result = self.validate(profile, params)
+        if not result.get("ok"):
+            errors = result.get("errors", [])
+            # Build error message from validation errors
+            if errors:
+                first_error = errors[0]
+                code = first_error.get("code", "validation_failed")
+                details = first_error.get("details", {})
+                message = f"Shell validation failed: {code}"
+            else:
+                code = "validation_failed"
+                details = {}
+                message = "Shell validation failed"
+
+            raise ShellError(
+                message,
+                details={
+                    "validation_errors": errors,
+                    "warnings": result.get("warnings", []),
+                    **details,
+                },
+            )
 
 
 class EncodingSpecType(TypedDict, total=False):
