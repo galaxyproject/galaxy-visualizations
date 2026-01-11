@@ -17,6 +17,9 @@ def _snake_to_camel(value: str) -> str:
 def _discover(package, *, kind: str) -> Dict[str, Any]:
     registry: Dict[str, Any] = {}
     for _, module_name, _ in pkgutil.iter_modules(package.__path__):
+        # Skip base module which contains the abstract base class
+        if module_name == "base":
+            continue
         module = importlib.import_module(f"{package.__name__}.{module_name}")
         if kind == "shell":
             class_name = f"{_snake_to_camel(module_name)}Shell"
