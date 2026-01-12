@@ -14,6 +14,7 @@ class ShellError(AppError):
 
     code = "SHELL_ERROR"
 
+
 EncodingMapType = Dict[str, "EncodingSpecType"]
 RendererType = Literal["vega-lite"]
 ShellParamsType = Dict[str, Any]

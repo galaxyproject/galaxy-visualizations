@@ -1,5 +1,5 @@
-from typing import Any, Dict, List
 from datetime import datetime, timedelta
+from typing import Any, Dict, List
 
 PROCESS_ID = "date_filter"
 PROCESS_PHASE = "extract"
@@ -8,10 +8,7 @@ PRODUCES_SHAPE = "rowwise"
 
 
 def schema(profile, context=None):
-    temporal_columns = [
-        name for name, meta in profile.get("fields", {}).items()
-        if meta.get("type") == "temporal"
-    ]
+    temporal_columns = [name for name, meta in profile.get("fields", {}).items() if meta.get("type") == "temporal"]
     if not temporal_columns:
         return None
     return {
@@ -56,7 +53,7 @@ def _parse_date(value: Any) -> datetime | None:
     if isinstance(value, str):
         for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"]:
             try:
-                return datetime.strptime(value[:len("2024-01-01T00:00:00")], fmt)
+                return datetime.strptime(value[: len("2024-01-01T00:00:00")], fmt)
             except ValueError:
                 continue
     return None

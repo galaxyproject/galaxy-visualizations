@@ -16,7 +16,7 @@ def _parse_date(value: Any) -> datetime | None:
     if isinstance(value, str):
         for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"]:
             try:
-                return datetime.strptime(value[:len("2024-01-01T00:00:00")], fmt)
+                return datetime.strptime(value[: len("2024-01-01T00:00:00")], fmt)
             except ValueError:
                 continue
     return None
@@ -66,8 +66,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
             result.append({"period": key, "count": len(group)})
         else:
             values = [
-                r.get(metric) for r in group
-                if isinstance(r.get(metric), (int, float)) and math.isfinite(r.get(metric))
+                r.get(metric) for r in group if isinstance(r.get(metric), (int, float)) and math.isfinite(r.get(metric))
             ]
             if not values:
                 continue

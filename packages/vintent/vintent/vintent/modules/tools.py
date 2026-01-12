@@ -115,18 +115,37 @@ def build_choose_shell_tool(profile: DatasetProfile) -> Dict[str, Any]:
     }
 
 
-def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optional[Dict[str, Any]]:
+def build_fill_shell_params_tool(
+    shell: Any,
+    profile: DatasetProfile,
+    parsed_intent: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
     properties: Dict[str, Any] = {}
     required: List[str] = []
     fields_by_type = _field_names_by_type(profile)
+
+    def prioritize_fields(fields: List[str]) -> List[str]:
+        """Reorder fields: shell fields first, extract fields last."""
+        if not parsed_intent:
+            return fields
+
+        viz_fields = set(parsed_intent.get("shell_fields", []))
+        extract_fields = set(parsed_intent.get("extract_fields", []))
+
+        # Three tiers: shell (first), neutral (middle), extract (last)
+        viz = [f for f in fields if f in viz_fields]
+        neutral = [f for f in fields if f not in viz_fields and f not in extract_fields]
+        extract = [f for f in fields if f in extract_fields]
+
+        return viz + neutral + extract
 
     def fields_for_type(expected_type: str) -> List[str]:
         if expected_type == "any":
             names: List[str] = []
             for v in fields_by_type.values():
                 names.extend(v)
-            return names
-        return list(fields_by_type.get(expected_type, []))
+            return prioritize_fields(names)
+        return prioritize_fields(list(fields_by_type.get(expected_type, [])))
 
     required_specs = getattr(shell, "required", None) or {}
     for name, spec in required_specs.items():
@@ -156,15 +175,25 @@ def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optiona
                 properties[name] = {"type": "string", "enum": fields}
         else:
             properties[name] = spec
+    # Build description with intent context if available
+    base_description = (
+        "Fill parameters for the visualization shell. Choose fields the user wants to plot, "
+        "not the fields used for data extraction (filtering, sorting, sampling)."
+    )
+
+    if parsed_intent:
+        shell_fields = parsed_intent.get("shell_fields", [])
+        extract_fields = parsed_intent.get("extract_fields", [])
+        if shell_fields:
+            base_description += f"\n\nFields to use for the shell: {', '.join(shell_fields)}"
+        if extract_fields:
+            base_description += f"\nFields used for extraction (do NOT use for shell): {', '.join(extract_fields)}"
+
     return {
         "type": "function",
         "function": {
             "name": "fill_shell_params",
-            "description": (
-                "Fill parameters for the visualization. Choose fields based on what the user wants to VISUALIZE, "
-                "not the fields used for filtering or sorting. For example, if the user says 'show regression of X and Y "
-                "for the lowest 20 Z values', the visualization parameters should be X and Y (not Z)."
-            ),
+            "description": base_description,
             "parameters": {
                 "type": "object",
                 "properties": properties,
@@ -177,3 +206,61 @@ def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optiona
 
 def is_encoding_spec(spec: Any) -> bool:
     return isinstance(spec, dict) and "type" in spec and isinstance(spec["type"], str)
+
+
+def build_parse_intent_tool(profile: DatasetProfile) -> Optional[Dict[str, Any]]:
+    """Build a tool for extracting user intent from the request.
+
+    This tool helps the LLM distinguish between:
+    - Shell fields: fields to plot in the visualization (e.g., "show regression of X and Y")
+    - Extract fields: fields for data extraction (e.g., "for lowest 20 Z")
+    """
+    all_fields = list(profile.get("fields", {}).keys())
+
+    if not all_fields:
+        return None
+
+    return {
+        "type": "function",
+        "function": {
+            "name": "parse_intent",
+            "description": (
+                "Extract the user's intent from their request. "
+                "Identify which fields are for the visualization SHELL versus which fields "
+                "are used for data EXTRACTION (filtering, sorting, sampling, ranking). "
+                "\n\nExamples:\n"
+                "- 'regression of glucose and bmi for lowest 20 ages' -> "
+                "shell_fields: [Glucose, BMI], extract_fields: [Age]\n"
+                "- 'histogram of income' -> shell_fields: [income], extract_fields: []\n"
+                "- 'scatter plot of X vs Y colored by category' -> "
+                "shell_fields: [X, Y, category], extract_fields: []\n"
+                "- 'bar chart of sales by region for top 10 products' -> "
+                "shell_fields: [sales, region], extract_fields: [products]"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "shell_fields": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": all_fields},
+                        "description": (
+                            "Fields for the visualization shell. These are the primary "
+                            "variables to plot (e.g., X/Y axes, values to chart). "
+                            "Include fields mentioned for coloring or grouping."
+                        ),
+                    },
+                    "extract_fields": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": all_fields},
+                        "description": (
+                            "Fields for data extraction: filtering, sorting, sampling, or ranking. "
+                            "These are NOT for the visualization itself. Examples: "
+                            "'top 10 by X', 'where Y > 100', 'lowest 20 Z values', 'sample by W'."
+                        ),
+                    },
+                },
+                "required": ["shell_fields", "extract_fields"],
+                "additionalProperties": False,
+            },
+        },
+    }

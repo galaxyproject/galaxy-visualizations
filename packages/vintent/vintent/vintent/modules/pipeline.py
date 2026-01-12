@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 from vintent.core.completions import completions_post, get_tool_call
-from vintent.core.exceptions import DataError, AppError
+from vintent.core.exceptions import AppError, DataError
 from vintent.modules.shells.base import ShellError
 
 from .process import run_process
@@ -25,6 +25,7 @@ from .tools import (
     build_choose_process_tool,
     build_choose_shell_tool,
     build_fill_shell_params_tool,
+    build_parse_intent_tool,
 )
 
 if TYPE_CHECKING:
@@ -48,6 +49,9 @@ class PipelineContext:
     # Data state (mutated by phases)
     values: List[Dict[str, Any]] = field(default_factory=list)
     profile: Optional[DatasetProfile] = None
+
+    # Intent parsing state
+    parsed_intent: Optional[Dict[str, Any]] = None
 
     # Shell state
     shell: Optional[BaseShell] = None
@@ -187,6 +191,52 @@ class LoadDataPhase(Phase):
         logger.debug(f"Loaded {len(ctx.values)} rows, profile: {ctx.profile}")
 
 
+class ParseIntentPhase(Phase):
+    """Phase 1: Parse user intent to distinguish visualization vs filter fields.
+
+    This phase uses the LLM to extract structured intent information that helps
+    downstream phases (especially FillParams) make better field selections.
+    """
+
+    @property
+    def name(self) -> str:
+        return "parse_intent"
+
+    async def run(
+        self,
+        ctx: PipelineContext,
+        provider: CompletionsProvider,
+    ) -> None:
+        if not ctx.profile:
+            # No profile yet - skip gracefully (don't block pipeline)
+            logger.debug("ParseIntentPhase: No profile available, skipping")
+            return
+
+        tool = build_parse_intent_tool(ctx.profile)
+        if not tool:
+            logger.debug("ParseIntentPhase: Could not build tool, skipping")
+            return
+
+        try:
+            reply = await provider.complete(ctx.transcripts, [tool])
+
+            if not reply:
+                logger.debug("ParseIntentPhase: No LLM reply, continuing without intent")
+                return
+
+            parsed = get_tool_call("parse_intent", reply)
+            if parsed:
+                ctx.parsed_intent = parsed
+                logger.debug(f"ParseIntentPhase: Parsed intent: {parsed}")
+            else:
+                logger.debug("ParseIntentPhase: No parse_intent tool call found")
+
+        except Exception as e:
+            # Graceful degradation - log but don't block the pipeline
+            logger.warning(f"ParseIntentPhase: Failed to parse intent: {e}")
+            # Don't call ctx.add_error() - let pipeline continue
+
+
 class ExtractPhase(Phase):
     """Phase 1: Apply user-requested extraction/filtering."""
 
@@ -202,9 +252,7 @@ class ExtractPhase(Phase):
         if not ctx.profile:
             return
 
-        tool = build_choose_process_tool(
-            PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts
-        )
+        tool = build_choose_process_tool(PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts)
         reply = await provider.complete(ctx.transcripts, [tool])
 
         if not reply:
@@ -296,7 +344,7 @@ class FillParamsPhase(Phase):
         if not ctx.shell or not ctx.profile:
             return
 
-        fill_tool = build_fill_shell_params_tool(ctx.shell, ctx.profile)
+        fill_tool = build_fill_shell_params_tool(ctx.shell, ctx.profile, parsed_intent=ctx.parsed_intent)
         if not fill_tool:
             return
 
@@ -440,6 +488,7 @@ def create_default_pipeline() -> Pipeline:
     return Pipeline(
         [
             LoadDataPhase(),
+            ParseIntentPhase(),
             ExtractPhase(),
             ChooseShellPhase(),
             FillParamsPhase(),
@@ -489,6 +538,7 @@ __all__ = [
     "ExtractPhase",
     "FillParamsPhase",
     "LoadDataPhase",
+    "ParseIntentPhase",
     "AnalyzePhase",
     "Phase",
     "Pipeline",

@@ -15,7 +15,7 @@ def _parse_date(value: Any) -> datetime | None:
     if isinstance(value, str):
         for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"]:
             try:
-                return datetime.strptime(value[:len("2024-01-01T00:00:00")], fmt)
+                return datetime.strptime(value[: len("2024-01-01T00:00:00")], fmt)
             except ValueError:
                 continue
     return None

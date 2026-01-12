@@ -18,6 +18,7 @@ from vintent.modules.pipeline import (
     ExtractPhase,
     FillParamsPhase,
     LoadDataPhase,
+    ParseIntentPhase,
     Phase,
     Pipeline,
     PipelineContext,
@@ -220,6 +221,66 @@ class TestLoadDataPhase:
     async def test_phase_name(self):
         phase = LoadDataPhase()
         assert phase.name == "load_data"
+
+
+# =============================================================================
+# ParseIntentPhase Tests
+# =============================================================================
+
+
+class TestParseIntentPhase:
+    @pytest.mark.asyncio
+    async def test_parses_visualization_and_extract_fields(
+        self, sample_transcripts, sample_profile
+    ):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+
+        response = make_tool_response(
+            "parse_intent",
+            {
+                "shell_fields": ["age", "score"],
+                "extract_fields": ["name"],
+            },
+        )
+        provider = MockCompletionsProvider([response])
+        phase = ParseIntentPhase()
+
+        await phase.run(ctx, provider)
+
+        assert ctx.parsed_intent is not None
+        assert ctx.parsed_intent["shell_fields"] == ["age", "score"]
+        assert ctx.parsed_intent["extract_fields"] == ["name"]
+        assert ctx.should_continue is True
+
+    @pytest.mark.asyncio
+    async def test_continues_on_no_reply(self, sample_transcripts, sample_profile):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+        provider = MockCompletionsProvider([None])
+        phase = ParseIntentPhase()
+
+        await phase.run(ctx, provider)
+
+        assert ctx.should_continue is True  # Pipeline continues
+        assert ctx.parsed_intent is None
+
+    @pytest.mark.asyncio
+    async def test_skips_without_profile(self, sample_transcripts):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        # No profile set
+        provider = MockCompletionsProvider()
+        phase = ParseIntentPhase()
+
+        await phase.run(ctx, provider)
+
+        assert provider.call_count == 0  # No LLM call made
+        assert ctx.should_continue is True
+
+    @pytest.mark.asyncio
+    async def test_phase_name(self):
+        phase = ParseIntentPhase()
+        assert phase.name == "parse_intent"
 
 
 # =============================================================================
@@ -729,14 +790,15 @@ class TestCreateDefaultPipeline:
     def test_creates_pipeline_with_all_phases(self):
         pipeline = create_default_pipeline()
 
-        assert len(pipeline.phases) == 7
+        assert len(pipeline.phases) == 8
         assert isinstance(pipeline.phases[0], LoadDataPhase)
-        assert isinstance(pipeline.phases[1], ExtractPhase)
-        assert isinstance(pipeline.phases[2], ChooseShellPhase)
-        assert isinstance(pipeline.phases[3], FillParamsPhase)
-        assert isinstance(pipeline.phases[4], AnalyzePhase)
-        assert isinstance(pipeline.phases[5], ValidatePhase)
-        assert isinstance(pipeline.phases[6], CompilePhase)
+        assert isinstance(pipeline.phases[1], ParseIntentPhase)
+        assert isinstance(pipeline.phases[2], ExtractPhase)
+        assert isinstance(pipeline.phases[3], ChooseShellPhase)
+        assert isinstance(pipeline.phases[4], FillParamsPhase)
+        assert isinstance(pipeline.phases[5], AnalyzePhase)
+        assert isinstance(pipeline.phases[6], ValidatePhase)
+        assert isinstance(pipeline.phases[7], CompilePhase)
 
     def test_phase_names_are_unique(self):
         pipeline = create_default_pipeline()

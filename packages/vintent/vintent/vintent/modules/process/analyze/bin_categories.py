@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
 from collections import Counter
+from typing import Any, Dict, List
 
 PROCESS_ID = "bin_categories"
 PROCESS_PHASE = "analyze"

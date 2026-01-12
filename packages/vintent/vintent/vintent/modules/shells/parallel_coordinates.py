@@ -57,10 +57,7 @@ class ParallelCoordinatesShell(BaseShell):
 
         # If no dimensions specified, use all numeric fields from first row
         if not dimensions and values:
-            dimensions = [
-                k for k, v in values[0].items()
-                if isinstance(v, (int, float)) and not k.endswith("_norm")
-            ]
+            dimensions = [k for k, v in values[0].items() if isinstance(v, (int, float)) and not k.endswith("_norm")]
 
         # Use normalized columns
         norm_dims = [f"{d}_norm" for d in dimensions]

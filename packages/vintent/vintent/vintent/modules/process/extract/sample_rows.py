@@ -1,5 +1,5 @@
-from typing import Any, Dict, List
 import random
+from typing import Any, Dict, List
 
 PROCESS_ID = "sample_rows"
 PROCESS_PHASE = "extract"

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
 from collections import Counter
+from typing import Any, Dict, List
 
 PROCESS_ID = "fill_missing"
 PROCESS_PHASE = "analyze"
@@ -28,8 +28,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         computed_fill = 0
     elif strategy in ("mean", "median"):
         values = [
-            row.get(field) for row in rows
-            if isinstance(row.get(field), (int, float)) and math.isfinite(row.get(field))
+            row.get(field) for row in rows if isinstance(row.get(field), (int, float)) and math.isfinite(row.get(field))
         ]
         if not values:
             computed_fill = 0
