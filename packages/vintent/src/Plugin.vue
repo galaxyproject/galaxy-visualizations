@@ -131,13 +131,13 @@ async function processUserRequest() {
                 const reply = await runVintent(pyodide, config, sanitized, DATASET_NAME);
                 reply.logs.forEach((log: string) => {
                     consoleMessages.value.push({ content: log, icon: BoltIcon });
-                    transcripts.push({ content: log, role: "assistant", variant: TRANSCRIPT_VARIANT.INFO });
                 });
                 const newWidgets = reply.widgets;
                 if (newWidgets.length > 0) {
                     widgets.value.push(...newWidgets);
+                    const message_success = reply.logs.join(" ") || MESSAGE_SUCCESS;
+                    transcripts.push({ content: message_success, role: "assistant", variant: TRANSCRIPT_VARIANT.INFO });
                     consoleMessages.value.push({ content: MESSAGE_SUCCESS, icon: CheckIcon });
-                    transcripts.push({ content: MESSAGE_SUCCESS, role: "assistant" });
                     emit("update", { settings: { widgets } });
                 } else {
                     consoleMessages.value.push({ content: MESSAGE_FAILED, icon: ExclamationTriangleIcon });
