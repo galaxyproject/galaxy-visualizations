@@ -46,17 +46,23 @@ async def completions_post(payload):
         body["tools"] = tools
 
     tool_choice = payload.get("tool_choice")
+    parallel_tools = payload.get("parallel_tools", False)
     if tool_choice:
         body["tool_choice"] = tool_choice
     elif tools:
-        first_tool = tools[0]
-        tool_name = first_tool.get("function", {}).get("name")
-        if not tool_name:
-            raise Exception("Tool provided without function name.")
-        body["tool_choice"] = {
-            "type": "function",
-            "function": {"name": tool_name},
-        }
+        if parallel_tools:
+            # Allow LLM to call multiple tools in parallel
+            body["tool_choice"] = "auto"
+        else:
+            # Force single tool call (legacy behavior)
+            first_tool = tools[0]
+            tool_name = first_tool.get("function", {}).get("name")
+            if not tool_name:
+                raise Exception("Tool provided without function name.")
+            body["tool_choice"] = {
+                "type": "function",
+                "function": {"name": tool_name},
+            }
 
     headers = dict()
     headers["Content-Type"] = "application/json"

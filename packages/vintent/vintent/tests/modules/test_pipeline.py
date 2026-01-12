@@ -12,18 +12,22 @@ from vintent.core.exceptions import DataError, AppError
 from vintent.modules.shells.base import ShellError
 from vintent.modules.pipeline import (
     AnalyzePhase,
-    ChooseShellPhase,
+    CombinedDecisionPhase,
     CompilePhase,
     CompletionsProvider,
-    ExtractPhase,
     FillParamsPhase,
     LoadDataPhase,
-    ParseIntentPhase,
     Phase,
     Pipeline,
     PipelineContext,
     ValidatePhase,
     create_default_pipeline,
+)
+# Import individual phases for unit testing (not exported from __all__)
+from vintent.modules.pipeline import (
+    ChooseShellPhase,
+    ExtractPhase,
+    ParseIntentPhase,
 )
 from vintent.modules.profiler import profile_rows
 from vintent.modules.schemas import CompletionsReply
@@ -46,8 +50,13 @@ class MockCompletionsProvider(CompletionsProvider):
         self,
         transcripts: List[Dict],
         tools: List[Dict[str, Any]],
+        parallel_tools: bool = False,
     ) -> Optional[CompletionsReply]:
-        self.calls.append({"transcripts": transcripts, "tools": tools})
+        self.calls.append({
+            "transcripts": transcripts,
+            "tools": tools,
+            "parallel_tools": parallel_tools,
+        })
         if self.call_count < len(self.responses):
             response = self.responses[self.call_count]
             self.call_count += 1
@@ -57,7 +66,7 @@ class MockCompletionsProvider(CompletionsProvider):
 
 
 def make_tool_response(tool_name: str, arguments: Dict[str, Any]) -> Dict:
-    """Create a mock LLM response with a tool call."""
+    """Create a mock LLM response with a single tool call."""
     return {
         "choices": [
             {
@@ -69,6 +78,31 @@ def make_tool_response(tool_name: str, arguments: Dict[str, Any]) -> Dict:
                                 "arguments": json.dumps(arguments),
                             }
                         }
+                    ]
+                }
+            }
+        ]
+    }
+
+
+def make_multi_tool_response(tool_calls: List[tuple]) -> Dict:
+    """Create a mock LLM response with multiple tool calls.
+
+    Args:
+        tool_calls: List of (tool_name, arguments) tuples.
+    """
+    return {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": name,
+                                "arguments": json.dumps(args),
+                            }
+                        }
+                        for name, args in tool_calls
                     ]
                 }
             }
@@ -786,20 +820,174 @@ class TestPipeline:
 
 
 class TestCreateDefaultPipeline:
-    def test_creates_pipeline_with_all_phases(self):
+    def test_creates_optimized_pipeline_with_combined_phase(self):
         pipeline = create_default_pipeline()
 
-        assert len(pipeline.phases) == 8
+        assert len(pipeline.phases) == 6
         assert isinstance(pipeline.phases[0], LoadDataPhase)
-        assert isinstance(pipeline.phases[1], ParseIntentPhase)
-        assert isinstance(pipeline.phases[2], ExtractPhase)
-        assert isinstance(pipeline.phases[3], ChooseShellPhase)
-        assert isinstance(pipeline.phases[4], FillParamsPhase)
-        assert isinstance(pipeline.phases[5], AnalyzePhase)
-        assert isinstance(pipeline.phases[6], ValidatePhase)
-        assert isinstance(pipeline.phases[7], CompilePhase)
+        assert isinstance(pipeline.phases[1], CombinedDecisionPhase)
+        assert isinstance(pipeline.phases[2], FillParamsPhase)
+        assert isinstance(pipeline.phases[3], AnalyzePhase)
+        assert isinstance(pipeline.phases[4], ValidatePhase)
+        assert isinstance(pipeline.phases[5], CompilePhase)
 
     def test_phase_names_are_unique(self):
         pipeline = create_default_pipeline()
         names = [p.name for p in pipeline.phases]
         assert len(names) == len(set(names))
+
+
+# =============================================================================
+# CombinedDecisionPhase Tests
+# =============================================================================
+
+
+class TestCombinedDecisionPhase:
+    @pytest.mark.asyncio
+    async def test_stops_when_no_profile(self, sample_transcripts):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        phase = CombinedDecisionPhase()
+        provider = MockCompletionsProvider()
+
+        await phase.run(ctx, provider)
+
+        assert ctx.should_continue is False
+        assert "No data profile available." in ctx.logs
+
+    @pytest.mark.asyncio
+    async def test_stops_when_no_reply(self, sample_transcripts, sample_profile):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+        phase = CombinedDecisionPhase()
+        provider = MockCompletionsProvider([None])
+
+        await phase.run(ctx, provider)
+
+        assert ctx.should_continue is False
+        assert "No response from LLM." in ctx.logs
+
+    @pytest.mark.asyncio
+    async def test_uses_parallel_tools(self, sample_transcripts, sample_profile):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+
+        response = make_multi_tool_response([
+            ("choose_shell", {"shellId": "scatter"}),
+        ])
+        provider = MockCompletionsProvider([response])
+        phase = CombinedDecisionPhase()
+
+        await phase.run(ctx, provider)
+
+        # Verify parallel_tools was set to True
+        assert provider.calls[0]["parallel_tools"] is True
+
+    @pytest.mark.asyncio
+    async def test_processes_all_tool_calls(
+        self, sample_transcripts, sample_profile, sample_values
+    ):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+        ctx.values = sample_values
+
+        # Response with all three tool calls
+        response = make_multi_tool_response([
+            ("parse_intent", {"shell_fields": ["age", "score"], "extract_fields": []}),
+            ("choose_process", {"id": "none"}),
+            ("choose_shell", {"shellId": "scatter"}),
+        ])
+        provider = MockCompletionsProvider([response])
+        phase = CombinedDecisionPhase()
+
+        await phase.run(ctx, provider)
+
+        assert ctx.should_continue is True
+        assert ctx.parsed_intent is not None
+        assert ctx.parsed_intent["shell_fields"] == ["age", "score"]
+        assert ctx.shell_id == "scatter"
+        assert ctx.shell is not None
+        assert "Visualizing Scatter Plot." in ctx.logs
+
+    @pytest.mark.asyncio
+    async def test_applies_extraction_process(self, sample_transcripts):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.values = [
+            {"name": "Alice", "age": 30, "score": 85.5},
+            {"name": "Bob", "age": 25, "score": 90.0},
+            {"name": "Charlie", "age": 35, "score": 78.5},
+        ]
+        ctx.profile = profile_rows(ctx.values)
+
+        response = make_multi_tool_response([
+            ("choose_process", {"id": "range_filter", "params": {"field": "age", "min": 28, "max": 40}}),
+            ("choose_shell", {"shellId": "scatter"}),
+        ])
+        provider = MockCompletionsProvider([response])
+        phase = CombinedDecisionPhase()
+
+        await phase.run(ctx, provider)
+
+        assert ctx.should_continue is True
+        assert len(ctx.values) == 2  # Alice and Charlie filtered
+        assert ctx.shell_id == "scatter"
+
+    @pytest.mark.asyncio
+    async def test_adds_error_when_no_shell_selected(
+        self, sample_transcripts, sample_profile
+    ):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+
+        # Response without choose_shell
+        response = make_multi_tool_response([
+            ("choose_process", {"id": "none"}),
+        ])
+        provider = MockCompletionsProvider([response])
+        phase = CombinedDecisionPhase()
+
+        await phase.run(ctx, provider)
+
+        assert ctx.should_continue is False
+        assert len(ctx.errors) == 1
+        assert ctx.errors[0]["code"] == "SHELL_ERROR"
+
+    @pytest.mark.asyncio
+    async def test_adds_error_for_unknown_shell(
+        self, sample_transcripts, sample_profile
+    ):
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+
+        response = make_multi_tool_response([
+            ("choose_shell", {"shellId": "nonexistent_shell"}),
+        ])
+        provider = MockCompletionsProvider([response])
+        phase = CombinedDecisionPhase()
+
+        await phase.run(ctx, provider)
+
+        assert ctx.should_continue is False
+        assert len(ctx.errors) == 1
+        assert "nonexistent_shell" in ctx.errors[0]["details"]["shell_id"]
+
+    @pytest.mark.asyncio
+    async def test_phase_name(self):
+        phase = CombinedDecisionPhase()
+        assert phase.name == "combined_decision"
+
+    @pytest.mark.asyncio
+    async def test_single_llm_call(self, sample_transcripts, sample_profile):
+        """Verify that CombinedDecisionPhase makes only one LLM call."""
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+
+        response = make_multi_tool_response([
+            ("choose_shell", {"shellId": "scatter"}),
+        ])
+        provider = MockCompletionsProvider([response])
+        phase = CombinedDecisionPhase()
+
+        await phase.run(ctx, provider)
+
+        # Only one LLM call should be made
+        assert provider.call_count == 1

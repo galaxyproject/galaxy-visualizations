@@ -98,8 +98,15 @@ class CompletionsProvider(Protocol):
         self,
         transcripts: List[TranscriptMessageType],
         tools: List[Dict[str, Any]],
+        parallel_tools: bool = False,
     ) -> Optional[CompletionsReply]:
-        """Send a completion request with tools."""
+        """Send a completion request with tools.
+
+        Args:
+            transcripts: The conversation history.
+            tools: List of tool definitions.
+            parallel_tools: If True, allow LLM to call multiple tools in one response.
+        """
         ...
 
 
@@ -115,6 +122,7 @@ class DefaultCompletionsProvider:
         self,
         transcripts: List[TranscriptMessageType],
         tools: List[Dict[str, Any]],
+        parallel_tools: bool = False,
     ) -> Optional[CompletionsReply]:
         return await completions_post(
             dict(
@@ -123,6 +131,7 @@ class DefaultCompletionsProvider:
                 ai_model=self.ai_model,
                 messages=_sanitize_transcripts(transcripts),
                 tools=tools,
+                parallel_tools=parallel_tools,
             )
         )
 
@@ -146,9 +155,10 @@ class RateLimitedCompletionsProvider:
         self,
         transcripts: List[TranscriptMessageType],
         tools: List[Dict[str, Any]],
+        parallel_tools: bool = False,
     ) -> Optional[CompletionsReply]:
         await self.limiter.acquire()
-        return await self.inner.complete(transcripts, tools)
+        return await self.inner.complete(transcripts, tools, parallel_tools)
 
 
 class Phase(ABC):
@@ -353,6 +363,100 @@ class ChooseShellPhase(Phase):
         logger.debug(f"choose_shell_tool: {shell_id}")
 
 
+class CombinedDecisionPhase(Phase):
+    """Combined phase for intent parsing, extraction, and shell selection.
+
+    This phase consolidates three LLM calls into one by presenting all tools
+    simultaneously and allowing the LLM to call multiple tools in parallel.
+    This reduces latency from 3 sequential calls to 1 parallel call.
+
+    Combines:
+    - ParseIntentPhase: Extract visualization vs filter field intent
+    - ExtractPhase: Apply data filtering/extraction
+    - ChooseShellPhase: Select visualization type
+    """
+
+    @property
+    def name(self) -> str:
+        return "combined_decision"
+
+    async def run(
+        self,
+        ctx: PipelineContext,
+        provider: CompletionsProvider,
+    ) -> None:
+        if not ctx.profile:
+            ctx.stop("No data profile available.")
+            return
+
+        # Build all three tools
+        tools: List[Dict[str, Any]] = []
+
+        intent_tool = build_parse_intent_tool(ctx.profile)
+        if intent_tool:
+            tools.append(intent_tool)
+
+        process_tool = build_choose_process_tool(PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts)
+        tools.append(process_tool)
+
+        shell_tool = build_choose_shell_tool(ctx.profile)
+        tools.append(shell_tool)
+
+        # Single LLM call with parallel tool execution
+        reply = await provider.complete(ctx.transcripts, tools, parallel_tools=True)
+
+        if not reply:
+            ctx.stop("No response from LLM.")
+            return
+
+        # Extract and apply parse_intent result (optional, for better field selection)
+        parsed_intent = get_tool_call("parse_intent", reply)
+        if parsed_intent:
+            ctx.parsed_intent = parsed_intent
+            logger.debug(f"CombinedDecisionPhase: Parsed intent: {parsed_intent}")
+
+        # Extract and apply extraction process (optional)
+        process_choice = get_tool_call("choose_process", reply)
+        if process_choice:
+            logger.debug(f"CombinedDecisionPhase: Process choice: {process_choice}")
+            process_id = process_choice.get("id")
+            if process_id and process_id != NO_PROCESS_ID:
+                process = PROCESSES.EXTRACT.get(process_id)
+                if process:
+                    params = process_choice.get("params", {})
+                    ctx.values = run_process(process, ctx.values, params)
+                    ctx.profile = profile_rows(ctx.values)
+                    if "log" in process:
+                        ctx.logs.append(process["log"](params))
+
+        # Extract and apply shell selection (required)
+        shell_choice = get_tool_call("choose_shell", reply)
+        if not shell_choice or not shell_choice.get("shellId"):
+            ctx.add_error(
+                ShellError(
+                    "No compatible visualization shell available.",
+                    details={"profile_fields": list(ctx.profile.get("fields", {}).keys())},
+                )
+            )
+            return
+
+        shell_id = shell_choice["shellId"]
+        shell = SHELLS.get(shell_id)
+        if not shell:
+            ctx.add_error(
+                ShellError(
+                    f"Unknown shell selected: {shell_id}",
+                    details={"shell_id": shell_id},
+                )
+            )
+            return
+
+        ctx.shell_id = shell_id
+        ctx.shell = shell
+        ctx.logs.append(f"Visualizing {shell.name}.")
+        logger.debug(f"CombinedDecisionPhase: Selected shell: {shell_id}")
+
+
 class FillParamsPhase(Phase):
     """Phase 3: Fill visualization parameters via LLM."""
 
@@ -508,13 +612,15 @@ class Pipeline:
 
 
 def create_default_pipeline() -> Pipeline:
-    """Create the standard visualization pipeline with all phases."""
+    """Create the optimized visualization pipeline.
+
+    Uses CombinedDecisionPhase to consolidate intent parsing, extraction,
+    and shell selection into a single LLM call, reducing latency by ~50%.
+    """
     return Pipeline(
         [
             LoadDataPhase(),
-            ParseIntentPhase(),
-            ExtractPhase(),
-            ChooseShellPhase(),
+            CombinedDecisionPhase(),
             FillParamsPhase(),
             AnalyzePhase(),
             ValidatePhase(),
@@ -555,15 +661,13 @@ def _sanitize_values(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 __all__ = [
+    "AnalyzePhase",
+    "CombinedDecisionPhase",
     "CompilePhase",
     "CompletionsProvider",
-    "ChooseShellPhase",
     "DefaultCompletionsProvider",
-    "ExtractPhase",
     "FillParamsPhase",
     "LoadDataPhase",
-    "ParseIntentPhase",
-    "AnalyzePhase",
     "Phase",
     "Pipeline",
     "PipelineContext",
