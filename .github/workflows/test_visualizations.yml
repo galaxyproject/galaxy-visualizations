@@ -82,6 +82,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-${{ matrix.package }}-
 
+      - name: Check for requirements.txt
+        id: check-python
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          if [ -f requirements.txt ]; then
+            echo "has_requirements=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_requirements=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Python
+        if: steps.check-python.outputs.has_requirements == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: packages/${{ matrix.package }}/requirements.txt
+
+      - name: Install Python dependencies
+        if: steps.check-python.outputs.has_requirements == 'true'
+        working-directory: packages/${{ matrix.package }}
+        run: pip install -r requirements.txt
+
       - name: Install dependencies
         working-directory: packages/${{ matrix.package }}
         run: npm install

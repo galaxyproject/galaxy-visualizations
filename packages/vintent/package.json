@@ -13,7 +13,8 @@
         "build:vintent": "cd vintent && rm -rf build dist vintent.egg-info && python -m build --wheel",
         "preview": "vite preview",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
-        "test": "npm run test:unit",
+        "test": "npm run test:unit && npm run test:python",
+        "test:python": "cd vintent && python -m pytest tests/",
         "test:ui": "vitest --ui",
         "test:unit": "vitest run",
         "test:watch": "vitest --watch"
