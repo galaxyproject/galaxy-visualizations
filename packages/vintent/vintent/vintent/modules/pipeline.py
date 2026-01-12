@@ -60,7 +60,7 @@ class PipelineContext:
 
     # Output accumulators
     logs: List[str] = field(default_factory=list)
-    widgets: List[Any] = field(default_factory=list)
+    spec: Optional[Any] = None
     errors: List[Dict[str, Any]] = field(default_factory=list)
 
     # Control flow
@@ -82,7 +82,7 @@ class PipelineContext:
         """Convert context to the final result dict."""
         return dict(
             logs=self.logs,
-            widgets=self.widgets,
+            spec=self.spec,
             errors=self.errors,
         )
 
@@ -457,7 +457,7 @@ class CompilePhase(Phase):
 
         spec = ctx.shell.compile(ctx.params, _sanitize_values(ctx.values), "vega-lite")
         if spec:
-            ctx.widgets.append(spec)
+            ctx.spec = spec
 
 
 class Pipeline:

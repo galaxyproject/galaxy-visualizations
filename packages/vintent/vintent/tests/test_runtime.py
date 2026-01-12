@@ -19,7 +19,7 @@ async def test_histogram(monkeypatch):
     assert_log("Filter rows where Age is >= 50.", result)
     assert_log("Visualizing Histogram.", result)
     assert_log("Computed histogram bins", result)
-    assert_output(result["widgets"][0], "test_histogram")
+    assert_output(result["spec"], "test_histogram")
 
 @pytest.mark.asyncio
 async def test_linear_regression(monkeypatch):
@@ -35,7 +35,7 @@ async def test_linear_regression(monkeypatch):
     assert_log("Filter rows where Age is between 0 and 50.", result)
     assert_log("Visualizing Linear Regression.", result)
     assert_log("Computed linear regression", result)
-    assert_output(result["widgets"][0], "test_linear_regression")
+    assert_output(result["spec"], "test_linear_regression")
 
 
 @pytest.mark.asyncio
@@ -49,7 +49,7 @@ async def test_correlation_matrix(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show heatmap of all columns")
     result = await run(config, inputs, dataset_path)
-    assert_output(result["widgets"][0], "test_correlation_matrix")
+    assert_output(result["spec"], "test_correlation_matrix")
 
 
 # ============================================================================
@@ -70,7 +70,7 @@ async def test_scatter_bmi_glucose(monkeypatch):
     inputs = build_inputs("Show me the relationship between BMI and Glucose levels")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Scatter Plot.", result)
-    assert_output(result["widgets"][0], "test_scatter_bmi_glucose")
+    assert_output(result["spec"], "test_scatter_bmi_glucose")
 
 
 @pytest.mark.asyncio
@@ -86,7 +86,7 @@ async def test_box_plot_by_obesity(monkeypatch):
     inputs = build_inputs("Compare age distribution between obese and non-obese patients")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Box Plot.", result)
-    assert_output(result["widgets"][0], "test_box_plot_obesity")
+    assert_output(result["spec"], "test_box_plot_obesity")
 
 
 @pytest.mark.asyncio
@@ -102,7 +102,7 @@ async def test_pie_chart_obesity_breakdown(monkeypatch):
     inputs = build_inputs("Show a pie chart of obesity categories")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Pie Chart.", result)
-    assert_output(result["widgets"][0], "test_pie_chart_obesity")
+    assert_output(result["spec"], "test_pie_chart_obesity")
 
 
 @pytest.mark.asyncio
@@ -118,7 +118,7 @@ async def test_bar_aggregate_glucose_by_obesity(monkeypatch):
     inputs = build_inputs("What is the average glucose level for each obesity category?")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Bar Chart (Aggregated).", result)
-    assert_output(result["widgets"][0], "test_bar_aggregate_glucose")
+    assert_output(result["spec"], "test_bar_aggregate_glucose")
 
 
 @pytest.mark.asyncio
@@ -134,7 +134,7 @@ async def test_density_bmi(monkeypatch):
     inputs = build_inputs("Show me the distribution of BMI values")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Density Plot.", result)
-    assert_output(result["widgets"][0], "test_density_bmi")
+    assert_output(result["spec"], "test_density_bmi")
 
 
 @pytest.mark.asyncio
@@ -150,7 +150,7 @@ async def test_bubble_chart_three_variables(monkeypatch):
     inputs = build_inputs("Plot age vs glucose with bubble size representing BMI")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Bubble Chart.", result)
-    assert_output(result["widgets"][0], "test_bubble_chart")
+    assert_output(result["spec"], "test_bubble_chart")
 
 
 @pytest.mark.asyncio
@@ -166,7 +166,7 @@ async def test_summary_statistics_insulin(monkeypatch):
     inputs = build_inputs("Give me summary statistics for Insulin levels")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Summary Statistics.", result)
-    assert_output(result["widgets"][0], "test_summary_statistics_insulin")
+    assert_output(result["spec"], "test_summary_statistics_insulin")
 
 
 @pytest.mark.asyncio
@@ -183,7 +183,7 @@ async def test_histogram_with_sampling(monkeypatch):
     result = await run(config, inputs, dataset_path)
     assert_log("Sampled 100 random rows", result)
     assert_log("Visualizing Histogram.", result)
-    assert_output(result["widgets"][0], "test_histogram_sampled")
+    assert_output(result["spec"], "test_histogram_sampled")
 
 
 @pytest.mark.asyncio
@@ -199,7 +199,7 @@ async def test_violin_plot_bmi_by_outcome(monkeypatch):
     inputs = build_inputs("Show violin plot of BMI grouped by obesity status")
     result = await run(config, inputs, dataset_path)
     assert_log("Visualizing Violin Plot.", result)
-    assert_output(result["widgets"][0], "test_violin_plot_bmi")
+    assert_output(result["spec"], "test_violin_plot_bmi")
 
 
 @pytest.mark.asyncio
@@ -216,4 +216,4 @@ async def test_scatter_with_range_filter(monkeypatch):
     result = await run(config, inputs, dataset_path)
     assert_log("Filter rows where Insulin is between 10 and 300", result)
     assert_log("Visualizing Scatter Plot.", result)
-    assert_output(result["widgets"][0], "test_scatter_filtered_range")
+    assert_output(result["spec"], "test_scatter_filtered_range")

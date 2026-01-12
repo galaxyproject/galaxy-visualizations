@@ -46,7 +46,7 @@ class Runner:
         Returns:
             A dict with:
                 logs: List of human-readable log messages
-                widgets: List of compiled visualization specs
+                spec: The compiled visualization spec (or None if compilation failed)
                 errors: List of structured error objects (if any errors occurred)
         """
         logger.debug(f"transcripts: {transcripts}")

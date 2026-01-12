@@ -132,7 +132,7 @@ class TestPipelineContext:
         assert ctx.shell_id is None
         assert ctx.params == {}
         assert ctx.logs == []
-        assert ctx.widgets == []
+        assert ctx.spec is None
         assert ctx.errors == []
         assert ctx.should_continue is True
 
@@ -160,14 +160,14 @@ class TestPipelineContext:
     def test_to_result_returns_correct_structure(self, sample_transcripts):
         ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
         ctx.logs.append("Log message")
-        ctx.widgets.append({"type": "vega-lite"})
+        ctx.spec = {"type": "vega-lite"}
         ctx.errors.append({"code": "ERROR", "message": "Error"})
 
         result = ctx.to_result()
 
         assert result == {
             "logs": ["Log message"],
-            "widgets": [{"type": "vega-lite"}],
+            "spec": {"type": "vega-lite"},
             "errors": [{"code": "ERROR", "message": "Error"}],
         }
 
@@ -609,7 +609,7 @@ class TestCompilePhase:
 
         await phase.run(ctx, provider)
 
-        assert ctx.widgets == []
+        assert ctx.spec is None
 
     @pytest.mark.asyncio
     async def test_compiles_vega_lite_spec(self, sample_transcripts, sample_values):
@@ -627,11 +627,10 @@ class TestCompilePhase:
 
         await phase.run(ctx, provider)
 
-        assert len(ctx.widgets) == 1
-        spec = ctx.widgets[0]
-        assert "$schema" in spec
-        assert "data" in spec
-        assert "mark" in spec
+        assert ctx.spec is not None
+        assert "$schema" in ctx.spec
+        assert "data" in ctx.spec
+        assert "mark" in ctx.spec
 
     @pytest.mark.asyncio
     async def test_sanitizes_non_finite_values(self, sample_transcripts):
@@ -655,8 +654,8 @@ class TestCompilePhase:
 
         await phase.run(ctx, provider)
 
-        assert len(ctx.widgets) == 1
-        data_values = ctx.widgets[0]["data"]["values"]
+        assert ctx.spec is not None
+        data_values = ctx.spec["data"]["values"]
         # Non-finite values should be replaced with None
         assert data_values[0]["y"] is None
         assert data_values[1]["y"] is None
