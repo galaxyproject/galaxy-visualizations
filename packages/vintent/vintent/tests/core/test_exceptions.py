@@ -3,6 +3,7 @@
 import pytest
 
 from vintent.core.exceptions import (
+    AppError,
     CompletionsError,
     CompletionsParseError,
     ConfigurationError,
@@ -10,29 +11,28 @@ from vintent.core.exceptions import (
     HttpError,
     ProcessError,
     ShellError,
-    VintentError,
 )
 
 
-class TestVintentError:
+class TestAppError:
     def test_instantiation_with_message_only(self):
-        err = VintentError("Something went wrong")
+        err = AppError("Something went wrong")
         assert err.message == "Something went wrong"
         assert err.details == {}
-        assert err.code == "VINTENT_ERROR"
+        assert err.code == "APP_ERROR"
         assert str(err) == "Something went wrong"
 
     def test_instantiation_with_details(self):
         details = {"key": "value", "count": 42}
-        err = VintentError("Error occurred", details=details)
+        err = AppError("Error occurred", details=details)
         assert err.message == "Error occurred"
         assert err.details == details
 
     def test_to_dict(self):
-        err = VintentError("Test error", details={"foo": "bar"})
+        err = AppError("Test error", details={"foo": "bar"})
         result = err.to_dict()
         assert result == {
-            "code": "VINTENT_ERROR",
+            "code": "APP_ERROR",
             "message": "Test error",
             "details": {"foo": "bar"},
         }
@@ -51,16 +51,16 @@ class TestExceptionInheritance:
             (HttpError, "HTTP_ERROR"),
         ],
     )
-    def test_inherits_from_vintent_error(self, exception_class, expected_code):
+    def test_inherits_from_APP_ERROR(self, exception_class, expected_code):
         err = exception_class("Test message")
-        assert isinstance(err, VintentError)
+        assert isinstance(err, AppError)
         assert isinstance(err, Exception)
         assert err.code == expected_code
 
     def test_completions_parse_error_inherits_from_completions_error(self):
         err = CompletionsParseError("Parse failed")
         assert isinstance(err, CompletionsError)
-        assert isinstance(err, VintentError)
+        assert isinstance(err, AppError)
 
 
 class TestHttpError:
@@ -91,8 +91,8 @@ class TestHttpError:
 
 
 class TestExceptionRaising:
-    def test_can_be_caught_as_vintent_error(self):
-        with pytest.raises(VintentError) as exc_info:
+    def test_can_be_caught_as_APP_ERROR(self):
+        with pytest.raises(AppError) as exc_info:
             raise ProcessError("Process failed", details={"process_id": "pca"})
         assert exc_info.value.code == "PROCESS_ERROR"
         assert exc_info.value.details == {"process_id": "pca"}

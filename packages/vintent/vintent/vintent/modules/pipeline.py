@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 from vintent.core.completions import completions_post, get_tool_call
-from vintent.core.exceptions import DataError, ShellError, VintentError
+from vintent.core.exceptions import DataError, ShellError, AppError
 
 from .process import run_process
 from .profiler import DatasetProfile, profile_rows, rows_from_csv
@@ -67,7 +67,7 @@ class PipelineContext:
         if log_message:
             self.logs.append(log_message)
 
-    def add_error(self, error: VintentError) -> None:
+    def add_error(self, error: AppError) -> None:
         """Add an error and stop the pipeline."""
         self.errors.append(error.to_dict())
         self.logs.append(f"Error: {error.message}")
@@ -415,7 +415,7 @@ class Pipeline:
             logger.debug(f"Running phase: {phase.name}")
             try:
                 await phase.run(ctx, provider)
-            except VintentError as e:
+            except AppError as e:
                 ctx.add_error(e)
                 break
             except Exception as e:

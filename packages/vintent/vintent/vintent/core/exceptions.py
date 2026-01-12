@@ -1,12 +1,12 @@
-"""Custom exception hierarchy for vintent."""
+"""Custom exception hierarchy."""
 
 from typing import Any, Dict, Optional
 
 
-class VintentError(Exception):
-    """Base exception for all vintent errors."""
+class AppError(Exception):
+    """Base exception for all errors."""
 
-    code: str = "VINTENT_ERROR"
+    code: str = "APP_ERROR"
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)
@@ -22,31 +22,31 @@ class VintentError(Exception):
         }
 
 
-class ConfigurationError(VintentError):
+class ConfigurationError(AppError):
     """Invalid or missing configuration."""
 
     code = "CONFIG_ERROR"
 
 
-class DataError(VintentError):
+class DataError(AppError):
     """Error with input data (CSV, profile, etc.)."""
 
     code = "DATA_ERROR"
 
 
-class ProcessError(VintentError):
+class ProcessError(AppError):
     """Error during data processing."""
 
     code = "PROCESS_ERROR"
 
 
-class ShellError(VintentError):
+class ShellError(AppError):
     """Error during shell compilation or validation."""
 
     code = "SHELL_ERROR"
 
 
-class CompletionsError(VintentError):
+class CompletionsError(AppError):
     """Error communicating with LLM API."""
 
     code = "COMPLETIONS_ERROR"
@@ -58,7 +58,7 @@ class CompletionsParseError(CompletionsError):
     code = "COMPLETIONS_PARSE_ERROR"
 
 
-class HttpError(VintentError):
+class HttpError(AppError):
     """HTTP request failed."""
 
     code = "HTTP_ERROR"
