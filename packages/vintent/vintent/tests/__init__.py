@@ -8,14 +8,27 @@ from vintent.config import MESSAGE_INITIAL, PROMPT_DEFAULT
 package_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 dataset_path = os.path.join(package_root, "../test-data", "dataset.csv")
 
+
+def _round_floats(obj, precision=10):
+    """Round floats to avoid platform-specific precision differences."""
+    if isinstance(obj, float):
+        return round(obj, precision)
+    elif isinstance(obj, dict):
+        return {k: _round_floats(v, precision) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_round_floats(item, precision) for item in obj]
+    return obj
+
+
 def assert_log(assertion, result):
     assert any(assertion in l for l in result["logs"])
 
 def assert_output(content, file_name, update_on_mismatch=False):
     file_path = Path(os.path.join(package_root, f"../test-results/{file_name}.json"))
-    content_to_compare = json.dumps(content, indent=2, sort_keys=True)
+    content_to_compare = json.dumps(_round_floats(content), indent=2, sort_keys=True)
     if file_path.exists():
-        existing_content = file_path.read_text()
+        existing_data = json.loads(file_path.read_text())
+        existing_content = json.dumps(_round_floats(existing_data), indent=2, sort_keys=True)
         if existing_content.strip() == content_to_compare.strip():
             return True
         if update_on_mismatch:

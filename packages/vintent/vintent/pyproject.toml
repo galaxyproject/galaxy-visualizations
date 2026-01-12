@@ -20,7 +20,7 @@ classifiers = [
 vintent = "vintent.cli:main"
 
 [project.optional-dependencies]
-dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio"]
+dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio", "aiohttp"]
 
 [tool.black]
 line-length = 120
