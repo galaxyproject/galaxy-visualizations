@@ -88,7 +88,6 @@ async function loadPrompt() {
         consoleMessages.value.push({ content: "Injected assistant message.", icon: AcademicCapIcon });
         transcripts.push({ content: MESSAGE_INITIAL, role: "assistant" });
         if (isTestData) {
-            //transcripts.push({ content: "Plot a histogram of age.", role: "user" });
             transcripts.push({ content: "Plot the mean of bmi by obesity.", role: "user" });
         }
         emit("update", { transcripts });
@@ -136,12 +135,12 @@ async function processUserRequest() {
                 if (newWidgets.length > 0) {
                     widgets.value.push(...newWidgets);
                     const message_success = reply.logs.join(" ") || MESSAGE_SUCCESS;
-                    transcripts.push({ content: message_success, role: "assistant", variant: TRANSCRIPT_VARIANT.INFO });
+                    transcripts.push({ content: message_success, role: "assistant" });
                     consoleMessages.value.push({ content: MESSAGE_SUCCESS, icon: CheckIcon });
                     emit("update", { settings: { widgets } });
                 } else {
-                    consoleMessages.value.push({ content: MESSAGE_FAILED, icon: ExclamationTriangleIcon });
                     transcripts.push({ content: MESSAGE_FAILED, role: "assistant" });
+                    consoleMessages.value.push({ content: MESSAGE_FAILED, icon: ExclamationTriangleIcon });
                 }
             } catch (e) {
                 transcripts.push({ content: MESSAGE_FAILED, role: "assistant" });
