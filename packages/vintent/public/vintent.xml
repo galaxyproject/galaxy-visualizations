@@ -28,8 +28,7 @@ Rules:
 - Do not invent shell identifiers.
 - Do not invent or rename dataset fields.
 - Do not explain your reasoning.
-
-The client controls the workflow and which tools are available.
+- Do not duplicate visualizations already produced in this conversation.
         ]]></ai_prompt>
         <ui>
             <chat>true</chat>
