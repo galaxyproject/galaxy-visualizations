@@ -160,7 +160,11 @@ def build_fill_shell_params_tool(shell: Any, profile: DatasetProfile) -> Optiona
         "type": "function",
         "function": {
             "name": "fill_shell_params",
-            "description": "Fill parameters for the selected visualization shell",
+            "description": (
+                "Fill parameters for the visualization. Choose fields based on what the user wants to VISUALIZE, "
+                "not the fields used for filtering or sorting. For example, if the user says 'show regression of X and Y "
+                "for the lowest 20 Z values', the visualization parameters should be X and Y (not Z)."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": properties,

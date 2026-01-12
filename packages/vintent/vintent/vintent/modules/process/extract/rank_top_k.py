@@ -29,6 +29,7 @@ def schema(profile, context=None):
                 "order": {
                     "type": "string",
                     "enum": ["asc", "desc"],
+                    "description": "Use 'asc' for lowest/smallest/bottom values, use 'desc' for highest/largest/top values.",
                 },
                 "limit": {
                     "type": "integer",
