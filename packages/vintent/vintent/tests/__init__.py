@@ -25,32 +25,22 @@ def assert_log(assertion, result):
 
 def assert_output(content, file_name, update_on_mismatch=False):
     file_path = Path(os.path.join(package_root, f"../test-results/{file_name}.json"))
-    content_to_compare = json.dumps(_round_floats(content), indent=2, sort_keys=True)
+    # Use minified JSON (single line) for compact storage
+    content_to_compare = json.dumps(_round_floats(content), sort_keys=True, separators=(',', ':'))
     if file_path.exists():
         existing_data = json.loads(file_path.read_text())
-        existing_content = json.dumps(_round_floats(existing_data), indent=2, sort_keys=True)
-        if existing_content.strip() == content_to_compare.strip():
+        existing_content = json.dumps(_round_floats(existing_data), sort_keys=True, separators=(',', ':'))
+        if existing_content == content_to_compare:
             return True
         if update_on_mismatch:
             print(f"Warning: Content mismatch in '{file_name}'. Updating file.")
-            file_path.write_text(content_to_compare)
+            file_path.write_text(content_to_compare + '\n')
             return False
         else:
-            import difflib
-            diff = list(difflib.unified_diff(
-                existing_content.splitlines(keepends=True),
-                content_to_compare.splitlines(keepends=True),
-                fromfile=f'Existing ({file_name})',
-                tofile='New content'
-            ))
-            raise AssertionError(
-                f"Content mismatch in '{file_name}':\n" +
-                ''.join(diff[:50]) +  # Limit diff output
-                ("\n... (diff truncated)" if len(diff) > 50 else "")
-            )
+            raise AssertionError(f"Content mismatch in '{file_name}'")
     else:
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content_to_compare)
+        file_path.write_text(content_to_compare + '\n')
         raise FileNotFoundError(
             f"File '{file_name}' was created with the expected content.\n"
             f"Please review it and re-run the test."
