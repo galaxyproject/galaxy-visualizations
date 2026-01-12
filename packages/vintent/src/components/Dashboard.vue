@@ -40,7 +40,7 @@ function remove(widgetIndex: number) {
             v-for="(widget, widgetIndex) in props.widgets"
             :key="widgetIndex"
             class="flex flex-col min-h-0 bg-white border border-gray-200 rounded text-gray-800 text-sm">
-            <Vega class="flex-1 min-h-0 overflow-hidden p-1" :spec="widget" />
+            <Vega class="flex-1 min-h-0 overflow-hidden p-1" :spec="widget.spec" :message="widget.message" />
             <button class="vintent-button absolute z-[9998]" @click="remove(widgetIndex)">
                 <div class="flex justify-center">
                     <XMarkIcon class="size-5 inline" />

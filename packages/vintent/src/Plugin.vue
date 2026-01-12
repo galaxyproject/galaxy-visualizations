@@ -131,11 +131,11 @@ async function processUserRequest() {
                 reply.logs.forEach((log: string) => {
                     consoleMessages.value.push({ content: log, icon: BoltIcon });
                 });
-                const newWidgets = reply.widgets;
-                if (newWidgets.length > 0) {
-                    widgets.value.push(...newWidgets);
-                    const message_success = reply.logs.join(" ") || MESSAGE_SUCCESS;
-                    transcripts.push({ content: message_success, role: "assistant" });
+                const spec = reply.spec;
+                if (spec) {
+                    const message = reply.logs.join(" ") || MESSAGE_SUCCESS;
+                    widgets.value.push({ spec, message });
+                    transcripts.push({ content: message, role: "assistant" });
                     consoleMessages.value.push({ content: MESSAGE_SUCCESS, icon: CheckIcon });
                     emit("update", { settings: { widgets } });
                 } else {
