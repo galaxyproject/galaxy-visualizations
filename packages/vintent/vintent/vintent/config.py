@@ -13,6 +13,9 @@ env = {
     # "AI_BASE_URL": "http://localhost:8080/api/plugins/vintent",
     "AI_MODEL": None,
     "AI_RATE_LIMIT": None,  # Requests per minute (e.g., "30")
+    # Combined pipeline (fast, 3 LLM calls) or sequential pipeline (reliable, 4 LLM calls)
+    # Use sequential (False) for local/smaller models that struggle with parallel tool calling
+    "AI_PIPELINE_COMBINE": False,
     "GALAXY_KEY": None,
     "GALAXY_ROOT": "http://localhost:8080/",
 }
@@ -28,6 +31,7 @@ config = {
     "ai_base_url": env["AI_BASE_URL"],
     "ai_model": env["AI_MODEL"],
     "ai_rate_limit": int(env["AI_RATE_LIMIT"]) if env["AI_RATE_LIMIT"] else None,
+    "ai_pipeline_combine": env["AI_PIPELINE_COMBINE"],
     "galaxy_root": env["GALAXY_ROOT"],
     "galaxy_key": env["GALAXY_KEY"],
 }

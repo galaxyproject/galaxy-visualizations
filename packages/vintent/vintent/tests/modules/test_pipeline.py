@@ -22,6 +22,8 @@ from vintent.modules.pipeline import (
     PipelineContext,
     ValidatePhase,
     create_default_pipeline,
+    create_pipeline,
+    create_sequential_pipeline,
 )
 # Import individual phases for unit testing (not exported from __all__)
 from vintent.modules.pipeline import (
@@ -835,6 +837,49 @@ class TestCreateDefaultPipeline:
         pipeline = create_default_pipeline()
         names = [p.name for p in pipeline.phases]
         assert len(names) == len(set(names))
+
+
+class TestCreateSequentialPipeline:
+    """Tests for sequential pipeline mode (more reliable for local models)."""
+
+    def test_creates_sequential_pipeline_with_separate_phases(self):
+        pipeline = create_sequential_pipeline()
+
+        assert len(pipeline.phases) == 8
+        assert isinstance(pipeline.phases[0], LoadDataPhase)
+        assert isinstance(pipeline.phases[1], ParseIntentPhase)
+        assert isinstance(pipeline.phases[2], ExtractPhase)
+        assert isinstance(pipeline.phases[3], ChooseShellPhase)
+        assert isinstance(pipeline.phases[4], FillParamsPhase)
+        assert isinstance(pipeline.phases[5], AnalyzePhase)
+        assert isinstance(pipeline.phases[6], ValidatePhase)
+        assert isinstance(pipeline.phases[7], CompilePhase)
+
+    def test_phase_names_are_unique(self):
+        pipeline = create_sequential_pipeline()
+        names = [p.name for p in pipeline.phases]
+        assert len(names) == len(set(names))
+
+
+class TestCreatePipeline:
+    """Tests for the pipeline factory function."""
+
+    def test_combined_mode_returns_default_pipeline(self):
+        pipeline = create_pipeline(combine=True)
+        assert len(pipeline.phases) == 6
+        assert isinstance(pipeline.phases[1], CombinedDecisionPhase)
+
+    def test_sequential_mode_returns_sequential_pipeline(self):
+        pipeline = create_pipeline(combine=False)
+        assert len(pipeline.phases) == 8
+        assert isinstance(pipeline.phases[1], ParseIntentPhase)
+        assert isinstance(pipeline.phases[2], ExtractPhase)
+        assert isinstance(pipeline.phases[3], ChooseShellPhase)
+
+    def test_default_mode_is_sequential(self):
+        pipeline = create_pipeline()
+        assert len(pipeline.phases) == 8
+        assert isinstance(pipeline.phases[1], ParseIntentPhase)
 
 
 # =============================================================================

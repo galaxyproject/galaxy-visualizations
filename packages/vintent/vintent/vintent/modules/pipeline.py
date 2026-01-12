@@ -556,10 +556,12 @@ class Pipeline:
 
 
 def create_default_pipeline() -> Pipeline:
-    """Create the optimized visualization pipeline.
+    """Create the optimized visualization pipeline (combined mode).
 
     Uses CombinedDecisionPhase to consolidate intent parsing, extraction,
-    and shell selection into a single LLM call, reducing latency by ~50%.
+    and shell selection, reducing latency with fewer LLM calls.
+
+    Note: For local/smaller models, use create_sequential_pipeline() instead.
     """
     return Pipeline(
         [
@@ -571,6 +573,54 @@ def create_default_pipeline() -> Pipeline:
             CompilePhase(),
         ]
     )
+
+
+def create_sequential_pipeline() -> Pipeline:
+    """Create a sequential visualization pipeline (sequential mode).
+
+    Uses separate phases for intent parsing, extraction, and shell selection,
+    with forced tool calls for each. This is more reliable for local/smaller
+    models that struggle with parallel tool calling.
+
+    Phases:
+    1. LoadData - Load and profile CSV data
+    2. ParseIntent - Extract user's analytical goal and field usage
+    3. Extract - Apply data filtering/transformation (forced tool call)
+    4. ChooseShell - Select visualization type (forced tool call)
+    5. FillParams - Fill shell parameters (forced tool call)
+    6. Analyze - Run shell-specific analysis
+    7. Validate - Validate parameters
+    8. Compile - Generate Vega-Lite spec
+    """
+    return Pipeline(
+        [
+            LoadDataPhase(),
+            ParseIntentPhase(),
+            ExtractPhase(),
+            ChooseShellPhase(),
+            FillParamsPhase(),
+            AnalyzePhase(),
+            ValidatePhase(),
+            CompilePhase(),
+        ]
+    )
+
+
+def create_pipeline(combine: bool = False) -> Pipeline:
+    """Create a visualization pipeline with the specified mode.
+
+    Args:
+        combine: If True, use combined pipeline (fast, fewer LLM calls).
+                 If False, use sequential pipeline (reliable, separate forced tool calls).
+                 Use False (sequential) for local/smaller models.
+
+    Returns:
+        A configured Pipeline instance.
+    """
+    if combine:
+        return create_default_pipeline()
+    else:
+        return create_sequential_pipeline()
 
 
 def _sanitize_values(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -589,16 +639,21 @@ def _sanitize_values(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 __all__ = [
     "AnalyzePhase",
+    "ChooseShellPhase",
     "CombinedDecisionPhase",
     "CompilePhase",
     "CompletionsProvider",
     "DefaultCompletionsProvider",
+    "ExtractPhase",
     "FillParamsPhase",
     "LoadDataPhase",
+    "ParseIntentPhase",
     "Phase",
     "Pipeline",
     "PipelineContext",
     "RateLimitedCompletionsProvider",
     "ValidatePhase",
     "create_default_pipeline",
+    "create_pipeline",
+    "create_sequential_pipeline",
 ]

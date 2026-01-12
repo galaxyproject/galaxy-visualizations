@@ -5,7 +5,7 @@ from .pipeline import (
     DefaultCompletionsProvider,
     PipelineContext,
     RateLimitedCompletionsProvider,
-    create_default_pipeline,
+    create_pipeline,
 )
 from .schemas import TranscriptMessageType
 
@@ -22,6 +22,7 @@ class Runner:
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.provider = self._create_provider(config)
+        self.pipeline_combine = config.get("ai_pipeline_combine", False)
 
     def _create_provider(self, config: Dict[str, Any]):
         """Create the completions provider, optionally with rate limiting."""
@@ -50,13 +51,14 @@ class Runner:
                 errors: List of structured error objects (if any errors occurred)
         """
         logger.debug(f"transcripts: {transcripts}")
+        logger.debug(f"pipeline_combine: {self.pipeline_combine}")
 
         ctx = PipelineContext(
             transcripts=transcripts,
             file_name=file_name,
         )
 
-        pipeline = create_default_pipeline()
+        pipeline = create_pipeline(self.pipeline_combine)
         await pipeline.run(ctx, self.provider)
 
         return ctx.to_result()
