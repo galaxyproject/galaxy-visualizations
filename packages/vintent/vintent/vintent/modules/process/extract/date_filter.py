@@ -18,8 +18,9 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Filter rows by date range. Use when the user wants to filter by time period, "
-            "such as 'last 30 days', 'this year', 'between dates', or 'recent data'."
+            "Filter rows by date range. ONLY use when the user explicitly asks for "
+            "'last N days', 'this year', 'between dates', 'since', or 'recent'. "
+            "Do NOT use for simple visualizations."
         ),
         "params": {
             "type": "object",

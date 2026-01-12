@@ -14,9 +14,9 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Filter rows by numeric range. Use when the user wants to filter data "
-            "using comparisons like greater than, less than, above, below, between, "
-            "or within a specific range of values."
+            "Filter rows by numeric range. ONLY use when the user explicitly asks to filter "
+            "using words like 'greater than', 'less than', 'above', 'below', 'between', "
+            "'where X > N', or 'within range'. Do NOT use for simple visualizations."
         ),
         "params": {
             "type": "object",

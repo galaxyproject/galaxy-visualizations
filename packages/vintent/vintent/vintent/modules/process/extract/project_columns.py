@@ -18,8 +18,8 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Select specific columns. Use when the user wants to focus on certain "
-            "fields, keep only specific columns, or exclude irrelevant columns from the visualization."
+            "Select specific columns. ONLY use when the user explicitly asks to "
+            "'select columns', 'keep only', or 'exclude columns'. Do NOT use for simple visualizations."
         ),
         "params": {
             "type": "object",

@@ -15,8 +15,8 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Take a random sample of rows. Use when the user wants to see a sample, "
-            "preview, or subset of the data for exploration."
+            "Take a random sample of rows. ONLY use when the user explicitly asks to "
+            "'sample', 'take N rows', or 'preview a subset'. Do NOT use for simple visualizations."
         ),
         "params": {
             "type": "object",

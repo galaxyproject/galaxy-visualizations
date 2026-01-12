@@ -15,8 +15,9 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Select top or bottom K rows. Use when the user wants to see the highest, "
-            "lowest, top N, bottom N, largest, or smallest values in the data."
+            "Select top or bottom K rows. ONLY use when the user explicitly asks for "
+            "'top N', 'bottom N', 'highest', 'lowest', 'largest', or 'smallest'. "
+            "Do NOT use for simple visualizations."
         ),
         "params": {
             "type": "object",

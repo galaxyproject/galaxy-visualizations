@@ -16,7 +16,7 @@ async def test_histogram(monkeypatch):
     inputs = build_inputs("Create a histogram of age with age > 50")
     result = await run(config, inputs, dataset_path)
     assert_log("Filter rows where Age is >= 50.", result)
-    assert_log("Selected shell: histogram", result)
+    assert_log("Visualizing Histogram.", result)
     assert_log("Computed histogram bins", result)
     assert_output(result["widgets"][0], "test_histogram")
 
@@ -31,7 +31,7 @@ async def test_linear_regression(monkeypatch):
     inputs = build_inputs("Show linear regression of Glucose and Insuling with age < 50")
     result = await run(config, inputs, dataset_path)
     assert_log("Filter rows where Age is between 0 and 50.", result)
-    assert_log("Selected shell: linear_regression", result)
+    assert_log("Visualizing Linear Regression.", result)
     assert_log("Computed linear regression", result)
     assert_output(result["widgets"][0], "test_linear_regression")
 
@@ -65,7 +65,7 @@ async def test_scatter_bmi_glucose(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show me the relationship between BMI and Glucose levels")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: scatter", result)
+    assert_log("Visualizing Scatter Plot.", result)
     assert_output(result["widgets"][0], "test_scatter_bmi_glucose")
 
 
@@ -80,7 +80,7 @@ async def test_box_plot_by_obesity(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Compare age distribution between obese and non-obese patients")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: box_plot", result)
+    assert_log("Visualizing Box Plot.", result)
     assert_output(result["widgets"][0], "test_box_plot_obesity")
 
 
@@ -95,7 +95,7 @@ async def test_pie_chart_obesity_breakdown(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show a pie chart of obesity categories")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: pie_chart", result)
+    assert_log("Visualizing Pie Chart.", result)
     assert_output(result["widgets"][0], "test_pie_chart_obesity")
 
 
@@ -110,7 +110,7 @@ async def test_bar_aggregate_glucose_by_obesity(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("What is the average glucose level for each obesity category?")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: bar_aggregate", result)
+    assert_log("Visualizing Bar Chart (Aggregated).", result)
     assert_output(result["widgets"][0], "test_bar_aggregate_glucose")
 
 
@@ -125,7 +125,7 @@ async def test_density_bmi(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show me the distribution of BMI values")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: density", result)
+    assert_log("Visualizing Density Plot.", result)
     assert_output(result["widgets"][0], "test_density_bmi")
 
 
@@ -140,7 +140,7 @@ async def test_bubble_chart_three_variables(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Plot age vs glucose with bubble size representing BMI")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: bubble_chart", result)
+    assert_log("Visualizing Bubble Chart.", result)
     assert_output(result["widgets"][0], "test_bubble_chart")
 
 
@@ -155,7 +155,7 @@ async def test_summary_statistics_insulin(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Give me summary statistics for Insulin levels")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: summary_statistics", result)
+    assert_log("Visualizing Summary Statistics.", result)
     assert_output(result["widgets"][0], "test_summary_statistics_insulin")
 
 
@@ -171,7 +171,7 @@ async def test_histogram_with_sampling(monkeypatch):
     inputs = build_inputs("Show a histogram of blood pressure for a sample of 100 patients")
     result = await run(config, inputs, dataset_path)
     assert_log("Sampled 100 random rows", result)
-    assert_log("Selected shell: histogram", result)
+    assert_log("Visualizing Histogram.", result)
     assert_output(result["widgets"][0], "test_histogram_sampled")
 
 
@@ -186,7 +186,7 @@ async def test_violin_plot_bmi_by_outcome(monkeypatch):
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show violin plot of BMI grouped by obesity status")
     result = await run(config, inputs, dataset_path)
-    assert_log("Selected shell: violin_plot", result)
+    assert_log("Visualizing Violin Plot.", result)
     assert_output(result["widgets"][0], "test_violin_plot_bmi")
 
 
@@ -202,5 +202,5 @@ async def test_scatter_with_range_filter(monkeypatch):
     inputs = build_inputs("Show glucose vs insulin relationship for insulin between 10 and 300")
     result = await run(config, inputs, dataset_path)
     assert_log("Filter rows where Insulin is between 10 and 300", result)
-    assert_log("Selected shell: scatter", result)
+    assert_log("Visualizing Scatter Plot.", result)
     assert_output(result["widgets"][0], "test_scatter_filtered_range")

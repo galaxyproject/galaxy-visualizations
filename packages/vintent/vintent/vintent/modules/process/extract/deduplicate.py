@@ -15,8 +15,8 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Remove duplicate rows. Use when the user wants to deduplicate data, "
-            "keep only unique rows, or remove repeated entries."
+            "Remove duplicate rows. ONLY use when the user explicitly asks to "
+            "'deduplicate', 'remove duplicates', or 'unique rows'. Do NOT use for simple visualizations."
         ),
         "params": {
             "type": "object",

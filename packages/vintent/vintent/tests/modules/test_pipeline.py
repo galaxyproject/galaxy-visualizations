@@ -355,7 +355,7 @@ class TestChooseShellPhase:
         assert ctx.should_continue is True
         assert ctx.shell_id == "scatter"
         assert ctx.shell is not None
-        assert "Selected shell: scatter" in ctx.logs
+        assert "Visualizing Scatter Plot." in ctx.logs
 
     @pytest.mark.asyncio
     async def test_phase_name(self):

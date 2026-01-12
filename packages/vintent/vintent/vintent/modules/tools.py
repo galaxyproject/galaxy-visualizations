@@ -23,7 +23,10 @@ def build_choose_process_tool(
             "properties": {"id": {"const": NO_PROCESS_ID}},
             "required": ["id"],
             "additionalProperties": False,
-            "description": "No preprocessing needed - use the data as-is.",
+            "description": (
+                "DEFAULT CHOICE. Use original data without preprocessing. "
+                "Select this unless the user explicitly asks to filter, sort, sample, or transform the data."
+            ),
         }
     ]
 
@@ -54,8 +57,9 @@ def build_choose_process_tool(
 
     # Build a helpful description that lists all available processes
     tool_description = (
-        "Select a data preprocessing step if needed before visualization. "
-        "Choose 'none' if no preprocessing is required."
+        "IMPORTANT: Choose 'none' by default. Only select a preprocessing step "
+        "if the user EXPLICITLY requests filtering, sorting, sampling, or data transformation. "
+        "Simple visualization requests like 'show histogram of X' or 'plot Y vs Z' do NOT need preprocessing."
     )
     if process_descriptions:
         tool_description += "\n\nAvailable processes:\n" + "\n".join(process_descriptions)

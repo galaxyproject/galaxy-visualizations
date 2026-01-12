@@ -25,9 +25,9 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Filter rows by categorical value. Use when the user wants to keep only "
-            "rows where a field equals specific values, like 'only show sales from USA' "
-            "or 'filter to category X'."
+            "Filter rows by categorical value. ONLY use when the user explicitly asks to "
+            "filter or keep specific categories, like 'only show X', 'filter to Y', "
+            "'where category is Z'. Do NOT use for simple visualizations."
         ),
         "params": {
             "type": "object",
