@@ -139,6 +139,7 @@ jobs:
             ${{ runner.os }}-node-${{ matrix.package }}-
 
       - name: Cache Playwright browsers
+        id: cache-playwright
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
