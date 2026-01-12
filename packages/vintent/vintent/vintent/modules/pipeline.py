@@ -277,7 +277,7 @@ class ChooseShellPhase(Phase):
 
         ctx.shell_id = shell_id
         ctx.shell = shell
-        ctx.logs.append(f"Selected shell: {shell_id}")
+        ctx.logs.append(f"Visualizing {shell.name}.")
         logger.debug(f"choose_shell_tool: {shell_id}")
 
 
