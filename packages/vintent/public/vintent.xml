@@ -39,25 +39,112 @@ Rules:
 
 VIntent lets you build Vega Lite charts by simply describing what you want to see.
 
-It turns requests like “show me a histogram of x” or “compare x and y” into Vega Lite charts.
+It turns requests like "show me a histogram of x" or "compare x and y" into Vega Lite charts.
 
-## Why It’s Useful
+## Why It's Useful
 
 - **Fast exploration**
   Go from data to a chart in seconds without writing Vega Lite by hand.
 
 - **Guided chart building**
-  VIntent picks sensible chart types and only asks for what’s needed, so you stay focused on the data instead of syntax.
+  VIntent picks sensible chart types and only asks for what's needed, so you stay focused on the data instead of syntax.
 
 - **Iterative and playful**
   Tweak encodings, fields, and structure incrementally and see the result right away.
 
-## What You Can Do With It
+## Available Visualization Types
 
-- Quickly visualize new datasets
-- Try different chart types without starting over
-- Refine colors, axes, groupings, and aggregations interactively
-- Explore data patterns through clear, repeatable chart designs
+**Distribution Charts**
+- **Histogram** - Frequency distribution of numeric values using binned bars
+- **Density** - Smooth probability distribution curve
+- **Box Plot** - Quartiles, median, and outliers for a numeric field
+- **Box Plot Grouped** - Compare distributions across categories with optional color grouping
+- **Violin Plot** - Distribution across categories using mirrored density plots
+- **Strip Plot** - Dot plot for visualizing individual data points
+- **ECDF** - Empirical cumulative distribution function
+- **Quantile** - Visualize quantiles, optionally grouped by category
+
+**Comparison Charts**
+- **Bar Aggregate** - Aggregate numeric values by category
+- **Bar Count** - Count rows per category
+- **Bar Series** - Compare multiple numeric fields per row using grouped bars
+- **Stacked Bar** - Aggregate and stack values by multiple categories
+- **Normalized Stacked Bar** - Stacked bars normalized to 100%
+- **Lollipop** - Cleaner alternative to bar charts with dots on stems
+- **Diverging Bar** - Bars extending left and right from center
+
+**Relationship Charts**
+- **Scatter Plot** - Explore relationships between two numeric fields
+- **Bubble Chart** - Scatter plot with sized bubbles for three dimensions
+- **Linear Regression** - Scatter plot with fitted regression line
+- **Heatmap Correlation** - Pairwise correlations as a color-coded grid
+- **Heatmap Covariance** - Pairwise covariance as a heatmap
+- **Heatmap Count** - Counts for combinations of two categorical fields
+
+**Trend and Time Series**
+- **Line Time** - Values over time (requires date/time column)
+- **Line Multi** - Multiple lines for comparing trends across categories
+- **Area Chart** - Filled area for trends or cumulative values
+- **Slope Chart** - Compare values between two categories or periods
+
+**Part-to-Whole**
+- **Pie Chart** - Proportions of categories as slices
+- **Donut Chart** - Ring chart with a hole in the center
+- **Treemap** - Category proportions as sized rectangles
+
+**Advanced Analysis**
+- **PCA** - Principal component analysis (PC1 vs PC2)
+- **Parallel Coordinates** - Multi-dimensional data with parallel axes
+- **Summary Statistics** - Basic statistics for each numeric column
+- **Cardinality Report** - Number of unique values per column
+
+## Data Extraction Options
+
+When you need to work with a subset of your data, you can ask VIntent to:
+
+- **Filter by range** - Keep rows within a numeric range (e.g., "where age is between 20 and 40")
+- **Filter by category** - Keep rows matching specific categories (e.g., "only show females")
+- **Filter by date** - Keep rows within a date range (e.g., "last 30 days", "this year")
+- **Top/Bottom K** - Select highest or lowest values (e.g., "top 10 by sales")
+- **Sort** - Order rows by any column
+- **Sample** - Take a random sample of rows
+- **Select columns** - Keep only specific columns
+- **Deduplicate** - Remove duplicate rows
+
+## Example Prompts
+
+Try these prompts to get started:
+
+**Basic Charts**
+- "Show a histogram of age"
+- "Scatter plot of height vs weight"
+- "Bar chart of count by category"
+- "Pie chart of sales by region"
+
+**Distributions**
+- "Box plot of income by education level"
+- "Violin plot of scores grouped by department"
+- "Show the density of temperature"
+
+**Relationships**
+- "Correlation heatmap"
+- "Linear regression of price and quantity"
+- "Bubble chart of price, quantity, and profit"
+
+**Trends**
+- "Line chart of revenue over date"
+- "Area chart of cumulative sales"
+
+**With Data Filtering**
+- "Histogram of salary for top 100 by experience"
+- "Scatter plot of BMI vs glucose where age is above 30"
+- "Bar chart of average price by brand, only show electronics"
+- "Box plot of scores for the last 30 days"
+
+**Advanced**
+- "PCA of numeric columns"
+- "Parallel coordinates plot"
+- "Summary statistics"
 
 VIntent is for thinking with your data visually and getting to insights faster.
 ]]></help>
