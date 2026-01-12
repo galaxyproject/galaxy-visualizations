@@ -131,6 +131,7 @@ async function processUserRequest() {
                 const reply = await runVintent(pyodide, config, sanitized, DATASET_NAME);
                 reply.logs.forEach((log: string) => {
                     consoleMessages.value.push({ content: log, icon: BoltIcon });
+                    transcripts.push({ content: log, role: "assistant", variant: TRANSCRIPT_VARIANT.INFO });
                 });
                 const newWidgets = reply.widgets;
                 if (newWidgets.length > 0) {
