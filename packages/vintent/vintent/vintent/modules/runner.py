@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 from .pipeline import (
     DefaultCompletionsProvider,
     PipelineContext,
+    RateLimitedCompletionsProvider,
     create_default_pipeline,
 )
 from .schemas import TranscriptMessageType
@@ -20,7 +21,16 @@ class Runner:
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.provider = DefaultCompletionsProvider(config)
+        self.provider = self._create_provider(config)
+
+    def _create_provider(self, config: Dict[str, Any]):
+        """Create the completions provider, optionally with rate limiting."""
+        provider = DefaultCompletionsProvider(config)
+        rate_limit = config.get("ai_rate_limit")
+        if rate_limit:
+            logger.info(f"Rate limiting enabled: {rate_limit} requests/minute")
+            provider = RateLimitedCompletionsProvider(provider, rate_limit)
+        return provider
 
     async def run(
         self,

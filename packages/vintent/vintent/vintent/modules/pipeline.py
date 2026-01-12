@@ -127,6 +127,30 @@ class DefaultCompletionsProvider:
         )
 
 
+class RateLimitedCompletionsProvider:
+    """Wrapper that adds rate limiting to any CompletionsProvider."""
+
+    def __init__(self, inner: CompletionsProvider, rate_limit: int):
+        """Initialize with an inner provider and rate limit.
+
+        Args:
+            inner: The provider to wrap.
+            rate_limit: Maximum requests per minute.
+        """
+        from vintent.core.rate_limiter import TokenBucketRateLimiter
+
+        self.inner = inner
+        self.limiter = TokenBucketRateLimiter.from_requests_per_minute(rate_limit)
+
+    async def complete(
+        self,
+        transcripts: List[TranscriptMessageType],
+        tools: List[Dict[str, Any]],
+    ) -> Optional[CompletionsReply]:
+        await self.limiter.acquire()
+        return await self.inner.complete(transcripts, tools)
+
+
 class Phase(ABC):
     """Base class for pipeline phases.
 
@@ -543,6 +567,7 @@ __all__ = [
     "Phase",
     "Pipeline",
     "PipelineContext",
+    "RateLimitedCompletionsProvider",
     "ValidatePhase",
     "create_default_pipeline",
 ]

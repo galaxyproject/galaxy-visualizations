@@ -12,6 +12,7 @@ env = {
     "AI_BASE_URL": "http://localhost:11434/v1",
     # "AI_BASE_URL": "http://localhost:8080/api/plugins/vintent",
     "AI_MODEL": None,
+    "AI_RATE_LIMIT": None,  # Requests per minute (e.g., "30")
     "GALAXY_KEY": None,
     "GALAXY_ROOT": "http://localhost:8080/",
 }
@@ -26,6 +27,7 @@ config = {
     "ai_api_key": env["AI_API_KEY"] or env["GALAXY_KEY"],
     "ai_base_url": env["AI_BASE_URL"],
     "ai_model": env["AI_MODEL"],
+    "ai_rate_limit": int(env["AI_RATE_LIMIT"]) if env["AI_RATE_LIMIT"] else None,
     "galaxy_root": env["GALAXY_ROOT"],
     "galaxy_key": env["GALAXY_KEY"],
 }
