@@ -10,6 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 class HistogramShell(BaseShell):
     name = "Histogram"
+    description = "Show frequency distribution of a quantitative field using binned bars."
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [
