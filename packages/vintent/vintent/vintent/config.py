@@ -7,21 +7,24 @@ MESSAGE_INITIAL = "Hi, I can a pick a tool for you."
 PROMPT_DEFAULT = "Choose and parameterize one of the provided tools. YOU MUST choose a tool!"
 
 
+def _parse_bool(value: str | None, default: bool) -> bool:
+    """Parse a string environment variable to boolean."""
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "yes")
+
+
 env = {
-    "AI_API_KEY": None,
-    "AI_BASE_URL": "http://localhost:11434/v1",
-    # "AI_BASE_URL": "http://localhost:8080/api/plugins/vintent",
-    "AI_MODEL": None,
-    "AI_RATE_LIMIT": None,  # Requests per minute (e.g., "30")
+    "AI_API_KEY": os.environ.get("AI_API_KEY"),
+    "AI_BASE_URL": os.environ.get("AI_BASE_URL") or "http://localhost:11434/v1",
+    "AI_MODEL": os.environ.get("AI_MODEL"),
+    "AI_RATE_LIMIT": os.environ.get("AI_RATE_LIMIT"),
     # Combined pipeline (fast, 3 LLM calls) or sequential pipeline (reliable, 4 LLM calls)
     # Use sequential (False) for local/smaller models that struggle with parallel tool calling
-    "AI_PIPELINE_COMBINE": False,
-    "GALAXY_KEY": None,
-    "GALAXY_ROOT": "http://localhost:8080/",
+    "AI_PIPELINE_COMBINE": _parse_bool(os.environ.get("AI_PIPELINE_COMBINE"), default=False),
+    "GALAXY_KEY": os.environ.get("GALAXY_KEY"),
+    "GALAXY_ROOT": os.environ.get("GALAXY_ROOT") or "http://localhost:8080/",
 }
-
-for key in env:
-    env[key] = os.environ.get(key) or env[key]
 
 if env["GALAXY_KEY"] is None:
     logger.warning("GALAXY_KEY missing in environment.")
