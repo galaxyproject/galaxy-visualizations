@@ -40,12 +40,6 @@ class ProcessError(AppError):
     code = "PROCESS_ERROR"
 
 
-class ShellError(AppError):
-    """Error during shell compilation or validation."""
-
-    code = "SHELL_ERROR"
-
-
 class CompletionsError(AppError):
     """Error communicating with LLM API."""
 

@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 from vintent.core.completions import completions_post, get_tool_call
-from vintent.core.exceptions import DataError, ShellError, AppError
+from vintent.core.exceptions import DataError, AppError
+from vintent.modules.shells.base import ShellError
 
 from .process import run_process
 from .profiler import DatasetProfile, profile_rows, rows_from_csv

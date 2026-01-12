@@ -1,5 +1,5 @@
 import pytest
-from vintent.core.exceptions import ShellError
+from vintent.modules.shells.base import ShellError
 from vintent.modules.shells.scatter import ScatterShell
 
 

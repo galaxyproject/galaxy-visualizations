@@ -8,7 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from vintent.core.exceptions import DataError, ShellError, AppError
+from vintent.core.exceptions import DataError, AppError
+from vintent.modules.shells.base import ShellError
 from vintent.modules.pipeline import (
     AnalyzePhase,
     ChooseShellPhase,

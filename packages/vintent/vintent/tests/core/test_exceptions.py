@@ -10,8 +10,8 @@ from vintent.core.exceptions import (
     DataError,
     HttpError,
     ProcessError,
-    ShellError,
 )
+from vintent.modules.shells.base import ShellError
 
 
 class TestAppError:

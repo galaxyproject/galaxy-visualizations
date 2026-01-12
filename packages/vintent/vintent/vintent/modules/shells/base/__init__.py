@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 
-from vintent.core.exceptions import ShellError
+from vintent.core.exceptions import AppError
 from vintent.modules.profiler import DatasetProfile
 from vintent.modules.schemas import FieldType, ValidationResult
 
 VEGA_LITE_SCHEMA = "https://vega.github.io/schema/vega-lite/v5.json"
+
+
+class ShellError(AppError):
+    """Error during shell compilation or validation."""
+
+    code = "SHELL_ERROR"
 
 EncodingMapType = Dict[str, "EncodingSpecType"]
 RendererType = Literal["vega-lite"]
