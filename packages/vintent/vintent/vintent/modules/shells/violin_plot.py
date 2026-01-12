@@ -57,8 +57,6 @@ class ViolinPlotShell(BaseShell):
         if renderer != "vega-lite":
             return {}
 
-        group = params["x"]
-
         return {
             "$schema": VEGA_LITE_SCHEMA,
             "data": {"values": values},
@@ -77,11 +75,12 @@ class ViolinPlotShell(BaseShell):
                     "field": "density",
                     "type": "quantitative",
                     "stack": "center",
-                    "title": "Density",
+                    "axis": None,
                 },
-                "row": {
-                    "field": group,
+                "color": {
+                    "field": "group",
                     "type": "nominal",
+                    "title": params["x"],
                 },
             },
         }
@@ -91,9 +90,10 @@ class ViolinPlotShell(BaseShell):
         profile: DatasetProfile,
         params: ShellParamsType,
     ) -> ValidationResult:
+        del params  # Unused - validation is based on density_estimate output fields
         fields = profile.get("fields", {})
 
-        if not {"value", "density"}.issubset(fields):
+        if not {"value", "density", "group"}.issubset(fields):
             return {
                 "ok": False,
                 "errors": [{"code": "missing_density_fields"}],

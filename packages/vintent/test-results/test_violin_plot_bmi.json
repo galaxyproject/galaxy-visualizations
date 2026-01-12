@@ -505,14 +505,15 @@
     ]
   },
   "encoding": {
-    "row": {
-      "field": "Obesity",
+    "color": {
+      "field": "group",
+      "title": "Obesity",
       "type": "nominal"
     },
     "x": {
+      "axis": null,
       "field": "density",
       "stack": "center",
-      "title": "Density",
       "type": "quantitative"
     },
     "y": {

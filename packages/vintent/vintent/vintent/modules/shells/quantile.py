@@ -56,7 +56,7 @@ class QuantileShell(BaseShell):
 
         encoding: Dict[str, Any] = {
             "x": {
-                "field": "quantile",
+                "field": "q",
                 "type": "quantitative",
                 "title": "Quantile",
             },
@@ -71,6 +71,7 @@ class QuantileShell(BaseShell):
             encoding["color"] = {
                 "field": "group",
                 "type": "nominal",
+                "title": params["group_by"],
             }
 
         return {
@@ -85,36 +86,28 @@ class QuantileShell(BaseShell):
         profile: DatasetProfile,
         params: ShellParamsType,
     ) -> ValidationResult:
+        del params  # Unused - validation is based on quantiles process output fields
         fields = profile.get("fields", {})
-        field = params.get("field")
-        group_by = params.get("group_by")
 
-        if not field or field not in fields:
+        if not {"q", "value"}.issubset(fields):
             return {
                 "ok": False,
-                "errors": [{"code": "invalid_field"}],
+                "errors": [{"code": "missing_quantile_fields"}],
                 "warnings": [],
             }
 
-        if fields[field].get("type") != "quantitative":
+        if fields["q"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "field_not_quantitative"}],
+                "errors": [{"code": "q_not_quantitative"}],
                 "warnings": [],
             }
 
-        if group_by:
-            if group_by not in fields:
-                return {
-                    "ok": False,
-                    "errors": [{"code": "invalid_group_by"}],
-                    "warnings": [],
-                }
-            if fields[group_by].get("type") != "nominal":
-                return {
-                    "ok": False,
-                    "errors": [{"code": "group_by_not_nominal"}],
-                    "warnings": [],
-                }
+        if fields["value"].get("type") != "quantitative":
+            return {
+                "ok": False,
+                "errors": [{"code": "value_not_quantitative"}],
+                "warnings": [],
+            }
 
         return {"ok": True, "errors": [], "warnings": []}
