@@ -10,16 +10,21 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from vintent.core.completions import completions_post, get_tool_call
+from vintent.core.completions import get_tool_call
 from vintent.core.exceptions import AppError, DataError
+from vintent.core.providers import (
+    CompletionsProvider,
+    DefaultCompletionsProvider,
+    RateLimitedCompletionsProvider,
+)
 from vintent.modules.shells.base import ShellError
 
 from .process import run_process
 from .profiler import DatasetProfile, profile_rows, rows_from_csv
 from .registry import PROCESSES, SHELLS
-from .schemas import CompletionsMessage, CompletionsReply, TranscriptMessageType
+from .schemas import TranscriptMessageType
 from .tools import (
     NO_PROCESS_ID,
     build_choose_process_tool,
@@ -85,80 +90,6 @@ class PipelineContext:
             spec=self.spec,
             errors=self.errors,
         )
-
-
-class CompletionsProvider(Protocol):
-    """Protocol for LLM completion providers.
-
-    This abstraction allows injecting different LLM implementations
-    for testing or using different providers.
-    """
-
-    async def complete(
-        self,
-        transcripts: List[TranscriptMessageType],
-        tools: List[Dict[str, Any]],
-        parallel_tools: bool = False,
-    ) -> Optional[CompletionsReply]:
-        """Send a completion request with tools.
-
-        Args:
-            transcripts: The conversation history.
-            tools: List of tool definitions.
-            parallel_tools: If True, allow LLM to call multiple tools in one response.
-        """
-        ...
-
-
-class DefaultCompletionsProvider:
-    """Default implementation using the core completions module."""
-
-    def __init__(self, config: Dict[str, Any]):
-        self.ai_api_key = config.get("ai_api_key")
-        self.ai_base_url = config.get("ai_base_url")
-        self.ai_model = config.get("ai_model")
-
-    async def complete(
-        self,
-        transcripts: List[TranscriptMessageType],
-        tools: List[Dict[str, Any]],
-        parallel_tools: bool = False,
-    ) -> Optional[CompletionsReply]:
-        return await completions_post(
-            dict(
-                ai_base_url=self.ai_base_url,
-                ai_api_key=self.ai_api_key,
-                ai_model=self.ai_model,
-                messages=_sanitize_transcripts(transcripts),
-                tools=tools,
-                parallel_tools=parallel_tools,
-            )
-        )
-
-
-class RateLimitedCompletionsProvider:
-    """Wrapper that adds rate limiting to any CompletionsProvider."""
-
-    def __init__(self, inner: CompletionsProvider, rate_limit: int):
-        """Initialize with an inner provider and rate limit.
-
-        Args:
-            inner: The provider to wrap.
-            rate_limit: Maximum requests per minute.
-        """
-        from vintent.core.rate_limiter import TokenBucketRateLimiter
-
-        self.inner = inner
-        self.limiter = TokenBucketRateLimiter.from_requests_per_minute(rate_limit)
-
-    async def complete(
-        self,
-        transcripts: List[TranscriptMessageType],
-        tools: List[Dict[str, Any]],
-        parallel_tools: bool = False,
-    ) -> Optional[CompletionsReply]:
-        await self.limiter.acquire()
-        return await self.inner.complete(transcripts, tools, parallel_tools)
 
 
 class Phase(ABC):
@@ -638,23 +569,6 @@ def create_default_pipeline() -> Pipeline:
             CompilePhase(),
         ]
     )
-
-
-def _sanitize_transcripts(
-    transcripts: List[TranscriptMessageType],
-) -> List[CompletionsMessage]:
-    """Convert transcripts to completion message format."""
-    sanitized: List[CompletionsMessage] = []
-    for t in transcripts:
-        content = t.get("content")
-        if isinstance(content, str) and content:
-            sanitized.append(
-                {
-                    "role": t.get("role", ""),
-                    "content": content,
-                }
-            )
-    return sanitized
 
 
 def _sanitize_values(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
