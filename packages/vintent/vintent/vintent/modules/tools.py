@@ -11,6 +11,29 @@ MAX_FIELDS_PER_ENCODING = 100
 
 logger = logging.getLogger(__name__)
 
+# Analytical goals taxonomy
+ANALYTICAL_GOALS = [
+    "distribution",  # How values are spread (histogram, density, box plot, violin)
+    "relationship",  # How variables relate to each other (scatter, regression, correlation)
+    "comparison",    # Compare values across categories (bar, grouped bar, box plot)
+    "composition",   # Parts of a whole (pie, donut, treemap, stacked bar)
+    "trend",         # Change over time or sequence (line, area)
+    "ranking",       # Ordered/ranked values (sorted bar, lollipop, top-N)
+    "summary",       # Aggregate statistics and reports
+    "outliers",      # Identify unusual or extreme values
+]
+
+GOAL_DESCRIPTIONS = {
+    "distribution": "Understand how values are spread or distributed (e.g., 'show distribution of X', 'how is Y distributed', 'histogram')",
+    "relationship": "Explore how two or more variables relate (e.g., 'X vs Y', 'correlation between', 'relationship', 'regression')",
+    "comparison": "Compare values across different categories or groups (e.g., 'compare X by Y', 'difference between', 'across categories')",
+    "composition": "Show parts of a whole or proportions (e.g., 'breakdown of', 'percentage', 'share', 'proportion')",
+    "trend": "Show change over time or sequence (e.g., 'over time', 'trend', 'timeline', 'progression')",
+    "ranking": "Show ordered or ranked values (e.g., 'top 10', 'highest', 'lowest', 'ranked by')",
+    "summary": "Get aggregate statistics or data overview (e.g., 'statistics', 'summary', 'describe', 'overview')",
+    "outliers": "Identify unusual or extreme values (e.g., 'outliers', 'anomalies', 'extreme values', 'unusual')",
+}
+
 
 def build_choose_process_tool(
     processes: Dict[str, Process],
@@ -82,30 +105,60 @@ def _field_names_by_type(profile: DatasetProfile) -> Dict[str, List[str]]:
     return out
 
 
-def build_choose_shell_tool(profile: DatasetProfile) -> Dict[str, Any]:
+def build_choose_shell_tool(
+    profile: DatasetProfile,
+    parsed_intent: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build the shell selection tool.
+
+    If parsed_intent is provided with a 'goal', shells matching that goal
+    are listed first with a [RECOMMENDED] tag.
+    """
+    target_goal = parsed_intent.get("goal") if parsed_intent else None
     compatible_shells: List[Dict[str, str]] = []
+    recommended_shells: List[Dict[str, str]] = []
+
     for shell_id in sorted(SHELLS.keys()):
         shell = SHELLS[shell_id]
         if shell.is_applicable(profile):
             description = (getattr(shell, "description", "") or "").strip()
-            label = f"{shell_id}: {description}" if description else shell_id
-            compatible_shells.append({"id": shell_id, "label": label})
-        if len(compatible_shells) >= MAX_SHELLS:
+            goals = getattr(shell, "goals", []) or []
+            goals_str = f" [goals: {', '.join(goals)}]" if goals else ""
+            label = f"{shell_id}: {description}{goals_str}" if description else f"{shell_id}{goals_str}"
+
+            shell_entry = {"id": shell_id, "label": label}
+
+            # Prioritize shells matching the target goal
+            if target_goal and target_goal in goals:
+                recommended_shells.append(shell_entry)
+            else:
+                compatible_shells.append(shell_entry)
+
+        if len(recommended_shells) + len(compatible_shells) >= MAX_SHELLS:
             break
-    shell_ids = [s["id"] for s in compatible_shells]
-    logger.debug(f"Shells: {shell_ids}.")
+
+    # Combine: recommended shells first, then others
+    all_shells = recommended_shells + compatible_shells
+    shell_ids = [s["id"] for s in all_shells]
+    logger.debug(f"Shells: {shell_ids}. Target goal: {target_goal}")
+
+    # Build description with goal context
+    tool_description = "Select the most appropriate visualization shell for the user request."
+    if target_goal:
+        tool_description += f" The user's analytical goal is '{target_goal}' - prefer shells that support this goal."
+
     return {
         "type": "function",
         "function": {
             "name": "choose_shell",
-            "description": "Select the most appropriate visualization shell for the user request.",
+            "description": tool_description,
             "parameters": {
                 "type": "object",
                 "properties": {
                     "shellId": {
                         "type": "string",
                         "enum": shell_ids,
-                        "description": "\n".join(s["label"] for s in compatible_shells),
+                        "description": "\n".join(s["label"] for s in all_shells),
                     }
                 },
                 "required": ["shellId"],
@@ -211,35 +264,51 @@ def is_encoding_spec(spec: Any) -> bool:
 def build_parse_intent_tool(profile: DatasetProfile) -> Optional[Dict[str, Any]]:
     """Build a tool for extracting user intent from the request.
 
-    This tool helps the LLM distinguish between:
-    - Shell fields: fields to plot in the visualization (e.g., "show regression of X and Y")
-    - Extract fields: fields for data extraction (e.g., "for lowest 20 Z")
+    This tool helps the LLM understand:
+    - Goal: The analytical goal (distribution, relationship, comparison, etc.)
+    - Shell fields: fields to plot in the visualization
+    - Extract fields: fields for data extraction (filtering, sorting, etc.)
     """
     all_fields = list(profile.get("fields", {}).keys())
 
     if not all_fields:
         return None
 
+    # Build goal descriptions for the enum
+    goal_descriptions = "\n".join(
+        f"- {goal}: {GOAL_DESCRIPTIONS[goal]}" for goal in ANALYTICAL_GOALS
+    )
+
     return {
         "type": "function",
         "function": {
             "name": "parse_intent",
             "description": (
-                "Extract the user's intent from their request. "
-                "Identify which fields are for the visualization SHELL versus which fields "
-                "are used for data EXTRACTION (filtering, sorting, sampling, ranking). "
-                "\n\nExamples:\n"
-                "- 'regression of glucose and bmi for lowest 20 ages' -> "
-                "shell_fields: [Glucose, BMI], extract_fields: [Age]\n"
-                "- 'histogram of income' -> shell_fields: [income], extract_fields: []\n"
-                "- 'scatter plot of X vs Y colored by category' -> "
-                "shell_fields: [X, Y, category], extract_fields: []\n"
-                "- 'bar chart of sales by region for top 10 products' -> "
-                "shell_fields: [sales, region], extract_fields: [products]"
+                "Extract the user's analytical intent from their request. "
+                "Identify the GOAL (what kind of insight they want), "
+                "which fields are for the visualization SHELL, "
+                "and which fields are for data EXTRACTION.\n\n"
+                "Examples:\n"
+                "- 'show me outliers in salary' -> goal: outliers, shell_fields: [salary]\n"
+                "- 'how is age distributed' -> goal: distribution, shell_fields: [age]\n"
+                "- 'is there a correlation between X and Y' -> goal: relationship, shell_fields: [X, Y]\n"
+                "- 'compare sales across regions' -> goal: comparison, shell_fields: [sales, region]\n"
+                "- 'what percentage of users are premium' -> goal: composition, shell_fields: [user_type]\n"
+                "- 'show revenue trend over time' -> goal: trend, shell_fields: [revenue, date]\n"
+                "- 'top 10 products by sales' -> goal: ranking, shell_fields: [product, sales]\n"
+                "- 'give me summary statistics' -> goal: summary, shell_fields: []"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "goal": {
+                        "type": "string",
+                        "enum": ANALYTICAL_GOALS,
+                        "description": (
+                            "The analytical goal - what kind of insight does the user want?\n\n"
+                            f"{goal_descriptions}"
+                        ),
+                    },
                     "shell_fields": {
                         "type": "array",
                         "items": {"type": "string", "enum": all_fields},
@@ -259,7 +328,7 @@ def build_parse_intent_tool(profile: DatasetProfile) -> Optional[Dict[str, Any]]
                         ),
                     },
                 },
-                "required": ["shell_fields", "extract_fields"],
+                "required": ["goal", "shell_fields", "extract_fields"],
                 "additionalProperties": False,
             },
         },

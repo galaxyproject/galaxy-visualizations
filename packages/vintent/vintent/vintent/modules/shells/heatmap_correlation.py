@@ -14,6 +14,7 @@ class HeatmapCorrelationShell(BaseShell):
         "Visualize pairwise correlations across many quantitative fields as a heatmap."
         "Best for high dimensional numeric datasets."
     )
+    goals = ["relationship"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [

@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class BarAggregateShell(BaseShell):
     name = "Bar Chart (Aggregated)"
     description = "Aggregate a quantitative field by a categorical field and display the result as bars."
+    goals = ["comparison", "ranking"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures = [

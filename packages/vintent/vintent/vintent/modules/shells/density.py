@@ -9,6 +9,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class DensityShell(BaseShell):
     name = "Density Plot"
     description = "Show the probability distribution of a continuous variable as a smooth curve."
+    goals = ["distribution"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [

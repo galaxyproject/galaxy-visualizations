@@ -260,7 +260,8 @@ class ChooseShellPhase(Phase):
             ctx.stop("No data profile available.")
             return
 
-        tool = build_choose_shell_tool(ctx.profile)
+        # Pass parsed_intent so shell selection can prioritize goal-matching shells
+        tool = build_choose_shell_tool(ctx.profile, ctx.parsed_intent)
         reply = await provider.complete(ctx.transcripts, [tool])
 
         if not reply:
@@ -365,7 +366,8 @@ class CombinedDecisionPhase(Phase):
 
         # --- Call 2: Required tool (choose_shell) ---
         # This uses forced tool choice for reliability
-        shell_tool = build_choose_shell_tool(ctx.profile)
+        # Pass parsed_intent so shell selection can prioritize goal-matching shells
+        shell_tool = build_choose_shell_tool(ctx.profile, ctx.parsed_intent)
         shell_reply = await provider.complete(ctx.transcripts, [shell_tool])
 
         if not shell_reply:

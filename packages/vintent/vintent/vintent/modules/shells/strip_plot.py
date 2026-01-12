@@ -13,6 +13,7 @@ class StripPlotShell(BaseShell):
         "Strip (dot) plot for visualizing the distribution of a quantitative field, "
         "optionally grouped by a categorical field. Useful for small to medium datasets."
     )
+    goals = ["distribution", "outliers"]
 
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 

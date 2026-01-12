@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class SummaryStatisticsShell(BaseShell):
     name = "Summary Statistics"
     description = "Show basic summary statistics for each numeric column."
+    goals = ["summary"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures = [

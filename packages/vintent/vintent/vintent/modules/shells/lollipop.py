@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class LollipopShell(BaseShell):
     name = "Lollipop Chart"
     description = "A cleaner alternative to bar charts, showing values as dots on stems."
+    goals = ["comparison", "ranking"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures = [

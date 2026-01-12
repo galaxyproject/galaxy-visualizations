@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class CardinalityReportShell(BaseShell):
     name = "Column Cardinality"
     description = "Show the number of unique values per column."
+    goals = ["summary"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures = [

@@ -10,6 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class AreaChartShell(BaseShell):
     name = "Area Chart"
     description = "Filled area chart for showing trends or cumulative values over time."
+    goals = ["trend"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

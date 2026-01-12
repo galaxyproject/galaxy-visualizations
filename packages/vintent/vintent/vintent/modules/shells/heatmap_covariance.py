@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class HeatmapCovarianceShell(BaseShell):
     name = "Covariance Heatmap"
     description = "Visualize pairwise covariance between quantitative fields as a heatmap."
+    goals = ["relationship"]
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 

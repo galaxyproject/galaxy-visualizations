@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class ParallelCoordinatesShell(BaseShell):
     name = "Parallel Coordinates"
     description = "Visualize multi-dimensional data with parallel vertical axes."
+    goals = ["relationship", "comparison"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

@@ -31,6 +31,10 @@ class BaseShell:
 
     description: Optional[str] = None
 
+    # Analytical goals this shell supports (used for intent-based selection)
+    # Valid goals: distribution, relationship, comparison, composition, trend, ranking, summary, outliers
+    goals: List[str] = []
+
     # metadata
     optional: Optional[EncodingMapType] = None
     required: Optional[EncodingMapType] = None

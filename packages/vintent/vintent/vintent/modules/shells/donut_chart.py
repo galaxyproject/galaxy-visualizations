@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class DonutChartShell(BaseShell):
     name = "Donut Chart"
     description = "Show proportions as a ring chart with a hole in the center."
+    goals = ["composition"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures = [

@@ -10,6 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class DivergingBarShell(BaseShell):
     name = "Diverging Bar Chart"
     description = "Bars extending left and right from center, ideal for positive/negative values or comparisons."
+    goals = ["comparison"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

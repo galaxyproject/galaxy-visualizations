@@ -9,6 +9,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class BoxPlotShell(BaseShell):
     name = "Box Plot"
     description = "Show distribution with quartiles, median, and outliers for a quantitative field grouped by category."
+    goals = ["distribution", "comparison", "outliers"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [

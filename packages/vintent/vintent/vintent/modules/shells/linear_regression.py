@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class LinearRegressionShell(BaseShell):
     name = "Linear Regression"
     description = "Scatter plot with fitted regression line showing the linear relationship between two variables."
+    goals = ["relationship"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [

@@ -10,6 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class BoxPlotGroupedShell(BaseShell):
     name = "Grouped Box Plot"
     description = "Compare distributions of a quantitative field across categories with optional color grouping."
+    goals = ["distribution", "comparison", "outliers"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

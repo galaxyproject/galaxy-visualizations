@@ -14,6 +14,7 @@ class NormalizedStackedBarShell(BaseShell):
         "Show relative composition by stacking categories and normalizing each bar to 100%. "
         "Useful for comparing proportions rather than absolute values."
     )
+    goals = ["composition", "comparison"]
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 

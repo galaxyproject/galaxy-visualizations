@@ -14,6 +14,7 @@ class BarSeriesShell(BaseShell):
         "Each selected field becomes a colored bar within that category. "
         "This is a rowwise comparison, not an aggregation."
     )
+    goals = ["comparison"]
 
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 

@@ -10,6 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class LineMultiShell(BaseShell):
     name = "Multi-Series Line Chart"
     description = "Multiple lines on the same chart, colored by category, for comparing trends."
+    goals = ["trend", "comparison"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

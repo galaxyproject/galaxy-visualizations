@@ -9,6 +9,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class LineTimeShell(BaseShell):
     name = "Trend Line"
     description = "Line chart showing values over time with a temporal x-axis."
+    goals = ["trend"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

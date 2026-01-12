@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class BarCountShell(BaseShell):
     name = "Bar Chart (Count)"
     description = "Count rows per category and display as bars."
+    goals = ["comparison", "ranking", "distribution"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [

@@ -14,6 +14,7 @@ class HeatmapCountShell(BaseShell):
         "Show counts for combinations of two categorical fields as a heatmap. "
         "Useful for contingency tables and categorical interactions."
     )
+    goals = ["relationship", "distribution"]
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 

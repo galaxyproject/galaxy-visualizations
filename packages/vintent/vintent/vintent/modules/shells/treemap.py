@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class TreemapShell(BaseShell):
     name = "Treemap"
     description = "Show hierarchical data as nested rectangles sized by value."
+    goals = ["composition"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures = [

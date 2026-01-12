@@ -10,6 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class BubbleChartShell(BaseShell):
     name = "Bubble Chart"
     description = "Scatter plot with sized bubbles to show three quantitative dimensions."
+    goals = ["relationship"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

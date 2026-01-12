@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class PieChartShell(BaseShell):
     name = "Pie Chart"
     description = "Show proportions of categories as slices of a pie."
+    goals = ["composition"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures = [

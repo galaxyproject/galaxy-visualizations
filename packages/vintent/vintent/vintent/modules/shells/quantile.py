@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class QuantileShell(BaseShell):
     name = "Quantile Plot"
     description = "Visualize quantiles of a quantitative field, optionally grouped by category."
+    goals = ["distribution"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
     signatures: List[List[FieldType]] = [

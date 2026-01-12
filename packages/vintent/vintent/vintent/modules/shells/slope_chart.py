@@ -10,6 +10,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class SlopeChartShell(BaseShell):
     name = "Slope Chart"
     description = "Compare values between two time points, showing change as connecting lines."
+    goals = ["comparison", "trend"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     signatures: List[List[FieldType]] = [

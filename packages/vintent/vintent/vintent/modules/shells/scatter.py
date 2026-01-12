@@ -12,6 +12,7 @@ class ScatterShell(BaseShell):
         "Scatter plot for exploring relationships between two quantitative fields. "
         "Commonly used to visualize PCA components such as PC1 versus PC2."
     )
+    goals = ["relationship", "outliers"]
 
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 

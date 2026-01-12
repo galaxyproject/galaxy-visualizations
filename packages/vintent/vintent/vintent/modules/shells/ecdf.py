@@ -14,6 +14,7 @@ class EcdfShell(BaseShell):
         "Empirical cumulative distribution function for a quantitative field. "
         "Shows the fraction of observations below a given value."
     )
+    goals = ["distribution"]
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 

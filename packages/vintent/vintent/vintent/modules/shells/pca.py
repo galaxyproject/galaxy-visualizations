@@ -11,6 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class PcaShell(BaseShell):
     name = "PCA Scatter"
     description = "Project data into principal component space and visualize PC1 vs PC2."
+    goals = ["relationship"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
     def is_applicable(self, profile: DatasetProfile) -> bool:

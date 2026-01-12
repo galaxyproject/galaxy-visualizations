@@ -14,6 +14,7 @@ class StackedBarAggregateShell(BaseShell):
         "Aggregate a quantitative field by one categorical field and stack by another. "
         "Useful for comparing composition across categories."
     )
+    goals = ["composition", "comparison"]
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
