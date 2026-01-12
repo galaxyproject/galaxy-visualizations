@@ -838,8 +838,11 @@ class TestCreateDefaultPipeline:
 
 
 # =============================================================================
-# CombinedDecisionPhase Tests
+# CombinedDecisionPhase Tests (Hybrid Approach)
 # =============================================================================
+# The hybrid approach makes 2 LLM calls:
+# - Call 1: parse_intent + choose_process (parallel, optional)
+# - Call 2: choose_shell (forced, required)
 
 
 class TestCombinedDecisionPhase:
@@ -855,32 +858,39 @@ class TestCombinedDecisionPhase:
         assert "No data profile available." in ctx.logs
 
     @pytest.mark.asyncio
-    async def test_stops_when_no_reply(self, sample_transcripts, sample_profile):
+    async def test_stops_when_shell_reply_is_none(self, sample_transcripts, sample_profile):
         ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
         ctx.profile = sample_profile
         phase = CombinedDecisionPhase()
-        provider = MockCompletionsProvider([None])
+        # First call (optional) succeeds, second call (shell) returns None
+        optional_response = make_multi_tool_response([
+            ("choose_process", {"id": "none"}),
+        ])
+        provider = MockCompletionsProvider([optional_response, None])
 
         await phase.run(ctx, provider)
 
         assert ctx.should_continue is False
-        assert "No response from LLM." in ctx.logs
+        assert "No visualization could be selected." in ctx.logs
 
     @pytest.mark.asyncio
-    async def test_uses_parallel_tools(self, sample_transcripts, sample_profile):
+    async def test_uses_parallel_tools_for_optional_call(self, sample_transcripts, sample_profile):
         ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
         ctx.profile = sample_profile
 
-        response = make_multi_tool_response([
-            ("choose_shell", {"shellId": "scatter"}),
+        optional_response = make_multi_tool_response([
+            ("choose_process", {"id": "none"}),
         ])
-        provider = MockCompletionsProvider([response])
+        shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
+        provider = MockCompletionsProvider([optional_response, shell_response])
         phase = CombinedDecisionPhase()
 
         await phase.run(ctx, provider)
 
-        # Verify parallel_tools was set to True
+        # First call should use parallel_tools=True
         assert provider.calls[0]["parallel_tools"] is True
+        # Second call should use forced tool choice (parallel_tools=False)
+        assert provider.calls[1]["parallel_tools"] is False
 
     @pytest.mark.asyncio
     async def test_processes_all_tool_calls(
@@ -890,13 +900,14 @@ class TestCombinedDecisionPhase:
         ctx.profile = sample_profile
         ctx.values = sample_values
 
-        # Response with all three tool calls
-        response = make_multi_tool_response([
+        # First call: optional tools
+        optional_response = make_multi_tool_response([
             ("parse_intent", {"shell_fields": ["age", "score"], "extract_fields": []}),
             ("choose_process", {"id": "none"}),
-            ("choose_shell", {"shellId": "scatter"}),
         ])
-        provider = MockCompletionsProvider([response])
+        # Second call: shell selection
+        shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
+        provider = MockCompletionsProvider([optional_response, shell_response])
         phase = CombinedDecisionPhase()
 
         await phase.run(ctx, provider)
@@ -918,11 +929,11 @@ class TestCombinedDecisionPhase:
         ]
         ctx.profile = profile_rows(ctx.values)
 
-        response = make_multi_tool_response([
+        optional_response = make_multi_tool_response([
             ("choose_process", {"id": "range_filter", "params": {"field": "age", "min": 28, "max": 40}}),
-            ("choose_shell", {"shellId": "scatter"}),
         ])
-        provider = MockCompletionsProvider([response])
+        shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
+        provider = MockCompletionsProvider([optional_response, shell_response])
         phase = CombinedDecisionPhase()
 
         await phase.run(ctx, provider)
@@ -938,11 +949,12 @@ class TestCombinedDecisionPhase:
         ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
         ctx.profile = sample_profile
 
-        # Response without choose_shell
-        response = make_multi_tool_response([
+        optional_response = make_multi_tool_response([
             ("choose_process", {"id": "none"}),
         ])
-        provider = MockCompletionsProvider([response])
+        # Shell response without shellId
+        shell_response = make_tool_response("choose_shell", {})
+        provider = MockCompletionsProvider([optional_response, shell_response])
         phase = CombinedDecisionPhase()
 
         await phase.run(ctx, provider)
@@ -958,10 +970,11 @@ class TestCombinedDecisionPhase:
         ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
         ctx.profile = sample_profile
 
-        response = make_multi_tool_response([
-            ("choose_shell", {"shellId": "nonexistent_shell"}),
+        optional_response = make_multi_tool_response([
+            ("choose_process", {"id": "none"}),
         ])
-        provider = MockCompletionsProvider([response])
+        shell_response = make_tool_response("choose_shell", {"shellId": "nonexistent_shell"})
+        provider = MockCompletionsProvider([optional_response, shell_response])
         phase = CombinedDecisionPhase()
 
         await phase.run(ctx, provider)
@@ -976,18 +989,40 @@ class TestCombinedDecisionPhase:
         assert phase.name == "combined_decision"
 
     @pytest.mark.asyncio
-    async def test_single_llm_call(self, sample_transcripts, sample_profile):
-        """Verify that CombinedDecisionPhase makes only one LLM call."""
+    async def test_two_llm_calls(self, sample_transcripts, sample_profile):
+        """Verify that CombinedDecisionPhase makes exactly 2 LLM calls."""
         ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
         ctx.profile = sample_profile
 
-        response = make_multi_tool_response([
-            ("choose_shell", {"shellId": "scatter"}),
+        optional_response = make_multi_tool_response([
+            ("choose_process", {"id": "none"}),
         ])
-        provider = MockCompletionsProvider([response])
+        shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
+        provider = MockCompletionsProvider([optional_response, shell_response])
         phase = CombinedDecisionPhase()
 
         await phase.run(ctx, provider)
 
-        # Only one LLM call should be made
-        assert provider.call_count == 1
+        # Should make exactly 2 LLM calls
+        assert provider.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_continues_if_optional_call_returns_none(
+        self, sample_transcripts, sample_profile
+    ):
+        """Verify pipeline continues even if optional tools call fails."""
+        ctx = PipelineContext(transcripts=sample_transcripts, file_name="test.csv")
+        ctx.profile = sample_profile
+
+        # Optional call returns None (simulating failure)
+        shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
+        provider = MockCompletionsProvider([None, shell_response])
+        phase = CombinedDecisionPhase()
+
+        await phase.run(ctx, provider)
+
+        # Should still succeed because shell selection worked
+        assert ctx.should_continue is True
+        assert ctx.shell_id == "scatter"
+        # Optional tools weren't extracted
+        assert ctx.parsed_intent is None

@@ -6,9 +6,10 @@ from vintent.runtime import run
 from . import assert_log, assert_output, build_inputs, mock_completions, dataset_path
 
 
-# Note: With the optimized pipeline using CombinedDecisionPhase:
-# - Call 0: Combined decision (parse_intent + choose_process + choose_shell)
-# - Call 1: fill_shell_params
+# Note: With the hybrid pipeline using CombinedDecisionPhase:
+# - Call 0: Optional tools (parse_intent + choose_process) - parallel, may not call all
+# - Call 1: choose_shell (forced)
+# - Call 2: fill_shell_params (forced)
 
 
 @pytest.mark.asyncio
@@ -17,9 +18,9 @@ async def test_histogram(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Age"], extract_fields=["Age"])),
             dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=50))),
-            dict(name="choose_shell", arguments=dict(shellId="histogram")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(field="Age"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
+        2: [dict(name="fill_shell_params", arguments=dict(field="Age"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Create a histogram of age with age > 50")
@@ -36,9 +37,9 @@ async def test_linear_regression(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Glucose", "Insulin"], extract_fields=["Age"])),
             dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=0, max=50))),
-            dict(name="choose_shell", arguments=dict(shellId="linear_regression")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="linear_regression"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show linear regression of Glucose and Insuling with age < 50")
@@ -55,9 +56,9 @@ async def test_correlation_matrix(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=[], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="heatmap_correlation")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict())],
+        1: [dict(name="choose_shell", arguments=dict(shellId="heatmap_correlation"))],
+        2: [dict(name="fill_shell_params", arguments=dict())],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show heatmap of all columns")
@@ -77,9 +78,9 @@ async def test_scatter_bmi_glucose(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["BMI", "Glucose"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="scatter")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(x="BMI", y="Glucose"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="BMI", y="Glucose"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show me the relationship between BMI and Glucose levels")
@@ -95,9 +96,9 @@ async def test_box_plot_by_obesity(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Obesity", "Age"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="box_plot")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="Age"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="box_plot"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="Age"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Compare age distribution between obese and non-obese patients")
@@ -113,9 +114,9 @@ async def test_pie_chart_obesity_breakdown(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Obesity"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="pie_chart")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(category="Obesity"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="pie_chart"))],
+        2: [dict(name="fill_shell_params", arguments=dict(category="Obesity"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show a pie chart of obesity categories")
@@ -131,9 +132,9 @@ async def test_bar_aggregate_glucose_by_obesity(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Obesity", "Glucose"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="bar_aggregate")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(group_by="Obesity", metric="Glucose", op="mean"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="bar_aggregate"))],
+        2: [dict(name="fill_shell_params", arguments=dict(group_by="Obesity", metric="Glucose", op="mean"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("What is the average glucose level for each obesity category?")
@@ -149,9 +150,9 @@ async def test_density_bmi(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["BMI"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="density")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(x="BMI"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="density"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="BMI"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show me the distribution of BMI values")
@@ -167,9 +168,9 @@ async def test_bubble_chart_three_variables(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Age", "Glucose", "BMI"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="bubble_chart")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(x="Age", y="Glucose", size="BMI"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="bubble_chart"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Age", y="Glucose", size="BMI"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Plot age vs glucose with bubble size representing BMI")
@@ -185,9 +186,9 @@ async def test_summary_statistics_insulin(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Insulin"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="summary_statistics")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(field="Insulin"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="summary_statistics"))],
+        2: [dict(name="fill_shell_params", arguments=dict(field="Insulin"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Give me summary statistics for Insulin levels")
@@ -203,9 +204,9 @@ async def test_histogram_with_sampling(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["BloodPressure"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="sample_rows", params=dict(n=100, seed=42))),
-            dict(name="choose_shell", arguments=dict(shellId="histogram")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(field="BloodPressure"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
+        2: [dict(name="fill_shell_params", arguments=dict(field="BloodPressure"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show a histogram of blood pressure for a sample of 100 patients")
@@ -222,9 +223,9 @@ async def test_violin_plot_bmi_by_outcome(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Obesity", "BMI"], extract_fields=[])),
             dict(name="choose_process", arguments=dict(id="none")),
-            dict(name="choose_shell", arguments=dict(shellId="violin_plot")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="BMI"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="violin_plot"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="BMI"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show violin plot of BMI grouped by obesity status")
@@ -240,9 +241,9 @@ async def test_scatter_with_range_filter(monkeypatch):
         0: [
             dict(name="parse_intent", arguments=dict(shell_fields=["Glucose", "Insulin"], extract_fields=["Insulin"])),
             dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Insulin", min=10, max=300))),
-            dict(name="choose_shell", arguments=dict(shellId="scatter")),
         ],
-        1: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
     }
     monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
     inputs = build_inputs("Show glucose vs insulin relationship for insulin between 10 and 300")

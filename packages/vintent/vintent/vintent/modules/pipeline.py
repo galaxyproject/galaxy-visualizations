@@ -364,11 +364,14 @@ class ChooseShellPhase(Phase):
 
 
 class CombinedDecisionPhase(Phase):
-    """Combined phase for intent parsing, extraction, and shell selection.
+    """Hybrid phase for intent parsing, extraction, and shell selection.
 
-    This phase consolidates three LLM calls into one by presenting all tools
-    simultaneously and allowing the LLM to call multiple tools in parallel.
-    This reduces latency from 3 sequential calls to 1 parallel call.
+    Uses a hybrid approach to balance latency and reliability:
+    - Call 1: parse_intent + choose_process (parallel, optional)
+    - Call 2: choose_shell (forced, required)
+
+    This reduces total LLM calls from 4 to 3 while keeping shell selection
+    reliable through forced tool choice.
 
     Combines:
     - ParseIntentPhase: Extract visualization vs filter field intent
@@ -389,48 +392,56 @@ class CombinedDecisionPhase(Phase):
             ctx.stop("No data profile available.")
             return
 
-        # Build all three tools
-        tools: List[Dict[str, Any]] = []
+        # --- Call 1: Optional tools (parse_intent + choose_process) ---
+        # These are optional and can fail gracefully
+        optional_tools: List[Dict[str, Any]] = []
 
         intent_tool = build_parse_intent_tool(ctx.profile)
         if intent_tool:
-            tools.append(intent_tool)
+            optional_tools.append(intent_tool)
 
-        process_tool = build_choose_process_tool(PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts)
-        tools.append(process_tool)
+        process_tool = build_choose_process_tool(
+            PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts
+        )
+        optional_tools.append(process_tool)
 
+        if optional_tools:
+            # Use parallel_tools=True to allow LLM to call multiple tools
+            optional_reply = await provider.complete(
+                ctx.transcripts, optional_tools, parallel_tools=True
+            )
+
+            if optional_reply:
+                # Extract parse_intent result (optional, for better field selection)
+                parsed_intent = get_tool_call("parse_intent", optional_reply)
+                if parsed_intent:
+                    ctx.parsed_intent = parsed_intent
+                    logger.debug(f"CombinedDecisionPhase: Parsed intent: {parsed_intent}")
+
+                # Extract and apply extraction process (optional)
+                process_choice = get_tool_call("choose_process", optional_reply)
+                if process_choice:
+                    logger.debug(f"CombinedDecisionPhase: Process choice: {process_choice}")
+                    process_id = process_choice.get("id")
+                    if process_id and process_id != NO_PROCESS_ID:
+                        process = PROCESSES.EXTRACT.get(process_id)
+                        if process:
+                            params = process_choice.get("params", {})
+                            ctx.values = run_process(process, ctx.values, params)
+                            ctx.profile = profile_rows(ctx.values)
+                            if "log" in process:
+                                ctx.logs.append(process["log"](params))
+
+        # --- Call 2: Required tool (choose_shell) ---
+        # This uses forced tool choice for reliability
         shell_tool = build_choose_shell_tool(ctx.profile)
-        tools.append(shell_tool)
+        shell_reply = await provider.complete(ctx.transcripts, [shell_tool])
 
-        # Single LLM call with parallel tool execution
-        reply = await provider.complete(ctx.transcripts, tools, parallel_tools=True)
-
-        if not reply:
-            ctx.stop("No response from LLM.")
+        if not shell_reply:
+            ctx.stop("No visualization could be selected.")
             return
 
-        # Extract and apply parse_intent result (optional, for better field selection)
-        parsed_intent = get_tool_call("parse_intent", reply)
-        if parsed_intent:
-            ctx.parsed_intent = parsed_intent
-            logger.debug(f"CombinedDecisionPhase: Parsed intent: {parsed_intent}")
-
-        # Extract and apply extraction process (optional)
-        process_choice = get_tool_call("choose_process", reply)
-        if process_choice:
-            logger.debug(f"CombinedDecisionPhase: Process choice: {process_choice}")
-            process_id = process_choice.get("id")
-            if process_id and process_id != NO_PROCESS_ID:
-                process = PROCESSES.EXTRACT.get(process_id)
-                if process:
-                    params = process_choice.get("params", {})
-                    ctx.values = run_process(process, ctx.values, params)
-                    ctx.profile = profile_rows(ctx.values)
-                    if "log" in process:
-                        ctx.logs.append(process["log"](params))
-
-        # Extract and apply shell selection (required)
-        shell_choice = get_tool_call("choose_shell", reply)
+        shell_choice = get_tool_call("choose_shell", shell_reply)
         if not shell_choice or not shell_choice.get("shellId"):
             ctx.add_error(
                 ShellError(
