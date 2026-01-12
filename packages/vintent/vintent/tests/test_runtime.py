@@ -47,3 +47,160 @@ async def test_correlation_matrix(monkeypatch):
     inputs = build_inputs("Show heatmap of all columns")
     result = await run(config, inputs, dataset_path)
     assert_output(result["widgets"][0], "test_correlation_matrix")
+
+
+# ============================================================================
+# Additional test cases for realistic user prompts
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_scatter_bmi_glucose(monkeypatch):
+    """Test scatter plot for exploring relationship between two quantitative variables."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="BMI", y="Glucose"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Show me the relationship between BMI and Glucose levels")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: scatter", result)
+    assert_output(result["widgets"][0], "test_scatter_bmi_glucose")
+
+
+@pytest.mark.asyncio
+async def test_box_plot_by_obesity(monkeypatch):
+    """Test box plot comparing distributions across categories."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="box_plot"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="Age"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Compare age distribution between obese and non-obese patients")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: box_plot", result)
+    assert_output(result["widgets"][0], "test_box_plot_obesity")
+
+
+@pytest.mark.asyncio
+async def test_pie_chart_obesity_breakdown(monkeypatch):
+    """Test pie chart for categorical distribution."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="pie_chart"))],
+        2: [dict(name="fill_shell_params", arguments=dict(category="Obesity"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Show a pie chart of obesity categories")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: pie_chart", result)
+    assert_output(result["widgets"][0], "test_pie_chart_obesity")
+
+
+@pytest.mark.asyncio
+async def test_bar_aggregate_glucose_by_obesity(monkeypatch):
+    """Test bar chart showing aggregated values by category."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="bar_aggregate"))],
+        2: [dict(name="fill_shell_params", arguments=dict(group_by="Obesity", metric="Glucose", op="mean"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("What is the average glucose level for each obesity category?")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: bar_aggregate", result)
+    assert_output(result["widgets"][0], "test_bar_aggregate_glucose")
+
+
+@pytest.mark.asyncio
+async def test_density_bmi(monkeypatch):
+    """Test density plot for distribution visualization."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="density"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="BMI"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Show me the distribution of BMI values")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: density", result)
+    assert_output(result["widgets"][0], "test_density_bmi")
+
+
+@pytest.mark.asyncio
+async def test_bubble_chart_three_variables(monkeypatch):
+    """Test bubble chart for visualizing three quantitative dimensions."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="bubble_chart"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Age", y="Glucose", size="BMI"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Plot age vs glucose with bubble size representing BMI")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: bubble_chart", result)
+    assert_output(result["widgets"][0], "test_bubble_chart")
+
+
+@pytest.mark.asyncio
+async def test_summary_statistics_insulin(monkeypatch):
+    """Test summary statistics for a single variable."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="summary_statistics"))],
+        2: [dict(name="fill_shell_params", arguments=dict(field="Insulin"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Give me summary statistics for Insulin levels")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: summary_statistics", result)
+    assert_output(result["widgets"][0], "test_summary_statistics_insulin")
+
+
+@pytest.mark.asyncio
+async def test_histogram_with_sampling(monkeypatch):
+    """Test histogram with data sampling preprocessing."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="sample_rows", params=dict(n=100, seed=42)))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
+        2: [dict(name="fill_shell_params", arguments=dict(field="BloodPressure"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Show a histogram of blood pressure for a sample of 100 patients")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Sampled 100 random rows", result)
+    assert_log("Selected shell: histogram", result)
+    assert_output(result["widgets"][0], "test_histogram_sampled")
+
+
+@pytest.mark.asyncio
+async def test_violin_plot_bmi_by_outcome(monkeypatch):
+    """Test violin plot comparing distributions by outcome."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="violin_plot"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="BMI"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Show violin plot of BMI grouped by obesity status")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Selected shell: violin_plot", result)
+    assert_output(result["widgets"][0], "test_violin_plot_bmi")
+
+
+@pytest.mark.asyncio
+async def test_scatter_with_range_filter(monkeypatch):
+    """Test scatter plot with range filtering preprocessing."""
+    mock_replies = {
+        0: [dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Insulin", min=10, max=300)))],
+        1: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
+        2: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
+    }
+    monkeypatch.setattr("vintent.modules.pipeline.completions_post", mock_completions(mock_replies))
+    inputs = build_inputs("Show glucose vs insulin relationship for insulin between 10 and 300")
+    result = await run(config, inputs, dataset_path)
+    assert_log("Filter rows where Insulin is between 10 and 300", result)
+    assert_log("Selected shell: scatter", result)
+    assert_output(result["widgets"][0], "test_scatter_filtered_range")

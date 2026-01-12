@@ -9,8 +9,8 @@ PROMPT_DEFAULT = "Choose and parameterize one of the provided tools. YOU MUST ch
 
 env = {
     "AI_API_KEY": None,
-    # "AI_BASE_URL": "http://localhost:11434/v1",
-    "AI_BASE_URL": "http://localhost:8080/api/plugins/vintent",
+    "AI_BASE_URL": "http://localhost:11434/v1",
+    # "AI_BASE_URL": "http://localhost:8080/api/plugins/vintent",
     "AI_MODEL": None,
     "GALAXY_KEY": None,
     "GALAXY_ROOT": "http://localhost:8080/",
