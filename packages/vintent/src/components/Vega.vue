@@ -63,6 +63,6 @@ onBeforeUnmount(() => {
             {{ errorMessage }}
         </div>
         <div ref="chartContainer" class="flex-1 min-h-0 overflow-hidden" />
-        <div class="whitespace-normal break-words text-xs p-1">{{ props.message }}</div>
+        <div class="whitespace-normal break-words text-xs p-1 flex justify-center">{{ props.message }}</div>
     </div>
 </template>
