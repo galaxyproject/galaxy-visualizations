@@ -20,9 +20,7 @@ test("basic", async ({ page }) => {
     await page.route("**/api/datasets/__test__/display", async (route) => {
         await route.fulfill({
             status: 200,
-            headers: {
-                "content-type": "text/plain",
-            },
+            contentType: "text/plain",
             body: TEST_DATASET,
         });
     });
