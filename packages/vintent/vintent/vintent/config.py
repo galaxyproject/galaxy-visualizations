@@ -3,7 +3,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-MESSAGE_INITIAL = "Hi, I can a pick a tool for you."
+MESSAGE_INITIAL = "Hi! I can create visualizations for your data."
 PROMPT_DEFAULT = "Choose and parameterize one of the provided tools. YOU MUST choose a tool!"
 
 
