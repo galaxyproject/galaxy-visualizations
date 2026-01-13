@@ -8,10 +8,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 class ScatterShell(BaseShell):
     name = "Scatter Plot"
-    description = (
-        "Scatter plot for exploring relationships between two quantitative fields. "
-        "Commonly used to visualize PCA components such as PC1 versus PC2."
-    )
+    description = "Scatter plot for exploring relationships between two quantitative fields."
     goals = ["relationship", "outliers"]
 
     semantics: Literal["rowwise", "aggregate"] = "rowwise"

@@ -8,12 +8,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 class BarSeriesShell(BaseShell):
     name = "Multi-Series Bar Chart"
-    description = (
-        "Compare multiple quantitative fields per row using grouped bars. "
-        "Each dataset row becomes a category on the x axis. "
-        "Each selected field becomes a colored bar within that category. "
-        "This is a rowwise comparison, not an aggregation."
-    )
+    description = "Compare multiple quantitative fields per row using grouped bars."
     goals = ["comparison"]
 
     semantics: Literal["rowwise", "aggregate"] = "rowwise"

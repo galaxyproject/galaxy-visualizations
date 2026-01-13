@@ -11,7 +11,7 @@ from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 class HeatmapCorrelationShell(BaseShell):
     name = "Correlation Heatmap"
     description = (
-        "Visualize pairwise correlations across many quantitative fields as a heatmap."
+        "Visualize pairwise correlations across many quantitative fields as a heatmap. "
         "Best for high dimensional numeric datasets."
     )
     goals = ["relationship"]

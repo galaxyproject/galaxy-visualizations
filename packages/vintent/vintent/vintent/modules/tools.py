@@ -134,14 +134,15 @@ def build_choose_shell_tool(
             description = (getattr(shell, "description", "") or "").strip()
             goals = getattr(shell, "goals", []) or []
             goals_str = f" [goals: {', '.join(goals)}]" if goals else ""
-            label = f"{shell_id}: {description}{goals_str}" if description else f"{shell_id}{goals_str}"
-
-            shell_entry = {"id": shell_id, "label": label}
+            base_label = f"{shell_id}: {description}{goals_str}" if description else f"{shell_id}{goals_str}"
 
             # Prioritize shells matching the target goal
             if target_goal and target_goal in goals:
+                label = f"[RECOMMENDED] {base_label}"
+                shell_entry = {"id": shell_id, "label": label}
                 recommended_shells.append(shell_entry)
             else:
+                shell_entry = {"id": shell_id, "label": base_label}
                 compatible_shells.append(shell_entry)
 
         if len(recommended_shells) + len(compatible_shells) >= MAX_SHELLS:
