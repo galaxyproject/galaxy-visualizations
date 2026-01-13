@@ -6,10 +6,11 @@ import { Viewer } from "molstar/lib/apps/viewer/app";
 const appElement = document.querySelector("#app");
 
 if (import.meta.env.DEV) {
+    const pageUrl = new URL(window.location.href);
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: process.env.dataset_id || "__test__",
+            dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -28,6 +29,17 @@ messageElement.id = "message";
 messageElement.style.display = "none";
 appElement.appendChild(messageElement);
 
+function mapToMolstarFormat(ext) {
+    switch (ext) {
+        case "cif":
+            return "mmcif";
+        case "pqr":
+            return "pdb";
+        default:
+            return ext;
+    }
+}
+
 async function create() {
     showMessage("Please wait...");
 
@@ -37,7 +49,6 @@ async function create() {
         const supportedFormats = ["pdb", "pqr", "cif", "bcif", "mol", "mol2", "sdf", "xyz", "gro", "top", "traj"];
 
         const extension = dataset.extension.toLowerCase();
-        const loadFormat = extension === "pqr" ? "pdb" : extension;
 
         if (supportedFormats.includes(extension)) {
             const viewerElement = document.createElement("div");
@@ -45,6 +56,8 @@ async function create() {
             viewerElement.style.width = "100%";
             viewerElement.style.height = "100vh";
             appElement.appendChild(viewerElement);
+
+            const loadFormat = mapToMolstarFormat(extension);
 
             const viewer = await Viewer.create(viewerElement);
             await viewer.loadStructureFromUrl(dataUrl, loadFormat);
