@@ -776,6 +776,11 @@ form-data@^4.0.4:
     hasown "^2.0.2"
     mime-types "^2.1.12"
 
+fsevents@~2.3.2, fsevents@~2.3.3:
+  version "2.3.3"
+  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
+  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
+
 function-bind@^1.1.2:
   version "1.1.2"
   resolved "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz"
@@ -788,10 +793,10 @@ galaxy-charts-xml-parser@^1.0.3:
   dependencies:
     axios "^1.7.7"
 
-galaxy-charts@^0.1.5:
-  version "0.1.5"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.1.5.tgz"
-  integrity sha512-PpXwMXMRMsPOKzVu5kcP6aPidsMeU/k4D5dOjsD4aCnkirR/7RFVevI0rggWryKjqCsDjunFghduveFFtwffBw==
+galaxy-charts@^0.1.6:
+  version "0.1.6"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.1.6.tgz"
+  integrity sha512-0Kh9Ac1GZx0aihn5ip3xo0NPDxTPxlP+pp2qZ3SsoLdzTlVobJ2y2mFm1LAQGSgnweWh6zs3mxA9wpXLATNm5A==
 
 get-caller-file@^2.0.5:
   version "2.0.5"
