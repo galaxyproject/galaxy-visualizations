@@ -15,8 +15,10 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Take a random sample of rows. ONLY use when the user explicitly asks to "
-            "'sample', 'take N rows', or 'preview a subset'. Do NOT use for simple visualizations."
+            "RARELY USED - Take a random sample of rows. ONLY use when the user explicitly says "
+            "'sample', 'random N rows', or 'preview subset'.\n"
+            "NEVER use for: 'histogram', 'distribution', 'scatter', 'bar chart', 'correlation', "
+            "'trend', or ANY visualization request."
         ),
         "params": {
             "type": "object",

@@ -15,10 +15,11 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Select top or bottom K rows BEFORE visualization. ONLY use when the user explicitly asks for "
-            "'top N', 'bottom N', 'highest N', 'lowest N', 'largest N', or 'smallest N' raw rows. "
-            "Do NOT use for: aggregations (sum, average, count by group), distributions, correlations, "
-            "or any request without an explicit row limit number."
+            "RARELY USED - Select top/bottom K rows. ONLY use when ALL conditions are met: "
+            "(1) User explicitly says 'top N', 'bottom N', 'highest N', 'lowest N' with a specific number, AND "
+            "(2) User wants to see individual rows, not a visualization.\n"
+            "NEVER use for: 'histogram of X', 'distribution of X', 'scatter plot', 'bar chart', "
+            "'correlation', 'trend', 'average', 'sum', 'count', or ANY aggregation/visualization request."
         ),
         "params": {
             "type": "object",

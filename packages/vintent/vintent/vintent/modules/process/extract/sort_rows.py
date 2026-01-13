@@ -14,8 +14,10 @@ def schema(profile, context=None):
         "id": PROCESS_ID,
         "phase": PROCESS_PHASE,
         "description": (
-            "Sort rows by a column. ONLY use when the user explicitly asks to 'sort', "
-            "'order', 'rank', or 'arrange' the data. Do NOT use for simple visualizations."
+            "RARELY USED - Sort rows by a column. ONLY use when the user explicitly says "
+            "'sort by X', 'order by X', or 'arrange by X'.\n"
+            "NEVER use for: 'histogram', 'distribution', 'scatter', 'bar chart', 'correlation', "
+            "'trend', or ANY visualization request."
         ),
         "params": {
             "type": "object",

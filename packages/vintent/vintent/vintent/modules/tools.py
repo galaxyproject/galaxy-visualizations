@@ -47,8 +47,9 @@ def build_choose_process_tool(
             "required": ["id"],
             "additionalProperties": False,
             "description": (
-                "DEFAULT CHOICE. Use original data without preprocessing. "
-                "Select this unless the user explicitly asks to filter, sort, sample, or transform the data."
+                "DEFAULT CHOICE - select this for histogram, distribution, scatter, correlation, bar chart, "
+                "line chart, trend, comparison, aggregation, or ANY visualization request that does not "
+                "explicitly mention 'top N', 'bottom N', 'filter', 'sample', or 'limit rows'."
             ),
         }
     ]
@@ -80,9 +81,18 @@ def build_choose_process_tool(
 
     # Build a helpful description that lists all available processes
     tool_description = (
-        "IMPORTANT: Choose 'none' by default. Only select a preprocessing step "
-        "if the user EXPLICITLY requests filtering, sorting, sampling, or data transformation. "
-        "Simple visualization requests like 'show histogram of X' or 'plot Y vs Z' do NOT need preprocessing."
+        "CRITICAL: Choose 'none' for 99% of requests. Only select a preprocessing step "
+        "if the user EXPLICITLY uses words like 'top N', 'bottom N', 'filter', 'sort', 'sample', or 'limit'.\n\n"
+        "ALWAYS choose 'none' for these request types (no preprocessing needed):\n"
+        "- Histogram/distribution: 'show histogram of X', 'distribution of Y', 'how is Z distributed'\n"
+        "- Scatter/correlation: 'X vs Y', 'correlation between X and Y', 'relationship'\n"
+        "- Bar/comparison: 'compare X by Y', 'X across categories'\n"
+        "- Line/trend: 'X over time', 'trend of Y'\n"
+        "- Any aggregation: 'average', 'sum', 'count', 'mean', 'total'\n\n"
+        "ONLY use a process when the user says things like:\n"
+        "- 'top 10 by X' or 'bottom 5 by Y' → rank_top_k\n"
+        "- 'filter where X > 100' → range_filter\n"
+        "- 'sample 50 rows' → sample_rows"
     )
     if process_descriptions:
         tool_description += "\n\nAvailable processes:\n" + "\n".join(process_descriptions)
