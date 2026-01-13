@@ -9,9 +9,12 @@
         "dev": "vite",
         "build": "vite build",
         "prettier": "prettier --write 'package.json' 'main.js'",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "test": "npm run test:e2e",
+        "test:e2e": "npx playwright test"
     },
     "devDependencies": {
+        "@playwright/test": "^1.56.0",
         "axios": "^1.13.2",
         "molstar": "^5.5.0",
         "prettier": "^3.7.4",

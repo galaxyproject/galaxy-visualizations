@@ -9,7 +9,7 @@ if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: process.env.dataset_id,
+            dataset_id: process.env.dataset_id || "__test__",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -34,11 +34,7 @@ async function create() {
     try {
         const dataset = await getData(metaUrl);
 
-        const supportedFormats = [
-            "pdb", "pqr", "cif", "bcif",
-            "mol", "mol2", "sdf", "xyz",
-            "gro", "top", "traj"
-        ];
+        const supportedFormats = ["pdb", "pqr", "cif", "bcif", "mol", "mol2", "sdf", "xyz", "gro", "top", "traj"];
 
         const extension = dataset.extension.toLowerCase();
         const loadFormat = extension === "pqr" ? "pdb" : extension;
