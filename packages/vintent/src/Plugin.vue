@@ -73,13 +73,15 @@ const isLoadingPyodide = ref<boolean>(true);
 const isProcessingRequest = ref<boolean>(false);
 const widgets = ref<any>(props.settings?.widgets ?? []);
 
-// Create orchestra
-const config = {
-    ai_base_url: props.specs.ai_api_base_url || `${props.root}api/plugins/${PLUGIN_NAME}`,
-    ai_api_key: props.specs.ai_api_key,
-    ai_model: props.specs.ai_model,
-    ai_pipeline_combine: props.settings.ai_pipeline_combine,
-};
+// Configuration
+function getConfig() {
+    return {
+        ai_base_url: props.specs.ai_api_base_url || `${props.root}api/plugins/${PLUGIN_NAME}`,
+        ai_api_key: props.specs.ai_api_key,
+        ai_model: props.specs.ai_model,
+        ai_pipeline_combine: props.settings.ai_pipeline_combine,
+    };
+}
 
 // Inject Prompt
 async function loadPrompt() {
@@ -123,8 +125,9 @@ async function processUserRequest() {
             const transcripts = [...props.transcripts];
             try {
                 consoleMessages.value.push({ content: "Processing request...", icon: ClockIcon });
-                const sanitized = [lastTranscript];
-                const reply = await runVintent(pyodide, config, sanitized, DATASET_NAME);
+                const config = getConfig();
+                const transcripts = [lastTranscript];
+                const reply = await runVintent(pyodide, config, transcripts, DATASET_NAME);
                 reply.logs.forEach((log: string) => {
                     consoleMessages.value.push({ content: log, icon: BoltIcon });
                 });
