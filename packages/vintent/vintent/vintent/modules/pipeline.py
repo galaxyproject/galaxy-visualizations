@@ -22,7 +22,7 @@ from vintent.core.providers import (
 from vintent.modules.shells.base import ShellError
 
 from .process import run_process
-from .profiler import DatasetProfile, profile_rows, rows_from_csv
+from .profiler import DatasetProfile, profile_rows, rows_from_tabular
 from .registry import PROCESSES, SHELLS
 from .schemas import TranscriptMessageType
 from .tools import (
@@ -120,7 +120,7 @@ class Phase(ABC):
 
 
 class LoadDataPhase(Phase):
-    """Phase 0: Load and profile the input CSV data."""
+    """Phase 0: Load and profile the input data (CSV or tab-delimited)."""
 
     @property
     def name(self) -> str:
@@ -151,7 +151,7 @@ class LoadDataPhase(Phase):
             )
             return
 
-        ctx.values = rows_from_csv(csv_text)
+        ctx.values = rows_from_tabular(csv_text)
         ctx.profile = profile_rows(ctx.values)
         logger.debug(f"Loaded {len(ctx.values)} rows, profile: {ctx.profile}")
 

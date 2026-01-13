@@ -14,6 +14,64 @@ def profile_csv(csv_text: str) -> DatasetProfile:
     return profile_rows(rows)
 
 
+def profile_tabular(text: str) -> DatasetProfile:
+    """Profile tabular data (auto-detects CSV vs tab-delimited)."""
+    rows = rows_from_tabular(text)
+    return profile_rows(rows)
+
+
+def detect_delimiter(text: str) -> str:
+    """Detect whether text is tab-delimited or comma-delimited.
+
+    Tab-delimited files (Galaxy tabular) have no headers and use tabs.
+    CSV files have headers and use commas.
+    """
+    first_line = text.split('\n')[0] if text else ''
+    # If tabs present, treat as tab-delimited
+    if '\t' in first_line:
+        return '\t'
+    return ','
+
+
+def rows_from_tabular(text: str) -> List[Dict[str, Any]]:
+    """Parse tabular data, auto-detecting CSV vs tab-delimited.
+
+    For tab-delimited files (no headers), column names are generated as col:1, col:2, etc.
+    For CSV files, the first row is used as column names.
+    """
+    delimiter = detect_delimiter(text)
+    if delimiter == '\t':
+        return rows_from_tab(text)
+    return rows_from_csv(text)
+
+
+def rows_from_tab(tab_text: str) -> List[Dict[str, Any]]:
+    """Parse tab-delimited text into list of dicts with auto-generated column names.
+
+    Column names are generated as col:1, col:2, etc. (1-indexed).
+    """
+    reader = csv.reader(io.StringIO(tab_text), delimiter='\t')
+    rows: List[Dict[str, Any]] = []
+    fieldnames: List[str] = []
+
+    for i, r in enumerate(reader):
+        if i == 0:
+            # Generate column names based on number of columns
+            fieldnames = [f"col:{j+1}" for j in range(len(r))]
+
+        row: Dict[str, Any] = {}
+        for j, v in enumerate(r):
+            if j < len(fieldnames):
+                key = fieldnames[j]
+                if v is None or v == "":
+                    row[key] = None
+                else:
+                    row[key] = cast_value(v)
+        rows.append(row)
+
+    return rows
+
+
 def rows_from_csv(csv_text: str) -> List[Dict[str, Any]]:
     reader = csv.DictReader(io.StringIO(csv_text))
     rows: List[Dict[str, Any]] = []

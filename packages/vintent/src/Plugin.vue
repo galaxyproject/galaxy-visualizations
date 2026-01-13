@@ -179,7 +179,7 @@ watch(
     <div class="flex flex-col h-screen rounded p-1">
         <div class="flex-1 min-h-0">
             <Dashboard v-if="widgets.length > 0" :widgets="widgets" @remove="removeWidget" />
-            <Tabular v-else-if="datasetContent" :csv="datasetContent" />
+            <Tabular v-else-if="datasetContent" :content="datasetContent" />
         </div>
         <Console class="shrink-0 pt-1" :messages="consoleMessages" />
     </div>

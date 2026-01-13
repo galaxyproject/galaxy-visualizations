@@ -3,7 +3,7 @@ import { computed } from "vue";
 
 const props = withDefaults(
     defineProps<{
-        csv: string;
+        content: string;
         maxRows?: number;
     }>(),
     {
@@ -11,9 +11,32 @@ const props = withDefaults(
     },
 );
 
-function parseCSV(text: string) {
-    const rows = [];
-    let row = [];
+function detectDelimiter(text: string): string {
+    const firstLine = text.split("\n")[0] || "";
+    // If tabs present, treat as tab-delimited
+    if (firstLine.includes("\t")) {
+        return "\t";
+    }
+    return ",";
+}
+
+function parseTabular(text: string) {
+    const delimiter = detectDelimiter(text);
+    const rawRows = parseDelimited(text, delimiter);
+
+    // For tab-delimited files, generate column headers
+    if (delimiter === "\t" && rawRows.length > 0) {
+        const numCols = rawRows[0].length;
+        const header = Array.from({ length: numCols }, (_, i) => `col:${i + 1}`);
+        return [header, ...rawRows];
+    }
+
+    return rawRows;
+}
+
+function parseDelimited(text: string, delimiter: string) {
+    const rows: string[][] = [];
+    let row: string[] = [];
     let field = "";
     let inQuotes = false;
     for (let i = 0; i < text.length; i++) {
@@ -24,7 +47,7 @@ function parseCSV(text: string) {
             i++;
         } else if (char === '"') {
             inQuotes = !inQuotes;
-        } else if (char === "," && !inQuotes) {
+        } else if (char === delimiter && !inQuotes) {
             row.push(field);
             field = "";
         } else if ((char === "\n" || char === "\r") && !inQuotes) {
@@ -46,8 +69,8 @@ function parseCSV(text: string) {
 }
 
 const rows = computed(() => {
-    if (props.csv) {
-        const parsed = parseCSV(props.csv);
+    if (props.content) {
+        const parsed = parseTabular(props.content);
         if (props.maxRows > 0 && parsed.length > props.maxRows + 1) {
             return [parsed[0], ...parsed.slice(1, props.maxRows + 1)];
         } else {
