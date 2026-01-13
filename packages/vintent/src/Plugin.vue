@@ -126,8 +126,7 @@ async function processUserRequest() {
             try {
                 consoleMessages.value.push({ content: "Processing request...", icon: ClockIcon });
                 const config = getConfig();
-                const transcripts = [lastTranscript];
-                const reply = await runVintent(pyodide, config, transcripts, DATASET_NAME);
+                const reply = await runVintent(pyodide, config, [lastTranscript], DATASET_NAME);
                 reply.logs.forEach((log: string) => {
                     consoleMessages.value.push({ content: log, icon: BoltIcon });
                 });
