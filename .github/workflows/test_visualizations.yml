@@ -105,7 +105,7 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: pip install -r requirements.txt
 
-      - name: Install dependencies
+      - name: Install Node dependencies
         working-directory: packages/${{ matrix.package }}
         run: npm install
 
@@ -139,11 +139,10 @@ jobs:
             ${{ runner.os }}-node-${{ matrix.package }}-
 
       - name: Cache Playwright browsers
-        id: cache-playwright
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
           restore-keys: |
             ${{ runner.os }}-playwright-
 
@@ -196,7 +195,6 @@ jobs:
             for port in "${ports[@]}"; do
               if curl -s http://localhost:$port > /dev/null 2>&1; then
                 echo "✅ Server is ready on port $port!"
-                echo "port=$port" >> $GITHUB_OUTPUT
                 exit 0
               fi
             done
