@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TRANSCRIPT_VARIANT, type InputValuesType, type TranscriptMessageType } from "galaxy-charts";
+import { type InputValuesType, type TranscriptMessageType } from "galaxy-charts";
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import {
     AcademicCapIcon,
