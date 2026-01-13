@@ -112,11 +112,6 @@ function systemPrompt() {
     return `${props.specs?.ai_prompt || PROMPT_DEFAULT}`;
 }
 
-// Sanitize transcripts
-function sanitzeTranscripts(transcripts: TranscriptMessageType[]) {
-    return transcripts.filter((t) => t.content && (!t.variant || t.variant === TRANSCRIPT_VARIANT.DATA));
-}
-
 // Process user request
 async function processUserRequest() {
     if (props.transcripts.length > 0 && !isLoadingPyodide.value) {
@@ -126,7 +121,7 @@ async function processUserRequest() {
             const transcripts = [...props.transcripts];
             try {
                 consoleMessages.value.push({ content: "Processing request...", icon: ClockIcon });
-                const sanitized = sanitzeTranscripts(transcripts);
+                const sanitized = [lastTranscript];
                 const reply = await runVintent(pyodide, config, sanitized, DATASET_NAME);
                 reply.logs.forEach((log: string) => {
                     consoleMessages.value.push({ content: log, icon: BoltIcon });
