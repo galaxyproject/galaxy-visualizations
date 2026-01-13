@@ -1,16 +1,15 @@
 import axios from "axios";
 import "./main.css";
 import "molstar/build/viewer/molstar.css";
-import * as molstar from "molstar/build/viewer/molstar";
+import { Viewer } from "molstar/lib/apps/viewer/app";
 
-// Access container element
 const appElement = document.querySelector("#app");
 
 if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: process.env.dataset_id,
+            dataset_id: process.env.dataset_id || "__test__",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -35,11 +34,7 @@ async function create() {
     try {
         const dataset = await getData(metaUrl);
 
-        const supportedFormats = [
-            "pdb", "pqr", "cif", "bcif",
-            "mol", "mol2", "sdf", "xyz",
-            "gro", "top", "traj"
-        ];
+        const supportedFormats = ["pdb", "pqr", "cif", "bcif", "mol", "mol2", "sdf", "xyz", "gro", "top", "traj"];
 
         const extension = dataset.extension.toLowerCase();
         const loadFormat = extension === "pqr" ? "pdb" : extension;
@@ -51,7 +46,7 @@ async function create() {
             viewerElement.style.height = "100vh";
             appElement.appendChild(viewerElement);
 
-            const viewer = await molstar.Viewer.create(viewerElement);
+            const viewer = await Viewer.create(viewerElement);
             await viewer.loadStructureFromUrl(dataUrl, loadFormat);
 
             hideMessage();
