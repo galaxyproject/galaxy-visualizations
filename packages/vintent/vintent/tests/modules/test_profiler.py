@@ -6,6 +6,7 @@ from vintent.modules.profiler import (
     detect_delimiter,
     rows_from_tab,
     rows_from_tabular,
+    skip_comment_lines,
     MAX_ENUM_VALUES,
 )
 
@@ -140,3 +141,49 @@ def test_profile_tabular_with_csv_data():
     profile = profile_tabular(csv_text)
     assert profile["row_count"] == 2
     assert set(profile["fields"].keys()) == {"a", "b"}
+
+
+# Comment line skipping tests
+
+def test_skip_comment_lines_hash():
+    text = "# This is a comment\n1\t2\t3\n"
+    result = skip_comment_lines(text)
+    assert result == "1\t2\t3\n"
+
+
+def test_skip_comment_lines_double_slash():
+    text = "// This is a comment\n1\t2\t3\n"
+    result = skip_comment_lines(text)
+    assert result == "1\t2\t3\n"
+
+
+def test_skip_comment_lines_multiple():
+    text = "# Comment 1\n# Comment 2\n// Comment 3\n1\t2\t3\n"
+    result = skip_comment_lines(text)
+    assert result == "1\t2\t3\n"
+
+
+def test_skip_comment_lines_no_comments():
+    text = "1\t2\t3\n4\t5\t6\n"
+    result = skip_comment_lines(text)
+    assert result == text
+
+
+def test_skip_comment_lines_with_whitespace():
+    text = "  # Comment with leading spaces\n1\t2\t3\n"
+    result = skip_comment_lines(text)
+    assert result == "1\t2\t3\n"
+
+
+def test_rows_from_tabular_with_comments():
+    tab_text = "# Header comment\n1\t2\t3\n4\t5\t6\n"
+    rows = rows_from_tabular(tab_text)
+    assert len(rows) == 2
+    assert rows[0]["col:1"] == 1.0
+
+
+def test_profile_tabular_with_comments():
+    tab_text = "# This file contains data\n// Another comment\n1\t2\t3\n4\t5\t6\n"
+    profile = profile_tabular(tab_text)
+    assert profile["row_count"] == 2
+    assert set(profile["fields"].keys()) == {"col:1", "col:2", "col:3"}

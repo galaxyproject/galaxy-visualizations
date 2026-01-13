@@ -20,13 +20,31 @@ def profile_tabular(text: str) -> DatasetProfile:
     return profile_rows(rows)
 
 
+def skip_comment_lines(text: str) -> str:
+    """Skip comment lines at the beginning of the file.
+
+    Comment lines start with '#' or '//'.
+    """
+    lines = text.split('\n')
+    start_index = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith('#') or stripped.startswith('//'):
+            start_index = i + 1
+        else:
+            break
+    return '\n'.join(lines[start_index:])
+
+
 def detect_delimiter(text: str) -> str:
     """Detect whether text is tab-delimited or comma-delimited.
 
     Tab-delimited files (Galaxy tabular) have no headers and use tabs.
     CSV files have headers and use commas.
     """
-    first_line = text.split('\n')[0] if text else ''
+    # Skip comment lines before detecting delimiter
+    clean_text = skip_comment_lines(text)
+    first_line = clean_text.split('\n')[0] if clean_text else ''
     # If tabs present, treat as tab-delimited
     if '\t' in first_line:
         return '\t'
@@ -38,11 +56,13 @@ def rows_from_tabular(text: str) -> List[Dict[str, Any]]:
 
     For tab-delimited files (no headers), column names are generated as col:1, col:2, etc.
     For CSV files, the first row is used as column names.
+    Comment lines at the beginning (starting with '#' or '//') are skipped.
     """
-    delimiter = detect_delimiter(text)
+    clean_text = skip_comment_lines(text)
+    delimiter = detect_delimiter(clean_text)
     if delimiter == '\t':
-        return rows_from_tab(text)
-    return rows_from_csv(text)
+        return rows_from_tab(clean_text)
+    return rows_from_csv(clean_text)
 
 
 def rows_from_tab(tab_text: str) -> List[Dict[str, Any]]:

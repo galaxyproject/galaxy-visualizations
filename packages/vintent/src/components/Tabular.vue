@@ -11,8 +11,23 @@ const props = withDefaults(
     },
 );
 
+function skipCommentLines(text: string): string {
+    const lines = text.split("\n");
+    let startIndex = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const stripped = lines[i].trim();
+        if (stripped.startsWith("#") || stripped.startsWith("//")) {
+            startIndex = i + 1;
+        } else {
+            break;
+        }
+    }
+    return lines.slice(startIndex).join("\n");
+}
+
 function detectDelimiter(text: string): string {
-    const firstLine = text.split("\n")[0] || "";
+    const cleanText = skipCommentLines(text);
+    const firstLine = cleanText.split("\n")[0] || "";
     // If tabs present, treat as tab-delimited
     if (firstLine.includes("\t")) {
         return "\t";
@@ -21,8 +36,9 @@ function detectDelimiter(text: string): string {
 }
 
 function parseTabular(text: string) {
-    const delimiter = detectDelimiter(text);
-    const rawRows = parseDelimited(text, delimiter);
+    const cleanText = skipCommentLines(text);
+    const delimiter = detectDelimiter(cleanText);
+    const rawRows = parseDelimited(cleanText, delimiter);
 
     // For tab-delimited files, generate column headers
     if (delimiter === "\t" && rawRows.length > 0) {
