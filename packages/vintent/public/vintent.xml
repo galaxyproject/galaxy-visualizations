@@ -15,8 +15,8 @@
     <settings>
         <input>
             <name>ai_pipeline_combine</name>
-            <label>Fast mode</label>
-            <help>Combine multiple llm requests to reduce latency, might be less accurate for smaller models.</help>
+            <label>Combined LLM calls</label>
+            <help>Enable to reduce latency by combining LLM requests. Disable for better accuracy.</help>
             <type>boolean</type>
             <value>false</value>
         </input>
