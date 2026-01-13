@@ -1,9 +1,8 @@
 import axios from "axios";
 import "./main.css";
 import "molstar/build/viewer/molstar.css";
-import * as molstar from "molstar/build/viewer/molstar";
+import { Viewer } from "molstar/lib/apps/viewer/app";
 
-// Access container element
 const appElement = document.querySelector("#app");
 
 if (import.meta.env.DEV) {
@@ -51,7 +50,7 @@ async function create() {
             viewerElement.style.height = "100vh";
             appElement.appendChild(viewerElement);
 
-            const viewer = await molstar.Viewer.create(viewerElement);
+            const viewer = await Viewer.create(viewerElement);
             await viewer.loadStructureFromUrl(dataUrl, loadFormat);
 
             hideMessage();
