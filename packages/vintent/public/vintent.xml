@@ -12,6 +12,15 @@
         <param required="true">dataset_id</param>
     </params>
     <entry_point src="index.js" css="index.css" />
+    <settings>
+        <input>
+            <name>ai_pipeline_combine</name>
+            <label>Fast mode</label>
+            <help>Combine multiple llm requests to reduce latency, might be less accurate for smaller models.</help>
+            <type>boolean</type>
+            <value>false</value>
+        </input>
+    </settings>
     <specs>
         <ai_prompt><![CDATA[
 You are a visualization planning agent.
