@@ -45,7 +45,7 @@ const emit = defineEmits<{
 }>();
 
 // Constants
-const DATASET_NAME = "dataset.csv";
+const DATASET_NAME = "dataset.txt";
 const MESSAGE_INITIAL = "Hi! I can create visualizations for your data.";
 const MESSAGE_FAILED = "I failed to complete your request.";
 const MESSAGE_SUCCESS = "Successfully produced output.";
