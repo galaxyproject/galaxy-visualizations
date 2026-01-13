@@ -87,17 +87,24 @@ class TestTreemapCompile:
         assert spec["mark"]["type"] == "rect"
         assert spec["mark"]["stroke"] == "white"
         assert spec["encoding"]["color"]["field"] == "type"
-        assert spec["encoding"]["size"]["field"] == "count"
-        # Check transform adds row/col for grid layout
-        transforms = spec["transform"]
-        assert any("row_number" in str(t) for t in transforms)
+        # Uses x, x2, y, y2 for squarify layout
+        assert "x" in spec["encoding"]
+        assert "x2" in spec["encoding"]
+        assert "y" in spec["encoding"]
+        assert "y2" in spec["encoding"]
+        # Data should have layout positions
+        assert len(spec["data"]["values"]) == 3
+        assert "x" in spec["data"]["values"][0]
+        assert "y" in spec["data"]["values"][0]
 
     def test_compile_with_value_field(self):
         shell = TreemapShell()
         params = {"category": "type", "value": "amount", "op": "sum"}
         values = [{"type": "A", "amount": 100}]
         spec = shell.compile(params, values, renderer="vega-lite")
-        assert spec["encoding"]["size"]["field"] == "amount"
+        # Tooltip should reference the value field
+        tooltip_fields = [t["field"] for t in spec["encoding"]["tooltip"]]
+        assert "amount" in tooltip_fields
 
     def test_compile_has_tooltip(self):
         shell = TreemapShell()
@@ -113,3 +120,26 @@ class TestTreemapCompile:
         shell = TreemapShell()
         spec = shell.compile({}, [], renderer="svg")
         assert spec == {}
+
+    def test_compile_layout_fills_area(self):
+        """Verify squarify layout fills the available area with normalized coordinates."""
+        shell = TreemapShell()
+        params = {"category": "type"}
+        values = [
+            {"type": "A", "count": 50},
+            {"type": "B", "count": 30},
+            {"type": "C", "count": 20},
+        ]
+        spec = shell.compile(params, values, renderer="vega-lite")
+        layout = spec["data"]["values"]
+        # All rects should have valid normalized positions (0-1 range)
+        for item in layout:
+            assert item["x"] >= 0
+            assert item["y"] >= 0
+            assert item["x2"] <= 1
+            assert item["y2"] <= 1
+            assert item["x2"] > item["x"]
+            assert item["y2"] > item["y"]
+        # Should use container sizing for responsiveness
+        assert spec["width"] == "container"
+        assert spec["height"] == "container"

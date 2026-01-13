@@ -6,7 +6,7 @@ from vintent.core.exceptions import AppError
 from vintent.modules.profiler import DatasetProfile
 from vintent.modules.schemas import FieldType, ValidationResult
 
-VEGA_LITE_SCHEMA = "https://vega.github.io/schema/vega-lite/v5.json"
+VEGA_LITE_SCHEMA = "https://vega.github.io/schema/vega-lite/v6.json"
 
 
 class ShellError(AppError):
