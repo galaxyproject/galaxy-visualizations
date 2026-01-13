@@ -28,12 +28,10 @@ function truncateContent(content: string): string {
         <div class="flex-1 overflow-auto">
             <div v-for="msg of visibleMessages">
                 <Component :is="msg.icon" class="size-3 inline mr-1" :class="{ 'animate-spin': msg.spin }" />
-                <span>{{ truncateContent(msg.content) }}</span>
+                <span class="text-xs">{{ truncateContent(msg.content) }}</span>
             </div>
         </div>
-        <button
-            class="self-end cursor-pointer border rounded border-gray-500 hover:bg-gray-500"
-            @click="collapse = !collapse">
+        <button class="self-end button-plain border rounded border-gray-300" @click="collapse = !collapse">
             <div class="flex justify-center">
                 <ChevronDoubleUpIcon v-if="collapse" class="size-4 inline mx-1" />
                 <ChevronDoubleDownIcon v-else class="size-4 inline mx-1" />

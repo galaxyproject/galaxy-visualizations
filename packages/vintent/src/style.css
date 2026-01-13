@@ -8,7 +8,7 @@
     .tabular-row {
         @apply border border-gray-200 px-2 py-1 text-gray-800 whitespace-nowrap;
     }
-    .vintent-button {
+    .button-plain {
         @apply cursor-pointer rounded border-gray-500 hover:bg-gray-500 hover:text-white;
     }
 }

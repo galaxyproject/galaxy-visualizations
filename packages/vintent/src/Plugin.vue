@@ -177,7 +177,7 @@ watch(
 </script>
 
 <template>
-    <div class="flex flex-col h-screen bg-gray-700 text-white rounded p-1">
+    <div class="flex flex-col h-screen rounded p-1">
         <div class="flex-1 min-h-0">
             <Dashboard v-if="widgets.length > 0" :widgets="widgets" @remove="removeWidget" />
             <Tabular v-else-if="datasetContent" :csv="datasetContent" />
