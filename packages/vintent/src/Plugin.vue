@@ -182,6 +182,6 @@ watch(
             <Dashboard v-if="widgets.length > 0" :widgets="widgets" @remove="removeWidget" />
             <Tabular v-else-if="datasetContent" :csv="datasetContent" />
         </div>
-        <Console class="shrink-0" :messages="consoleMessages" />
+        <Console class="shrink-0 pt-1" :messages="consoleMessages" />
     </div>
 </template>

@@ -31,7 +31,7 @@ function truncateContent(content: string): string {
                 <span class="text-xs">{{ truncateContent(msg.content) }}</span>
             </div>
         </div>
-        <button class="self-end button-plain border rounded border-gray-300" @click="collapse = !collapse">
+        <button class="self-end button-plain" @click="collapse = !collapse">
             <div class="flex justify-center">
                 <ChevronDoubleUpIcon v-if="collapse" class="size-4 inline mx-1" />
                 <ChevronDoubleDownIcon v-else class="size-4 inline mx-1" />
