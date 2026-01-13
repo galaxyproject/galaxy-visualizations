@@ -177,7 +177,6 @@ jobs:
       - name: Install Playwright browsers
         working-directory: packages/${{ matrix.package }}
         run: npx playwright install --with-deps chromium
-        if: steps.cache-playwright.outputs.cache-hit != 'true'
 
       - name: Build
         working-directory: packages/${{ matrix.package }}
