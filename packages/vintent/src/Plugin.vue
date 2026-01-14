@@ -69,6 +69,7 @@ const pyodide = new PyodideManager({
 // References
 const datasetContent = ref<string>();
 const consoleMessages = ref<ConsoleMessageType[]>([]);
+const isLoadingDataset = ref<boolean>(true);
 const isLoadingPyodide = ref<boolean>(true);
 const isProcessingRequest = ref<boolean>(false);
 const widgets = ref<any>(props.settings?.widgets ?? []);
@@ -122,6 +123,7 @@ function loadPrompt() {
 // Load Pyodide
 async function loadPyodide() {
     const content = await loadDataset();
+    isLoadingDataset.value = false;
     if (content) {
         datasetContent.value = content;
         if (isLoadingPyodide.value) {
@@ -207,6 +209,9 @@ watch(
         <div class="flex-1 min-h-0">
             <Dashboard v-if="widgets.length > 0" :widgets="widgets" @remove="removeWidget" />
             <Tabular v-else-if="datasetContent" :content="datasetContent" />
+            <div v-else-if="isLoadingDataset" class="flex items-center justify-center h-full">
+                <ArrowPathIcon class="w-8 h-8 text-gray-400 animate-spin" />
+            </div>
         </div>
         <Console class="shrink-0 pt-1" :messages="consoleMessages" />
     </div>
