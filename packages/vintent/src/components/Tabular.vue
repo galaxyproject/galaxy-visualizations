@@ -11,6 +11,12 @@ const props = withDefaults(
     },
 );
 
+const body = computed(() => (rows.value.length > 1 ? rows.value.slice(1) : []));
+const header = computed(() => (rows.value.length > 0 ? rows.value[0] : []));
+const isTruncated = computed(() => props.maxRows > 0 && totalRows.value > props.maxRows);
+const rows = computed(() => (isTruncated.value ? parsedData.value.slice(0, props.maxRows + 1) : parsedData.value));
+const totalRows = computed(() => parsedData.value.length);
+
 function skipCommentLines(text: string): string {
     const lines = text.split("\n");
     let startIndex = 0;
@@ -84,44 +90,40 @@ function parseDelimited(text: string, delimiter: string) {
     return rows;
 }
 
-const rows = computed(() => {
+const parsedData = computed(() => {
     if (props.content) {
-        const parsed = parseTabular(props.content);
-        if (props.maxRows > 0 && parsed.length > props.maxRows + 1) {
-            return [parsed[0], ...parsed.slice(1, props.maxRows + 1)];
-        } else {
-            return parsed;
-        }
-    } else {
-        return [];
+        return parseTabular(props.content);
     }
+    return [];
 });
-
-const header = computed(() => (rows.value.length > 0 ? rows.value[0] : []));
-const body = computed(() => (rows.value.length > 1 ? rows.value.slice(1) : []));
 </script>
 
 <template>
-    <div class="h-full overflow-auto">
-        <table class="min-w-full border-collapse text-sm">
-            <thead class="bg-gray-100">
-                <tr>
-                    <th class="tabular-header">#</th>
-                    <th v-for="(cell, i) in header" :key="i" class="tabular-header">
-                        {{ cell }}
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="(row, r) in body" :key="r" class="odd:bg-white even:bg-gray-50">
-                    <td class="tabular-row">
-                        {{ r + 1 }}
-                    </td>
-                    <td v-for="(cell, c) in row" :key="c" class="tabular-row">
-                        {{ cell }}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+    <div class="h-full flex flex-col">
+        <div v-if="isTruncated" class="bg-sky-50 text-sky-700 text-xs px-2 py-1 shrink-0">
+            Showing {{ maxRows.toLocaleString() }} of {{ totalRows.toLocaleString() }} rows
+        </div>
+        <div class="flex-1 overflow-auto">
+            <table class="min-w-full border-collapse text-sm">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="tabular-header">#</th>
+                        <th v-for="(cell, i) in header" :key="i" class="tabular-header">
+                            {{ cell }}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(row, r) in body" :key="r" class="odd:bg-white even:bg-gray-50">
+                        <td class="tabular-row">
+                            {{ r + 1 }}
+                        </td>
+                        <td v-for="(cell, c) in row" :key="c" class="tabular-row">
+                            {{ cell }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </template>
