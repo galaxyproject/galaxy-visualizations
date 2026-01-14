@@ -6,36 +6,34 @@ import vue from "@vitejs/plugin-vue";
 
 import { viteConfigCharts } from "./vite.config.charts";
 
-export default defineConfig({
-    ...viteConfigCharts,
-    plugins: [
-        tailwindcss(),
-        viteStaticCopy({
-            targets: [
-                {
-                    src: "node_modules/pyodide/*",
-                    dest: "pyodide",
-                    overwrite: true,
-                },
-                {
-                    src: "temp/pyodide/*.whl",
-                    dest: "pyodide",
-                    overwrite: true,
-                },
-                {
-                    src: "src/pyodide/pyodide-worker.js",
-                    dest: "pyodide",
-                    overwrite: true,
-                },
-                {
-                    src: "vintent/dist/vintent-*.whl",
-                    dest: "pyodide",
-                    overwrite: true,
-                },
-            ],
-        }),
-        vue(),
+const staticCopyPlugin = viteStaticCopy({
+    targets: [
+        {
+            src: "node_modules/pyodide/*",
+            dest: "pyodide",
+            overwrite: true,
+        },
+        {
+            src: "temp/pyodide/*.whl",
+            dest: "pyodide",
+            overwrite: true,
+        },
+        {
+            src: "src/pyodide/pyodide-worker.js",
+            dest: "pyodide",
+            overwrite: true,
+        },
+        {
+            src: "vintent/dist/vintent-*.whl",
+            dest: "pyodide",
+            overwrite: true,
+        },
     ],
+});
+
+export default defineConfig(({ command }) => ({
+    ...viteConfigCharts,
+    plugins: [tailwindcss(), ...(command === "build" ? [staticCopyPlugin] : []), vue()],
     test: {
         environment: "happy-dom",
         globals: true,
@@ -44,4 +42,4 @@ export default defineConfig({
     worker: {
         format: "es",
     },
-});
+}));
