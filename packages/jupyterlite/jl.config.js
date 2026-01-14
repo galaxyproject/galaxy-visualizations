@@ -9,6 +9,22 @@ const INJECTION = `
     const AI_SETTINGS = "@jupyterlite/ai:settings-model";
     const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
     const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
+    const galaxyApiBase = searchParams.root + "api/plugins/jupyterlite";
+
+    // Intercept fetch to strip Authorization header for Galaxy API requests
+    const originalFetch = window.fetch;
+    window.fetch = async function(url, init) {
+        const urlStr = typeof url === "string" ? url : url.toString();
+        if (urlStr.startsWith(galaxyApiBase)) {
+            if (init?.headers) {
+                const headers = new Headers(init.headers);
+                headers.delete("Authorization");
+                init = { ...init, headers };
+            }
+        }
+        return originalFetch.call(this, url, init);
+    };
+
     config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
         __gxy__: JSON.stringify(searchParams)
     };
@@ -22,8 +38,7 @@ const INJECTION = `
                 name: "jnaut",
                 provider: "generic",
                 model: "jnaut",
-                apiKey: "jnaut",
-                baseURL: searchParams.root + "api/plugins/jupyterlite"
+                baseURL: galaxyApiBase
             }
         ]
     };
