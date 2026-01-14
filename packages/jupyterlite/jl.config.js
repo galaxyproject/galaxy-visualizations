@@ -38,7 +38,10 @@ const INJECTION = `
                 name: "jnaut",
                 provider: "generic",
                 model: "jnaut",
-                baseURL: galaxyApiBase
+                baseURL: galaxyApiBase,
+                parameters: {
+                    maxTokens: 4096
+                }
             }
         ]
     };
