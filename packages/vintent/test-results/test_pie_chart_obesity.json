@@ -1,0 +1,1 @@
+{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","data":{"values":[{"Obesity":"Yes","count":645},{"Obesity":"No","count":123}]},"encoding":{"color":{"field":"Obesity","type":"nominal"},"theta":{"field":"count","type":"quantitative"}},"mark":{"type":"arc"}}

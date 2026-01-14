@@ -1,0 +1,1 @@
+{"$schema":"https://vega.github.io/schema/vega-lite/v6.json","data":{"values":[{"Glucose":123.6480620155,"Obesity":"Yes"},{"Glucose":106.4552845528,"Obesity":"No"}]},"encoding":{"x":{"field":"Obesity","type":"nominal"},"y":{"field":"Glucose","type":"quantitative"}},"mark":"bar"}
