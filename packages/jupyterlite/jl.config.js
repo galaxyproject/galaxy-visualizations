@@ -14,7 +14,16 @@ const INJECTION = `
     // Intercept fetch to strip Authorization header for Galaxy API requests
     const originalFetch = window.fetch;
     window.fetch = async function(url, init) {
-        const urlStr = typeof url === "string" ? url : url.toString();
+        let urlStr;
+        if (typeof url === "string") {
+            urlStr = url;
+        } else if (url instanceof URL) {
+            urlStr = url.toString();
+        } else if (url instanceof Request) {
+            urlStr = url.url;
+        } else {
+            urlStr = String(url);
+        }
         if (urlStr.startsWith(galaxyApiBase)) {
             if (init?.headers) {
                 const headers = new Headers(init.headers);
