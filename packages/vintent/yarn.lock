@@ -919,10 +919,10 @@ galaxy-charts-xml-parser@^1.0.3:
   dependencies:
     axios "^1.7.7"
 
-galaxy-charts@^0.1.6:
-  version "0.1.6"
-  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.1.6.tgz"
-  integrity sha512-0Kh9Ac1GZx0aihn5ip3xo0NPDxTPxlP+pp2qZ3SsoLdzTlVobJ2y2mFm1LAQGSgnweWh6zs3mxA9wpXLATNm5A==
+galaxy-charts@^0.1.9:
+  version "0.1.9"
+  resolved "https://registry.npmjs.org/galaxy-charts/-/galaxy-charts-0.1.9.tgz"
+  integrity sha512-3AL5NlII2sT5YG8xeN6lFZZKc3ca9dek3B4zU0OL/O+bKJU48uX4fzAPFU09Va9qYXaWO/pOwzVAbyZGK0XZKA==
 
 get-caller-file@^2.0.5:
   version "2.0.5"
