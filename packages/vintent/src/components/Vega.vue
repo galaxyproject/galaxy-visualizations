@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useDebounceFn, useResizeObserver } from "@vueuse/core";
-//@ts-ignore
 import embed, { type VisualizationSpec } from "vega-embed";
 import { nextTick, onBeforeUnmount, onMounted, ref, toRaw, watch } from "vue";
+import type { View } from "vega";
 
 const RESIZE_DEBOUNCE_MS = 150;
 
@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<VisSpec>(), {
 const chartContainer = ref<HTMLDivElement | null>(null);
 const errorMessage = ref<string>("");
 
-let vegaView: any;
+let vegaView: View | null = null;
 
 async function embedChart() {
     try {
