@@ -7,7 +7,7 @@ const props = withDefaults(
         maxRows?: number;
     }>(),
     {
-        maxRows: 0,
+        maxRows: 10000,
     },
 );
 

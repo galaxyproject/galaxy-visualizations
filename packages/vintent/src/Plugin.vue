@@ -67,7 +67,7 @@ const pyodide = new PyodideManager({
 });
 
 // References
-const datasetContent = ref();
+const datasetContent = ref<string>();
 const consoleMessages = ref<ConsoleMessageType[]>([]);
 const isLoadingPyodide = ref<boolean>(true);
 const isProcessingRequest = ref<boolean>(false);
@@ -83,8 +83,29 @@ function getConfig() {
     };
 }
 
+// Load dataset content
+async function loadDataset(): Promise<string | undefined> {
+    try {
+        const res = await fetch(datasetUrl);
+        if (res.ok) {
+            return await res.text();
+        } else {
+            consoleMessages.value.push({
+                content: `Failed to fetch dataset: ${res.status}`,
+                icon: ExclamationTriangleIcon,
+            });
+        }
+    } catch (e) {
+        consoleMessages.value.push({
+            content: `Failed to fetch dataset: ${e}`,
+            icon: ExclamationTriangleIcon,
+        });
+    }
+    return undefined;
+}
+
 // Inject Prompt
-async function loadPrompt() {
+function loadPrompt() {
     const transcripts = [...props.transcripts];
     if (transcripts.length === 0) {
         consoleMessages.value.push({ content: "Injected system prompt.", icon: SparklesIcon });
@@ -100,14 +121,19 @@ async function loadPrompt() {
 
 // Load Pyodide
 async function loadPyodide() {
-    if (isLoadingPyodide.value) {
-        const pyodideMessageIndex = consoleMessages.value.length;
-        consoleMessages.value.push({ content: "Loading Pyodide...", icon: ArrowPathIcon, spin: true });
-        await pyodide.initialize();
-        datasetContent.value = await pyodide.fsFetch(datasetUrl, DATASET_NAME);
-        consoleMessages.value[pyodideMessageIndex] = { content: "Pyodide ready.", icon: CheckIcon };
-        isLoadingPyodide.value = false;
-        processUserRequest();
+    const datasetContent = await loadDataset();
+    if (datasetContent) {
+        if (isLoadingPyodide.value) {
+            const pyodideMessageIndex = consoleMessages.value.length;
+            consoleMessages.value.push({ content: "Loading Pyodide...", icon: ArrowPathIcon, spin: true });
+            await pyodide.initialize();
+            await pyodide.fsWrite(datasetContent, DATASET_NAME);
+            consoleMessages.value[pyodideMessageIndex] = { content: "Pyodide ready.", icon: CheckIcon };
+            isLoadingPyodide.value = false;
+            processUserRequest();
+        }
+    } else {
+            consoleMessages.value.push({ content: "Failed to load dataset.", icon: ExclamationTriangleIcon });
     }
 }
 
