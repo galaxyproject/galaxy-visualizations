@@ -121,19 +121,20 @@ function loadPrompt() {
 
 // Load Pyodide
 async function loadPyodide() {
-    const datasetContent = await loadDataset();
-    if (datasetContent) {
+    const content = await loadDataset();
+    if (content) {
+        datasetContent.value = content;
         if (isLoadingPyodide.value) {
             const pyodideMessageIndex = consoleMessages.value.length;
             consoleMessages.value.push({ content: "Loading Pyodide...", icon: ArrowPathIcon, spin: true });
             await pyodide.initialize();
-            await pyodide.fsWrite(datasetContent, DATASET_NAME);
+            await pyodide.fsWrite(content, DATASET_NAME);
             consoleMessages.value[pyodideMessageIndex] = { content: "Pyodide ready.", icon: CheckIcon };
             isLoadingPyodide.value = false;
             processUserRequest();
         }
     } else {
-            consoleMessages.value.push({ content: "Failed to load dataset.", icon: ExclamationTriangleIcon });
+        consoleMessages.value.push({ content: "Failed to load dataset.", icon: ExclamationTriangleIcon });
     }
 }
 
