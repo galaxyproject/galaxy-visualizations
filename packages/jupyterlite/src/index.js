@@ -3,9 +3,14 @@ async function create() {
     const appElement = document.querySelector("#app");
 
     // Access attached data
-    const incoming = JSON.parse(appElement?.dataset.incoming || "{}");
-    const datasetId = incoming.visualization_config.dataset_id;
-    const root = incoming.root;
+    let incoming = {};
+    try {
+        incoming = JSON.parse(appElement?.dataset.incoming || "{}");
+    } catch (e) {
+        console.error("[jupyterlite] Failed to parse incoming data:", e);
+    }
+    const datasetId = incoming.visualization_config?.dataset_id;
+    const root = incoming.root || "/";
 
     // Collect query params
     const params = { root };

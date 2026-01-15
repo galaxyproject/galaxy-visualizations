@@ -163,11 +163,33 @@ fs.writeFileSync(allJsonPath, JSON.stringify(EMPTY_DIR_JSON, null, 2));
 console.log(`✅ Created placeholder contents file: ${allJsonPath}`);
 
 // ---- Injecting dynamic configuration ----
-const configScriptPath = path.join(__dirname, "jl.config.js");
-const configInstall = spawnSync("node", [configScriptPath], {
-    stdio: "inherit",
-});
-if (configInstall.status !== 0) {
-    console.error("❌ patching configuration failed.");
+const INJECTION_MARKER = "const config = await jupyterConfigData();";
+const INJECTION_UNIQUE = "//__GXY__INJECTION__";
+const INJECTION_CODE = fs.readFileSync(path.join(__dirname, "jl.config.js"), "utf-8");
+const configUtilsPath = path.join(__dirname, JUPYTER_DIR, "config-utils.js");
+
+if (!fs.existsSync(configUtilsPath)) {
+    console.error(`❌ Patch failed: ${configUtilsPath} not found. Did you run 'jupyter lite build' first?`);
     process.exit(1);
 }
+
+let configUtilsContents = fs.readFileSync(configUtilsPath, "utf-8");
+
+if (!configUtilsContents.includes(INJECTION_MARKER)) {
+    console.error("❌ Patch failed: marker line not found in config-utils.js");
+    process.exit(1);
+}
+
+// Remove previous injection if present
+const uniqueEsc = INJECTION_UNIQUE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const blockRe = new RegExp(`${uniqueEsc}[\\s\\S]*?${uniqueEsc}\\n?`, "g");
+configUtilsContents = configUtilsContents.replace(blockRe, "");
+
+// Inject fresh block
+const patchedContents = configUtilsContents.replace(
+    INJECTION_MARKER,
+    `${INJECTION_MARKER}\n${INJECTION_UNIQUE}\n${INJECTION_CODE}\n${INJECTION_UNIQUE}`,
+);
+
+fs.writeFileSync(configUtilsPath, patchedContents, "utf-8");
+console.log("✅ Successfully injected dynamic configuration.");

@@ -21,17 +21,6 @@ const DATASET_HASH = "f1b9ff97-c70c-4889-a0d0-40896db528eb";
 
 const LANDING = "http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id";
 
-async function createNotebook(page) {
-    await page.waitForSelector("#jp-MainMenu");
-    await page.click("text=File");
-    const newItem = page.locator('li.lm-Menu-item[data-type="submenu"]', { hasText: "New" });
-    await newItem.waitFor();
-    await newItem.hover();
-    const notebookItem = page.locator('.lm-Menu-item[data-command="notebook:create-new"]');
-    await notebookItem.waitFor();
-    await notebookItem.click();
-}
-
 async function checkOutputArea(page, index, contains) {
     const outputs = page.locator(".jp-OutputArea-output");
     await outputs.nth(index).waitFor();
@@ -244,12 +233,12 @@ test("create and run notebook", async ({ page }) => {
 });
 
 test("strip authorization header for galaxy api requests", async ({ page }, testInfo) => {
-    let galaxyApiHeaders = null;
+    const galaxyApiCalls = [];
     let otherApiHeaders = null;
 
     // Intercept Galaxy API requests and capture headers
     await page.route("**/root/api/plugins/jupyterlite/**", async (route) => {
-        galaxyApiHeaders = route.request().headers();
+        galaxyApiCalls.push(route.request().headers());
         await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -269,25 +258,99 @@ test("strip authorization header for galaxy api requests", async ({ page }, test
 
     await startService(page, testInfo.title);
 
-    // Test 1: Fetch to Galaxy API with Authorization header (should be stripped)
+    // Test 1: String URL with init headers (should be stripped)
     await page.evaluate(async () => {
         await fetch("/root/api/plugins/jupyterlite/test", {
             headers: { Authorization: "Bearer secret-token" },
         });
     });
+    expect(galaxyApiCalls[0]).toBeDefined();
+    expect(galaxyApiCalls[0]["authorization"]).toBeUndefined();
 
-    // Verify Authorization header was stripped for Galaxy API
-    expect(galaxyApiHeaders).not.toBeNull();
-    expect(galaxyApiHeaders["authorization"]).toBeUndefined();
+    // Test 2: Absolute URL (should be stripped)
+    await page.evaluate(async () => {
+        await fetch("http://localhost:8000/root/api/plugins/jupyterlite/test", {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+    });
+    expect(galaxyApiCalls[1]).toBeDefined();
+    expect(galaxyApiCalls[1]["authorization"]).toBeUndefined();
 
-    // Test 2: Fetch to other API with Authorization header (should be preserved)
+    // Test 3: Request object with built-in headers (should be stripped)
+    await page.evaluate(async () => {
+        const request = new Request("/root/api/plugins/jupyterlite/test", {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+        await fetch(request);
+    });
+    expect(galaxyApiCalls[2]).toBeDefined();
+    expect(galaxyApiCalls[2]["authorization"]).toBeUndefined();
+
+    // Test 4: URL object (should be stripped)
+    await page.evaluate(async () => {
+        const url = new URL("http://localhost:8000/root/api/plugins/jupyterlite/test");
+        await fetch(url, {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+    });
+    expect(galaxyApiCalls[3]).toBeDefined();
+    expect(galaxyApiCalls[3]["authorization"]).toBeUndefined();
+
+    // Test 5: Non-Galaxy API (should preserve headers)
     await page.evaluate(async () => {
         await fetch("/root/api/other/test", {
             headers: { Authorization: "Bearer secret-token" },
         });
     });
-
-    // Verify Authorization header is preserved for non-Galaxy API requests
     expect(otherApiHeaders).not.toBeNull();
     expect(otherApiHeaders["authorization"]).toBe("Bearer secret-token");
+});
+
+test("save notebook to galaxy", async ({ page }, testInfo) => {
+    let savedPayload = null;
+
+    await startService(page, testInfo.title);
+
+    // Override the route set by startService to capture the payload
+    await page.unroute("**/root/api/tools/fetch");
+    await page.route("**/root/api/tools/fetch", async (route) => {
+        const request = route.request();
+        savedPayload = JSON.parse(request.postData() || "{}");
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ status: "ok" }),
+        });
+    });
+
+    // Add some content to the notebook
+    await executeNext(page, ["print('test save')"]);
+    await checkOutputArea(page, 1, "test save");
+
+    // Click on the notebook to ensure it's focused
+    await page.click(".jp-NotebookPanel");
+
+    // Trigger save via menu (more reliable across platforms than keyboard shortcuts)
+    await page.click("#jp-MainMenu");
+    await page.click('text=File');
+    await page.click('[data-command="docmanager:save"]');
+
+    // Wait for and interact with the save dialog
+    const dialog = page.locator(".jp-Dialog");
+    await dialog.waitFor({ timeout: 5000 });
+
+    // Enter a name and confirm
+    const input = dialog.locator("input");
+    await input.fill("my-saved-notebook");
+    await dialog.locator('button:has-text("OK")').click();
+
+    // Wait for the API call to complete
+    await page.waitForTimeout(1000);
+
+    // Verify the save payload
+    expect(savedPayload).not.toBeNull();
+    expect(savedPayload.history_id).toBe("history_id");
+    expect(savedPayload.targets).toBeDefined();
+    expect(savedPayload.targets[0].elements[0].name).toBe("my-saved-notebook");
+    expect(savedPayload.targets[0].elements[0].ext).toBe("ipynb");
 });

@@ -1,6 +1,5 @@
 import type { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
 import { InputDialog } from "@jupyterlab/apputils";
-import axios from "axios";
 
 import TEMPLATE from "./template.json";
 
@@ -133,9 +132,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                     const ext = item.type === "notebook" ? EXTENSION_NOTEBOOK : EXTENSION_FILE;
                                     if (content && historyId) {
                                         const payload = getPayload(name, historyId, content, ext);
-                                        axios
-                                            .post(`${root}api/tools/fetch`, payload)
-                                            .then(() => {
+                                        fetch(`${root}api/tools/fetch`, {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify(payload),
+                                        })
+                                            .then((res) => {
+                                                if (!res.ok) {
+                                                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                                                }
                                                 console.log(`✅ Notebook "${name}" saved to history`);
                                             })
                                             .catch((err: any) => {

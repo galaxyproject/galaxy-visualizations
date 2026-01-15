@@ -1,83 +1,65 @@
-import fs from "fs";
-import path from "path";
+const AI_SETTINGS = "@jupyterlite/ai:settings-model";
+const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
+const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
+const galaxyRoot = searchParams.root || "/";
+const galaxyApiBase = galaxyRoot + "api/plugins/jupyterlite";
 
-// Injection
-const MARKER = "const config = await jupyterConfigData();";
-const UNIQUE = "//__GXY__INJECTION__";
+// Intercept fetch to strip Authorization header for Galaxy API requests
+const originalFetch = window.fetch;
+const galaxyApiPath = galaxyApiBase.startsWith("http") ? new URL(galaxyApiBase).pathname : galaxyApiBase;
+window.fetch = async function (url, init) {
+    // Normalize URL to pathname for comparison
+    let pathname;
+    if (typeof url === "string") {
+        pathname = url.startsWith("http") ? new URL(url).pathname : url;
+    } else if (url instanceof URL) {
+        pathname = url.pathname;
+    } else if (url instanceof Request) {
+        pathname = new URL(url.url).pathname;
+    } else {
+        pathname = String(url);
+    }
 
-const INJECTION = `
-    const AI_SETTINGS = "@jupyterlite/ai:settings-model";
-    const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
-    const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
-    const galaxyApiBase = searchParams.root + "api/plugins/jupyterlite";
-
-    // Intercept fetch to strip Authorization header for Galaxy API requests
-    const originalFetch = window.fetch;
-    window.fetch = async function(url, init) {
-        let urlStr;
-        if (typeof url === "string") {
-            urlStr = url;
-        } else if (url instanceof URL) {
-            urlStr = url.toString();
-        } else if (url instanceof Request) {
-            urlStr = url.url;
-        } else {
-            urlStr = String(url);
+    // Check if this is a Galaxy API request
+    if (pathname.startsWith(galaxyApiPath)) {
+        // Handle Request objects with built-in headers
+        if (url instanceof Request) {
+            const headers = new Headers(url.headers);
+            headers.delete("Authorization");
+            url = new Request(url, { headers });
         }
-        if (urlStr.startsWith(galaxyApiBase)) {
-            if (init?.headers) {
-                const headers = new Headers(init.headers);
-                headers.delete("Authorization");
-                init = { ...init, headers };
-            }
+        // Handle headers in init options
+        if (init?.headers) {
+            const headers = new Headers(init.headers);
+            headers.delete("Authorization");
+            init = { ...init, headers };
         }
-        return originalFetch.call(this, url, init);
-    };
+    }
+    return originalFetch.call(this, url, init);
+};
 
-    config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
-        __gxy__: JSON.stringify(searchParams)
-    };
-    config.settingsOverrides = {};
-    config.settingsOverrides[AI_SETTINGS] = {
-        defaultProvider: "jnaut",
-        useSameProviderForChatAndCompleter: false,
-        providers: [
-            {
-                id: "jnaut",
-                name: "jnaut",
-                provider: "generic",
-                model: "jnaut",
-                baseURL: galaxyApiBase,
-                parameters: {
-                    maxTokens: 4096
-                }
-            }
-        ]
-    };
-`;
-
-// Read contents
-const file = path.resolve("static/dist/_output/config-utils.js");
-if (!fs.existsSync(file)) {
-    console.error(`[jl.config.js] ❌ Patch failed: ${file} not found. Did you run 'jupyter lite build' first?`);
-    process.exit(1);
-}
-
-let contents = fs.readFileSync(file, "utf-8");
-
-// Ensure marker exists before mutation
-if (!contents.includes(MARKER)) {
-    console.error("[jl.config.js] ❌ Patch failed: marker line not found.");
-    process.exit(1);
-}
-
-// Remove previous injection if present
-const uniqueEsc = UNIQUE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const blockRe = new RegExp(`${uniqueEsc}[\\s\\S]*?${uniqueEsc}\\n?`, "g");
-contents = contents.replace(blockRe, "");
-
-// Inject fresh block
-const patched = contents.replace(MARKER, `${MARKER}\n${UNIQUE}\n${INJECTION}\n${UNIQUE}`);
-
-fs.writeFileSync(file, patched, "utf-8");
-console.log("✅ Successfully injected dynamic configuration.");
+// Ensure nested config structure exists
+config.litePluginSettings = config.litePluginSettings || {};
+config.litePluginSettings[PYODIDE_KERNEL] = config.litePluginSettings[PYODIDE_KERNEL] || {};
+config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions =
+    config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions || {};
+config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
+    __gxy__: JSON.stringify(searchParams),
+};
+config.settingsOverrides = {};
+config.settingsOverrides[AI_SETTINGS] = {
+    defaultProvider: "jnaut",
+    useSameProviderForChatAndCompleter: false,
+    providers: [
+        {
+            id: "jnaut",
+            name: "jnaut",
+            provider: "generic",
+            model: "jnaut",
+            baseURL: galaxyApiBase,
+            parameters: {
+                maxTokens: 4096,
+            },
+        },
+    ],
+};
