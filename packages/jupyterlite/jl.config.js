@@ -1,7 +1,8 @@
 const AI_SETTINGS = "@jupyterlite/ai:settings-model";
 const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
 const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
-const galaxyApiBase = searchParams.root + "api/plugins/jupyterlite";
+const galaxyRoot = searchParams.root || "/";
+const galaxyApiBase = galaxyRoot + "api/plugins/jupyterlite";
 
 // Intercept fetch to strip Authorization header for Galaxy API requests
 const originalFetch = window.fetch;
@@ -37,6 +38,11 @@ window.fetch = async function (url, init) {
     return originalFetch.call(this, url, init);
 };
 
+// Ensure nested config structure exists
+config.litePluginSettings = config.litePluginSettings || {};
+config.litePluginSettings[PYODIDE_KERNEL] = config.litePluginSettings[PYODIDE_KERNEL] || {};
+config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions =
+    config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions || {};
 config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
     __gxy__: JSON.stringify(searchParams),
 };

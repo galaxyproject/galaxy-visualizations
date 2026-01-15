@@ -316,3 +316,50 @@ test("strip authorization header for galaxy api requests", async ({ page }, test
     expect(otherApiHeaders).not.toBeNull();
     expect(otherApiHeaders["authorization"]).toBe("Bearer secret-token");
 });
+
+test("save notebook to galaxy", async ({ page }, testInfo) => {
+    let savedPayload = null;
+
+    await startService(page, testInfo.title);
+
+    // Override the route set by startService to capture the payload
+    await page.unroute("**/root/api/tools/fetch");
+    await page.route("**/root/api/tools/fetch", async (route) => {
+        const request = route.request();
+        savedPayload = JSON.parse(request.postData() || "{}");
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ status: "ok" }),
+        });
+    });
+
+    // Add some content to the notebook
+    await executeNext(page, ["print('test save')"]);
+    await checkOutputArea(page, 1, "test save");
+
+    // Click on the notebook to ensure it's focused
+    await page.click(".jp-NotebookPanel");
+
+    // Trigger save via keyboard shortcut (Meta for macOS, Control for others)
+    await page.keyboard.press("Meta+s");
+
+    // Wait for and interact with the save dialog
+    const dialog = page.locator(".jp-Dialog");
+    await dialog.waitFor({ timeout: 5000 });
+
+    // Enter a name and confirm
+    const input = dialog.locator("input");
+    await input.fill("my-saved-notebook");
+    await dialog.locator('button:has-text("OK")').click();
+
+    // Wait for the API call to complete
+    await page.waitForTimeout(1000);
+
+    // Verify the save payload
+    expect(savedPayload).not.toBeNull();
+    expect(savedPayload.history_id).toBe("history_id");
+    expect(savedPayload.targets).toBeDefined();
+    expect(savedPayload.targets[0].elements[0].name).toBe("my-saved-notebook");
+    expect(savedPayload.targets[0].elements[0].ext).toBe("ipynb");
+});
