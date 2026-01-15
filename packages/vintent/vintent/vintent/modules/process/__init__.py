@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, List, Literal, Optional, TypedDict
 
-from vintent.core.exceptions import ProcessError
+from vintent.modules.exceptions import ProcessError
 
 # Type aliases for clarity
 DataShape = Literal["rowwise", "aggregate"]

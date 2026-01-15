@@ -2,13 +2,12 @@
 
 import pytest
 
-from vintent.core.exceptions import (
-    AppError,
+from vintent.core.exceptions import AppError, HttpError
+from vintent.modules.exceptions import (
     CompletionsError,
     CompletionsParseError,
     ConfigurationError,
     DataError,
-    HttpError,
     ProcessError,
 )
 from vintent.modules.shells.base import ShellError

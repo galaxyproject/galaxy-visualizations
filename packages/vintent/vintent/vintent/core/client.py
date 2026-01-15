@@ -22,7 +22,7 @@ def is_pyodide():
         import pyodide_js  # noqa: F401
 
         return True
-    except Exception:
+    except ImportError:
         return False
 
 
@@ -31,7 +31,7 @@ async def parse_response(response):
     text = await response.text()
     try:
         return json.loads(text)
-    except Exception:
+    except json.JSONDecodeError:
         return text
 
 
@@ -148,6 +148,7 @@ class ServerHttpClient(HttpClient):
 # Export single implementation
 # ----------------------------
 
+http: HttpClient
 if is_pyodide():
     http = BrowserHttpClient()
 else:

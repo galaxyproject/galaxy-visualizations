@@ -66,14 +66,14 @@ class DefaultCompletionsProvider:
         parallel_tools: bool = False,
     ) -> Optional[CompletionsReply]:
         return await completions_post(
-            dict(
-                ai_base_url=self.ai_base_url,
-                ai_api_key=self.ai_api_key,
-                ai_model=self.ai_model,
-                messages=sanitize_transcripts(transcripts),
-                tools=tools,
-                parallel_tools=parallel_tools,
-            )
+            {
+                "ai_base_url": self.ai_base_url,
+                "ai_api_key": self.ai_api_key,
+                "ai_model": self.ai_model,
+                "messages": sanitize_transcripts(transcripts),
+                "tools": tools,
+                "parallel_tools": parallel_tools,
+            }
         )
 
 

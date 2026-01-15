@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from vintent.core.completions import get_tool_call
-from vintent.core.exceptions import AppError, DataError
+from vintent.core.exceptions import AppError
+from vintent.modules.exceptions import DataError
 from vintent.core.providers import (
     CompletionsProvider,
     DefaultCompletionsProvider,

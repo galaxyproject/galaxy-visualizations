@@ -1,4 +1,4 @@
-"""Custom exception hierarchy."""
+"""Shared exception hierarchy for Galaxy visualization plugins."""
 
 from typing import Any, Dict, Optional
 
@@ -20,36 +20,6 @@ class AppError(Exception):
             "message": self.message,
             "details": self.details,
         }
-
-
-class ConfigurationError(AppError):
-    """Invalid or missing configuration."""
-
-    code = "CONFIG_ERROR"
-
-
-class DataError(AppError):
-    """Error with input data (CSV, profile, etc.)."""
-
-    code = "DATA_ERROR"
-
-
-class ProcessError(AppError):
-    """Error during data processing."""
-
-    code = "PROCESS_ERROR"
-
-
-class CompletionsError(AppError):
-    """Error communicating with LLM API."""
-
-    code = "COMPLETIONS_ERROR"
-
-
-class CompletionsParseError(CompletionsError):
-    """Failed to parse LLM response."""
-
-    code = "COMPLETIONS_PARSE_ERROR"
 
 
 class HttpError(AppError):

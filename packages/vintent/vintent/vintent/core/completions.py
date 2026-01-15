@@ -64,8 +64,7 @@ async def completions_post(payload):
                 "function": {"name": tool_name},
             }
 
-    headers = dict()
-    headers["Content-Type"] = "application/json"
+    headers = {"Content-Type": "application/json"}
     if api_key is not None:
         headers["Authorization"] = f"Bearer {api_key}"
         headers["x-api-key"] = api_key
