@@ -242,3 +242,52 @@ test("create and run notebook", async ({ page }) => {
     await executeNext(page, ["import gxy", "print(await gxy.get('dataset_0', 'id'))"]);
     await checkOutputArea(page, 7, "99.txt.dataset_0.txt");
 });
+
+test("strip authorization header for galaxy api requests", async ({ page }, testInfo) => {
+    let galaxyApiHeaders = null;
+    let otherApiHeaders = null;
+
+    // Intercept Galaxy API requests and capture headers
+    await page.route("**/root/api/plugins/jupyterlite/**", async (route) => {
+        galaxyApiHeaders = route.request().headers();
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ success: true }),
+        });
+    });
+
+    // Intercept other API requests to verify headers are preserved
+    await page.route("**/root/api/other/**", async (route) => {
+        otherApiHeaders = route.request().headers();
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ success: true }),
+        });
+    });
+
+    await startService(page, testInfo.title);
+
+    // Test 1: Fetch to Galaxy API with Authorization header (should be stripped)
+    await page.evaluate(async () => {
+        await fetch("/root/api/plugins/jupyterlite/test", {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+    });
+
+    // Verify Authorization header was stripped for Galaxy API
+    expect(galaxyApiHeaders).not.toBeNull();
+    expect(galaxyApiHeaders["authorization"]).toBeUndefined();
+
+    // Test 2: Fetch to other API with Authorization header (should be preserved)
+    await page.evaluate(async () => {
+        await fetch("/root/api/other/test", {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+    });
+
+    // Verify Authorization header is preserved for non-Galaxy API requests
+    expect(otherApiHeaders).not.toBeNull();
+    expect(otherApiHeaders["authorization"]).toBe("Bearer secret-token");
+});
