@@ -21,17 +21,6 @@ const DATASET_HASH = "f1b9ff97-c70c-4889-a0d0-40896db528eb";
 
 const LANDING = "http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id";
 
-async function createNotebook(page) {
-    await page.waitForSelector("#jp-MainMenu");
-    await page.click("text=File");
-    const newItem = page.locator('li.lm-Menu-item[data-type="submenu"]', { hasText: "New" });
-    await newItem.waitFor();
-    await newItem.hover();
-    const notebookItem = page.locator('.lm-Menu-item[data-command="notebook:create-new"]');
-    await notebookItem.waitFor();
-    await notebookItem.click();
-}
-
 async function checkOutputArea(page, index, contains) {
     const outputs = page.locator(".jp-OutputArea-output");
     await outputs.nth(index).waitFor();
