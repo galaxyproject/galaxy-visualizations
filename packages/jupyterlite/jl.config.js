@@ -4,57 +4,7 @@ import path from "path";
 // Injection
 const MARKER = "const config = await jupyterConfigData();";
 const UNIQUE = "//__GXY__INJECTION__";
-
-const INJECTION = `
-    const AI_SETTINGS = "@jupyterlite/ai:settings-model";
-    const PYODIDE_KERNEL = "@jupyterlite/pyodide-kernel-extension:kernel";
-    const searchParams = Object.fromEntries(new URL(window.location.href).searchParams.entries());
-    const galaxyApiBase = searchParams.root + "api/plugins/jupyterlite";
-
-    // Intercept fetch to strip Authorization header for Galaxy API requests
-    const originalFetch = window.fetch;
-    window.fetch = async function(url, init) {
-        let urlStr;
-        if (typeof url === "string") {
-            urlStr = url;
-        } else if (url instanceof URL) {
-            urlStr = url.toString();
-        } else if (url instanceof Request) {
-            urlStr = url.url;
-        } else {
-            urlStr = String(url);
-        }
-        if (urlStr.startsWith(galaxyApiBase)) {
-            if (init?.headers) {
-                const headers = new Headers(init.headers);
-                headers.delete("Authorization");
-                init = { ...init, headers };
-            }
-        }
-        return originalFetch.call(this, url, init);
-    };
-
-    config.litePluginSettings[PYODIDE_KERNEL].loadPyodideOptions.env = {
-        __gxy__: JSON.stringify(searchParams)
-    };
-    config.settingsOverrides = {};
-    config.settingsOverrides[AI_SETTINGS] = {
-        defaultProvider: "jnaut",
-        useSameProviderForChatAndCompleter: false,
-        providers: [
-            {
-                id: "jnaut",
-                name: "jnaut",
-                provider: "generic",
-                model: "jnaut",
-                baseURL: galaxyApiBase,
-                parameters: {
-                    maxTokens: 4096
-                }
-            }
-        ]
-    };
-`;
+const INJECTION = fs.readFileSync(path.resolve("jl.injection.js"), "utf-8");
 
 // Read contents
 const file = path.resolve("static/dist/_output/config-utils.js");

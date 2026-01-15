@@ -244,12 +244,12 @@ test("create and run notebook", async ({ page }) => {
 });
 
 test("strip authorization header for galaxy api requests", async ({ page }, testInfo) => {
-    let galaxyApiHeaders = null;
+    const galaxyApiCalls = [];
     let otherApiHeaders = null;
 
     // Intercept Galaxy API requests and capture headers
     await page.route("**/root/api/plugins/jupyterlite/**", async (route) => {
-        galaxyApiHeaders = route.request().headers();
+        galaxyApiCalls.push(route.request().headers());
         await route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -269,25 +269,50 @@ test("strip authorization header for galaxy api requests", async ({ page }, test
 
     await startService(page, testInfo.title);
 
-    // Test 1: Fetch to Galaxy API with Authorization header (should be stripped)
+    // Test 1: String URL with init headers (should be stripped)
     await page.evaluate(async () => {
         await fetch("/root/api/plugins/jupyterlite/test", {
             headers: { Authorization: "Bearer secret-token" },
         });
     });
+    expect(galaxyApiCalls[0]).toBeDefined();
+    expect(galaxyApiCalls[0]["authorization"]).toBeUndefined();
 
-    // Verify Authorization header was stripped for Galaxy API
-    expect(galaxyApiHeaders).not.toBeNull();
-    expect(galaxyApiHeaders["authorization"]).toBeUndefined();
+    // Test 2: Absolute URL (should be stripped)
+    await page.evaluate(async () => {
+        await fetch("http://localhost:8000/root/api/plugins/jupyterlite/test", {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+    });
+    expect(galaxyApiCalls[1]).toBeDefined();
+    expect(galaxyApiCalls[1]["authorization"]).toBeUndefined();
 
-    // Test 2: Fetch to other API with Authorization header (should be preserved)
+    // Test 3: Request object with built-in headers (should be stripped)
+    await page.evaluate(async () => {
+        const request = new Request("/root/api/plugins/jupyterlite/test", {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+        await fetch(request);
+    });
+    expect(galaxyApiCalls[2]).toBeDefined();
+    expect(galaxyApiCalls[2]["authorization"]).toBeUndefined();
+
+    // Test 4: URL object (should be stripped)
+    await page.evaluate(async () => {
+        const url = new URL("http://localhost:8000/root/api/plugins/jupyterlite/test");
+        await fetch(url, {
+            headers: { Authorization: "Bearer secret-token" },
+        });
+    });
+    expect(galaxyApiCalls[3]).toBeDefined();
+    expect(galaxyApiCalls[3]["authorization"]).toBeUndefined();
+
+    // Test 5: Non-Galaxy API (should preserve headers)
     await page.evaluate(async () => {
         await fetch("/root/api/other/test", {
             headers: { Authorization: "Bearer secret-token" },
         });
     });
-
-    // Verify Authorization header is preserved for non-Galaxy API requests
     expect(otherApiHeaders).not.toBeNull();
     expect(otherApiHeaders["authorization"]).toBe("Bearer secret-token");
 });
