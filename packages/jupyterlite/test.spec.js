@@ -341,8 +341,10 @@ test("save notebook to galaxy", async ({ page }, testInfo) => {
     // Click on the notebook to ensure it's focused
     await page.click(".jp-NotebookPanel");
 
-    // Trigger save via keyboard shortcut (Meta for macOS, Control for others)
-    await page.keyboard.press("Meta+s");
+    // Trigger save via menu (more reliable across platforms than keyboard shortcuts)
+    await page.click("#jp-MainMenu");
+    await page.click('text=File');
+    await page.click('[data-command="docmanager:save"]');
 
     // Wait for and interact with the save dialog
     const dialog = page.locator(".jp-Dialog");
