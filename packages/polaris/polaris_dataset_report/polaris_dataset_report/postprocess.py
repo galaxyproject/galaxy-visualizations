@@ -56,10 +56,15 @@ def generate_mermaid(
         inputs = job.get("inputs")
         if inputs and isinstance(inputs, dict):
             for value in inputs.values():
-                if isinstance(value, dict) and value.get("uuid"):
-                    dataset_id = uuid_to_dataset_id.get(value["uuid"])
-                    if dataset_id:
-                        input_dataset_ids.add(dataset_id)
+                if isinstance(value, dict):
+                    # Prefer UUID lookup for canonical ID, fall back to direct ID
+                    if value.get("uuid"):
+                        dataset_id = uuid_to_dataset_id.get(value["uuid"])
+                        if dataset_id:
+                            input_dataset_ids.add(dataset_id)
+                    elif value.get("id") and value["id"] in dataset_map:
+                        # Fallback: use ID directly if in our dataset map
+                        input_dataset_ids.add(value["id"])
         job_inputs_map[job["id"]] = input_dataset_ids
 
     # Datasets by creating job
