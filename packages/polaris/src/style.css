@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@layer components {
+    .button-plain {
+        @apply cursor-pointer rounded border-gray-500 bg-white/90 hover:bg-gray-500 hover:text-white;
+    }
+}
+
+/* Mermaid node styles - must be global for dynamically injected SVG */
+/* Dataset nodes: green-50 / green-600 */
+.mermaid-container .dataset rect,
+.mermaid-container .dataset polygon,
+.mermaid-container .dataset path {
+    fill: #f0fdf4 !important;
+    stroke: #16a34a !important;
+    stroke-width: 1px !important;
+}
+/* Highlighted node: amber-50 / amber-600 (source dataset) */
+.mermaid-container .highlighted rect,
+.mermaid-container .highlighted polygon,
+.mermaid-container .highlighted path {
+    fill: #fffbeb !important;
+    stroke: #d97706 !important;
+    stroke-width: 3px !important;
+}
+/* Tool nodes: blue-50 / blue-600 */
+.mermaid-container .tool rect,
+.mermaid-container .tool polygon,
+.mermaid-container .tool path {
+    fill: #eff6ff !important;
+    stroke: #2563eb !important;
+    stroke-width: 1px !important;
+}

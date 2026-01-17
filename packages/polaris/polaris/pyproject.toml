@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polaris"
+version = "0.0.0"
+description = "Execution runtime for Polaris intent graphs"
+dependencies = ["jsonschema", "pydantic>=2.0", "pyyaml"]
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Galaxy Team" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+
+[project.scripts]
+polaris = "polaris.cli:main"
+
+[project.optional-dependencies]
+server = ["aiohttp"]
+dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio", "aiohttp"]
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["polaris*"]
