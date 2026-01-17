@@ -672,3 +672,118 @@ class TestDedupField:
         assert len(datasets) == 1
         # The seed (d3) should be the one collected
         assert datasets[0]["id"] == "d3"
+
+    @pytest.mark.asyncio
+    async def test_traverses_through_same_uuid_different_id(
+        self, handler, mock_registry, mock_runner
+    ):
+        """
+        Test collection extraction scenario: traverse through entity with same UUID but different ID.
+
+        Scenario:
+        - D_source (id: d_source, uuid: uuid-source) is the original input
+        - J_collection creates collection element D_col (id: d_col, uuid: uuid-source)
+        - J_extract extracts from collection, creating D_out (id: d_out, uuid: uuid-source)
+
+        Starting from D_out, we should traverse:
+        D_out -> J_extract -> D_col (same UUID, different ID) -> J_collection -> D_source
+
+        The key issue: D_out and D_col have the same UUID. We must still traverse
+        through D_col to reach J_collection and D_source, even though UUID was "visited".
+        """
+        pipeline_data = {
+            "datasets": {
+                "d_source": {
+                    "id": "d_source",
+                    "uuid": "uuid-original",
+                    "name": "Original Source",
+                    "creating_job": None,
+                },
+                "d_col": {
+                    "id": "d_col",
+                    "uuid": "uuid-source",  # UUID preserved in collection
+                    "name": "Collection Element",
+                    "creating_job": "j_collection",
+                },
+                "d_out": {
+                    "id": "d_out",
+                    "uuid": "uuid-source",  # Same UUID as d_col (extraction preserves UUID)
+                    "name": "Extracted Output",
+                    "creating_job": "j_extract",
+                },
+            },
+            "jobs": {
+                "j_collection": {
+                    "id": "j_collection",
+                    "tool_id": "collection_creator",
+                    "inputs": {"input1": {"id": "d_source", "uuid": "uuid-original"}},
+                    "outputs": {"output1": {"id": "d_col", "uuid": "uuid-source"}},
+                },
+                "j_extract": {
+                    "id": "j_extract",
+                    "tool_id": "__EXTRACT_DATASET__",
+                    # Input is d_col, output is d_out - both have same UUID
+                    "inputs": {"input1": {"id": "d_col", "uuid": "uuid-source"}},
+                    "outputs": {"output1": {"id": "d_out", "uuid": "uuid-source"}},
+                },
+            },
+        }
+
+        mock_registry.call_api = create_mock_api(pipeline_data)
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 10,
+            "max_per_level": 10,
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "dedup_field": "uuid",  # Dedup by UUID
+                    "fetch": {
+                        "target": "galaxy.datasets.show.get",
+                        "id_param": "dataset_id",
+                    },
+                    "relations": {
+                        "creating_job": {"type": "job", "extract": "creating_job"},
+                    },
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.jobs.show.get",
+                        "id_param": "job_id",
+                    },
+                    "relations": {
+                        "inputs": {"type": "dataset", "extract": "inputs.*"},
+                    },
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": pipeline_data["datasets"]["d_out"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        datasets = result["result"]["dataset"]
+        jobs = result["result"]["job"]
+
+        dataset_ids = {d["id"] for d in datasets}
+        job_ids = {j["id"] for j in jobs}
+
+        # Critical: We should have traversed through d_col to find j_collection and d_source
+        # Even though d_out and d_col have the same UUID, we followed d_col's creating_job
+        assert "j_extract" in job_ids, "Should find j_extract (d_out's creating job)"
+        assert "j_collection" in job_ids, "Should find j_collection (d_col's creating job)"
+        assert "d_source" in dataset_ids, "Should reach d_source through d_col -> j_collection"
+
+        # Verify deduplication still works - only 2 datasets collected (d_out and d_source)
+        # d_col has same UUID as d_out, so it shouldn't be in collected
+        uuids = {d["uuid"] for d in datasets}
+        assert len(uuids) == 2, "Should have 2 unique UUIDs"
+        assert uuids == {"uuid-source", "uuid-original"}

@@ -133,8 +133,11 @@ class TraverseHandler:
         max_per_level = cfg["max_per_level"]
         types = cfg["types"]
 
-        # Initialize visited sets and collections per type
-        visited: dict[str, set[str]] = {t: set() for t in types}
+        # Track fetched IDs (to avoid fetching same ID twice)
+        fetched_ids: dict[str, set[str]] = {t: set() for t in types}
+        # Track collected dedup values (to avoid duplicates in results)
+        collected_dedup: dict[str, set[str]] = {t: set() for t in types}
+        # Collected entities per type
         collected: dict[str, list[dict]] = {t: [] for t in types}
 
         # Get ID field for seed type
@@ -160,9 +163,10 @@ class TraverseHandler:
                 },
             }
 
-        # Add seed to visited and collected (use dedup_field for visited tracking)
+        # Add seed to tracking sets and collected
         seed_dedup_value = seed.get(seed_dedup_field) or seed_id
-        visited[seed_type].add(seed_dedup_value)
+        fetched_ids[seed_type].add(seed_id)
+        collected_dedup[seed_type].add(seed_dedup_value)
         collected[seed_type].append(seed)
 
         # Initialize frontier: list of (entity_type, entity_data) tuples
@@ -203,16 +207,15 @@ class TraverseHandler:
                         entity, extract_pattern, target_id_field, target_dedup_field
                     )
 
-                    # Fetch each related entity (skip if dedup value already visited)
+                    # Fetch each related entity
                     for ref in related_refs:
                         if items_added >= max_per_level:
                             break
 
                         rel_id = ref["id"]
-                        dedup_value = ref.get("dedup") or rel_id
 
-                        # Check dedup BEFORE fetching to avoid redundant API calls
-                        if dedup_value in visited[target_type]:
+                        # Skip if we've already fetched this ID (avoid redundant API calls)
+                        if rel_id in fetched_ids[target_type]:
                             continue
 
                         # Fetch the entity
@@ -220,13 +223,16 @@ class TraverseHandler:
                             target_type, rel_id, types, ctx, registry, runner
                         )
                         if fetched:
-                            # Verify dedup from fetched data (in case ref didn't have it)
+                            fetched_ids[target_type].add(rel_id)
                             actual_dedup = fetched.get(target_dedup_field) or rel_id
-                            if actual_dedup in visited[target_type]:
-                                continue
 
-                            visited[target_type].add(actual_dedup)
-                            collected[target_type].append(fetched)
+                            # Only add to collected if dedup value is new
+                            if actual_dedup not in collected_dedup[target_type]:
+                                collected_dedup[target_type].add(actual_dedup)
+                                collected[target_type].append(fetched)
+
+                            # Always add to frontier to traverse relations
+                            # (even if not added to collected due to dedup)
                             next_frontier.append((target_type, fetched))
                             items_added += 1
 
