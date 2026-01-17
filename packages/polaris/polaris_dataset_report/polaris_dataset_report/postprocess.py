@@ -67,14 +67,23 @@ def generate_mermaid(
                         input_dataset_ids.add(value["id"])
         job_inputs_map[job["id"]] = input_dataset_ids
 
-    # Datasets by creating job
-    datasets_by_job: dict[str, list[str]] = {}
-    for ds in dataset_details:
-        creating_job = ds.get("creating_job")
-        if creating_job:
-            if creating_job not in datasets_by_job:
-                datasets_by_job[creating_job] = []
-            datasets_by_job[creating_job].append(ds["id"])
+    # Build job outputs map from job details (deduplicated by UUID)
+    # This handles cases where a job's output was deduplicated (same UUID as another dataset)
+    job_outputs_map: dict[str, set[str]] = {}
+    for job in job_details:
+        output_dataset_ids: set[str] = set()
+        outputs = job.get("outputs")
+        if outputs and isinstance(outputs, dict):
+            for value in outputs.values():
+                if isinstance(value, dict):
+                    # Use UUID lookup to find canonical dataset ID
+                    if value.get("uuid"):
+                        dataset_id = uuid_to_dataset_id.get(value["uuid"])
+                        if dataset_id:
+                            output_dataset_ids.add(dataset_id)
+                    elif value.get("id") and value["id"] in dataset_map:
+                        output_dataset_ids.add(value["id"])
+        job_outputs_map[job["id"]] = output_dataset_ids
 
     # Sort jobs by time
     sorted_jobs = sorted(
@@ -87,7 +96,7 @@ def generate_mermaid(
     for job in sorted_jobs:
         job_id = job["id"]
         inputs = job_inputs_map.get(job_id, set())
-        outputs = set(datasets_by_job.get(job_id, []))
+        outputs = job_outputs_map.get(job_id, set())
         if inputs and outputs and inputs == outputs:
             skipped_jobs.add(job_id)
 
@@ -120,7 +129,7 @@ def generate_mermaid(
 
         # Get inputs and outputs for this job (deduplicated by UUID)
         inputs = job_inputs_map.get(job_id, set())
-        outputs = set(datasets_by_job.get(job_id, []))
+        outputs = job_outputs_map.get(job_id, set())
 
         # Skip jobs where all inputs equal all outputs (no-op after UUID deduplication)
         if inputs and outputs and inputs == outputs:
