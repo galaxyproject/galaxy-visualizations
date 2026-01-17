@@ -37,7 +37,7 @@ class GalaxyApi(ApiProvider):
         return ApiTarget(
             name=PROVIDER_NAME,
             base_url=self.galaxy_root,
-            auth=self._galaxy_auth,
+            headers=self._galaxy_headers,
         )
 
     def ops(self):
@@ -65,8 +65,7 @@ class GalaxyApi(ApiProvider):
             },
         )
 
-    def _galaxy_auth(self, url):
+    def _galaxy_headers(self):
         if self.galaxy_key:
-            sep = "&" if "?" in url else "?"
-            return f"{url}{sep}key={self.galaxy_key}"
-        return url
+            return {"x-api-key": self.galaxy_key}
+        return {}

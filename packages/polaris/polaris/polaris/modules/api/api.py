@@ -19,13 +19,15 @@ class ApiOp:
 class ApiTarget:
     name: str
     base_url: str
-    auth: Optional[Callable[[str], str]] = None
+    headers: Optional[Callable[[], Dict[str, str]]] = None
 
     def build_url(self, path: str) -> str:
-        url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
-        if self.auth:
-            url = self.auth(url)
-        return url
+        return f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
+
+    def get_headers(self) -> Dict[str, str]:
+        if self.headers:
+            return self.headers()
+        return {}
 
 
 class ApiProvider:

@@ -27,4 +27,5 @@ async def openapi_get(target, input, meta):
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}{urlencode(query_params)}"
 
-    return await http.request("GET", url)
+    headers = target.get_headers()
+    return await http.request("GET", url, headers=headers)
