@@ -149,6 +149,7 @@ class TraverseHandler:
             }
 
         seed_id_field = seed_type_config.get("id_field", "id")
+        seed_dedup_field = seed_type_config.get("dedup_field", seed_id_field)
         seed_id = seed.get(seed_id_field)
         if not seed_id:
             return {
@@ -159,8 +160,9 @@ class TraverseHandler:
                 },
             }
 
-        # Add seed to visited and collected
-        visited[seed_type].add(seed_id)
+        # Add seed to visited and collected (use dedup_field for visited tracking)
+        seed_dedup_value = seed.get(seed_dedup_field) or seed_id
+        visited[seed_type].add(seed_dedup_value)
         collected[seed_type].append(seed)
 
         # Initialize frontier: list of (entity_type, entity_data) tuples
@@ -191,16 +193,26 @@ class TraverseHandler:
                     if not target_type or target_type not in types:
                         continue
 
-                    # Extract related IDs
+                    # Extract related references (id + optional dedup value)
                     extract_pattern = rel_config.get("extract")
                     target_type_config = types.get(target_type, {})
-                    related_ids = self._extract_ids(entity, extract_pattern, target_type_config)
+                    target_id_field = target_type_config.get("id_field", "id")
+                    target_dedup_field = target_type_config.get("dedup_field", target_id_field)
 
-                    # Fetch each related entity
-                    for rel_id in related_ids:
+                    related_refs = self._extract_refs(
+                        entity, extract_pattern, target_id_field, target_dedup_field
+                    )
+
+                    # Fetch each related entity (skip if dedup value already visited)
+                    for ref in related_refs:
                         if items_added >= max_per_level:
                             break
-                        if rel_id in visited[target_type]:
+
+                        rel_id = ref["id"]
+                        dedup_value = ref.get("dedup") or rel_id
+
+                        # Check dedup BEFORE fetching to avoid redundant API calls
+                        if dedup_value in visited[target_type]:
                             continue
 
                         # Fetch the entity
@@ -208,7 +220,12 @@ class TraverseHandler:
                             target_type, rel_id, types, ctx, registry, runner
                         )
                         if fetched:
-                            visited[target_type].add(rel_id)
+                            # Verify dedup from fetched data (in case ref didn't have it)
+                            actual_dedup = fetched.get(target_dedup_field) or rel_id
+                            if actual_dedup in visited[target_type]:
+                                continue
+
+                            visited[target_type].add(actual_dedup)
                             collected[target_type].append(fetched)
                             next_frontier.append((target_type, fetched))
                             items_added += 1
@@ -221,20 +238,25 @@ class TraverseHandler:
             "result": collected,
         }
 
-    def _extract_ids(
-        self, entity: dict, pattern: str, target_type_config: dict
-    ) -> list[str]:
+    def _extract_refs(
+        self,
+        entity: dict,
+        pattern: str,
+        id_field: str,
+        dedup_field: str,
+    ) -> list[dict[str, str]]:
         """
-        Extract IDs from an entity using an extraction pattern.
+        Extract references (id + dedup value) from an entity using an extraction pattern.
+
+        Returns list of dicts with 'id' and optional 'dedup' keys.
+        This allows checking dedup values before fetching to avoid redundant API calls.
 
         Patterns:
         - Simple field: "creating_job" -> entity["creating_job"]
-        - Nested glob: "inputs.*.id" -> [v["id"] for v in entity["inputs"].values()]
+        - Nested glob: "inputs.*.id" -> extracts from entity["inputs"].values()
         """
         if not pattern:
             return []
-
-        id_field = target_type_config.get("id_field", "id")
 
         # Simple field path: "creating_job"
         if "." not in pattern and "*" not in pattern:
@@ -242,12 +264,16 @@ class TraverseHandler:
             if value is None:
                 return []
             if isinstance(value, str):
-                return [value]
-            if isinstance(value, dict) and id_field in value:
-                return [value[id_field]]
+                return [{"id": value}]
+            if isinstance(value, dict):
+                if id_field in value:
+                    ref = {"id": value[id_field]}
+                    if dedup_field != id_field and dedup_field in value:
+                        ref["dedup"] = value[dedup_field]
+                    return [ref]
             return []
 
-        # Glob pattern: "inputs.*.id" or "outputs.*.id"
+        # Glob pattern: "inputs.*.id" or "inputs.*"
         parts = pattern.split(".")
         current: Any = entity
 
@@ -258,7 +284,7 @@ class TraverseHandler:
             if part == "*":
                 # Wildcard - iterate over dict values or list items
                 remaining = ".".join(parts[i + 1:]) if i + 1 < len(parts) else ""
-                results = []
+                results: list[dict[str, str]] = []
 
                 items = []
                 if isinstance(current, dict):
@@ -269,14 +295,19 @@ class TraverseHandler:
                 for v in items:
                     if remaining:
                         # Continue extraction on nested value
-                        nested_ids = self._extract_ids(
-                            {"_": v}, f"_.{remaining}", target_type_config
+                        nested_refs = self._extract_refs(
+                            {"_": v}, f"_.{remaining}", id_field, dedup_field
                         )
-                        results.extend(nested_ids)
-                    elif isinstance(v, dict) and id_field in v:
-                        results.append(v[id_field])
+                        results.extend(nested_refs)
+                    elif isinstance(v, dict):
+                        # Extract id and dedup from the object
+                        if id_field in v:
+                            ref = {"id": v[id_field]}
+                            if dedup_field != id_field and dedup_field in v:
+                                ref["dedup"] = v[dedup_field]
+                            results.append(ref)
                     elif isinstance(v, str):
-                        results.append(v)
+                        results.append({"id": v})
                 return results
             else:
                 if isinstance(current, dict):
@@ -288,9 +319,12 @@ class TraverseHandler:
         if current is None:
             return []
         if isinstance(current, str):
-            return [current]
+            return [{"id": current}]
         if isinstance(current, dict) and id_field in current:
-            return [current[id_field]]
+            ref = {"id": current[id_field]}
+            if dedup_field != id_field and dedup_field in current:
+                ref["dedup"] = current[dedup_field]
+            return [ref]
         return []
 
     async def _fetch_entity(

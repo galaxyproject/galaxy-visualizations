@@ -70,6 +70,7 @@ nodes:
     types:
       dataset:
         id_field: id
+        dedup_field: uuid
         fetch:
           target: galaxy.datasets.show.get
           id_param: dataset_id
@@ -85,10 +86,10 @@ nodes:
         relations:
           inputs:
             type: dataset
-            extract: inputs.*.id
+            extract: inputs.*
           outputs:
             type: dataset
-            extract: outputs.*.id
+            extract: outputs.*
     emit:
       state.dataset_details:
         $ref: result.dataset

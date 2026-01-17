@@ -341,8 +341,8 @@ class TestTraverseHandler:
         # Should complete without error, using defaults
 
 
-class TestExtractIds:
-    """Tests for ID extraction patterns."""
+class TestExtractRefs:
+    """Tests for reference extraction patterns."""
 
     @pytest.fixture
     def handler(self):
@@ -351,34 +351,324 @@ class TestExtractIds:
     def test_simple_field(self, handler):
         """Extract from simple field."""
         entity = {"creating_job": "j1"}
-        result = handler._extract_ids(entity, "creating_job", {"id_field": "id"})
-        assert result == ["j1"]
+        result = handler._extract_refs(entity, "creating_job", "id", "id")
+        assert result == [{"id": "j1"}]
 
     def test_simple_field_none(self, handler):
         """Return empty for None value."""
         entity = {"creating_job": None}
-        result = handler._extract_ids(entity, "creating_job", {"id_field": "id"})
+        result = handler._extract_refs(entity, "creating_job", "id", "id")
         assert result == []
 
-    def test_glob_pattern(self, handler):
-        """Extract from glob pattern."""
+    def test_glob_pattern_with_id_only(self, handler):
+        """Extract from glob pattern with id field."""
         entity = {
             "inputs": {
                 "param1": {"id": "d1", "src": "hda"},
                 "param2": {"id": "d2", "src": "hda"},
             }
         }
-        result = handler._extract_ids(entity, "inputs.*.id", {"id_field": "id"})
-        assert set(result) == {"d1", "d2"}
+        result = handler._extract_refs(entity, "inputs.*.id", "id", "id")
+        ids = {r["id"] for r in result}
+        assert ids == {"d1", "d2"}
+
+    def test_glob_pattern_extracts_dedup_field(self, handler):
+        """Extract both id and dedup (uuid) from objects."""
+        entity = {
+            "inputs": {
+                "param1": {"id": "d1", "uuid": "uuid-1"},
+                "param2": {"id": "d2", "uuid": "uuid-2"},
+            }
+        }
+        # Extract full objects (inputs.*) with different dedup field
+        result = handler._extract_refs(entity, "inputs.*", "id", "uuid")
+        assert len(result) == 2
+        refs_by_id = {r["id"]: r for r in result}
+        assert refs_by_id["d1"]["dedup"] == "uuid-1"
+        assert refs_by_id["d2"]["dedup"] == "uuid-2"
+
+    def test_glob_pattern_same_uuid_different_ids(self, handler):
+        """Extract refs where multiple inputs have same uuid."""
+        entity = {
+            "inputs": {
+                "param1": {"id": "d1", "uuid": "uuid-shared"},
+                "param2": {"id": "d2", "uuid": "uuid-shared"},
+                "param3": {"id": "d3", "uuid": "uuid-other"},
+            }
+        }
+        result = handler._extract_refs(entity, "inputs.*", "id", "uuid")
+        assert len(result) == 3
+        # All should have dedup values
+        for ref in result:
+            assert "dedup" in ref
 
     def test_glob_pattern_empty_dict(self, handler):
         """Return empty for empty dict."""
         entity = {"inputs": {}}
-        result = handler._extract_ids(entity, "inputs.*.id", {"id_field": "id"})
+        result = handler._extract_refs(entity, "inputs.*", "id", "uuid")
         assert result == []
 
     def test_glob_pattern_missing_field(self, handler):
         """Return empty for missing field."""
         entity = {}
-        result = handler._extract_ids(entity, "inputs.*.id", {"id_field": "id"})
+        result = handler._extract_refs(entity, "inputs.*", "id", "uuid")
         assert result == []
+
+    def test_no_dedup_field_in_data(self, handler):
+        """Handle case where dedup field doesn't exist in data."""
+        entity = {
+            "inputs": {
+                "param1": {"id": "d1"},  # No uuid
+            }
+        }
+        result = handler._extract_refs(entity, "inputs.*", "id", "uuid")
+        assert result == [{"id": "d1"}]  # No dedup key
+
+
+class TestDedupField:
+    """Tests for dedup_field functionality."""
+
+    @pytest.fixture
+    def handler(self):
+        return TraverseHandler()
+
+    @pytest.fixture
+    def mock_registry(self):
+        registry = MagicMock()
+        registry.call_api = AsyncMock()
+        return registry
+
+    @pytest.fixture
+    def mock_runner(self):
+        runner = MagicMock()
+        runner.state = {}
+
+        def resolve(value, ctx):
+            if value is None:
+                return None
+            if isinstance(value, dict) and "$ref" in value:
+                ref = value["$ref"]
+                parts = ref.split(".")
+                obj = ctx
+                for part in parts:
+                    if isinstance(obj, dict):
+                        obj = obj.get(part)
+                    else:
+                        return None
+                return obj
+            return value
+
+        runner.resolver = MagicMock()
+        runner.resolver.resolve = resolve
+        runner.resolver.apply_emit = MagicMock()
+        return runner
+
+    @pytest.fixture
+    def collection_pipeline_data(self):
+        """
+        Pipeline with collection elements: same uuid, different ids.
+        This simulates Galaxy collection behavior where collection elements
+        have unique IDs but share the same underlying data UUID.
+
+        D1 (collection element 1, uuid-shared) -> J1 -> D3
+        D2 (collection element 2, uuid-shared) -> J1 -> D3
+        """
+        return {
+            "datasets": {
+                "d1": {
+                    "id": "d1",
+                    "uuid": "uuid-shared",
+                    "name": "Collection Element 1",
+                    "creating_job": None,
+                },
+                "d2": {
+                    "id": "d2",
+                    "uuid": "uuid-shared",  # Same UUID as d1
+                    "name": "Collection Element 2",
+                    "creating_job": None,
+                },
+                "d3": {
+                    "id": "d3",
+                    "uuid": "uuid-d3",
+                    "name": "Output",
+                    "creating_job": "j1",
+                },
+            },
+            "jobs": {
+                "j1": {
+                    "id": "j1",
+                    "tool_id": "tool",
+                    "inputs": {
+                        "input1": {"id": "d1", "uuid": "uuid-shared"},
+                        "input2": {"id": "d2", "uuid": "uuid-shared"},
+                    },
+                    "outputs": {"output1": {"id": "d3", "uuid": "uuid-d3"}},
+                },
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_dedup_by_uuid_removes_duplicates(
+        self, handler, mock_registry, mock_runner, collection_pipeline_data
+    ):
+        """With dedup_field=uuid, datasets with same uuid should be deduplicated."""
+        mock_registry.call_api = create_mock_api(collection_pipeline_data)
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 10,
+            "max_per_level": 10,
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "dedup_field": "uuid",  # Deduplicate by uuid
+                    "fetch": {
+                        "target": "galaxy.datasets.show.get",
+                        "id_param": "dataset_id",
+                    },
+                    "relations": {
+                        "creating_job": {"type": "job", "extract": "creating_job"},
+                    },
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.jobs.show.get",
+                        "id_param": "job_id",
+                    },
+                    "relations": {
+                        "inputs": {"type": "dataset", "extract": "inputs.*.id"},
+                    },
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": collection_pipeline_data["datasets"]["d3"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        datasets = result["result"]["dataset"]
+
+        # With dedup_field=uuid, d1 and d2 share the same uuid
+        # So only one of them should be collected (plus d3)
+        assert len(datasets) == 2  # d3 + one of d1/d2
+
+        # Verify we have exactly 2 unique UUIDs
+        uuids = {d["uuid"] for d in datasets}
+        assert uuids == {"uuid-d3", "uuid-shared"}
+
+    @pytest.mark.asyncio
+    async def test_dedup_by_id_keeps_same_uuid_datasets(
+        self, handler, mock_registry, mock_runner, collection_pipeline_data
+    ):
+        """Without dedup_field (default), datasets with same uuid but different id are kept."""
+        mock_registry.call_api = create_mock_api(collection_pipeline_data)
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 10,
+            "max_per_level": 10,
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    # No dedup_field - defaults to id_field
+                    "fetch": {
+                        "target": "galaxy.datasets.show.get",
+                        "id_param": "dataset_id",
+                    },
+                    "relations": {
+                        "creating_job": {"type": "job", "extract": "creating_job"},
+                    },
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.jobs.show.get",
+                        "id_param": "job_id",
+                    },
+                    "relations": {
+                        "inputs": {"type": "dataset", "extract": "inputs.*.id"},
+                    },
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": collection_pipeline_data["datasets"]["d3"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        datasets = result["result"]["dataset"]
+
+        # Without dedup_field, both d1 and d2 are kept (different IDs)
+        assert len(datasets) == 3  # d3 + d1 + d2
+
+        dataset_ids = {d["id"] for d in datasets}
+        assert dataset_ids == {"d1", "d2", "d3"}
+
+    @pytest.mark.asyncio
+    async def test_dedup_field_on_seed(
+        self, handler, mock_registry, mock_runner, collection_pipeline_data
+    ):
+        """Seed dataset should also use dedup_field for visited tracking."""
+        mock_registry.call_api = create_mock_api(collection_pipeline_data)
+
+        # Create a scenario where seed has same uuid as another dataset
+        collection_pipeline_data["datasets"]["d3"]["uuid"] = "uuid-shared"
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 10,
+            "max_per_level": 10,
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "dedup_field": "uuid",
+                    "fetch": {
+                        "target": "galaxy.datasets.show.get",
+                        "id_param": "dataset_id",
+                    },
+                    "relations": {
+                        "creating_job": {"type": "job", "extract": "creating_job"},
+                    },
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.jobs.show.get",
+                        "id_param": "job_id",
+                    },
+                    "relations": {
+                        "inputs": {"type": "dataset", "extract": "inputs.*.id"},
+                    },
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": collection_pipeline_data["datasets"]["d3"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        datasets = result["result"]["dataset"]
+
+        # d3, d1, d2 all have uuid-shared, so only one should be collected
+        assert len(datasets) == 1
+        # The seed (d3) should be the one collected
+        assert datasets[0]["id"] == "d3"

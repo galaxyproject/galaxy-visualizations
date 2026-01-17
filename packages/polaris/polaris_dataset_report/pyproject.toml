@@ -12,6 +12,9 @@ dependencies = [
     "pyyaml",
 ]
 
+[project.scripts]
+dataset-report = "polaris_dataset_report.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 
