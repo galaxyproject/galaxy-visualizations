@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polaris_dataset_report"
+version = "0.1.0"
+description = "Dataset report agent for Polaris"
+requires-python = ">=3.11"
+dependencies = [
+    "polaris",
+    "pyyaml",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+polaris_dataset_report = ["*.yml"]

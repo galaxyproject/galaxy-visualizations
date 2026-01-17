@@ -1,0 +1,218 @@
+version: 1
+id: dataset_report
+kind: agent_pipeline
+description: Generate detailed report from Galaxy dataset lineage
+
+start: fetch_source_dataset
+
+inputs:
+  dataset_id:
+    type: string
+  depth:
+    type: integer
+  max_per_level:
+    type: integer
+
+state:
+  source_dataset:
+    type: object
+  selected_history:
+    type: object
+  dataset_details:
+    type: array
+  job_details:
+    type: array
+  citations:
+    type: array
+  workflow_analysis:
+    type: string
+  report:
+    type: string
+
+nodes:
+  # Step 1: Fetch source dataset to seed the traversal
+  fetch_source_dataset:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.datasets.show.get
+      input:
+        dataset_id:
+          $ref: inputs.dataset_id
+    emit:
+      state.source_dataset: result
+    next: fetch_history_details
+
+  # Step 2: Fetch history details
+  fetch_history_details:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.histories.show.get
+      input:
+        history_id:
+          $ref: state.source_dataset.history_id
+    emit:
+      state.selected_history: result
+    next: traverse_upstream
+
+  # Step 3: Traverse upstream from source dataset
+  # This performs BFS to fetch creating jobs and their inputs
+  traverse_upstream:
+    type: traverse
+    seed:
+      $ref: state.source_dataset
+    seed_type: dataset
+    max_depth:
+      $ref: inputs.depth
+    max_per_level:
+      $ref: inputs.max_per_level
+    types:
+      dataset:
+        id_field: id
+        fetch:
+          target: galaxy.datasets.show.get
+          id_param: dataset_id
+        relations:
+          creating_job:
+            type: job
+            extract: creating_job
+      job:
+        id_field: id
+        fetch:
+          target: galaxy.jobs.show.get
+          id_param: job_id
+        relations:
+          inputs:
+            type: dataset
+            extract: inputs.*.id
+          outputs:
+            type: dataset
+            extract: outputs.*.id
+    emit:
+      state.dataset_details:
+        $ref: result.dataset
+      state.job_details:
+        $ref: result.job
+    next: fetch_citations
+
+  # Step 4: Fetch citations for tools used
+  fetch_citations:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.histories.show.citations.get
+      input:
+        history_id:
+          $ref: state.selected_history.id
+    emit:
+      state.citations: result
+    next: analyze_workflow
+
+  # Step 5: Use AI to understand the analysis workflow
+  analyze_workflow:
+    type: reasoning
+    prompt: |
+      Analyze this Galaxy history and create a structured workflow description.
+
+      You have access to:
+      - Dataset details with file formats (file_ext field) and sizes
+      - Job details with tool IDs and versions
+
+      Create a structured analysis:
+
+      1. DATA INPUTS: List input files with their formats (e.g., "paired-end FASTQ files")
+         Look at datasets with file_ext like fastq, fastqsanger, bam, vcf, tabular, etc.
+
+      2. ANALYSIS STEPS: For each analysis tool (exclude "__" internal tools), describe:
+         - Tool name and what it does
+         - Input/output file types when apparent
+
+      3. OUTPUTS: Describe final output files and their formats
+
+      Focus on the scientific workflow. Exclude internal Galaxy tools starting with "__".
+      Only mention tools that are ACTUALLY in the job_details - do not hallucinate.
+    input:
+      history_name:
+        $ref: state.selected_history.name
+      dataset_details:
+        $expr:
+          op: select
+          from:
+            $ref: state.dataset_details
+          fields: [id, name, file_ext, file_size, creating_job]
+      job_details:
+        $expr:
+          op: select
+          from:
+            $ref: state.job_details
+          fields: [id, tool_id, tool_version, inputs]
+    emit:
+      state.workflow_analysis:
+        $ref: result
+    next: generate_methods
+
+  # Step 6: Generate the detailed report
+  generate_methods:
+    type: reasoning
+    prompt: |
+      Write a detailed methods section for this Galaxy analysis (~400-500 words).
+
+      Structure the report with these sections:
+
+      ## Data Processing Pipeline
+      Describe the overall workflow in narrative form, written in past tense.
+      Mention input data types and the general analysis approach.
+
+      ## Tools and Parameters
+      For each analysis tool used, include:
+      - Tool name and version if available (e.g., "RNA-STAR v2.7.11a")
+      - Key parameters/settings that affect the analysis
+      - Brief description of what the tool does in the workflow
+
+      ## Data Formats
+      Summarize input file formats and output file formats.
+
+      Guidelines:
+      - Write in past tense, third person (scientific style)
+      - Include tool versions only when available - if version is missing or empty, just use the tool name without any placeholder text
+      - Exclude internal Galaxy tools (__DATA_FETCH__, __SET_METADATA__, etc.)
+      - Only mention tools that appear in the workflow_analysis
+      - Do NOT hallucinate tool names or parameters
+    input:
+      history_name:
+        $ref: state.selected_history.name
+      workflow_analysis:
+        $ref: state.workflow_analysis
+      citations:
+        $ref: state.citations
+    emit:
+      state.report:
+        $ref: result
+    next: done
+
+  # Terminal node - return the generated report
+  done:
+    type: terminal
+    output:
+      selected_history:
+        id:
+          $ref: state.selected_history.id
+        name:
+          $ref: state.selected_history.name
+      dataset_details:
+        $expr:
+          op: select
+          from:
+            $ref: state.dataset_details
+          fields: [id, uuid, creating_job, name, file_ext, file_size]
+      job_details:
+        $expr:
+          op: select
+          from:
+            $ref: state.job_details
+          fields: [id, tool_id, inputs, outputs, create_time]
+      workflow_analysis:
+        $ref: state.workflow_analysis
+      report:
+        $ref: state.report

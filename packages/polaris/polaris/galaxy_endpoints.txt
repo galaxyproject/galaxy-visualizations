@@ -1,0 +1,1944 @@
+# Galaxy API Endpoints (discovered from OpenAPI spec)
+# Total: 259 endpoints
+
+## authenticate.baseauth.get
+   Path: GET /api/authenticate/baseauth
+   Summary: Returns returns an API key for authenticated user based on BaseAuth headers.
+
+## configuration.decode.show.get
+   Path: GET /api/configuration/decode/{encoded_id}
+   Summary: Decode a given id
+   Parameters:
+     - encoded_id [path] (required)
+     - run-as [header]
+
+## configuration.dynamic_tool_confs.get
+   Path: GET /api/configuration/dynamic_tool_confs
+   Summary: Return dynamic tool configuration files
+   Parameters:
+     - run-as [header]
+
+## configuration.encode.show.get
+   Path: GET /api/configuration/encode/{decoded_id}
+   Summary: Encode a given id
+   Parameters:
+     - decoded_id [path] (required)
+     - run-as [header]
+
+## configuration.get
+   Path: GET /api/configuration
+   Summary: Return an object containing exposable configuration settings
+   Parameters:
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## configuration.tool_lineages.get
+   Path: GET /api/configuration/tool_lineages
+   Summary: Return tool lineages for tools that have them
+   Parameters:
+     - run-as [header]
+
+## container_resolvers.get
+   Path: GET /api/container_resolvers
+   Summary: No description
+
+## container_resolvers.resolve.get
+   Path: GET /api/container_resolvers/resolve
+   Summary: No description
+
+## container_resolvers.show.get
+   Path: GET /api/container_resolvers/{index}
+   Summary: No description
+
+## container_resolvers.show.resolve.get
+   Path: GET /api/container_resolvers/{index}/resolve
+   Summary: No description
+
+## container_resolvers.show.toolbox.get
+   Path: GET /api/container_resolvers/{index}/toolbox
+   Summary: No description
+
+## container_resolvers.toolbox.get
+   Path: GET /api/container_resolvers/toolbox
+   Summary: No description
+
+## dataset_collection_element.show.get
+   Path: GET /api/dataset_collection_element/{dce_id}
+   Summary: Content
+   Parameters:
+     - dce_id [path] (required)
+     - run-as [header]
+
+## dataset_collections.show.attributes.get
+   Path: GET /api/dataset_collections/{hdca_id}/attributes
+   Summary: Returns `dbkey`/`extension` attributes for all the collection elements.
+   Parameters:
+     - hdca_id [path] (required)
+     - instance_type [query]
+     - run-as [header]
+
+## dataset_collections.show.contents.show.get
+   Path: GET /api/dataset_collections/{hdca_id}/contents/{parent_id}
+   Summary: Returns direct child contents of indicated dataset collection parent ID.
+   Parameters:
+     - hdca_id [path] (required)
+     - parent_id [path] (required)
+     - instance_type [query]
+     - limit [query]
+     - offset [query]
+     - run-as [header]
+
+## dataset_collections.show.download.get
+   Path: GET /api/dataset_collections/{hdca_id}/download
+   Summary: Download the content of a dataset collection as a `zip` archive.
+   Parameters:
+     - hdca_id [path] (required)
+     - run-as [header]
+
+## dataset_collections.show.get
+   Path: GET /api/dataset_collections/{hdca_id}
+   Summary: Returns detailed information about the given collection.
+   Parameters:
+     - hdca_id [path] (required)
+     - instance_type [query]
+     - view [query]
+     - run-as [header]
+
+## dataset_collections.show.suitable_converters.get
+   Path: GET /api/dataset_collections/{hdca_id}/suitable_converters
+   Summary: Returns a list of applicable converters for all datatypes in the given collection.
+   Parameters:
+     - hdca_id [path] (required)
+     - instance_type [query]
+     - run-as [header]
+
+## datasets.get
+   Path: GET /api/datasets
+   Summary: Search datasets or collections using a query system.
+   Parameters:
+     - history_id [query]
+     - view [query]
+     - keys [query]
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - run-as [header]
+
+## datasets.show.content.show.get
+   Path: GET /api/datasets/{dataset_id}/content/{content_type}
+   Summary: Retrieve information about the content of a dataset.
+   Parameters:
+     - dataset_id [path] (required)
+     - content_type [path] (required)
+     - run-as [header]
+
+## datasets.show.converted.get
+   Path: GET /api/datasets/{dataset_id}/converted
+   Summary: Return a a map with all the existing converted datasets associated with this instance.
+   Parameters:
+     - dataset_id [path] (required)
+     - run-as [header]
+
+## datasets.show.converted.show.get
+   Path: GET /api/datasets/{dataset_id}/converted/{ext}
+   Summary: Return information about datasets made by converting this dataset to a new format.
+   Parameters:
+     - dataset_id [path] (required)
+     - ext [path] (required)
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## datasets.show.display.get
+   Path: GET /api/datasets/{history_content_id}/display
+   Summary: Displays (preview) or downloads dataset content.
+   Parameters:
+     - history_content_id [path] (required)
+     - preview [query]
+     - filename [query]
+     - to_ext [query]
+     - raw [query]
+     - offset [query]
+     - ck_size [query]
+     - run-as [header]
+
+## datasets.show.extra_files.get
+   Path: GET /api/datasets/{dataset_id}/extra_files
+   Summary: Get the list of extra files/directories associated with a dataset.
+   Parameters:
+     - dataset_id [path] (required)
+     - run-as [header]
+
+## datasets.show.extra_files.raw.show.get
+   Path: GET /api/datasets/{dataset_id}/extra_files/raw/{filename}
+   Summary: Downloads a raw extra file associated with a dataset.
+   Parameters:
+     - dataset_id [path] (required)
+     - filename [path] (required)
+     - run-as [header]
+
+## datasets.show.get
+   Path: GET /api/datasets/{dataset_id}
+   Summary: Displays information about and/or content of a dataset.
+   Parameters:
+     - dataset_id [path] (required)
+     - hda_ldda [query]
+     - data_type [query]
+     - limit [query]
+     - offset [query]
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## datasets.show.get_content_as_text.get
+   Path: GET /api/datasets/{dataset_id}/get_content_as_text
+   Summary: Returns dataset content as Text.
+   Parameters:
+     - dataset_id [path] (required)
+     - filename [query]
+     - run-as [header]
+
+## datasets.show.inheritance_chain.get
+   Path: GET /api/datasets/{dataset_id}/inheritance_chain
+   Summary: For internal use, this endpoint may change without warning.
+   Parameters:
+     - dataset_id [path] (required)
+     - hda_ldda [query]
+     - run-as [header]
+
+## datasets.show.metadata_file.get
+   Path: GET /api/datasets/{history_content_id}/metadata_file
+   Summary: Returns the metadata file associated with this history item.
+   Parameters:
+     - history_content_id [path] (required)
+     - metadata_file [query] (required)
+     - run-as [header]
+
+## datasets.show.metrics.get
+   Path: GET /api/datasets/{dataset_id}/metrics
+   Summary: Return job metrics for specified job.
+   Parameters:
+     - dataset_id [path] (required)
+     - hda_ldda [query]
+     - run-as [header]
+
+## datasets.show.parameters_display.get
+   Path: GET /api/datasets/{dataset_id}/parameters_display
+   Summary: Resolve parameters as a list for nested display.
+   Parameters:
+     - dataset_id [path] (required)
+     - hda_ldda [query]
+     - run-as [header]
+
+## datasets.show.report.get
+   Path: GET /api/datasets/{dataset_id}/report
+   Summary: Return JSON content Galaxy will use to render Markdown reports
+   Parameters:
+     - dataset_id [path] (required)
+     - run-as [header]
+
+## datasets.show.storage.get
+   Path: GET /api/datasets/{dataset_id}/storage
+   Summary: Display user-facing storage details related to the objectstore a dataset resides in.
+   Parameters:
+     - dataset_id [path] (required)
+     - hda_ldda [query]
+     - run-as [header]
+
+## datatypes.converters.get
+   Path: GET /api/datatypes/converters
+   Summary: Returns the list of all installed converters
+
+## datatypes.edam_data.detailed.get
+   Path: GET /api/datatypes/edam_data/detailed
+   Summary: Returns a dictionary of datatypes and EDAM data details
+
+## datatypes.edam_data.get
+   Path: GET /api/datatypes/edam_data
+   Summary: Returns a dictionary/map of datatypes and EDAM data
+
+## datatypes.edam_formats.detailed.get
+   Path: GET /api/datatypes/edam_formats/detailed
+   Summary: Returns a dictionary of datatypes and EDAM format details
+
+## datatypes.edam_formats.get
+   Path: GET /api/datatypes/edam_formats
+   Summary: Returns a dictionary/map of datatypes and EDAM formats
+
+## datatypes.get
+   Path: GET /api/datatypes
+   Summary: Lists all available data types
+   Parameters:
+     - extension_only [query]
+     - upload_only [query]
+
+## datatypes.mapping.get
+   Path: GET /api/datatypes/mapping
+   Summary: Returns mappings for data types and their implementing classes
+
+## datatypes.show.get
+   Path: GET /api/datatypes/{datatype}
+   Summary: Get details for a specific datatype
+   Parameters:
+     - datatype [path] (required)
+
+## datatypes.show.visualizations.get
+   Path: GET /api/datatypes/{datatype}/visualizations
+   Summary: Returns the visualization mapping for a specific datatype
+   Parameters:
+     - datatype [path] (required)
+
+## datatypes.sniffers.get
+   Path: GET /api/datatypes/sniffers
+   Summary: Returns the list of all installed sniffers
+
+## datatypes.types_and_mapping.get
+   Path: GET /api/datatypes/types_and_mapping
+   Summary: Returns all the data types extensions and their mappings
+   Parameters:
+     - extension_only [query]
+     - upload_only [query]
+
+## dependency_resolvers.dependency.get
+   Path: GET /api/dependency_resolvers/dependency
+   Summary: No description
+
+## dependency_resolvers.get
+   Path: GET /api/dependency_resolvers
+   Summary: No description
+
+## dependency_resolvers.show.dependency.get
+   Path: GET /api/dependency_resolvers/{index}/dependency
+   Summary: No description
+
+## dependency_resolvers.show.get
+   Path: GET /api/dependency_resolvers/{id}
+   Summary: No description
+
+## dependency_resolvers.toolbox.get
+   Path: GET /api/dependency_resolvers/toolbox
+   Summary: No description
+
+## dependency_resolvers.unused_paths.get
+   Path: GET /api/dependency_resolvers/unused_paths
+   Summary: No description
+
+## display_applications.get
+   Path: GET /api/display_applications
+   Summary: Returns the list of display applications.
+
+## drs_download.show.get
+   Path: GET /api/drs_download/{object_id}
+   Summary: Download
+   Parameters:
+     - object_id [path] (required)
+     - run-as [header]
+
+## dynamic_tools.get
+   Path: GET /api/dynamic_tools
+   Summary: Index
+
+## dynamic_tools.show.get
+   Path: GET /api/dynamic_tools/{dynamic_tool_id}
+   Summary: Show
+   Parameters:
+     - dynamic_tool_id [path] (required)
+
+## file_source_instances.get
+   Path: GET /api/file_source_instances
+   Summary: Get a list of persisted file source instances defined by the requesting user.
+   Parameters:
+     - run-as [header]
+
+## file_source_instances.show.get
+   Path: GET /api/file_source_instances/{uuid}
+   Summary: Get a persisted user file source instance.
+   Parameters:
+     - uuid [path] (required)
+     - run-as [header]
+
+## file_source_instances.show.test.get
+   Path: GET /api/file_source_instances/{uuid}/test
+   Summary: Test a file source instance and return status.
+   Parameters:
+     - uuid [path] (required)
+     - run-as [header]
+
+## file_source_templates.get
+   Path: GET /api/file_source_templates
+   Summary: Get a list of file source templates available to build user defined file sources from
+   Parameters:
+     - run-as [header]
+
+## file_source_templates.show.show.oauth2.get
+   Path: GET /api/file_source_templates/{template_id}/{template_version}/oauth2
+   Summary: Template Oauth2
+   Parameters:
+     - template_id [path] (required)
+     - template_version [path] (required)
+     - run-as [header]
+
+## folders.show.contents.get
+   Path: GET /api/folders/{folder_id}/contents
+   Summary: Returns a list of a folder's contents (files and sub-folders) with additional metadata about the folder.
+   Parameters:
+     - folder_id [path] (required)
+     - limit [query]
+     - offset [query]
+     - search_text [query]
+     - include_deleted [query]
+     - order_by [query]
+     - sort_desc [query]
+     - run-as [header]
+
+## folders.show.get
+   Path: GET /api/folders/{id}
+   Summary: Displays information about a particular library folder.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## folders.show.permissions.get
+   Path: GET /api/folders/{id}/permissions
+   Summary: Gets the current or available permissions of a particular library folder.
+   Parameters:
+     - id [path] (required)
+     - scope [query]
+     - page [query]
+     - page_limit [query]
+     - q [query]
+     - run-as [header]
+
+## forms.get
+   Path: GET /api/forms
+   Summary: No description
+
+## ftp_files.get
+   Path: GET /api/ftp_files
+   Summary: Displays remote files available to the user. Please use /api/remote_files instead.
+   Parameters:
+     - target [query]
+     - format [query]
+     - recursive [query]
+     - disable [query]
+     - writeable [query]
+     - write_intent [query]
+     - limit [query]
+     - offset [query]
+     - query [query]
+     - sort_by [query]
+     - run-as [header]
+
+## genomes.get
+   Path: GET /api/genomes
+   Summary: Return a list of installed genomes
+   Parameters:
+     - chrom_info [query]
+     - run-as [header]
+
+## genomes.show.get
+   Path: GET /api/genomes/{id}
+   Summary: Return information about build <id>
+   Parameters:
+     - id [path] (required)
+     - reference [query]
+     - num [query]
+     - chrom [query]
+     - low [query]
+     - high [query]
+     - format [query]
+     - run-as [header]
+
+## genomes.show.indexes.get
+   Path: GET /api/genomes/{id}/indexes
+   Summary: Return all available indexes for a genome id for provided type
+   Parameters:
+     - id [path] (required)
+     - type [query]
+     - format [query]
+     - run-as [header]
+
+## genomes.show.sequences.get
+   Path: GET /api/genomes/{id}/sequences
+   Summary: Return raw sequence data
+   Parameters:
+     - id [path] (required)
+     - reference [query]
+     - chrom [query]
+     - low [query]
+     - high [query]
+     - format [query]
+     - run-as [header]
+
+## groups.get
+   Path: GET /api/groups
+   Summary: Displays a collection (list) of groups.
+   Parameters:
+     - run-as [header]
+
+## groups.show.get
+   Path: GET /api/groups/{group_id}
+   Summary: Displays information about a group.
+   Parameters:
+     - group_id [path] (required)
+     - run-as [header]
+
+## groups.show.roles.get
+   Path: GET /api/groups/{group_id}/roles
+   Summary: Displays a collection (list) of groups.
+   Parameters:
+     - group_id [path] (required)
+     - run-as [header]
+
+## groups.show.roles.show.get
+   Path: GET /api/groups/{group_id}/roles/{role_id}
+   Summary: Displays information about a group role.
+   Parameters:
+     - group_id [path] (required)
+     - role_id [path] (required)
+     - run-as [header]
+
+## groups.show.user.show.get
+   Path: GET /api/groups/{group_id}/user/{user_id}
+   Summary: Displays information about a group user.
+   Parameters:
+     - group_id [path] (required)
+     - user_id [path] (required)
+     - run-as [header]
+
+## groups.show.users.get
+   Path: GET /api/groups/{group_id}/users
+   Summary: Displays a collection (list) of groups.
+   Parameters:
+     - group_id [path] (required)
+     - run-as [header]
+
+## groups.show.users.show.get
+   Path: GET /api/groups/{group_id}/users/{user_id}
+   Summary: Displays information about a group user.
+   Parameters:
+     - group_id [path] (required)
+     - user_id [path] (required)
+     - run-as [header]
+
+## help.forum.search.get
+   Path: GET /api/help/forum/search
+   Summary: Search the Galaxy Help forum.
+   Parameters:
+     - query [query] (required)
+     - run-as [header]
+
+## histories.archived.get
+   Path: GET /api/histories/archived
+   Summary: Get a list of all archived histories for the current user.
+   Parameters:
+     - view [query]
+     - keys [query]
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - run-as [header]
+
+## histories.count.get
+   Path: GET /api/histories/count
+   Summary: Returns number of histories for the current user.
+   Parameters:
+     - run-as [header]
+
+## histories.deleted.get
+   Path: GET /api/histories/deleted
+   Summary: Returns deleted histories for the current user.
+   Parameters:
+     - all [query]
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.get
+   Path: GET /api/histories
+   Summary: Returns histories available to the current user.
+   Parameters:
+     - limit [query]
+     - offset [query]
+     - show_own [query]
+     - show_published [query]
+     - show_shared [query]
+     - show_archived [query]
+     - sort_by [query]
+     - sort_desc [query]
+     - search [query]
+     - all [query]
+     - deleted [query]
+     - q [query]
+     - qv [query]
+     - order [query]
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.most_recently_used.get
+   Path: GET /api/histories/most_recently_used
+   Summary: Returns the most recently used history of the user.
+   Parameters:
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.published.get
+   Path: GET /api/histories/published
+   Summary: Return all histories that are published.
+   Parameters:
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.shared_with_me.get
+   Path: GET /api/histories/shared_with_me
+   Summary: Return all histories that are shared with the current user.
+   Parameters:
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.show.annotation.get
+   Path: GET /api/histories/{history_id}/annotation
+   Summary: No description
+
+## histories.show.citations.get
+   Path: GET /api/histories/{history_id}/citations
+   Summary: Return all the references for the tools used to produce the datasets in the history.
+   Parameters:
+     - history_id [path] (required)
+     - run-as [header]
+
+## histories.show.contents.archive.get
+   Path: GET /api/histories/{history_id}/contents/archive
+   Summary: Build and return a compressed archive of the selected history contents.
+   Parameters:
+     - history_id [path] (required)
+     - filename [query]
+     - dry_run [query]
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - run-as [header]
+
+## histories.show.contents.archive.show.get
+   Path: GET /api/histories/{history_id}/contents/archive/{filename}.{format}
+   Summary: Build and return a compressed archive of the selected history contents.
+   Parameters:
+     - history_id [path] (required)
+     - filename [path] (required)
+     - format [path] (required)
+     - dry_run [query]
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - run-as [header]
+
+## histories.show.contents.dataset_collections.show.download.get
+   Path: GET /api/histories/{history_id}/contents/dataset_collections/{hdca_id}/download
+   Summary: Download the content of a dataset collection as a `zip` archive.
+   Parameters:
+     - hdca_id [path] (required)
+     - history_id [path] (required)
+     - run-as [header]
+
+## histories.show.contents.get
+   Path: GET /api/histories/{history_id}/contents
+   Summary: Returns the contents of the given history.
+   Parameters:
+     - history_id [path] (required)
+     - v [query]
+     - details [query]
+     - ids [query]
+     - types [query]
+     - deleted [query]
+     - visible [query]
+     - shareable [query]
+     - view [query]
+     - keys [query]
+     - q [query]
+     - qv [query]
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - accept [header]
+     - run-as [header]
+
+## histories.show.contents.show.annotation.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/annotation
+   Summary: No description
+
+## histories.show.contents.show.display.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/display
+   Summary: Displays (preview) or downloads dataset content.
+   Parameters:
+     - history_content_id [path] (required)
+     - history_id [path] (required)
+     - preview [query]
+     - filename [query]
+     - to_ext [query]
+     - raw [query]
+     - offset [query]
+     - ck_size [query]
+     - run-as [header]
+
+## histories.show.contents.show.extended_metadata.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/extended_metadata
+   Summary: No description
+
+## histories.show.contents.show.extra_files.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/extra_files
+   Summary: Get the list of extra files/directories associated with a dataset.
+   Parameters:
+     - history_id [path] (required)
+     - history_content_id [path] (required)
+     - run-as [header]
+
+## histories.show.contents.show.get
+   Path: GET /api/histories/{history_id}/contents/{id}
+   Summary: Return detailed information about an HDA within a history. ``/api/histories/{history_id}/contents/{type}s/{id}`` should be used instead.
+   Parameters:
+     - id [path] (required)
+     - history_id [path] (required)
+     - type [query]
+     - fuzzy_count [query]
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.show.contents.show.metadata_file.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/metadata_file
+   Summary: Returns the metadata file associated with this history item.
+   Parameters:
+     - history_id [path] (required)
+     - history_content_id [path] (required)
+     - metadata_file [query] (required)
+     - run-as [header]
+
+## histories.show.contents.show.provenance.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/provenance
+   Summary: No description
+
+## histories.show.contents.show.provenance.show.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/provenance/{id}
+   Summary: No description
+
+## histories.show.contents.show.show.get
+   Path: GET /api/histories/{history_id}/contents/{type}s/{id}
+   Summary: Return detailed information about a specific HDA or HDCA with the given `ID` within a history.
+   Parameters:
+     - id [path] (required)
+     - history_id [path] (required)
+     - type [path] (required)
+     - fuzzy_count [query]
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.show.contents.show.show.jobs_summary.get
+   Path: GET /api/histories/{history_id}/contents/{type}s/{id}/jobs_summary
+   Summary: Return detailed information about an `HDA` or `HDCAs` jobs.
+   Parameters:
+     - history_id [path] (required)
+     - id [path] (required)
+     - type [path] (required)
+     - run-as [header]
+
+## histories.show.contents.show.tags.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/tags
+   Summary: Show tags based on history_content_id
+   Parameters:
+     - history_content_id [path] (required)
+     - run-as [header]
+     - history_id [path] (required)
+
+## histories.show.contents.show.tags.show.get
+   Path: GET /api/histories/{history_id}/contents/{history_content_id}/tags/{tag_name}
+   Summary: Show tag based on history_content_id
+   Parameters:
+     - history_content_id [path] (required)
+     - tag_name [path] (required)
+     - run-as [header]
+     - history_id [path] (required)
+
+## histories.show.custom_builds_metadata.get
+   Path: GET /api/histories/{history_id}/custom_builds_metadata
+   Summary: Returns meta data for custom builds.
+   Parameters:
+     - history_id [path] (required)
+     - run-as [header]
+
+## histories.show.exports.get
+   Path: GET /api/histories/{history_id}/exports
+   Summary: Get previous history exports.
+   Parameters:
+     - history_id [path] (required)
+     - limit [query]
+     - offset [query]
+     - accept [header]
+     - run-as [header]
+
+## histories.show.exports.show.get
+   Path: GET /api/histories/{history_id}/exports/{jeha_id}
+   Summary: If ready and available, return raw contents of exported history as a downloadable archive.
+   Parameters:
+     - history_id [path] (required)
+     - jeha_id [path] (required)
+     - run-as [header]
+
+## histories.show.get
+   Path: GET /api/histories/{history_id}
+   Summary: Returns the history with the given ID.
+   Parameters:
+     - history_id [path] (required)
+     - view [query]
+     - keys [query]
+     - run-as [header]
+
+## histories.show.jobs_summary.get
+   Path: GET /api/histories/{history_id}/jobs_summary
+   Summary: Return job state summary info for jobs, implicit groups jobs for collections or workflow invocations.
+   Parameters:
+     - history_id [path] (required)
+     - ids [query]
+     - types [query]
+     - run-as [header]
+
+## histories.show.sharing.get
+   Path: GET /api/histories/{history_id}/sharing
+   Summary: Get the current sharing status of the given item.
+   Parameters:
+     - history_id [path] (required)
+     - run-as [header]
+
+## histories.show.tags.get
+   Path: GET /api/histories/{history_id}/tags
+   Summary: Show tags based on history_id
+   Parameters:
+     - history_id [path] (required)
+     - run-as [header]
+
+## histories.show.tags.show.get
+   Path: GET /api/histories/{history_id}/tags/{tag_name}
+   Summary: Show tag based on history_id
+   Parameters:
+     - history_id [path] (required)
+     - tag_name [path] (required)
+     - run-as [header]
+
+## invocations.get
+   Path: GET /api/invocations
+   Summary: Get the list of a user's workflow invocations.
+   Parameters:
+     - workflow_id [query]
+     - history_id [query]
+     - job_id [query]
+     - user_id [query]
+     - sort_by [query]
+     - sort_desc [query]
+     - include_terminal [query]
+     - limit [query]
+     - offset [query]
+     - instance [query]
+     - view [query]
+     - step_details [query]
+     - include_nested_invocations [query]
+     - run-as [header]
+
+## invocations.show.get
+   Path: GET /api/invocations/{invocation_id}
+   Summary: Get detailed description of a workflow invocation.
+   Parameters:
+     - invocation_id [path] (required)
+     - step_details [query]
+     - legacy_job_state [query]
+     - run-as [header]
+
+## invocations.show.jobs_summary.get
+   Path: GET /api/invocations/{invocation_id}/jobs_summary
+   Summary: Get job state summary info aggregated across all current jobs of the workflow invocation.
+   Parameters:
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## invocations.show.metrics.get
+   Path: GET /api/invocations/{invocation_id}/metrics
+   Summary: Get Invocation Metrics
+   Parameters:
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## invocations.show.report.get
+   Path: GET /api/invocations/{invocation_id}/report
+   Summary: Get JSON summarizing invocation for reporting.
+   Parameters:
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## invocations.show.report.pdf.get
+   Path: GET /api/invocations/{invocation_id}/report.pdf
+   Summary: Get PDF summarizing invocation for reporting.
+   Parameters:
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## invocations.show.request.get
+   Path: GET /api/invocations/{invocation_id}/request
+   Summary: Get a description modeling an API request to invoke this workflow - this is recreated and will be more specific in some ways than the initial creation request.
+   Parameters:
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## invocations.show.step_jobs_summary.get
+   Path: GET /api/invocations/{invocation_id}/step_jobs_summary
+   Summary: Get job state summary info aggregated per step of the workflow invocation.
+   Parameters:
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## invocations.show.steps.show.get
+   Path: GET /api/invocations/{invocation_id}/steps/{step_id}
+   Summary: Show details of workflow invocation step.
+   Parameters:
+     - invocation_id [path] (required)
+     - step_id [path] (required)
+     - run-as [header]
+
+## invocations.steps.show.get
+   Path: GET /api/invocations/steps/{step_id}
+   Summary: Show details of workflow invocation step.
+   Parameters:
+     - step_id [path] (required)
+     - run-as [header]
+
+## job_lock.get
+   Path: GET /api/job_lock
+   Summary: Job Lock Status
+   Parameters:
+     - run-as [header]
+
+## jobs.get
+   Path: GET /api/jobs
+   Summary: Index
+   Parameters:
+     - user_details [query]
+     - user_id [query]
+     - view [query]
+     - date_range_min [query]
+     - date_range_max [query]
+     - history_id [query]
+     - workflow_id [query]
+     - invocation_id [query]
+     - implicit_collection_jobs_id [query]
+     - order_by [query]
+     - search [query]
+     - limit [query]
+     - offset [query]
+     - state [query]
+     - tool_id [query]
+     - tool_id_like [query]
+     - run-as [header]
+
+## jobs.show.build_for_rerun.get
+   Path: GET /api/jobs/{id}/build_for_rerun
+   Summary: No description
+
+## jobs.show.common_problems.get
+   Path: GET /api/jobs/{job_id}/common_problems
+   Summary: Check inputs and job for common potential problems to aid in error reporting
+   Parameters:
+     - job_id [path] (required)
+     - run-as [header]
+
+## jobs.show.console_output.get
+   Path: GET /api/jobs/{job_id}/console_output
+   Summary: Returns STDOUT and STDERR from the tool running in a specific job.
+   Parameters:
+     - job_id [path] (required)
+     - stdout_position [query] (required)
+     - stdout_length [query] (required)
+     - stderr_position [query] (required)
+     - stderr_length [query] (required)
+     - run-as [header]
+
+## jobs.show.destination_params.get
+   Path: GET /api/jobs/{job_id}/destination_params
+   Summary: Return destination parameters for specified job.
+   Parameters:
+     - job_id [path] (required)
+     - run-as [header]
+
+## jobs.show.files.get
+   Path: GET /api/jobs/{job_id}/files
+   Summary: No description
+
+## jobs.show.get
+   Path: GET /api/jobs/{job_id}
+   Summary: Return dictionary containing description of job data.
+   Parameters:
+     - job_id [path] (required)
+     - full [query]
+     - run-as [header]
+
+## jobs.show.inputs.get
+   Path: GET /api/jobs/{job_id}/inputs
+   Summary: Returns input datasets created by a job.
+   Parameters:
+     - job_id [path] (required)
+     - run-as [header]
+
+## jobs.show.metrics.get
+   Path: GET /api/jobs/{job_id}/metrics
+   Summary: Return job metrics for specified job.
+   Parameters:
+     - job_id [path] (required)
+     - hda_ldda [query]
+     - run-as [header]
+
+## jobs.show.oidc-tokens.get
+   Path: GET /api/jobs/{job_id}/oidc-tokens
+   Summary: Get a fresh OIDC token
+   Parameters:
+     - job_id [path] (required)
+     - job_key [query] (required)
+     - provider [query] (required)
+     - run-as [header]
+
+## jobs.show.outputs.get
+   Path: GET /api/jobs/{job_id}/outputs
+   Summary: Returns output datasets created by a job.
+   Parameters:
+     - job_id [path] (required)
+     - run-as [header]
+
+## jobs.show.parameters_display.get
+   Path: GET /api/jobs/{job_id}/parameters_display
+   Summary: Resolve parameters as a list for nested display.
+   Parameters:
+     - job_id [path] (required)
+     - hda_ldda [query]
+     - run-as [header]
+
+## libraries.datasets.download.show.get
+   Path: GET /api/libraries/datasets/download/{archive_format}
+   Summary: No description
+
+## libraries.datasets.show.get
+   Path: GET /api/libraries/datasets/{id}
+   Summary: No description
+
+## libraries.datasets.show.permissions.get
+   Path: GET /api/libraries/datasets/{encoded_dataset_id}/permissions
+   Summary: No description
+
+## libraries.datasets.show.versions.show.get
+   Path: GET /api/libraries/datasets/{encoded_dataset_id}/versions/{encoded_ldda_id}
+   Summary: No description
+
+## libraries.deleted.get
+   Path: GET /api/libraries/deleted
+   Summary: Returns a list of summary data for all libraries marked as deleted.
+   Parameters:
+     - run-as [header]
+
+## libraries.get
+   Path: GET /api/libraries
+   Summary: Returns a list of summary data for all libraries.
+   Parameters:
+     - deleted [query]
+     - run-as [header]
+
+## libraries.show.contents.get
+   Path: GET /api/libraries/{library_id}/contents
+   Summary: Return a list of library files and folders.
+   Parameters:
+     - library_id [path] (required)
+     - run-as [header]
+
+## libraries.show.contents.show.get
+   Path: GET /api/libraries/{library_id}/contents/{id}
+   Summary: Return a library file or folder.
+   Parameters:
+     - library_id [path] (required)
+     - id [path] (required)
+     - run-as [header]
+
+## libraries.show.get
+   Path: GET /api/libraries/{id}
+   Summary: Returns summary information about a particular library.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## libraries.show.permissions.get
+   Path: GET /api/libraries/{id}/permissions
+   Summary: Gets the current or available permissions of a particular library.
+   Parameters:
+     - id [path] (required)
+     - scope [query]
+     - is_library_access [query]
+     - page [query]
+     - page_limit [query]
+     - q [query]
+     - run-as [header]
+
+## licenses.get
+   Path: GET /api/licenses
+   Summary: Lists all available SPDX licenses
+
+## licenses.show.get
+   Path: GET /api/licenses/{id}
+   Summary: Gets the SPDX license metadata associated with the short identifier
+   Parameters:
+     - id [path] (required)
+
+## notifications.broadcast.get
+   Path: GET /api/notifications/broadcast
+   Summary: Returns all currently active broadcasted notifications.
+   Parameters:
+     - run-as [header]
+
+## notifications.broadcast.show.get
+   Path: GET /api/notifications/broadcast/{notification_id}
+   Summary: Returns the information of a specific broadcasted notification.
+   Parameters:
+     - notification_id [path] (required)
+     - run-as [header]
+
+## notifications.get
+   Path: GET /api/notifications
+   Summary: Returns the list of notifications associated with the user.
+   Parameters:
+     - limit [query]
+     - offset [query]
+     - run-as [header]
+
+## notifications.preferences.get
+   Path: GET /api/notifications/preferences
+   Summary: Returns the current user's preferences for notifications.
+   Parameters:
+     - run-as [header]
+
+## notifications.show.get
+   Path: GET /api/notifications/{notification_id}
+   Summary: Displays information about a notification received by the user.
+   Parameters:
+     - notification_id [path] (required)
+     - run-as [header]
+
+## notifications.status.get
+   Path: GET /api/notifications/status
+   Summary: Returns the current status summary of the user's notifications since a particular date.
+   Parameters:
+     - since [query] (required)
+     - run-as [header]
+
+## object_store_instances.get
+   Path: GET /api/object_store_instances
+   Summary: Get a list of persisted object store instances defined by the requesting user.
+   Parameters:
+     - run-as [header]
+
+## object_store_instances.show.get
+   Path: GET /api/object_store_instances/{uuid}
+   Summary: Get a persisted user object store instance.
+   Parameters:
+     - uuid [path] (required)
+     - run-as [header]
+
+## object_store_instances.show.test.get
+   Path: GET /api/object_store_instances/{uuid}/test
+   Summary: Get a persisted user object store instance.
+   Parameters:
+     - uuid [path] (required)
+     - run-as [header]
+
+## object_store_templates.get
+   Path: GET /api/object_store_templates
+   Summary: Get a list of object store templates available to build user defined object stores from
+   Parameters:
+     - run-as [header]
+
+## object_stores.get
+   Path: GET /api/object_stores
+   Summary: Get a list of (currently only concrete) object stores configured with this Galaxy instance.
+   Parameters:
+     - selectable [query]
+     - run-as [header]
+
+## object_stores.show.get
+   Path: GET /api/object_stores/{object_store_id}
+   Summary: Get information about a concrete object store configured with Galaxy.
+   Parameters:
+     - object_store_id [path] (required)
+     - run-as [header]
+
+## pages.get
+   Path: GET /api/pages
+   Summary: Lists all Pages viewable by the user.
+   Parameters:
+     - deleted [query]
+     - limit [query]
+     - offset [query]
+     - search [query]
+     - show_own [query]
+     - show_published [query]
+     - show_shared [query]
+     - sort_by [query]
+     - sort_desc [query]
+     - user_id [query]
+     - run-as [header]
+
+## pages.show.get
+   Path: GET /api/pages/{id}.pdf
+   Summary: Return a PDF document of the last revision of the Page.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## pages.show.revisions.get
+   Path: GET /api/pages/{page_id}/revisions
+   Summary: No description
+
+## pages.show.sharing.get
+   Path: GET /api/pages/{id}/sharing
+   Summary: Get the current sharing status of the given Page.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## plugins.get
+   Path: GET /api/plugins
+   Summary: No description
+
+## plugins.show.get
+   Path: GET /api/plugins/{id}
+   Summary: No description
+
+## proxy.get
+   Path: GET /api/proxy
+   Summary: Proxy
+   Parameters:
+     - url [query] (required)
+     - run-as [header]
+
+## quotas.deleted.get
+   Path: GET /api/quotas/deleted
+   Summary: Displays a list with information of quotas that have been deleted.
+   Parameters:
+     - run-as [header]
+
+## quotas.deleted.show.get
+   Path: GET /api/quotas/deleted/{id}
+   Summary: Displays details on a particular quota that has been deleted.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## quotas.get
+   Path: GET /api/quotas
+   Summary: Displays a list with information of quotas that are currently active.
+   Parameters:
+     - run-as [header]
+
+## quotas.show.get
+   Path: GET /api/quotas/{id}
+   Summary: Displays details on a particular active quota.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## remote_files.get
+   Path: GET /api/remote_files
+   Summary: Displays remote files available to the user.
+   Parameters:
+     - target [query]
+     - format [query]
+     - recursive [query]
+     - disable [query]
+     - writeable [query]
+     - write_intent [query]
+     - limit [query]
+     - offset [query]
+     - query [query]
+     - sort_by [query]
+     - run-as [header]
+
+## remote_files.plugins.get
+   Path: GET /api/remote_files/plugins
+   Summary: Display plugin information for each of the gxfiles:// URI targets available.
+   Parameters:
+     - browsable_only [query]
+     - include_kind [query]
+     - exclude_kind [query]
+     - run-as [header]
+
+## roles.get
+   Path: GET /api/roles
+   Summary: Index
+   Parameters:
+     - run-as [header]
+
+## roles.show.get
+   Path: GET /api/roles/{id}
+   Summary: Show
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## sanitize_allow.get
+   Path: GET /api/sanitize_allow
+   Summary: No description
+
+## short_term_storage.show.get
+   Path: GET /api/short_term_storage/{storage_request_id}
+   Summary: Serve the staged download specified by request ID.
+   Parameters:
+     - storage_request_id [path] (required)
+
+## short_term_storage.show.ready.get
+   Path: GET /api/short_term_storage/{storage_request_id}/ready
+   Summary: Determine if specified storage request ID is ready for download.
+   Parameters:
+     - storage_request_id [path] (required)
+
+## storage.datasets.discarded.get
+   Path: GET /api/storage/datasets/discarded
+   Summary: Returns discarded datasets owned by the given user. The results can be paginated.
+   Parameters:
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - run-as [header]
+
+## storage.datasets.discarded.summary.get
+   Path: GET /api/storage/datasets/discarded/summary
+   Summary: Returns information with the total storage space taken by discarded datasets owned by the given user.
+   Parameters:
+     - run-as [header]
+
+## storage.histories.archived.get
+   Path: GET /api/storage/histories/archived
+   Summary: Returns archived histories owned by the given user that are not purged. The results can be paginated.
+   Parameters:
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - run-as [header]
+
+## storage.histories.archived.summary.get
+   Path: GET /api/storage/histories/archived/summary
+   Summary: Returns information with the total storage space taken by non-purged archived histories associated with the given user.
+   Parameters:
+     - run-as [header]
+
+## storage.histories.discarded.get
+   Path: GET /api/storage/histories/discarded
+   Summary: Returns all discarded histories associated with the given user.
+   Parameters:
+     - offset [query]
+     - limit [query]
+     - order [query]
+     - run-as [header]
+
+## storage.histories.discarded.summary.get
+   Path: GET /api/storage/histories/discarded/summary
+   Summary: Returns information with the total storage space taken by discarded histories associated with the given user.
+   Parameters:
+     - run-as [header]
+
+## tasks.show.result.get
+   Path: GET /api/tasks/{task_id}/result
+   Summary: Get result message for task ID
+   Parameters:
+     - task_id [path] (required)
+
+## tasks.show.state.get
+   Path: GET /api/tasks/{task_id}/state
+   Summary: Determine state of task ID
+   Parameters:
+     - task_id [path] (required)
+
+## tool_data.get
+   Path: GET /api/tool_data
+   Summary: Lists all available data tables
+
+## tool_data.show.fields.show.files.show.get
+   Path: GET /api/tool_data/{table_name}/fields/{field_name}/files/{file_name}
+   Summary: Get files associated with a particular field in a tool data table
+   Parameters:
+     - table_name [path] (required)
+     - field_name [path] (required)
+     - file_name [path] (required)
+     - run-as [header]
+
+## tool_data.show.fields.show.get
+   Path: GET /api/tool_data/{table_name}/fields/{field_name}
+   Summary: Get information about a particular field in a tool data table
+   Parameters:
+     - table_name [path] (required)
+     - field_name [path] (required)
+     - run-as [header]
+
+## tool_data.show.get
+   Path: GET /api/tool_data/{table_name}
+   Summary: Get details of a data table. For non-administrators, base directories in the path column are stripped, leaving only the basename.
+   Parameters:
+     - table_name [path] (required)
+     - run-as [header]
+
+## tool_data.show.reload.get
+   Path: GET /api/tool_data/{table_name}/reload
+   Summary: Reloads a tool data table
+   Parameters:
+     - table_name [path] (required)
+     - run-as [header]
+
+## tool_landings.show.get
+   Path: GET /api/tool_landings/{uuid}
+   Summary: Get Landing
+   Parameters:
+     - uuid [path] (required)
+     - run-as [header]
+
+## tool_panels.get
+   Path: GET /api/tool_panels
+   Summary: No description
+
+## tool_panels.show.get
+   Path: GET /api/tool_panels/{view}
+   Summary: No description
+
+## tool_shed.get
+   Path: GET /api/tool_shed
+   Summary: No description
+
+## tool_shed.request.get
+   Path: GET /api/tool_shed/request
+   Summary: No description
+
+## tool_shed_repositories.check_for_updates.get
+   Path: GET /api/tool_shed_repositories/check_for_updates
+   Summary: Check for updates to the specified repository, or all installed repositories.
+   Parameters:
+     - id [query]
+     - run-as [header]
+
+## tool_shed_repositories.get
+   Path: GET /api/tool_shed_repositories
+   Summary: Lists installed tool shed repositories.
+   Parameters:
+     - name [query]
+     - owner [query]
+     - changeset [query]
+     - deleted [query]
+     - uninstalled [query]
+
+## tool_shed_repositories.show.get
+   Path: GET /api/tool_shed_repositories/{id}
+   Summary: Show installed tool shed repository.
+   Parameters:
+     - id [path] (required)
+
+## tools.fetch.workbook.get
+   Path: GET /api/tools/fetch/workbook
+   Summary: Generate a template workbook to use with the activity builder UI
+   Parameters:
+     - type [query]
+     - collection_type [query]
+     - filename [query]
+     - run-as [header]
+
+## tools.get
+   Path: GET /api/tools
+   Summary: No description
+
+## tools.show.get
+   Path: GET /api/tools/{id}
+   Summary: No description
+
+## tools.show.icon.get
+   Path: GET /api/tools/{tool_id}/icon
+   Summary: Get the icon image associated with a tool
+   Parameters:
+     - tool_id [path] (required)
+     - run-as [header]
+
+## tours.generate.get
+   Path: GET /api/tours/generate
+   Summary: Generate Tour
+   Parameters:
+     - tool_id [query] (required)
+     - tool_version [query] (required)
+     - performs_upload [query]
+     - run-as [header]
+
+## tours.get
+   Path: GET /api/tours
+   Summary: Index
+
+## tours.show.get
+   Path: GET /api/tours/{tour_id}
+   Summary: Show
+   Parameters:
+     - tour_id [path] (required)
+
+## trs_consume.servers.get
+   Path: GET /api/trs_consume/servers
+   Summary: No description
+
+## trs_consume.show.tools.show.get
+   Path: GET /api/trs_consume/{trs_server}/tools/{tool_id}
+   Summary: No description
+
+## trs_consume.show.tools.show.versions.get
+   Path: GET /api/trs_consume/{trs_server}/tools/{tool_id}/versions
+   Summary: No description
+
+## trs_consume.show.tools.show.versions.show.get
+   Path: GET /api/trs_consume/{trs_server}/tools/{tool_id}/versions/{version_id}
+   Summary: No description
+
+## trs_search.get
+   Path: GET /api/trs_search
+   Summary: No description
+
+## unprivileged_tools.get
+   Path: GET /api/unprivileged_tools
+   Summary: Index
+   Parameters:
+     - active [query]
+     - run-as [header]
+
+## unprivileged_tools.show.get
+   Path: GET /api/unprivileged_tools/{uuid}
+   Summary: Show
+   Parameters:
+     - uuid [path] (required)
+     - run-as [header]
+
+## users.deleted.get
+   Path: GET /api/users/deleted
+   Summary: Get Deleted Users
+   Parameters:
+     - f_email [query]
+     - f_name [query]
+     - f_any [query]
+     - run-as [header]
+
+## users.deleted.show.get
+   Path: GET /api/users/deleted/{user_id}
+   Summary: Return information about a deleted user. Only admins can see deleted users.
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.get
+   Path: GET /api/users
+   Summary: Get Users
+   Parameters:
+     - deleted [query]
+     - f_email [query]
+     - f_name [query]
+     - f_any [query]
+     - run-as [header]
+
+## users.show.api_key.detailed.get
+   Path: GET /api/users/{user_id}/api_key/detailed
+   Summary: Return the user's API key with extra information.
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.show.api_key.get
+   Path: GET /api/users/{user_id}/api_key
+   Summary: Return the user's API key
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.show.beacon.get
+   Path: GET /api/users/{user_id}/beacon
+   Summary: Return information about beacon share settings
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.show.credentials.get
+   Path: GET /api/users/{user_id}/credentials
+   Summary: Lists all credentials the user has provided
+   Parameters:
+     - user_id [path] (required)
+     - source_type [query]
+     - source_id [query]
+     - source_version [query]
+     - include_definition [query]
+     - run-as [header]
+
+## users.show.custom_builds.get
+   Path: GET /api/users/{user_id}/custom_builds
+   Summary:  Returns collection of custom builds.
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.show.get
+   Path: GET /api/users/{user_id}
+   Summary: Return information about a specified or the current user. Only admin can see deleted or other users
+   Parameters:
+     - user_id [path] (required)
+     - deleted [query]
+     - run-as [header]
+
+## users.show.information.inputs.get
+   Path: GET /api/users/{id}/information/inputs
+   Summary: No description
+
+## users.show.objectstore_usage.get
+   Path: GET /api/users/{user_id}/objectstore_usage
+   Summary: Return the user's object store usage summary broken down by object store ID
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.show.password.inputs.get
+   Path: GET /api/users/{id}/password/inputs
+   Summary: No description
+
+## users.show.permissions.inputs.get
+   Path: GET /api/users/{id}/permissions/inputs
+   Summary: No description
+
+## users.show.roles.get
+   Path: GET /api/users/{user_id}/roles
+   Summary: Get User Roles
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.show.toolbox_filters.inputs.get
+   Path: GET /api/users/{id}/toolbox_filters/inputs
+   Summary: No description
+
+## users.show.usage.get
+   Path: GET /api/users/{user_id}/usage
+   Summary: Return the user's quota usage summary broken down by quota source
+   Parameters:
+     - user_id [path] (required)
+     - run-as [header]
+
+## users.show.usage.show.get
+   Path: GET /api/users/{user_id}/usage/{label}
+   Summary: Return the user's quota usage summary for a given quota source label
+   Parameters:
+     - user_id [path] (required)
+     - label [path] (required)
+     - run-as [header]
+
+## version.get
+   Path: GET /api/version
+   Summary: Return Galaxy version information: major/minor version, optional extra info
+
+## visualizations.get
+   Path: GET /api/visualizations
+   Summary: Returns visualizations for the current user.
+   Parameters:
+     - deleted [query]
+     - limit [query]
+     - offset [query]
+     - user_id [query]
+     - show_own [query]
+     - show_published [query]
+     - show_shared [query]
+     - sort_by [query]
+     - sort_desc [query]
+     - search [query]
+     - run-as [header]
+
+## visualizations.show.get
+   Path: GET /api/visualizations/{id}
+   Summary: Get a visualization by ID.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## visualizations.show.sharing.get
+   Path: GET /api/visualizations/{id}/sharing
+   Summary: Get the current sharing status of the given Visualization.
+   Parameters:
+     - id [path] (required)
+     - run-as [header]
+
+## webhooks.get
+   Path: GET /api/webhooks
+   Summary: No description
+
+## webhooks.show.data.get
+   Path: GET /api/webhooks/{webhook_id}/data
+   Summary: No description
+
+## whoami.get
+   Path: GET /api/whoami
+   Summary: Return information about the current authenticated user
+   Parameters:
+     - run-as [header]
+
+## workflow_landings.show.get
+   Path: GET /api/workflow_landings/{uuid}
+   Summary: Get Landing
+   Parameters:
+     - uuid [path] (required)
+     - run-as [header]
+
+## workflows.download.show.get
+   Path: GET /api/workflows/download/{workflow_id}
+   Summary: No description
+
+## workflows.get
+   Path: GET /api/workflows
+   Summary: Lists stored workflows viewable by the user.
+   Parameters:
+     - show_deleted [query]
+     - show_hidden [query]
+     - missing_tools [query]
+     - show_published [query]
+     - show_shared [query]
+     - sort_by [query]
+     - sort_desc [query]
+     - limit [query]
+     - offset [query]
+     - search [query]
+     - skip_step_counts [query]
+     - run-as [header]
+
+## workflows.menu.get
+   Path: GET /api/workflows/menu
+   Summary: Get workflows present in the tools panel.
+   Parameters:
+     - show_deleted [query]
+     - show_hidden [query]
+     - missing_tools [query]
+     - show_published [query]
+     - show_shared [query]
+     - run-as [header]
+
+## workflows.show.annotation.get
+   Path: GET /api/workflows/{workflow_id}/annotation
+   Summary: No description
+
+## workflows.show.counts.get
+   Path: GET /api/workflows/{workflow_id}/counts
+   Summary: Get state counts for accessible workflow.
+   Parameters:
+     - workflow_id [path] (required)
+     - instance [query]
+     - run-as [header]
+
+## workflows.show.download.get
+   Path: GET /api/workflows/{workflow_id}/download
+   Summary: No description
+
+## workflows.show.get
+   Path: GET /api/workflows/{workflow_id}
+   Summary: Displays information needed to run a workflow.
+   Parameters:
+     - workflow_id [path] (required)
+     - instance [query]
+     - legacy [query]
+     - version [query]
+     - run-as [header]
+
+## workflows.show.invocations.get
+   Path: GET /api/workflows/{workflow_id}/invocations
+   Summary: Get the list of a user's workflow invocations.
+   Parameters:
+     - workflow_id [path] (required)
+     - history_id [query]
+     - job_id [query]
+     - user_id [query]
+     - sort_by [query]
+     - sort_desc [query]
+     - include_terminal [query]
+     - limit [query]
+     - offset [query]
+     - instance [query]
+     - view [query]
+     - step_details [query]
+     - run-as [header]
+
+## workflows.show.invocations.show.get
+   Path: GET /api/workflows/{workflow_id}/invocations/{invocation_id}
+   Summary: Get detailed description of a workflow invocation.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - step_details [query]
+     - legacy_job_state [query]
+     - run-as [header]
+
+## workflows.show.invocations.show.jobs_summary.get
+   Path: GET /api/workflows/{workflow_id}/invocations/{invocation_id}/jobs_summary
+   Summary: Get job state summary info aggregated across all current jobs of the workflow invocation.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## workflows.show.invocations.show.report.get
+   Path: GET /api/workflows/{workflow_id}/invocations/{invocation_id}/report
+   Summary: Get JSON summarizing invocation for reporting.
+   Parameters:
+     - invocation_id [path] (required)
+     - workflow_id [path] (required)
+     - run-as [header]
+
+## workflows.show.invocations.show.report.pdf.get
+   Path: GET /api/workflows/{workflow_id}/invocations/{invocation_id}/report.pdf
+   Summary: Get PDF summarizing invocation for reporting.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## workflows.show.invocations.show.step_jobs_summary.get
+   Path: GET /api/workflows/{workflow_id}/invocations/{invocation_id}/step_jobs_summary
+   Summary: Get job state summary info aggregated per step of the workflow invocation.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## workflows.show.invocations.show.steps.show.get
+   Path: GET /api/workflows/{workflow_id}/invocations/{invocation_id}/steps/{step_id}
+   Summary: Show details of workflow invocation step.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - step_id [path] (required)
+     - run-as [header]
+
+## workflows.show.sharing.get
+   Path: GET /api/workflows/{workflow_id}/sharing
+   Summary: Get the current sharing status of the given item.
+   Parameters:
+     - workflow_id [path] (required)
+     - run-as [header]
+
+## workflows.show.tags.get
+   Path: GET /api/workflows/{workflow_id}/tags
+   Summary: Show tags based on workflow_id
+   Parameters:
+     - workflow_id [path] (required)
+     - run-as [header]
+
+## workflows.show.tags.show.get
+   Path: GET /api/workflows/{workflow_id}/tags/{tag_name}
+   Summary: Show tag based on workflow_id
+   Parameters:
+     - workflow_id [path] (required)
+     - tag_name [path] (required)
+     - run-as [header]
+
+## workflows.show.usage.get
+   Path: GET /api/workflows/{workflow_id}/usage
+   Summary: Get the list of a user's workflow invocations.
+   Parameters:
+     - workflow_id [path] (required)
+     - history_id [query]
+     - job_id [query]
+     - user_id [query]
+     - sort_by [query]
+     - sort_desc [query]
+     - include_terminal [query]
+     - limit [query]
+     - offset [query]
+     - instance [query]
+     - view [query]
+     - step_details [query]
+     - run-as [header]
+
+## workflows.show.usage.show.get
+   Path: GET /api/workflows/{workflow_id}/usage/{invocation_id}
+   Summary: Get detailed description of a workflow invocation.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - step_details [query]
+     - legacy_job_state [query]
+     - run-as [header]
+
+## workflows.show.usage.show.jobs_summary.get
+   Path: GET /api/workflows/{workflow_id}/usage/{invocation_id}/jobs_summary
+   Summary: Get job state summary info aggregated across all current jobs of the workflow invocation.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## workflows.show.usage.show.report.get
+   Path: GET /api/workflows/{workflow_id}/usage/{invocation_id}/report
+   Summary: Get JSON summarizing invocation for reporting.
+   Parameters:
+     - invocation_id [path] (required)
+     - workflow_id [path] (required)
+     - run-as [header]
+
+## workflows.show.usage.show.report.pdf.get
+   Path: GET /api/workflows/{workflow_id}/usage/{invocation_id}/report.pdf
+   Summary: Get PDF summarizing invocation for reporting.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## workflows.show.usage.show.step_jobs_summary.get
+   Path: GET /api/workflows/{workflow_id}/usage/{invocation_id}/step_jobs_summary
+   Summary: Get job state summary info aggregated per step of the workflow invocation.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - run-as [header]
+
+## workflows.show.usage.show.steps.show.get
+   Path: GET /api/workflows/{workflow_id}/usage/{invocation_id}/steps/{step_id}
+   Summary: Show details of workflow invocation step.
+   Parameters:
+     - workflow_id [path] (required)
+     - invocation_id [path] (required)
+     - step_id [path] (required)
+     - run-as [header]
+
+## workflows.show.versions.get
+   Path: GET /api/workflows/{workflow_id}/versions
+   Summary: List all versions of a workflow.
+   Parameters:
+     - workflow_id [path] (required)
+     - instance [query]
+     - run-as [header]
+

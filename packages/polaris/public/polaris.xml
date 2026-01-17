@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="Polaris" embeddable="true">
+    <description>Displays a Dataset Report</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">data</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <specs>
+        <ai_prompt><![CDATA[
+You are analyzing a Galaxy dataset and its processing pipeline to generate a methods section for scientific publication.
+
+Focus on:
+- Describing the data processing pipeline in narrative form
+- Listing tools with versions when available (omit version if not present)
+- Explaining input/output file formats
+- Writing in past tense, third person (scientific style)
+
+Exclude internal Galaxy tools starting with "__" (like __DATA_FETCH__, __SET_METADATA__).
+Only describe tools that actually appear in the provided data - do not hallucinate.
+        ]]></ai_prompt>
+        <ai_max_tokens>4096</ai_max_tokens>
+        <depth>20</depth>
+        <max_per_level>20</max_per_level>
+    </specs>
+    <help format="markdown"><![CDATA[
+# What is Polaris
+
+Polaris generates a structured methods style report for a Galaxy dataset by reconstructing its upstream lineage from Galaxy metadata.
+
+## What Polaris Does
+
+- Reconstructs how a dataset was produced by traversing its upstream job and dataset lineage
+- Identifies analysis tools and versions when available
+- Summarizes input and output data formats
+- Produces a publication style narrative description of the workflow
+
+Polaris operates strictly in read only mode and does not modify your history.
+
+## Scope and Limits
+
+- Lineage is traced upstream only, from the selected dataset back toward original inputs
+- Traversal is bounded to avoid incomplete or misleading graphs
+- If parts of the lineage are unavailable or truncated, they are omitted rather than inferred
+
+Polaris does not guess missing steps and does not invent tools or parameters.
+
+## Output
+
+- **Workflow Narrative**  
+  A methods style description of how the dataset was generated
+
+- **Tool Summary**  
+  List of analysis tools used, including versions when available
+
+- **Data Formats**  
+  Summary of input and output file types involved in the workflow
+
+## How to Use
+
+1. Open a dataset in your Galaxy history
+2. Launch Polaris from the visualization menu
+3. Review the generated report describing the dataset lineage
+
+These limits control correctness and performance, not report verbosity.
+]]></help>
+</visualization>
