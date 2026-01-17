@@ -91,20 +91,11 @@ def generate_mermaid(
         key=lambda j: j.get("create_time", ""),
     )
 
-    # Find jobs that will be skipped (no-op after UUID deduplication)
-    skipped_jobs: set[str] = set()
-    for job in sorted_jobs:
-        job_id = job["id"]
-        inputs = job_inputs_map.get(job_id, set())
-        outputs = job_outputs_map.get(job_id, set())
-        if inputs and outputs and inputs == outputs:
-            skipped_jobs.add(job_id)
-
-    # Find input datasets (those without a creating job, or whose creating job is skipped)
+    # Find input datasets (those without a creating job in our job list)
     input_dataset_ids = set()
     for ds in dataset_details:
         creating_job = ds.get("creating_job")
-        if not creating_job or creating_job not in job_map or creating_job in skipped_jobs:
+        if not creating_job or creating_job not in job_map:
             input_dataset_ids.add(ds["id"])
 
     # Track added nodes
@@ -131,18 +122,14 @@ def generate_mermaid(
         inputs = job_inputs_map.get(job_id, set())
         outputs = job_outputs_map.get(job_id, set())
 
-        # Skip jobs where all inputs equal all outputs (no-op after UUID deduplication)
-        if inputs and outputs and inputs == outputs:
-            continue
-
         # Add job node
         if job_id not in added_jobs:
             lines.append(f'    {job_node_id}[/"{tool_label}"/]')
             added_jobs.add(job_id)
 
-        # Edges from inputs to this job (skip if also an output to avoid cycles)
+        # Edges from inputs to this job
         for input_id in inputs:
-            if input_id in dataset_map and input_id not in outputs:
+            if input_id in dataset_map:
                 from_id = f"ds_{sanitize_id(input_id)}"
                 lines.append(f"    {from_id} --> {job_node_id}")
 

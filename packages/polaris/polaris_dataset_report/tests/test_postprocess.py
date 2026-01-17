@@ -93,15 +93,15 @@ class TestGenerateMermaid:
         assert edge_count == 1
         assert "ds_d2" not in result
 
-    def test_skipped_noop_jobs(self):
-        """Jobs where inputs == outputs are skipped."""
+    def test_passthrough_jobs_shown(self):
+        """Jobs where inputs == outputs (like extract) are still shown."""
         dataset_details = [
             {"id": "d1", "uuid": "uuid-1", "name": "Data", "file_ext": "txt", "creating_job": "j1"},
         ]
         job_details = [
             {
                 "id": "j1",
-                "tool_id": "__DATA_FETCH__",
+                "tool_id": "__EXTRACT_DATASET__",
                 # Input and output reference same dataset (same UUID)
                 "inputs": {"data": {"id": "d1", "uuid": "uuid-1"}},
                 "outputs": {"data": {"id": "d1", "uuid": "uuid-1"}},
@@ -111,10 +111,14 @@ class TestGenerateMermaid:
 
         result = generate_mermaid(dataset_details, job_details)
 
-        # Job should be skipped
-        assert "job_j1" not in result
-        # Dataset should still appear as input
+        # Job should be shown (not skipped)
+        assert "job_j1" in result
+        assert "__EXTRACT_DATASET__" in result
+        # Dataset should appear
         assert "ds_d1" in result
+        # Both input and output edges should exist
+        assert "ds_d1 --> job_j1" in result
+        assert "job_j1 --> ds_d1" in result
 
     def test_source_dataset_highlighted(self):
         """Source dataset gets highlighted class."""
