@@ -67,7 +67,5 @@ Polaris does not guess missing steps and does not invent tools or parameters.
 1. Open a dataset in your Galaxy history
 2. Launch Polaris from the visualization menu
 3. Review the generated report describing the dataset lineage
-
-These limits control correctness and performance, not report verbosity.
 ]]></help>
 </visualization>
