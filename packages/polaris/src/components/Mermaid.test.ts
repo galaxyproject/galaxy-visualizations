@@ -41,7 +41,7 @@ describe("Mermaid", () => {
                 expect.objectContaining({
                     startOnLoad: false,
                     theme: "neutral",
-                })
+                }),
             );
         });
 
@@ -56,7 +56,7 @@ describe("Mermaid", () => {
                         htmlLabels: true,
                         curve: "basis",
                     }),
-                })
+                }),
             );
         });
 
@@ -67,7 +67,7 @@ describe("Mermaid", () => {
             expect(mockInitialize).toHaveBeenCalledWith(
                 expect.objectContaining({
                     themeVariables: { fontSize: "11px" },
-                })
+                }),
             );
         });
     });
@@ -79,10 +79,7 @@ describe("Mermaid", () => {
             });
             await flushPromises();
 
-            expect(mockRender).toHaveBeenCalledWith(
-                expect.stringMatching(/^mermaid-\d+$/),
-                "flowchart LR\n  A --> B"
-            );
+            expect(mockRender).toHaveBeenCalledWith(expect.stringMatching(/^mermaid-\d+$/), "flowchart LR\n  A --> B");
             expect(wrapper.find(".mermaid-container").html()).toContain("test-svg");
         });
 
@@ -108,7 +105,7 @@ describe("Mermaid", () => {
             expect(mockRender).toHaveBeenCalledTimes(2);
             expect(mockRender).toHaveBeenLastCalledWith(
                 expect.stringMatching(/^mermaid-\d+$/),
-                "flowchart TD\n  C --> D"
+                "flowchart TD\n  C --> D",
             );
         });
 
@@ -146,7 +143,7 @@ describe("Mermaid", () => {
                     center: true,
                     minZoom: 0.1,
                     maxZoom: 10,
-                })
+                }),
             );
         });
 

@@ -81,7 +81,7 @@ const apiWarnings = computed(() => {
             </div>
 
             <!-- Dataset Report Header -->
-            <h1 class="text-2xl font-bold text-gray-800 mb-2">{{ data.reportTitle }}</h1>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2 whitespace-normal break-words">{{ data.reportTitle }}</h1>
             <hr class="border-gray-300 mb-4" />
 
             <!-- Stats Cards -->
