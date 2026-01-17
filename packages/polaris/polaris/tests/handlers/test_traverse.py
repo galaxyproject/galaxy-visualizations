@@ -787,3 +787,88 @@ class TestDedupField:
         uuids = {d["uuid"] for d in datasets}
         assert len(uuids) == 2, "Should have 2 unique UUIDs"
         assert uuids == {"uuid-source", "uuid-original"}
+
+    @pytest.mark.asyncio
+    async def test_max_per_level_limits_fetches(
+        self, handler, mock_registry, mock_runner
+    ):
+        """
+        max_per_level limits total fetches per level to prevent runaway API calls.
+
+        This ensures bounded behavior even with pathological data.
+        """
+        # Create data where job has 5 inputs
+        pipeline_data = {
+            "datasets": {
+                "d_out": {"id": "d_out", "uuid": "uuid-out", "creating_job": "j1"},
+                "d1": {"id": "d1", "uuid": "uuid-1", "creating_job": None},
+                "d2": {"id": "d2", "uuid": "uuid-2", "creating_job": None},
+                "d3": {"id": "d3", "uuid": "uuid-3", "creating_job": None},
+                "d4": {"id": "d4", "uuid": "uuid-4", "creating_job": None},
+                "d5": {"id": "d5", "uuid": "uuid-5", "creating_job": None},
+            },
+            "jobs": {
+                "j1": {
+                    "id": "j1",
+                    "tool_id": "tool",
+                    "inputs": {
+                        "in1": {"id": "d1", "uuid": "uuid-1"},
+                        "in2": {"id": "d2", "uuid": "uuid-2"},
+                        "in3": {"id": "d3", "uuid": "uuid-3"},
+                        "in4": {"id": "d4", "uuid": "uuid-4"},
+                        "in5": {"id": "d5", "uuid": "uuid-5"},
+                    },
+                    "outputs": {"out": {"id": "d_out", "uuid": "uuid-out"}},
+                },
+            },
+        }
+
+        mock_registry.call_api = create_mock_api(pipeline_data)
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 10,
+            "max_per_level": 3,  # Limit to 3 fetches per level
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "dedup_field": "uuid",
+                    "fetch": {
+                        "target": "galaxy.datasets.show.get",
+                        "id_param": "dataset_id",
+                    },
+                    "relations": {
+                        "creating_job": {"type": "job", "extract": "creating_job"},
+                    },
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.jobs.show.get",
+                        "id_param": "job_id",
+                    },
+                    "relations": {
+                        "inputs": {"type": "dataset", "extract": "inputs.*"},
+                    },
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": pipeline_data["datasets"]["d_out"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        datasets = result["result"]["dataset"]
+        jobs = result["result"]["job"]
+
+        # Should have: d_out (seed) + j1 (depth 1) + max 3 datasets (depth 2)
+        assert len(jobs) == 1  # j1
+        # Datasets: d_out (seed, not counted) + 3 from inputs (limited by max_per_level)
+        # Total should be 4 (seed + 3 fetched)
+        assert len(datasets) == 4, "Should have seed + 3 fetched datasets (limited by max_per_level)"
