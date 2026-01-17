@@ -1,5 +1,6 @@
 """Handler for traverse nodes - BFS graph traversal with targeted API calls."""
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 # Default limits
 DEFAULT_MAX_DEPTH = 20
 DEFAULT_MAX_PER_LEVEL = 20
+DEFAULT_DELAY = 0.5  # Delay between fetches in seconds
 
 
 class TraverseHandler:
@@ -97,6 +99,10 @@ class TraverseHandler:
         if max_per_level is None:
             max_per_level = DEFAULT_MAX_PER_LEVEL
 
+        delay = runner.resolver.resolve(node.get("delay"), ctx)
+        if delay is None:
+            delay = DEFAULT_DELAY
+
         # Get entity type definitions
         types = node.get("types", {})
         if not types:
@@ -115,6 +121,7 @@ class TraverseHandler:
                 "seed_type": seed_type,
                 "max_depth": max_depth,
                 "max_per_level": max_per_level,
+                "delay": delay,
                 "types": types,
             },
         }
@@ -131,6 +138,7 @@ class TraverseHandler:
         seed_type = cfg["seed_type"]
         max_depth = cfg["max_depth"]
         max_per_level = cfg["max_per_level"]
+        delay = cfg["delay"]
         types = cfg["types"]
 
         # Track fetched IDs (to avoid fetching same ID twice)
@@ -217,6 +225,10 @@ class TraverseHandler:
                         # Skip if we've already fetched this ID (avoid redundant API calls)
                         if rel_id in fetched_ids[target_type]:
                             continue
+
+                        # Apply delay before fetch to reduce server load
+                        if delay > 0:
+                            await asyncio.sleep(delay)
 
                         # Fetch the entity
                         fetched = await self._fetch_entity(
