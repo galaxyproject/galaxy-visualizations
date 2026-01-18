@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Default limits
 DEFAULT_MAX_DEPTH = 20
-DEFAULT_MAX_PER_LEVEL = 20
+DEFAULT_MAX_PER_LEVEL = 10
 DEFAULT_DELAY = 0.5  # Delay between fetches in seconds
 
 # Hard limit on total API calls to prevent overload
