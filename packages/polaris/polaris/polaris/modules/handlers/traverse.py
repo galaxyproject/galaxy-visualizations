@@ -17,6 +17,9 @@ DEFAULT_MAX_DEPTH = 20
 DEFAULT_MAX_PER_LEVEL = 20
 DEFAULT_DELAY = 0.5  # Delay between fetches in seconds
 
+# Hard limit on total API calls to prevent overload
+MAX_FETCHES = 25
+
 
 class TraverseHandler:
     """
@@ -141,6 +144,9 @@ class TraverseHandler:
         delay = cfg["delay"]
         types = cfg["types"]
 
+        # Track total API fetches to prevent overload
+        total_fetches = 0
+
         # Track fetched IDs (to avoid fetching same ID twice)
         fetched_ids: dict[str, set[str]] = {t: set() for t in types}
         # Track collected dedup values (to avoid duplicates in results)
@@ -180,8 +186,12 @@ class TraverseHandler:
         # Initialize frontier: list of (entity_type, entity_data) tuples
         frontier: list[tuple[str, dict]] = [(seed_type, seed)]
 
-        for depth in range(max_depth):
+        for _ in range(max_depth):
             if not frontier:
+                break
+
+            # Check total fetches limit at depth level
+            if total_fetches >= MAX_FETCHES:
                 break
 
             next_frontier: list[tuple[str, dict]] = []
@@ -191,14 +201,22 @@ class TraverseHandler:
                 if items_added >= max_per_level:
                     break
 
+                # Check total fetches limit
+                if total_fetches >= MAX_FETCHES:
+                    break
+
                 type_config = types.get(entity_type)
                 if not type_config:
                     continue
 
                 # Process relations for this entity
                 relations = type_config.get("relations", {})
-                for rel_name, rel_config in relations.items():
+                for rel_config in relations.values():
                     if items_added >= max_per_level:
+                        break
+
+                    # Check total fetches limit
+                    if total_fetches >= MAX_FETCHES:
                         break
 
                     target_type = rel_config.get("type")
@@ -220,6 +238,10 @@ class TraverseHandler:
                         if items_added >= max_per_level:
                             break
 
+                        # Check total fetches limit
+                        if total_fetches >= MAX_FETCHES:
+                            break
+
                         rel_id = ref["id"]
 
                         # Skip if we've already fetched this ID (avoid redundant API calls)
@@ -234,6 +256,7 @@ class TraverseHandler:
                         fetched = await self._fetch_entity(
                             target_type, rel_id, types, ctx, registry, runner
                         )
+                        total_fetches += 1
                         if fetched:
                             fetched_ids[target_type].add(rel_id)
                             actual_dedup = fetched.get(target_dedup_field) or rel_id
