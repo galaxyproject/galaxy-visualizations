@@ -79,8 +79,9 @@ watch([() => props.code, containerRef], render);
 
 <style scoped>
 .mermaid-container :deep(svg) {
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
 }
 
 .mermaid-container :deep(#svg-pan-zoom-controls) {

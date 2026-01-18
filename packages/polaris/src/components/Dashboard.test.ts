@@ -252,7 +252,6 @@ describe("Dashboard", () => {
                     ],
                 }),
             });
-            expect(wrapper.text()).toContain("Warning");
             expect(wrapper.text()).toContain("Failed to fetch inputs for 1 job(s)");
             expect(wrapper.text()).toContain("toolshed/bwa");
         });
@@ -264,7 +263,7 @@ describe("Dashboard", () => {
                     jobDetails: [createJob({ tool_id: "__DATA_FETCH__", inputs: undefined })],
                 }),
             });
-            expect(wrapper.text()).not.toContain("Warning");
+            expect(wrapper.find(".bg-amber-50.border-amber-200").exists()).toBe(false);
         });
 
         it("hides warning section when no issues", () => {
@@ -275,6 +274,51 @@ describe("Dashboard", () => {
                 }),
             });
             expect(wrapper.find(".bg-amber-50.border-amber-200").exists()).toBe(false);
+        });
+
+        it("shows truncation warning when truncated is true", () => {
+            const wrapper = mount(Dashboard, {
+                props: createProps({
+                    markdownContent: "content",
+                    truncated: true,
+                }),
+            });
+            expect(wrapper.find(".bg-amber-50.border-amber-200").exists()).toBe(true);
+            expect(wrapper.text()).toContain("Results were truncated");
+            expect(wrapper.text()).toContain("traversal limits");
+        });
+
+        it("does not show truncation warning when truncated is false", () => {
+            const wrapper = mount(Dashboard, {
+                props: createProps({
+                    markdownContent: "content",
+                    truncated: false,
+                }),
+            });
+            expect(wrapper.text()).not.toContain("truncated");
+        });
+
+        it("does not show truncation warning when truncated is undefined", () => {
+            const wrapper = mount(Dashboard, {
+                props: createProps({
+                    markdownContent: "content",
+                }),
+            });
+            expect(wrapper.text()).not.toContain("truncated");
+        });
+
+        it("shows both truncation and missing inputs warnings", () => {
+            const wrapper = mount(Dashboard, {
+                props: createProps({
+                    markdownContent: "content",
+                    truncated: true,
+                    jobDetails: [createJob({ tool_id: "toolshed/bwa", inputs: undefined })],
+                }),
+            });
+            const warningSection = wrapper.find(".bg-amber-50.border-amber-200");
+            expect(warningSection.exists()).toBe(true);
+            expect(wrapper.text()).toContain("Results were truncated");
+            expect(wrapper.text()).toContain("Failed to fetch inputs");
         });
     });
 
