@@ -1,6 +1,10 @@
 """Tests for refs module."""
 
-from polaris.modules.refs import get_path
+import logging
+
+import pytest
+
+from polaris.modules.refs import VALID_NAMESPACES, get_path
 
 
 class TestGetPath:
@@ -27,11 +31,6 @@ class TestGetPath:
         assert get_path("result.status", ctx, state) == "ok"
         assert get_path("result.data.items", ctx, state) == [1, 2]
 
-    def test_missing_root_returns_none(self):
-        state = {}
-        ctx = {}
-        assert get_path("unknown.path", ctx, state) is None
-
     def test_missing_nested_path_returns_none(self):
         state = {"exists": {}}
         ctx = {}
@@ -47,3 +46,56 @@ class TestGetPath:
         state = {"scalar": "string_value"}
         ctx = {}
         assert get_path("state.scalar.nested", ctx, state) is None
+
+
+class TestInvalidNamespace:
+    """Tests for invalid namespace handling."""
+
+    def test_invalid_namespace_returns_none(self):
+        """Invalid namespace returns None."""
+        state = {}
+        ctx = {}
+        assert get_path("truncated", ctx, state) is None
+        assert get_path("unknown.path", ctx, state) is None
+
+    def test_invalid_namespace_logs_warning(self, caplog):
+        """Invalid namespace logs a warning to help debugging."""
+        state = {}
+        ctx = {}
+        with caplog.at_level(logging.WARNING):
+            result = get_path("truncated", ctx, state)
+
+        assert result is None
+        assert len(caplog.records) == 1
+        assert "Invalid $ref namespace 'truncated'" in caplog.text
+        assert "Valid namespaces:" in caplog.text
+
+    def test_invalid_namespace_warning_includes_valid_options(self, caplog):
+        """Warning message lists valid namespace options."""
+        state = {}
+        ctx = {}
+        with caplog.at_level(logging.WARNING):
+            get_path("foobar.something", ctx, state)
+
+        # Check all valid namespaces are mentioned
+        for ns in VALID_NAMESPACES:
+            assert ns in caplog.text
+
+    def test_valid_namespaces_do_not_warn(self, caplog):
+        """Valid namespaces do not trigger warning even if path doesn't exist."""
+        state = {}
+        ctx = {}
+        with caplog.at_level(logging.WARNING):
+            # These should not warn - they're valid namespaces, just missing data
+            get_path("state.missing", ctx, state)
+            get_path("inputs.missing", ctx, state)
+            get_path("result.missing", ctx, state)
+            get_path("run.missing", ctx, state)
+            get_path("loop.missing", ctx, state)
+
+        assert len(caplog.records) == 0
+
+    def test_valid_namespaces_constant(self):
+        """VALID_NAMESPACES contains expected values."""
+        expected = {"state", "inputs", "run", "result", "loop"}
+        assert VALID_NAMESPACES == expected
