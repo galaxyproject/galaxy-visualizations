@@ -95,8 +95,7 @@ nodes:
         $ref: result.dataset
       state.job_details:
         $ref: result.job
-      state.truncated:
-        $ref: truncated
+      state.truncated: truncated
     next: fetch_citations
 
   # Step 4: Fetch citations for tools used

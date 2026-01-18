@@ -94,6 +94,7 @@ function updateReportData(result: any) {
         markdownContent: parts.join("\n\n---\n\n"),
         mermaidDiagram: result.mermaid_diagram || "",
         sourceDatasetId: props.datasetId,
+        truncated: result.truncated,
     };
 }
 
