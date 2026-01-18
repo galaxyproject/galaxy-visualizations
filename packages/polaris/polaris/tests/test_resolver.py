@@ -259,3 +259,61 @@ class TestResolverApplyEmit:
         resolver = Resolver(state)
         resolver.apply_emit({"state.new": "data"}, None, {})
         assert state == {"existing": "value"}
+
+    def test_apply_emit_direct_string_for_top_level_field(self):
+        """Direct string reference extracts top-level field from payload.
+
+        This is the pattern used for truncated flag:
+        emit:
+          state.truncated: truncated  # Direct string, not $ref
+        """
+        state = {}
+        resolver = Resolver(state)
+        emit = {"state.truncated": "truncated"}
+        payload = {"result": {"data": "value"}, "truncated": True}
+        resolver.apply_emit(emit, payload, {})
+        assert state["truncated"] is True
+
+    def test_apply_emit_direct_string_for_missing_field_returns_none(self):
+        """Direct string reference returns None for missing field."""
+        state = {}
+        resolver = Resolver(state)
+        emit = {"state.truncated": "truncated"}
+        payload = {"result": {"data": "value"}}  # No truncated field
+        resolver.apply_emit(emit, payload, {})
+        assert state["truncated"] is None
+
+    def test_apply_emit_ref_invalid_namespace_returns_none(self):
+        """$ref with invalid namespace returns None.
+
+        This test documents why we use direct string reference instead of $ref
+        for top-level payload fields like 'truncated'.
+        """
+        state = {}
+        resolver = Resolver(state)
+        ctx = {"state": state}
+        # This pattern does NOT work - 'truncated' is not a valid namespace
+        emit = {"state.truncated": {"$ref": "truncated"}}
+        payload = {"result": {"data": "value"}, "truncated": True}
+        resolver.apply_emit(emit, payload, ctx)
+        # Returns None because 'truncated' isn't a valid root namespace
+        assert state["truncated"] is None
+
+    def test_apply_emit_multiple_fields_from_payload(self):
+        """Multiple fields can be extracted from payload."""
+        state = {}
+        resolver = Resolver(state)
+        emit = {
+            "state.data": "result",
+            "state.truncated": "truncated",
+            "state.ok": "ok",
+        }
+        payload = {
+            "ok": True,
+            "result": {"items": [1, 2, 3]},
+            "truncated": False,
+        }
+        resolver.apply_emit(emit, payload, {})
+        assert state["data"] == {"items": [1, 2, 3]}
+        assert state["truncated"] is False
+        assert state["ok"] is True
