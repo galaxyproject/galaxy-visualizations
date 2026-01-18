@@ -82,10 +82,9 @@ const apiWarnings = computed(() => {
         <div v-else>
             <!-- API Warnings -->
             <div v-if="apiWarnings.length > 0" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <div class="text-amber-800 text-sm font-medium mb-1">Warning</div>
                 <ul class="text-amber-700 text-xs list-disc list-inside">
                     <li v-for="(warning, idx) in apiWarnings" :key="idx">
-                        <div>{{ warning }}</div>
+                        <span>{{ warning }}</span>
                     </li>
                 </ul>
             </div>
