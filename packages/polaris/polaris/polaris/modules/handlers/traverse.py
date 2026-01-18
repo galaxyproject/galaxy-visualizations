@@ -185,24 +185,23 @@ class TraverseHandler:
 
         # Initialize frontier: list of (entity_type, entity_data) tuples
         frontier: list[tuple[str, dict]] = [(seed_type, seed)]
+        truncated = False
 
-        for _ in range(max_depth):
+        for depth in range(max_depth):
             if not frontier:
                 break
 
             # Check total fetches limit at depth level
             if total_fetches >= MAX_FETCHES:
+                truncated = True
                 break
 
             next_frontier: list[tuple[str, dict]] = []
             items_added = 0
 
             for entity_type, entity in frontier:
-                if items_added >= max_per_level:
-                    break
-
-                # Check total fetches limit
-                if total_fetches >= MAX_FETCHES:
+                if items_added >= max_per_level or total_fetches >= MAX_FETCHES:
+                    truncated = True
                     break
 
                 type_config = types.get(entity_type)
@@ -212,11 +211,8 @@ class TraverseHandler:
                 # Process relations for this entity
                 relations = type_config.get("relations", {})
                 for rel_config in relations.values():
-                    if items_added >= max_per_level:
-                        break
-
-                    # Check total fetches limit
-                    if total_fetches >= MAX_FETCHES:
+                    if items_added >= max_per_level or total_fetches >= MAX_FETCHES:
+                        truncated = True
                         break
 
                     target_type = rel_config.get("type")
@@ -235,11 +231,8 @@ class TraverseHandler:
 
                     # Fetch each related entity
                     for ref in related_refs:
-                        if items_added >= max_per_level:
-                            break
-
-                        # Check total fetches limit
-                        if total_fetches >= MAX_FETCHES:
+                        if items_added >= max_per_level or total_fetches >= MAX_FETCHES:
+                            truncated = True
                             break
 
                         rel_id = ref["id"]
@@ -273,10 +266,18 @@ class TraverseHandler:
 
             frontier = next_frontier
 
+            # Check if we've reached max depth with more to explore
+            if depth == max_depth - 1 and frontier:
+                truncated = True
+
+        if truncated:
+            logger.warning("Traversal truncated: results may be incomplete")
+
         # Build result - one list per entity type
         return {
             "ok": True,
             "result": collected,
+            "truncated": truncated,
         }
 
     def _extract_refs(
