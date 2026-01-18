@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from polaris.modules.constants import ErrorCode
-from polaris.modules.handlers.traverse import TraverseHandler
+from polaris.modules.handlers.traverse import TraverseHandler, MAX_FETCHES
 
 
 @pytest.fixture
@@ -872,3 +872,343 @@ class TestDedupField:
         # Datasets: d_out (seed, not counted) + 3 from inputs (limited by max_per_level)
         # Total should be 4 (seed + 3 fetched)
         assert len(datasets) == 4, "Should have seed + 3 fetched datasets (limited by max_per_level)"
+
+
+class TestMaxFetchesLimit:
+    """Tests for MAX_FETCHES hard limit on total API calls."""
+
+    @pytest.fixture
+    def handler(self):
+        return TraverseHandler()
+
+    @pytest.fixture
+    def mock_registry(self):
+        registry = MagicMock()
+        registry.call_api = AsyncMock()
+        return registry
+
+    @pytest.fixture
+    def mock_runner(self):
+        runner = MagicMock()
+        runner.state = {}
+
+        def resolve(value, ctx):
+            if value is None:
+                return None
+            if isinstance(value, dict) and "$ref" in value:
+                ref = value["$ref"]
+                parts = ref.split(".")
+                obj = ctx
+                for part in parts:
+                    if isinstance(obj, dict):
+                        obj = obj.get(part)
+                    else:
+                        return None
+                return obj
+            return value
+
+        runner.resolver = MagicMock()
+        runner.resolver.resolve = resolve
+        runner.resolver.apply_emit = MagicMock()
+        return runner
+
+    @pytest.mark.asyncio
+    async def test_max_fetches_limits_total_api_calls(
+        self, handler, mock_registry, mock_runner
+    ):
+        """
+        MAX_FETCHES limits total API calls across all levels to prevent overload.
+
+        This test creates a deep pipeline that would require more than MAX_FETCHES
+        API calls if unbounded, and verifies the traversal stops at the limit.
+        """
+        # Create a linear chain of datasets/jobs that exceeds MAX_FETCHES
+        # Each step: dataset -> job -> dataset -> job -> ...
+        # We need MAX_FETCHES + 10 entities to ensure we hit the limit
+        num_datasets = MAX_FETCHES + 10
+        num_jobs = num_datasets - 1
+
+        datasets = {}
+        jobs = {}
+
+        # Create linear chain: d0 -> j0 -> d1 -> j1 -> d2 -> ...
+        for i in range(num_datasets):
+            datasets[f"d{i}"] = {
+                "id": f"d{i}",
+                "uuid": f"uuid-{i}",
+                "name": f"Dataset {i}",
+                "creating_job": f"j{i-1}" if i > 0 else None,
+            }
+
+        for i in range(num_jobs):
+            jobs[f"j{i}"] = {
+                "id": f"j{i}",
+                "tool_id": "tool",
+                "inputs": {f"input": {"id": f"d{i}", "uuid": f"uuid-{i}"}},
+                "outputs": {f"output": {"id": f"d{i+1}", "uuid": f"uuid-{i+1}"}},
+            }
+
+        pipeline_data = {"datasets": datasets, "jobs": jobs}
+
+        # Track API calls
+        api_call_count = 0
+
+        async def counting_mock_api(ctx, spec):
+            nonlocal api_call_count
+            api_call_count += 1
+
+            target = spec.get("target", "")
+            input_data = spec.get("input", {})
+
+            if "datasets" in target:
+                dataset_id = input_data.get("dataset_id")
+                if dataset_id in pipeline_data["datasets"]:
+                    return {"ok": True, "result": pipeline_data["datasets"][dataset_id]}
+                return {"ok": False, "error": {"message": f"Dataset not found: {dataset_id}"}}
+
+            if "jobs" in target:
+                job_id = input_data.get("job_id")
+                if job_id in pipeline_data["jobs"]:
+                    return {"ok": True, "result": pipeline_data["jobs"][job_id]}
+                return {"ok": False, "error": {"message": f"Job not found: {job_id}"}}
+
+            return {"ok": False, "error": {"message": f"Unknown target: {target}"}}
+
+        mock_registry.call_api = counting_mock_api
+
+        # Start from the last dataset to traverse the whole chain
+        last_dataset_id = f"d{num_datasets - 1}"
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 100,  # High depth to not limit by depth
+            "max_per_level": 100,  # High per-level to not limit by level
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.datasets.show.get",
+                        "id_param": "dataset_id",
+                    },
+                    "relations": {
+                        "creating_job": {"type": "job", "extract": "creating_job"},
+                    },
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.jobs.show.get",
+                        "id_param": "job_id",
+                    },
+                    "relations": {
+                        "inputs": {"type": "dataset", "extract": "inputs.*.id"},
+                    },
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": pipeline_data["datasets"][last_dataset_id]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+
+        # Verify API calls were limited by MAX_FETCHES
+        assert api_call_count <= MAX_FETCHES, (
+            f"API calls ({api_call_count}) should not exceed MAX_FETCHES ({MAX_FETCHES})"
+        )
+
+        # Verify we actually hit the limit (not just finishing early)
+        assert api_call_count == MAX_FETCHES, (
+            f"Should have made exactly MAX_FETCHES ({MAX_FETCHES}) API calls, made {api_call_count}"
+        )
+
+        # Verify truncated flag is set
+        assert result.get("truncated") is True, "Result should indicate truncation"
+
+    @pytest.mark.asyncio
+    async def test_truncated_flag_false_when_complete(
+        self, handler, mock_registry, mock_runner
+    ):
+        """
+        When traversal completes without hitting MAX_FETCHES, truncated should be False.
+        """
+        # Small pipeline that won't hit the limit
+        pipeline_data = {
+            "datasets": {
+                "d1": {"id": "d1", "uuid": "uuid-1", "creating_job": None},
+                "d2": {"id": "d2", "uuid": "uuid-2", "creating_job": "j1"},
+            },
+            "jobs": {
+                "j1": {
+                    "id": "j1",
+                    "tool_id": "tool",
+                    "inputs": {"input": {"id": "d1", "uuid": "uuid-1"}},
+                    "outputs": {"output": {"id": "d2", "uuid": "uuid-2"}},
+                },
+            },
+        }
+
+        mock_registry.call_api = create_mock_api(pipeline_data)
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 10,
+            "max_per_level": 10,
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.datasets.show.get",
+                        "id_param": "dataset_id",
+                    },
+                    "relations": {
+                        "creating_job": {"type": "job", "extract": "creating_job"},
+                    },
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {
+                        "target": "galaxy.jobs.show.get",
+                        "id_param": "job_id",
+                    },
+                    "relations": {
+                        "inputs": {"type": "dataset", "extract": "inputs.*.id"},
+                    },
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": pipeline_data["datasets"]["d2"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        assert result.get("truncated") is False, "Result should not be truncated for small pipeline"
+
+    @pytest.mark.asyncio
+    async def test_truncated_when_depth_limit_reached(
+        self, handler, mock_registry, mock_runner
+    ):
+        """
+        Truncated flag is set when max_depth prevents full traversal.
+        """
+        # Linear chain: d1 -> j1 -> d2 -> j2 -> d3 -> j3 -> d4
+        pipeline_data = {
+            "datasets": {
+                "d1": {"id": "d1", "creating_job": None},
+                "d2": {"id": "d2", "creating_job": "j1"},
+                "d3": {"id": "d3", "creating_job": "j2"},
+                "d4": {"id": "d4", "creating_job": "j3"},
+            },
+            "jobs": {
+                "j1": {"id": "j1", "inputs": {"in": {"id": "d1"}}},
+                "j2": {"id": "j2", "inputs": {"in": {"id": "d2"}}},
+                "j3": {"id": "j3", "inputs": {"in": {"id": "d3"}}},
+            },
+        }
+
+        mock_registry.call_api = create_mock_api(pipeline_data)
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 2,  # Only allows: d4 -> j3 -> d3, won't reach d2, j2, d1, j1
+            "max_per_level": 100,
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "fetch": {"target": "galaxy.datasets.show.get", "id_param": "dataset_id"},
+                    "relations": {"creating_job": {"type": "job", "extract": "creating_job"}},
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {"target": "galaxy.jobs.show.get", "id_param": "job_id"},
+                    "relations": {"inputs": {"type": "dataset", "extract": "inputs.*.id"}},
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": pipeline_data["datasets"]["d4"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        assert result.get("truncated") is True, "Should be truncated due to depth limit"
+
+    @pytest.mark.asyncio
+    async def test_truncated_when_per_level_limit_reached(
+        self, handler, mock_registry, mock_runner
+    ):
+        """
+        Truncated flag is set when max_per_level prevents fetching all entities.
+        """
+        # Job with many inputs
+        pipeline_data = {
+            "datasets": {
+                "d_out": {"id": "d_out", "creating_job": "j1"},
+                "d1": {"id": "d1", "creating_job": None},
+                "d2": {"id": "d2", "creating_job": None},
+                "d3": {"id": "d3", "creating_job": None},
+                "d4": {"id": "d4", "creating_job": None},
+                "d5": {"id": "d5", "creating_job": None},
+            },
+            "jobs": {
+                "j1": {
+                    "id": "j1",
+                    "inputs": {
+                        "in1": {"id": "d1"},
+                        "in2": {"id": "d2"},
+                        "in3": {"id": "d3"},
+                        "in4": {"id": "d4"},
+                        "in5": {"id": "d5"},
+                    },
+                },
+            },
+        }
+
+        mock_registry.call_api = create_mock_api(pipeline_data)
+
+        traverse_node = {
+            "type": "traverse",
+            "seed": {"$ref": "state.source_dataset"},
+            "seed_type": "dataset",
+            "max_depth": 100,
+            "max_per_level": 2,  # Only fetch 2 of the 5 inputs
+            "types": {
+                "dataset": {
+                    "id_field": "id",
+                    "fetch": {"target": "galaxy.datasets.show.get", "id_param": "dataset_id"},
+                    "relations": {"creating_job": {"type": "job", "extract": "creating_job"}},
+                },
+                "job": {
+                    "id_field": "id",
+                    "fetch": {"target": "galaxy.jobs.show.get", "id_param": "job_id"},
+                    "relations": {"inputs": {"type": "dataset", "extract": "inputs.*.id"}},
+                },
+            },
+        }
+
+        ctx = {
+            "state": {"source_dataset": pipeline_data["datasets"]["d_out"]},
+            "inputs": {},
+        }
+
+        result = await handler.execute(traverse_node, ctx, mock_registry, mock_runner)
+
+        assert result["ok"] is True
+        assert result.get("truncated") is True, "Should be truncated due to per-level limit"

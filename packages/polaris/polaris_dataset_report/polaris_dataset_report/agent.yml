@@ -95,6 +95,8 @@ nodes:
         $ref: result.dataset
       state.job_details:
         $ref: result.job
+      state.truncated:
+        $ref: truncated
     next: fetch_citations
 
   # Step 4: Fetch citations for tools used
@@ -213,6 +215,8 @@ nodes:
           from:
             $ref: state.job_details
           fields: [id, tool_id, inputs, outputs, create_time]
+      truncated:
+        $ref: state.truncated
       workflow_analysis:
         $ref: state.workflow_analysis
       report:

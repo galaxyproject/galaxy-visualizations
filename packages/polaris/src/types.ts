@@ -63,6 +63,7 @@ export interface ReportDataType {
     markdownContent: string;
     mermaidDiagram: string;
     sourceDatasetId?: string;
+    truncated?: boolean;
 }
 
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };

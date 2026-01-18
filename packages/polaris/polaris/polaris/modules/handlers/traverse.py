@@ -14,8 +14,11 @@ logger = logging.getLogger(__name__)
 
 # Default limits
 DEFAULT_MAX_DEPTH = 20
-DEFAULT_MAX_PER_LEVEL = 20
+DEFAULT_MAX_PER_LEVEL = 10
 DEFAULT_DELAY = 0.5  # Delay between fetches in seconds
+
+# Hard limit on total API calls to prevent overload
+MAX_FETCHES = 25
 
 
 class TraverseHandler:
@@ -141,6 +144,9 @@ class TraverseHandler:
         delay = cfg["delay"]
         types = cfg["types"]
 
+        # Track total API fetches to prevent overload
+        total_fetches = 0
+
         # Track fetched IDs (to avoid fetching same ID twice)
         fetched_ids: dict[str, set[str]] = {t: set() for t in types}
         # Track collected dedup values (to avoid duplicates in results)
@@ -179,16 +185,23 @@ class TraverseHandler:
 
         # Initialize frontier: list of (entity_type, entity_data) tuples
         frontier: list[tuple[str, dict]] = [(seed_type, seed)]
+        truncated = False
 
         for depth in range(max_depth):
             if not frontier:
+                break
+
+            # Check total fetches limit at depth level
+            if total_fetches >= MAX_FETCHES:
+                truncated = True
                 break
 
             next_frontier: list[tuple[str, dict]] = []
             items_added = 0
 
             for entity_type, entity in frontier:
-                if items_added >= max_per_level:
+                if items_added >= max_per_level or total_fetches >= MAX_FETCHES:
+                    truncated = True
                     break
 
                 type_config = types.get(entity_type)
@@ -197,8 +210,9 @@ class TraverseHandler:
 
                 # Process relations for this entity
                 relations = type_config.get("relations", {})
-                for rel_name, rel_config in relations.items():
-                    if items_added >= max_per_level:
+                for rel_config in relations.values():
+                    if items_added >= max_per_level or total_fetches >= MAX_FETCHES:
+                        truncated = True
                         break
 
                     target_type = rel_config.get("type")
@@ -217,7 +231,8 @@ class TraverseHandler:
 
                     # Fetch each related entity
                     for ref in related_refs:
-                        if items_added >= max_per_level:
+                        if items_added >= max_per_level or total_fetches >= MAX_FETCHES:
+                            truncated = True
                             break
 
                         rel_id = ref["id"]
@@ -234,6 +249,7 @@ class TraverseHandler:
                         fetched = await self._fetch_entity(
                             target_type, rel_id, types, ctx, registry, runner
                         )
+                        total_fetches += 1
                         if fetched:
                             fetched_ids[target_type].add(rel_id)
                             actual_dedup = fetched.get(target_dedup_field) or rel_id
@@ -250,10 +266,18 @@ class TraverseHandler:
 
             frontier = next_frontier
 
+            # Check if we've reached max depth with more to explore
+            if depth == max_depth - 1 and frontier:
+                truncated = True
+
+        if truncated:
+            logger.warning("Traversal truncated: results may be incomplete")
+
         # Build result - one list per entity type
         return {
             "ok": True,
             "result": collected,
+            "truncated": truncated,
         }
 
     def _extract_refs(
