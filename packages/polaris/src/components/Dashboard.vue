@@ -52,11 +52,21 @@ const isLoading = computed(() => !props.data.markdownContent);
 
 // Detect jobs with missing input data (likely API permission errors)
 const apiWarnings = computed(() => {
-    const { jobDetails } = props.data;
+    const warnings: string[] = [];
+    const { jobDetails, truncated } = props.data;
+
+    // Check for truncated results
+    if (truncated) {
+        warnings.push("Results were truncated due to traversal limits. The full provenance may not be shown.");
+    }
+
+    // Check for missing job inputs
     const missingJobs = jobDetails.filter((j) => !j.tool_id.startsWith("__") && !j.inputs).map((j) => j.tool_id);
-    return missingJobs.length > 0
-        ? [`Failed to fetch inputs for ${missingJobs.length} job(s): ${missingJobs.join(", ")}`]
-        : [];
+    if (missingJobs.length > 0) {
+        warnings.push(`Failed to fetch inputs for ${missingJobs.length} job(s): ${missingJobs.join(", ")}`);
+    }
+
+    return warnings;
 });
 </script>
 
