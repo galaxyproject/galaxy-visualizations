@@ -26,8 +26,6 @@ Exclude internal Galaxy tools starting with "__" (like __DATA_FETCH__, __SET_MET
 Only describe tools that actually appear in the provided data - do not hallucinate.
         ]]></ai_prompt>
         <ai_max_tokens>4096</ai_max_tokens>
-        <depth>5</depth>
-        <max_per_level>5</max_per_level>
     </specs>
     <help format="markdown"><![CDATA[
 # What is Polaris
