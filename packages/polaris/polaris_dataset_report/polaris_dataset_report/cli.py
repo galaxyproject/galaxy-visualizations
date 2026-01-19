@@ -6,8 +6,6 @@ import json
 import logging
 import sys
 
-from .postprocess import postprocess
-
 
 def parse_inputs(input_args: list[str]) -> dict:
     """Parse key=value input arguments into a dictionary."""
