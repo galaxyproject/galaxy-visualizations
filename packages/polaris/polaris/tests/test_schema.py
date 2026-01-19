@@ -10,6 +10,7 @@ from polaris.modules.schema import (
     ExecutorNode,
     InputSpec,
     LoopNode,
+    MaterializerNode,
     PlannerNode,
     ReasoningNode,
     StateSpec,
@@ -256,6 +257,112 @@ class TestPlannerNode:
         )
         assert node.prompt == "Plan the analysis"
         assert node.tools == ["search", "fetch"]
+
+
+class TestMaterializerNode:
+    def test_minimal_materializer(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.my_function",
+        )
+        assert node.type == "materializer"
+        assert node.target == "my_module.my_function"
+        assert node.args == {}
+        assert node.workspace is None
+        assert node.input_schema is None
+
+    def test_materializer_with_args(self):
+        from polaris.modules.schema import RefExpr
+
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.transform",
+            args={
+                "data": {"$ref": "state.data"},
+                "format": "json",
+            },
+        )
+        assert node.args["format"] == "json"
+        assert isinstance(node.args["data"], RefExpr)
+        assert node.args["data"].ref == "state.data"
+
+    def test_materializer_with_workspace(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.generate_file",
+            args={"template": "report"},
+            workspace="/tmp/workspace",
+        )
+        assert node.workspace == "/tmp/workspace"
+
+    def test_materializer_with_dynamic_workspace(self):
+        from polaris.modules.schema import RefExpr
+
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.generate_file",
+            workspace={"$ref": "config.workspace_path"},
+        )
+        assert isinstance(node.workspace, RefExpr)
+        assert node.workspace.ref == "config.workspace_path"
+
+    def test_materializer_with_input_schema(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.validate_data",
+            args={"data": {"$ref": "state.data"}},
+            input_schema={
+                "type": "object",
+                "required": ["data"],
+                "properties": {
+                    "data": {"type": "array"},
+                },
+            },
+        )
+        assert node.input_schema["required"] == ["data"]
+
+    def test_materializer_with_emit_and_next(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.transform",
+            args={"input": "value"},
+            emit={"state.output": {"$ref": "result"}},
+            next="done",
+        )
+        assert "state.output" in node.emit
+        assert node.next == "done"
+
+    def test_materializer_rejects_empty_target(self):
+        with pytest.raises(ValidationError):
+            MaterializerNode(
+                type="materializer",
+                target="",
+            )
+
+    def test_materializer_in_agent_definition(self):
+        """Test that materializer nodes work in a full agent definition."""
+        agent = validate_agent({
+            "version": 1,
+            "id": "test_agent",
+            "start": "materialize",
+            "nodes": {
+                "materialize": {
+                    "type": "materializer",
+                    "target": "my_module.generate_report",
+                    "args": {
+                        "data": {"$ref": "state.data"},
+                    },
+                    "emit": {"state.report": {"$ref": "result"}},
+                    "next": "done",
+                },
+                "done": {
+                    "type": "terminal",
+                    "output": {"report": {"$ref": "state.report"}},
+                },
+            },
+        })
+        assert isinstance(agent.nodes["materialize"], MaterializerNode)
+        assert agent.nodes["materialize"].target == "my_module.generate_report"
 
 
 class TestAgentDefinition:

@@ -15,6 +15,9 @@ dependencies = [
 [project.scripts]
 dataset-report = "polaris_dataset_report.cli:main"
 
+[project.entry-points."polaris.materializers"]
+dataset_report = "polaris_dataset_report.materializers:register_all"
+
 [tool.setuptools.packages.find]
 where = ["."]
 

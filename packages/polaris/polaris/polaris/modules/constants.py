@@ -10,6 +10,7 @@ class NodeType(str, Enum):
     CONTROL = "control"
     EXECUTOR = "executor"
     LOOP = "loop"
+    MATERIALIZER = "materializer"
     PLANNER = "planner"
     REASONING = "reasoning"
     TERMINAL = "terminal"
@@ -41,6 +42,9 @@ class ErrorCode(str, Enum):
     UNKNOWN_NODE_TYPE = "unknown_node_type"
     LOOP_INVALID_OVER = "loop_invalid_over"
     LOOP_ITERATION_FAILED = "loop_iteration_failed"
+    MATERIALIZER_FAILED = "materializer_failed"
+    MATERIALIZER_NOT_FOUND = "materializer_not_found"
+    MATERIALIZER_INVALID_ARGS = "materializer_invalid_args"
     TRAVERSE_INVALID_CONFIG = "traverse_invalid_config"
     TRAVERSE_FETCH_FAILED = "traverse_fetch_failed"
 

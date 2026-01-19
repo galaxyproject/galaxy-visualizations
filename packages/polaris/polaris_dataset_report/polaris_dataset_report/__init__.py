@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+import polaris
 from polaris import run as polaris_run
 from polaris.modules.runner import ProgressCallback
 
@@ -40,6 +41,9 @@ async def run(
     Returns:
         Result dict containing report, workflow analysis, and mermaid diagram
     """
+    # Initialize framework before loading agent definitions
+    polaris.initialize()
+
     agent = _load_agent()
     agents = {_AGENT_NAME: agent}
 

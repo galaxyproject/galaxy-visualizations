@@ -38,9 +38,13 @@ def setup_logging(verbose: bool = False) -> None:
 
 async def run_agent(inputs: dict, verbose: bool = False) -> dict:
     """Run the dataset_report agent."""
+    import polaris
     from polaris.config import load_config
 
     from . import run
+
+    # Initialize framework before loading config or agent definitions
+    polaris.initialize()
 
     config = load_config().to_dict()
 

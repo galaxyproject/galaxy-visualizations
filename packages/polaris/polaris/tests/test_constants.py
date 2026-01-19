@@ -11,7 +11,17 @@ from polaris.modules.constants import (
 
 class TestNodeType:
     def test_all_node_types_defined(self):
-        expected = ["compute", "control", "executor", "planner", "reasoning", "terminal"]
+        expected = [
+            "compute",
+            "control",
+            "executor",
+            "loop",
+            "materializer",
+            "planner",
+            "reasoning",
+            "terminal",
+            "traverse",
+        ]
         for node_type in expected:
             assert node_type in [n.value for n in NodeType]
 
@@ -19,9 +29,12 @@ class TestNodeType:
         assert NodeType.COMPUTE == "compute"
         assert NodeType.CONTROL == "control"
         assert NodeType.EXECUTOR == "executor"
+        assert NodeType.LOOP == "loop"
+        assert NodeType.MATERIALIZER == "materializer"
         assert NodeType.PLANNER == "planner"
         assert NodeType.REASONING == "reasoning"
         assert NodeType.TERMINAL == "terminal"
+        assert NodeType.TRAVERSE == "traverse"
 
     def test_node_type_is_string_enum(self):
         assert isinstance(NodeType.COMPUTE, str)
@@ -54,6 +67,13 @@ class TestErrorCode:
             "subagent_failed",
             "unknown_executor_op",
             "unknown_node_type",
+            "loop_invalid_over",
+            "loop_iteration_failed",
+            "materializer_failed",
+            "materializer_not_found",
+            "materializer_invalid_args",
+            "traverse_invalid_config",
+            "traverse_fetch_failed",
         ]
         for code in expected:
             assert code in [e.value for e in ErrorCode]
@@ -65,6 +85,9 @@ class TestErrorCode:
         assert ErrorCode.SUBAGENT_FAILED == "subagent_failed"
         assert ErrorCode.UNKNOWN_EXECUTOR_OP == "unknown_executor_op"
         assert ErrorCode.UNKNOWN_NODE_TYPE == "unknown_node_type"
+        assert ErrorCode.MATERIALIZER_FAILED == "materializer_failed"
+        assert ErrorCode.MATERIALIZER_NOT_FOUND == "materializer_not_found"
+        assert ErrorCode.MATERIALIZER_INVALID_ARGS == "materializer_invalid_args"
 
 
 class TestMaxNodes:

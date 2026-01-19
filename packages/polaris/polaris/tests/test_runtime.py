@@ -1,6 +1,17 @@
 import pytest
 
+from polaris.modules.materializers.catalog import _get_catalog
 from polaris.runtime import run
+
+
+@pytest.fixture(autouse=True)
+def initialize_runtime():
+    """Initialize the materializer catalog for tests."""
+    catalog = _get_catalog()
+    catalog.clear()
+    catalog.freeze()
+    yield
+    catalog.clear()
 
 
 @pytest.mark.asyncio

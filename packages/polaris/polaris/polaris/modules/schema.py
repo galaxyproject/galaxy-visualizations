@@ -205,6 +205,26 @@ class PlannerNode(BaseNode):
     output_schema: dict[str, Any] | None = None
 
 
+class MaterializerNode(BaseNode):
+    """Materializer node - pure Python function invocation.
+
+    Properties:
+    - Deterministic execution (no LLM calls, no branching on content)
+    - Explicit arguments resolved before invocation
+    - Optional workspace path for file I/O
+    - No side effects outside the workspace
+    - No authority over control flow
+
+    The target must reference a pre-registered materializer in the catalog.
+    """
+
+    type: Literal["materializer"]
+    target: str = Field(..., min_length=1, description="Catalog identifier for the materializer")
+    args: dict[str, DynamicValue] = Field(default_factory=dict, description="Arguments to pass to the function")
+    workspace: DynamicValue | None = Field(None, description="Optional workspace path for file I/O")
+    input_schema: dict[str, Any] | None = Field(None, description="JSON Schema for eager argument validation")
+
+
 # Union of all node types
 NodeDefinition = Annotated[
     Union[
@@ -216,6 +236,7 @@ NodeDefinition = Annotated[
         LoopNode,
         ComputeNode,
         PlannerNode,
+        MaterializerNode,
     ],
     Field(discriminator="type"),
 ]
