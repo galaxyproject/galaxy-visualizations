@@ -12,6 +12,7 @@ from polaris.modules.schema import (
     LoopNode,
     MaterializerNode,
     PlannerNode,
+    PlannerRouteSpec,
     ReasoningNode,
     StateSpec,
     TerminalNode,
@@ -242,21 +243,123 @@ class TestComputeNode:
 
 
 class TestPlannerNode:
-    def test_minimal_planner(self):
-        node = PlannerNode(type="planner")
-        assert node.type == "planner"
-        assert node.prompt == ""
-        assert node.tools == []
-
-    def test_planner_with_options(self):
+    def test_route_planner_minimal(self):
+        """Test minimal route planner configuration."""
         node = PlannerNode(
             type="planner",
-            prompt="Plan the analysis",
-            tools=["search", "fetch"],
-            output_schema={"type": "object"},
+            output_mode="route",
+            routes={
+                "process": {"description": "Continue processing", "next": "process_node"},
+            },
         )
-        assert node.prompt == "Plan the analysis"
-        assert node.tools == ["search", "fetch"]
+        assert node.type == "planner"
+        assert node.output_mode == "route"
+        assert "process" in node.routes
+
+    def test_route_planner_multiple_routes(self):
+        """Test route planner with multiple routes."""
+        node = PlannerNode(
+            type="planner",
+            output_mode="route",
+            prompt="Decide the next step",
+            routes={
+                "process": {"description": "Continue", "next": "process_node"},
+                "skip": {"description": "Skip", "next": "skip_node"},
+                "retry": {"description": "Retry", "next": "retry_node"},
+            },
+        )
+        assert len(node.routes) == 3
+        assert node.routes["process"].next == "process_node"
+
+    def test_route_planner_rejects_static_next(self):
+        """Test that route planners cannot have static next."""
+        with pytest.raises(ValidationError, match="cannot have static 'next'"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+                routes={"process": {"description": "Process", "next": "node"}},
+                next="some_node",
+            )
+
+    def test_route_planner_rejects_output_schema(self):
+        """Test that route planners cannot have output_schema."""
+        with pytest.raises(ValidationError, match="cannot have 'output_schema'"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+                routes={"process": {"description": "Process", "next": "node"}},
+                output_schema={"type": "object"},
+            )
+
+    def test_route_planner_requires_routes(self):
+        """Test that route planners require routes."""
+        with pytest.raises(ValidationError, match="require 'routes'"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+            )
+
+    def test_route_planner_requires_nonempty_routes(self):
+        """Test that route planners require at least one route."""
+        with pytest.raises(ValidationError, match="at least one route"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+                routes={},
+            )
+
+    def test_json_planner_minimal(self):
+        """Test minimal JSON planner configuration."""
+        node = PlannerNode(
+            type="planner",
+            output_mode="json",
+            output_schema={"type": "object", "properties": {"value": {"type": "number"}}},
+            next="process_node",
+        )
+        assert node.type == "planner"
+        assert node.output_mode == "json"
+        assert node.next == "process_node"
+
+    def test_json_planner_requires_output_schema(self):
+        """Test that JSON planners require output_schema."""
+        with pytest.raises(ValidationError, match="require 'output_schema'"):
+            PlannerNode(
+                type="planner",
+                output_mode="json",
+                next="process_node",
+            )
+
+    def test_json_planner_requires_static_next(self):
+        """Test that JSON planners require static next."""
+        with pytest.raises(ValidationError, match="require static 'next'"):
+            PlannerNode(
+                type="planner",
+                output_mode="json",
+                output_schema={"type": "object"},
+            )
+
+    def test_json_planner_rejects_routes(self):
+        """Test that JSON planners cannot have routes."""
+        with pytest.raises(ValidationError, match="cannot have 'routes'"):
+            PlannerNode(
+                type="planner",
+                output_mode="json",
+                output_schema={"type": "object"},
+                next="process_node",
+                routes={"process": {"description": "Process", "next": "node"}},
+            )
+
+    def test_planner_with_input(self):
+        """Test planner with input configuration."""
+        node = PlannerNode(
+            type="planner",
+            output_mode="route",
+            prompt="Analyze this data",
+            input={"data": {"$ref": "state.data"}},
+            routes={"process": {"description": "Process", "next": "node"}},
+        )
+        assert node.input is not None
+        assert "data" in node.input
 
 
 class TestMaterializerNode:

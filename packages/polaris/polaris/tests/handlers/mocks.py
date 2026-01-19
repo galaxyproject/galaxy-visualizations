@@ -20,6 +20,7 @@ class MockRegistry:
         self.call_api_result: dict[str, Any] = {"ok": True, "result": {"data": "test"}}
         self.plan_result: dict[str, Any] = {"next": "end"}
         self.reason_result: str = "reasoning output"
+        self.reason_structured_result: str = '{"route": "process"}'
         self.agents = MockAgentResolver()
 
     async def call_api(self, ctx: dict[str, Any], spec: dict[str, Any]) -> dict[str, Any]:
@@ -33,6 +34,10 @@ class MockRegistry:
     async def reason(self, prompt: str, input: Any) -> str:
         _ = prompt, input  # unused
         return self.reason_result
+
+    async def reason_structured(self, prompt: str, schema: dict[str, Any]) -> str:
+        _ = prompt, schema  # unused
+        return self.reason_structured_result
 
 
 class MockResolver:

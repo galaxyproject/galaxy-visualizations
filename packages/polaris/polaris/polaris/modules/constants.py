@@ -45,6 +45,8 @@ class ErrorCode(str, Enum):
     MATERIALIZER_FAILED = "materializer_failed"
     MATERIALIZER_NOT_FOUND = "materializer_not_found"
     MATERIALIZER_INVALID_ARGS = "materializer_invalid_args"
+    PLANNER_INVALID_JSON = "planner_invalid_json"
+    PLANNER_SCHEMA_VALIDATION_FAILED = "planner_schema_validation_failed"
     TRAVERSE_INVALID_CONFIG = "traverse_invalid_config"
     TRAVERSE_FETCH_FAILED = "traverse_fetch_failed"
 

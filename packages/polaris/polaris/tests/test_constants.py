@@ -72,6 +72,8 @@ class TestErrorCode:
             "materializer_failed",
             "materializer_not_found",
             "materializer_invalid_args",
+            "planner_invalid_json",
+            "planner_schema_validation_failed",
             "traverse_invalid_config",
             "traverse_fetch_failed",
         ]
@@ -88,6 +90,8 @@ class TestErrorCode:
         assert ErrorCode.MATERIALIZER_FAILED == "materializer_failed"
         assert ErrorCode.MATERIALIZER_NOT_FOUND == "materializer_not_found"
         assert ErrorCode.MATERIALIZER_INVALID_ARGS == "materializer_invalid_args"
+        assert ErrorCode.PLANNER_INVALID_JSON == "planner_invalid_json"
+        assert ErrorCode.PLANNER_SCHEMA_VALIDATION_FAILED == "planner_schema_validation_failed"
 
 
 class TestMaxNodes:
