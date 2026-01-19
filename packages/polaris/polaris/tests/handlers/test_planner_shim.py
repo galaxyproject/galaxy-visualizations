@@ -3,7 +3,7 @@
 import pytest
 
 from polaris.modules.constants import ErrorCode
-from polaris.modules.handlers.planner_shim import PlannerOutputShim, build_route_schema
+from polaris.modules.handlers.planner import PlannerOutputShim, build_route_schema
 
 
 class TestPlannerOutputShim:
