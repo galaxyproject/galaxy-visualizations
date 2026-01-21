@@ -1,0 +1,41 @@
+{
+    "name": "galaxy-jbrowse",
+    "type": "module",
+    "version": "0.0.0",
+    "license": "MIT",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc -b && vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --config ./prettier.config.js --write '**/*.{css,json,js,jsx,ts,tsx,vue}'",
+        "predeploy": "npm run build",
+        "lint": "eslint ."
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.13.0",
+        "@fontsource/roboto": "^5.0.2",
+        "@jbrowse/core": "^2.17.0",
+        "@jbrowse/react-app": "^2.17.0",
+        "@jbrowse/react-linear-genome-view": "^2.17.0",
+        "@types/react": "^18.2.43",
+        "@types/react-dom": "^18.0.9",
+        "@vitejs/plugin-react": "^4.2.1",
+        "@vitejs/plugin-vue": "^5.2.1",
+        "buffer": "^6.0.3",
+        "eslint": "^9.13.0",
+        "eslint-plugin-react-hooks": "^5.0.0",
+        "eslint-plugin-react-refresh": "^0.4.14",
+        "galaxy-charts": "^0.0.40",
+        "galaxy-charts-xml-parser": "^1.0.3",
+        "globals": "^15.11.0",
+        "prettier": "^3.4.2",
+        "react": "^18.0.0",
+        "react-dom": "^18.0.0",
+        "typescript": "^5.3.3",
+        "typescript-eslint": "^8.11.0",
+        "vite": "^5.0.7"
+    },
+    "resolutions": {
+        "@mui/icons-material": "6.0.2"
+    }
+}
