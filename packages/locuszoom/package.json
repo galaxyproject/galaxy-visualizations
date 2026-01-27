@@ -11,7 +11,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "prettier": "prettier --config ./prettier.config.js --write 'package.json' '**/*.{js,jsx,ts,tsx,json,css,md,vue}'",
-    "test": "vitest --run",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:e2e": "npx playwright test",
+    "test:unit": "vitest run",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui"
   },
