@@ -11,10 +11,10 @@ async function main() {
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             visualization_config: {
-                dataset_id: "b620c45fba703209", // id of primary_dataset.bgzip
+                dataset_id: "0a248a1f62a0cc04", // id of primary_dataset.bgzip
                 // Placeholder for additional visualization settings
                 settings: {
-                    tabix: { id: "abd164196b68b912" }, // id of secondary_dataset.tbi
+                    tabix: { id: "03501d7626bd192f" }, // id of secondary_dataset.tbi
                 },
             },
             // Parse and load the visualization XML configuration
