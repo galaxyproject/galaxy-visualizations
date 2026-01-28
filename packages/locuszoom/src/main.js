@@ -11,7 +11,7 @@ async function main() {
         // Construct the incoming data object with mock configuration and data
         const dataIncoming = {
             visualization_config: {
-                dataset_id: process.env.dataset_id || "testingDataset", // id of primary_dataset.bgzip
+                dataset_id: process.env.dataset_id || "__test__", // id of primary_dataset.bgzip
                 // Placeholder for additional visualization settings
                 settings: {
                     tabix: {}, // id of secondary_dataset.tbi

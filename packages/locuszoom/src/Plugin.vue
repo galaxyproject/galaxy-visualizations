@@ -10,6 +10,10 @@ LocusZoom.use(LzTabixSource);
 
 const TabixUrlSource = LocusZoom.Adapters.get("TabixUrlSource");
 
+// Test files paths
+
+const BGZIP_PRIMARY_DATASET_PATH = "http://localhost:5173/test-data/weird.gwas_bgzip";
+const TABIX_SECONDARY_DATASET_PATH = "http://localhost:5173/test-data/weird.gwas_bgzip.tbi";
 // Patch URLFetchable prototype by accessing it through a reader instance
 let hasURLFetchablePrototypeBeenPatched = false;
 
@@ -160,19 +164,33 @@ const props = defineProps({
 
 const errorMessage = ref("");
 
-function getURLs(primaryID, secondaryID) {
-    if (primaryID==="testingDataset"){
-        return ["http://localhost:5173/test-data/weird.gwas_bgzip","http://localhost:5173/test-data/weird.gwas_bgzip.tbi"]
+// Functions to retrieve URLs 
+
+function getPrimaryURL(root,primaryID) {
+    if (primaryID==="__test__"){
+        return BGZIP_PRIMARY_DATASET_PATH;
     }
     else {
-        return [`${props.root}api/datasets/${primaryID}/display`,`${props.root}api/datasets/${secondaryID}/display`]
+        return `${root}api/datasets/${primaryID}/display`;
+    }
+
+}
+function getSecondaryURL(root,primaryID, secondaryID) {
+    if (primaryID==="__test__"){
+        return TABIX_SECONDARY_DATASET_PATH;
+    }
+    else {
+        return `${root}api/datasets/${secondaryID}/display`;
     }
 
 }
 
-const datasetURLs = getURLs(props.datasetId, props.settings.tabix?.id);
+const bgzipURL = getPrimaryURL(props.root,props.datasetId);
+const tabixURL = getSecondaryURL(props.root,props.datasetId, props.settings.tabix?.id);
+
 function render() {
-    const datasetURLs = getURLs(props.datasetId, props.settings.tabix?.id);
+    const bgzipURL = getPrimaryURL(props.root,props.datasetId);
+    const tabixURL = getSecondaryURL(props.root,props.datasetId, props.settings.tabix?.id);
     const id = props.settings.tabix?.id;
     const chrIn = props.settings.chromosome;
     const startIn = props.settings.start;
@@ -185,7 +203,7 @@ function render() {
     const is_neg_log_pvalue = props.settings.is_neg_log_pvalue;
     const beta_col = props.settings.beta_col;
     const stderr_beta_col = props.settings.stderr_beta_col;
-    if (datasetURLs[1]==="/api/datasets/undefined/display") {
+    if (tabixURL.includes("/api/datasets/undefined/display")) {
         errorMessage.value = "Please select a Tabix file.";
         return;
     }
@@ -211,8 +229,8 @@ function render() {
     let data_sources = new LocusZoom.DataSources().add("assoc", [
         "TabixUrlSource",
         {
-            url_data: datasetURLs[0],
-            url_tbi: datasetURLs[1],
+            url_data: bgzipURL,
+            url_tbi: tabixURL,
             parser_func: gwasParser,
             overfetch: 0,
         },
