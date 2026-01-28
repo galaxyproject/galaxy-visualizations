@@ -14,6 +14,7 @@ const TabixUrlSource = LocusZoom.Adapters.get("TabixUrlSource");
 
 const BGZIP_PRIMARY_DATASET_PATH = "http://localhost:5173/test-data/weird.gwas_bgzip";
 const TABIX_SECONDARY_DATASET_PATH = "http://localhost:5173/test-data/weird.gwas_bgzip.tbi";
+
 // Patch URLFetchable prototype by accessing it through a reader instance
 let hasURLFetchablePrototypeBeenPatched = false;
 
@@ -175,6 +176,7 @@ function getPrimaryURL(root,primaryID) {
     }
 
 }
+
 function getSecondaryURL(root,primaryID, secondaryID) {
     if (primaryID==="__test__"){
         return TABIX_SECONDARY_DATASET_PATH;
@@ -184,9 +186,6 @@ function getSecondaryURL(root,primaryID, secondaryID) {
     }
 
 }
-
-const bgzipURL = getPrimaryURL(props.root,props.datasetId);
-const tabixURL = getSecondaryURL(props.root,props.datasetId, props.settings.tabix?.id);
 
 function render() {
     const bgzipURL = getPrimaryURL(props.root,props.datasetId);
