@@ -1,32 +1,23 @@
 import pytest
 
+from polaris.modules.materializers.catalog import _get_catalog
 from polaris.runtime import run
+
+
+@pytest.fixture(autouse=True)
+def initialize_runtime():
+    """Initialize the materializer catalog for tests."""
+    catalog = _get_catalog()
+    catalog.clear()
+    catalog.freeze()
+    yield
+    catalog.clear()
 
 
 @pytest.mark.asyncio
 async def test_run_minimal_agent(monkeypatch):
-    async def fake_completions_post(payload):
-        return {
-            "choices": [
-                {
-                    "message": {
-                        "tool_calls": [
-                            {
-                                "function": {
-                                    "name": "route",
-                                    "arguments": '{"next": "end"}',
-                                }
-                            }
-                        ]
-                    }
-                }
-            ]
-        }
-
-    monkeypatch.setattr(
-        "polaris.modules.registry.completions_post",
-        fake_completions_post,
-    )
+    async def fake_reason_structured(self, prompt, schema):
+        return '{"route": "done"}'
 
     async def fake_load_providers(config):
         return []
@@ -40,8 +31,17 @@ async def test_run_minimal_agent(monkeypatch):
         "nodes": {
             "start": {
                 "type": "planner",
-                "next": None,
-            }
+                "output_mode": "route",
+                "prompt": "Decide next step",
+                "routes": {
+                    "done": {"description": "End workflow", "next": "end"},
+                },
+                "emit": {"state.decision": {"$ref": "result.route"}},
+            },
+            "end": {
+                "type": "terminal",
+                "output": {"decision": {"$ref": "state.decision"}},
+            },
         },
         "start": "start",
     }
@@ -54,7 +54,20 @@ async def test_run_minimal_agent(monkeypatch):
     }
     agents = {"test_agent": agent}
 
-    result = await run(config, inputs, "test_agent", agents)
+    # Patch after agent is defined since Registry is created during run()
+    original_run = run
 
-    assert result["last"]["result"]["next"] == "end"
+    async def patched_run(config, inputs, agent_id, agents, workspace=None):
+        from polaris.modules.registry import Registry
+
+        original_reason_structured = Registry.reason_structured
+        Registry.reason_structured = fake_reason_structured
+        try:
+            return await original_run(config, inputs, agent_id, agents, workspace)
+        finally:
+            Registry.reason_structured = original_reason_structured
+
+    result = await patched_run(config, inputs, "test_agent", agents)
+
     assert result["last"]["ok"] is True
+    assert result["last"]["result"]["decision"] == "done"

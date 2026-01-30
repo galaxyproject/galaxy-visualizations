@@ -9,10 +9,9 @@ from typing import Any
 
 import yaml
 
+import polaris
 from polaris import run as polaris_run
 from polaris.modules.runner import ProgressCallback
-
-from .postprocess import postprocess
 
 # Load agent definition from bundled YAML
 _AGENT_PATH = Path(__file__).parent / "agent.yml"
@@ -40,13 +39,10 @@ async def run(
     Returns:
         Result dict containing report, workflow analysis, and mermaid diagram
     """
+    # Initialize framework before loading agent definitions
+    polaris.initialize()
+
     agent = _load_agent()
     agents = {_AGENT_NAME: agent}
 
-    result = await polaris_run(config, inputs, _AGENT_NAME, agents, on_progress)
-
-    # Apply postprocessing to add mermaid diagram
-    if result.get("last"):
-        result["last"] = postprocess(result["last"], result.get("state", {}))
-
-    return result
+    return await polaris_run(config, inputs, _AGENT_NAME, agents, on_progress)

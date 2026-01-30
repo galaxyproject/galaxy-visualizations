@@ -28,6 +28,8 @@ state:
     type: string
   report:
     type: string
+  mermaid_diagram:
+    type: string
 
 nodes:
   # Step 1: Fetch source dataset to seed the traversal
@@ -191,6 +193,22 @@ nodes:
     emit:
       state.report:
         $ref: result
+    next: generate_diagram
+
+  # Step 7: Generate mermaid diagram from lineage
+  generate_diagram:
+    type: materializer
+    target: dataset_report.generate_mermaid
+    args:
+      dataset_details:
+        $ref: state.dataset_details
+      job_details:
+        $ref: state.job_details
+      source_dataset_id:
+        $ref: inputs.dataset_id
+    emit:
+      state.mermaid_diagram:
+        $ref: result
     next: done
 
   # Terminal node - return the generated report
@@ -220,3 +238,5 @@ nodes:
         $ref: state.workflow_analysis
       report:
         $ref: state.report
+      mermaid_diagram:
+        $ref: state.mermaid_diagram

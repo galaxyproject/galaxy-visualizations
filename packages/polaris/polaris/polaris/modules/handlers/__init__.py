@@ -7,6 +7,7 @@ from .compute import ComputeHandler
 from .control import ControlHandler
 from .executor import ExecutorHandler
 from .loop import LoopHandler
+from .materializer import MaterializerHandler
 from .planner import PlannerHandler
 from .reasoning import ReasoningHandler
 from .terminal import TerminalHandler
@@ -18,6 +19,7 @@ _HANDLER_CLASSES: dict[str, type[NodeHandler]] = {
     NodeType.CONTROL: ControlHandler,
     NodeType.EXECUTOR: ExecutorHandler,
     NodeType.LOOP: LoopHandler,
+    NodeType.MATERIALIZER: MaterializerHandler,
     NodeType.PLANNER: PlannerHandler,
     NodeType.REASONING: ReasoningHandler,
     NodeType.TERMINAL: TerminalHandler,
@@ -57,6 +59,7 @@ __all__ = [
     "ControlHandler",
     "ExecutorHandler",
     "LoopHandler",
+    "MaterializerHandler",
     "PlannerHandler",
     "ReasoningHandler",
     "TerminalHandler",

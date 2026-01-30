@@ -196,13 +196,85 @@ class ComputeNode(BaseNode):
     type: Literal["compute"]
 
 
-class PlannerNode(BaseNode):
-    """Planner node - AI-powered planning with tool use."""
+class PlannerRouteSpec(BaseModel):
+    """Route definition with description and target node."""
+
+    description: str = Field(..., min_length=1)
+    next: str = Field(..., min_length=1)
+
+
+class PlannerNode(BaseModel):
+    """Planner node - LLM-powered decision making with structured JSON output.
+
+    Two modes:
+    - route: Emits {"route": <enum>} for control flow decisions. Routes map to next nodes.
+    - json: Emits a parameter object for downstream computation. Must have static next.
+
+    Planners never emit tool calls. All output is validated JSON.
+    """
 
     type: Literal["planner"]
     prompt: str = ""
-    tools: list[str] = Field(default_factory=list)
+    output_mode: Literal["route", "json"]
+    input: dict[str, Any] | None = None
+
+    # Route mode: enum -> node mapping
+    routes: dict[str, PlannerRouteSpec] | None = None
+
+    # JSON mode: parameter schema
     output_schema: dict[str, Any] | None = None
+
+    # Common fields
+    emit: dict[str, Any] | None = None
+    next: str | None = None
+
+    model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def validate_mode_config(self) -> "PlannerNode":
+        """Validate mode-specific configuration."""
+        if self.output_mode == "route":
+            if self.routes is None:
+                raise ValueError("Route planners require 'routes'")
+            if not self.routes:
+                raise ValueError("Route planners require at least one route")
+            if self.next is not None:
+                raise ValueError(
+                    "Route planners cannot have static 'next' - "
+                    "next node is determined by route selection"
+                )
+            if self.output_schema is not None:
+                raise ValueError("Route planners cannot have 'output_schema'")
+
+        elif self.output_mode == "json":
+            if self.output_schema is None:
+                raise ValueError("JSON planners require 'output_schema'")
+            if self.next is None:
+                raise ValueError("JSON planners require static 'next'")
+            if self.routes is not None:
+                raise ValueError("JSON planners cannot have 'routes'")
+
+        return self
+
+
+class MaterializerNode(BaseNode):
+    """Materializer node - pure Python function invocation.
+
+    Properties:
+    - Deterministic execution (no LLM calls, no branching on content)
+    - Explicit arguments resolved before invocation
+    - Optional workspace path for file I/O
+    - No side effects outside the workspace
+    - No authority over control flow
+
+    The target must reference a pre-registered materializer in the catalog.
+    """
+
+    type: Literal["materializer"]
+    target: str = Field(..., min_length=1, description="Catalog identifier for the materializer")
+    args: dict[str, DynamicValue] = Field(default_factory=dict, description="Arguments to pass to the function")
+    workspace: DynamicValue | None = Field(None, description="Optional workspace path for file I/O")
+    input_schema: dict[str, Any] | None = Field(None, description="JSON Schema for eager argument validation")
 
 
 # Union of all node types
@@ -216,6 +288,7 @@ NodeDefinition = Annotated[
         LoopNode,
         ComputeNode,
         PlannerNode,
+        MaterializerNode,
     ],
     Field(discriminator="type"),
 ]
@@ -261,6 +334,53 @@ class AgentDefinition(BaseModel):
         )
         if not has_terminal:
             raise ValueError("Agent must have at least one terminal node")
+        return self
+
+    @model_validator(mode="after")
+    def validate_json_planner_targets(self) -> "AgentDefinition":
+        """Ensure JSON planners only connect to materializer or compute nodes."""
+        allowed_targets = {"materializer", "compute"}
+
+        for node_id, node in self.nodes.items():
+            if not isinstance(node, PlannerNode):
+                continue
+            if node.output_mode != "json":
+                continue
+            if node.next is None:
+                continue  # Caught by node-level validator
+
+            next_node = self.nodes.get(node.next)
+            if next_node is None:
+                continue  # Caught by existing validator
+
+            next_type = getattr(next_node, "type", None)
+            if next_type not in allowed_targets:
+                raise ValueError(
+                    f"JSON planner '{node_id}' connects to {next_type} "
+                    f"node '{node.next}'. JSON planners may only feed: "
+                    f"{', '.join(sorted(allowed_targets))}"
+                )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_route_planner_targets(self) -> "AgentDefinition":
+        """Ensure all route planner targets reference existing nodes."""
+        for node_id, node in self.nodes.items():
+            if not isinstance(node, PlannerNode):
+                continue
+            if node.output_mode != "route":
+                continue
+            if node.routes is None:
+                continue  # Caught by node-level validator
+
+            for route_name, route_spec in node.routes.items():
+                if route_spec.next not in self.nodes:
+                    raise ValueError(
+                        f"Route planner '{node_id}' route '{route_name}' "
+                        f"references non-existent node '{route_spec.next}'"
+                    )
+
         return self
 
 

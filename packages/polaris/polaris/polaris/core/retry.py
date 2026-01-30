@@ -48,5 +48,8 @@ async def retry_async(
                     on_retry(e, attempt + 1, backoff)
                 await asyncio.sleep(backoff)
 
-    assert last_error is not None
+    # last_error is guaranteed to be set after at least one iteration
+    # since max_retries >= 1 and we only reach here if all attempts failed
+    if last_error is None:
+        raise RuntimeError("Retry loop completed without capturing an error")
     raise last_error

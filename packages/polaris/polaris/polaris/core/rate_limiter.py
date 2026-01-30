@@ -79,7 +79,15 @@ class TokenBucketRateLimiter:
 
     @property
     def available_tokens(self) -> float:
-        """Return the current number of available tokens (approximate)."""
+        """Return approximate token count for monitoring/logging.
+
+        Note: This returns the cached token count without refilling or locking.
+        The value may be stale by up to (1/rate) seconds. This is intentional
+        to avoid blocking on a property access.
+
+        For accurate token acquisition, always use `acquire()` which properly
+        handles locking and refilling.
+        """
         return self.tokens
 
     @classmethod

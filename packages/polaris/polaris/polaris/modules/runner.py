@@ -138,9 +138,25 @@ class Runner:
             next_val = on_handlers["warning"]
         else:
             # Success case
-            if node.get("type") == NodeType.CONTROL:
+            node_type = node.get("type")
+
+            if node_type == NodeType.CONTROL:
+                # Control nodes return next in result
                 next_val = res.get("result", {}).get("next") if res else None
+
+            elif node_type == NodeType.PLANNER and node.get("output_mode") == "route":
+                # Route planners: map enum value to next node
+                if res and res.get("ok") and res.get("result"):
+                    route_value = res["result"].get("route")
+                    routes = node.get("routes", {})
+                    if route_value and route_value in routes:
+                        next_val = routes[route_value].get("next")
+                    else:
+                        logger.warning(f"Invalid route value: {route_value}")
+                        next_val = None
+
             else:
+                # All other nodes: use static 'next'
                 nv = node.get("next")
                 if isinstance(nv, dict):
                     ctx["result"] = res.get("result") if res else None

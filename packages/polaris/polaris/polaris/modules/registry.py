@@ -200,7 +200,61 @@ class Registry:
         return arguments
 
     # ----------------------------
-    # Reason
+    # Reason Structured (JSON output)
+    # ----------------------------
+    async def reason_structured(self, prompt: str, schema: dict) -> str:
+        """Request structured JSON output from LLM.
+
+        This method requests JSON output from the LLM without using tool calls.
+        The response is returned as a raw string for the caller to parse and validate.
+
+        Args:
+            prompt: The prompt including JSON output instructions
+            schema: JSON Schema describing the expected output (for context)
+
+        Returns:
+            Raw JSON string response from LLM
+        """
+        # Include schema in the prompt for guidance
+        schema_str = json.dumps(schema, indent=2)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a structured output assistant. "
+                    "You MUST respond with valid JSON only, no additional text. "
+                    "Your response must conform to the provided schema."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"{prompt}\n\nRequired JSON Schema:\n{schema_str}",
+            },
+        ]
+
+        reply = await self._completions_post(
+            {
+                **self.config,
+                "messages": messages,
+            }
+        )
+
+        # Extract content from response
+        choices = reply.get("choices", [])
+        if not choices:
+            raise NodeExecutionError("LLM returned no choices")
+
+        message = choices[0].get("message", {})
+        content = message.get("content", "")
+
+        if not content or not content.strip():
+            raise NodeExecutionError("LLM returned empty content")
+
+        # Return raw content - caller will parse and validate
+        return content.strip()
+
+    # ----------------------------
+    # Reason (text output)
     # ----------------------------
     async def reason(self, prompt, input):
         messages = [

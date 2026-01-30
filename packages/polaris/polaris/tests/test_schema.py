@@ -10,7 +10,9 @@ from polaris.modules.schema import (
     ExecutorNode,
     InputSpec,
     LoopNode,
+    MaterializerNode,
     PlannerNode,
+    PlannerRouteSpec,
     ReasoningNode,
     StateSpec,
     TerminalNode,
@@ -241,21 +243,229 @@ class TestComputeNode:
 
 
 class TestPlannerNode:
-    def test_minimal_planner(self):
-        node = PlannerNode(type="planner")
-        assert node.type == "planner"
-        assert node.prompt == ""
-        assert node.tools == []
-
-    def test_planner_with_options(self):
+    def test_route_planner_minimal(self):
+        """Test minimal route planner configuration."""
         node = PlannerNode(
             type="planner",
-            prompt="Plan the analysis",
-            tools=["search", "fetch"],
-            output_schema={"type": "object"},
+            output_mode="route",
+            routes={
+                "process": {"description": "Continue processing", "next": "process_node"},
+            },
         )
-        assert node.prompt == "Plan the analysis"
-        assert node.tools == ["search", "fetch"]
+        assert node.type == "planner"
+        assert node.output_mode == "route"
+        assert "process" in node.routes
+
+    def test_route_planner_multiple_routes(self):
+        """Test route planner with multiple routes."""
+        node = PlannerNode(
+            type="planner",
+            output_mode="route",
+            prompt="Decide the next step",
+            routes={
+                "process": {"description": "Continue", "next": "process_node"},
+                "skip": {"description": "Skip", "next": "skip_node"},
+                "retry": {"description": "Retry", "next": "retry_node"},
+            },
+        )
+        assert len(node.routes) == 3
+        assert node.routes["process"].next == "process_node"
+
+    def test_route_planner_rejects_static_next(self):
+        """Test that route planners cannot have static next."""
+        with pytest.raises(ValidationError, match="cannot have static 'next'"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+                routes={"process": {"description": "Process", "next": "node"}},
+                next="some_node",
+            )
+
+    def test_route_planner_rejects_output_schema(self):
+        """Test that route planners cannot have output_schema."""
+        with pytest.raises(ValidationError, match="cannot have 'output_schema'"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+                routes={"process": {"description": "Process", "next": "node"}},
+                output_schema={"type": "object"},
+            )
+
+    def test_route_planner_requires_routes(self):
+        """Test that route planners require routes."""
+        with pytest.raises(ValidationError, match="require 'routes'"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+            )
+
+    def test_route_planner_requires_nonempty_routes(self):
+        """Test that route planners require at least one route."""
+        with pytest.raises(ValidationError, match="at least one route"):
+            PlannerNode(
+                type="planner",
+                output_mode="route",
+                routes={},
+            )
+
+    def test_json_planner_minimal(self):
+        """Test minimal JSON planner configuration."""
+        node = PlannerNode(
+            type="planner",
+            output_mode="json",
+            output_schema={"type": "object", "properties": {"value": {"type": "number"}}},
+            next="process_node",
+        )
+        assert node.type == "planner"
+        assert node.output_mode == "json"
+        assert node.next == "process_node"
+
+    def test_json_planner_requires_output_schema(self):
+        """Test that JSON planners require output_schema."""
+        with pytest.raises(ValidationError, match="require 'output_schema'"):
+            PlannerNode(
+                type="planner",
+                output_mode="json",
+                next="process_node",
+            )
+
+    def test_json_planner_requires_static_next(self):
+        """Test that JSON planners require static next."""
+        with pytest.raises(ValidationError, match="require static 'next'"):
+            PlannerNode(
+                type="planner",
+                output_mode="json",
+                output_schema={"type": "object"},
+            )
+
+    def test_json_planner_rejects_routes(self):
+        """Test that JSON planners cannot have routes."""
+        with pytest.raises(ValidationError, match="cannot have 'routes'"):
+            PlannerNode(
+                type="planner",
+                output_mode="json",
+                output_schema={"type": "object"},
+                next="process_node",
+                routes={"process": {"description": "Process", "next": "node"}},
+            )
+
+    def test_planner_with_input(self):
+        """Test planner with input configuration."""
+        node = PlannerNode(
+            type="planner",
+            output_mode="route",
+            prompt="Analyze this data",
+            input={"data": {"$ref": "state.data"}},
+            routes={"process": {"description": "Process", "next": "node"}},
+        )
+        assert node.input is not None
+        assert "data" in node.input
+
+
+class TestMaterializerNode:
+    def test_minimal_materializer(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.my_function",
+        )
+        assert node.type == "materializer"
+        assert node.target == "my_module.my_function"
+        assert node.args == {}
+        assert node.workspace is None
+        assert node.input_schema is None
+
+    def test_materializer_with_args(self):
+        from polaris.modules.schema import RefExpr
+
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.transform",
+            args={
+                "data": {"$ref": "state.data"},
+                "format": "json",
+            },
+        )
+        assert node.args["format"] == "json"
+        assert isinstance(node.args["data"], RefExpr)
+        assert node.args["data"].ref == "state.data"
+
+    def test_materializer_with_workspace(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.generate_file",
+            args={"template": "report"},
+            workspace="/tmp/workspace",
+        )
+        assert node.workspace == "/tmp/workspace"
+
+    def test_materializer_with_dynamic_workspace(self):
+        from polaris.modules.schema import RefExpr
+
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.generate_file",
+            workspace={"$ref": "config.workspace_path"},
+        )
+        assert isinstance(node.workspace, RefExpr)
+        assert node.workspace.ref == "config.workspace_path"
+
+    def test_materializer_with_input_schema(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.validate_data",
+            args={"data": {"$ref": "state.data"}},
+            input_schema={
+                "type": "object",
+                "required": ["data"],
+                "properties": {
+                    "data": {"type": "array"},
+                },
+            },
+        )
+        assert node.input_schema["required"] == ["data"]
+
+    def test_materializer_with_emit_and_next(self):
+        node = MaterializerNode(
+            type="materializer",
+            target="my_module.transform",
+            args={"input": "value"},
+            emit={"state.output": {"$ref": "result"}},
+            next="done",
+        )
+        assert "state.output" in node.emit
+        assert node.next == "done"
+
+    def test_materializer_rejects_empty_target(self):
+        with pytest.raises(ValidationError):
+            MaterializerNode(
+                type="materializer",
+                target="",
+            )
+
+    def test_materializer_in_agent_definition(self):
+        """Test that materializer nodes work in a full agent definition."""
+        agent = validate_agent({
+            "version": 1,
+            "id": "test_agent",
+            "start": "materialize",
+            "nodes": {
+                "materialize": {
+                    "type": "materializer",
+                    "target": "my_module.generate_report",
+                    "args": {
+                        "data": {"$ref": "state.data"},
+                    },
+                    "emit": {"state.report": {"$ref": "result"}},
+                    "next": "done",
+                },
+                "done": {
+                    "type": "terminal",
+                    "output": {"report": {"$ref": "state.report"}},
+                },
+            },
+        })
+        assert isinstance(agent.nodes["materialize"], MaterializerNode)
+        assert agent.nodes["materialize"].target == "my_module.generate_report"
 
 
 class TestAgentDefinition:
