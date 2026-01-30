@@ -1,8 +1,35 @@
-// @ts-check
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 
-import BGZIP from "./test-data/test.gwas_bgzip?raw";
-import TABIX from "./test-data/test.gwas_bgzip.tbi?raw";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const BGZIP = readFileSync(resolve(__dirname, "test-data/test.gwas_bgzip"));
+const TABIX = readFileSync(resolve(__dirname, "test-data/test.gwas_bgzip.tbi"));
+
+function fulfillBinary(route, data) {
+    const rangeHeader = route.request().headers()["range"];
+    const match = rangeHeader?.match(/bytes=(\d+)-(\d+)/);
+    if (match) {
+        const start = parseInt(match[1]);
+        const end = Math.min(parseInt(match[2]), data.length - 1);
+        const slice = data.subarray(start, end + 1);
+        return route.fulfill({
+            status: 206,
+            contentType: "application/octet-stream",
+            headers: {
+                "Content-Range": `bytes ${start}-${end}/${data.length}`,
+                "Content-Length": String(slice.length),
+            },
+            body: slice,
+        });
+    }
+    return route.fulfill({
+        status: 200,
+        contentType: "application/octet-stream",
+        body: data,
+    });
+}
 
 test("Run plot", async ({ page }) => {
     // Test variables
@@ -14,20 +41,12 @@ test("Run plot", async ({ page }) => {
     const PHENO_STAT_TO_CLICK = page.getByText(PHENO_STAT);
 
     // mock api
-    await page.route("**/api/datasets/__test__", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify(BGZIP),
-        });
+    await page.route("**/api/datasets/__test__/display", async (route) => {
+        await fulfillBinary(route, BGZIP);
     });
 
-    await page.route("**/api/datasets/__test__tabix__", async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify(TABIX),
-        });
+    await page.route("**/api/datasets/__test__tabix__/display", async (route) => {
+        await fulfillBinary(route, TABIX);
     });
 
     await page.goto(URL);
