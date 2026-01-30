@@ -1,0 +1,115 @@
+name: Test Packages
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-packages: ${{ steps.detect-changes.outputs.packages }}
+      has-changes: ${{ steps.detect-changes.outputs.has-changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed packages
+        id: detect-changes
+        run: |
+          # For PRs, compare against the base branch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_ref="origin/${{ github.event.pull_request.base.ref }}"
+          else
+            # For push to main, compare with previous commit
+            base_ref="HEAD~1"
+          fi
+          
+          # Get changed files in packages directory
+          changed_files=$(git diff --name-only "$base_ref" HEAD -- packages/ | grep -E "packages/[^/]+/" | cut -d'/' -f1-2 | sort -u || true)
+          
+          if [ -z "$changed_files" ]; then
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "No packages changed"
+            exit 0
+          fi
+          
+          changed_packages=""
+          for package_dir in $changed_files; do
+            package_name=$(basename "$package_dir")
+            if [ -f "$package_dir/package.json" ]; then
+              if [ -n "$changed_packages" ]; then
+                changed_packages="$changed_packages,$package_name"
+              else
+                changed_packages="$package_name"
+              fi
+            fi
+          done
+          
+          if [ -n "$changed_packages" ]; then
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "packages=$changed_packages" >> $GITHUB_OUTPUT
+            echo "Changed packages: $changed_packages"
+          else
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "No packages with changes found"
+          fi
+
+  test:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: ${{ fromJson(format('["{0}"]', join(split(needs.detect-changes.outputs.changed-packages, ','), '","'))) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          if grep -q '"test"' package.json && ! grep -q '"test":\s*""' package.json; then
+            echo "Running tests for ${{ matrix.package }}"
+            pnpm test
+          else
+            echo "No tests found for ${{ matrix.package }}, skipping"
+          fi
+
+      - name: Build package
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          if grep -q '"build"' package.json; then
+            echo "Building ${{ matrix.package }}"
+            pnpm build
+          else
+            echo "No build script found for ${{ matrix.package }}, skipping"
+          fi
+
+      - name: Check formatting
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          if grep -q '"prettier"' package.json; then
+            echo "Checking formatting for ${{ matrix.package }}"
+            pnpm prettier --check .
+          else
+            echo "No prettier script found for ${{ matrix.package }}, skipping"
+          fi
