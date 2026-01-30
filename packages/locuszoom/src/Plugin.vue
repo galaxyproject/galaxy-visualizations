@@ -262,7 +262,7 @@ watch(
         class="absolute mt-1 p-3 border bg-red-100 text-red-700 text-sm rounded opacity-95 w-[100%]">
         {{ errorMessage }}
     </div>
-    <div id="lz-plot" class="h-100"></div>
+    <div id="lz-plot" class="h-full"></div>
 </template>
 
 <style>
