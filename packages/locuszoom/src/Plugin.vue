@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, watch, ref } from "vue";
+import { onMounted, onBeforeUnmount, watch, ref } from "vue";
 
 import "locuszoom/dist/locuszoom.css";
 import LocusZoom from "locuszoom/esm";
@@ -156,12 +156,21 @@ const props = defineProps({
 });
 
 const errorMessage = ref("");
+let currentPlot = null;
+
+function destroyPlot() {
+    if (currentPlot) {
+        currentPlot.destroy();
+        currentPlot = null;
+    }
+}
 
 function getDatasetUrl(root, id) {
     return `${root}api/datasets/${id}/display`;
 }
 
 function render() {
+    destroyPlot();
     const tabixDatasetId = props.settings.tabix?.id;
     const bgzipURL = getDatasetUrl(props.root, props.datasetId);
     const tabixURL = getDatasetUrl(props.root, tabixDatasetId);
@@ -232,7 +241,7 @@ function render() {
     const panel = LocusZoom.Layouts.get("panel", "association", {
         data_layers: [data_layer],
     });
-    LocusZoom.populate("#lz-plot", data_sources, {
+    currentPlot = LocusZoom.populate("#lz-plot", data_sources, {
         state: { chr: chrIn, start: startIn, end: endIn },
         responsive_resize: true,
         panels: [panel],
@@ -245,6 +254,10 @@ function render() {
 
 onMounted(() => {
     render();
+});
+
+onBeforeUnmount(() => {
+    destroyPlot();
 });
 
 watch(
