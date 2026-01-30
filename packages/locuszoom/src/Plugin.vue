@@ -11,7 +11,6 @@ LocusZoom.use(LzTabixSource);
 const TabixUrlSource = LocusZoom.Adapters.get("TabixUrlSource");
 
 // Test files paths
-
 const BGZIP_PRIMARY_DATASET_PATH = "http://localhost:5173/test-data/weird.gwas_bgzip";
 const TABIX_SECONDARY_DATASET_PATH = "http://localhost:5173/test-data/weird.gwas_bgzip.tbi";
 
@@ -31,8 +30,6 @@ TabixUrlSource.prototype._performRequest = function (options) {
                 // Patch the URLFetchable prototype once
                 if (!hasURLFetchablePrototypeBeenPatched && reader.data) {
                     const URLFetchablePrototype = Object.getPrototypeOf(reader.data);
-                    const originalFetch = URLFetchablePrototype.fetch;
-
                     URLFetchablePrototype.fetch = function (callback, opts) {
                         var thisB = this;
                         opts = opts || {};
@@ -165,7 +162,6 @@ const props = defineProps({
 const errorMessage = ref("");
 
 // Functions to retrieve URLs
-
 function getPrimaryURL(root, primaryID) {
     if (primaryID === "__test__") {
         return BGZIP_PRIMARY_DATASET_PATH;
