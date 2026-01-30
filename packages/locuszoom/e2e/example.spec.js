@@ -11,8 +11,6 @@ test("Run plot", async ({ page }) => {
     const PHENO_STAT = "×phenRAYA560NE.2.1.2:61284_T/"; // stats' table for the point
     const PHENO_STAT_TO_CLICK = page.getByText(PHENO_STAT);
 
-    // Test execution
-
     await page.goto(URL);
     await page.getByRole("button").click();
     await page.getByRole("textbox", { name: "Please Input" }).nth(1).fill(CHR_INPUT);

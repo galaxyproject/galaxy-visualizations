@@ -3,15 +3,29 @@ import { defineConfig } from "vite";
 const env = {
     GALAXY_DATASET_ID: "",
     GALAXY_KEY: "",
-    GALAXY_ROOT: "http://127.0.0.1:8081/",
+    GALAXY_ROOT: "http://127.0.0.1:8080",
 };
+
+type EnvKeyType = keyof typeof env;
 
 Object.keys(env).forEach((key) => {
     if (process.env[key]) {
-        env[key] = process.env[key];
+        env[key as EnvKeyType] = process.env[key] as string;
     } else {
         console.log(`${key} not available. Please provide as environment variable.`);
     }
+});
+
+const proxyGalaxy = () => ({
+    changeOrigin: true,
+    rewrite: (path: string) => {
+        if (env.GALAXY_KEY) {
+            const separator = path.includes("?") ? "&" : "?";
+            return `${path}${separator}key=${env.GALAXY_KEY}`;
+        }
+        return path;
+    },
+    target: env.GALAXY_ROOT,
 });
 
 // https://vitejs.dev/config/
@@ -39,18 +53,7 @@ export const viteConfigCharts = defineConfig({
     },
     server: {
         proxy: {
-            "/api": {
-                changeOrigin: true,
-                rewrite: (path) => {
-                    if (env.GALAXY_KEY) {
-                        const separator = path.includes("?") ? "&" : "?";
-                        return `${path}${separator}key=${env.GALAXY_KEY}`;
-                    } else {
-                        return path;
-                    }
-                },
-                target: env.GALAXY_ROOT,
-            },
+            "/api": proxyGalaxy(),
         },
     },
 });
