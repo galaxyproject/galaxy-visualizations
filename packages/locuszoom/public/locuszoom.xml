@@ -22,6 +22,7 @@
             <label>Select a chromosome</label>
             <name>chromosome</name>
             <type>string</type>
+            <value>1</value>
         </input>
         <input>
             <label>Select start position</label>
