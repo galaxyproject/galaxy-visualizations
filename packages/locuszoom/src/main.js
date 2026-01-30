@@ -34,7 +34,9 @@ async function main() {
                 dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
                 // Placeholder for additional visualization settings
                 settings: {
-                    tabix: {},
+                    tabix: {
+                        id: "__test__tabix__",
+                    },
                 },
             },
             // Parse and load the visualization XML configuration
