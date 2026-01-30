@@ -26,124 +26,123 @@ TabixUrlSource.prototype._performRequest = function (options) {
     const end = options.end + extra_amount;
 
     return new Promise((resolve, reject) => {
-        this._reader_promise.then((reader) => {
-            // Patch the URLFetchable prototype once
-            if (!hasURLFetchablePrototypeBeenPatched && reader.data) {
-            
+        this._reader_promise
+            .then((reader) => {
+                // Patch the URLFetchable prototype once
+                if (!hasURLFetchablePrototypeBeenPatched && reader.data) {
+                    const URLFetchablePrototype = Object.getPrototypeOf(reader.data);
+                    const originalFetch = URLFetchablePrototype.fetch;
 
-                const URLFetchablePrototype = Object.getPrototypeOf(reader.data);
-                const originalFetch = URLFetchablePrototype.fetch;
+                    URLFetchablePrototype.fetch = function (callback, opts) {
+                        var thisB = this;
+                        opts = opts || {};
+                        var attempt = opts.attempt || 1;
+                        var truncatedLength = opts.truncatedLength;
 
-                URLFetchablePrototype.fetch = function (callback, opts) {
-
-                    var thisB = this;
-                    opts = opts || {};
-                    var attempt = opts.attempt || 1;
-                    var truncatedLength = opts.truncatedLength;
-
-                    if (attempt > 3) {
-                        console.warn("Max fetch attempts reached");
-                        return callback(null);
-                    }
-
-                    this.getURL().then(function (url) {
-                        try {
-                            var timeout;
-                            if (opts.timeout && !thisB.opts.credentials) {
-                                timeout = setTimeout(function () {
-                                    console.log("timing out " + url);
-                                    req.abort();
-                                    return callback(null, "Timeout");
-                                }, opts.timeout);
-                            }
-                            var req = new XMLHttpRequest();
-                            var length;
-                            req.open("GET", url, true);
-                            req.overrideMimeType("text/plain; charset=x-user-defined");
-                            if (thisB.end) {
-                                if (thisB.end - thisB.start > 1e8) {
-                                    throw "Monster fetch!";
-                                }
-                                req.setRequestHeader("Range", "bytes=" + thisB.start + "-" + thisB.end);
-                                length = thisB.end - thisB.start + 1;
-                            }
-                            req.responseType = "arraybuffer";
-                            req.onreadystatechange = function () {
-                                if (req.readyState == 4) {
-                                    if (timeout) clearTimeout(timeout);
-                                    if (req.status == 200 || req.status == 206) {
-                                        if (req.response) {
-                                            var bl = req.response.byteLength;
-                                            if (
-                                                length &&
-                                                length != bl &&
-                                                (!truncatedLength || bl != truncatedLength)
-                                            ) {
-                                                console.warn(
-                                                    `Byte length mismatch (expected ${length}, got ${bl}), retrying...`,
-                                                );
-                                                return thisB.fetch(callback, {
-                                                    attempt: attempt + 1,
-                                                    truncatedLength: bl,
-                                                });
-                                            } else {
-                                                return callback(req.response);
-                                            }
-                                        } else if (req.mozResponseArrayBuffer) {
-                                            return callback(req.mozResponseArrayBuffer);
-                                        } else {
-                                            var r = req.responseText;
-                                            if (
-                                                length &&
-                                                length != r.length &&
-                                                (!truncatedLength || r.length != truncatedLength)
-                                            ) {
-                                                console.warn(`Text length mismatch, retrying...`);
-                                                return thisB.fetch(callback, {
-                                                    attempt: attempt + 1,
-                                                    truncatedLength: r.length,
-                                                });
-                                            } else {
-                                                return callback(bstringToBuffer(req.responseText));
-                                            }
-                                        }
-                                    } else {
-                                        console.warn(`HTTP ${req.status} on attempt ${attempt}, retrying...`);
-                                        if (req.status === 416) {
-                                            console.log("Range not satisfiable, resetting end");
-                                            thisB.end = "";
-                                        }
-                                        return thisB.fetch(callback, { attempt: attempt + 1 });
-                                    }
-                                }
-                            };
-                            if (thisB.opts.credentials) {
-                                req.withCredentials = true;
-                            }
-                            req.send();
-                        } catch (e) {
-                            console.error("Fetch error:", e);
+                        if (attempt > 3) {
+                            console.warn("Max fetch attempts reached");
                             return callback(null);
                         }
-                    })
-                    .catch(function (err) {
-                        console.error("getURL error:", err);
-                        return callback(null, err);
-                    });
-                };
 
-                hasURLFetchablePrototypeBeenPatched = true;
-            }
+                        this.getURL()
+                            .then(function (url) {
+                                try {
+                                    var timeout;
+                                    if (opts.timeout && !thisB.opts.credentials) {
+                                        timeout = setTimeout(function () {
+                                            console.log("timing out " + url);
+                                            req.abort();
+                                            return callback(null, "Timeout");
+                                        }, opts.timeout);
+                                    }
+                                    var req = new XMLHttpRequest();
+                                    var length;
+                                    req.open("GET", url, true);
+                                    req.overrideMimeType("text/plain; charset=x-user-defined");
+                                    if (thisB.end) {
+                                        if (thisB.end - thisB.start > 1e8) {
+                                            throw "Monster fetch!";
+                                        }
+                                        req.setRequestHeader("Range", "bytes=" + thisB.start + "-" + thisB.end);
+                                        length = thisB.end - thisB.start + 1;
+                                    }
+                                    req.responseType = "arraybuffer";
+                                    req.onreadystatechange = function () {
+                                        if (req.readyState == 4) {
+                                            if (timeout) clearTimeout(timeout);
+                                            if (req.status == 200 || req.status == 206) {
+                                                if (req.response) {
+                                                    var bl = req.response.byteLength;
+                                                    if (
+                                                        length &&
+                                                        length != bl &&
+                                                        (!truncatedLength || bl != truncatedLength)
+                                                    ) {
+                                                        console.warn(
+                                                            `Byte length mismatch (expected ${length}, got ${bl}), retrying...`,
+                                                        );
+                                                        return thisB.fetch(callback, {
+                                                            attempt: attempt + 1,
+                                                            truncatedLength: bl,
+                                                        });
+                                                    } else {
+                                                        return callback(req.response);
+                                                    }
+                                                } else if (req.mozResponseArrayBuffer) {
+                                                    return callback(req.mozResponseArrayBuffer);
+                                                } else {
+                                                    var r = req.responseText;
+                                                    if (
+                                                        length &&
+                                                        length != r.length &&
+                                                        (!truncatedLength || r.length != truncatedLength)
+                                                    ) {
+                                                        console.warn(`Text length mismatch, retrying...`);
+                                                        return thisB.fetch(callback, {
+                                                            attempt: attempt + 1,
+                                                            truncatedLength: r.length,
+                                                        });
+                                                    } else {
+                                                        return callback(bstringToBuffer(req.responseText));
+                                                    }
+                                                }
+                                            } else {
+                                                console.warn(`HTTP ${req.status} on attempt ${attempt}, retrying...`);
+                                                if (req.status === 416) {
+                                                    console.log("Range not satisfiable, resetting end");
+                                                    thisB.end = "";
+                                                }
+                                                return thisB.fetch(callback, { attempt: attempt + 1 });
+                                            }
+                                        }
+                                    };
+                                    if (thisB.opts.credentials) {
+                                        req.withCredentials = true;
+                                    }
+                                    req.send();
+                                } catch (e) {
+                                    console.error("Fetch error:", e);
+                                    return callback(null);
+                                }
+                            })
+                            .catch(function (err) {
+                                console.error("getURL error:", err);
+                                return callback(null, err);
+                            });
+                    };
 
-            reader.fetch(options.chr, start, end, (data, err) => {
-                if (err) {
-                    console.warn(`Tabix fetch failed:`, err);
-                    return reject(new Error(err));
+                    hasURLFetchablePrototypeBeenPatched = true;
                 }
-                resolve(data);
-            });
-        })
-        .catch((err) => reject(err));
+
+                reader.fetch(options.chr, start, end, (data, err) => {
+                    if (err) {
+                        console.warn(`Tabix fetch failed:`, err);
+                        return reject(new Error(err));
+                    }
+                    resolve(data);
+                });
+            })
+            .catch((err) => reject(err));
     });
 };
 
@@ -165,31 +164,27 @@ const props = defineProps({
 
 const errorMessage = ref("");
 
-// Functions to retrieve URLs 
+// Functions to retrieve URLs
 
-function getPrimaryURL(root,primaryID) {
-    if (primaryID==="__test__"){
+function getPrimaryURL(root, primaryID) {
+    if (primaryID === "__test__") {
         return BGZIP_PRIMARY_DATASET_PATH;
-    }
-    else {
+    } else {
         return `${root}api/datasets/${primaryID}/display`;
     }
-
 }
 
-function getSecondaryURL(root,primaryID, secondaryID) {
-    if (primaryID==="__test__"){
+function getSecondaryURL(root, primaryID, secondaryID) {
+    if (primaryID === "__test__") {
         return TABIX_SECONDARY_DATASET_PATH;
-    }
-    else {
+    } else {
         return `${root}api/datasets/${secondaryID}/display`;
     }
-
 }
 
 function render() {
-    const bgzipURL = getPrimaryURL(props.root,props.datasetId);
-    const tabixURL = getSecondaryURL(props.root,props.datasetId, props.settings.tabix?.id);
+    const bgzipURL = getPrimaryURL(props.root, props.datasetId);
+    const tabixURL = getSecondaryURL(props.root, props.datasetId, props.settings.tabix?.id);
     const id = props.settings.tabix?.id;
     const chrIn = props.settings.chromosome;
     const startIn = props.settings.start;
