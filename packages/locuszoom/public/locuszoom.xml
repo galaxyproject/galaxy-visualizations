@@ -21,9 +21,7 @@
         <input>
             <label>Select a chromosome</label>
             <name>chromosome</name>
-            <type>integer</type>
-            <min>1</min>
-            <value>1</value>
+            <type>string</type>
         </input>
         <input>
             <label>Select start position</label>
@@ -97,7 +95,7 @@
             <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.gwas_tabix.gz" ftype="gwas_tabix.gz" />
         </test>
     </tests>
-     <help format="markdown"><![CDATA[
+    <help format="markdown"><![CDATA[
 # What is LocusZoom?
 
 LocusZoom is a specialized tool designed to create interactive Manhattan plots for visualizing results from genome-wide association studies (GWAS).
@@ -117,5 +115,5 @@ For more information:
 
 Boughton, A. P. et al. LocusZoom.js: interactive and embeddable visualization of genetic association study results. Bioinformatics (2021) doi:10.1093/bioinformatics/btab186.
 
-    ]]></help>
+    ]]>    </help>
 </visualization>
