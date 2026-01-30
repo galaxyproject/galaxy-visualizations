@@ -7,6 +7,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BGZIP = readFileSync(resolve(__dirname, "test-data/test.gwas_bgzip"));
 const TABIX = readFileSync(resolve(__dirname, "test-data/test.gwas_bgzip.tbi"));
 
+const maxDiffPixelRatio = 0.06;
+
 function fulfillBinary(route, data) {
     const rangeHeader = route.request().headers()["range"];
     const match = rangeHeader?.match(/bytes=(\d+)-(\d+)/);
@@ -58,4 +60,5 @@ test("Run plot", async ({ page }) => {
     await expect(PHENO_STAT_TO_CLICK).toBeVisible();
     await page.getByRole("button", { name: "×" }).click();
     await expect(PHENO_STAT_TO_CLICK).toBeHidden();
+    await expect(page).toHaveScreenshot("test.png", { maxDiffPixelRatio });
 });
