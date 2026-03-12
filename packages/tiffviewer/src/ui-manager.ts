@@ -149,13 +149,13 @@ export class UIManager {
     zoomInBtn.title = "Zoom In";
     zoomInBtn.type = "button";
     zoomInBtn.setAttribute("aria-label", "Zoom In");
-    zoomInBtn.onclick = () => this.panzoom.zoomIn();
+    zoomInBtn.onclick = () => this.zoomFromCenterByStep(1);
     const zoomOutBtn = document.createElement("button");
     zoomOutBtn.appendChild(this.createIcon("zoom-out", "Zoom Out"));
     zoomOutBtn.title = "Zoom Out";
     zoomOutBtn.type = "button";
     zoomOutBtn.setAttribute("aria-label", "Zoom Out");
-    zoomOutBtn.onclick = () => this.panzoom.zoomOut();
+    zoomOutBtn.onclick = () => this.zoomFromCenterByStep(-1);
     const resetZoomBtn = document.createElement("button");
     resetZoomBtn.appendChild(this.createIcon("reset", "Reset Zoom"));
     resetZoomBtn.title = "Reset Zoom";
@@ -251,6 +251,36 @@ export class UIManager {
     this.toolbar.appendChild(resetZoomBtn);
     this.toolbar.appendChild(fitBtn);
     this.toolbar.appendChild(palettePanelBtn);
+  }
+
+  private getCanvasCenterFocal(): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+  }
+
+  /**
+   * Use zoomToPoint to zoom from the container center by one wheel step.
+   * direction: +1 for zoom in, -1 for zoom out
+   */
+  private zoomFromCenterByStep(direction: 1 | -1) {
+    const options = this.panzoom.getOptions();
+    const step = Number(options.step ?? 0.3);
+    const minScale = Number(options.minScale ?? 0.1);
+    const maxScale = Number(options.maxScale ?? this.maxScale);
+    const currentScale = this.panzoom.getScale();
+    const wheelLikeStep = Math.exp(direction * step);
+    const targetScale = Math.min(
+      maxScale,
+      Math.max(minScale, currentScale * wheelLikeStep),
+    );
+    const focal = this.getCanvasCenterFocal();
+    this.panzoom.zoomToPoint(targetScale, {
+      clientX: focal.x,
+      clientY: focal.y,
+    });
   }
 
   private createPageSelector() {
