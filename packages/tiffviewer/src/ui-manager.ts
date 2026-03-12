@@ -21,7 +21,7 @@ export class UIManager {
   constructor(
     tiffService: TIFFService,
     paletteManager: PaletteManager,
-    appElement: HTMLElement
+    appElement: HTMLElement,
   ) {
     this.tiffService = tiffService;
     this.paletteManager = paletteManager;
@@ -75,7 +75,7 @@ export class UIManager {
     const rgba = new Uint8ClampedArray(width * height * 4);
     if (samples === 1) {
       const palette = this.paletteManager.getPalette(
-        this.paletteManager.getCurrentPalette()
+        this.paletteManager.getCurrentPalette(),
       );
       for (let i = 0; i < width * height; i++) {
         const v = data[i];
@@ -172,7 +172,7 @@ export class UIManager {
     // Palette panel (SVG)
     const palettePanelBtn = document.createElement("button");
     palettePanelBtn.appendChild(
-      this.createIcon("palette", "Show Palette Selector")
+      this.createIcon("palette", "Show Palette Selector"),
     );
     palettePanelBtn.title = "Show Palette Selector";
     palettePanelBtn.type = "button";
@@ -312,7 +312,7 @@ export class UIManager {
     const rows = Object.entries(tags)
       .map(
         ([key, value]) =>
-          `<tr><td class='info-table-key'>${key}</td><td class='info-table-value'>${value}</td></tr>`
+          `<tr><td class='info-table-key'>${key}</td><td class='info-table-value'>${value}</td></tr>`,
       )
       .join("");
     return `
