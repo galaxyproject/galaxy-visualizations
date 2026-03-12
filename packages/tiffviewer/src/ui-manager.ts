@@ -96,10 +96,8 @@ export class UIManager {
       console.warn(`Unsupported sample format with ${samples} channels`);
       return;
     }
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = width * dpr;
-    this.canvas.height = height * dpr;
-    context.scale(dpr, dpr);
+    this.canvas.width = width;
+    this.canvas.height = height;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
     const imageData = new ImageData(rgba, width, height);
@@ -373,8 +371,8 @@ export class UIManager {
     const container = this.canvas.parentElement as HTMLElement;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
-    const width = this.canvas.width / (window.devicePixelRatio || 1);
-    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    const width = this.canvas.width;
+    const height = this.canvas.height;
     let useScale = scale;
     if (isNaN(useScale) || useScale <= 0) {
       useScale = this.panzoom.getScale() || 1;
@@ -393,8 +391,8 @@ export class UIManager {
     const container = this.canvas.parentElement as HTMLElement;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
-    const width = this.canvas.width / (window.devicePixelRatio || 1);
-    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    const width = this.canvas.width;
+    const height = this.canvas.height;
     const scaleX = containerRect.width / width;
     const scaleY = containerRect.height / height;
     const scale = Math.min(scaleX, scaleY);
