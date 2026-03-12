@@ -21,7 +21,7 @@ export class UIManager {
   constructor(
     tiffService: TIFFService,
     paletteManager: PaletteManager,
-    appElement: HTMLElement
+    appElement: HTMLElement,
   ) {
     this.tiffService = tiffService;
     this.paletteManager = paletteManager;
@@ -75,7 +75,7 @@ export class UIManager {
     const rgba = new Uint8ClampedArray(width * height * 4);
     if (samples === 1) {
       const palette = this.paletteManager.getPalette(
-        this.paletteManager.getCurrentPalette()
+        this.paletteManager.getCurrentPalette(),
       );
       for (let i = 0; i < width * height; i++) {
         const v = data[i];
@@ -96,10 +96,8 @@ export class UIManager {
       console.warn(`Unsupported sample format with ${samples} channels`);
       return;
     }
-    const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = width * dpr;
-    this.canvas.height = height * dpr;
-    context.scale(dpr, dpr);
+    this.canvas.width = width;
+    this.canvas.height = height;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
     const imageData = new ImageData(rgba, width, height);
@@ -172,7 +170,7 @@ export class UIManager {
     // Palette panel (SVG)
     const palettePanelBtn = document.createElement("button");
     palettePanelBtn.appendChild(
-      this.createIcon("palette", "Show Palette Selector")
+      this.createIcon("palette", "Show Palette Selector"),
     );
     palettePanelBtn.title = "Show Palette Selector";
     palettePanelBtn.type = "button";
@@ -312,7 +310,7 @@ export class UIManager {
     const rows = Object.entries(tags)
       .map(
         ([key, value]) =>
-          `<tr><td class='info-table-key'>${key}</td><td class='info-table-value'>${value}</td></tr>`
+          `<tr><td class='info-table-key'>${key}</td><td class='info-table-value'>${value}</td></tr>`,
       )
       .join("");
     return `
@@ -373,8 +371,8 @@ export class UIManager {
     const container = this.canvas.parentElement as HTMLElement;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
-    const width = this.canvas.width / (window.devicePixelRatio || 1);
-    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    const width = this.canvas.width;
+    const height = this.canvas.height;
     let useScale = scale;
     if (isNaN(useScale) || useScale <= 0) {
       useScale = this.panzoom.getScale() || 1;
@@ -393,8 +391,8 @@ export class UIManager {
     const container = this.canvas.parentElement as HTMLElement;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
-    const width = this.canvas.width / (window.devicePixelRatio || 1);
-    const height = this.canvas.height / (window.devicePixelRatio || 1);
+    const width = this.canvas.width;
+    const height = this.canvas.height;
     const scaleX = containerRect.width / width;
     const scaleY = containerRect.height / height;
     const scale = Math.min(scaleX, scaleY);
