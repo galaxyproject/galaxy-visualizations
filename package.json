@@ -2,6 +2,7 @@
   "name": "galaxy-visualizations",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "repository": "git@github.com:galaxyproject/galaxy-visualizations.git",
   "author": "Galaxy Contributors",
   "license": "MIT",
