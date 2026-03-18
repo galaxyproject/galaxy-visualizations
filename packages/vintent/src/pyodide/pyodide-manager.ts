@@ -26,6 +26,10 @@ export class PyodideManager {
                     resolve();
                     return;
                 }
+                if (type === "error") {
+                    reject(new Error(error || "Pyodide initialization failed"));
+                    return;
+                }
                 if (id && this.pending.has(id)) {
                     const entry = this.pending.get(id)!;
                     this.pending.delete(id);
