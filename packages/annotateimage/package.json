@@ -13,7 +13,7 @@
         "underscore": "^1.8.3"
     },
     "scripts": {
-        "build": "yarn build-css && yarn build-js",
+        "build": "npm run build-css && npm run build-js",
         "build-css": "cp -f 'node_modules/jquery-contextmenu/dist/jquery.contextMenu.css' 'static/'",
         "build-js": "parcel build src/script.js --dist-dir static"
     }
