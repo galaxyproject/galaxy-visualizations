@@ -15,7 +15,7 @@ jobs:
       playwright_packages: ${{ steps.set-packages.outputs.playwright_packages }}
     steps:
       - uses: actions/checkout@v5
-      
+
       - name: Discover packages with tests
         id: set-packages
         run: |
@@ -43,10 +43,10 @@ jobs:
           done
           packages=$(printf '%s\n' "${regular_packages[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "packages=$packages" >> $GITHUB_OUTPUT
-          
+
           playwright_packages_json=$(printf '%s\n' "${playwright_packages[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "playwright_packages=$playwright_packages_json" >> $GITHUB_OUTPUT
-          
+
           echo ""
           echo "✅ Regular packages with test script (${#regular_packages[@]}):"
           printf '  - %s\n' "${regular_packages[@]}"
@@ -65,22 +65,28 @@ jobs:
       fail-fast: false
       matrix:
         package: ${{ fromJson(needs.discover.outputs.packages) }}
-    
+
     steps:
       - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: Cache dependencies
+      - name: Cache pnpm store
         uses: actions/cache@v4
         with:
-          path: packages/${{ matrix.package }}/node_modules
-          key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
+          path: ~/.local/share/pnpm/store/v10
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ matrix.package }}-
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Check for requirements.txt
         id: check-python
@@ -105,13 +111,9 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: pip install -r requirements.txt
 
-      - name: Install Node dependencies
-        working-directory: packages/${{ matrix.package }}
-        run: npm install
-
       - name: Run tests
         working-directory: packages/${{ matrix.package }}
-        run: npm test
+        run: pnpm test
 
   test-playwright:
     needs: discover
@@ -121,30 +123,36 @@ jobs:
       fail-fast: false
       matrix:
         package: ${{ fromJson(needs.discover.outputs.playwright_packages) }}
-    
+
     steps:
       - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: Cache Node dependencies
+      - name: Cache pnpm store
         uses: actions/cache@v4
         with:
-          path: packages/${{ matrix.package }}/node_modules
-          key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
+          path: ~/.local/share/pnpm/store/v10
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ matrix.package }}-
+            ${{ runner.os }}-pnpm-
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-playwright-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Check for requirements.txt
         id: check-python
@@ -169,22 +177,18 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: pip install -r requirements.txt
 
-      - name: Install Node dependencies
-        working-directory: packages/${{ matrix.package }}
-        run: npm install
-
       - name: Install Playwright browsers
         working-directory: packages/${{ matrix.package }}
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Build
         working-directory: packages/${{ matrix.package }}
-        run: npm run build
+        run: pnpm build
 
       - name: Start Server in background
         working-directory: packages/${{ matrix.package }}
         run: |
-          nohup npm run dev > server.log 2>&1 &
+          nohup pnpm dev > server.log 2>&1 &
           echo $! > server.pid
 
       - name: Wait for Server to be ready
@@ -207,7 +211,7 @@ jobs:
 
       - name: Run Playwright Tests
         working-directory: packages/${{ matrix.package }}
-        run: npm test
+        run: pnpm test
 
       - name: Stop Server
         if: always()

@@ -14,7 +14,7 @@
         "build:polaris": "cd polaris && rm -rf build dist polaris.egg-info && python -m build --wheel",
         "build:polaris-dataset-report": "cd polaris_dataset_report && rm -rf build dist *.egg-info && python -m build --wheel",
         "preview": "vite preview",
-        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
+        "prettier": "prettier --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
         "test": "npm run test:unit && npm run test:python",
         "test:python": "cd polaris && python -m pytest tests/ -v --import-mode=importlib",
         "test:ui": "vitest --ui",
