@@ -147,4 +147,62 @@ describe("BamViewer", () => {
         expect(formatted).toContain("ID: HG001");
         expect(formatted).toContain("ID: bwa");
     });
+
+    it("formats unmapped and supplementary flags", () => {
+        const viewer = new BamViewer(container, {
+            datasetUrl: "http://example.com/test.bam",
+        });
+
+        const unmappedRecord = { flags: 0x4, name: "read1", start: 0, end: 0 };
+        const formatted = viewer.formatRecord(unmappedRecord);
+        expect(formatted.flags).toBe("unmapped");
+
+        const supplementaryRecord = { flags: 0x800, name: "read2", start: 100, end: 150 };
+        const formattedSupp = viewer.formatRecord(supplementaryRecord);
+        expect(formattedSupp.flags).toBe("supplementary");
+
+        const multiFlag = { flags: 0x4 | 0x800, name: "read3", start: 0, end: 0 };
+        const formattedMulti = viewer.formatRecord(multiFlag);
+        expect(formattedMulti.flags).toContain("unmapped");
+        expect(formattedMulti.flags).toContain("supplementary");
+    });
+
+    it("converts quality score arrays to phred strings", () => {
+        const viewer = new BamViewer(container, {
+            datasetUrl: "http://example.com/test.bam",
+        });
+
+        const record = {
+            name: "read1",
+            start: 0,
+            end: 50,
+            flags: 0,
+            qual: [40, 40, 30, 20],
+        };
+        const formatted = viewer.formatRecord(record);
+        expect(formatted.qual).toBe("II?5");
+    });
+
+    it("renders error state correctly", () => {
+        const viewer = new BamViewer(container, {
+            datasetUrl: "http://example.com/test.bam",
+        });
+
+        viewer.loading = false;
+        viewer.error = "Error loading BAM file: Network error";
+        viewer.render();
+
+        const errorEl = container.querySelector(".bam-error");
+        expect(errorEl).not.toBeNull();
+        expect(errorEl.textContent).toContain("Network error");
+    });
+
+    it("shows empty records message when no records found", () => {
+        const viewer = new BamViewer(container, {
+            datasetUrl: "http://example.com/test.bam",
+        });
+
+        const output = viewer.formatRecords([]);
+        expect(output).toContain("No records found");
+    });
 });

@@ -1,7 +1,5 @@
 import { BamFile } from "@gmod/bam";
 import { RemoteFile } from "generic-filehandle2";
-import axios from "axios";
-import pako from "pako";
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -163,7 +161,7 @@ class BamViewer {
                         firstRef.name,
                         this.settings.region_start,
                         endPos,
-                        { maxRecords: this.settings.max_records }
+                        { maxRecords: this.settings.max_records },
                     );
 
                     this.records = bamRecords;
@@ -174,7 +172,7 @@ class BamViewer {
                             firstRef.name,
                             0,
                             Math.min(100000, firstRef.length),
-                            { maxRecords: this.settings.max_records }
+                            { maxRecords: this.settings.max_records },
                         );
                         this.records = broaderRecords;
                     }
@@ -225,46 +223,9 @@ class BamViewer {
                 if (contentLength && parseInt(contentLength) < 100000) {
                     console.log("Small BAM file detected, using optimized download approach");
 
-                    // Download both BAM and BAI files entirely
+                    // Download both BAM and BAI files entirely -- @gmod/bam handles BGZF decompression internally
                     const bamResponse = await fetch(bamUrl);
                     const bamData = await bamResponse.arrayBuffer();
-
-                    // Check if the BAM file is gzip compressed
-                    const bamView = new Uint8Array(bamData);
-                    const headerBytes = bamView.slice(0, Math.min(32, bamView.length));
-                    const headerString = Array.from(headerBytes.slice(0, 4))
-                        .map((b) => String.fromCharCode(b))
-                        .join("");
-
-                    // Check for gzip magic bytes (0x1f 0x8b)
-                    const isGzipped = bamView[0] === 0x1f && bamView[1] === 0x8b;
-
-                    let decompressedBamData;
-                    if (isGzipped) {
-                        try {
-                            // Use pako for more reliable gzip decompression
-                            const compressed = new Uint8Array(bamData);
-                            const decompressed = pako.inflate(compressed);
-                            decompressedBamData = decompressed.buffer.slice(
-                                decompressed.byteOffset,
-                                decompressed.byteOffset + decompressed.byteLength
-                            );
-
-                            // Verify the decompressed header
-                            const decompressedView = new Uint8Array(decompressedBamData);
-                            const decompressedHeader = Array.from(decompressedView.slice(0, 4))
-                                .map((b) => String.fromCharCode(b))
-                                .join("");
-
-                            if (decompressedHeader !== "BAM\x01") {
-                                console.warn("Decompressed file doesn't have BAM signature, got:", decompressedHeader);
-                            }
-                        } catch (decompressError) {
-                            throw new Error(`Failed to decompress BAM file: ${decompressError.message}`);
-                        }
-                    } else {
-                        decompressedBamData = bamData;
-                    }
 
                     const baiResponse = await fetch(baiUrl);
                     const baiData = await baiResponse.arrayBuffer();
@@ -366,7 +327,7 @@ class BamViewer {
                                 ref.name,
                                 0,
                                 Math.min(1000000, ref.length),
-                                { maxRecords: this.settings.max_records }
+                                { maxRecords: this.settings.max_records },
                             );
 
                             if (records && records.length > 0) {
@@ -387,7 +348,7 @@ class BamViewer {
                                         ref.name,
                                         region.start,
                                         Math.min(region.end, ref.length),
-                                        { maxRecords: this.settings.max_records }
+                                        { maxRecords: this.settings.max_records },
                                     );
 
                                     if (regionRecords && regionRecords.length > 0) {
