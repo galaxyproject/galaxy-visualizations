@@ -1,0 +1,30 @@
+{
+    "name": "@galaxyproject/bamjs",
+    "version": "0.0.1",
+    "type": "module",
+    "author": "Galaxy Project",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --write 'package.json' '*.js' 'src/**/*.js'",
+        "test": "vitest --run",
+        "test:watch": "vitest --watch",
+        "test:ui": "vitest --ui"
+    },
+    "devDependencies": {
+        "@vitest/ui": "^3.1.4",
+        "jsdom": "^26.1.0",
+        "prettier": "^3.3.3",
+        "vite": "^6.3.5",
+        "vitest": "^3.1.4"
+    },
+    "dependencies": {
+        "@gmod/bam": "^5.0.0",
+        "generic-filehandle2": "^2.0.2"
+    }
+}

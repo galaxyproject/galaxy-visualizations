@@ -9,7 +9,7 @@
     "scripts": {
         "build": "rm -rf static && webpack --mode production && cp public/* static",
         "dev": "webpack serve --mode development --open",
-        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}'",
+        "prettier": "prettier --write './*.{js,ts,json}'",
         "test": "npx playwright test"
     },
     "devDependencies": {
