@@ -10,7 +10,7 @@ Run all commands from `packages/openlayers`.
 - `make deps-update` bumps dependencies to the latest releases tracked in `package.json` and `package-lock.json`.
 - `make test` runs the Vitest unit tests followed by the Playwright e2e tests.
 - `make test-unit` runs only the Vitest unit tests.
-- `make test-e2e` runs only the Playwright e2e tests (auto-starts the dev server).
+- `make test-e2e` runs only the Playwright e2e tests (requires `make dev` running in another terminal).
 - `make test-e2e-update` regenerates the Playwright snapshot baselines under `test-data/`.
 - `make build` builds the production bundle into `static/`.
 - `make check` runs tests and then builds.
