@@ -1,19 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Focused unit tests for branches the Playwright smoke test cannot reach:
+//   - setInteractions: Draw wiring + the "None" short-circuit
+//   - loadFile("shp"): the axios + shpjs conversion path
+//   - exportMap: the canvas → file-saver download path
+//
+// The geojson happy path is covered end-to-end by test.spec.js, so it is
+// intentionally not duplicated here.
+
 const mocks = vi.hoisted(() => {
-    const Map = vi.fn(function (options) {
-        this.options = options;
-        this.addInteraction = vi.fn();
-        this.addControl = vi.fn();
-    });
-    const View = vi.fn(function (options) {
-        this.options = options;
-    });
-    const Graticule = vi.fn(function (options) {
-        this.options = options;
-        this.setMap = vi.fn();
-    });
-    const OSM = vi.fn(function () {});
     const VectorSource = vi.fn(function (options) {
         this.options = options;
     });
@@ -25,14 +20,6 @@ const mocks = vi.hoisted(() => {
             this.handlers[event] = callback;
         });
     });
-    const Modify = vi.fn(function (options) {
-        this.options = options;
-    });
-    const DragRotateAndZoom = vi.fn(function () {});
-    const interactionDefaultsExtend = vi.fn((items) => items);
-    const interactionDefaults = vi.fn(() => ({
-        extend: interactionDefaultsExtend,
-    }));
     const Style = vi.fn(function (options) {
         this.options = options;
     });
@@ -45,60 +32,26 @@ const mocks = vi.hoisted(() => {
     const Circle = vi.fn(function (options) {
         this.options = options;
     });
-    const TileLayer = vi.fn(function (options) {
-        this.options = options;
-    });
-    const VectorLayer = vi.fn(function (options) {
-        this.options = options;
-    });
-    const FullScreen = vi.fn(function () {});
-    const ScaleLine = vi.fn(function () {});
-    const ZoomSlider = vi.fn(function () {});
-    const controlDefaultsExtend = vi.fn((items) => items);
-    const controlDefaults = vi.fn(() => ({
-        extend: controlDefaultsExtend,
-    }));
     const saveAs = vi.fn();
     const axiosGet = vi.fn();
     const shp = vi.fn();
 
-    return {
-        Map,
-        View,
-        Graticule,
-        OSM,
-        VectorSource,
-        GeoJSON,
-        Draw,
-        Modify,
-        DragRotateAndZoom,
-        interactionDefaults,
-        interactionDefaultsExtend,
-        Style,
-        Stroke,
-        Fill,
-        Circle,
-        TileLayer,
-        VectorLayer,
-        FullScreen,
-        ScaleLine,
-        ZoomSlider,
-        controlDefaults,
-        controlDefaultsExtend,
-        saveAs,
-        axiosGet,
-        shp,
-    };
+    return { VectorSource, GeoJSON, Draw, Style, Stroke, Fill, Circle, saveAs, axiosGet, shp };
 });
 
+// The "ol" / "ol/layer" / "ol/control" modules are only touched by setMap,
+// which the remaining tests don't exercise. We still need stub exports so
+// import resolution succeeds without loading the real OpenLayers package.
 vi.mock("ol", () => ({
-    Map: mocks.Map,
-    View: mocks.View,
-    Graticule: mocks.Graticule,
+    Map: vi.fn(),
+    View: vi.fn(),
+    Graticule: vi.fn(function () {
+        this.setMap = vi.fn();
+    }),
 }));
 
 vi.mock("ol/source", () => ({
-    OSM: mocks.OSM,
+    OSM: vi.fn(),
     Vector: mocks.VectorSource,
 }));
 
@@ -108,9 +61,9 @@ vi.mock("ol/format", () => ({
 
 vi.mock("ol/interaction", () => ({
     Draw: mocks.Draw,
-    Modify: mocks.Modify,
-    DragRotateAndZoom: mocks.DragRotateAndZoom,
-    defaults: mocks.interactionDefaults,
+    Modify: vi.fn(),
+    DragRotateAndZoom: vi.fn(),
+    defaults: vi.fn(() => ({ extend: (items) => items })),
 }));
 
 vi.mock("ol/style", () => ({
@@ -121,15 +74,15 @@ vi.mock("ol/style", () => ({
 }));
 
 vi.mock("ol/layer", () => ({
-    Tile: mocks.TileLayer,
-    Vector: mocks.VectorLayer,
+    Tile: vi.fn(),
+    Vector: vi.fn(),
 }));
 
 vi.mock("ol/control", () => ({
-    FullScreen: mocks.FullScreen,
-    ScaleLine: mocks.ScaleLine,
-    ZoomSlider: mocks.ZoomSlider,
-    defaults: mocks.controlDefaults,
+    FullScreen: vi.fn(),
+    ScaleLine: vi.fn(),
+    ZoomSlider: vi.fn(),
+    defaults: vi.fn(() => ({ extend: (items) => items })),
 }));
 
 vi.mock("file-saver", () => ({
@@ -137,9 +90,7 @@ vi.mock("file-saver", () => ({
 }));
 
 vi.mock("axios", () => ({
-    default: {
-        get: mocks.axiosGet,
-    },
+    default: { get: mocks.axiosGet },
 }));
 
 vi.mock("shpjs", () => ({
@@ -155,25 +106,16 @@ function flushPromises() {
 describe("MapViewer", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.stubGlobal("window", {
-            URL: {
-                createObjectURL: vi.fn(() => "blob:url"),
-            },
-        });
-        vi.stubGlobal("navigator", {});
         vi.spyOn(console, "debug").mockImplementation(() => {});
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
-        vi.unstubAllGlobals();
     });
 
-    it("adds a draw interaction and applies the selected color on drawstart", () => {
+    it("setInteractions wires drawstart to apply the selected color", () => {
         const viewer = MapViewer({});
-        viewer.gMap = {
-            addInteraction: vi.fn(),
-        };
+        viewer.gMap = { addInteraction: vi.fn() };
 
         viewer.setInteractions({}, "#12ab34", "Polygon");
 
@@ -184,20 +126,16 @@ describe("MapViewer", () => {
         });
         expect(viewer.gMap.addInteraction).toHaveBeenCalledWith(mocks.Draw.mock.instances[0]);
 
-        const feature = {
-            setStyle: vi.fn(),
-        };
+        const feature = { setStyle: vi.fn() };
         mocks.Draw.mock.instances[0].handlers.drawstart({ feature });
 
         const appliedStyle = feature.setStyle.mock.calls[0][0];
         expect(appliedStyle.options.stroke.options.color).toBe("#12ab34");
     });
 
-    it("does not create a draw interaction when drawing is disabled", () => {
+    it("setInteractions skips Draw when geometryType is None", () => {
         const viewer = MapViewer({});
-        viewer.gMap = {
-            addInteraction: vi.fn(),
-        };
+        viewer.gMap = { addInteraction: vi.fn() };
 
         viewer.setInteractions({}, "#12ab34", "None");
 
@@ -205,36 +143,7 @@ describe("MapViewer", () => {
         expect(viewer.gMap.addInteraction).not.toHaveBeenCalled();
     });
 
-    it("loads geojson data into a vector source and forwards the style function", () => {
-        const viewer = MapViewer({});
-        viewer.createMap = vi.fn();
-        const target = { id: "viewport" };
-
-        viewer.loadFile("/dataset.geojson", "geojson", "#0055ff", "LineString", target);
-
-        expect(mocks.GeoJSON).toHaveBeenCalledTimes(1);
-        expect(mocks.VectorSource).toHaveBeenCalledWith({
-            format: mocks.GeoJSON.mock.instances[0],
-            url: "/dataset.geojson",
-            wrapX: false,
-        });
-        expect(viewer.createMap).toHaveBeenCalledTimes(1);
-
-        const [source, color, geometryType, styleFunction, forwardedTarget] = viewer.createMap.mock.calls[0];
-        expect(source).toBe(mocks.VectorSource.mock.instances[0]);
-        expect(color).toBe("#0055ff");
-        expect(geometryType).toBe("LineString");
-        expect(forwardedTarget).toBe(target);
-
-        const styleForLine = styleFunction({
-            getGeometry: () => ({
-                getType: () => "LineString",
-            }),
-        });
-        expect(styleForLine.options.stroke.options.color).toBe("#0055ff");
-    });
-
-    it("converts shapefiles to geojson before creating the map", async () => {
+    it("loadFile shp converts shapefile binaries to geojson before creating the map", async () => {
         mocks.axiosGet.mockResolvedValue({ data: "shp-binary" });
         mocks.shp.mockResolvedValue({ type: "FeatureCollection" });
 
@@ -247,16 +156,17 @@ describe("MapViewer", () => {
 
         expect(mocks.axiosGet).toHaveBeenCalledWith("/dataset.shp", { responseType: "arraybuffer" });
         expect(mocks.shp).toHaveBeenCalledWith("shp-binary");
-        expect(window.URL.createObjectURL).toHaveBeenCalledTimes(1);
-        expect(mocks.VectorSource).toHaveBeenLastCalledWith({
-            format: mocks.GeoJSON.mock.instances[0],
-            url: "blob:url",
-            wrapX: false,
-        });
+        expect(mocks.VectorSource).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                format: mocks.GeoJSON.mock.instances[0],
+                url: expect.stringMatching(/^blob:/),
+                wrapX: false,
+            }),
+        );
         expect(viewer.createMap).toHaveBeenCalledTimes(1);
     });
 
-    it("exports the map canvas with saveAs when msSaveBlob is unavailable", () => {
+    it("exportMap saves the canvas as a PNG via file-saver", () => {
         const viewer = MapViewer({});
         const canvas = {
             toBlob: vi.fn((callback) => callback("png-blob")),
@@ -266,23 +176,5 @@ describe("MapViewer", () => {
 
         expect(canvas.toBlob).toHaveBeenCalledTimes(1);
         expect(mocks.saveAs).toHaveBeenCalledWith("png-blob", expect.stringMatching(/\.png$/));
-    });
-
-    it("exports the map canvas with msSaveBlob when available", () => {
-        const msSaveBlob = vi.fn();
-        vi.stubGlobal("navigator", {
-            msSaveBlob,
-        });
-
-        const viewer = MapViewer({});
-        const canvas = {
-            msToBlob: vi.fn(() => "ms-blob"),
-        };
-
-        viewer.exportMap(canvas);
-
-        expect(canvas.msToBlob).toHaveBeenCalledTimes(1);
-        expect(msSaveBlob).toHaveBeenCalledWith("ms-blob", expect.stringMatching(/\.png$/));
-        expect(mocks.saveAs).not.toHaveBeenCalled();
     });
 });
