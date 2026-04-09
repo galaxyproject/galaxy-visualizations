@@ -6,8 +6,8 @@ Galaxy OpenLayers is a visualization that implements features of [OL10](https://
 
 Run all commands from `packages/openlayers`.
 
-- `make deps` installs package dependencies with Yarn.
-- `make deps-update` bumps dependencies to the latest releases tracked in `package.json` and `yarn.lock`.
+- `make deps` installs package dependencies with npm.
+- `make deps-update` bumps dependencies to the latest releases tracked in `package.json` and `package-lock.json`.
 - `make test` runs the Vitest suite.
 - `make build` builds the production bundle into `static/`.
 - `make check` runs tests and then builds.
