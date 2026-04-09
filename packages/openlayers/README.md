@@ -11,29 +11,21 @@ Run all commands from `packages/openlayers`.
 - `make test` runs the Vitest suite.
 - `make build` builds the production bundle into `static/`.
 - `make check` runs tests and then builds.
-- `make dev` starts a local smoke-test server using a direct dataset URL.
-- `make dev-galaxy` starts a local server against a real Galaxy dataset ID.
+- `make dev` starts the Vite dev server.
 
-## Local Dev Modes
+## Local Dev
 
-`make dev` is the default local smoke-test path. It does not require a running Galaxy server and uses the sample GeoJSON URL `http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.geojson` unless you override `DATASET_URL`.
+`make dev` runs the Vite dev server. With no arguments it serves the visualization with a `__test__` dataset id, which `Plugin.vue` resolves to a sample GeoJSON file (`http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.geojson`) so you can iterate without a running Galaxy.
 
 ```bash
 cd packages/openlayers
 make dev
 ```
 
-Override the direct dataset URL or port when needed:
+To test against a real Galaxy dataset, pass `GALAXY_DATASET_ID` (and optionally `GALAXY_ROOT` / `GALAXY_KEY`):
 
 ```bash
-make dev DATASET_URL=https://example.org/data.geojson
-make dev PORT=4174
-```
-
-`make dev-galaxy` is for testing the full Galaxy-backed flow. It requires `GALAXY_DATASET_ID` and can optionally take `GALAXY_ROOT` and `GALAXY_KEY`.
-
-```bash
-make dev-galaxy GALAXY_DATASET_ID=<dataset-id>
-make dev-galaxy GALAXY_DATASET_ID=<dataset-id> GALAXY_ROOT=http://127.0.0.1:8080
-make dev-galaxy GALAXY_DATASET_ID=<dataset-id> GALAXY_ROOT=https://usegalaxy.org GALAXY_KEY=<api-key>
+make dev GALAXY_DATASET_ID=<dataset-id>
+make dev GALAXY_DATASET_ID=<dataset-id> GALAXY_ROOT=http://127.0.0.1:8080
+make dev GALAXY_DATASET_ID=<dataset-id> GALAXY_ROOT=https://usegalaxy.org GALAXY_KEY=<api-key>
 ```

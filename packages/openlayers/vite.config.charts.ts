@@ -1,18 +1,31 @@
 import { defineConfig } from "vite";
 
-const defaultDatasetUrl = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.geojson";
-
 const env = {
     GALAXY_DATASET_ID: "",
-    GALAXY_DATASET_URL: defaultDatasetUrl,
     GALAXY_KEY: "",
     GALAXY_ROOT: "http://127.0.0.1:8080",
 };
 
+type EnvKeyType = keyof typeof env;
+
 Object.keys(env).forEach((key) => {
     if (process.env[key]) {
-        env[key] = process.env[key];
+        env[key as EnvKeyType] = process.env[key] as string;
+    } else {
+        console.log(`${key} not available. Please provide as environment variable.`);
     }
+});
+
+const proxyGalaxy = () => ({
+    changeOrigin: true,
+    rewrite: (path: string) => {
+        if (env.GALAXY_KEY) {
+            const separator = path.includes("?") ? "&" : "?";
+            return `${path}${separator}key=${env.GALAXY_KEY}`;
+        }
+        return path;
+    },
+    target: env.GALAXY_ROOT,
 });
 
 // https://vitejs.dev/config/
@@ -32,7 +45,6 @@ export const viteConfigCharts = defineConfig({
     define: {
         "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
         "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
-        "process.env.dataset_url": JSON.stringify(env.GALAXY_DATASET_URL),
     },
     resolve: {
         alias: {
@@ -41,18 +53,7 @@ export const viteConfigCharts = defineConfig({
     },
     server: {
         proxy: {
-            "/api": {
-                changeOrigin: true,
-                rewrite: (path) => {
-                    if (env.GALAXY_KEY) {
-                        const separator = path.includes("?") ? "&" : "?";
-                        return `${path}${separator}key=${env.GALAXY_KEY}`;
-                    } else {
-                        return path;
-                    }
-                },
-                target: env.GALAXY_ROOT,
-            },
+            "/api": proxyGalaxy(),
         },
     },
 });

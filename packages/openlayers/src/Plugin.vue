@@ -3,6 +3,8 @@ import { onMounted, ref, watch } from "vue";
 import { MapViewer } from "./openlayers";
 import { ArrowDownTrayIcon } from "@heroicons/vue/24/outline";
 
+const TEST_URL = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.geojson";
+
 const props = defineProps({
     datasetId: String,
     datasetUrl: String,
@@ -18,8 +20,9 @@ const mv = new MapViewer({});
 
 function render() {
     viewport.value.innerHTML = "";
+    const datasetUrl = props.datasetId === "__test__" ? TEST_URL : props.datasetUrl;
     mv.loadFile(
-        props.datasetUrl,
+        datasetUrl,
         "geojson", //dataset.extension,
         props.settings.geometry_color,
         props.settings.geometry_type,

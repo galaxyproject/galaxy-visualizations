@@ -1,28 +1,9 @@
 import { createApp, h } from "vue";
 import App from "./App.vue";
-import Plugin from "./Plugin.vue";
 import "./style.css";
 
 async function main() {
     if (import.meta.env.DEV) {
-        if (!process.env.dataset_id && process.env.dataset_url) {
-            createApp({
-                render: () =>
-                    h(Plugin, {
-                        datasetId: process.env.dataset_id,
-                        datasetUrl: process.env.dataset_url,
-                        root: "/",
-                        settings: {
-                            geometry_color: "#ec1515",
-                            geometry_type: "Circle",
-                        },
-                        specs: {},
-                        tracks: [],
-                    }),
-            }).mount("#app");
-            return;
-        }
-
         /**
          * Development Environment Setup
          *
@@ -39,7 +20,7 @@ async function main() {
         const dataIncoming = {
             visualization_config: {
                 // Placeholder for dataset ID
-                dataset_id: process.env.dataset_id,
+                dataset_id: process.env.dataset_id || "__test__",
                 // Placeholder for additional visualization settings
                 settings: {},
             },
