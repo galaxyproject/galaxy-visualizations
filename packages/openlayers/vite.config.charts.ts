@@ -1,7 +1,10 @@
 import { defineConfig } from "vite";
 
+const defaultDatasetUrl = "http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.geojson";
+
 const env = {
     GALAXY_DATASET_ID: "",
+    GALAXY_DATASET_URL: defaultDatasetUrl,
     GALAXY_KEY: "",
     GALAXY_ROOT: "http://127.0.0.1:8080",
 };
@@ -9,8 +12,6 @@ const env = {
 Object.keys(env).forEach((key) => {
     if (process.env[key]) {
         env[key] = process.env[key];
-    } else {
-        console.log(`${key} not available. Please provide as environment variable.`);
     }
 });
 
@@ -31,6 +32,7 @@ export const viteConfigCharts = defineConfig({
     define: {
         "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
         "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
+        "process.env.dataset_url": JSON.stringify(env.GALAXY_DATASET_URL),
     },
     resolve: {
         alias: {
