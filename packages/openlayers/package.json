@@ -8,14 +8,17 @@
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' 'src/**/*.js' 'src/**/*.vue'",
-        "test": "vitest --run",
-        "test:watch": "vitest --watch"
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:unit": "vitest --run",
+        "test:watch": "vitest --watch",
+        "test:e2e": "playwright test"
     },
     "files": [
         "static"
     ],
     "devDependencies": {
         "@heroicons/vue": "^2.1.5",
+        "@playwright/test": "^1.56.0",
         "@tailwindcss/vite": "^4.2.2",
         "@vitejs/plugin-vue": "^6.0.5",
         "axios": "^1.15.0",

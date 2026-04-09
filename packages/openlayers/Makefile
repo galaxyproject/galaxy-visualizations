@@ -8,19 +8,22 @@ GALAXY_ROOT ?= http://127.0.0.1:8080
 GALAXY_DATASET_ID ?=
 GALAXY_KEY ?=
 
-.PHONY: help deps deps-update test build check dev
+.PHONY: help deps deps-update test test-unit test-e2e test-e2e-update build check dev
 
 help:
 	@printf "%s\n" \
 		"OpenLayers package targets" \
 		"" \
 		"Targets:" \
-		"  make deps         Install package dependencies with npm" \
-		"  make deps-update  Bump package dependencies to latest releases" \
-		"  make test         Run the OpenLayers unit tests" \
-		"  make build        Build the production bundle" \
-		"  make check        Run tests and then build" \
-		"  make dev          Start the Vite dev server" \
+		"  make deps             Install package dependencies with npm" \
+		"  make deps-update      Bump package dependencies to latest releases" \
+		"  make test             Run unit tests followed by Playwright e2e tests" \
+		"  make test-unit        Run only the Vitest unit tests" \
+		"  make test-e2e         Run only the Playwright e2e tests" \
+		"  make test-e2e-update  Regenerate Playwright snapshot baselines" \
+		"  make build            Build the production bundle" \
+		"  make check            Run tests and then build" \
+		"  make dev              Start the Vite dev server" \
 		"" \
 		"Variables:" \
 		"  HOST              Dev server host (default: $(HOST))" \
@@ -37,6 +40,15 @@ deps-update:
 
 test:
 	npm test
+
+test-unit:
+	npm run test:unit
+
+test-e2e:
+	npm run test:e2e
+
+test-e2e-update:
+	npm run test:e2e -- --update-snapshots
 
 build:
 	npm run build

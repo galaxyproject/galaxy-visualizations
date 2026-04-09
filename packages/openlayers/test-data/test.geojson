@@ -1,0 +1,40 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": { "name": "point-1" },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [0, 0]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": { "name": "line-1" },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [-30, -10],
+                    [30, 10]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": { "name": "polygon-1" },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [-20, 20],
+                        [20, 20],
+                        [20, -20],
+                        [-20, -20],
+                        [-20, 20]
+                    ]
+                ]
+            }
+        }
+    ]
+}
