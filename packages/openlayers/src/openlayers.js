@@ -5,6 +5,7 @@ import * as interaction from "ol/interaction";
 import * as style from "ol/style";
 import * as layer from "ol/layer";
 import * as control from "ol/control";
+import TileState from "ol/TileState";
 import { saveAs } from "file-saver";
 
 import shp from "shpjs";
@@ -137,7 +138,32 @@ export function MapViewer(mv) {
 
     /** Create the map view */
     mv.setMap = (vSource, target, geometryColor, geometryType, styleFunction) => {
-        const tile = new layer.Tile({ source: new OSM() });
+        // OSM's tile usage policy requires a Referer header. When this bundle runs
+        // inside an about:blank iframe, the browser cannot derive a Referer for
+        // <img>-based tile requests and OSM returns a 403 placeholder. Loading tiles
+        // via fetch() with an explicit referrerPolicy produces a valid Referer.
+        const osmSource = new OSM();
+        osmSource.setTileLoadFunction((imageTile, src) => {
+            fetch(src, { referrerPolicy: "strict-origin-when-cross-origin" })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Tile request failed: ${response.status}`);
+                    }
+                    return response.blob();
+                })
+                .then((blob) => {
+                    const objectUrl = URL.createObjectURL(blob);
+                    const img = imageTile.getImage();
+                    const release = () => URL.revokeObjectURL(objectUrl);
+                    img.addEventListener("load", release, { once: true });
+                    img.addEventListener("error", release, { once: true });
+                    img.src = objectUrl;
+                })
+                .catch(() => {
+                    imageTile.setState(TileState.ERROR);
+                });
+        });
+        const tile = new layer.Tile({ source: osmSource });
         // add fullscreen handle
         const fullScreen = new control.FullScreen();
         // add scale to the map
