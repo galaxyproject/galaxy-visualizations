@@ -20,7 +20,7 @@ async function main() {
         const dataIncoming = {
             visualization_config: {
                 // Placeholder for dataset ID
-                dataset_id: process.env.dataset_id,
+                dataset_id: process.env.dataset_id || "__test__",
                 // Placeholder for additional visualization settings
                 settings: {},
             },
@@ -40,7 +40,7 @@ async function main() {
      * and passing in any necessary props such as credentials.
      */
     createApp({
-        render: () => h(App, { credentials: process.env.credentials }),
+        render: () => h(App, { collapse: true, credentials: process.env.credentials }),
     }).mount("#app");
 }
 
