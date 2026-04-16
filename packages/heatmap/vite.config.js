@@ -15,5 +15,5 @@ export default defineConfig({
         exclude: [...configDefaults.exclude, "e2e/*"],
         transformMode: { web: [/\.[jt]sx?$/, /\.vue$/] },
         esbuild: { loader: { ".css": "empty" } },
-    }
+    },
 });

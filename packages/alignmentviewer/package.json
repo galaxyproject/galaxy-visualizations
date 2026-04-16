@@ -40,7 +40,7 @@
     "sass": "1.69.7"
   },
   "scripts": {
-    "build": "yarn webpack --config webpack.config.js"
+    "build": "webpack --config webpack.config.js"
   },
   "files": [
     "static"

@@ -1,11 +1,16 @@
 {
   "name": "galaxy-visualizations",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
   "repository": "git@github.com:galaxyproject/galaxy-visualizations.git",
   "author": "Galaxy Contributors",
   "license": "MIT",
-  "devDependencies": {
-    "lerna": "^4.0.0"
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "build:all": "pnpm -r run build",
+    "test:all": "pnpm -r run test",
+    "lint:all": "pnpm -r run prettier",
+    "clean": "pnpm -r exec rm -rf node_modules dist static"
   }
 }

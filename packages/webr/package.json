@@ -1,6 +1,5 @@
 {
-    "name": "webr",
-    "private": true,
+    "name": "@galaxyproject/webr",
     "version": "0.0.0",
     "type": "module",
     "files": [

@@ -10,7 +10,7 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
+        "prettier": "prettier --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css,vue}'",
         "test": "npm run test:unit && npm run test:e2e",
         "test:e2e": "npx playwright test",
         "test:ui": "vitest --ui",
