@@ -181,42 +181,9 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: npm run build
 
-      - name: Start Server in background
-        working-directory: packages/${{ matrix.package }}
-        run: |
-          nohup npm run dev > server.log 2>&1 &
-          echo $! > server.pid
-
-      - name: Wait for Server to be ready
-        run: |
-          echo "Waiting for server to be ready..."
-          ports=(5173 8000 8080)
-          for i in {1..60}; do
-            for port in "${ports[@]}"; do
-              if curl -s http://localhost:$port > /dev/null 2>&1; then
-                echo "✅ Server is ready on port $port!"
-                exit 0
-              fi
-            done
-            echo "Attempt $i/60..."
-            sleep 2
-          done
-          echo "❌ Server failed to start!"
-          cat packages/${{ matrix.package }}/server.log
-          exit 1
-
       - name: Run Playwright Tests
         working-directory: packages/${{ matrix.package }}
         run: npm test
-
-      - name: Stop Server
-        if: always()
-        working-directory: packages/${{ matrix.package }}
-        run: |
-          if [ -f server.pid ]; then
-            kill $(cat server.pid) 2>/dev/null || true
-            rm server.pid
-          fi
 
       - name: Upload Playwright Report
         if: failure()
