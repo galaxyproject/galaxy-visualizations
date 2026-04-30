@@ -14,7 +14,7 @@ jobs:
       packages: ${{ steps.set-packages.outputs.packages }}
       playwright_packages: ${{ steps.set-packages.outputs.playwright_packages }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       
       - name: Discover packages with tests
         id: set-packages
@@ -67,15 +67,15 @@ jobs:
         package: ${{ fromJson(needs.discover.outputs.packages) }}
     
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: packages/${{ matrix.package }}/node_modules
           key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
@@ -123,28 +123,20 @@ jobs:
         package: ${{ fromJson(needs.discover.outputs.playwright_packages) }}
     
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Cache Node dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: packages/${{ matrix.package }}/node_modules
           key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
           restore-keys: |
             ${{ runner.os }}-node-${{ matrix.package }}-
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
 
       - name: Check for requirements.txt
         id: check-python
@@ -173,6 +165,23 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: npm install
 
+      - name: Resolve Playwright version
+        id: pw
+        working-directory: packages/${{ matrix.package }}
+        run: |
+          set -eo pipefail
+          v=$(npx --no-install playwright --version | awk '{print $2}')
+          echo "Playwright version: $v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright browsers
         working-directory: packages/${{ matrix.package }}
         run: npx playwright install --with-deps chromium
@@ -181,42 +190,9 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: npm run build
 
-      - name: Start Server in background
-        working-directory: packages/${{ matrix.package }}
-        run: |
-          nohup npm run dev > server.log 2>&1 &
-          echo $! > server.pid
-
-      - name: Wait for Server to be ready
-        run: |
-          echo "Waiting for server to be ready..."
-          ports=(5173 8000 8080)
-          for i in {1..60}; do
-            for port in "${ports[@]}"; do
-              if curl -s http://localhost:$port > /dev/null 2>&1; then
-                echo "✅ Server is ready on port $port!"
-                exit 0
-              fi
-            done
-            echo "Attempt $i/60..."
-            sleep 2
-          done
-          echo "❌ Server failed to start!"
-          cat packages/${{ matrix.package }}/server.log
-          exit 1
-
       - name: Run Playwright Tests
         working-directory: packages/${{ matrix.package }}
         run: npm test
-
-      - name: Stop Server
-        if: always()
-        working-directory: packages/${{ matrix.package }}
-        run: |
-          if [ -f server.pid ]; then
-            kill $(cat server.pid) 2>/dev/null || true
-            rm server.pid
-          fi
 
       - name: Upload Playwright Report
         if: failure()
