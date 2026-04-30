@@ -14,7 +14,7 @@ jobs:
       packages: ${{ steps.set-packages.outputs.packages }}
       playwright_packages: ${{ steps.set-packages.outputs.playwright_packages }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       
       - name: Discover packages with tests
         id: set-packages
@@ -67,15 +67,15 @@ jobs:
         package: ${{ fromJson(needs.discover.outputs.packages) }}
     
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: packages/${{ matrix.package }}/node_modules
           key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
@@ -123,15 +123,15 @@ jobs:
         package: ${{ fromJson(needs.discover.outputs.playwright_packages) }}
     
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Cache Node dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: packages/${{ matrix.package }}/node_modules
           key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
@@ -175,7 +175,7 @@ jobs:
           echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
