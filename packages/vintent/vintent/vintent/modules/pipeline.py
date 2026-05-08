@@ -263,6 +263,14 @@ class ChooseShellPhase(Phase):
 
         # Pass parsed_intent so shell selection can prioritize goal-matching shells
         tool = build_choose_shell_tool(ctx.profile, ctx.parsed_intent)
+        if not tool:
+            ctx.add_error(
+                ShellError(
+                    "No compatible visualization shell available.",
+                    details={"profile_fields": list(ctx.profile.get("fields", {}).keys())},
+                )
+            )
+            return
         reply = await provider.complete(ctx.transcripts, [tool])
 
         if not reply:
@@ -369,6 +377,14 @@ class CombinedDecisionPhase(Phase):
         # This uses forced tool choice for reliability
         # Pass parsed_intent so shell selection can prioritize goal-matching shells
         shell_tool = build_choose_shell_tool(ctx.profile, ctx.parsed_intent)
+        if not shell_tool:
+            ctx.add_error(
+                ShellError(
+                    "No compatible visualization shell available.",
+                    details={"profile_fields": list(ctx.profile.get("fields", {}).keys())},
+                )
+            )
+            return
         shell_reply = await provider.complete(ctx.transcripts, [shell_tool])
 
         if not shell_reply:

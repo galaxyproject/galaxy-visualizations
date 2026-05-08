@@ -102,7 +102,7 @@ def build_choose_process_tool(
         "function": {
             "name": "choose_process",
             "description": tool_description,
-            "parameters": {"oneOf": variants},
+            "parameters": {"type": "object", "oneOf": variants},
         },
     }
 
@@ -118,7 +118,7 @@ def _field_names_by_type(profile: DatasetProfile) -> Dict[str, List[str]]:
 def build_choose_shell_tool(
     profile: DatasetProfile,
     parsed_intent: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+) -> Optional[Dict[str, Any]]:
     """Build the shell selection tool.
 
     If parsed_intent is provided with a 'goal', shells matching that goal
@@ -152,6 +152,9 @@ def build_choose_shell_tool(
     all_shells = recommended_shells + compatible_shells
     shell_ids = [s["id"] for s in all_shells]
     logger.debug(f"Shells: {shell_ids}. Target goal: {target_goal}")
+
+    if not shell_ids:
+        return None
 
     # Build description with goal context
     tool_description = "Select the most appropriate visualization shell for the user request."
