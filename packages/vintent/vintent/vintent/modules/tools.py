@@ -35,52 +35,21 @@ GOAL_DESCRIPTIONS = {
 }
 
 
-def build_choose_process_tool(
+CHOOSE_PROCESS_PREFIX = "choose_process_"
+
+
+def build_choose_process_tools(
     processes: Dict[str, Process],
     profile: DatasetProfile,
     context: Any = None,
-) -> Dict[str, Any]:
-    variants: List[Dict[str, Any]] = [
-        {
-            "type": "object",
-            "properties": {"id": {"const": NO_PROCESS_ID}},
-            "required": ["id"],
-            "additionalProperties": False,
-            "description": (
-                "DEFAULT CHOICE - select this for histogram, distribution, scatter, correlation, bar chart, "
-                "line chart, trend, comparison, aggregation, or ANY visualization request that does not "
-                "explicitly mention 'top N', 'bottom N', 'filter', 'sample', or 'limit rows'."
-            ),
-        }
-    ]
+) -> List[Dict[str, Any]]:
+    """One tool per process variant; the LLM picks exactly one to call.
 
-    process_descriptions: List[str] = []
-    for process_id in sorted(processes.keys()):
-        process = processes[process_id]
-        schema = process.get("schema")
-        if not schema:
-            continue
-        spec = schema(profile, context)
-        if not spec:
-            continue
-        description = spec.get("description", "")
-        variants.append(
-            {
-                "type": "object",
-                "properties": {
-                    "id": {"const": spec["id"]},
-                    "params": spec["params"],
-                },
-                "required": ["id", "params"],
-                "additionalProperties": False,
-                "description": description,
-            }
-        )
-        if description:
-            process_descriptions.append(f"- {spec['id']}: {description}")
-
-    # Build a helpful description that lists all available processes
-    tool_description = (
+    Avoids JSON Schema `oneOf` at the top level (rejected by Azure OpenAI)
+    while preserving rigid per-variant params validation. Each tool is named
+    ``choose_process_<id>``; ``get_chosen_process()`` resolves the call.
+    """
+    base_description = (
         "CRITICAL: Choose 'none' for 99% of requests. Only select a preprocessing step "
         "if the user EXPLICITLY uses words like 'top N', 'bottom N', 'filter', 'sort', 'sample', or 'limit'.\n\n"
         "ALWAYS choose 'none' for these request types (no preprocessing needed):\n"
@@ -94,43 +63,74 @@ def build_choose_process_tool(
         "- 'filter where X > 100' → range_filter\n"
         "- 'sample 50 rows' → sample_rows"
     )
-    if process_descriptions:
-        tool_description += "\n\nAvailable processes:\n" + "\n".join(process_descriptions)
 
-    # Azure rejects oneOf/anyOf/allOf/enum/not at the schema TOP level (per
-    # https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/function-calling).
-    # Flatten the variants into id-discriminator + permissive params object;
-    # the LLM picks based on tool_description, which already enumerates each
-    # variant's semantics.
-    variant_ids = [v["properties"]["id"]["const"] for v in variants]
-    return {
-        "type": "function",
-        "function": {
-            "name": "choose_process",
-            "description": tool_description,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "enum": variant_ids,
-                        "description": (
-                            "Process id to apply. Use 'none' for no preprocessing."
-                        ),
-                    },
-                    "params": {
-                        "type": "object",
-                        "description": (
-                            "Process-specific parameters. Required when id is not 'none'. "
-                            "Shape per id is documented in the tool description."
-                        ),
-                    },
+    tools: List[Dict[str, Any]] = [
+        {
+            "type": "function",
+            "function": {
+                "name": f"{CHOOSE_PROCESS_PREFIX}{NO_PROCESS_ID}",
+                "description": base_description + "\n\n"
+                "DEFAULT CHOICE - call this for histogram, distribution, scatter, correlation, bar chart, "
+                "line chart, trend, comparison, aggregation, or ANY visualization request that does not "
+                "explicitly mention 'top N', 'bottom N', 'filter', 'sample', or 'limit rows'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": False,
                 },
-                "required": ["id"],
-                "additionalProperties": False,
             },
-        },
-    }
+        }
+    ]
+
+    for process_id in sorted(processes.keys()):
+        process = processes[process_id]
+        schema = process.get("schema")
+        if not schema:
+            continue
+        spec = schema(profile, context)
+        if not spec:
+            continue
+        description = spec.get("description", "") or f"Apply the {spec['id']} preprocessing."
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": f"{CHOOSE_PROCESS_PREFIX}{spec['id']}",
+                    "description": description,
+                    "parameters": spec["params"],
+                },
+            }
+        )
+
+    return tools
+
+
+def get_chosen_process(reply: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Find the first ``choose_process_<id>`` tool call in `reply`.
+
+    Returns ``{"id": <id>, "params": <args>}`` or ``None`` if no choose_process
+    tool was called. ``params`` is empty for ``id == "none"``.
+    """
+    import json
+    tool_calls = (
+        reply.get("choices", [{}])[0].get("message", {}).get("tool_calls") or []
+    )
+    for call in tool_calls:
+        fn = call.get("function") or {}
+        name = fn.get("name", "")
+        if not name.startswith(CHOOSE_PROCESS_PREFIX):
+            continue
+        process_id = name[len(CHOOSE_PROCESS_PREFIX):]
+        args_raw = fn.get("arguments")
+        if isinstance(args_raw, str):
+            try:
+                params = json.loads(args_raw) if args_raw else {}
+            except json.JSONDecodeError:
+                params = {}
+        else:
+            params = args_raw or {}
+        return {"id": process_id, "params": params}
+    return None
 
 
 def _field_names_by_type(profile: DatasetProfile) -> Dict[str, List[str]]:

@@ -28,10 +28,11 @@ from .registry import PROCESSES, SHELLS
 from .schemas import TranscriptMessageType
 from .tools import (
     NO_PROCESS_ID,
-    build_choose_process_tool,
+    build_choose_process_tools,
     build_choose_shell_tool,
     build_fill_shell_params_tool,
     build_parse_intent_tool,
+    get_chosen_process,
 )
 
 if TYPE_CHECKING:
@@ -218,13 +219,13 @@ class ExtractPhase(Phase):
         if not ctx.profile:
             return
 
-        tool = build_choose_process_tool(PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts)
-        reply = await provider.complete(ctx.transcripts, [tool])
+        tools = build_choose_process_tools(PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts)
+        reply = await provider.complete(ctx.transcripts, tools)
 
         if not reply:
             return
 
-        chosen = get_tool_call("choose_process", reply)
+        chosen = get_chosen_process(reply)
         if not chosen:
             return
 
@@ -341,10 +342,10 @@ class CombinedDecisionPhase(Phase):
         if intent_tool:
             optional_tools.append(intent_tool)
 
-        process_tool = build_choose_process_tool(
+        process_tools = build_choose_process_tools(
             PROCESSES.EXTRACT, ctx.profile, context=ctx.transcripts
         )
-        optional_tools.append(process_tool)
+        optional_tools.extend(process_tools)
 
         if optional_tools:
             # Use parallel_tools=True to allow LLM to call multiple tools
@@ -360,7 +361,7 @@ class CombinedDecisionPhase(Phase):
                     logger.debug(f"CombinedDecisionPhase: Parsed intent: {parsed_intent}")
 
                 # Extract and apply extraction process (optional)
-                process_choice = get_tool_call("choose_process", optional_reply)
+                process_choice = get_chosen_process(optional_reply)
                 if process_choice:
                     logger.debug(f"CombinedDecisionPhase: Process choice: {process_choice}")
                     process_id = process_choice.get("id")
