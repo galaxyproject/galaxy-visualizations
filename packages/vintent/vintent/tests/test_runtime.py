@@ -24,7 +24,7 @@ async def test_histogram(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="distribution", shell_fields=["Age"], extract_fields=["Age"])),
-            dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=50))),
+            dict(name="choose_process_range_filter", arguments=dict(field="Age", min=50)),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
         2: [dict(name="fill_shell_params", arguments=dict(field="Age"))],
@@ -43,7 +43,7 @@ async def test_linear_regression(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="relationship", shell_fields=["Glucose", "Insulin"], extract_fields=["Age"])),
-            dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=0, max=50))),
+            dict(name="choose_process_range_filter", arguments=dict(field="Age", min=0, max=50)),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="linear_regression"))],
         2: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
@@ -62,7 +62,7 @@ async def test_correlation_matrix(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="relationship", shell_fields=[], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="heatmap_correlation"))],
         2: [dict(name="fill_shell_params", arguments=dict())],
@@ -84,7 +84,7 @@ async def test_scatter_bmi_glucose(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="relationship", shell_fields=["BMI", "Glucose"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
         2: [dict(name="fill_shell_params", arguments=dict(x="BMI", y="Glucose"))],
@@ -102,7 +102,7 @@ async def test_box_plot_by_obesity(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="comparison", shell_fields=["Obesity", "Age"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="box_plot"))],
         2: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="Age"))],
@@ -120,7 +120,7 @@ async def test_pie_chart_obesity_breakdown(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="composition", shell_fields=["Obesity"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="pie_chart"))],
         2: [dict(name="fill_shell_params", arguments=dict(category="Obesity"))],
@@ -138,7 +138,7 @@ async def test_bar_aggregate_glucose_by_obesity(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="comparison", shell_fields=["Obesity", "Glucose"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="bar_aggregate"))],
         2: [dict(name="fill_shell_params", arguments=dict(group_by="Obesity", metric="Glucose", op="mean"))],
@@ -156,7 +156,7 @@ async def test_density_bmi(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="distribution", shell_fields=["BMI"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="density"))],
         2: [dict(name="fill_shell_params", arguments=dict(x="BMI"))],
@@ -174,7 +174,7 @@ async def test_bubble_chart_three_variables(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="relationship", shell_fields=["Age", "Glucose", "BMI"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="bubble_chart"))],
         2: [dict(name="fill_shell_params", arguments=dict(x="Age", y="Glucose", size="BMI"))],
@@ -192,7 +192,7 @@ async def test_summary_statistics_insulin(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="summary", shell_fields=["Insulin"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="summary_statistics"))],
         2: [dict(name="fill_shell_params", arguments=dict(field="Insulin"))],
@@ -210,7 +210,7 @@ async def test_histogram_with_sampling(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="distribution", shell_fields=["BloodPressure"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="sample_rows", params=dict(n=100, seed=42))),
+            dict(name="choose_process_sample_rows", arguments=dict(n=100, seed=42)),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
         2: [dict(name="fill_shell_params", arguments=dict(field="BloodPressure"))],
@@ -229,7 +229,7 @@ async def test_violin_plot_bmi_by_outcome(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="distribution", shell_fields=["Obesity", "BMI"], extract_fields=[])),
-            dict(name="choose_process", arguments=dict(id="none")),
+            dict(name="choose_process_none", arguments=dict()),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="violin_plot"))],
         2: [dict(name="fill_shell_params", arguments=dict(x="Obesity", y="BMI"))],
@@ -247,7 +247,7 @@ async def test_scatter_with_range_filter(monkeypatch):
     mock_replies = {
         0: [
             dict(name="parse_intent", arguments=dict(goal="relationship", shell_fields=["Glucose", "Insulin"], extract_fields=["Insulin"])),
-            dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Insulin", min=10, max=300))),
+            dict(name="choose_process_range_filter", arguments=dict(field="Insulin", min=10, max=300)),
         ],
         1: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
         2: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
@@ -275,7 +275,7 @@ async def test_sequential_histogram(monkeypatch):
     """Test histogram in sequential pipeline mode."""
     mock_replies = {
         0: [dict(name="parse_intent", arguments=dict(goal="distribution", shell_fields=["Age"], extract_fields=["Age"]))],
-        1: [dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Age", min=50)))],
+        1: [dict(name="choose_process_range_filter", arguments=dict(field="Age", min=50))],
         2: [dict(name="choose_shell", arguments=dict(shellId="histogram"))],
         3: [dict(name="fill_shell_params", arguments=dict(field="Age"))],
     }
@@ -293,7 +293,7 @@ async def test_sequential_scatter_no_filter(monkeypatch):
     """Test scatter plot in sequential mode without extraction."""
     mock_replies = {
         0: [dict(name="parse_intent", arguments=dict(goal="relationship", shell_fields=["BMI", "Glucose"], extract_fields=[]))],
-        1: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_process_none", arguments=dict())],
         2: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
         3: [dict(name="fill_shell_params", arguments=dict(x="BMI", y="Glucose"))],
     }
@@ -309,7 +309,7 @@ async def test_sequential_scatter_with_filter(monkeypatch):
     """Test scatter plot in sequential mode with range filtering."""
     mock_replies = {
         0: [dict(name="parse_intent", arguments=dict(goal="relationship", shell_fields=["Glucose", "Insulin"], extract_fields=["Insulin"]))],
-        1: [dict(name="choose_process", arguments=dict(id="range_filter", params=dict(field="Insulin", min=10, max=300)))],
+        1: [dict(name="choose_process_range_filter", arguments=dict(field="Insulin", min=10, max=300))],
         2: [dict(name="choose_shell", arguments=dict(shellId="scatter"))],
         3: [dict(name="fill_shell_params", arguments=dict(x="Glucose", y="Insulin"))],
     }
@@ -326,7 +326,7 @@ async def test_sequential_pie_chart(monkeypatch):
     """Test pie chart in sequential mode."""
     mock_replies = {
         0: [dict(name="parse_intent", arguments=dict(goal="composition", shell_fields=["Obesity"], extract_fields=[]))],
-        1: [dict(name="choose_process", arguments=dict(id="none"))],
+        1: [dict(name="choose_process_none", arguments=dict())],
         2: [dict(name="choose_shell", arguments=dict(shellId="pie_chart"))],
         3: [dict(name="fill_shell_params", arguments=dict(category="Obesity"))],
     }

@@ -345,7 +345,7 @@ class TestExtractPhase:
         ctx.profile = sample_profile
         ctx.values = sample_values
 
-        response = make_tool_response("choose_process", {"id": "none"})
+        response = make_tool_response("choose_process_none", {})
         provider = MockCompletionsProvider([response])
         phase = ExtractPhase()
 
@@ -365,8 +365,7 @@ class TestExtractPhase:
         ctx.profile = profile_rows(ctx.values)
 
         response = make_tool_response(
-            "choose_process",
-            {"id": "range_filter", "params": {"field": "age", "min": 28, "max": 40}},
+            "choose_process_range_filter", {"field": "age", "min": 28, "max": 40},
         )
         provider = MockCompletionsProvider([response])
         phase = ExtractPhase()
@@ -910,7 +909,7 @@ class TestCombinedDecisionPhase:
         phase = CombinedDecisionPhase()
         # First call (optional) succeeds, second call (shell) returns None
         optional_response = make_multi_tool_response([
-            ("choose_process", {"id": "none"}),
+            ("choose_process_none", {}),
         ])
         provider = MockCompletionsProvider([optional_response, None])
 
@@ -925,7 +924,7 @@ class TestCombinedDecisionPhase:
         ctx.profile = sample_profile
 
         optional_response = make_multi_tool_response([
-            ("choose_process", {"id": "none"}),
+            ("choose_process_none", {}),
         ])
         shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
         provider = MockCompletionsProvider([optional_response, shell_response])
@@ -949,7 +948,7 @@ class TestCombinedDecisionPhase:
         # First call: optional tools
         optional_response = make_multi_tool_response([
             ("parse_intent", {"shell_fields": ["age", "score"], "extract_fields": []}),
-            ("choose_process", {"id": "none"}),
+            ("choose_process_none", {}),
         ])
         # Second call: shell selection
         shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
@@ -976,7 +975,7 @@ class TestCombinedDecisionPhase:
         ctx.profile = profile_rows(ctx.values)
 
         optional_response = make_multi_tool_response([
-            ("choose_process", {"id": "range_filter", "params": {"field": "age", "min": 28, "max": 40}}),
+            ("choose_process_range_filter", {"field": "age", "min": 28, "max": 40}),
         ])
         shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
         provider = MockCompletionsProvider([optional_response, shell_response])
@@ -996,7 +995,7 @@ class TestCombinedDecisionPhase:
         ctx.profile = sample_profile
 
         optional_response = make_multi_tool_response([
-            ("choose_process", {"id": "none"}),
+            ("choose_process_none", {}),
         ])
         # Shell response without shellId
         shell_response = make_tool_response("choose_shell", {})
@@ -1017,7 +1016,7 @@ class TestCombinedDecisionPhase:
         ctx.profile = sample_profile
 
         optional_response = make_multi_tool_response([
-            ("choose_process", {"id": "none"}),
+            ("choose_process_none", {}),
         ])
         shell_response = make_tool_response("choose_shell", {"shellId": "nonexistent_shell"})
         provider = MockCompletionsProvider([optional_response, shell_response])
@@ -1041,7 +1040,7 @@ class TestCombinedDecisionPhase:
         ctx.profile = sample_profile
 
         optional_response = make_multi_tool_response([
-            ("choose_process", {"id": "none"}),
+            ("choose_process_none", {}),
         ])
         shell_response = make_tool_response("choose_shell", {"shellId": "scatter"})
         provider = MockCompletionsProvider([optional_response, shell_response])
