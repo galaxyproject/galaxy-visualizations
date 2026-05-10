@@ -97,12 +97,38 @@ def build_choose_process_tool(
     if process_descriptions:
         tool_description += "\n\nAvailable processes:\n" + "\n".join(process_descriptions)
 
+    # Azure rejects oneOf/anyOf/allOf/enum/not at the schema TOP level (per
+    # https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/function-calling).
+    # Flatten the variants into id-discriminator + permissive params object;
+    # the LLM picks based on tool_description, which already enumerates each
+    # variant's semantics.
+    variant_ids = [v["properties"]["id"]["const"] for v in variants]
     return {
         "type": "function",
         "function": {
             "name": "choose_process",
             "description": tool_description,
-            "parameters": {"type": "object", "oneOf": variants},
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "enum": variant_ids,
+                        "description": (
+                            "Process id to apply. Use 'none' for no preprocessing."
+                        ),
+                    },
+                    "params": {
+                        "type": "object",
+                        "description": (
+                            "Process-specific parameters. Required when id is not 'none'. "
+                            "Shape per id is documented in the tool description."
+                        ),
+                    },
+                },
+                "required": ["id"],
+                "additionalProperties": False,
+            },
         },
     }
 
