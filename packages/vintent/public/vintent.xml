@@ -44,6 +44,11 @@ Rules:
             <chat>true</chat>
         </ui>
     </specs>
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/4.csv" />
+        </test>
+    </tests>
     <help format="markdown"><![CDATA[
 # What is VIntent
 
