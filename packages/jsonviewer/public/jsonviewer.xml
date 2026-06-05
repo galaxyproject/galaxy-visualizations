@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="JSON/YAML Viewer" embeddable="true">
+    <description>Interactive viewer for JSON, YAML, and JSON-LD data</description>
+    <tags>
+        <tag>JSON</tag>
+        <tag>YAML</tag>
+        <tag>JSON-LD</tag>
+        <tag>Viewer</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">json</test>
+            <test test_attr="ext">yaml</test>
+            <test test_attr="ext">yml</test>
+            <test test_attr="ext">jsonld</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <settings>
+        <input>
+            <name>mode</name>
+            <label>Default view mode</label>
+            <type>select</type>
+            <value>tree</value>
+            <data>
+                <data><label>Tree</label><value>tree</value></data>
+                <data><label>Text</label><value>text</value></data>
+                <data><label>Table</label><value>table</value></data>
+            </data>
+        </input>
+        <input>
+            <name>expand_jsonld</name>
+            <label>Expand JSON-LD</label>
+            <type>boolean</type>
+            <value>false</value>
+        </input>
+    </settings>
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.json" ftype="json" />
+        </test>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.yaml" ftype="yaml" />
+        </test>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.jsonld" ftype="jsonld" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the JSON/YAML Viewer?
+
+The JSON/YAML Viewer provides an interactive way to explore structured data files in JSON, YAML, or JSON-LD format directly in your browser.
+
+After selecting a dataset, its contents will be displayed in a rich editor with multiple viewing modes.
+
+## Key Features
+
+- **Tree View**: Browse your data as an expandable tree with collapsible nodes, search, and path navigation.
+- **Text View**: Inspect the raw content with syntax highlighting powered by CodeMirror.
+- **Table View**: Visualize flat data structures in a tabular layout.
+- **Search & Filter**: Quickly find specific keys or values within large documents.
+- **YAML Support**: YAML files are automatically parsed and displayed in the viewer.
+- **JSON-LD Expansion**: Optionally expand compacted JSON-LD documents to inspect their full linked data structure.
+- **Dark Theme**: Automatically adapts to Galaxy's active theme.
+
+This tool is useful for inspecting configuration files, API responses, metadata documents, and any structured data without leaving Galaxy.
+
+To learn more about the underlying editor, visit:
+[https://github.com/josdejong/svelte-jsoneditor](https://github.com/josdejong/svelte-jsoneditor)
+    ]]></help>
+</visualization>

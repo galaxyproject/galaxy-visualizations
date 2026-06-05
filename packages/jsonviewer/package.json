@@ -1,0 +1,27 @@
+{
+    "name": "@galaxyproject/jsonviewer",
+    "version": "0.0.1",
+    "type": "module",
+    "files": ["static"],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "prettier": "prettier --write 'package.json' 'main.js'",
+        "preview": "vite preview",
+        "test": "npm run test:e2e",
+        "test:e2e": "npx playwright test",
+        "test:e2e-update": "npx playwright test --update-snapshots"
+    },
+    "dependencies": {
+        "js-yaml": "^4.1.0",
+        "jsonld": "^8.3.2",
+        "vanilla-jsoneditor": "^2.3.1"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.56.0",
+        "axios": "^1.8.4",
+        "prettier": "^3.5.3",
+        "typescript": "^5.5.4",
+        "vite": "^6.2.2"
+    }
+}

@@ -1,0 +1,47 @@
+workflow: RNA-seq Differential Expression
+version: "2.0"
+annotation: Example RNA-seq analysis with differential expression
+inputs:
+  - name: fastq_r1
+    type: fastq
+    description: Read 1
+  - name: fastq_r2
+    type: fastq
+    description: Read 2
+steps:
+  - tool: fastp
+    inputs:
+      - fastq_r1
+      - fastq_r2
+    outputs:
+      - trimmed_r1
+      - trimmed_r2
+    parameters:
+      qualified_quality_phred: 20
+      length_required: 50
+  - tool: hisat2
+    inputs:
+      - trimmed_r1
+      - trimmed_r2
+    outputs:
+      - aligned_bam
+    parameters:
+      reference: mm10
+  - tool: featurecounts
+    inputs:
+      - aligned_bam
+    outputs:
+      - counts
+    parameters:
+      gtf: genes.gtf
+      strand: reverse
+  - tool: deseq2
+    inputs:
+      - counts
+    outputs:
+      - results
+    parameters:
+      contrast:
+        - condition
+        - treated
+        - control
