@@ -13,7 +13,7 @@
             <model_class>HistoryDatasetAssociation</model_class>
             <test test_attr="ext">json</test>
             <test test_attr="ext">yaml</test>
-            <test test_attr="ext">yml</test>
+            <test test_attr="ext">geojson</test>
             <test test_attr="ext">jsonld</test>
         </data_source>
     </data_sources>
