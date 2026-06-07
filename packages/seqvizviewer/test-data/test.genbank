@@ -1,0 +1,44 @@
+LOCUS       pUC19             4364 bp    DNA     circular UNK 07-MAY-2025
+DEFINITION  pUC19 cloning vector.
+ACCESSION   M19922
+VERSION     M19922.1  GI:2571023
+KEYWORDS    .
+SOURCE      Cloned sequence from an Escherichia coli plasmid.
+  ORGANISM   Escherichia coli
+            Cloned sequence from an Escherichia coli plasmid.
+COMMENT     This feature table is complete. It describes all the features on the
+            cloned sequence, and all the other features that were present in the
+            original vector from which this clone was made.
+            The sequence was derived from pMB9.
+FEATURES             Location/Qualifiers
+     source          1..4364
+                     /organism="pUC19"
+                     /mol_type="plasmid"
+     rep_origin      comp(678..1425)
+                     /note="ori from pMB9"
+     gene            comp(2151..2961)
+                     /gene="bla"
+                     /label="ampR"
+                     /note="ampicillin resistance gene"
+     CDS             comp(2237..2961)
+                     /gene="bla"
+                     /label="AmpR"
+                     /note="Beta-lactamase"
+                     /product="beta-lactamase"
+                     /translation="LEKVCGLAAVGVLI..."
+     promoter        comp(3338..3355)
+                     /gene="lacA"
+                     /label="Lac promoter"
+                     /note="Lac promoter"
+     terminator      3433..3527
+                     /gene="lacA"
+                     /label="Lac terminator"
+                     /note="Lac terminator"
+ORIGIN      
+        1 gtaaaaacgc aggctacatg ataacctatt gcggactaaa aagggatcatt gtgactccaac
+       61 gtcgcccaag gggtaatgat gctcaacatc gttggtttta ccttgcccag cctgagctag
+       121 caaaatttga taaaacctaa ttatccgaaa tggaacgctt atatttatta acagaaattg
+       181 atacctaaaa agatttaccaa agaaataggta atatcatgga tgcaaaccac aagttcgaaa
+       241 taaagccgta aagtgataactgcgaaagagggcctgggtatgctcgagctctcggaagatcccggaa
+       2...
+//
