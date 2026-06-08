@@ -404,11 +404,3 @@ function initialize() {
 }
 
 document.addEventListener("DOMContentLoaded", initialize);
-
-if (typeof window !== "undefined") {
-    window.seqviz = {
-        initialize,
-        createUI,
-        renderSeqViz,
-    };
-}
