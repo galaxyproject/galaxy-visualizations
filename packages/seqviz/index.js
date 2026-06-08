@@ -299,59 +299,12 @@ async function initializeFromContent(root, datasetId) {
     }
 }
 
-function checkDirectUrl(datasetId) {
-    if (datasetId && (datasetId.startsWith("http://") || datasetId.startsWith("https://"))) {
-        return true;
-    }
-    return false;
-}
-
-async function resolveUrlToContent(url) {
-    showMessage("Loading sequence from URL...");
-    const displayUrl = `${url}`;
-
-    try {
-        const { data: content } = await axios.get(displayUrl, { responseType: "text" });
-        const ext = url.match(/\.(\w+)(?:\?.*)?$/)?.[1]?.toLowerCase() || "";
-
-        const format = detectFormat({ extension: ext }, content);
-
-        let seqData;
-        if (format === "fasta") {
-            seqData = parseFasta(content);
-        } else {
-            seqData = parseGenbank(content);
-        }
-
-        return seqData;
-    } catch (e) {
-        throw new Error(`Failed to fetch sequence from URL: ${e.message}`);
-    }
-}
-
 function initialize() {
     createUI();
-
     const datasetId = getDatasetId();
     const root = getRoot();
-    const settings = getSettings();
-
     console.debug(`[seqviz] Initializing with dataset_id: ${datasetId || "none"}, root: ${root || "none"}`);
-
-    if (checkDirectUrl(datasetId)) {
-        resolveUrlToContent(datasetId)
-            .then((seqData) => {
-                const viewerMode = settings.viewer || "both";
-                const showAnnotations = settings.show_annotation_lines !== false;
-                renderSeqViz(seqData, viewerMode, showAnnotations);
-            })
-            .catch((e) => {
-                console.error(`[seqviz] Direct URL error:`, e.message);
-                showError(`Failed to load sequence: ${e.message}`);
-            });
-    } else {
-        initializeFromContent(root, datasetId);
-    }
+    initializeFromContent(root, datasetId);
 }
 
 document.addEventListener("DOMContentLoaded", initialize);
