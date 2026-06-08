@@ -2,24 +2,8 @@ import axios from "axios";
 import { Viewer } from "seqviz";
 import "./index.css";
 
-const TEST_DATA = {
-    fasta: {
-        name: "pUC19",
-        seq: "GTAZAAACCGTGGWGAATTTCATAATTCAATTTATACGTGTAGTGATCGATATTTCGATGCCATCATTACCTGTTGAAGATTTATTGGATCGCATATTTTGACCTACCACTTCGCCCAACAACTAACAGACCGTGATTTTCACCTTGACGTGTTTAAAGAGCAAAGTAGAACTCCTTACATTTATGATTTTATCGAAACGATGATGTTTCACTGTTAATAATTTTCGCTACCTCGTATTATCATTCCGAGATCCAGCGATTAACAACTATCAGGATCTAATTTCTATTTCGACTGTATTTCGCCAAGATGATCGGTATTATTGTCAAGCATTGGCATCGTCATCGATTTAACGGATCAAGGTTAGTTAATGAAATATATATAATGAATAAATATGGAATAAATTACATTTTACAATTTGTATAAATTAATAAG",
-        annotations: [
-            { start: 0, end: 26, name: "AmpR", direction: 1, color: "#ff6b6b" },
-            { start: 28, end: 58, name: "LacZ", direction: 1, color: "#4ecdc4" },
-        ],
-    },
-    genbank: {
-        name: "pUC19",
-        seq: "GTAZAAACCGTGGWGAATTTCATAATTCAATTTATACGTGTAGTGATCGATATTTCGATGCCATCATTACCTGTTGAAGATTTATTGGATCGCATATTTTGACCTACCACTTCGCCCAACAACTAACAGACCGTGATTTTCACCTTGACGTGTTTAAAGAGCAAAGTAGAACTCCTTACATTTATGATTTTATCGAAACGATGATGTTTCACTGTTAATAATTTTCGCTACCTCGTATTATCATTCCGAGATCCAGCGATTAACAACTATCAGGATCTAATTTCTATTTCGACTGTATTTCGCCAAGATGATCGGTATTATTGTCAAGCATTGGCATCGTCATCGATTTAACGGATCAAGGTTAGTTAATGAAATATATATAATGAATAAATATGGAATAAATTACATTTTACAATTTGTATAAATTAATAAG",
-        annotations: [
-            { start: 0, end: 26, name: "AmpR", direction: 1, color: "#ff6b6b" },
-            { start: 28, end: 58, name: "LacZ", direction: 1, color: "#4ecdc4" },
-        ],
-    },
-};
+const TEST_DATA_FILE = "test-data/test.fasta";
+const TEST_DATA_EXTENSION = "fasta";
 
 const MESSAGE_COLORS = {
     loading: "#3b82f6",
@@ -71,10 +55,6 @@ function hideMessage() {
 function showError(text) {
     showMessage(`<strong>Error:</strong> ${text}`, MESSAGE_COLORS.error);
     console.error(`[seqviz] ${text}`);
-}
-
-function showMessageSuccess(text) {
-    showMessage(text, MESSAGE_COLORS.success);
 }
 
 let messageElement;
@@ -129,26 +109,18 @@ function renderSeqViz(seqData, viewerMode, showAnnotations = true) {
     }
 }
 
-async function fetchGalaxyDataset(root, datasetId) {
-    showMessage("Loading sequence data from Galaxy...");
-
-    try {
+async function fetchContent(root, datasetId) {
+    if (datasetId && datasetId !== "__test__") {
+        showMessage("Loading sequence data from Galaxy...");
         const metaUrl = `${root}api/datasets/${datasetId}`;
         const displayUrl = `${root}api/datasets/${datasetId}/display`;
-
-        console.debug(`[seqviz] Fetching metadata from: ${metaUrl}`);
         const { data: metadata } = await axios.get(metaUrl);
-        console.debug(`[seqviz] Metadata received:`, metadata);
-
-        console.debug(`[seqviz] Fetching content from: ${displayUrl}`);
         const { data: content } = await axios.get(displayUrl, { responseType: "text" });
-        console.debug(`[seqviz] Content length: ${content.length}`);
-
         return { metadata, content };
-    } catch (e) {
-        console.error(`[seqviz] Galaxy API error:`, e.message);
-        throw e;
     }
+    showMessage(`Loading test data from ${TEST_DATA_FILE}...`);
+    const { data: content } = await axios.get(TEST_DATA_FILE, { responseType: "text" });
+    return { metadata: { extension: TEST_DATA_EXTENSION }, content };
 }
 
 function parseFasta(content) {
@@ -287,9 +259,9 @@ function detectFormat(metadata, content) {
     return "fasta";
 }
 
-async function initializeFromGalaxy(root, datasetId) {
+async function initializeFromContent(root, datasetId) {
     try {
-        const { metadata, content } = await fetchGalaxyDataset(root, datasetId);
+        const { metadata, content } = await fetchContent(root, datasetId);
         const format = detectFormat(metadata, content);
         console.debug(`[seqviz] Detected format: ${format}`);
 
@@ -350,28 +322,6 @@ async function resolveUrlToContent(url) {
     }
 }
 
-function initializeFromSample(sampleType) {
-    try {
-        const sample = TEST_DATA[sampleType] || TEST_DATA.fasta;
-        const sampleName = sample.name || "Sample";
-        const seqData = {
-            name: sampleName,
-            seq: sample.seq,
-            annotations: sample.annotations || [],
-        };
-
-        const settings = getSettings();
-        const viewerMode = settings.viewer || "both";
-        const showAnnotations = settings.show_annotation_lines !== false;
-
-        showMessageSuccess(`Sample sequence loaded (${sampleType} format)`);
-        renderSeqViz(seqData, viewerMode, showAnnotations);
-    } catch (e) {
-        console.error(`[seqviz] Sample load error:`, e.message);
-        showError(`Failed to load sample: ${e.message}`);
-    }
-}
-
 function initialize() {
     createUI();
 
@@ -392,14 +342,8 @@ function initialize() {
                 console.error(`[seqviz] Direct URL error:`, e.message);
                 showError(`Failed to load sequence: ${e.message}`);
             });
-    } else if (datasetId && datasetId !== "__test__" && datasetId !== "__sample__") {
-        initializeFromGalaxy(root, datasetId);
-    } else if (datasetId === "__sample__") {
-        const sampleType = new URLSearchParams(window.location.search).get("format") || "fasta";
-        initializeFromSample(sampleType);
     } else {
-        const sampleType = new URLSearchParams(window.location.search).get("format") || "fasta";
-        initializeFromSample(sampleType);
+        initializeFromContent(root, datasetId);
     }
 }
 
