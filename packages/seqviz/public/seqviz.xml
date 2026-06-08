@@ -15,7 +15,7 @@
     <params>
         <param required="true">dataset_id</param>
     </params>
-    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <entry_point src="index.js" css="index.css" />
     <settings>
         <input>
             <label>Viewer Mode</label>
@@ -46,20 +46,20 @@
         </test>
     </tests>
     <help format="markdown"><![CDATA[
-    # What is SeqViz Viewer?
+# What is SeqViz Viewer?
 
-    The SeqViz Viewer provides an **interactive sequence visualization** powered by the [SeqViz](https://github.com/Lattice-Automation/seqviz) library. It displays DNA, RNA, and protein sequences in linear or circular view with full annotation support.
+The SeqViz Viewer provides an **interactive sequence visualization** powered by the [SeqViz](https://github.com/Lattice-Automation/seqviz) library. It displays DNA, RNA, and protein sequences in linear or circular view with full annotation support.
 
-    After selecting a dataset, the viewer renders the sequence with features such as:
+After selecting a dataset, the viewer renders the sequence with features such as:
 
-    - **Multiple Views**: Switch between linear, circular, or both layouts
-    - **Annotations**: Display feature annotations, labels, and highlights
-    - **Interactive Controls**: Zoom, pan, and navigate sequence features
-    - **Multiple Formats**: Supports FASTA, GenBank, and other common sequence formats
+- **Multiple Views**: Switch between linear, circular, or both layouts
+- **Annotations**: Display feature annotations, labels, and highlights
+- **Interactive Controls**: Zoom, pan, and navigate sequence features
+- **Multiple Formats**: Supports FASTA, GenBank, and other common sequence formats
 
-    This tool is ideal for visualizing plasmids, genes, genomes, and protein sequences.
+This tool is ideal for visualizing plasmids, genes, genomes, and protein sequences.
 
-    Learn more about SeqViz at:
-    [https://github.com/Lattice-Automation/seqviz](https://github.com/Lattice-Automation/seqviz)
+Learn more about SeqViz at:
+[https://github.com/Lattice-Automation/seqviz](https://github.com/Lattice-Automation/seqviz)
     ]]></help>
 </visualization>
