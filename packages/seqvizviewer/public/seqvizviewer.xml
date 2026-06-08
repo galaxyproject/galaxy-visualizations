@@ -42,7 +42,7 @@
             <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/3.fasta" ftype="fasta" />
         </test>
         <test>
-            <param name="dataset_id" value="https://raw.githubusercontent.com/galaxyproject/galaxy/refs/heads/dev/lib/galaxy/datatypes/test/1.genbank" ftype="genbank" />
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.genbank" ftype="genbank" />
         </test>
     </tests>
     <help format="markdown"><![CDATA[
