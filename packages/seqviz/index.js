@@ -5,19 +5,17 @@ import "./index.css";
 const TEST_DATA_FILE = "test-data/test.fasta";
 const TEST_DATA_EXTENSION = "fasta";
 
-const MESSAGE_COLORS = {
-    loading: "#3b82f6",
-    error: "#ef4444",
-    success: "#10b981",
-};
+const MESSAGE_LOADING = "#3b82f6";
+const MESSAGE_ERROR = "#ef4444";
 
 const appElement = document.querySelector("#app");
 
 if (import.meta.env.DEV) {
+    const pageUrl = new URL(window.location.href);
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: process.env.dataset_id || "__test__",
+            dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
             settings: {},
         },
     };
@@ -38,7 +36,7 @@ function getSettings() {
     return incoming?.visualization_config?.settings || {};
 }
 
-function showMessage(text, color = MESSAGE_COLORS.loading) {
+function showMessage(text, color = MESSAGE_LOADING) {
     if (!messageElement) return;
     messageElement.innerHTML = text;
     messageElement.style.background = color;
@@ -53,7 +51,7 @@ function hideMessage() {
 }
 
 function showError(text) {
-    showMessage(`<strong>Error:</strong> ${text}`, MESSAGE_COLORS.error);
+    showMessage(`<strong>Error:</strong> ${text}`, MESSAGE_ERROR);
     console.error(`[seqviz] ${text}`);
 }
 
@@ -124,7 +122,7 @@ async function fetchContent(root, datasetId) {
 }
 
 function parseFasta(content) {
-    const lines = content.split("\n").filter(line => line.trim() && !line.startsWith("//"));
+    const lines = content.split("\n").filter((line) => line.trim() && !line.startsWith("//"));
     if (lines.length === 0) {
         throw new Error("Invalid FASTA format: empty content");
     }
@@ -191,8 +189,16 @@ function parseGenbankFeatures(headerBlock) {
 
     const featureLines = featureBlockMatch[1].split("\n");
     const featureColors = [
-        "#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4", "#ffeaa7",
-        "#dfe6e9", "#fd79a8", "#a29bfe", "#6c5ce7", "#00b894",
+        "#ff6b6b",
+        "#4ecdc4",
+        "#45b7d1",
+        "#96ceb4",
+        "#ffeaa7",
+        "#dfe6e9",
+        "#fd79a8",
+        "#a29bfe",
+        "#6c5ce7",
+        "#00b894",
     ];
 
     for (let i = 0; i < featureLines.length; i++) {
@@ -249,7 +255,8 @@ function parseGenbankFeatures(headerBlock) {
 function detectFormat(metadata, content) {
     if (metadata.extension) {
         const ext = metadata.extension.toLowerCase();
-        if (ext === "fasta" || ext === "fa" || ext === "faa" || ext === "dna" || ext === "rna" || ext === "protein") return "fasta";
+        if (ext === "fasta" || ext === "fa" || ext === "faa" || ext === "dna" || ext === "rna" || ext === "protein")
+            return "fasta";
         if (ext === "genbank" || ext === "gb" || ext === "gbk") return "genbank";
     }
 
@@ -333,12 +340,12 @@ function initialize() {
 
     if (checkDirectUrl(datasetId)) {
         resolveUrlToContent(datasetId)
-            .then(seqData => {
+            .then((seqData) => {
                 const viewerMode = settings.viewer || "both";
                 const showAnnotations = settings.show_annotation_lines !== false;
                 renderSeqViz(seqData, viewerMode, showAnnotations);
             })
-            .catch(e => {
+            .catch((e) => {
                 console.error(`[seqviz] Direct URL error:`, e.message);
                 showError(`Failed to load sequence: ${e.message}`);
             });
