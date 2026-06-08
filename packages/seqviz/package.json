@@ -1,0 +1,22 @@
+{
+    "name": "@galaxyproject/seqviz",
+    "version": "0.0.2",
+    "type": "module",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "vite --host",
+        "build": "vite build",
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}'",
+        "test": "npx playwright test"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.45.0",
+        "prettier": "^3.7.4",
+        "seqparse": "^0.2.2",
+        "seqviz": "^3.10.22",
+        "vite": "^6.4.3"
+    }
+}

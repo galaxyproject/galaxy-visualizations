@@ -1,0 +1,65 @@
+<visualization name="Sequence Viewer" embeddable="true">
+    <description>Visualize DNA, RNA, and protein sequences using SeqViz</description>
+    <tags>
+        <tag>Sequence</tag>
+        <tag>FASTA</tag>
+        <tag>GenBank</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">fasta</test>
+            <test test_attr="ext">genbank</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <settings>
+        <input>
+            <label>Viewer Mode</label>
+            <help>Select how the sequence is displayed.</help>
+            <name>viewer</name>
+            <type>select</type>
+            <value>both</value>
+            <data>
+                <data><label>Circular</label><value>circular</value></data>
+                <data><label>Linear</label><value>linear</value></data>
+                <data><label>Both</label><value>both</value></data>
+            </data>
+        </input>
+        <input>
+            <label>Show Annotations</label>
+            <help>Toggle annotation lines in the visualization.</help>
+            <name>show_annotation_lines</name>
+            <type>boolean</type>
+            <value>true</value>
+        </input>
+    </settings>
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/3.fasta" ftype="fasta" />
+        </test>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.genbank" ftype="genbank" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is SeqViz Viewer?
+
+The SeqViz Viewer provides an **interactive sequence visualization** powered by the [SeqViz](https://github.com/Lattice-Automation/seqviz) library. It displays DNA, RNA, and protein sequences in linear or circular view with full annotation support.
+
+After selecting a dataset, the viewer renders the sequence with features such as:
+
+- **Multiple Views**: Switch between linear, circular, or both layouts
+- **Annotations**: Display feature annotations, labels, and highlights
+- **Interactive Controls**: Zoom, pan, and navigate sequence features
+- **Multiple Formats**: Supports FASTA, GenBank, and other common sequence formats
+
+This tool is ideal for visualizing plasmids, genes, genomes, and protein sequences.
+
+Learn more about SeqViz at:
+[https://github.com/Lattice-Automation/seqviz](https://github.com/Lattice-Automation/seqviz)
+    ]]></help>
+</visualization>
