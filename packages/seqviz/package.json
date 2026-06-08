@@ -16,6 +16,7 @@
         "@playwright/test": "^1.45.0",
         "axios": "^1.7.0",
         "prettier": "^3.7.4",
+        "seqparse": "^0.2.2",
         "seqviz": "^3.10.22",
         "vite": "^6.4.3"
     }
