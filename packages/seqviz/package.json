@@ -10,7 +10,7 @@
         "dev": "vite --host",
         "build": "vite build",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}'",
-        "test:e2e": "playwright test"
+        "test": "npx playwright test"
     },
     "devDependencies": {
         "@playwright/test": "^1.45.0",
