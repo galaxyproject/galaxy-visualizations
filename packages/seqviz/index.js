@@ -70,7 +70,7 @@ function hideMessage() {
 
 function showError(text) {
     showMessage(`<strong>Error:</strong> ${text}`, MESSAGE_COLORS.error);
-    console.error(`[seqvizviewer] ${text}`);
+    console.error(`[seqviz] ${text}`);
 }
 
 function showMessageSuccess(text) {
@@ -109,7 +109,6 @@ function renderSeqViz(seqData, viewerMode, showAnnotations = true) {
     }
 
     const settings = {};
-
     if (viewerMode && viewerMode !== "both") {
         settings.viewer = viewerMode;
     }
@@ -137,17 +136,17 @@ async function fetchGalaxyDataset(root, datasetId) {
         const metaUrl = `${root}api/datasets/${datasetId}`;
         const displayUrl = `${root}api/datasets/${datasetId}/display`;
 
-        console.log(`[seqvizviewer] Fetching metadata from: ${metaUrl}`);
+        console.debug(`[seqviz] Fetching metadata from: ${metaUrl}`);
         const { data: metadata } = await axios.get(metaUrl);
-        console.log(`[seqvizviewer] Metadata received:`, metadata);
+        console.debug(`[seqviz] Metadata received:`, metadata);
 
-        console.log(`[seqvizviewer] Fetching content from: ${displayUrl}`);
+        console.debug(`[seqviz] Fetching content from: ${displayUrl}`);
         const { data: content } = await axios.get(displayUrl, { responseType: "text" });
-        console.log(`[seqvizviewer] Content length: ${content.length}`);
+        console.debug(`[seqviz] Content length: ${content.length}`);
 
         return { metadata, content };
     } catch (e) {
-        console.error(`[seqvizviewer] Galaxy API error:`, e.message);
+        console.error(`[seqviz] Galaxy API error:`, e.message);
         throw e;
     }
 }
@@ -165,7 +164,7 @@ function parseFasta(content) {
 }
 
 function parseGenbank(content) {
-    console.log(`[seqvizviewer] Attempting to parse GenBank format`);
+    console.debug(`[seqviz] Attempting to parse GenBank format`);
     const nameMatch = content.match(/LOCUS\s+(\S+)/);
 
     const terminatorIndex = content.match(/^\s*\/\//m);
@@ -201,7 +200,7 @@ function parseGenbank(content) {
             annotations,
         };
     } catch (e) {
-        console.error(`[seqvizviewer] Annotation parsing error:`, e.message);
+        console.error(`[seqviz] Annotation parsing error:`, e.message);
         return {
             name,
             seq: sequence,
@@ -292,7 +291,7 @@ async function initializeFromGalaxy(root, datasetId) {
     try {
         const { metadata, content } = await fetchGalaxyDataset(root, datasetId);
         const format = detectFormat(metadata, content);
-        console.log(`[seqvizviewer] Detected format: ${format}`);
+        console.debug(`[seqviz] Detected format: ${format}`);
 
         let seqData;
         try {
@@ -304,11 +303,11 @@ async function initializeFromGalaxy(root, datasetId) {
                 throw new Error(`Unsupported format: ${format}`);
             }
         } catch (e) {
-            console.error(`[seqvizviewer] Parsing error:`, e.message);
+            console.error(`[seqviz] Parsing error:`, e.message);
             throw new Error(`Failed to parse ${metadata.extension || format}: ${e.message}`);
         }
 
-        console.log(`[seqvizviewer] Parsed sequence:`, seqData.name, seqData.seq.length, "bp");
+        console.debug(`[seqviz] Parsed sequence:`, seqData.name, seqData.seq.length, "bp");
 
         const settings = getSettings();
         const viewerMode = settings.viewer || "both";
@@ -316,7 +315,7 @@ async function initializeFromGalaxy(root, datasetId) {
 
         renderSeqViz(seqData, viewerMode, showAnnotations);
     } catch (e) {
-        console.error(`[seqvizviewer] Initialization error:`, e.message);
+        console.error(`[seqviz] Initialization error:`, e.message);
         showError(`Failed to load sequence: ${e.message}`);
     }
 }
@@ -368,7 +367,7 @@ function initializeFromSample(sampleType) {
         showMessageSuccess(`Sample sequence loaded (${sampleType} format)`);
         renderSeqViz(seqData, viewerMode, showAnnotations);
     } catch (e) {
-        console.error(`[seqvizviewer] Sample load error:`, e.message);
+        console.error(`[seqviz] Sample load error:`, e.message);
         showError(`Failed to load sample: ${e.message}`);
     }
 }
@@ -380,7 +379,7 @@ function initialize() {
     const root = getRoot();
     const settings = getSettings();
 
-    console.log(`[seqvizviewer] Initializing with dataset_id: ${datasetId || "none"}, root: ${root || "none"}`);
+    console.debug(`[seqviz] Initializing with dataset_id: ${datasetId || "none"}, root: ${root || "none"}`);
 
     if (checkDirectUrl(datasetId)) {
         resolveUrlToContent(datasetId)
@@ -390,7 +389,7 @@ function initialize() {
                 renderSeqViz(seqData, viewerMode, showAnnotations);
             })
             .catch(e => {
-                console.error(`[seqvizviewer] Direct URL error:`, e.message);
+                console.error(`[seqviz] Direct URL error:`, e.message);
                 showError(`Failed to load sequence: ${e.message}`);
             });
     } else if (datasetId && datasetId !== "__test__" && datasetId !== "__sample__") {
@@ -407,7 +406,7 @@ function initialize() {
 document.addEventListener("DOMContentLoaded", initialize);
 
 if (typeof window !== "undefined") {
-    window.seqvizviewer = {
+    window.seqviz = {
         initialize,
         createUI,
         renderSeqViz,
