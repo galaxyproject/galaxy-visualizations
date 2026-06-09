@@ -64,10 +64,20 @@ export class UIManager {
     }
   }
 
-  private async renderTIFFImage(pageIndex: number) {
+  private async renderTIFFImage(
+    pageIndex: number,
+    options?: { preserveViewport?: boolean },
+  ) {
     this.currentPageIndex = pageIndex;
     const image = await this.tiffService.getImage(pageIndex);
     this.currentTIFFImage = image;
+    // Save viewport state if we need to preserve it
+    let savedScale: number | null = null;
+    let savedPan: { x: number; y: number } | null = null;
+    if (options?.preserveViewport) {
+      savedScale = this.panzoom.getScale();
+      savedPan = this.panzoom.getPan();
+    }
     const context = this.canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("Canvas context not available");
     const width = image.getWidth();
@@ -106,7 +116,15 @@ export class UIManager {
     this.applyInterpolationMode();
     const imageData = new ImageData(rgba, width, height);
     context.putImageData(imageData, 0, 0);
-    this.fitImageToScreen();
+    if (options?.preserveViewport && savedScale !== null && savedPan !== null) {
+      this.panzoom.reset();
+      if (savedScale !== 1) {
+        this.panzoom.zoom(savedScale);
+      }
+      this.panzoom.pan(savedPan.x, savedPan.y);
+    } else {
+      this.fitImageToScreen();
+    }
   }
 
   private createToolbar() {
@@ -212,7 +230,9 @@ export class UIManager {
           swatchBtn.onclick = () => {
             this.paletteManager.setPalette(key);
             if (this.currentTIFFImage)
-              this.renderTIFFImage(this.currentPageIndex);
+              this.renderTIFFImage(this.currentPageIndex, {
+                preserveViewport: true,
+              });
             swatchBar
               .querySelectorAll(".palette-swatch-btn")
               .forEach((btn) => btn.classList.remove("selected"));
@@ -334,7 +354,7 @@ export class UIManager {
     select.addEventListener("change", () => {
       currentIndex = parseInt(select.value, 10);
       updateButtonStates();
-      this.renderTIFFImage(currentIndex);
+      this.renderTIFFImage(currentIndex, { preserveViewport: true });
     });
     const prevBtn = document.createElement("button");
     prevBtn.appendChild(this.createIcon("arrow-left", "Previous Page"));
@@ -345,7 +365,7 @@ export class UIManager {
         currentIndex--;
         select.value = currentIndex.toString();
         updateButtonStates();
-        this.renderTIFFImage(currentIndex);
+        this.renderTIFFImage(currentIndex, { preserveViewport: true });
       }
     };
     const nextBtn = document.createElement("button");
@@ -357,7 +377,7 @@ export class UIManager {
         currentIndex++;
         select.value = currentIndex.toString();
         updateButtonStates();
-        this.renderTIFFImage(currentIndex);
+        this.renderTIFFImage(currentIndex, { preserveViewport: true });
       }
     };
     const updateButtonStates = () => {
