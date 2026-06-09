@@ -63,6 +63,7 @@ export class UIManager {
   }
 
   private async renderTIFFImage(pageIndex: number) {
+    this.currentPageIndex = pageIndex;
     const image = await this.tiffService.getImage(pageIndex);
     this.currentTIFFImage = image;
     const context = this.canvas.getContext("2d", { alpha: false });
