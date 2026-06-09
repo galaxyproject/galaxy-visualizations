@@ -115,14 +115,14 @@ export class UIManager {
     infoSwitch.type = "button";
     infoSwitch.setAttribute("aria-label", "Show Info");
     let infoPanel: HTMLElement | null = null;
-    infoSwitch.onclick = () => {
+    infoSwitch.onclick = async () => {
       if (infoPanel) {
         closeInfoPanel();
         return;
       }
       infoPanel = document.createElement("div");
       infoPanel.className = "info-floating-panel";
-      infoPanel.innerHTML = `<div class='info-dialog-content'>${this.generateImageInfoHtml()}</div>`;
+      infoPanel.innerHTML = `<div class='info-dialog-content'>${await this.generateImageInfoHtml()}</div>`;
       const closeBtn = document.createElement("button");
       closeBtn.className = "info-dialog-close info-dialog-x";
       closeBtn.title = "Close";
@@ -332,12 +332,12 @@ export class UIManager {
     this.toolbar.appendChild(nextBtn);
   }
 
-  private generateImageInfoHtml(): string {
-    const imageTags = this.currentTIFFImage?.getFileDirectory();
-    if (!imageTags) {
+  private async generateImageInfoHtml(): Promise<string> {
+    const fileDirectory = this.currentTIFFImage?.getFileDirectory();
+    if (!fileDirectory) {
       return "<p>No TIFF metadata available.</p>";
     }
-    const tags = imageTags as Record<string, unknown>;
+    const tags = fileDirectory.toObject() as Record<string, unknown>;
     const rows = Object.entries(tags)
       .map(
         ([key, value]) =>
