@@ -6,6 +6,7 @@ export type IconKey =
   | "reset"
   | "fit"
   | "palette"
+  | "interpolation"
   | "arrow-left"
   | "arrow-right";
 
@@ -50,6 +51,17 @@ export const icons: Record<IconKey, string> = {
       <circle cx="7" cy="8" r="1.5" fill="#e57373"/>
       <circle cx="13" cy="8" r="1.5" fill="#64b5f6"/>
       <circle cx="10" cy="13" r="1.5" fill="#81c784"/>
+    </svg>
+  `,
+  interpolation: `
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3" y="3" width="6" height="6" fill="#333"/>
+      <rect x="11" y="3" width="6" height="6" fill="#999"/>
+      <rect x="3" y="11" width="6" height="6" fill="#999"/>
+      <rect x="11" y="11" width="6" height="6" fill="#333"/>
+      <rect x="3" y="3" width="14" height="14" stroke="#333" stroke-width="1.5" fill="none"/>
+      <line x1="10" y1="3" x2="10" y2="17" stroke="#333" stroke-width="1"/>
+      <line x1="3" y1="10" x2="17" y2="10" stroke="#333" stroke-width="1"/>
     </svg>
   `,
   "arrow-left": `

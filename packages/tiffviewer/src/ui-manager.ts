@@ -14,6 +14,7 @@ export class UIManager {
   private pageCount: number = 0;
   private currentPageIndex: number = 0;
   private readonly maxScale: number = 20;
+  private interpolationMode: "auto" | "pixelated" = "pixelated";
 
   private tiffService: TIFFService;
   private paletteManager: PaletteManager;
@@ -41,6 +42,7 @@ export class UIManager {
     container.addEventListener("wheel", (event) => {
       this.panzoom.zoomWithWheel(event);
     });
+    this.applyInterpolationMode();
   }
 
   async loadAndRender(url: string) {
@@ -62,9 +64,20 @@ export class UIManager {
     }
   }
 
-  private async renderTIFFImage(pageIndex: number) {
+  private async renderTIFFImage(
+    pageIndex: number,
+    options?: { preserveViewport?: boolean },
+  ) {
+    this.currentPageIndex = pageIndex;
     const image = await this.tiffService.getImage(pageIndex);
     this.currentTIFFImage = image;
+    // Save viewport state if we need to preserve it
+    let savedScale: number | null = null;
+    let savedPan: { x: number; y: number } | null = null;
+    if (options?.preserveViewport) {
+      savedScale = this.panzoom.getScale();
+      savedPan = this.panzoom.getPan();
+    }
     const context = this.canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("Canvas context not available");
     const width = image.getWidth();
@@ -100,9 +113,18 @@ export class UIManager {
     this.canvas.height = height;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
+    this.applyInterpolationMode();
     const imageData = new ImageData(rgba, width, height);
     context.putImageData(imageData, 0, 0);
-    this.fitImageToScreen();
+    if (options?.preserveViewport && savedScale !== null && savedPan !== null) {
+      this.panzoom.reset();
+      if (savedScale !== 1) {
+        this.panzoom.zoom(savedScale);
+      }
+      this.panzoom.pan(savedPan.x, savedPan.y);
+    } else {
+      this.fitImageToScreen();
+    }
   }
 
   private createToolbar() {
@@ -114,14 +136,14 @@ export class UIManager {
     infoSwitch.type = "button";
     infoSwitch.setAttribute("aria-label", "Show Info");
     let infoPanel: HTMLElement | null = null;
-    infoSwitch.onclick = () => {
+    infoSwitch.onclick = async () => {
       if (infoPanel) {
         closeInfoPanel();
         return;
       }
       infoPanel = document.createElement("div");
       infoPanel.className = "info-floating-panel";
-      infoPanel.innerHTML = `<div class='info-dialog-content'>${this.generateImageInfoHtml()}</div>`;
+      infoPanel.innerHTML = `<div class='info-dialog-content'>${await this.generateImageInfoHtml()}</div>`;
       const closeBtn = document.createElement("button");
       closeBtn.className = "info-dialog-close info-dialog-x";
       closeBtn.title = "Close";
@@ -208,7 +230,9 @@ export class UIManager {
           swatchBtn.onclick = () => {
             this.paletteManager.setPalette(key);
             if (this.currentTIFFImage)
-              this.renderTIFFImage(this.currentPageIndex);
+              this.renderTIFFImage(this.currentPageIndex, {
+                preserveViewport: true,
+              });
             swatchBar
               .querySelectorAll(".palette-swatch-btn")
               .forEach((btn) => btn.classList.remove("selected"));
@@ -249,6 +273,41 @@ export class UIManager {
     this.toolbar.appendChild(resetZoomBtn);
     this.toolbar.appendChild(fitBtn);
     this.toolbar.appendChild(palettePanelBtn);
+
+    // Interpolation toggle button
+    const interpolationBtn = document.createElement("button");
+    interpolationBtn.appendChild(
+      this.createIcon("interpolation", "Toggle Interpolation Mode"),
+    );
+    interpolationBtn.title =
+      "Toggle Interpolation Mode (Nearest Neighbor / Smooth)";
+    interpolationBtn.type = "button";
+    interpolationBtn.setAttribute("aria-label", "Toggle Interpolation Mode");
+    interpolationBtn.setAttribute(
+      "aria-pressed",
+      this.interpolationMode === "pixelated" ? "true" : "false",
+    );
+    if (this.interpolationMode === "pixelated") {
+      interpolationBtn.classList.add("active-toggle");
+    }
+    interpolationBtn.onclick = () => {
+      this.interpolationMode =
+        this.interpolationMode === "pixelated" ? "auto" : "pixelated";
+      this.applyInterpolationMode();
+      interpolationBtn.classList.toggle(
+        "active-toggle",
+        this.interpolationMode === "pixelated",
+      );
+      interpolationBtn.setAttribute(
+        "aria-pressed",
+        this.interpolationMode === "pixelated" ? "true" : "false",
+      );
+      interpolationBtn.title =
+        this.interpolationMode === "pixelated"
+          ? "Interpolation: Nearest Neighbor (click for Smooth)"
+          : "Interpolation: Smooth (click for Nearest Neighbor)";
+    };
+    this.toolbar.appendChild(interpolationBtn);
   }
 
   private getCanvasCenterFocal(): { x: number; y: number } {
@@ -295,7 +354,7 @@ export class UIManager {
     select.addEventListener("change", () => {
       currentIndex = parseInt(select.value, 10);
       updateButtonStates();
-      this.renderTIFFImage(currentIndex);
+      this.renderTIFFImage(currentIndex, { preserveViewport: true });
     });
     const prevBtn = document.createElement("button");
     prevBtn.appendChild(this.createIcon("arrow-left", "Previous Page"));
@@ -306,7 +365,7 @@ export class UIManager {
         currentIndex--;
         select.value = currentIndex.toString();
         updateButtonStates();
-        this.renderTIFFImage(currentIndex);
+        this.renderTIFFImage(currentIndex, { preserveViewport: true });
       }
     };
     const nextBtn = document.createElement("button");
@@ -318,7 +377,7 @@ export class UIManager {
         currentIndex++;
         select.value = currentIndex.toString();
         updateButtonStates();
-        this.renderTIFFImage(currentIndex);
+        this.renderTIFFImage(currentIndex, { preserveViewport: true });
       }
     };
     const updateButtonStates = () => {
@@ -331,12 +390,12 @@ export class UIManager {
     this.toolbar.appendChild(nextBtn);
   }
 
-  private generateImageInfoHtml(): string {
-    const imageTags = this.currentTIFFImage?.getFileDirectory();
-    if (!imageTags) {
+  private async generateImageInfoHtml(): Promise<string> {
+    const fileDirectory = this.currentTIFFImage?.getFileDirectory();
+    if (!fileDirectory) {
       return "<p>No TIFF metadata available.</p>";
     }
-    const tags = imageTags as Record<string, unknown>;
+    const tags = fileDirectory.toObject() as Record<string, unknown>;
     const rows = Object.entries(tags)
       .map(
         ([key, value]) =>
@@ -395,6 +454,14 @@ export class UIManager {
 
   private hideLoading() {
     document.getElementById("tiff-loading-overlay")?.remove();
+  }
+
+  private applyInterpolationMode() {
+    if (this.interpolationMode === "pixelated") {
+      this.canvas.classList.add("pixelated-rendering");
+    } else {
+      this.canvas.classList.remove("pixelated-rendering");
+    }
   }
 
   private centerImageInContainer(scale: number) {
