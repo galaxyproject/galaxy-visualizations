@@ -14,6 +14,7 @@ export class UIManager {
   private pageCount: number = 0;
   private currentPageIndex: number = 0;
   private readonly maxScale: number = 20;
+  private interpolationMode: "auto" | "pixelated" = "pixelated";
 
   private tiffService: TIFFService;
   private paletteManager: PaletteManager;
@@ -41,6 +42,7 @@ export class UIManager {
     container.addEventListener("wheel", (event) => {
       this.panzoom.zoomWithWheel(event);
     });
+    this.applyInterpolationMode();
   }
 
   async loadAndRender(url: string) {
@@ -101,6 +103,7 @@ export class UIManager {
     this.canvas.height = height;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
+    this.applyInterpolationMode();
     const imageData = new ImageData(rgba, width, height);
     context.putImageData(imageData, 0, 0);
     this.fitImageToScreen();
@@ -250,6 +253,41 @@ export class UIManager {
     this.toolbar.appendChild(resetZoomBtn);
     this.toolbar.appendChild(fitBtn);
     this.toolbar.appendChild(palettePanelBtn);
+
+    // Interpolation toggle button
+    const interpolationBtn = document.createElement("button");
+    interpolationBtn.appendChild(
+      this.createIcon("interpolation", "Toggle Interpolation Mode"),
+    );
+    interpolationBtn.title =
+      "Toggle Interpolation Mode (Nearest Neighbor / Smooth)";
+    interpolationBtn.type = "button";
+    interpolationBtn.setAttribute("aria-label", "Toggle Interpolation Mode");
+    interpolationBtn.setAttribute(
+      "aria-pressed",
+      this.interpolationMode === "pixelated" ? "true" : "false",
+    );
+    if (this.interpolationMode === "pixelated") {
+      interpolationBtn.classList.add("active-toggle");
+    }
+    interpolationBtn.onclick = () => {
+      this.interpolationMode =
+        this.interpolationMode === "pixelated" ? "auto" : "pixelated";
+      this.applyInterpolationMode();
+      interpolationBtn.classList.toggle(
+        "active-toggle",
+        this.interpolationMode === "pixelated",
+      );
+      interpolationBtn.setAttribute(
+        "aria-pressed",
+        this.interpolationMode === "pixelated" ? "true" : "false",
+      );
+      interpolationBtn.title =
+        this.interpolationMode === "pixelated"
+          ? "Interpolation: Nearest Neighbor (click for Smooth)"
+          : "Interpolation: Smooth (click for Nearest Neighbor)";
+    };
+    this.toolbar.appendChild(interpolationBtn);
   }
 
   private getCanvasCenterFocal(): { x: number; y: number } {
@@ -396,6 +434,14 @@ export class UIManager {
 
   private hideLoading() {
     document.getElementById("tiff-loading-overlay")?.remove();
+  }
+
+  private applyInterpolationMode() {
+    if (this.interpolationMode === "pixelated") {
+      this.canvas.classList.add("pixelated-rendering");
+    } else {
+      this.canvas.classList.remove("pixelated-rendering");
+    }
   }
 
   private centerImageInContainer(scale: number) {

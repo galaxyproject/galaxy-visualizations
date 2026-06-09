@@ -99,6 +99,16 @@ canvas {
   margin: 0;
 }
 
+canvas.pixelated-rendering {
+  image-rendering: pixelated;    /* Chrome, Edge, Firefox 93+ */
+  image-rendering: crisp-edges;  /* Firefox 65+, Safari */
+}
+
+#tiff-toolbar button.active-toggle {
+  background: #bbdefb;
+  border-color: #42a5f5;
+}
+
 #tiff-page-selector {
   font-size: 14px;
   padding: 4px;
