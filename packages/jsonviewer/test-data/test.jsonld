@@ -1,0 +1,32 @@
+{
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "Gene Expression Matrix",
+    "description": "RNA-seq gene expression counts from 12 samples across 4 conditions",
+    "creator": {
+        "@type": "Person",
+        "name": "Jane Doe",
+        "affiliation": {
+            "@type": "Organization",
+            "name": "Galaxy Bioinformatics Lab"
+        }
+    },
+    "dateCreated": "2025-01-15",
+    "distribution": {
+        "@type": "DataDownload",
+        "encodingFormat": "text/tab-separated-values",
+        "contentUrl": "https://example.org/data/expr_matrix.tsv"
+    },
+    "variableMeasured": [
+        {
+            "@type": "PropertyValue",
+            "name": "gene_id",
+            "description": "Ensembl gene identifier"
+        },
+        {
+            "@type": "PropertyValue",
+            "name": "expression",
+            "description": "Normalized read count (TPM)"
+        }
+    ]
+}

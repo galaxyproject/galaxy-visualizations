@@ -1,0 +1,35 @@
+{
+    "name": "Galaxy Workflow",
+    "version": "1.0",
+    "annotation": "Example ChIP-seq analysis pipeline",
+    "steps": [
+        {
+            "id": 1,
+            "tool": "bwa_mem",
+            "input": "reads.fastq",
+            "output": "aligned.bam"
+        },
+        {
+            "id": 2,
+            "tool": "samtools_sort",
+            "input": "aligned.bam",
+            "output": "sorted.bam"
+        },
+        {
+            "id": 3,
+            "tool": "macs2_callpeak",
+            "input": "sorted.bam",
+            "output": "peaks.bed"
+        }
+    ],
+    "parameters": {
+        "bwa_mem": {
+            "reference": "hg38",
+            "algorithm": "mem"
+        },
+        "macs2_callpeak": {
+            "qvalue": 0.05,
+            "broad": false
+        }
+    }
+}
