@@ -11,6 +11,20 @@ function formatLabels(labels, lng = 9) {
     });
 }
 
+/* Derive immutable rendering signals from Galaxy's dataset metadata.
+ * Galaxy's datatype contract: tsv/csv always have a header (column_names
+ * is the first row); plain tabular never has a header. When a header is
+ * detected, the first data row is the header and is skipped; the first
+ * column of every remaining row is the y-axis label. When no header is
+ * detected, x-axis labels fall back to integer indices and row 1 is
+ * displayed as data. */
+function describeDataset(metaData) {
+    const columnCount = Number(metaData.metadata_columns) || 0;
+    const columnNames = metaData.metadata_column_names;
+    const hasHeader = Array.isArray(columnNames) && columnNames.length === columnCount;
+    return { columnCount, columnNames, hasHeader };
+}
+
 export default async function (datasetId) {
     // request dataset details
     const params = new URLSearchParams({
@@ -20,24 +34,17 @@ export default async function (datasetId) {
     const { data: metaData } = await GalaxyApi().GET(`/api/datasets/${datasetId}`);
     const { data: rawData } = await GalaxyApi().GET(`/api/datasets/${datasetId}?${params}`);
 
-    // data parameters
-    let xLabels = [];
-    let yLabels = rawData.data.map((row) => row[0]);
-    let zMatrix = rawData.data;
+    const { columnCount, columnNames, hasHeader } = describeDataset(metaData);
 
-    // data comes from tabular not from csv (metadata missing)
-    if (metaData.metadata_columns === metaData.metadata_column_names.length) {
-        xLabels = metaData.metadata_column_names.slice(1);
-        // remove first row from yLabels
-        yLabels = yLabels.slice(1);
-        // remove first row from zMatrix (contains column names)
-        zMatrix = zMatrix.slice(1);
-    } else {
-        xLabels = Array.from({ length: metaData.metadata_columns - 1 }, (_, i) => i);
-    }
-
-    // remove first column from zMatrix and format values
-    zMatrix = zMatrix.map((row) => row.slice(1).map((val) => parseFloat(val)));
+    // tsv/csv: row 1 is the header; skip it from data and use column_names
+    // for the x-axis. tabular: keep all rows as data and label columns by
+    // their integer index (Galaxy doesn't track names for tabular).
+    const dataRows = hasHeader ? rawData.data.slice(1) : rawData.data;
+    const xLabels = hasHeader
+        ? columnNames.slice(1)
+        : Array.from({ length: Math.max(0, columnCount - 1) }, (_, i) => i);
+    const yLabels = dataRows.map((row) => row[0]);
+    const zMatrix = dataRows.map((row) => row.slice(1).map((val) => parseFloat(val)));
 
     const data = [
         {
