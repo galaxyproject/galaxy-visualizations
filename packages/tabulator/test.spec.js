@@ -41,14 +41,14 @@ const TESTS = {
         quoted: true,
     },
     tabular_no_header: {
-        file: "tsv_with_header.tsv",
+        file: "tabular_no_header.tabular",
         extension: "tabular",
         delimiter: "\t",
         columnTypes: (cols) => cols.map((_, i) => (i < 2 ? "str" : "float")),
         hasHeader: false,
     },
     tabular_with_comments: {
-        file: "tabular_with_comments.tsv",
+        file: "tabular_with_comments.tabular",
         extension: "tabular",
         delimiter: "\t",
         columnTypes: () => ["str", "str", "float"],
