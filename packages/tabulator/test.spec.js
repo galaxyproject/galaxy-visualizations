@@ -7,7 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const maxDiffPixelRatio = 0.07;
 
 const TESTS = {
-    tabular: { file: "test.tsv", extension: "tabular", delimiter: "\t" },
+    tsv: { file: "test.tsv", extension: "tsv", delimiter: "\t" },
 };
 
 function mockMetadata(lines, extension) {

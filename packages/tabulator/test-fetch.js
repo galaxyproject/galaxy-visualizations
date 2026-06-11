@@ -3,7 +3,7 @@
  * Playwright spec uses, so the downstream code paths are identical. */
 
 const TEST_DATA_FILE = "test-data/test.tsv";
-const TEST_DATA_EXTENSION = "tabular";
+const TEST_DATA_EXTENSION = "tsv";
 const FALLBACK_LIMIT = 50;
 
 export const TEST_DATASET_ID = "__test__";
