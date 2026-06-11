@@ -2,7 +2,7 @@
  * Galaxy when the dataset id is TEST_DATASET_ID. Same intercept boundary the
  * Playwright spec uses, so the downstream code paths are identical. */
 
-const TEST_DATA_FILE = "test-data/test.tsv";
+const TEST_DATA_FILE = "test-data/tsv_with_header.tsv";
 const TEST_DATA_EXTENSION = "tsv";
 const TEST_DELIMITER = "\t";
 const FALLBACK_LIMIT = 50;

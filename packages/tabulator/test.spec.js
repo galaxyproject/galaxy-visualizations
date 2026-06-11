@@ -7,8 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const maxDiffPixelRatio = 0.07;
 
 /* Each entry exercises a specific Galaxy metadata shape:
- *  - tsv:                    column_names = first row, tab delimiter (the GTEx fixture)
- *  - tsv_with_header:        small fixture, header detected, tab delimiter
+ *  - tsv_with_header:        column_names = first row, tab delimiter (the GTEx fixture)
  *  - csv_with_header:        small fixture, header detected, comma delimiter
  *  - csv_with_quotes:        commas embedded in quoted cells, server-side
  *                            csv.reader splits them correctly
@@ -19,18 +18,11 @@ const maxDiffPixelRatio = 0.07;
  *  - tabular_with_comments:  no header, # comments stripped server-side, the
  *                            fixture omits them from the mocked stream */
 const TESTS = {
-    tsv: {
-        file: "test.tsv",
-        extension: "tsv",
-        delimiter: "\t",
-        columnTypes: (cols) => cols.map((_, i) => (i < 2 ? "str" : "float")),
-        hasHeader: true,
-    },
     tsv_with_header: {
         file: "tsv_with_header.tsv",
         extension: "tsv",
         delimiter: "\t",
-        columnTypes: () => ["str", "str", "float"],
+        columnTypes: (cols) => cols.map((_, i) => (i < 2 ? "str" : "float")),
         hasHeader: true,
     },
     csv_with_header: {
@@ -49,7 +41,7 @@ const TESTS = {
         quoted: true,
     },
     tabular_no_header: {
-        file: "test.tsv",
+        file: "tsv_with_header.tsv",
         extension: "tabular",
         delimiter: "\t",
         columnTypes: (cols) => cols.map((_, i) => (i < 2 ? "str" : "float")),
