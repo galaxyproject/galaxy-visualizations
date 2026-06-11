@@ -4,6 +4,7 @@
 
 const TEST_DATA_FILE = "test-data/test.tsv";
 const TEST_DATA_EXTENSION = "tsv";
+const TEST_DELIMITER = "\t";
 const FALLBACK_LIMIT = 50;
 
 export const TEST_DATASET_ID = "__test__";
@@ -30,19 +31,44 @@ export function installTestFetch() {
             return realFetch(input, init);
         }
         const lines = await loadLines();
+        const header = lines[0].split(TEST_DELIMITER);
+        const columnTypes = header.map((_, i) => (i < 2 ? "str" : "float"));
         const u = new URL(url, window.location.origin);
         if (u.searchParams.has("data_type")) {
             const offset = parseInt(u.searchParams.get("offset") || "0", 10);
             const limit = parseInt(u.searchParams.get("limit") || String(FALLBACK_LIMIT), 10);
-            return jsonResponse({ data: lines.slice(offset, offset + limit) });
+            const rows = lines
+                .slice(offset, offset + limit)
+                .map((line) => coerceCells(line.split(TEST_DELIMITER), columnTypes));
+            return jsonResponse({ data: rows });
         }
-        const header = lines[0].split("\t");
         return jsonResponse({
             extension: TEST_DATA_EXTENSION,
             metadata_columns: header.length,
-            metadata_column_types: header.map((_, i) => (i < 2 ? "str" : "float")),
-            metadata_column_names: [],
+            metadata_column_types: columnTypes,
+            metadata_column_names: header,
             metadata_data_lines: lines.length,
         });
     };
+}
+
+/* Mimics what Galaxy's dataset-column provider returns: cells parsed to the
+ * declared column type; values that can't be coerced come back as null. */
+function coerceCells(cells, columnTypes) {
+    return columnTypes.map((type, i) => coerceCell(cells[i], type));
+}
+
+function coerceCell(value, type) {
+    if (value === undefined || value === null || value === "") {
+        return null;
+    }
+    if (type === "int") {
+        const n = parseInt(value, 10);
+        return Number.isNaN(n) ? null : n;
+    }
+    if (type === "float") {
+        const n = parseFloat(value);
+        return Number.isNaN(n) ? null : n;
+    }
+    return value;
 }

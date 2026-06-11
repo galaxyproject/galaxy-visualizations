@@ -3,11 +3,6 @@ import { TabulatorFull as Tabulator } from "tabulator-tables";
 import "tabulator-tables/dist/css/tabulator_simple.css";
 import { installTestFetch, TEST_DATASET_ID } from "./test-fetch.js";
 
-// Constants
-const CSV = "csv";
-const CSV_SEPARATOR = ",";
-const TSV_SEPARATOR = "\t";
-
 // Thresholds
 const DELAY = 100;
 const LIMIT = 50;
@@ -64,6 +59,9 @@ appElement.appendChild(tableElement);
 async function create() {
     showMessage("Loading...");
     const dataset = await getData(metaUrl);
+    if (!dataset) {
+        return;
+    }
     if (dataset.metadata_columns > 0) {
         render(describeDataset(dataset));
         hideMessage();
@@ -73,32 +71,35 @@ async function create() {
 }
 
 /* Derive immutable rendering signals from Galaxy's dataset metadata.
- * column_names is populated by Galaxy for tsv/csv (and a few specialized
- * tabular subclasses). When absent, row 1 is treated as data (the user's
- * file may simply have no header). */
+ * Galaxy's datatype contract: tsv/csv always have a header (column_names
+ * is the first row); plain tabular never has a header. The dataset-column
+ * provider splits and type-coerces server-side per column_types, so the
+ * client just needs to know how many rows to skip and what to title each
+ * column with. */
 function describeDataset(dataset) {
     const columnTypes = dataset.metadata_column_types || [];
-    const columnCount = dataset.metadata_columns;
+    const columnCount = Number(dataset.metadata_columns) || columnTypes.length;
     const columnNames = dataset.metadata_column_names;
     const hasHeader = Array.isArray(columnNames) && columnNames.length === columnCount;
-    const columnTitles = hasHeader ? columnNames : columnTypes.slice();
-    const delimiter = dataset.metadata_delimiter || (dataset.extension === CSV ? CSV_SEPARATOR : TSV_SEPARATOR);
+    const titles = hasHeader ? columnNames : columnTypes;
+    const columnTitles = Array.from({ length: columnCount }, (_, i) => titles[i] ?? "");
     const totalDataRows = (dataset.metadata_data_lines || LINES) - (hasHeader ? 1 : 0);
-    return { columnTypes, columnTitles, delimiter, dataStartOffset: hasHeader ? 1 : 0, totalDataRows };
+    return { columnCount, columnTitles, dataStartOffset: hasHeader ? 1 : 0, totalDataRows };
 }
 
 async function getContent(descriptor, params) {
     if (!hasCompleted) {
         const offset = (params.page - 1) * params.size;
-        const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=line`;
+        const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=dataset-column`;
         const url = `${base}&offset=${descriptor.dataStartOffset + offset}&limit=${LIMIT}`;
         console.debug(`[tabulator] ${url}`);
         const { data } = await getData(url);
         hasCompleted = data.length === 0;
-        return data.map((line) => {
-            const cells = String(line).split(descriptor.delimiter);
-            return Object.fromEntries(descriptor.columnTypes.map((_, i) => [i, cells[i] ?? ""]));
-        });
+        return data.map((row) =>
+            Object.fromEntries(
+                Array.from({ length: descriptor.columnCount }, (_, i) => [i, row[i] ?? ""]),
+            ),
+        );
     } else {
         return [];
     }
