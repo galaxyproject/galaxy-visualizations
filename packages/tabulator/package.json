@@ -2,15 +2,19 @@
     "name": "@galaxyproject/tabulator",
     "version": "0.0.9",
     "type": "module",
-    "files": ["static"],
+    "files": [
+        "static"
+    ],
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "prettier": "prettier --write 'package.json' 'main.js'",
-        "preview": "vite preview"
+        "prettier": "prettier --write 'package.json' 'main.js' 'test.spec.js'",
+        "preview": "vite preview",
+        "test": "npx playwright test",
+        "test:update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {
-        "axios": "^1.8.4",
+        "@playwright/test": "^1.45.0",
         "prettier": "^3.5.3",
         "tabulator-tables": "^6.3.1",
         "vite": "^6.2.2"
