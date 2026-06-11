@@ -1,4 +1,5 @@
 import { GalaxyApi } from "galaxy-charts";
+import { describeDataset } from "@/describeDataset";
 
 function formatLabels(labels, lng = 9) {
     return labels.map((x, i) => {
@@ -9,20 +10,6 @@ function formatLabels(labels, lng = 9) {
             return i;
         }
     });
-}
-
-/* Derive immutable rendering signals from Galaxy's dataset metadata.
- * Galaxy's datatype contract: tsv/csv always have a header (column_names
- * is the first row); plain tabular never has a header. When a header is
- * detected, the first data row is the header and is skipped; the first
- * column of every remaining row is the y-axis label. When no header is
- * detected, x-axis labels fall back to integer indices and row 1 is
- * displayed as data. */
-function describeDataset(metaData) {
-    const columnCount = Number(metaData.metadata_columns) || 0;
-    const columnNames = metaData.metadata_column_names;
-    const hasHeader = Array.isArray(columnNames) && columnNames.length === columnCount;
-    return { columnCount, columnNames, hasHeader };
 }
 
 export default async function (datasetId) {
@@ -39,6 +26,7 @@ export default async function (datasetId) {
     // tsv/csv: row 1 is the header; skip it from data and use column_names
     // for the x-axis. tabular: keep all rows as data and label columns by
     // their integer index (Galaxy doesn't track names for tabular).
+    // First column is always treated as row labels for the y-axis.
     const dataRows = hasHeader ? rawData.data.slice(1) : rawData.data;
     const xLabels = hasHeader
         ? columnNames.slice(1)

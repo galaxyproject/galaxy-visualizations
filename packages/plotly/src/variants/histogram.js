@@ -1,4 +1,5 @@
 import { useColumnsStore } from "galaxy-charts";
+import { fetchDataStartOffset, sliceColumns } from "@/describeDataset";
 
 const columnsStore = useColumnsStore();
 
@@ -16,7 +17,11 @@ export default async function (datasetId, settings, tracks) {
         },
     };
     const config = { responsive: true };
-    const columnsList = await columnsStore.fetchColumns(datasetId, tracks, ["x"]);
+    const [dataStartOffset, columnsList] = await Promise.all([
+        fetchDataStartOffset(datasetId),
+        columnsStore.fetchColumns(datasetId, tracks, ["x"]),
+    ]);
+    sliceColumns(columnsList, dataStartOffset);
     const data = [];
     columnsList.forEach((columns, index) => {
         const track = tracks[index];

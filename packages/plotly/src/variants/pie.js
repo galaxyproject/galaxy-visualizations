@@ -1,5 +1,6 @@
 import { useColumnsStore } from "galaxy-charts";
 import COLOR_SCHEMES from "@/colors.json";
+import { fetchDataStartOffset, sliceColumns } from "@/describeDataset";
 
 const MARGIN = 30;
 const XGAP = 0.1;
@@ -32,7 +33,11 @@ function generateColors(baseColors, count, delta = 0.15) {
 }
 
 export default async function (datasetId, settings, tracks) {
-    const columnsList = await columnsStore.fetchColumns(datasetId, tracks, ["labels", "values"]);
+    const [dataStartOffset, columnsList] = await Promise.all([
+        fetchDataStartOffset(datasetId),
+        columnsStore.fetchColumns(datasetId, tracks, ["labels", "values"]),
+    ]);
+    sliceColumns(columnsList, dataStartOffset);
     const count = columnsList.length;
     if (count === 0) {
         return { data: [], layout: {}, config: { responsive: true } };
