@@ -5,6 +5,10 @@ import { installTestFetch, TEST_DATASET_ID } from "./test-fetch.js";
 
 // Constants
 const CSV = "csv";
+const CSV_SEPARATOR = ",";
+const TSV_SEPARATOR = "\t";
+
+// Thresholds
 const DELAY = 100;
 const LIMIT = 50;
 const LINES = 99999;
@@ -79,7 +83,7 @@ async function getContent(dataset, params) {
         console.debug(`[tabulator] ${url}`);
         const { data } = await getData(url);
         hasCompleted = data.length === 0;
-        const delimiter = dataset.extension === CSV ? "," : "\t";
+        const delimiter = dataset.extension === CSV ? CSV_SEPARATOR : TSV_SEPARATOR;
         return data.map((line) => {
             const cells = String(line).split(delimiter);
             return Object.fromEntries(columnTypes.map((_, i) => [i, cells[i] ?? ""]));
