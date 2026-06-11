@@ -1,0 +1,4 @@
+SampleID,Description,Score
+GTEX-A,"Adipose, subcutaneous",0.123
+GTEX-B,"Heart, ""ventricle""",0.456
+GTEX-C,Kidney,0.789

@@ -6,3 +6,4 @@ node_modules
 .DS_Store
 lerna-debug.log
 packages/**/static
+packages/**/test-results
