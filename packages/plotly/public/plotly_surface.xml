@@ -11,6 +11,7 @@
             <model_class>HistoryDatasetAssociation</model_class>
             <test test_attr="ext">tabular</test>
             <test test_attr="ext">csv</test>
+            <test test_attr="ext">tsv</test>
         </data_source>
     </data_sources>
     <params>
@@ -38,6 +39,8 @@ After selecting a dataset, a three-dimensional surface will be rendered based on
 - **Interactive Controls**: Rotate, zoom, and pan the 3D plot freely.
 - **Color Mapping**: Colors reflect the surface height values for enhanced interpretation.
 - **Perspective Exploration**: Explore complex relationships and patterns in three dimensions.
+
+This visualization expects a pure numeric matrix (every cell is treated as a z value). If your dataset has row or column labels, preprocess it first (for example with Galaxy's `Cut` tool) to drop the label columns before plotting.
 
 This tool is ideal for visualizing geographical data, scientific surfaces, or any 3D matrix-like dataset.
 
