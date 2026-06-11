@@ -42,7 +42,7 @@ export default async function (datasetId) {
     const dataRows = hasHeader ? rawData.data.slice(1) : rawData.data;
     const xLabels = hasHeader
         ? columnNames.slice(1)
-        : Array.from({ length: Math.max(0, columnCount - 1) }, (_, i) => i);
+        : Array.from({ length: Math.max(0, columnCount - 1) }, (_, i) => i + 1);
     const yLabels = dataRows.map((row) => row[0]);
     const zMatrix = dataRows.map((row) => row.slice(1).map((val) => parseFloat(val)));
 
