@@ -44,8 +44,6 @@ if (datasetId === TEST_DATASET_ID) {
     installTestFetch();
 }
 
-/* Wether the first row is containig column names or not */
-let hasNames = false;
 let hasCompleted = false;
 
 /* Build the data request url. Modify the API route if necessary. */
@@ -67,26 +65,39 @@ async function create() {
     showMessage("Loading...");
     const dataset = await getData(metaUrl);
     if (dataset.metadata_columns > 0) {
-        render(dataset);
+        render(describeDataset(dataset));
         hideMessage();
     } else {
         showMessage("No columns found in dataset.");
     }
 }
 
-async function getContent(dataset, params) {
+/* Derive immutable rendering signals from Galaxy's dataset metadata.
+ * column_names is populated by Galaxy for tsv/csv (and a few specialized
+ * tabular subclasses). When absent, row 1 is treated as data (the user's
+ * file may simply have no header). */
+function describeDataset(dataset) {
+    const columnTypes = dataset.metadata_column_types || [];
+    const columnCount = dataset.metadata_columns;
+    const columnNames = dataset.metadata_column_names;
+    const hasHeader = Array.isArray(columnNames) && columnNames.length === columnCount;
+    const columnTitles = hasHeader ? columnNames : columnTypes.slice();
+    const delimiter = dataset.metadata_delimiter || (dataset.extension === CSV ? CSV_SEPARATOR : TSV_SEPARATOR);
+    const totalDataRows = (dataset.metadata_data_lines || LINES) - (hasHeader ? 1 : 0);
+    return { columnTypes, columnTitles, delimiter, dataStartOffset: hasHeader ? 1 : 0, totalDataRows };
+}
+
+async function getContent(descriptor, params) {
     if (!hasCompleted) {
-        const columnTypes = dataset.metadata_column_types;
         const offset = (params.page - 1) * params.size;
         const base = `${root}api/datasets/${datasetId}?data_type=raw_data&provider=line`;
-        const url = `${base}&offset=${hasNames ? 1 + offset : offset}&limit=${LIMIT}`;
+        const url = `${base}&offset=${descriptor.dataStartOffset + offset}&limit=${LIMIT}`;
         console.debug(`[tabulator] ${url}`);
         const { data } = await getData(url);
         hasCompleted = data.length === 0;
-        const delimiter = dataset.extension === CSV ? CSV_SEPARATOR : TSV_SEPARATOR;
         return data.map((line) => {
-            const cells = String(line).split(delimiter);
-            return Object.fromEntries(columnTypes.map((_, i) => [i, cells[i] ?? ""]));
+            const cells = String(line).split(descriptor.delimiter);
+            return Object.fromEntries(descriptor.columnTypes.map((_, i) => [i, cells[i] ?? ""]));
         });
     } else {
         return [];
@@ -103,24 +114,9 @@ async function getData(url) {
     }
 }
 
-function getColumns(dataset) {
-    const result = dataset.metadata_column_types.slice();
-    const columnCount = dataset.metadata_columns;
-    const columnNames = dataset.metadata_column_names;
-    if (columnNames && columnNames.length === columnCount) {
-        hasNames = true;
-        columnNames.forEach((name, index) => {
-            result[index] = name;
-        });
-    }
-    return result;
-}
-
-async function render(dataset) {
-    const columns = getColumns(dataset);
-    const lineCount = dataset.metadata_data_lines || LINES;
-    const last_page = Math.ceil(lineCount / LIMIT);
-    const tabulatorColumns = columns.map((col, index) => ({
+async function render(descriptor) {
+    const last_page = Math.ceil(descriptor.totalDataRows / LIMIT);
+    const tabulatorColumns = descriptor.columnTitles.map((col, index) => ({
         title: `${index + 1}: ${col}`,
         field: String(index),
         headerSort: false,
@@ -135,7 +131,7 @@ async function render(dataset) {
         ajaxURL: "unused-but-required",
         ajaxRequestFunc: async (_, __, params) => {
             try {
-                const data = await getContent(dataset, params);
+                const data = await getContent(descriptor, params);
                 return { data };
             } catch (e) {
                 showMessage("Failed to retrieve scroll data", e);
