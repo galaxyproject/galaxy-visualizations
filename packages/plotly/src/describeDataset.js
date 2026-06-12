@@ -9,7 +9,7 @@ export function describeDataset(metaData) {
     const columnTypes = metaData.metadata_column_types || [];
     const columnCount = Number(metaData.metadata_columns) || columnTypes.length;
     const columnNames = metaData.metadata_column_names;
-    const hasHeader = Array.isArray(columnNames) && columnNames.length === columnCount;
+    const hasHeader = columnCount > 0 && Array.isArray(columnNames) && columnNames.length === columnCount;
     return {
         columnCount,
         columnNames: hasHeader ? columnNames : [],
