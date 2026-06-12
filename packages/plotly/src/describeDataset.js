@@ -33,7 +33,9 @@ export function sliceColumns(columnsList, offset) {
     if (offset > 0) {
         columnsList.forEach((track) => {
             for (const key in track) {
-                track[key] = track[key].slice(offset);
+                if (Array.isArray(track[key])) {
+                    track[key] = track[key].slice(offset);
+                }
             }
         });
     }

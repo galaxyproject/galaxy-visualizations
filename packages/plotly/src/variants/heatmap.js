@@ -3,7 +3,7 @@ import { describeDataset } from "@/describeDataset";
 
 function formatLabels(labels, lng = 9) {
     return labels.map((x, i) => {
-        if (x) {
+        if (x !== undefined && x !== null && x !== "") {
             const str = String(x);
             return str.length > lng ? str.slice(0, lng) + "..." : str;
         } else {
