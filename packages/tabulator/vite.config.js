@@ -3,5 +3,9 @@ import { viteConfigCharts } from "./vite.config.charts";
 
 export default defineConfig({
   ...viteConfigCharts,
-  /* Insert your existing vite.config settings here. */
+  test: {
+    environment: "happy-dom",
+    globals: true,
+    include: ["*.test.{js,ts}"],
+  },
 });
