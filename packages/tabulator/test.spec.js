@@ -67,8 +67,10 @@ function splitLine(line, fixture) {
     for (let i = 0; i < line.length; i++) {
         const ch = line[i];
         if (inQuotes) {
-            if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-            else if (ch === '"') inQuotes = false;
+            if (ch === '"' && line[i + 1] === '"') {
+                cur += '"';
+                i++;
+            } else if (ch === '"') inQuotes = false;
             else cur += ch;
         } else if (ch === '"' && cur === "") {
             inQuotes = true;
@@ -119,9 +121,7 @@ test("basic", async ({ page }) => {
         }
         const content = readFileSync(join(__dirname, "test-data", fixture.file), "utf8");
         const allLines = content.replace(/\n$/, "").split("\n");
-        const lines = fixture.stripPrefix
-            ? allLines.filter((l) => !l.startsWith(fixture.stripPrefix))
-            : allLines;
+        const lines = fixture.stripPrefix ? allLines.filter((l) => !l.startsWith(fixture.stripPrefix)) : allLines;
         const header = splitLine(lines[0], fixture);
         const columnTypes = fixture.columnTypes(header);
         if (url.searchParams.has("data_type")) {

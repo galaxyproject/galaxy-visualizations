@@ -79,9 +79,7 @@ async function getContent(descriptor, params) {
         const { data } = await getData(url);
         hasCompleted = data.length === 0;
         return data.map((row) =>
-            Object.fromEntries(
-                Array.from({ length: descriptor.columnCount }, (_, i) => [i, row[i] ?? ""]),
-            ),
+            Object.fromEntries(Array.from({ length: descriptor.columnCount }, (_, i) => [i, row[i] ?? ""])),
         );
     } else {
         return [];
