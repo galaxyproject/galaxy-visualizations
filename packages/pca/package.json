@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/pca",
-    "version": "0.0.9",
+    "version": "0.0.10",
     "license": "MIT",
     "type": "module",
     "files": ["static"],

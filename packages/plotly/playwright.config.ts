@@ -5,6 +5,7 @@ export default defineConfig({
         headless: !!process.env.CI,
     },
     snapshotPathTemplate: "{testDir}/test-data/{arg}.png",
+    testIgnore: ["src/**"],
     webServer: {
         command: "npm run dev",
         url: "http://localhost:5173",

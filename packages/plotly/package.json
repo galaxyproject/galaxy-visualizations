@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/plotly",
-    "version": "0.0.29",
+    "version": "0.0.30",
     "type": "module",
     "license": "MIT",
     "files": [
@@ -11,7 +11,9 @@
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.json' 'src/**/*.vue'",
-        "test": "npx playwright test"
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:e2e": "npx playwright test",
+        "test:unit": "vitest run"
     },
     "devDependencies": {
         "@playwright/test": "^1.52.0",

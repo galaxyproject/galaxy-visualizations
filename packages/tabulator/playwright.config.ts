@@ -2,7 +2,8 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
     snapshotPathTemplate: "{testDir}/test-data/{arg}.png",
-    testIgnore: ["src/**"],
+    testIgnore: ["src/**", "**/*.test.{js,ts}"],
+    testMatch: ["**/*.spec.{js,ts}"],
     timeout: 60000,
     use: {
         headless: !!process.env.CI,

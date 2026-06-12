@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/tabulator",
-    "version": "0.0.10",
+    "version": "0.0.11",
     "type": "module",
     "files": [
         "static"
@@ -10,13 +10,17 @@
         "build": "vite build",
         "prettier": "prettier --write 'package.json' 'main.js' 'test.spec.js'",
         "preview": "vite preview",
-        "test": "npx playwright test",
+        "test": "npm run test:unit && npm run test:e2e",
+        "test:e2e": "npx playwright test",
+        "test:unit": "vitest run",
         "test:update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {
         "@playwright/test": "^1.60.0",
+        "happy-dom": "^20.0.11",
         "prettier": "^3.7.4",
         "tabulator-tables": "^6.4.0",
-        "vite": "^8.0.10"
+        "vite": "^8.0.10",
+        "vitest": "^4.0.16"
     }
 }
