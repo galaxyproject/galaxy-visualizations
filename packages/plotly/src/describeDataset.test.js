@@ -110,10 +110,7 @@ describe("sliceColumns", () => {
     });
 
     it("slices independently per track", () => {
-        const columnsList = [
-            { x: ["a", "b", "c"] },
-            { y: [10, 20, 30, 40] },
-        ];
+        const columnsList = [{ x: ["a", "b", "c"] }, { y: [10, 20, 30, 40] }];
         sliceColumns(columnsList, 1);
         expect(columnsList).toEqual([{ x: ["b", "c"] }, { y: [20, 30, 40] }]);
     });
