@@ -7,9 +7,12 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --write 'package.json' 'src/**/*.{js,jsx}'"
+        "prettier": "prettier --write 'package.json' 'src/**/*.{js,jsx}' 'test.spec.js'",
+        "test": "npx playwright test",
+        "test:update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {
+        "@playwright/test": "^1.60.0",
         "@uwdata/mosaic-core": "^0.21.1",
         "@vitejs/plugin-react": "^4.3.4",
         "embedding-atlas": "^0.21.0",
