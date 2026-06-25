@@ -6,14 +6,28 @@ const TABLE_NAME = "atlas_data";
 const VIRTUAL_FILE = "dataset";
 
 /* Build the DuckDB SELECT for a virtual filename based on the Galaxy
- * extension. Extensions match the data_sources block in atlas.xml. */
+ * extension. Extensions match the data_sources block in atlas.xml.
+ *
+ * Honors Galaxy's three different tabular contracts (see
+ * ~/claude/tabular-types/comparison.md):
+ *   - tabular  : no header row, # comments recognised, tab-delimited
+ *   - tsv      : always a header row, no comment recognition, tab-delimited
+ *   - csv      : always a header row, no comment recognition, comma-delimited
+ *
+ * Mismatching these would feed Atlas a column named after the first data
+ * row of a tabular file, or drop a real header row of a tsv. */
 function readExpression(ext) {
     const e = (ext || "").toLowerCase();
     if (e === "parquet") return `read_parquet('${VIRTUAL_FILE}')`;
     if (e === "jsonl" || e === "ndjson") return `read_json_auto('${VIRTUAL_FILE}', format='newline_delimited')`;
-    if (e === "tsv" || e === "tabular") return `read_csv_auto('${VIRTUAL_FILE}', delim='\t')`;
-    /* csv (default) */
-    return `read_csv_auto('${VIRTUAL_FILE}')`;
+    if (e === "tabular") {
+        return `read_csv_auto('${VIRTUAL_FILE}', delim='\t', header=false, comment='#')`;
+    }
+    if (e === "tsv") {
+        return `read_csv_auto('${VIRTUAL_FILE}', delim='\t', header=true)`;
+    }
+    /* csv */
+    return `read_csv_auto('${VIRTUAL_FILE}', header=true)`;
 }
 
 /* Pick two projection columns. Honors explicit names if present,
