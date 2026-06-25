@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="RMSX Flipbook">
+    <description>Render RMSX Flipbook viewer manifests with bundled Molstar.</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">rmsx.json</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+        <param required="false">history_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="index.js" container="app" />
+    <help format="markdown"><![CDATA[
+# What is RMSX Flipbook?
+
+RMSX Flipbook opens `rmsx.json` viewer manifests produced by RMSX/Flipbook workflows. It renders the embedded PDB time slices with bundled Molstar and colors residues by their RMSX values.
+
+Use it from Galaxy's Visualize action on an `rmsx.json` dataset. The manifest must use schema version `flipbook-molstar-viewer/v1`; if required fields are missing, the viewer reports the validation problem before rendering.
+    ]]></help>
+</visualization>
