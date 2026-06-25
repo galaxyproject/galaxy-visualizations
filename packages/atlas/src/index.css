@@ -1,3 +1,8 @@
+:root {
+    --message-background: rgba(255, 255, 255, 0.9);
+    --message-color: rgba(0, 0, 0, 0.9);
+}
+
 html,
 body {
     margin: 0;
@@ -20,16 +25,18 @@ body {
     width: 100vw;
 }
 
-.atlas-status {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #555;
-    font-size: 14px;
-}
-
-.atlas-status.error {
-    color: #b00020;
+#message {
+    background: var(--message-background);
+    border-radius: 4px;
+    color: var(--message-color);
+    font-family: sans-serif;
+    font-weight: 100;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    word-break: break-all;
+    z-index: 9999;
 }

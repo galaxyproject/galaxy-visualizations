@@ -173,11 +173,20 @@ export default function App({ incoming }) {
         };
     }, [incoming, coordinator]);
 
-    if (status.kind === "error") {
-        return <div className="atlas-status error">Failed to render Embedding Atlas: {status.message}</div>;
-    }
-    if (status.kind !== "ready" || !dataProps) {
-        return <div className="atlas-status">{status.message}</div>;
-    }
-    return <EmbeddingAtlas coordinator={coordinator} data={dataProps} />;
+    return (
+        <>
+            {status.kind !== "ready" && (
+                <div id="message">
+                    {status.kind === "error" ? (
+                        <>
+                            <strong>Error:</strong> {status.message}
+                        </>
+                    ) : (
+                        status.message
+                    )}
+                </div>
+            )}
+            {status.kind === "ready" && dataProps && <EmbeddingAtlas coordinator={coordinator} data={dataProps} />}
+        </>
+    );
 }
