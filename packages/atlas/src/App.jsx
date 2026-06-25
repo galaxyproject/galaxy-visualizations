@@ -2,20 +2,16 @@ import { useEffect, useState } from "react";
 import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
 import { EmbeddingAtlas } from "embedding-atlas/react";
 
+/* Local dev fixture used when no real Galaxy dataset is selected. */
+const TEST_DATASET_ID = "__test__";
+const TEST_DATA_FILE = "test-data/test.csv";
+const TEST_DATA_EXTENSION = "csv";
+
 const TABLE_NAME = "atlas_data";
 const VIRTUAL_FILE = "dataset";
 
-/* Build the DuckDB SELECT for a virtual filename based on the Galaxy
- * extension. Extensions match the data_sources block in atlas.xml.
- *
- * Honors Galaxy's three different tabular contracts (see
- * ~/claude/tabular-types/comparison.md):
- *   - tabular  : no header row, # comments recognised, tab-delimited
- *   - tsv      : always a header row, no comment recognition, tab-delimited
- *   - csv      : always a header row, no comment recognition, comma-delimited
- *
- * Mismatching these would feed Atlas a column named after the first data
- * row of a tabular file, or drop a real header row of a tsv. */
+/* DuckDB read expression for a Galaxy extension. Tabular has no header
+ * and recognises `#` comments; tsv and csv always carry a header. */
 function readExpression(ext) {
     const e = (ext || "").toLowerCase();
     if (e === "parquet") return `read_parquet('${VIRTUAL_FILE}')`;
@@ -30,14 +26,13 @@ function readExpression(ext) {
     return `read_csv_auto('${VIRTUAL_FILE}', header=true)`;
 }
 
-/* Pick two projection columns. Honors explicit names if present,
- * otherwise falls back to known synonyms, then to the first two numerics. */
-function pickProjection(columns, types, hint) {
-    const wanted = (hint || {}).projection || {};
-    const named = (n) => n && columns.find((c) => c.toLowerCase() === String(n).toLowerCase());
+/* Pick two projection columns by name synonyms, falling back to the first
+ * two numeric columns. */
+function pickProjection(columns, types) {
+    const named = (n) => columns.find((c) => c.toLowerCase() === n.toLowerCase());
     const synonyms = (...names) => names.map(named).find(Boolean);
-    const x = named(wanted.x) || synonyms("x", "UMAP_1", "umap_1", "tsne_1", "longitude");
-    const y = named(wanted.y) || synonyms("y", "UMAP_2", "umap_2", "tsne_2", "latitude");
+    const x = synonyms("x", "UMAP_1", "umap_1", "tsne_1", "longitude");
+    const y = synonyms("y", "UMAP_2", "umap_2", "tsne_2", "latitude");
     if (x && y) return { x, y };
     const numeric = columns.filter((c, i) =>
         /^(BIG|TINY|SMALL|U?INT|DECIMAL|DOUBLE|FLOAT|REAL|HUGEINT)/.test((types[i] || "").toUpperCase()),
@@ -45,12 +40,8 @@ function pickProjection(columns, types, hint) {
     return { x: numeric[0] || columns[0], y: numeric[1] || columns[1] };
 }
 
-/* Pick an id and text column when not explicitly named. */
-function pickColumn(columns, hint, candidates) {
-    if (hint) {
-        const m = columns.find((c) => c.toLowerCase() === hint.toLowerCase());
-        if (m) return m;
-    }
+/* Pick an id or text column from a list of candidate names. */
+function pickColumn(columns, candidates) {
     for (const c of candidates) {
         const m = columns.find((col) => col.toLowerCase() === c);
         if (m) return m;
@@ -58,22 +49,31 @@ function pickColumn(columns, hint, candidates) {
     return undefined;
 }
 
-/* Resolve the Galaxy extension when not provided on `incoming`. */
-async function resolveExtension(root, datasetId, fallbackUrl) {
-    try {
-        const r = await fetch(`${root}api/datasets/${datasetId}`);
-        if (r.ok) {
-            const meta = await r.json();
-            if (meta && meta.extension) return String(meta.extension).toLowerCase();
+/* Fetch the dataset bytes + Galaxy extension. */
+async function fetchDataset(root, datasetId) {
+    if (datasetId === TEST_DATASET_ID) {
+        const response = await fetch(TEST_DATA_FILE);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} fetching local test fixture ${TEST_DATA_FILE}`);
         }
-    } catch (_e) {
-        /* fall through */
+        const buffer = new Uint8Array(await response.arrayBuffer());
+        return { buffer, ext: TEST_DATA_EXTENSION };
     }
-    const tail = (fallbackUrl || "").split(".").pop() || "";
-    if (["csv", "tsv", "tabular", "parquet", "jsonl", "ndjson"].includes(tail.toLowerCase())) {
-        return tail.toLowerCase();
+    const metaResponse = await fetch(`${root}api/datasets/${datasetId}`);
+    if (!metaResponse.ok) {
+        throw new Error(`HTTP ${metaResponse.status} fetching dataset metadata from Galaxy`);
     }
-    return "csv";
+    const meta = await metaResponse.json();
+    const ext = String(meta.extension || "").toLowerCase();
+    if (!ext) {
+        throw new Error("Galaxy dataset metadata is missing the extension field");
+    }
+    const dataResponse = await fetch(`${root}api/datasets/${datasetId}/display`);
+    if (!dataResponse.ok) {
+        throw new Error(`HTTP ${dataResponse.status} fetching dataset content from Galaxy`);
+    }
+    const buffer = new Uint8Array(await dataResponse.arrayBuffer());
+    return { buffer, ext };
 }
 
 export default function App({ incoming }) {
@@ -87,42 +87,26 @@ export default function App({ incoming }) {
         async function load() {
             try {
                 const root = incoming.root || "/";
-                const cfg = incoming.visualization_config || {};
-                const datasetUrl =
-                    cfg.dataset_url || (cfg.dataset_id ? `${root}api/datasets/${cfg.dataset_id}/display` : null);
-                if (!datasetUrl) {
-                    throw new Error("No dataset URL or id provided.");
+                const datasetId = (incoming.visualization_config || {}).dataset_id;
+                if (!datasetId) {
+                    throw new Error("No dataset id provided.");
                 }
 
                 setStatus({ kind: "loading", message: "Connecting to DuckDB-WASM…" });
                 const connector = wasmConnector();
                 coordinator.databaseConnector(connector);
-                /* Force lazy DB init now so registerFileBuffer is available. */
                 const db = await connector.getDuckDB();
 
-                /* DuckDB-WASM treats relative URLs as local file paths and
-                 * routes absolute URLs through its own httpfs (which bypasses
-                 * the browser network stack and thus playwright's route
-                 * interceptor). Fetch via the browser ourselves so the
-                 * standard auth/proxy/intercept chain applies, then register
-                 * the result as a virtual file inside the WASM filesystem. */
+                /* Fetch in the browser and register as a virtual file so
+                 * the standard auth/proxy chain applies. */
                 setStatus({ kind: "loading", message: "Fetching dataset…" });
-                const response = await fetch(datasetUrl);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status} fetching dataset`);
-                }
-                const buffer = new Uint8Array(await response.arrayBuffer());
+                const { buffer, ext } = await fetchDataset(root, datasetId);
                 await db.registerFileBuffer(VIRTUAL_FILE, buffer);
-
-                const ext =
-                    (cfg.dataset_ext || "").toLowerCase() ||
-                    (cfg.dataset_id ? await resolveExtension(root, cfg.dataset_id, datasetUrl) : "csv");
 
                 setStatus({ kind: "loading", message: "Loading dataset into DuckDB…" });
                 const readExpr = readExpression(ext);
                 await coordinator.exec(`CREATE OR REPLACE TABLE ${TABLE_NAME} AS SELECT * FROM ${readExpr};`);
 
-                /* Discover schema */
                 const schemaResult = await coordinator.query(
                     `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${TABLE_NAME}'`,
                 );
@@ -131,15 +115,9 @@ export default function App({ incoming }) {
                 const types = rows.map((r) => r.data_type);
                 if (cancelled) return;
 
-                const projection = pickProjection(columns, types, cfg);
-                const idCol = pickColumn(columns, cfg.id_column, ["id", "identifier", "index"]);
-                const textCol = pickColumn(columns, cfg.text_column, [
-                    "text",
-                    "label",
-                    "name",
-                    "title",
-                    "description",
-                ]);
+                const projection = pickProjection(columns, types);
+                const idCol = pickColumn(columns, ["id", "identifier", "index"]);
+                const textCol = pickColumn(columns, ["text", "label", "name", "title", "description"]);
 
                 /* Atlas needs a stable id column; synthesise one if missing. */
                 if (!idCol) {
