@@ -1,6 +1,28 @@
 import { useEffect, useState } from "react";
 import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
 import { EmbeddingAtlas } from "embedding-atlas/react";
+import * as duckdb from "@duckdb/duckdb-wasm";
+
+/* DuckDB-WASM bundle URLs resolved at build time by Vite's `?url` loader.
+ * Files end up in `static/` alongside index.js so the plugin is fully
+ * self-contained — no jsdelivr fetch at runtime. */
+import duckdbMvpWasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
+import duckdbMvpWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";
+import duckdbEhWasm from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
+import duckdbEhWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
+
+const DUCKDB_BUNDLES = {
+    mvp: { mainModule: duckdbMvpWasm, mainWorker: duckdbMvpWorker },
+    eh: { mainModule: duckdbEhWasm, mainWorker: duckdbEhWorker },
+};
+
+async function createDuckDBConnector() {
+    const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
+    const worker = new Worker(bundle.mainWorker);
+    const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+    await db.instantiate(bundle.mainModule);
+    return wasmConnector({ duckdb: db });
+}
 
 /* Local dev fixture used when no real Galaxy dataset is selected. */
 const TEST_DATASET_ID = "__test__";
@@ -98,7 +120,7 @@ export default function App({ incoming }) {
                 }
 
                 setStatus({ kind: "loading", message: "Connecting to DuckDB-WASM…" });
-                const connector = wasmConnector();
+                const connector = await createDuckDBConnector();
                 coordinator.databaseConnector(connector);
                 const db = await connector.getDuckDB();
 

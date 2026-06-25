@@ -12,6 +12,7 @@
         "test:update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {
+        "@duckdb/duckdb-wasm": "^1.30.0",
         "@playwright/test": "^1.60.0",
         "@uwdata/mosaic-core": "^0.21.1",
         "@vitejs/plugin-react": "^4.3.4",
