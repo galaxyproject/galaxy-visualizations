@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
 <visualization name="Embedding Atlas" embeddable="true">
-    <description>Interactive embedding visualization with clustering and search</description>
+    <description>Interactive embedding with clustering and search</description>
     <tags>
         <tag>embedding</tag>
         <tag>scatter</tag>
