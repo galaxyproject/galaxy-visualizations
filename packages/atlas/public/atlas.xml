@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="Embedding Atlas" embeddable="true">
+    <description>Interactive embedding with clustering and search</description>
+    <tags>
+        <tag>embedding</tag>
+        <tag>scatter</tag>
+        <tag>UMAP</tag>
+        <tag>t-SNE</tag>
+        <tag>clustering</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">csv</test>
+            <test test_attr="ext">tsv</test>
+            <test test_attr="ext">tabular</test>
+            <test test_attr="ext">parquet</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.csv" ftype="csv" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is Embedding Atlas?
+
+**Embedding Atlas** is an interactive visualization tool from Apple for exploring large embedding datasets. It renders millions of points with kernel density estimation, automatic clustering and labeling, and real-time nearest-neighbor search, with linked dashboards for cross-filtering by metadata.
+
+For best performance, use a **WebGPU-capable browser** such as recent **Chrome** or **Chromium**.
+
+## Input columns
+
+The plugin looks for these columns (case-insensitive) and falls back if they're missing:
+
+- **`x`, `y`** (or `UMAP_1`/`UMAP_2`, `tsne_1`/`tsne_2`, `longitude`/`latitude`) — 2D projection. Fallback: first two numeric columns.
+- **`id`** / `identifier` / `index` — point identifier. Fallback: row number.
+- **`text`** / `label` / `name` / `title` / `description` — drives tooltip and search.
+
+Any other columns become metadata for coloring, filtering, and faceting.
+
+At least two numeric columns are required.
+
+## Key features
+
+- **Density-aware rendering**: kernel density contours separate dense regions from outliers.
+- **Automatic clustering and labels**: navigate structure without pre-computing clusters.
+- **Real-time search**: find similar points by query or by example.
+- **Linked dashboards**: bar, line, bubble, and other charts cross-filter the embedding view.
+- **Multimodal metadata**: text, image, audio, numeric, categorical, and time columns are rendered with appropriate viewers.
+
+To learn more about Embedding Atlas, visit:
+[https://apple.github.io/embedding-atlas](https://apple.github.io/embedding-atlas)
+    ]]></help>
+</visualization>
