@@ -1,0 +1,34 @@
+{
+    "name": "@finn2400/rmsx-flipbook",
+    "description": "RMSX Flipbook Galaxy visualization for rmsx.json viewer manifests rendered with bundled Molstar.",
+    "keywords": [
+        "galaxy",
+        "charts",
+        "rmsx",
+        "flipbook",
+        "molstar"
+    ],
+    "license": "MIT",
+    "version": "0.0.1",
+    "type": "module",
+    "publishConfig": {
+        "access": "public"
+    },
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "check": "node --check src/main.js",
+        "prepack": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --write 'package.json' 'src/**/*.js' 'test.spec.js'",
+        "test": "playwright test"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.60.0",
+        "prettier": "^3.5.3",
+        "vite": "^6.0.0"
+    }
+}
