@@ -32,20 +32,19 @@
 
 **Embedding Atlas** is an interactive visualization tool from Apple for exploring large embedding datasets. It renders millions of points with kernel density estimation, automatic clustering and labeling, and real-time nearest-neighbor search, with linked dashboards for cross-filtering by metadata.
 
-Once you select a compatible dataset, the plugin loads it into an in-browser DuckDB engine and hands it to the Embedding Atlas component.
-
 For best performance, use a **WebGPU-capable browser** such as recent **Chrome** or **Chromium**.
 
-## Input dataset
+## Input columns
 
-The dataset must be a table (CSV, TSV, tabular, or Parquet) containing the two-dimensional projection of each point in columns named **`x`** and **`y`** (case-insensitive; `UMAP_1`/`UMAP_2` are also recognised). If those columns aren't present, the first two numeric columns are used.
+The plugin looks for these columns (case-insensitive) and falls back if they're missing:
 
-Optional columns the plugin will auto-detect:
+- **`x`, `y`** (or `UMAP_1`/`UMAP_2`, `tsne_1`/`tsne_2`, `longitude`/`latitude`) — 2D projection. Fallback: first two numeric columns.
+- **`id`** / `identifier` / `index` — point identifier. Fallback: row number.
+- **`text`** / `label` / `name` / `title` / `description` — drives tooltip and search.
 
-- **`id`** / `identifier` / `index` — stable per-point identifier (otherwise the row number is used)
-- **`text`** / `label` / `name` / `title` / `description` — drives the tooltip and search
+Any other columns become metadata for coloring, filtering, and faceting.
 
-Any additional columns become metadata that can be used for coloring, filtering, and faceting inside Atlas.
+At least two numeric columns are required.
 
 ## Key features
 

@@ -27,7 +27,7 @@ function readExpression(ext) {
 }
 
 /* Pick two projection columns by name synonyms, falling back to the first
- * two numeric columns. */
+ * two numeric columns. Throws if the dataset has fewer than two numerics. */
 function pickProjection(columns, types) {
     const named = (n) => columns.find((c) => c.toLowerCase() === n.toLowerCase());
     const synonyms = (...names) => names.map(named).find(Boolean);
@@ -37,7 +37,12 @@ function pickProjection(columns, types) {
     const numeric = columns.filter((c, i) =>
         /^(BIG|TINY|SMALL|U?INT|DECIMAL|DOUBLE|FLOAT|REAL|HUGEINT)/.test((types[i] || "").toUpperCase()),
     );
-    return { x: numeric[0] || columns[0], y: numeric[1] || columns[1] };
+    if (numeric.length < 2) {
+        throw new Error(
+            "Need at least two numeric columns for a 2D scatter; add an `x`/`y` projection to the dataset.",
+        );
+    }
+    return { x: numeric[0], y: numeric[1] };
 }
 
 /* Pick an id or text column from a list of candidate names. */
