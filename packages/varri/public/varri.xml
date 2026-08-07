@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="vaRRI" embeddable="true">
+    <description>Visual annotation of RNA-RNA interactions</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">json</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="varri.js" type="module" />
+    <help format="markdown"><![CDATA[
+# vaRRI - Visual Annotation of RNA-RNA Interactions
+
+vaRRI-js visualizes the base pairing of RNA-RNA interactions (RRIs) as 2D diagrams with additional annotation like:
+
+- coloring by sequence or loop type,
+- highlighting of RRI regions,
+- subsequence highlightings,
+- point mutation information or
+- probability profile representations.
+
+## Input
+
+The dataset must be a JSON file containing a flat object of vaRRI URL parameters.
+All keys are optional except `sequence` and `structure`:
+
+```json
+{
+  "sequence": "AACUCGCGAAAGCCAUAAAAACCAGGGAGACA&UUCCCUGGUGUUGGCGCAGUAUUCGCGCA",
+  "structure": "....((((((.((((.....((((((((....&.))))))))..))))......))))))..",
+  "startIndex1": -35,
+  "startIndex2": 2,
+  "subseqHighlights": "1:-12--6:0dec3f:0.9",
+  "mutations": "1:-14G:fb0bcb,1:-13G:fb0bcb,2:8C:fb0bcb,2:9C:fb0bcb",
+  "forceLayout": "off"
+}
+```
+
+- **Sequence**: IUPAC nucleotide sequences of both interacting molecules, separated by `&`.
+- **Structure**: dot-bracket secondary structure of both molecules, separated by `&`.
+- A wrapper object `{"vaRRIParams": {...}}` is also accepted.
+
+## Features
+
+- Interactive zoom, pan and rotation
+- SVG and PNG export
+- Region, subsequence and point mutation annotations
+- Probability profile representations
+
+Learn more at: [https://github.com/BackofenLab/vaRRI-js](https://github.com/BackofenLab/vaRRI-js)
+    ]]></help>
+</visualization>

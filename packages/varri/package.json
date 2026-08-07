@@ -1,0 +1,15 @@
+{
+    "name": "@galaxyproject/varri",
+    "version": "0.0.0",
+    "type": "module",
+    "description": "Galaxy visualization for vaRRI - visual annotation of RNA-RNA interactions",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "build": "node scripts/fetch_upstream.mjs",
+        "fetch-upstream": "node scripts/fetch_upstream.mjs",
+        "test": "npm run build && node --test tests/*.test.mjs"
+    }
+}
