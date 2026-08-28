@@ -185,7 +185,31 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
         maxDiffPixelRatio: 0.07,
         timeout: 20000,
     });
-    expectNineClustersInOneRow(await renderedProteinClusters(page));
+    const beforeDrag = await renderedProteinClusters(page);
+    expectNineClustersInOneRow(beforeDrag);
+
+    const viewport = page.locator("#molstarViewport");
+    const canvas = viewport.locator("canvas");
+    await canvas.evaluate((element) => element.setAttribute("data-drag-regression", "original-canvas"));
+    const box = await viewport.boundingBox();
+    expect(box).not.toBeNull();
+    const start = {
+        x: box.x + box.width * 0.42,
+        y: box.y + box.height * 0.5,
+    };
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 90, start.y + 60, { steps: 6 });
+    await page.mouse.up();
+    await expect(page.getByTestId("molstar-rotation-y-number")).not.toHaveValue("0");
+    await page.waitForTimeout(500);
+
+    await expect(canvas).toHaveAttribute("data-drag-regression", "original-canvas");
+    const afterDrag = await renderedProteinClusters(page);
+    expectNineClustersInOneRow(afterDrag);
+    const beforeSpan = beforeDrag.clusters.at(-1).centerX - beforeDrag.clusters[0].centerX;
+    const afterSpan = afterDrag.clusters.at(-1).centerX - afterDrag.clusters[0].centerX;
+    expect(Math.abs(afterSpan - beforeSpan)).toBeLessThan(beforeDrag.width * 0.03);
 
     await page.getByText("Rotation", { exact: true }).click();
     await page.getByTestId("molstar-rotation-y-number").fill("45");

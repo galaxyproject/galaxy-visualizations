@@ -1,4 +1,5 @@
 import { Viewer } from "molstar/lib/apps/viewer/app";
+import { Binding } from "molstar/lib/mol-util/binding";
 import "molstar/build/viewer/molstar.css";
 import "./main.css";
 
@@ -852,6 +853,38 @@ import "./main.css";
         ];
     }
 
+    function molstarTransformFromBaked(record) {
+        const base = record.bakedSceneTransform;
+        const current = sceneTransformForSlice(record.slice, record.index);
+        const inverseBaseRotation = [
+            [base.matrix[0][0], base.matrix[1][0], base.matrix[2][0]],
+            [base.matrix[0][1], base.matrix[1][1], base.matrix[2][1]],
+            [base.matrix[0][2], base.matrix[1][2], base.matrix[2][2]],
+        ];
+        const r = multiplyMatrices(current.matrix, inverseBaseRotation);
+        const tx = current.target.x - (r[0][0] * base.target.x + r[0][1] * base.target.y + r[0][2] * base.target.z);
+        const ty = current.target.y - (r[1][0] * base.target.x + r[1][1] * base.target.y + r[1][2] * base.target.z);
+        const tz = current.target.z - (r[2][0] * base.target.x + r[2][1] * base.target.y + r[2][2] * base.target.z);
+        return [
+            r[0][0],
+            r[1][0],
+            r[2][0],
+            0,
+            r[0][1],
+            r[1][1],
+            r[2][1],
+            0,
+            r[0][2],
+            r[1][2],
+            r[2][2],
+            0,
+            tx,
+            ty,
+            tz,
+            1,
+        ];
+    }
+
     function selectedResiduePdb(slice, index, applySceneTransform = true) {
         if (!state.marker || !state.selectedResidueKey) {
             return { pdb: "", atomCount: 0 };
@@ -1107,6 +1140,18 @@ import "./main.css";
             viewportShowAnimation: false,
         });
         applyMolstarRenderStyle();
+        const canvas3d = viewer?.plugin?.canvas3d;
+        const trackballBindings = canvas3d?.attribs?.trackball?.bindings;
+        if (canvas3d?.setAttribs && trackballBindings) {
+            canvas3d.setAttribs({
+                trackball: {
+                    bindings: {
+                        ...trackballBindings,
+                        dragRotate: Binding.Empty,
+                    },
+                },
+            });
+        }
         setupViewportResizeObserver();
     }
 
@@ -1283,7 +1328,9 @@ import "./main.css";
         }
         const visible = isSliceVisible(record.index) && (record.kind !== "marker" || state.marker);
         repr.setState({
-            transform: molstarTransformForSlice(record.slice, record.index),
+            transform: record.bakedSceneTransform
+                ? molstarTransformFromBaked(record)
+                : molstarTransformForSlice(record.slice, record.index),
             visible,
             pickable: visible,
         });
@@ -1384,18 +1431,54 @@ import "./main.css";
             (left, right) => Math.abs(left.index - centerIndex) - Math.abs(right.index - centerIndex),
         );
         for (const entry of entries) {
+            const bakedSceneTransform = sceneTransformForSlice(entry.slice, entry.index);
             if (hasMask) {
                 const unmasked = transformedPdb(entry.slice, entry.index, "unmasked", true);
-                await addStructure(plugin, unmasked.pdb, `${entry.slice.label} unmasked`, 1, false);
+                const unmaskedRep = await addStructure(plugin, unmasked.pdb, `${entry.slice.label} unmasked`, 1, false);
+                state.records.push({
+                    ...entry,
+                    bakedSceneTransform,
+                    kind: "unmasked",
+                    representation: unmaskedRep,
+                });
                 const masked = transformedPdb(entry.slice, entry.index, "masked", true);
-                await addStructure(plugin, masked.pdb, `${entry.slice.label} masked`, REPORT.maskOpacity || 0.3, false);
+                const maskedRep = await addStructure(
+                    plugin,
+                    masked.pdb,
+                    `${entry.slice.label} masked`,
+                    REPORT.maskOpacity || 0.3,
+                    false,
+                );
+                state.records.push({
+                    ...entry,
+                    bakedSceneTransform,
+                    kind: "masked",
+                    representation: maskedRep,
+                });
             } else {
                 const all = transformedPdb(entry.slice, entry.index, "all", true);
-                await addStructure(plugin, all.pdb, entry.slice.label, 1, false);
+                const representation = await addStructure(plugin, all.pdb, entry.slice.label, 1, false);
+                state.records.push({ ...entry, bakedSceneTransform, kind: "all", representation });
             }
             const marker = selectedResiduePdb(entry.slice, entry.index, true);
-            await addStructure(plugin, marker.pdb, `${entry.slice.label} selected residue`, 0.86, true);
+            const markerRep = await addStructure(
+                plugin,
+                marker.pdb,
+                `${entry.slice.label} selected residue`,
+                0.86,
+                true,
+            );
+            if (markerRep) {
+                state.records.push({
+                    ...entry,
+                    bakedSceneTransform,
+                    kind: "marker",
+                    representation: markerRep,
+                });
+            }
         }
+        state.loaded = true;
+        applyLiveTransforms(false);
         if (autoView !== false) {
             resetView();
             schedulePostLayoutReset();
@@ -1408,7 +1491,7 @@ import "./main.css";
         if (!REPORT) {
             return;
         }
-        if (!state.forceCoordinateFallback && state.loaded && state.liveTransforms) {
+        if (state.loaded && state.liveTransforms) {
             applyLiveTransforms(autoView !== false);
             return;
         }
@@ -1750,8 +1833,7 @@ import "./main.css";
     function reloadScene(autoView = false) {
         state.loaded = false;
         state.liveTransforms = false;
-        // Coordinate fallback recreates Molstar, so its new camera must refit the complete flipbook.
-        renderScene(autoView || state.forceCoordinateFallback);
+        renderScene(autoView);
     }
 
     function queueSceneReload(autoView = false, delay = 120) {
@@ -1976,48 +2058,56 @@ import "./main.css";
         elements.radiusMaxNumber.addEventListener("input", (event) => updateRadiusRange("max", event.target.value));
         elements.radiusMaxNumber.addEventListener("change", (event) => updateRadiusRange("max", event.target.value));
         elements.resetScaleButton.addEventListener("click", resetScale);
-        elements.viewport.addEventListener("pointerdown", (event) => {
-            if (!state.localDrag || event.button !== 0) {
-                return;
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            dragState = {
-                pointerId: event.pointerId,
-                x: event.clientX,
-                y: event.clientY,
-                axes: currentScreenRotationAxes(),
-            };
-            elements.viewport.classList.add("dragging");
-            elements.viewport.setPointerCapture?.(event.pointerId);
-        });
-        elements.viewport.addEventListener("pointermove", (event) => {
-            if (!dragState || dragState.pointerId !== event.pointerId) {
-                return;
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            const coalesced = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
-            const samples = coalesced.length ? coalesced : [event];
-            const latest = samples[samples.length - 1] || event;
-            const dx = latest.clientX - dragState.x;
-            const dy = latest.clientY - dragState.y;
-            const axes = dragState.axes || currentScreenRotationAxes();
-            dragState = {
-                pointerId: event.pointerId,
-                x: latest.clientX,
-                y: latest.clientY,
-                axes,
-            };
-            if (dx === 0 && dy === 0) {
-                return;
-            }
-            applyScreenRotationDrag(dx, dy, axes);
-            syncRotationControls();
-            queueInteractiveGeometryUpdate(false);
-        });
+        elements.viewport.addEventListener(
+            "pointerdown",
+            (event) => {
+                if (!state.localDrag || event.button !== 0) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                dragState = {
+                    pointerId: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    axes: currentScreenRotationAxes(),
+                };
+                elements.viewport.classList.add("dragging");
+                elements.viewport.setPointerCapture?.(event.pointerId);
+            },
+            true,
+        );
+        elements.viewport.addEventListener(
+            "pointermove",
+            (event) => {
+                if (!dragState || dragState.pointerId !== event.pointerId) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                const coalesced = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
+                const samples = coalesced.length ? coalesced : [event];
+                const latest = samples[samples.length - 1] || event;
+                const dx = latest.clientX - dragState.x;
+                const dy = latest.clientY - dragState.y;
+                const axes = dragState.axes || currentScreenRotationAxes();
+                dragState = {
+                    pointerId: event.pointerId,
+                    x: latest.clientX,
+                    y: latest.clientY,
+                    axes,
+                };
+                if (dx === 0 && dy === 0) {
+                    return;
+                }
+                applyScreenRotationDrag(dx, dy, axes);
+                syncRotationControls();
+                queueInteractiveGeometryUpdate(false);
+            },
+            true,
+        );
         const endDrag = (event) => {
-            if (dragState && dragState.pointerId !== event.pointerId) {
+            if (!dragState || dragState.pointerId !== event.pointerId) {
                 return;
             }
             dragState = null;
@@ -2025,8 +2115,8 @@ import "./main.css";
             elements.viewport.releasePointerCapture?.(event.pointerId);
             queueGeometryUpdate(false, 20);
         };
-        elements.viewport.addEventListener("pointerup", endDrag);
-        elements.viewport.addEventListener("pointercancel", endDrag);
+        elements.viewport.addEventListener("pointerup", endDrag, true);
+        elements.viewport.addEventListener("pointercancel", endDrag, true);
         document.addEventListener("keydown", (event) => {
             if (event.target && ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) {
                 return;
