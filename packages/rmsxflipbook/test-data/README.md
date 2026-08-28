@@ -13,9 +13,12 @@ the RMSX repository's two-chain protease fixtures:
 - RMSX revision `32c012f49bfb19fa851ab09ff5fe36825c7a229a`
 
 The manifest contains 198 C-alpha residues across chains A and B in each of
-nine timepoints. `protease-multichain-row.png` is its Playwright baseline. The
-multi-chain test also inspects the rendered canvas and requires nine distinct,
-non-overlapping molecular clusters aligned in one horizontal row.
+nine timepoints, per-chain RMSD/RMSF arrays, per-slice time bounds, and logical
+chain atom ranges. `protease-multichain-row.png` is the Structures baseline;
+the Analysis baselines cover 2000x1100, 1440x900, and 552x993. The multi-chain
+test also inspects the rendered canvas and requires nine distinct,
+non-overlapping molecular clusters in both chain lanes and the full-assembly
+lane before and after synchronized rotation.
 
 The source RMSX repository and these derived test artifacts are distributed
 under the MIT License.

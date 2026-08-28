@@ -11,6 +11,7 @@ export default defineConfig({
         launchOptions: {
             // Modern Chromium gates software WebGL behind this flag; Molstar needs it to render headless.
             args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+            executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
         },
     },
     webServer: {
