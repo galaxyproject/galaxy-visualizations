@@ -1750,7 +1750,8 @@ import "./main.css";
     function reloadScene(autoView = false) {
         state.loaded = false;
         state.liveTransforms = false;
-        renderScene(autoView);
+        // Coordinate fallback recreates Molstar, so its new camera must refit the complete flipbook.
+        renderScene(autoView || state.forceCoordinateFallback);
     }
 
     function queueSceneReload(autoView = false, delay = 120) {
