@@ -1379,7 +1379,11 @@ import "./main.css";
         }
         const plugin = viewer.plugin;
         const hasMask = (REPORT.maskSummary?.maskedKeys || []).length > 0;
-        for (const entry of activeEntries()) {
+        const centerIndex = (REPORT.slices.length - 1) / 2;
+        const entries = activeEntries().sort(
+            (left, right) => Math.abs(left.index - centerIndex) - Math.abs(right.index - centerIndex),
+        );
+        for (const entry of entries) {
             if (hasMask) {
                 const unmasked = transformedPdb(entry.slice, entry.index, "unmasked", true);
                 await addStructure(plugin, unmasked.pdb, `${entry.slice.label} unmasked`, 1, false);
@@ -2056,6 +2060,8 @@ import "./main.css";
         try {
             REPORT = await fetchManifest();
             validateManifest(REPORT);
+            state.forceCoordinateFallback =
+                new Set(REPORT.residues.map((residue) => residue.chain).filter(Boolean)).size > 1;
             document.title = REPORT.title || "RMSX Flipbook";
             populateControls();
             wireEvents();
