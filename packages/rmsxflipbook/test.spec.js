@@ -407,6 +407,20 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
         await page.waitForTimeout(700);
         expectNineClustersInOneRow(await renderedProteinClusters(page));
     }
+    for (const spacing of ["0.34", "0.31", "0.38", "0.3"]) {
+        await spacingNumber.fill(spacing);
+        await page.waitForTimeout(140);
+    }
+    await expect(page.locator("#molstarViewport")).toHaveAttribute("data-scene-reloading", "true");
+    await expect(page.locator("#molstarViewport")).toHaveAttribute("data-scene-reloading", "false", {
+        timeout: 90000,
+    });
+    expectNineClustersInOneRow(await renderedProteinClusters(page));
+    await spacingNumber.fill("0.5");
+    await expect(page.locator("#molstarViewport")).toHaveAttribute("data-scene-reloading", "true");
+    await expect(page.locator("#molstarViewport")).toHaveAttribute("data-scene-reloading", "false", {
+        timeout: 90000,
+    });
     await page.getByTestId("molstar-rotation-z-number").fill("0");
     await page.waitForTimeout(400);
     expectNineClustersInOneRow(await renderedProteinClusters(page));

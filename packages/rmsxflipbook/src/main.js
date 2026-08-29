@@ -53,6 +53,9 @@ import "./main.css";
     let dragState = null;
     let renderToken = 0;
     let queuedSceneUpdate = null;
+    let sceneReloadPromise = null;
+    let sceneReloadRequested = false;
+    let sceneReloadAutoView = false;
     let interactiveFrame = null;
     let resizeObserver = null;
     let resizeResetTimer = null;
@@ -1372,18 +1375,21 @@ import "./main.css";
 
     function schedulePostLayoutReset() {
         if (!state.loaded) {
-            return;
+            return Promise.resolve();
         }
         const resetAfterLayout = () => {
             requestMolstarDraw();
             resetView();
         };
         const scheduleFrame = window.requestAnimationFrame || ((callback) => window.setTimeout(callback, 16));
-        scheduleFrame(() => {
+        return new Promise((resolve) => {
             scheduleFrame(() => {
-                resetAfterLayout();
-                window.setTimeout(resetAfterLayout, 180);
-                window.setTimeout(resetAfterLayout, 700);
+                scheduleFrame(() => {
+                    resetAfterLayout();
+                    scheduleFrame(resolve);
+                    window.setTimeout(resetAfterLayout, 180);
+                    window.setTimeout(resetAfterLayout, 700);
+                });
             });
         });
     }
@@ -1932,7 +1938,7 @@ import "./main.css";
         applyLiveTransforms(false);
         if (autoView !== false) {
             resetView();
-            schedulePostLayoutReset();
+            await schedulePostLayoutReset();
         }
         setLoadedSceneStatus();
         updateMetrics();
@@ -3323,9 +3329,26 @@ import "./main.css";
     }
 
     function reloadScene(autoView = false) {
-        state.loaded = false;
-        state.liveTransforms = false;
-        renderScene(autoView);
+        sceneReloadRequested = true;
+        sceneReloadAutoView = sceneReloadAutoView || autoView;
+        if (sceneReloadPromise) {
+            return sceneReloadPromise;
+        }
+        elements.viewport.dataset.sceneReloading = "true";
+        sceneReloadPromise = (async () => {
+            while (sceneReloadRequested) {
+                const nextAutoView = sceneReloadAutoView;
+                sceneReloadRequested = false;
+                sceneReloadAutoView = false;
+                state.loaded = false;
+                state.liveTransforms = false;
+                await renderScene(nextAutoView);
+            }
+        })().finally(() => {
+            sceneReloadPromise = null;
+            elements.viewport.dataset.sceneReloading = "false";
+        });
+        return sceneReloadPromise;
     }
 
     function queueSceneReload(autoView = false, delay = 120) {
