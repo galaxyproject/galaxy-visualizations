@@ -415,6 +415,7 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
     await expect(page.locator("#molstarViewport")).toHaveAttribute("data-scene-reloading", "false", {
         timeout: 90000,
     });
+    await expect.poll(async () => (await renderedProteinClusters(page)).clusters.length, { timeout: 15000 }).toBe(9);
     expectNineClustersInOneRow(await renderedProteinClusters(page));
     await spacingNumber.fill("0.5");
     await expect(page.locator("#molstarViewport")).toHaveAttribute("data-scene-reloading", "true");

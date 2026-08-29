@@ -1386,7 +1386,7 @@ import "./main.css";
             scheduleFrame(() => {
                 scheduleFrame(() => {
                     resetAfterLayout();
-                    scheduleFrame(resolve);
+                    scheduleFrame(() => window.setTimeout(resolve, 80));
                     window.setTimeout(resetAfterLayout, 180);
                     window.setTimeout(resetAfterLayout, 700);
                 });
