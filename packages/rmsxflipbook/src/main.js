@@ -46,6 +46,7 @@ import "./main.css";
     const VIEW_MODES = new Set(["structures", "heatmap", "analysis"]);
     const CONTROL_PANEL_KEYS = ["view", "style", "rotation", "metrics"];
     const RENDER_PRESETS = new Set(["clean-interactive", "soft"]);
+    const COMPACT_SPACING = Object.freeze({ min: 0.3, max: 0.7, default: 0.5, step: 0.01 });
 
     let REPORT = null;
     let viewer = null;
@@ -120,7 +121,7 @@ import "./main.css";
           <details class="control-panel active" open data-panel="view" data-testid="molstar-panel-layout">
             <summary>View</summary>
             <div class="panel-grid">
-              <label>Spacing <input id="spacingRange" type="range" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-number"></label>
+              <label>Spacing <input id="spacingRange" type="range" min="0.3" max="0.7" value="0.5" step="0.01" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0.3" max="0.7" value="0.5" step="0.01" data-testid="molstar-spacing-number"></label>
               <label>Cols <input id="columnsNumber" type="number" min="1" value="1" step="1" data-testid="molstar-columns-number"></label>
               <div class="slice-visibility">
                 <div class="field-label">Slices</div>
@@ -433,15 +434,30 @@ import "./main.css";
     }
 
     function minSpacing() {
-        return Number(REPORT.flipbookReference?.minimumSpacingFactor ?? 0.1);
+        const requested = Number(REPORT.flipbookReference?.minimumSpacingFactor ?? COMPACT_SPACING.min);
+        return clamp(
+            Number.isFinite(requested) ? requested : COMPACT_SPACING.min,
+            COMPACT_SPACING.min,
+            COMPACT_SPACING.max,
+        );
     }
 
     function maxSpacing() {
-        return Number(REPORT.flipbookReference?.maximumSpacingFactor ?? 2.5);
+        const requested = Number(REPORT.flipbookReference?.maximumSpacingFactor ?? COMPACT_SPACING.max);
+        return clamp(Number.isFinite(requested) ? requested : COMPACT_SPACING.max, minSpacing(), COMPACT_SPACING.max);
     }
 
     function defaultSpacing() {
-        return Number(REPORT.flipbookReference?.defaultSpacingFactor ?? 1);
+        const requested = Number(REPORT.flipbookReference?.defaultSpacingFactor ?? COMPACT_SPACING.default);
+        if (!Number.isFinite(requested) || requested < minSpacing() || requested > maxSpacing()) {
+            return clamp(COMPACT_SPACING.default, minSpacing(), maxSpacing());
+        }
+        return requested;
+    }
+
+    function spacingStep() {
+        const requested = Number(REPORT.flipbookReference?.spacingStepFactor ?? COMPACT_SPACING.step);
+        return Number.isFinite(requested) && requested > 0 ? requested : COMPACT_SPACING.step;
     }
 
     function defaultTileColumns() {
@@ -3239,6 +3255,8 @@ import "./main.css";
         elements.spacingNumber.min = String(minSpacing());
         elements.spacingRange.max = String(maxSpacing());
         elements.spacingNumber.max = String(maxSpacing());
+        elements.spacingRange.step = String(spacingStep());
+        elements.spacingNumber.step = String(spacingStep());
         elements.colorMinNumber.min = String(REPORT.domain.min);
         elements.colorMinNumber.max = String(REPORT.domain.max);
         elements.colorMaxNumber.min = String(REPORT.domain.min);
@@ -3326,6 +3344,14 @@ import "./main.css";
         }, delay);
     }
 
+    function queueTileLayoutUpdate() {
+        if (state.forceCoordinateFallback) {
+            queueSceneReload(true, 100);
+            return;
+        }
+        queueGeometryUpdate(true);
+    }
+
     function queueInteractiveGeometryUpdate(autoView = false) {
         if (interactiveFrame !== null) {
             return;
@@ -3380,7 +3406,7 @@ import "./main.css";
         elements.spacingNumber.value = next.toFixed(3);
         updateMetrics();
         if (state.layout === "tiled") {
-            queueGeometryUpdate(true);
+            queueTileLayoutUpdate();
         }
     }
 
@@ -3396,7 +3422,7 @@ import "./main.css";
         elements.columnsNumber.value = String(next);
         updateMetrics();
         if (state.layout === "tiled") {
-            queueGeometryUpdate(true);
+            queueTileLayoutUpdate();
         }
     }
 
@@ -3614,9 +3640,9 @@ import "./main.css";
                 k: ["rotate-z-negative", () => addRotation("z", -5)],
                 "[": ["thickness-increase", () => updateThickness(state.thickness + 0.05)],
                 "]": ["thickness-decrease", () => updateThickness(state.thickness - 0.05)],
-                "-": ["spacing-decrease", () => updateSpacing(state.spacing - 0.05)],
-                "=": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
-                "+": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
+                "-": ["spacing-decrease", () => updateSpacing(state.spacing - spacingStep())],
+                "=": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
+                "+": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
                 ",": ["color-domain-low-increase", () => updateColorDomain("min", state.colorMin + colorStep)],
                 ".": ["color-domain-high-decrease", () => updateColorDomain("max", state.colorMax - colorStep)],
             };

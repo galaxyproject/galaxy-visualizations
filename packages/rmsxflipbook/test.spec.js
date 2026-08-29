@@ -66,6 +66,7 @@ async function renderedProteinClusters(page) {
                 clusters.push({
                     centerX: (minX + maxX) / 2,
                     centerY: yTotal / coloredPixels,
+                    coloredPixels,
                     maxX,
                     minX,
                 });
@@ -100,6 +101,14 @@ function expectNineClustersInOneRow({ clusters, height }) {
     for (let index = 1; index < clusters.length; index += 1) {
         expect(clusters[index].minX - clusters[index - 1].maxX).toBeGreaterThan(2);
     }
+    const widths = clusters.map(({ maxX, minX }) => maxX - minX + 1).sort((left, right) => left - right);
+    const pixelCounts = clusters.map(({ coloredPixels }) => coloredPixels).sort((left, right) => left - right);
+    const medianWidth = widths[Math.floor(widths.length / 2)];
+    const medianPixels = pixelCounts[Math.floor(pixelCounts.length / 2)];
+    clusters.forEach(({ coloredPixels, maxX, minX }) => {
+        expect(maxX - minX + 1).toBeGreaterThanOrEqual(medianWidth * 0.6);
+        expect(coloredPixels).toBeGreaterThanOrEqual(medianPixels * 0.45);
+    });
 }
 
 async function renderedAnalysisLaneClusters(page, lane) {
@@ -373,6 +382,12 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
     await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
     await expect(page.getByTestId("molstar-slice-chip")).toHaveCount(9);
     await expect(page.getByTestId("molstar-columns-number")).toHaveValue("9");
+    const spacingRange = page.getByTestId("molstar-spacing-range");
+    const spacingNumber = page.getByTestId("molstar-spacing-number");
+    await expect(spacingRange).toHaveAttribute("min", "0.3");
+    await expect(spacingRange).toHaveAttribute("max", "0.7");
+    await expect(spacingRange).toHaveAttribute("step", "0.01");
+    await expect(spacingNumber).toHaveValue("0.5");
     await page.mouse.move(0, 0);
     await page.waitForTimeout(2000);
     await expect(page.locator("#molstarViewport")).toHaveScreenshot("protease-multichain-row.png", {
@@ -381,6 +396,21 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
     });
     const beforeDrag = await renderedProteinClusters(page);
     expectNineClustersInOneRow(beforeDrag);
+
+    await page.getByText("Rotation", { exact: true }).click();
+    await page.getByTestId("molstar-rotation-z-number").fill("90");
+    await page.waitForTimeout(400);
+    for (const spacing of ["0.3", "0.7", "0.5"]) {
+        await spacingNumber.fill(spacing);
+        await expect(page.locator("#status")).toContainText(/Loading|Rendering/, { timeout: 5000 });
+        await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
+        await page.waitForTimeout(700);
+        expectNineClustersInOneRow(await renderedProteinClusters(page));
+    }
+    await page.getByTestId("molstar-rotation-z-number").fill("0");
+    await page.waitForTimeout(400);
+    expectNineClustersInOneRow(await renderedProteinClusters(page));
+    await page.getByText("Rotation", { exact: true }).click();
 
     const viewport = page.locator("#molstarViewport");
     const canvas = viewport.locator("canvas");
