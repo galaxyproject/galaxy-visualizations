@@ -1,5 +1,5 @@
 import type { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
-import { InputDialog } from "@jupyterlab/apputils";
+import { InputDialog, showErrorMessage } from "@jupyterlab/apputils";
 
 import TEMPLATE from "./template.json";
 
@@ -71,6 +71,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 } catch (err) {
                     console.error("❌ Could not load dataset details:", err);
                 }
+                if (!nbContent) {
+                    nbContent = TEMPLATE;
+                    console.warn("⚠️ Falling back to the default notebook");
+                }
             } else {
                 nbContent = TEMPLATE;
                 console.log("✅ Dataset identifer not available, loading default notebook");
@@ -132,22 +136,29 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                     const ext = item.type === "notebook" ? EXTENSION_NOTEBOOK : EXTENSION_FILE;
                                     if (content && historyId) {
                                         const payload = getPayload(name, historyId, content, ext);
-                                        fetch(`${root}api/tools/fetch`, {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify(payload),
-                                        })
-                                            .then((res) => {
-                                                if (!res.ok) {
-                                                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                                                }
-                                                console.log(`✅ Notebook "${name}" saved to history`);
-                                            })
-                                            .catch((err: any) => {
-                                                console.error(`❌ Could not save "${name}" to history:`, err);
+                                        try {
+                                            const res = await fetch(`${root}api/tools/fetch`, {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify(payload),
                                             });
+                                            if (!res.ok) {
+                                                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                                            }
+                                            console.log(`✅ Notebook "${name}" saved to history`);
+                                        } catch (err: any) {
+                                            console.error(`❌ Could not save "${name}" to history:`, err);
+                                            await showErrorMessage(
+                                                "Save to Galaxy failed",
+                                                `"${name}" was not saved to the history: ${err?.message ?? err}`,
+                                            );
+                                        }
                                     } else {
                                         console.error("❌ Could not load content or history identifier.");
+                                        await showErrorMessage(
+                                            "Save to Galaxy failed",
+                                            "The notebook content or the source history identifier is unavailable.",
+                                        );
                                     }
                                 } else {
                                     console.log("🚫 Export to Galaxy canceled by user");
@@ -157,7 +168,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                     }
                 });
             } catch (err) {
-                console.error("❌ Failed to attach commands");
+                console.error("❌ Failed to attach commands:", err);
             }
         });
     },
