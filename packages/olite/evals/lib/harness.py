@@ -71,6 +71,15 @@ class StubGalaxy:
             return []
         if "api/pages" in path:
             return []
+        # Identity and version answer plausibly too: an agent that gets an empty object
+        # back from `get_user` or `get_server_info` concludes Galaxy is unreachable and
+        # abandons the task, which reads as a behaviour failure rather than a stub gap.
+        if path.startswith("api/whoami"):
+            return {"id": "user1", "username": "eval", "email": "eval@example.org"}
+        if path.startswith("api/version"):
+            return {"version_major": "26.2", "version_minor": "dev0"}
+        if path.startswith("api/configuration"):
+            return {"brand": "Eval Galaxy", "version_major": "26.2", "enable_celery_tasks": True}
         return {}
 
     async def post(self, path, body=None):
