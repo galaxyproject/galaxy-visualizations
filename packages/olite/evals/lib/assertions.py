@@ -32,8 +32,7 @@ def evaluate(scenario, run):
     exercised = set()
     a = scenario.get("assertions") or {}
 
-    # Separate an empty turn from a badly answered one; the content checks below
-    # cannot tell them apart.
+    # An empty turn and a bad answer look the same to the content checks below.
     if not run.error and not (run.chat_text or "").strip():
         failures.append(
             Failure(
@@ -161,7 +160,7 @@ def _chat_text(spec, run, failures, exercised):
 
 
 def _compile(pattern, assertion, failures):
-    """Record a malformed pattern as a failure; raising would end the matrix run."""
+    """A bad pattern fails the run, not the matrix."""
     try:
         return re.compile(pattern)
     except re.error as exc:
@@ -255,7 +254,7 @@ def _behavior(spec, run, failures, exercised):
 
 
 def validate_patterns(scenarios):
-    """Compile every committed regex, so an authoring bug stops the run at load time."""
+    """Compile every committed regex so authoring bugs fail at load time."""
     problems = []
     for scenario in scenarios:
         spec = ((scenario.get("assertions") or {}).get("chatText")) or {}
@@ -267,9 +266,7 @@ def validate_patterns(scenarios):
                     problems.append(f"{scenario.get('id')}: {assertion} /{pattern}/: {exc}")
     return problems
 
-# A request for information is not always a sentence ending in "?". A well-formed
-# clarification often introduces a list instead -- "Could you let me know:" -- and a
-# question-mark-only test scores that as a refusal to ask. Kept in step with loom's
+# A clarification often introduces a list instead of ending in "?". Mirrors loom's
 # `asksForInformation`.
 _ASKS_FOR_INFORMATION = re.compile(
     r"\b(could|can|would|will) you (let me know|tell me|share|provide|specify|confirm|clarify)\b"

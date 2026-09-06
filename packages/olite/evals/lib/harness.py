@@ -71,9 +71,7 @@ class StubGalaxy:
             return []
         if "api/pages" in path:
             return []
-        # Identity and version answer plausibly too: an agent that gets an empty object
-        # back from `get_user` or `get_server_info` concludes Galaxy is unreachable and
-        # abandons the task, which reads as a behaviour failure rather than a stub gap.
+        # Empty identity reads as "Galaxy unreachable" and the agent abandons the task.
         if path.startswith("api/whoami"):
             return {"id": "user1", "username": "eval", "email": "eval@example.org"}
         if path.startswith("api/version"):
@@ -121,8 +119,7 @@ class RunResult:
 
 def build_config(model, capabilities=None):
     """Resolve through the brain's provider registry, so evals and the app agree."""
-    # A scenario shared with loom carries the surface loom restricts it to; otherwise the
-    # full surface this plugin actually ships with.
+    # Shared scenarios carry loom's restricted surface; others get the full one.
     capabilities = capabilities or os.environ.get("OLITE_EVAL_CAPABILITIES", "llm,local,read,write")
     base = model.get("baseUrl") or ""
     if base.startswith("${") and base.endswith("}"):
@@ -138,8 +135,7 @@ def build_config(model, capabilities=None):
     }
     if base:
         config["ai_base_url"] = base.rstrip("/")
-    # A live Galaxy replaces the stub when GALAXY_URL is exported, so a comparison run can
-    # put both suites in front of the same server. Unset, the stub answers as before.
+    # GALAXY_URL swaps the stub for a real client, so both suites can face one server.
     galaxy_root = os.environ.get("GALAXY_URL", "").strip()
     if galaxy_root:
         config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
@@ -166,8 +162,7 @@ async def _run(scenario, model):
     config = build_config(model, scenario.get("capabilities"))
     substrate = Substrate(config)
     # No catalog init: these scenarios exercise the loop, not the graph driver.
-    # `galaxy_root` always carries a sentinel, so it cannot decide this; only an explicit
-    # GALAXY_URL replaces the stub with a real client.
+    # `galaxy_root` always holds a sentinel, so only the explicit flag can decide.
     if not config.get("live_galaxy"):
         substrate.galaxy = StubGalaxy()
 

@@ -1,52 +1,46 @@
 """Load loom's scenarios unchanged and adapt them to this harness.
 
-loom's `evals/scenarios/` is the source of truth for every task both suites run, so
-the comparison cannot drift: there is one copy of each scenario and this suite never
-edits it. What differs between the runtimes is translated here, in one place, and
-each translation is a divergence someone can read and argue with.
-
-`scenarios/` in this directory holds only what genuinely cannot cross.
+One source of truth prevents test drift; runtime differences are translated explicitly here.
+`scenarios/` holds only what cannot cross.
 """
 
 import json
 import os
 
-# Scenarios that drive a mechanism this runtime does not have. Excluded rather than
-# translated, because adapting them would change what they measure. Each entry has to
-# name the mechanism, so the list stays short and arguable.
+# Excluded, not translated: adapting these would change what they measure.
 NOT_PORTABLE = {
-    "init-gate-galaxy-no-connection": (
-        "asserts no turn starts at all, which loom's /execute gate can refuse; this "
-        "harness synthesises turn_start whenever it runs and has no slash-command gate"
-    ),
+    "init-gate-galaxy-no-connection": "asserts no turn starts; this harness always emits turn_start",
 }
 
-# loom's pi emits its own lifecycle events; this harness synthesises a smaller set
-# (see harness.RunResult). Names that carry the same meaning are mapped; anything
-# unmapped is dropped rather than silently failing an assertion about an event this
-# runtime never emits.
+# pi's lifecycle events mapped to the smaller set this harness emits; unmapped names drop.
 EVENT_NAMES = {
     "agent_start": "turn_start",
     "turn_start": "turn_start",
     "turn_end": "turn_end",
 }
 
-# Routing tags this suite teaches. loom teaches `local` and `hybrid` as well, both of
-# which mean "run it outside Galaxy" -- the one accepted functional divergence.
+# galaxy-mcp's `galaxy_`-prefixed names to this suite's. Unlisted names are identical.
+TOOL_NAMES = {
+    "galaxy_run_tool": "run_tool",
+    "galaxy_run_user_tool": "run_user_tool",
+    "galaxy_create_user_tool": "create_user_tool",
+    "galaxy_delete_user_tool": "delete_user_tool",
+    "galaxy_list_user_tools": "list_user_tools",
+    "galaxy_search_iwc": "search_iwc_workflows",
+    "galaxy_search_tools_by_name": "search_tools_by_name",
+    "galaxy_get_workflow_input_template": "get_workflow_input_template",
+    "galaxy_invoke_workflow": "invoke_workflow",
+    "galaxy_get_user": "get_user",
+    "galaxy_upload_file_from_url": "upload_file_from_url",
+    "galaxy_pages": "list_pages",
+}
+
+# loom also teaches `local` and `hybrid`; this build has no local execution.
 ROUTING_TAGS = {"galaxy", "remote"}
 
-# loom restricts the tool surface per scenario with `--tools`. The nearest control here is
-# the capability manifest, which gates whole families rather than individual tools.
-#
-# `read,write,edit` names pi's *file* tools, so loom runs those scenarios with no Galaxy
-# tools at all -- its plan scenarios draft blind. Granting `read,write` here would advertise
-# all 44 Galaxy tools and let this suite consult the IWC registry while loom cannot, which
-# is the difference that made olite collapse two plan steps into one registry workflow and
-# fail `minPendingSteps`. Both sides plan from the same information or the score is not a
-# comparison.
-#
-# A scenario that carries no `loomArgs` keeps the full surface this plugin ships with, so
-# production-shaped scenarios need no mapping entry.
+# loom's `--tools` mapped to the nearest capability set. `read,write,edit` is pi's file
+# tools, so those scenarios get no Galaxy tools -- granting them would let this suite
+# consult IWC while loom cannot. No `loomArgs` means the full production surface.
 TOOL_CAPABILITIES = {
     "read,write,edit": "llm,local",
     "skills_fetch": "llm,local",
@@ -65,18 +59,29 @@ def _adapt_events(spec):
     return out
 
 
+def _adapt_tool_calls(spec):
+    out = dict(spec)
+    wanted = out.get("mustInclude")
+    if wanted:
+        out["mustInclude"] = [
+            {**w, "name": TOOL_NAMES.get(w.get("name"), w.get("name"))} for w in wanted
+        ]
+    banned = out.get("mustNotInclude")
+    if banned:
+        out["mustNotInclude"] = [TOOL_NAMES.get(n, n) for n in banned]
+    return out
+
+
 def _adapt_plan(spec):
     out = dict(spec)
     routing = out.get("routingIn")
     if routing and not set(routing) <= ROUTING_TAGS:
-        # The scenario's correct answer includes a tag this suite does not teach, so
-        # routing is not gradeable here. The rest of the plan still is.
-        out.pop("routingIn")
+        out.pop("routingIn")  # correct answer names a tag this suite lacks; grade the rest
     return out
 
 
 def _capabilities_for(scenario):
-    """The capability string a scenario's `loomArgs` implies, or None to leave the default."""
+    """Capability string implied by `loomArgs`, or None for the default surface."""
     args = scenario.get("loomArgs") or []
     if "--no-tools" in args:
         return "llm,local"
@@ -96,24 +101,21 @@ def adapt(scenario):
             assertions["events"] = events
         else:
             assertions.pop("events")
+    if "toolCalls" in assertions:
+        assertions["toolCalls"] = _adapt_tool_calls(assertions["toolCalls"])
     if "plan" in assertions:
         assertions["plan"] = _adapt_plan(assertions["plan"])
     out["assertions"] = assertions
     capabilities = _capabilities_for(scenario)
     if capabilities:
         out["capabilities"] = capabilities
-    # loom repeats every model scenario three times by default; honour the scenario's
-    # own n so both suites run the same number of times without being told to.
+    # loom defaults model scenarios to 3 runs; honour it so both suites use the same n.
     out["runs"] = scenario.get("runs") or (3 if scenario.get("requiresModel") else 1)
     return out
 
 
 def load(root, only=None):
-    """Every portable loom scenario, adapted.
-
-    Returns [] when loom is not checked out alongside; `NOT_PORTABLE` names what is
-    skipped and why.
-    """
+    """Every portable loom scenario, adapted. Empty when loom is not checked out."""
     if not os.path.isdir(root):
         return []
     out = []

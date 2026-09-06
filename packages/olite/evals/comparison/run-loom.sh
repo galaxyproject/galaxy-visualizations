@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Run loom's side of the comparison, refusing to start if the run would be void.
-#
-# Every check here corresponds to a way a previous comparison run was wasted. Prose in
-# README.md was not enough -- the numbers come out looking plausible either way, which
-# is exactly why this has to fail loudly instead of being remembered.
+# Run loom's side of the comparison. Each check below is a way a past run was silently
+# wasted -- the numbers look plausible either way, so this fails loudly instead.
 #
 #   LOOM_DIR=~/loom ./run-loom.sh [scenario ...]
 
@@ -15,16 +12,14 @@ OUT="${LOOM_OUT:-$PWD/loom-results}"
 
 fail() { echo "refusing to run: $*" >&2; exit 1; }
 
-# 1. Galaxy. Without these loom emits its NOT CONNECTED prompt, has no galaxy_* tools
-#    and routes every plan local, so it is not the same agent olite is measured as.
+# 1. Without Galaxy, loom runs its NOT CONNECTED prompt and routes every plan local.
 [ -n "${GALAXY_URL:-}" ] || fail "GALAXY_URL is unset; loom would run disconnected"
 [ -n "${GALAXY_API_KEY:-}" ] || fail "GALAXY_API_KEY is unset; loom would run disconnected"
 code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
     -H "x-api-key: ${GALAXY_API_KEY}" "${GALAXY_URL%/}/api/histories" || true)
 [ "$code" = "200" ] || fail "GALAXY_URL/${GALAXY_API_KEY:+key} did not authenticate (/api/histories -> ${code:-no response})"
 
-# 2. Inference. A rejected key still exits 0 and reports scenario failures, which reads
-#    as loom failing rather than auth failing.
+# 2. A rejected key still exits 0 and reports scenario failures, reading as loom failing.
 [ -n "${PROXY_URL:-}" ] || fail "PROXY_URL is unset"
 [ -n "${PROXY_API_KEY:-}" ] || fail "PROXY_API_KEY is unset"
 code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
@@ -33,8 +28,7 @@ code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
 
 [ -d "$LOOM_DIR/evals/scenarios" ] || fail "no loom scenarios under $LOOM_DIR"
 
-# 3. loom's scenario filter is an exact directory name, and a miss exits 0 having run
-#    nothing. Resolve the list up front so a typo is caught here.
+# 3. loom's filter is an exact name and a miss exits 0 having run nothing.
 if [ "$#" -gt 0 ]; then
     scenarios=("$@")
     for s in "${scenarios[@]}"; do
@@ -52,8 +46,7 @@ echo "model    ${MODEL}"
 echo "results  ${OUT}"
 echo "${#scenarios[@]} scenario(s)"
 
-# 4. loom writes evals/results/<date>-<sha>.jsonl with writeFileSync, so consecutive
-#    invocations clobber each other. Snapshot after each one.
+# 4. loom overwrites its results file each invocation; snapshot after each.
 for s in "${scenarios[@]}"; do
     echo "=== $s"
     (cd "$LOOM_DIR" && npm run evals -- "$s" --model "$MODEL" 2>&1) | grep -E "PASS|FAIL|passed|failed" || true
