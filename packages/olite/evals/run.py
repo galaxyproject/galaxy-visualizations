@@ -59,9 +59,13 @@ def main():
         matrix = json.load(f)
     scenarios = load_scenarios(os.path.join(HERE, "scenarios"), args.scenario)
     if not args.only_local:
-        shared = loom_scenarios.load(args.loom, args.scenario)
-        if not shared:
-            print(f"  note: no shared scenarios; loom not found at {args.loom}")
+        if not os.path.isdir(args.loom):
+            print(f"  note: loom not found at {args.loom}; running the local set only")
+            shared = []
+        else:
+            shared = loom_scenarios.load(args.loom, args.scenario)
+            for name, why in sorted(loom_scenarios.NOT_PORTABLE.items()):
+                print(f"  skip {name}: {why}")
         scenarios = shared + scenarios
     models, skipped = available_models(matrix, args.model)
 

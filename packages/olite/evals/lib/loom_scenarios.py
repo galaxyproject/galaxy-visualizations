@@ -11,6 +11,16 @@ each translation is a divergence someone can read and argue with.
 import json
 import os
 
+# Scenarios that drive a mechanism this runtime does not have. Excluded rather than
+# translated, because adapting them would change what they measure. Each entry has to
+# name the mechanism, so the list stays short and arguable.
+NOT_PORTABLE = {
+    "init-gate-galaxy-no-connection": (
+        "asserts no turn starts at all, which loom's /execute gate can refuse; this "
+        "harness synthesises turn_start whenever it runs and has no slash-command gate"
+    ),
+}
+
 # loom's pi emits its own lifecycle events; this harness synthesises a smaller set
 # (see harness.RunResult). Names that carry the same meaning are mapped; anything
 # unmapped is dropped rather than silently failing an assertion about an event this
@@ -90,7 +100,11 @@ def adapt(scenario):
 
 
 def load(root, only=None):
-    """Every loom scenario, adapted. Returns [] when loom is not checked out alongside."""
+    """Every portable loom scenario, adapted.
+
+    Returns [] when loom is not checked out alongside; `NOT_PORTABLE` names what is
+    skipped and why.
+    """
     if not os.path.isdir(root):
         return []
     out = []
@@ -99,6 +113,8 @@ def load(root, only=None):
         if not os.path.isfile(path):
             continue
         if only and only not in entry:
+            continue
+        if entry in NOT_PORTABLE:
             continue
         with open(path) as f:
             scenario = adapt(json.load(f))
