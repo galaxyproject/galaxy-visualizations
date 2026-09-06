@@ -35,12 +35,21 @@ EVENT_NAMES = {
 # which mean "run it outside Galaxy" -- the one accepted functional divergence.
 ROUTING_TAGS = {"galaxy", "remote"}
 
-# loom restricts the tool surface per scenario with `--tools`. The nearest control here
-# is the capability manifest, which gates whole families rather than individual tools,
-# so the mapping is coarse by necessity and stated rather than implied.
+# loom restricts the tool surface per scenario with `--tools`. The nearest control here is
+# the capability manifest, which gates whole families rather than individual tools.
+#
+# `read,write,edit` names pi's *file* tools, so loom runs those scenarios with no Galaxy
+# tools at all -- its plan scenarios draft blind. Granting `read,write` here would advertise
+# all 44 Galaxy tools and let this suite consult the IWC registry while loom cannot, which
+# is the difference that made olite collapse two plan steps into one registry workflow and
+# fail `minPendingSteps`. Both sides plan from the same information or the score is not a
+# comparison.
+#
+# A scenario that carries no `loomArgs` keeps the full surface this plugin ships with, so
+# production-shaped scenarios need no mapping entry.
 TOOL_CAPABILITIES = {
-    "read,write,edit": "llm,local,read,write",
-    "skills_fetch": "llm,local,read,write",
+    "read,write,edit": "llm,local",
+    "skills_fetch": "llm,local",
 }
 
 

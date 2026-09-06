@@ -129,6 +129,12 @@ def build_config(model, capabilities=None):
     }
     if base:
         config["ai_base_url"] = base.rstrip("/")
+    # A live Galaxy replaces the stub when GALAXY_URL is exported, so a comparison run can
+    # put both suites in front of the same server. Unset, the stub answers as before.
+    galaxy_root = os.environ.get("GALAXY_URL", "").strip()
+    if galaxy_root:
+        config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
+        config["galaxy_key"] = os.environ.get("GALAXY_API_KEY", "")
     key = _api_key(model)
     if key:
         config["ai_api_key"] = key
@@ -147,9 +153,11 @@ def _api_key(model):
 
 
 async def _run(scenario, model):
-    substrate = Substrate(build_config(model, scenario.get("capabilities")))
+    config = build_config(model, scenario.get("capabilities"))
+    substrate = Substrate(config)
     # No catalog init: these scenarios exercise the loop, not the graph driver.
-    substrate.galaxy = StubGalaxy()
+    if not config.get("galaxy_root"):
+        substrate.galaxy = StubGalaxy()
 
     processes = ProcessRegistry().load_packaged()
     skills = SkillRegistry().load_packaged()
