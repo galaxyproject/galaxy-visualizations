@@ -144,6 +144,7 @@ def build_config(model, capabilities=None):
     if galaxy_root:
         config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
         config["galaxy_key"] = os.environ.get("GALAXY_API_KEY", "")
+        config["live_galaxy"] = True
     key = _api_key(model)
     if key:
         config["ai_api_key"] = key
@@ -165,7 +166,9 @@ async def _run(scenario, model):
     config = build_config(model, scenario.get("capabilities"))
     substrate = Substrate(config)
     # No catalog init: these scenarios exercise the loop, not the graph driver.
-    if not config.get("galaxy_root"):
+    # `galaxy_root` always carries a sentinel, so it cannot decide this; only an explicit
+    # GALAXY_URL replaces the stub with a real client.
+    if not config.get("live_galaxy"):
         substrate.galaxy = StubGalaxy()
 
     processes = ProcessRegistry().load_packaged()
