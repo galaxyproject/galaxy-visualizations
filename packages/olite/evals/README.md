@@ -44,12 +44,14 @@ the plan scenarios measure. The fixture is 61 lines against a 50-line preview ca
 model that sums the preview rather than reading the file answers 58800 instead of
 96000, and is marked wrong rather than passing by luck.
 
-The stub keeps the **full 46-tool surface advertised**. loom trims to
-`--tools read,write,edit` for its plan scenarios; olite deliberately does not, because
-a live run showed the model behaves differently with the whole surface in context
-(~16k tokens of schemas) than with a handful — trimming would measure a condition
-olite never runs in. It also makes runs slower, which is why the two-turn plan scenarios
-allow 7 minutes rather than loom's 2.5.
+**A scenario sets its own tool surface.** A scenario shared with loom carries loom's
+`--tools` restriction and is run under the matching capability manifest, so both suites
+put the same tools in front of the model; scenarios without one get the full 46-tool
+surface this plugin ships with. This was previously fixed at the full surface on the
+argument that trimming measures a condition olite never runs in — true of production,
+but loom does not run trimmed in production either, so a fixed surface on one side and a
+trimmed surface on the other compared two different configurations. Any paired number
+taken before this change carries that confound.
 
 ## Models
 
@@ -95,27 +97,28 @@ drawn in chat and only an *approved* plan reaches the record. A scenario that ne
 approves anything should therefore find nothing on the record, and that is a property
 worth grading rather than papering over.
 
-## Ported from loom, and what could not be
+## Scenarios come from loom
 
-The suite began as a port of loom's scenarios. Four exist in both suites with byte-identical
-inputs and thresholds (`plan-creation-rnaseq`, `-metagenomics`, `-somatic-variants`,
-`behavior-underspecified-ask`) — those are the cross-suite comparison set.
+`loom/evals/scenarios/` is the source of truth for every scenario both suites run. This
+suite reads those files **unmodified** at run time and adapts them in one place
+(`lib/loom_scenarios.py`), so a scenario cannot drift between the two: there is one copy.
 
-Of loom's seven remaining scenarios, as of 2026-08-19:
+Point the loader elsewhere with `--loom <dir>` or `LOOM_SCENARIOS`; without loom checked
+out, the run reports the shared set as unavailable and continues with the local set.
 
-| loom scenario | here |
+What the adapter translates, and why each is a divergence rather than a bug:
+
+| loom | here |
 |---|---|
-| `udt-authoring-threads` | **ported verbatim** — same input, same assertions |
-| `plan-creation-scrna-celltypes` | **ported** — only `routingIn` adapted, olite has no `hybrid` |
-| `plan-creation-pharmacogenomics` | **adapted, not faithful** — loom expects `[local, hybrid]`; olite cannot route local, so it grades the refusal instead. Do not use it in a comparison |
-| `routing-clear-local` | **not portable** — its correct answer is `[local]`, the accepted divergence |
-| `routing-clear-galaxy` | not ported — olite routes only `[galaxy]`/`[remote]`, so it passes trivially |
-| `smoke-echo` | covered by `smoke-answers` |
-| `init-gate-galaxy-no-connection` | **not portable** — drives loom's `/execute` slash command, which olite has no equivalent of |
+| `loomArgs: ["--tools", ...]` | the nearest capability manifest. loom restricts individual tools; this suite gates families, so the mapping is coarse and written down rather than implied |
+| `runs` / `requiresModel` | honoured, so both suites run a scenario the same number of times. loom defaults model scenarios to 3 |
+| `events.mustInclude` | loom's pi lifecycle names mapped to the smaller set this harness synthesises; unmapped names are dropped rather than failing on an event this runtime never emits |
+| `plan.routingIn` | when the correct answer names a tag this suite does not teach (`local`, `hybrid`), routing is not graded. The rest of the plan still is |
 
-Porting `udt-authoring-threads` required two assertion forms loom has and this suite did
-not: `chatText.mustInclude` and `toolCalls.mustInclude` with `argsContains`. Both were added
-under **loom's key names**, so further scenarios port as copies rather than translations.
+**`scenarios/` holds only what cannot cross**, and should stay small. Today: the approval
+gate (`execution-after-approval`, `gate-holds-before-approval`), which asserts a property
+loom expresses differently; `dataset-analysis-sum`; and `smoke-answers`. Anything added
+here that loom could also run belongs upstream instead.
 
 ## What this is not
 

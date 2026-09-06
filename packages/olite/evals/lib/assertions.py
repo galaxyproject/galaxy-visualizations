@@ -32,6 +32,18 @@ def evaluate(scenario, run):
     exercised = set()
     a = scenario.get("assertions") or {}
 
+    # An empty turn and a bad answer look the same to the content checks below.
+    if not run.error and not (run.chat_text or "").strip():
+        failures.append(
+            Failure(
+                "run.noModelOutput",
+                f"no assistant text ({len(run.messages or [])} messages, "
+                f"{len(run.events or [])} events, status {run.status_code}) -- "
+                "check credentials and provider before reading this as a capability failure",
+                "other",
+            )
+        )
+
     _messages(a.get("messages"), run, failures, exercised)
     _tool_calls(a.get("toolCalls"), run, failures, exercised)
     _chat_text(a.get("chatText"), run, failures, exercised)
@@ -134,6 +146,26 @@ def _chat_text(spec, run, failures, exercised):
     for needle in spec.get("mustInclude") or []:
         if not any(form in text for form in _grouped_forms(needle)):
             failures.append(Failure("chatText.mustInclude", f"chat never contained {needle!r}", "behavior"))
+    for needle in spec.get("mustNotInclude") or []:
+        if any(form in text for form in _grouped_forms(needle)):
+            failures.append(Failure("chatText.mustNotInclude", f"chat contained banned {needle!r}", "behavior"))
+    for pattern in spec.get("mustMatch") or []:
+        rx = _compile(pattern, "chatText.mustMatch", failures)
+        if rx and not rx.search(text):
+            failures.append(Failure("chatText.mustMatch", f"chat never matched /{pattern}/", "behavior"))
+    for pattern in spec.get("mustNotMatch") or []:
+        rx = _compile(pattern, "chatText.mustNotMatch", failures)
+        if rx and rx.search(text):
+            failures.append(Failure("chatText.mustNotMatch", f"chat matched banned /{pattern}/", "behavior"))
+
+
+def _compile(pattern, assertion, failures):
+    """A bad pattern fails the run, not the matrix."""
+    try:
+        return re.compile(pattern)
+    except re.error as exc:
+        failures.append(Failure(assertion, f"invalid regex /{pattern}/: {exc}", "behavior"))
+        return None
 
 
 def _plan(spec, run, failures, exercised):
@@ -200,9 +232,9 @@ def _behavior(spec, run, failures, exercised):
 
     if spec.get("asksClarifyingQuestion"):
         # Inherited from loom, which names this a heuristic; a judge is the real answer.
-        if "?" not in run.chat_text:
+        if not _asks_for_information(run.chat_text):
             failures.append(
-                Failure("behavior.asksClarifyingQuestion", "no question asked (no '?' in chat)", "behavior")
+                Failure("behavior.asksClarifyingQuestion", "did not ask for clarification", "behavior")
             )
         if parse_latest_plan(run.chat_text) is not None:
             failures.append(
@@ -219,3 +251,30 @@ def _behavior(spec, run, failures, exercised):
             failures.append(
                 Failure("behavior.doesNotExecute", f"called {tool} before any approval", "behavior")
             )
+
+
+def validate_patterns(scenarios):
+    """Compile every committed regex so authoring bugs fail at load time."""
+    problems = []
+    for scenario in scenarios:
+        spec = ((scenario.get("assertions") or {}).get("chatText")) or {}
+        for assertion in ("mustMatch", "mustNotMatch"):
+            for pattern in spec.get(assertion) or []:
+                try:
+                    re.compile(pattern)
+                except re.error as exc:
+                    problems.append(f"{scenario.get('id')}: {assertion} /{pattern}/: {exc}")
+    return problems
+
+# A clarification often introduces a list instead of ending in "?". Mirrors loom's
+# `asksForInformation`.
+_ASKS_FOR_INFORMATION = re.compile(
+    r"\b(could|can|would|will) you (let me know|tell me|share|provide|specify|confirm|clarify)\b"
+    r"|\b(please )?(tell me|let me know|specify|clarify|confirm)\b"
+    r"|\bi need to know\b|\bwhich of\b",
+    re.IGNORECASE,
+)
+
+
+def _asks_for_information(chat):
+    return "?" in (chat or "") or bool(_ASKS_FOR_INFORMATION.search(chat or ""))
