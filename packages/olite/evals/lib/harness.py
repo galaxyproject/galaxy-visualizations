@@ -110,8 +110,11 @@ class RunResult:
         )
 
 
-def build_config(model):
+def build_config(model, capabilities=None):
     """Resolve through the brain's provider registry, so evals and the app agree."""
+    # A scenario shared with loom carries the surface loom restricts it to; otherwise the
+    # full surface this plugin actually ships with.
+    capabilities = capabilities or os.environ.get("OLITE_EVAL_CAPABILITIES", "llm,local,read,write")
     base = model.get("baseUrl") or ""
     if base.startswith("${") and base.endswith("}"):
         base = os.environ.get(base[2:-1], "")
@@ -122,7 +125,7 @@ def build_config(model):
         # Write is granted, or "did not execute" would assert about an unadvertised tool.
         # Trimmable so the tool-surface hypothesis can be tested; loom runs plan
         # scenarios with a smaller surface than olite advertises.
-        "capabilities": os.environ.get("OLITE_EVAL_CAPABILITIES", "llm,local,read,write").split(","),
+        "capabilities": capabilities.split(","),
     }
     if base:
         config["ai_base_url"] = base.rstrip("/")
@@ -144,7 +147,7 @@ def _api_key(model):
 
 
 async def _run(scenario, model):
-    substrate = Substrate(build_config(model))
+    substrate = Substrate(build_config(model, scenario.get("capabilities")))
     # No catalog init: these scenarios exercise the loop, not the graph driver.
     substrate.galaxy = StubGalaxy()
 

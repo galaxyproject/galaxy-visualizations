@@ -16,8 +16,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "brain"))
 sys.path.insert(0, HERE)
 
-from lib.assertions import DIMENSIONS, evaluate  # noqa: E402
+from lib.assertions import DIMENSIONS, evaluate, validate_patterns  # noqa: E402
 from lib.harness import load_scenarios, run_scenario  # noqa: E402
+from lib import loom_scenarios  # noqa: E402
 
 
 # HTTP 429 means out of budget, not a behavioural failure; graded separately.
@@ -47,13 +48,21 @@ def main():
     ap.add_argument("--json", dest="json_out", help="write raw results here")
     ap.add_argument("--delay", type=float, default=0.0,
                     help="extra seconds between runs; the provider's own rate limit already applies")
-    ap.add_argument("--repeat", type=int, default=1, metavar="N",
-                    help="run each scenario N times; behaviour varies run to run, and n=1 hides it")
+    ap.add_argument("--repeat", type=int, default=0, metavar="N",
+                    help="override the run count; scenarios shared with loom carry their own")
+    ap.add_argument("--loom", default=os.environ.get("LOOM_SCENARIOS", os.path.expanduser("~/loom/evals/scenarios")),
+                    help="loom's scenario directory, the source of truth for shared scenarios")
+    ap.add_argument("--only-local", action="store_true", help="skip the scenarios shared with loom")
     args = ap.parse_args()
 
     with open(os.path.join(HERE, "models.json")) as f:
         matrix = json.load(f)
     scenarios = load_scenarios(os.path.join(HERE, "scenarios"), args.scenario)
+    if not args.only_local:
+        shared = loom_scenarios.load(args.loom, args.scenario)
+        if not shared:
+            print(f"  note: no shared scenarios; loom not found at {args.loom}")
+        scenarios = shared + scenarios
     models, skipped = available_models(matrix, args.model)
 
     for model, missing in skipped:
@@ -65,13 +74,21 @@ def main():
         print("\nNo scenarios matched.")
         return 1
 
-    repeat = max(1, args.repeat)
-    times = f" x {repeat} run(s)" if repeat > 1 else ""
+    bad_patterns = validate_patterns(scenarios)
+    if bad_patterns:
+        print("\nUnparseable assertion patterns:")
+        for problem in bad_patterns:
+            print(f"  {problem}")
+        return 1
+
+    repeat = max(1, args.repeat) if args.repeat else 0
+    times = f" x {repeat} run(s)" if repeat > 1 else " x per-scenario runs"
     print(f"\n{len(scenarios)} scenario(s) x {len(models)} model(s){times}\n")
     results = []
     for model in models:
         for scenario in scenarios:
-          for run_index in range(repeat):
+          runs = repeat or max(1, int(scenario.get("runs") or 1))
+          for run_index in range(runs):
               if args.delay and results:
                   time.sleep(args.delay)
               run = run_scenario(scenario, model)
@@ -84,7 +101,7 @@ def main():
                   verdict = "pass" if not failures else "FAIL"
                   note = "" if not failures else failures[0].detail
               # Flushed per result: a full matrix runs for many minutes, and Python
-              tag = f" #{run_index + 1}" if repeat > 1 else ""
+              tag = f" #{run_index + 1}" if runs > 1 else ""
               print(f"  [{verdict:5s}] {model['id']:24s} {scenario['id']:34s}{tag} {note[:60]}", flush=True)
               for f in failures[1:]:
                   print(f"          {f}")
