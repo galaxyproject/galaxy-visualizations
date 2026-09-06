@@ -233,9 +233,9 @@ def _behavior(spec, run, failures, exercised):
 
     if spec.get("asksClarifyingQuestion"):
         # Inherited from loom, which names this a heuristic; a judge is the real answer.
-        if "?" not in run.chat_text:
+        if not _asks_for_information(run.chat_text):
             failures.append(
-                Failure("behavior.asksClarifyingQuestion", "no question asked (no '?' in chat)", "behavior")
+                Failure("behavior.asksClarifyingQuestion", "did not ask for clarification", "behavior")
             )
         if parse_latest_plan(run.chat_text) is not None:
             failures.append(
@@ -266,3 +266,18 @@ def validate_patterns(scenarios):
                 except re.error as exc:
                     problems.append(f"{scenario.get('id')}: {assertion} /{pattern}/: {exc}")
     return problems
+
+# A request for information is not always a sentence ending in "?". A well-formed
+# clarification often introduces a list instead -- "Could you let me know:" -- and a
+# question-mark-only test scores that as a refusal to ask. Kept in step with loom's
+# `asksForInformation`.
+_ASKS_FOR_INFORMATION = re.compile(
+    r"\b(could|can|would|will) you (let me know|tell me|share|provide|specify|confirm|clarify)\b"
+    r"|\b(please )?(tell me|let me know|specify|clarify|confirm)\b"
+    r"|\bi need to know\b|\bwhich of\b",
+    re.IGNORECASE,
+)
+
+
+def _asks_for_information(chat):
+    return "?" in (chat or "") or bool(_ASKS_FOR_INFORMATION.search(chat or ""))
