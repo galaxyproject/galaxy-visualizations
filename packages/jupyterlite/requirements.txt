@@ -1,5 +1,5 @@
 build==1.2.2.post1
-jupyterlite-ai==0.9.1
-jupyterlite==0.6.4
-jupyterlite-pyodide-kernel==0.6.1
+jupyterlite-ai==0.19.0
+jupyterlite==0.8.3
+jupyterlite-pyodide-kernel==0.8.5
 jupyterlab-server==2.28.0
