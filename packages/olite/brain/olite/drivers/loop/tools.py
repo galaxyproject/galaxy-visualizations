@@ -165,7 +165,10 @@ def _summarize(state):
         "out_of_scope": sample(grouping.get("out_of_scope")),
         # Galaxy queues one task per dataset for a datatype change, so this is accepted
         # work, not finished work. Saying "done" here would be a lie at any real size.
-        "datatype_queued": len(grouping.get("items") or []) if state.get("batches") else 0,
+        "datatype": {
+            "queued": len(grouping.get("items") or []),
+            "state": "Galaxy applies these in the background; they are not converted yet",
+        } if state.get("batches") else None,
     }
 
 
