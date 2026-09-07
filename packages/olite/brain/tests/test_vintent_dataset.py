@@ -315,3 +315,35 @@ def test_unfence_unwraps_planner_json_code_fences():
     assert _unfence('```\n{"nolang": true}\n```') == '{"nolang": true}'
     # Fence-free content passes through unchanged.
     assert _unfence('{"already": "clean"}') == '{"already": "clean"}'
+
+
+def test_the_vintent_tool_produces_a_chart_and_routes_it_out_of_band():
+    """The tool path a model actually takes: dispatch by process name, chart comes back."""
+    from olite.drivers.loop.tools import ToolSurface
+
+    csv_text = _csv_from_rows(_scatter_fixture()["data"]["values"])
+    substrate = FakeSubstrate(csv_text, DECISIONS["scatter"])
+    surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
+
+    outcome = asyncio.run(surface.dispatch(
+        "vintent_dataset", {"dataset_id": "d1", "request": "BMI against Glucose"}
+    ))
+    payload = json.loads(outcome.text)
+
+    # The spec goes to the shell; the model sees only a reference to it.
+    assert payload["artifact"] == {"kind": "vega-lite", "title": "Scatter Plot"}
+    assert "spec" not in json.dumps(payload)
+    assert len(surface.artifacts) == 1
+    assert surface.artifacts[0]["spec"]["mark"] == _scatter_fixture()["mark"]
+
+
+def test_the_vintent_tool_reads_the_dataset_it_was_given():
+    from olite.drivers.loop.tools import ToolSurface
+
+    csv_text = _csv_from_rows(_scatter_fixture()["data"]["values"])
+    substrate = FakeSubstrate(csv_text, DECISIONS["scatter"])
+    surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
+    asyncio.run(surface.dispatch("vintent_dataset", {"dataset_id": "abc123", "request": "x vs y"}))
+    assert substrate.catalog.calls == [
+        ("galaxy.datasets.show.display.get", {"history_content_id": "abc123"})
+    ]
