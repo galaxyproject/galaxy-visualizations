@@ -10,7 +10,7 @@ one spectrum of rigidity:
   work", "which op lists histories", "the usual analysis shape."
 - **processes (hard): crystallized `agent.yml` deterministic procedures.** A frozen
   graph with schema-bounded LLM decisions and deterministic transforms, invoked by
-  the loop as one reliable tool via `run_process`. The model *cannot* deviate. Use a
+  the loop as one reliable tool named after the process. The model *cannot* deviate. Use a
   process when the task must be *deterministic/validated/bounded* — a procedure a
   markdown skill cannot guarantee (e.g. reproduce ~65 chart transforms and emit a
   valid Vega-Lite spec every time: `vintent_dataset`).
@@ -23,10 +23,10 @@ it is proven and worth freezing. Both are governed by the same capability manife
 
 Crystallized `agent.yml` graphs, authored under `processes/` and loaded by
 `ProcessRegistry` (`processes.py`). Each declares `id`, `description`, and
-`when_to_use`. The loop reaches one through the `run_process` tool, which runs it
-on the graph driver over the same substrate, so it inherits the session's
-capability manifest. `run_process` is advertised only when processes are registered,
-and its description lists them.
+`when_to_use`. Each is advertised as its own tool, named after the process, with
+parameters generated from its `inputs:` block (`type`, `required`, `default`).
+Calling it runs the graph driver over the same substrate, so it inherits the
+session's capability manifest.
 
 Shipped:
 - **`lineage_report`** (`processes/lineage_report.yml`): fetch source dataset ->
@@ -42,7 +42,7 @@ Shipped:
 Materializers and schema-builders used by processes register in code
 (`extensions/*/bridge.py`, via `register_materializer` /
 `register_builder`). Import is lazy: the graph engine and registrations load only
-when `run_process` first runs.
+when the first process runs.
 
 Add a process by dropping an `agent.yml` in `processes/` (shipped via
 `package-data`). A process starts life as an ad hoc loop task; once proven, it is

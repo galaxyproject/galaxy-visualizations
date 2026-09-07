@@ -31,8 +31,8 @@ async def openapi_get(target, input, meta):
     return await http.request("GET", url, headers=headers)
 
 
-async def openapi_post(target, input, meta):
-    """POST twin of openapi_get: path params substitute into the URL, everything"""
+async def _openapi_write(method, target, input, meta):
+    """Path params substitute into the URL, everything else becomes the body."""
     path = meta["path"]
     body = {}
 
@@ -45,4 +45,12 @@ async def openapi_post(target, input, meta):
 
     url = target.build_url(path)
     headers = target.get_headers()
-    return await http.request("POST", url, headers=headers, body=body)
+    return await http.request(method, url, headers=headers, body=body)
+
+
+async def openapi_post(target, input, meta):
+    return await _openapi_write("POST", target, input, meta)
+
+
+async def openapi_put(target, input, meta):
+    return await _openapi_write("PUT", target, input, meta)

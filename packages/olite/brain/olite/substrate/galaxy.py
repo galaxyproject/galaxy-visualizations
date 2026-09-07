@@ -4,13 +4,14 @@ from typing import Any, Callable, Dict, Optional
 from .http import http
 
 from olite.exceptions import ConfigurationError, ProviderError
-from .openapi_ops import openapi_get, openapi_post
+from .openapi_ops import openapi_get, openapi_post, openapi_put
 from .openapi import OpenApiCatalog
 
 
 class API_METHODS:
     GET = "get"
     POST = "post"
+    PUT = "put"
 
 
 @dataclass
@@ -35,12 +36,14 @@ class ApiTarget:
             return self.headers()
         return {}
 
-ALLOWED_METHODS = [API_METHODS.GET, API_METHODS.POST]
+ALLOWED_METHODS = [API_METHODS.GET, API_METHODS.POST, API_METHODS.PUT]
 
 # Targeted write allowlist: which POST ops may be reached at all (by catalog op
 WRITE_ALLOWLIST = {
     "tools.post",  # run_tool
     "histories.post",  # create_history
+    "dataset_collections.post",  # build a collection from datasets already in a history
+    "histories.show.contents.bulk.put",  # change_datatype, add_tags and the other bulk operations
 }
 PROVIDER_NAME = "galaxy"
 # Prefix allowlist scopes what the agent can reach. Widened past polaris's read
@@ -107,11 +110,12 @@ class GalaxyApi:
         path, operation, method = resolved
         if method == API_METHODS.GET:
             handler, capability = openapi_get, "read"
-        elif method == API_METHODS.POST:
-            # Writes are targeted: only allowlisted POST ops resolve at all.
+        elif method in (API_METHODS.POST, API_METHODS.PUT):
+            # Writes are targeted: only allowlisted ops resolve at all, per method.
             if local not in WRITE_ALLOWLIST:
                 return None
-            handler, capability = openapi_post, "write"
+            handler = openapi_post if method == API_METHODS.POST else openapi_put
+            capability = "write"
         else:
             return None
         return ApiOp(

@@ -89,7 +89,7 @@ def test_a_view_shares_state_rather_than_resetting_it():
     assert view.catalog._providers is substrate.catalog._providers
 
 
-# --- End to end through run_process ------------------------------------------
+# --- End to end through a process tool ------------------------------------------
 
 
 class RecordingSubstrate(Substrate):
@@ -132,7 +132,7 @@ def test_a_read_only_process_cannot_write_from_a_write_enabled_session():
     processes.register("probe", _capability_probe_graph(), capabilities=["llm", "read"])
     surface = ToolSurface(substrate, processes)
 
-    raw = asyncio.run(surface.dispatch("run_process", {"name": "probe", "inputs": {}})).text
+    raw = asyncio.run(surface.dispatch("probe", {})).text
 
     assert substrate.scoped_with == [["llm", "read"]]
     # The catalog refuses the write op rather than performing it.
@@ -140,12 +140,24 @@ def test_a_read_only_process_cannot_write_from_a_write_enabled_session():
     assert json.loads(raw).get("ok") is not True
 
 
-def test_the_packaged_processes_declare_least_privilege():
-    """Both shipped processes are pure reads; neither should carry write."""
+# Processes allowed to write. Adding a name here is a deliberate act, so a new
+# process cannot acquire write by accident.
+WRITERS = {"organize_datasets"}
+
+
+def test_every_packaged_process_declares_least_privilege():
+    """Each process declares a manifest, and only a listed one may write."""
     registry = ProcessRegistry().load_packaged()
 
-    for name in ("vintent_dataset", "lineage_report"):
+    for name in registry.names():
         declared = registry.get(name).capabilities
-        assert declared is not None, f"{name} declares no manifest"
-        assert "write" not in declared
-        assert "read" in declared
+        assert declared, f"{name} declares no manifest"
+        assert "read" in declared, f"{name} does not declare read"
+        if name not in WRITERS:
+            assert "write" not in declared, f"{name} acquired write without being listed"
+
+
+def test_the_only_writer_is_the_one_we_expect():
+    registry = ProcessRegistry().load_packaged()
+    writers = {n for n in registry.names() if "write" in (registry.get(n).capabilities or [])}
+    assert writers == WRITERS

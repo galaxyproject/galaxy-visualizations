@@ -14,8 +14,10 @@ start: fetch
 inputs:
   dataset_id:
     type: string
+    required: true
   request:
     type: string
+    required: true
 
 state:
   raw:

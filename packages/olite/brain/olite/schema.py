@@ -287,7 +287,7 @@ class AgentDefinition(BaseModel):
     id: str = Field(..., min_length=1)
     kind: Literal["agent_pipeline"] = "agent_pipeline"
     description: str | None = None
-    # Routed on by the loop's run_process tool description.
+    # Routed on by the process's generated tool description.
     when_to_use: str | None = None
     # Least privilege: intersected with the session's grant when the process runs.
     capabilities: list[str] | None = None

@@ -123,7 +123,7 @@ The substrate enforces it: `Catalog.call` checks the op's required capability, a
   nothing. The two must stay distinct or the narrowest manifest becomes the widest.
 
 **Per-process least privilege (the middle scale).** A process declares
-`capabilities:` in its yml; `run_process` runs it on `Substrate.scoped(declared)`,
+`capabilities:` in its yml; its tool runs it on `Substrate.scoped(declared)`,
 whose grant is the **intersection** of the session's manifest with the declaration.
 Intersection, not union, is the guarantee: a declaration can only subtract, so it
 holds even for a process definition this deployment did not author — a process file
@@ -176,14 +176,15 @@ over the substrate. Handlers' `call_api` / `reason` go through the substrate's
 `scratchpad/olite_graph_check.py` (executor -> reasoning -> terminal, `$ref`/emit
 resolved, `{state, last}` returned). Materializers register in code; import is lazy.
 
-## run_process bridge + first process (present)
+## Process tools + first process (present)
 
-The loop's `run_process(name, inputs)` tool (advertised only when processes exist)
-runs a crystallized `agent.yml` on the graph driver over the same substrate. The
+Each registered process is advertised as its own tool, named after the process,
+with parameters generated from the yml's `inputs:` block. Calling it runs the
+crystallized `agent.yml` on the graph driver over the same substrate. The
 first process, `lineage_report`, reconstructs a dataset's upstream provenance
 (`executor` -> `traverse` -> `reasoning` -> `lineage.mermaid` materializer ->
 `terminal`). Verified end to end by `scratchpad/olite_process_check.py`: the loop
-invokes run_process, the graph traverses a real lineage, and returns datasets, jobs,
+invokes `lineage_report`, the graph traverses a real lineage, and returns datasets, jobs,
 a narrative, and a Mermaid diagram.
 
 ## Deferred (documented seams, not stubs of speculative code)

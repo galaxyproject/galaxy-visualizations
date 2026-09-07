@@ -36,6 +36,7 @@ class ErrorCode(str, Enum):
 
     UNKNOWN_NODE = "unknown_node"
     MISSING_START = "missing_start"
+    MISSING_INPUTS = "missing_inputs"
     MISSING_AGENT = "missing_agent"
     SUBAGENT_FAILED = "subagent_failed"
     UNKNOWN_EXECUTOR_OP = "unknown_executor_op"

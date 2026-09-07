@@ -39,7 +39,7 @@ def _terminal_graph(output):
 
 
 def _run(surface):
-    return json.loads(asyncio.run(surface.dispatch("run_process", {"name": "p", "inputs": {}})).text)
+    return json.loads(asyncio.run(surface.dispatch("p", {})).text)
 
 
 def test_artifact_is_routed_out_of_band_and_reduced_to_a_reference():

@@ -222,8 +222,19 @@ async def _get_tool_run_examples(g, a):
     return await g.get(path)
 
 
+COLLECTION_ELEMENT_CAP = 100
+
+
 async def _get_collection_details(g, a):
-    return await g.get(f"api/dataset_collections/{a['collection_id']}?instance_type=history")
+    got = await g.get(f"api/dataset_collections/{a['collection_id']}?instance_type=history")
+    if not isinstance(got, dict):
+        return got
+    limit = int(a.get("max_elements") or COLLECTION_ELEMENT_CAP)
+    elements = got.get("elements")
+    if isinstance(elements, list) and len(elements) > limit:
+        return {**got, "elements": elements[:limit], "elements_truncated": True,
+                "elements_shown": limit, "element_count": got.get("element_count", len(elements))}
+    return got
 
 
 async def _chunk(g, dataset_id, size):

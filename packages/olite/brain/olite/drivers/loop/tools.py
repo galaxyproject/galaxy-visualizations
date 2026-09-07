@@ -45,6 +45,49 @@ FINISH = {
 }
 
 
+def _runnable(process, manifest):
+    """Whether the session grants every capability the process declares."""
+    return all(manifest.allows(c) for c in (process.capabilities or []))
+
+
+_JSON_TYPES = {"string": "string", "array": "array", "object": "object",
+               "integer": "integer", "number": "number", "boolean": "boolean"}
+
+
+def _process_tool_schemas(processes, manifest=None):
+    """One tool per crystallized process, its schema read from the yml inputs.
+
+    Only processes the manifest can actually run are advertised: a process runs on
+    `Substrate.scoped(declared)`, so one declaring more than the session grants would fail
+    on its first call. Measured: dispatched 0/3 when a process sat one level below the tool
+    list, 3/3 once it had a name of its own.
+    """
+    schemas = []
+    for name in processes.names():
+        proc = processes.get(name)
+        if manifest and not _runnable(proc, manifest):
+            continue
+        properties, required = {}, []
+        for key, spec in (proc.graph.get("inputs") or {}).items():
+            spec = spec or {}
+            kind = _JSON_TYPES.get(spec.get("type", "string"), "string")
+            properties[key] = {"type": "array", "items": {"type": "string"}} if kind == "array" else {"type": kind}
+            if spec.get("default") is not None:
+                properties[key]["description"] = f"Defaults to {spec['default']!r}."
+            if spec.get("required"):
+                required.append(key)
+        description = proc.description
+        if proc.when_to_use:
+            description = f"{description} Use {proc.when_to_use}."
+        schemas.append({
+            "type": "function",
+            "function": {"name": name, "description": description,
+                         "parameters": {"type": "object", "properties": properties,
+                                        "required": required}},
+        })
+    return schemas
+
+
 def _skills_fetch_schema(skills):
     """Orbit's `skills_fetch`: addressed by repo-relative path, not by name."""
     return {
@@ -79,24 +122,37 @@ def _skills_fetch_schema(skills):
     }
 
 
-def _run_process_schema(processes):
+NAME_SAMPLE = 10
+
+
+def _summarize(state):
+    """Counts and a sample of names. The payload itself must never reach the model."""
+    grouping = state.get("grouping")
+    if not isinstance(grouping, dict):
+        return None
+
+    def sample(names):
+        names = names or []
+        out = {"count": len(names), "names": names[:NAME_SAMPLE]}
+        if len(names) > NAME_SAMPLE:
+            out["truncated"] = True
+        return out
+
+    collection = state.get("collection") or {}
+    leftovers = state.get("leftovers") or {}
     return {
-        "type": "function",
-        "function": {
-            "name": "run_process",
-            "description": (
-                "Run a crystallized process: a validated, multi-step pipeline. "
-                "Prefer these over improvising when one fits.\nAvailable:\n" + processes.catalog_text()
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "enum": processes.names()},
-                    "inputs": {"type": "object", "description": "Process inputs."},
-                },
-                "required": ["name", "inputs"],
-            },
-        },
+        "ok": True,
+        "collection": {"id": collection.get("id"), "name": collection.get("name"),
+                       "type": grouping.get("structure"),
+                       "elements": len(grouping.get("elements") or [])},
+        "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
+        "out_of_scope": sample(grouping.get("out_of_scope")),
+        # Galaxy queues one task per dataset for a datatype change, so this is accepted
+        # work, not finished work. Saying "done" here would be a lie at any real size.
+        "datatype": {
+            "queued": len(grouping.get("items") or []),
+            "state": "Galaxy applies these in the background; they are not converted yet",
+        } if state.get("batches") else None,
     }
 
 
@@ -132,7 +188,7 @@ class ToolSurface:
         if self.skills and self.skills.names():
             tools.append(_skills_fetch_schema(self.skills))
         if self.processes and self.processes.names():
-            tools.append(_run_process_schema(self.processes))
+            tools.extend(_process_tool_schemas(self.processes, self.substrate.manifest))
         return tools
 
     def _missing_required(self, name, args):
@@ -172,8 +228,8 @@ class ToolSurface:
 
         if name == "run_python":
             return self.substrate.local.run(args.get("code", ""))
-        if name == "run_process":
-            return await self._run_process(args)
+        if self.processes and name in (self.processes.names() or []):
+            return await self._run_process({"name": name, "inputs": args})
         if name == "skills_fetch":
             return self._skills_fetch(args)
         if name == "finish":
@@ -248,6 +304,9 @@ class ToolSurface:
         substrate = self.substrate.scoped(proc.capabilities)
         result = await GraphDriver(substrate).run(proc.graph, args.get("inputs") or {})
         last = result.get("last") or {}
+        summary = _summarize(result.get("state") or {})
+        if summary and last.get("ok") is not False:
+            return json.dumps(summary)
         # Surface a failed graph rather than returning a bare null.
         if last.get("ok") is False:
             return ToolOutcome(json.dumps({"ok": False, "error": last.get("error")}), is_error=True)

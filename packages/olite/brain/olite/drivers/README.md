@@ -13,8 +13,8 @@ and tools, not an authored graph.
 
 The loop's tool surface (`loop/tools.py`) is intentionally small: `run_python`
 (local Pyodide), `galaxy_api` (scoped catalog), `finish`. Named convenience
-wrappers, write ops, and a `run_process` tool (which invokes the graph driver)
-are added on top of this same gate.
+wrappers, write ops, and one tool per crystallized process (each invoking the
+graph driver) are added on top of this same gate.
 
 ## graph/ (present) — crystallized processes
 
@@ -32,6 +32,6 @@ and returns `{state, last}`. Node types: `executor` (api.call / sub-agent / wait
 Materializers register in code (`register_materializer(name)` decorator), not via
 entry points. Import is lazy: nothing loads the engine until a process runs.
 
-The loop reaches a frozen process through the `run_process` tool (loop -> graph
+The loop reaches a frozen process through that process's own tool (loop -> graph
 bridge). Shipped processes live in `../registry/processes/` (`lineage_report`,
-`vintent_dataset`).
+`organize_datasets`, `vintent_dataset`).
