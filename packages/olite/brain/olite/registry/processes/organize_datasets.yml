@@ -34,6 +34,8 @@ state:
     type: array
   grouping:
     type: object
+  batches:
+    type: object
   collection:
     type: object
   leftovers:
@@ -91,12 +93,27 @@ nodes:
         - when:
             inputs.datatype: null
           next: build_collection
-      default: set_datatype
+      default: chunk_items
 
-  # One bulk call for every in-scope dataset, leftovers included.
+  # A 10k history is one request otherwise; batch it.
+  chunk_items:
+    type: materializer
+    target: collections.chunk
+    args:
+      items:
+        $ref: state.grouping.items
+      size: 1000
+    emit:
+      state.batches: result
+    next: set_datatype
+
+  # One bulk call per batch, covering every in-scope dataset including leftovers.
   set_datatype:
-    type: executor
-    run:
+    type: loop
+    over:
+      $ref: state.batches.batches
+    as: batch
+    execute:
       op: api.call
       target: galaxy.histories.show.contents.bulk.put
       input:
@@ -104,7 +121,7 @@ nodes:
           $ref: inputs.history_id
         operation: change_datatype
         items:
-          $ref: state.grouping.items
+          $ref: loop.batch
         params:
           type: change_datatype
           datatype:

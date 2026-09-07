@@ -141,3 +141,11 @@ def _result(structure, elements, leftovers, out_of_scope, in_scope=None):
         "has_leftovers": bool(leftovers),
         "empty": not elements,
     }
+
+
+@register_materializer("collections.chunk")
+def chunk_items(items=None, size=1000):
+    """Split a list into batches a single request can carry."""
+    items = items or []
+    size = max(1, int(size or 1000))
+    return {"batches": [items[i : i + size] for i in range(0, len(items), size)]}

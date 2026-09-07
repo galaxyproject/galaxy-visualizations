@@ -165,3 +165,13 @@ def test_include_keeps_a_non_read_file_out_of_the_datatype_write():
 def test_an_empty_history_writes_nothing():
     catalog, _ = _run([], datatype="fastqsanger.gz", tags=["sra"])
     assert catalog.targets() == ["galaxy.histories.show.contents.get"]
+
+
+def test_the_datatype_write_is_batched():
+    many = [
+        {"id": f"d{i}", "name": f"S{i // 2:05d}_{i % 2 + 1}.fastq.gz", "history_content_type": "dataset"}
+        for i in range(2500)
+    ]
+    catalog, _ = _run(many, datatype="fastqsanger.gz")
+    writes = [i for _, i in catalog.calls if i.get("operation") == "change_datatype"]
+    assert [len(w["items"]) for w in writes] == [1000, 1000, 500]
