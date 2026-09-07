@@ -79,10 +79,13 @@ def group_datasets(datasets=None, structure="auto", name_field="name"):
     if structure == "paired" or (structure == "auto" and can_pair):
         elements = [
             {
-                "identifier": sample,
-                "type": "paired",
-                "forward": complete[sample]["forward"].get("id"),
-                "reverse": complete[sample]["reverse"].get("id"),
+                "name": sample,
+                "src": "new_collection",
+                "collection_type": "paired",
+                "element_identifiers": [
+                    {"name": mate, "src": "hda", "id": complete[sample][mate].get("id")}
+                    for mate in ("forward", "reverse")
+                ],
             }
             for sample in sorted(complete)
         ]
@@ -94,7 +97,5 @@ def group_datasets(datasets=None, structure="auto", name_field="name"):
             "items": items,
         }
 
-    elements = [
-        {"identifier": str(name), "type": "dataset", "id": d.get("id")} for name, d in named
-    ]
+    elements = [{"name": str(name), "src": "hda", "id": d.get("id")} for name, d in named]
     return {"structure": "list", "elements": elements, "unmatched": [], "items": items}

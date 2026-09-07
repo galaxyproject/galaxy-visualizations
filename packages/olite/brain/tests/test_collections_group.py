@@ -22,20 +22,29 @@ ZIP_FLAT = [f"reads/run_{n}.fastq.gz" for n in range(1, 5)]
 def test_sra_names_pair_into_list_paired():
     out = group_datasets(datasets=names(SRA))
     assert out["structure"] == "list:paired"
-    assert [e["identifier"] for e in out["elements"]] == ["SRR1001", "SRR1002", "SRR1003"]
+    assert [e["name"] for e in out["elements"]] == ["SRR1001", "SRR1002", "SRR1003"]
     assert out["unmatched"] == []
 
 
 def test_illumina_r1_r2_pairs():
     out = group_datasets(datasets=names(ILLUMINA))
     assert out["structure"] == "list:paired"
-    assert [e["identifier"] for e in out["elements"]] == ["sample1_001", "sample2_001"]
+    assert [e["name"] for e in out["elements"]] == ["sample1_001", "sample2_001"]
 
 
-def test_forward_and_reverse_carry_the_right_ids():
+def test_a_pair_is_a_nested_collection_the_api_accepts():
     out = group_datasets(datasets=[ds("s_1.fastq.gz", 0), ds("s_2.fastq.gz", 1)])
     element = out["elements"][0]
-    assert element["forward"] == "id_0" and element["reverse"] == "id_1"
+    assert element["src"] == "new_collection" and element["collection_type"] == "paired"
+    assert element["element_identifiers"] == [
+        {"name": "forward", "src": "hda", "id": "id_0"},
+        {"name": "reverse", "src": "hda", "id": "id_1"},
+    ]
+
+
+def test_a_flat_element_points_straight_at_the_dataset():
+    out = group_datasets(datasets=names(ZIP_FLAT))
+    assert out["elements"][0] == {"name": "run_1.fastq.gz", "src": "hda", "id": "id_0"}
 
 
 def test_unpaired_files_fall_back_to_a_flat_list():
@@ -58,13 +67,13 @@ def test_mixing_paired_and_unpaired_stays_flat():
 def test_structure_paired_forces_pairing_and_reports_leftovers():
     out = group_datasets(datasets=names(["s1_1.fq", "s1_2.fq", "extra.fq"]), structure="paired")
     assert out["structure"] == "list:paired"
-    assert [e["identifier"] for e in out["elements"]] == ["s1"]
+    assert [e["name"] for e in out["elements"]] == ["s1"]
     assert out["unmatched"] == ["extra.fq"]
 
 
 def test_r1_wins_over_a_trailing_1_on_the_same_name():
     out = group_datasets(datasets=names(["lane1_R1.fastq.gz", "lane1_R2.fastq.gz"]))
-    assert [e["identifier"] for e in out["elements"]] == ["lane1"]
+    assert [e["name"] for e in out["elements"]] == ["lane1"]
 
 
 def test_empty_input_is_an_empty_flat_list():
@@ -88,18 +97,18 @@ def zipped(members):
 def test_a_zip_of_paired_reads_pairs():
     out = group_datasets(datasets=zipped(f"run/{n}" for n in SRA))
     assert out["structure"] == "list:paired"
-    assert [e["identifier"] for e in out["elements"]] == ["SRR1001", "SRR1002", "SRR1003"]
+    assert [e["name"] for e in out["elements"]] == ["SRR1001", "SRR1002", "SRR1003"]
 
 
 def test_a_zip_of_single_end_reads_lists():
     out = group_datasets(datasets=zipped(f"reads/s{n}.fastq.gz" for n in range(3)))
     assert out["structure"] == "list"
-    assert [e["identifier"] for e in out["elements"]] == ["s0.fastq.gz", "s1.fastq.gz", "s2.fastq.gz"]
+    assert [e["name"] for e in out["elements"]] == ["s0.fastq.gz", "s1.fastq.gz", "s2.fastq.gz"]
 
 
 def test_nested_archive_directories_do_not_reach_the_identifiers():
     out = group_datasets(datasets=zipped(["a/b/c/SRR1_1.fastq.gz", "a/b/c/SRR1_2.fastq.gz"]))
-    assert [e["identifier"] for e in out["elements"]] == ["SRR1"]
+    assert [e["name"] for e in out["elements"]] == ["SRR1"]
 
 
 def test_an_archive_holding_both_shapes_lists_rather_than_dropping_a_file():

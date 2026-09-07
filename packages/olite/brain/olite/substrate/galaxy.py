@@ -43,8 +43,7 @@ WRITE_ALLOWLIST = {
     "tools.post",  # run_tool
     "histories.post",  # create_history
     "dataset_collections.post",  # build a collection from datasets already in a history
-    "histories.show.contents.show.tags.show.post",  # tag one dataset
-    "histories.show.contents.bulk.put",  # change_datatype and the other bulk item operations
+    "histories.show.contents.bulk.put",  # change_datatype, add_tags and the other bulk operations
 }
 PROVIDER_NAME = "galaxy"
 # Prefix allowlist scopes what the agent can reach. Widened past polaris's read

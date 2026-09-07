@@ -32,8 +32,6 @@ class FakeCatalog:
             return {"ok": True, "result": {"id": "hdca1", "name": (input or {}).get("name")}}
         if target == "galaxy.histories.show.contents.bulk.put":
             return {"ok": True, "result": {"success_count": len(self.contents), "errors": []}}
-        if target.endswith("tags.show.post"):
-            return {"ok": True, "result": {"user_tags": [(input or {}).get("tag_name")]}}
         raise AssertionError(f"unexpected op: {target}")
 
     def targets(self):
@@ -72,7 +70,7 @@ def test_paired_reads_become_a_list_paired_collection():
     catalog, _ = _run(SRA)
     body = catalog.input_for("dataset_collections.post")
     assert body["collection_type"] == "list:paired"
-    assert [e["identifier"] for e in body["element_identifiers"]] == ["SRR1001", "SRR1002"]
+    assert [e["name"] for e in body["element_identifiers"]] == ["SRR1001", "SRR1002"]
 
 
 def test_unzipped_files_become_a_flat_list():
@@ -82,20 +80,16 @@ def test_unzipped_files_become_a_flat_list():
     assert len(body["element_identifiers"]) == 3
 
 
-def test_each_tag_is_one_call():
-    catalog, _ = _run(SRA, tags=["sra", "paired"])
-    tagged = [i["tag_name"] for t, i in catalog.calls if t.endswith("tags.show.post")]
-    assert tagged == ["sra", "paired"]
-
-
 def test_tags_are_applied_to_the_new_collection():
-    catalog, _ = _run(SRA, tags=["sra"])
-    assert catalog.input_for("tags.show.post")["history_content_id"] == "hdca1"
+    catalog, _ = _run(SRA, tags=["sra", "paired"])
+    body = next(i for t, i in catalog.calls if i.get("operation") == "add_tags")
+    assert body["items"] == [{"id": "hdca1", "history_content_type": "dataset_collection"}]
+    assert body["params"] == {"type": "add_tags", "tags": ["sra", "paired"]}
 
 
-def test_no_tags_means_no_tag_calls():
+def test_no_tags_means_no_tag_call():
     catalog, _ = _run(SRA)
-    assert not [t for t in catalog.targets() if t.endswith("tags.show.post")]
+    assert not [i for _, i in catalog.calls if i.get("operation") == "add_tags"]
 
 
 def test_it_only_reads_and_writes_what_the_process_declares():
@@ -104,14 +98,12 @@ def test_it_only_reads_and_writes_what_the_process_declares():
         "galaxy.histories.show.contents.get",
         "galaxy.histories.show.contents.bulk.put",
         "galaxy.dataset_collections.post",
-        "galaxy.histories.show.contents.show.tags.show.post",
     }
 
 
 def test_a_requested_datatype_retypes_every_dataset_in_one_call():
     catalog, _ = _run(SRA, datatype="fastqsanger.gz")
-    body = catalog.input_for("contents.bulk.put")
-    assert body["operation"] == "change_datatype"
+    body = next(i for t, i in catalog.calls if i.get("operation") == "change_datatype")
     assert body["params"] == {"type": "change_datatype", "datatype": "fastqsanger.gz"}
     assert [i["id"] for i in body["items"]] == [d["id"] for d in SRA]
 

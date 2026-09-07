@@ -112,27 +112,43 @@ nodes:
         type: dataset_collection
     emit:
       state.collection: result
-    next: tag_collection
+    next: needs_tags
 
-  # The API takes one tag per request.
+  # Tags are optional too.
+  needs_tags:
+    type: control
+    condition:
+      op: control.branch
+      cases:
+        - when:
+            inputs.tags: []
+          next: done
+        - when:
+            inputs.tags: null
+          next: done
+      default: tag_collection
+
+  # Bulk again: the tags belong to the collection, which the per-dataset tag route
+  # cannot address.
   tag_collection:
-    type: loop
-    over:
-      $ref: inputs.tags
-    as: tag
-    execute:
+    type: executor
+    run:
       op: api.call
-      target: galaxy.histories.show.contents.show.tags.show.post
+      target: galaxy.histories.show.contents.bulk.put
       input:
         history_id:
           $ref: inputs.history_id
-        history_content_id:
-          $ref: state.collection.id
-        tag_name:
-          $ref: loop.tag
+        operation: add_tags
+        items:
+          - id:
+              $ref: state.collection.id
+            history_content_type: dataset_collection
+        params:
+          type: add_tags
+          tags:
+            $ref: inputs.tags
     emit:
-      state.tagged:
-        $append: result
+      state.tagged: result
     next: done
 
   done:
