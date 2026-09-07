@@ -134,9 +134,13 @@ def group_datasets(datasets=None, structure=None, name_field="name", include=Non
     structure = structure or "auto"
     rows = _identify(datasets, name_field, _compile(sample_regex))
 
+    # A history holding a collection lists the collection too. It is not a file: it cannot
+    # be retyped and cannot be an element, so it is out of scope by kind.
     in_scope, out_of_scope = [], []
     for row in rows:
-        target = in_scope if _matches(_parts(row[4].get(name_field) or "")[1], include) else out_of_scope
+        dataset = row[4].get("history_content_type", "dataset") == "dataset"
+        name = _parts(row[4].get(name_field) or "")[1]
+        target = in_scope if dataset and _matches(name, include) else out_of_scope
         target.append(row)
 
     pairs, unpaired = {}, []

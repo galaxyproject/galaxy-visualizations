@@ -38,6 +38,7 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
                             datatype: str = None, tags: list = None,
                             sample_regex: str = None):
     """Group loose datasets in a history into a collection, tag it, and set their datatype."""
+    already = set()
     contents = await _call(substrate, "galaxy.histories.show.contents.get", {
         "history_id": history_id, "v": "dev", "deleted": False, "visible": True,
     })
@@ -47,9 +48,12 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
     if grouping["empty"]:
         return {"grouping": grouping}
 
-    # Batched: a 10k history is one oversized request otherwise.
+    # Galaxy detects the datatype on upload, so most of these are usually already right.
+    # Retyping them anyway queues one background task per dataset for no change.
     if datatype:
-        for batch in chunk_items(items=grouping["items"], size=BATCH)["batches"]:
+        already = {d.get("id") for d in contents if d.get("extension") == datatype}
+        pending = [i for i in grouping["items"] if i["id"] not in already]
+        for batch in chunk_items(items=pending, size=BATCH)["batches"]:
             await _bulk(substrate, history_id, "change_datatype", batch,
                         {"type": "change_datatype", "datatype": datatype})
 
@@ -69,7 +73,7 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
                     {"type": "add_tags", "tags": list(tags)})
 
     return {"grouping": grouping, "collection": collection, "leftovers": leftovers,
-            "batches": bool(datatype)}
+            "batches": bool(datatype), "datatype_already_set": len(already) if datatype else 0}
 
 
 organize_datasets.capabilities = ["read", "write"]
