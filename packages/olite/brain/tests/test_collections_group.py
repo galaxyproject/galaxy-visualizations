@@ -43,32 +43,36 @@ def test_a_pair_is_a_nested_collection_the_api_accepts():
 
 
 def test_a_flat_element_points_straight_at_the_dataset():
-    out = group_datasets(datasets=names(ZIP_FLAT))
-    assert out["elements"][0] == {"name": "run_1.fastq.gz", "src": "hda", "id": "id_0"}
+    out = group_datasets(datasets=names(["s0.fastq.gz", "s1.fastq.gz"]))
+    assert out["elements"][0] == {"name": "s0.fastq.gz", "src": "hda", "id": "id_0"}
 
 
-def test_unpaired_files_fall_back_to_a_flat_list():
+def test_run_numbers_are_not_mistaken_for_mates():
+    """run_1..run_4 pair two files at most; that is a minority, so the shape is a list."""
     out = group_datasets(datasets=names(ZIP_FLAT))
     assert out["structure"] == "list"
-    assert len(out["elements"]) == 4
+    assert len(out["elements"]) == 4 and out["unmatched"] == []
 
 
-def test_a_half_pair_does_not_silently_drop_the_odd_file():
+def test_a_half_pair_is_named_as_a_leftover_not_dropped():
     out = group_datasets(datasets=names(["s1_1.fq.gz", "s1_2.fq.gz", "s2_1.fq.gz"]))
-    assert out["structure"] == "list"
-    assert len(out["elements"]) == 3
-
-
-def test_mixing_paired_and_unpaired_stays_flat():
-    out = group_datasets(datasets=names(["a_1.fastq.gz", "a_2.fastq.gz", "notes.txt"]))
-    assert out["structure"] == "list"
-
-
-def test_structure_paired_forces_pairing_and_reports_leftovers():
-    out = group_datasets(datasets=names(["s1_1.fq", "s1_2.fq", "extra.fq"]), structure="paired")
     assert out["structure"] == "list:paired"
     assert [e["name"] for e in out["elements"]] == ["s1"]
-    assert out["unmatched"] == ["extra.fq"]
+    assert out["unmatched"] == ["s2_1.fq.gz"]
+    assert out["has_leftovers"] is True
+
+
+def test_a_non_read_file_becomes_a_leftover():
+    out = group_datasets(datasets=names(["a_1.fastq.gz", "a_2.fastq.gz", "notes.txt"]))
+    assert out["structure"] == "list:paired"
+    assert out["unmatched"] == ["notes.txt"]
+
+
+def test_structure_paired_forces_pairing_past_the_majority_rule():
+    out = group_datasets(datasets=names(["a.fq", "b.fq", "c.fq", "s_1.fq", "s_2.fq"]), structure="paired")
+    assert out["structure"] == "list:paired"
+    assert [e["name"] for e in out["elements"]] == ["s"]
+    assert out["unmatched"] == ["a.fq", "b.fq", "c.fq"]
 
 
 def test_r1_wins_over_a_trailing_1_on_the_same_name():
@@ -76,9 +80,9 @@ def test_r1_wins_over_a_trailing_1_on_the_same_name():
     assert [e["name"] for e in out["elements"]] == ["lane1"]
 
 
-def test_empty_input_is_an_empty_flat_list():
+def test_empty_input_reports_empty_so_the_graph_can_stop():
     out = group_datasets(datasets=[])
-    assert out == {"structure": "list", "elements": [], "unmatched": [], "items": []}
+    assert out["empty"] is True and out["elements"] == []
 
 
 # An unzip tool deposits one dataset per member, named after the member.
@@ -111,8 +115,21 @@ def test_nested_archive_directories_do_not_reach_the_identifiers():
     assert [e["name"] for e in out["elements"]] == ["SRR1"]
 
 
-def test_an_archive_holding_both_shapes_lists_rather_than_dropping_a_file():
-    members = ["p_1.fastq.gz", "p_2.fastq.gz", "notes.txt"]
-    out = group_datasets(datasets=zipped(members))
-    assert out["structure"] == "list"
-    assert len(out["elements"]) == 3
+def test_an_archive_holding_both_shapes_keeps_the_odd_member():
+    out = group_datasets(datasets=zipped(["p_1.fastq.gz", "p_2.fastq.gz", "notes.txt"]))
+    assert out["structure"] == "list:paired"
+    assert out["unmatched"] == ["notes.txt"]
+
+
+def test_include_puts_a_non_read_file_beyond_reach():
+    out = group_datasets(
+        datasets=names(["a_1.fastq.gz", "a_2.fastq.gz", "notes.txt"]), include="*.fastq.gz"
+    )
+    assert out["out_of_scope"] == ["notes.txt"]
+    assert out["unmatched"] == [] and out["has_leftovers"] is False
+    assert len(out["items"]) == 2
+
+
+def test_items_cover_leftovers_so_a_datatype_write_reaches_them():
+    out = group_datasets(datasets=names(["s1_1.fq.gz", "s1_2.fq.gz", "s2_1.fq.gz"]))
+    assert len(out["items"]) == 3

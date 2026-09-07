@@ -13,7 +13,7 @@ SRA = [
 ]
 # Files as they arrive from an unzipped archive: no mate markers.
 ZIPPED = [
-    {"id": f"z{i}", "name": f"run_{i}.txt", "history_content_type": "dataset"} for i in range(3)
+    {"id": f"z{i}", "name": f"run_{i}.txt", "history_content_type": "dataset"} for i in range(3, 7)
 ]
 
 
@@ -77,7 +77,7 @@ def test_unzipped_files_become_a_flat_list():
     catalog, _ = _run(ZIPPED)
     body = catalog.input_for("dataset_collections.post")
     assert body["collection_type"] == "list"
-    assert len(body["element_identifiers"]) == 3
+    assert len(body["element_identifiers"]) == 4
 
 
 def test_tags_are_applied_to_the_new_collection():
@@ -137,3 +137,31 @@ def test_a_call_without_a_history_says_so_instead_of_asking_galaxy():
     assert result["last"]["error"]["code"] == "missing_inputs"
     assert "history_id" in result["last"]["error"]["message"]
     assert substrate.catalog.calls == []
+
+
+MESSY = SRA + [
+    {"id": "half", "name": "SRR200099_1.fastq.gz", "history_content_type": "dataset"},
+    {"id": "notes", "name": "README.txt", "history_content_type": "dataset"},
+]
+
+
+def test_leftovers_get_their_own_collection_instead_of_vanishing():
+    catalog, _ = _run(MESSY)
+    built = [i for t, i in catalog.calls if t == "galaxy.dataset_collections.post"]
+    assert [b["collection_type"] for b in built] == ["list:paired", "list"]
+    assert [e["name"] for e in built[1]["element_identifiers"]] == [
+        "README.txt",
+        "SRR200099_1.fastq.gz",
+    ]
+
+
+def test_include_keeps_a_non_read_file_out_of_the_datatype_write():
+    catalog, _ = _run(MESSY, include="*.fastq.gz", datatype="fastqsanger.gz")
+    body = next(i for _, i in catalog.calls if i.get("operation") == "change_datatype")
+    assert "notes" not in [i["id"] for i in body["items"]]
+    assert len(body["items"]) == 5
+
+
+def test_an_empty_history_writes_nothing():
+    catalog, _ = _run([], datatype="fastqsanger.gz", tags=["sra"])
+    assert catalog.targets() == ["galaxy.histories.show.contents.get"]

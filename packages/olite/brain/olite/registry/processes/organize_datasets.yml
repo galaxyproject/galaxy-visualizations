@@ -4,7 +4,7 @@ kind: agent_pipeline
 description: Group loose datasets in a history into a collection, tag it, and set their datatype.
 when_to_use: when the user asks to organise, group, or collect loose datasets in a history, to build a collection from files that arrived separately, or to tag or set the datatype of a set of datasets
 
-# Least privilege: reads the history, writes only a collection and its tags.
+# Least privilege: reads the history, writes only collections and their tags.
 capabilities: ["read", "write"]
 
 start: list_contents
@@ -16,6 +16,11 @@ inputs:
   collection_name:
     type: string
     default: Collection
+  # Filename glob. Anything outside it is left untouched, which is how a non-read file
+  # escapes the datatype write.
+  include:
+    type: string
+    default: "*"
   structure:
     type: string
     default: auto
@@ -29,12 +34,12 @@ state:
     type: array
   grouping:
     type: object
-  retyped:
-    type: object
   collection:
     type: object
+  leftovers:
+    type: object
   tagged:
-    type: array
+    type: object
 
 nodes:
   # What is in the history, unhidden and undeleted.
@@ -53,7 +58,7 @@ nodes:
       state.contents: result
     next: group
 
-  # Pair or list them; the rule lives in collections.group.
+  # Partition into elements, leftovers and out-of-scope; see collections.group.
   group:
     type: materializer
     target: collections.group
@@ -62,11 +67,22 @@ nodes:
         $ref: state.contents
       structure:
         $ref: inputs.structure
+      include:
+        $ref: inputs.include
     emit:
       state.grouping: result
-    next: needs_datatype
+    next: is_empty
 
-  # Datatype is optional; only write one when the caller asked for it.
+  is_empty:
+    type: control
+    condition:
+      op: control.branch
+      cases:
+        - when:
+            state.grouping.empty: true
+          next: nothing_to_do
+      default: needs_datatype
+
   needs_datatype:
     type: control
     condition:
@@ -77,7 +93,7 @@ nodes:
           next: build_collection
       default: set_datatype
 
-  # One bulk call retypes every dataset, whatever the collection ends up looking like.
+  # One bulk call for every in-scope dataset, leftovers included.
   set_datatype:
     type: executor
     run:
@@ -93,11 +109,8 @@ nodes:
           type: change_datatype
           datatype:
             $ref: inputs.datatype
-    emit:
-      state.retyped: result
     next: build_collection
 
-  # One collection from the grouping.
   build_collection:
     type: executor
     run:
@@ -115,9 +128,36 @@ nodes:
         type: dataset_collection
     emit:
       state.collection: result
+    next: has_leftovers
+
+  has_leftovers:
+    type: control
+    condition:
+      op: control.branch
+      cases:
+        - when:
+            state.grouping.has_leftovers: true
+          next: build_leftovers
+      default: needs_tags
+
+  # Files that did not pair get their own collection rather than being dropped.
+  build_leftovers:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.dataset_collections.post
+      input:
+        history_id:
+          $ref: inputs.history_id
+        name: Unpaired
+        collection_type: list
+        element_identifiers:
+          $ref: state.grouping.leftovers
+        type: dataset_collection
+    emit:
+      state.leftovers: result
     next: needs_tags
 
-  # Tags are optional too.
   needs_tags:
     type: control
     condition:
@@ -131,7 +171,7 @@ nodes:
           next: done
       default: tag_collection
 
-  # Bulk again: the tags belong to the collection, which the per-dataset tag route
+  # Bulk again: tags belong to the collection, which the per-dataset tag route
   # cannot address.
   tag_collection:
     type: executor
@@ -153,6 +193,9 @@ nodes:
     emit:
       state.tagged: result
     next: done
+
+  nothing_to_do:
+    type: terminal
 
   done:
     type: terminal
