@@ -163,7 +163,9 @@ def _summarize(state):
                        "elements": len(grouping.get("elements") or [])},
         "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
         "out_of_scope": sample(grouping.get("out_of_scope")),
-        "datasets_touched": len(grouping.get("items") or []),
+        # Galaxy queues one task per dataset for a datatype change, so this is accepted
+        # work, not finished work. Saying "done" here would be a lie at any real size.
+        "datatype_queued": len(grouping.get("items") or []) if state.get("batches") else 0,
     }
 
 
