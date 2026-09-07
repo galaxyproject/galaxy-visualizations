@@ -13,6 +13,7 @@ start: fetch_source_dataset
 inputs:
   dataset_id:
     type: string
+    required: true
   depth:
     type: integer
   max_per_level:

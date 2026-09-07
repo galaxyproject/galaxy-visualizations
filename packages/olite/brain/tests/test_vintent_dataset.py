@@ -196,10 +196,28 @@ def test_run_process_surfaces_graph_failure_not_null():
             return self
 
     surface = ToolSurface(Sub(), ProcessRegistry().load_packaged())
-    out = asyncio.run(surface.dispatch("run_process", {"name": "vintent_dataset", "inputs": {"dataset_id": "d1"}})).text
+    inputs = {"dataset_id": "d1", "request": "scatter x vs y"}
+    out = asyncio.run(surface.dispatch("run_process", {"name": "vintent_dataset", "inputs": inputs})).text
     payload = json.loads(out)
     assert payload["ok"] is False
     assert payload["error"]["code"] == "catalog_unavailable"
+
+
+def test_a_process_called_without_a_required_input_says_which_one():
+    """Caught before the graph runs, so the error names the caller's mistake."""
+    from olite.drivers.loop.tools import ToolSurface
+
+    class Sub:
+        manifest = FakeManifest()
+
+        def scoped(self, capabilities):
+            return self
+
+    surface = ToolSurface(Sub(), ProcessRegistry().load_packaged())
+    out = asyncio.run(surface.dispatch("run_process", {"name": "vintent_dataset", "inputs": {"dataset_id": "d1"}})).text
+    payload = json.loads(out)
+    assert payload["error"]["code"] == "missing_inputs"
+    assert "request" in payload["error"]["message"]
 
 
 def test_choose_shell_and_fill_schemas_are_state_derived():
