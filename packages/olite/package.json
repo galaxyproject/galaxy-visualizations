@@ -15,7 +15,7 @@
         "build:olite": "cd brain && rm -rf build dist olite.egg-info && python -m build --wheel && cp dist/olite-*.whl ../static/pyodide/",
         "preview": "vite preview",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
-        "test": "npm run test:unit && npm run test:python && npm run typecheck && npm run seams",
+        "test": "npm run test:unit && npm run test:python && npm run typecheck && npm run seams && npm run test:e2e",
         "test:python": "cd brain && python -m pytest tests/ -v --import-mode=importlib",
         "typecheck": "tsc --noEmit",
         "test:ui": "vitest --ui",
