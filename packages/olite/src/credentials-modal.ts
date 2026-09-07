@@ -154,5 +154,9 @@ export async function switchProvider(container: HTMLElement): Promise<void> {
 export async function ensureCredentials(container: HTMLElement): Promise<Credentials> {
     const stored = loadCredentials();
     if (stored && !credentialProblem(stored)) return stored;
+    // Dev override, as in config.ts: the vite proxy attaches the key, so there is nothing
+    // to ask for. A deployed build has no LLM_PROVIDER and always shows the picker.
+    const provider = process.env.llm_provider as string | undefined;
+    if (provider) return { provider, model: process.env.llm_model as string | undefined };
     return (await openPicker(container, false)) as Credentials;
 }

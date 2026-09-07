@@ -10,7 +10,11 @@ export function buildConfig(incoming: ReturnType<typeof parseIncoming>, creds?: 
     return {
         // A picked provider carries its own base URL from the registry; falling
         // back to the specs keeps the Galaxy proxy working when none is chosen.
-        ai_base_url: picked?.base_url || s.ai_api_base_url || `${incoming.root}api/plugins/${PLUGIN_NAME}`,
+        ai_base_url:
+            (process.env.llm_base_url as string) ||
+            picked?.base_url ||
+            s.ai_api_base_url ||
+            `${incoming.root}api/plugins/${PLUGIN_NAME}`,
         // Client-held, from sessionStorage. Never read back into the plugin
         // specs, which Galaxy persists server-side.
         ai_api_key: creds?.apiKey || s.ai_api_key,

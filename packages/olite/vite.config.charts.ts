@@ -95,6 +95,8 @@ export const viteConfigCharts = defineConfig({
     define: {
         "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
         "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
+        // Dev only: route the brain through the /llm proxy above, which attaches the key.
+        "process.env.llm_base_url": JSON.stringify(env.LLM_ROOT ? "/llm" : ""),
         "process.env.llm_provider": JSON.stringify(env.LLM_PROVIDER),
         "process.env.llm_model": JSON.stringify(env.LLM_MODEL),
         "process.env.llm_context_window": JSON.stringify(env.LLM_CONTEXT_WINDOW),
