@@ -44,7 +44,7 @@ def _split_mate(name):
 
 
 @register_materializer("collections.group")
-def group_datasets(datasets=None, structure="auto", name_field="name"):
+def group_datasets(datasets=None, structure=None, name_field="name"):
     """Collection element identifiers for a set of datasets.
 
     `structure` is "paired", "list", or "auto", which pairs only when every dataset
@@ -52,6 +52,7 @@ def group_datasets(datasets=None, structure="auto", name_field="name"):
     list, so a partial match never drops a file.
     """
     datasets = datasets or []
+    structure = structure or "auto"
     named = [(_basename(d.get(name_field) or d.get("id")), d) for d in datasets]
     # Every dataset seen, addressable by the bulk history-contents operations.
     items = [

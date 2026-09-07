@@ -1,8 +1,8 @@
 version: 1
 id: organize_datasets
 kind: agent_pipeline
-description: Group loose datasets in a history into a collection and tag them.
-when_to_use: when the user asks to organise, group, or collect loose datasets in a history, or to build a collection from files that arrived separately
+description: Group loose datasets in a history into a collection, tag it, and set their datatype.
+when_to_use: when the user asks to organise, group, or collect loose datasets in a history, to build a collection from files that arrived separately, or to tag or set the datatype of a set of datasets
 
 # Least privilege: reads the history, writes only a collection and its tags.
 capabilities: ["read", "write"]
@@ -14,8 +14,10 @@ inputs:
     type: string
   collection_name:
     type: string
+    default: Collection
   structure:
     type: string
+    default: auto
   datatype:
     type: string
   tags:

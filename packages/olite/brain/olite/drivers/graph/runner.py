@@ -39,13 +39,24 @@ class Runner:
                 "detail": detail,
             })
 
+    def _with_defaults(self, inputs: dict[str, Any] | None) -> dict[str, Any]:
+        """Declared defaults fill in for inputs a caller left out or passed as null."""
+        declared = self.graph.get("inputs") or {}
+        merged = {
+            name: spec["default"]
+            for name, spec in declared.items()
+            if isinstance(spec, dict) and "default" in spec
+        }
+        merged.update({k: v for k, v in (inputs or {}).items() if v is not None})
+        return merged
+
     async def run(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute the agent graph."""
         graph_id = self.graph.get("id", "unknown")
         logger.info("Starting graph execution: %s", graph_id)
         logger.debug("Graph inputs: %s", inputs)
 
-        self.state["inputs"] = inputs
+        self.state["inputs"] = self._with_defaults(inputs)
         node_id = self.graph.get("start")
         safety = 0
         output: Result | None = None

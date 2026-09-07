@@ -119,3 +119,12 @@ def test_the_datatype_is_set_before_the_collection_is_built():
     assert order.index("galaxy.histories.show.contents.bulk.put") < order.index(
         "galaxy.dataset_collections.post"
     )
+
+
+def test_a_caller_who_names_neither_structure_nor_collection_still_gets_pairs():
+    proc = ProcessRegistry().load_packaged().get("organize_datasets")
+    substrate = FakeSubstrate(SRA)
+    asyncio.run(GraphDriver(substrate).run(proc.graph, {"history_id": "h1"}))
+    body = substrate.catalog.input_for("dataset_collections.post")
+    assert body["collection_type"] == "list:paired"
+    assert body["name"] == "Collection"
