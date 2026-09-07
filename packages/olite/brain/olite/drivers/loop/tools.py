@@ -6,10 +6,12 @@ from dataclasses import dataclass
 
 from olite.substrate import Confirmation
 
-from . import confusables, galaxy_destructive, galaxy_tools, gtn, notebook
+from . import confusables, galaxy_collections, galaxy_destructive, galaxy_tools, gtn, notebook
 from .brief import brief
 
 logger = logging.getLogger(__name__)
+
+galaxy_collections.register()
 
 
 
