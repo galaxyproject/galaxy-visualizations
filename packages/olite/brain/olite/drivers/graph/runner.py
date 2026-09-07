@@ -50,6 +50,16 @@ class Runner:
         merged.update({k: v for k, v in (inputs or {}).items() if v is not None})
         return merged
 
+    def _missing_required(self) -> list[str]:
+        """Required inputs the caller left out, named so the caller can retry."""
+        declared = self.graph.get("inputs") or {}
+        seen = self.state.get("inputs") or {}
+        return [
+            name
+            for name, spec in declared.items()
+            if isinstance(spec, dict) and spec.get("required") and seen.get(name) is None
+        ]
+
     async def run(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute the agent graph."""
         graph_id = self.graph.get("id", "unknown")
@@ -57,6 +67,14 @@ class Runner:
         logger.debug("Graph inputs: %s", inputs)
 
         self.state["inputs"] = self._with_defaults(inputs)
+        missing = self._missing_required()
+        if missing:
+            logger.error("Graph %s called without: %s", graph_id, ", ".join(missing))
+            return {"state": self.state, "last": {"ok": False, "error": {
+                "code": ErrorCode.MISSING_INPUTS,
+                "message": f"{graph_id} requires: {', '.join(missing)}",
+            }}}
+
         node_id = self.graph.get("start")
         safety = 0
         output: Result | None = None

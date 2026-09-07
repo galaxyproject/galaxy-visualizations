@@ -128,3 +128,12 @@ def test_a_caller_who_names_neither_structure_nor_collection_still_gets_pairs():
     body = substrate.catalog.input_for("dataset_collections.post")
     assert body["collection_type"] == "list:paired"
     assert body["name"] == "Collection"
+
+
+def test_a_call_without_a_history_says_so_instead_of_asking_galaxy():
+    proc = ProcessRegistry().load_packaged().get("organize_datasets")
+    substrate = FakeSubstrate(SRA)
+    result = asyncio.run(GraphDriver(substrate).run(proc.graph, {}))
+    assert result["last"]["error"]["code"] == "missing_inputs"
+    assert "history_id" in result["last"]["error"]["message"]
+    assert substrate.catalog.calls == []

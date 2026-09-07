@@ -12,6 +12,7 @@ start: list_contents
 inputs:
   history_id:
     type: string
+    required: true
   collection_name:
     type: string
     default: Collection
