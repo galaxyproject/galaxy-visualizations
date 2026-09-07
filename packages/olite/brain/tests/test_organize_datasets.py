@@ -61,8 +61,8 @@ def _run(contents, **inputs):
     substrate = FakeSubstrate(contents)
     args = {"history_id": "h1", "collection_name": "reads", "structure": "auto", "tags": []}
     args.update(inputs)
-    result = asyncio.run(GraphDriver(substrate).run(proc.graph, args))
-    assert (result.get("last") or {}).get("ok"), f"graph did not complete: {result.get('last')}"
+    result = asyncio.run(proc.run(substrate, args))
+    assert (result.get("last") or {}).get("ok"), f"process did not complete: {result.get('last')}"
     return substrate.catalog, result
 
 
@@ -124,18 +124,20 @@ def test_the_datatype_is_set_before_the_collection_is_built():
 def test_a_caller_who_names_neither_structure_nor_collection_still_gets_pairs():
     proc = ProcessRegistry().load_packaged().get("organize_datasets")
     substrate = FakeSubstrate(SRA)
-    asyncio.run(GraphDriver(substrate).run(proc.graph, {"history_id": "h1"}))
+    asyncio.run(proc.run(substrate, {"history_id": "h1"}))
     body = substrate.catalog.input_for("dataset_collections.post")
     assert body["collection_type"] == "list:paired"
     assert body["name"] == "Collection"
 
 
-def test_a_call_without_a_history_says_so_instead_of_asking_galaxy():
-    proc = ProcessRegistry().load_packaged().get("organize_datasets")
+def test_a_call_without_a_history_is_refused_before_galaxy_is_touched():
+    """The guard is the generated schema, checked in dispatch, whichever kind the process is."""
+    from olite.drivers.loop.tools import ToolSurface
+
     substrate = FakeSubstrate(SRA)
-    result = asyncio.run(GraphDriver(substrate).run(proc.graph, {}))
-    assert result["last"]["error"]["code"] == "missing_inputs"
-    assert "history_id" in result["last"]["error"]["message"]
+    surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
+    outcome = asyncio.run(surface.dispatch("organize_datasets", {}))
+    assert outcome.is_error and "history_id" in outcome.text
     assert substrate.catalog.calls == []
 
 
