@@ -105,12 +105,12 @@ def test_folding_cannot_reach_a_tool_the_session_was_not_offered():
     assert "Unknown tool" in out
 
 
-def test_a_lookalike_process_name_reaches_run_process():
-    """The fold applies to every advertised tool, not just the built-ins."""
+def test_a_lookalike_process_name_still_reaches_its_process():
+    """The fold applies to every advertised tool, processes included."""
     processes = ProcessRegistry()
     processes.register("p", {"version": 1, "id": "p", "kind": "agent_pipeline", "start": "d",
                              "nodes": {"d": {"type": "terminal", "output": {"ok": 1}}}})
     surface = ToolSurface(FakeSubstrate(("local",)), processes)
 
-    out = json.loads(asyncio.run(surface.dispatch("run_proсess", {"name": "p", "inputs": {}})).text)
+    out = json.loads(asyncio.run(surface.dispatch("р", {})).text)  # Cyrillic er
     assert out == {"ok": 1}

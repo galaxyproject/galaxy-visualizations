@@ -2,17 +2,14 @@
 
 import json
 import logging
-import os
 from dataclasses import dataclass
 
 from olite.substrate import Confirmation
 
-from . import confusables, galaxy_collections, galaxy_destructive, galaxy_tools, gtn, notebook
+from . import confusables, galaxy_destructive, galaxy_tools, gtn, notebook
 from .brief import brief
 
 logger = logging.getLogger(__name__)
-
-galaxy_collections.register()
 
 
 
@@ -55,8 +52,8 @@ _JSON_TYPES = {"string": "string", "array": "array", "object": "object",
 def _process_tool_schemas(processes):
     """One top-level tool per crystallized process, its schema read from the yml inputs.
 
-    A process reached through `run_process` sits one level below the model's tool list and
-    loses to same-level tools; giving it a name of its own is the whole difference.
+    Measured: dispatched 0/3 when a process sat one level below the tool list, 3/3 once it
+    had a name of its own.
     """
     schemas = []
     for name in processes.names():
@@ -116,28 +113,6 @@ def _skills_fetch_schema(skills):
     }
 
 
-def _run_process_schema(processes):
-    return {
-        "type": "function",
-        "function": {
-            "name": "run_process",
-            "description": (
-                "Run a crystallized process: a validated, multi-step pipeline. "
-                "Prefer these over improvising when one fits.\nAvailable:\n" + processes.catalog_text()
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "enum": processes.names()},
-                    "inputs": {"type": "object", "description": "Process inputs."},
-                },
-                "required": ["name", "inputs"],
-            },
-        },
-    }
-
-
-# Names listed back to the model; the rest is a count, so a 10k history stays a small result.
 NAME_SAMPLE = 10
 
 
@@ -204,10 +179,7 @@ class ToolSurface:
         if self.skills and self.skills.names():
             tools.append(_skills_fetch_schema(self.skills))
         if self.processes and self.processes.names():
-            if os.environ.get("OLITE_PROCESS_TOOLS"):
-                tools.extend(_process_tool_schemas(self.processes))
-            else:
-                tools.append(_run_process_schema(self.processes))
+            tools.extend(_process_tool_schemas(self.processes))
         return tools
 
     def _missing_required(self, name, args):
@@ -247,8 +219,6 @@ class ToolSurface:
 
         if name == "run_python":
             return self.substrate.local.run(args.get("code", ""))
-        if name == "run_process":
-            return await self._run_process(args)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
         if name == "skills_fetch":

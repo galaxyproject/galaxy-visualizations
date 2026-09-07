@@ -59,7 +59,7 @@ class ProcessRegistry:
         return sorted(self._processes)
 
     def catalog_text(self):
-        """Human-readable list for the run_process tool description."""
+        """Human-readable list of the registered processes."""
         lines = []
         for name in self.names():
             p = self._processes[name]

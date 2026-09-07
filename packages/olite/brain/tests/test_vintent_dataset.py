@@ -177,7 +177,7 @@ def test_fetch_uses_scoped_catalog_display_op():
     ]
 
 
-def test_run_process_surfaces_graph_failure_not_null():
+def test_a_process_failure_surfaces_instead_of_returning_null():
     """A failed fetch must reach the model as an error, not a bare null."""
     from olite.drivers.loop.tools import ToolSurface
 
@@ -197,14 +197,14 @@ def test_run_process_surfaces_graph_failure_not_null():
 
     surface = ToolSurface(Sub(), ProcessRegistry().load_packaged())
     inputs = {"dataset_id": "d1", "request": "scatter x vs y"}
-    out = asyncio.run(surface.dispatch("run_process", {"name": "vintent_dataset", "inputs": inputs})).text
+    out = asyncio.run(surface.dispatch("vintent_dataset", inputs)).text
     payload = json.loads(out)
     assert payload["ok"] is False
     assert payload["error"]["code"] == "catalog_unavailable"
 
 
 def test_a_process_called_without_a_required_input_says_which_one():
-    """Caught before the graph runs, so the error names the caller's mistake."""
+    """Caught against the generated schema, before the graph or any API call."""
     from olite.drivers.loop.tools import ToolSurface
 
     class Sub:
@@ -214,10 +214,9 @@ def test_a_process_called_without_a_required_input_says_which_one():
             return self
 
     surface = ToolSurface(Sub(), ProcessRegistry().load_packaged())
-    out = asyncio.run(surface.dispatch("run_process", {"name": "vintent_dataset", "inputs": {"dataset_id": "d1"}})).text
-    payload = json.loads(out)
-    assert payload["error"]["code"] == "missing_inputs"
-    assert "request" in payload["error"]["message"]
+    outcome = asyncio.run(surface.dispatch("vintent_dataset", {"dataset_id": "d1"}))
+    assert outcome.is_error
+    assert "request" in outcome.text
 
 
 def test_choose_shell_and_fill_schemas_are_state_derived():
@@ -235,7 +234,7 @@ def test_choose_shell_and_fill_schemas_are_state_derived():
 
 
 class LoopLlm:
-    """A loop-level model: calls run_process once, then finishes."""
+    """A loop-level model: calls the process tool once, then finishes."""
 
     def __init__(self, decisions):
         self.decisions = decisions
@@ -250,9 +249,9 @@ class LoopLlm:
                 "id": "call_1",
                 "type": "function",
                 "function": {
-                    "name": "run_process",
+                    "name": "vintent_dataset",
                     "arguments": json.dumps(
-                        {"name": "vintent_dataset", "inputs": {"dataset_id": "d1", "request": "scatter BMI vs Glucose"}}
+                        {"dataset_id": "d1", "request": "scatter BMI vs Glucose"}
                     ),
                 },
             }
@@ -292,7 +291,7 @@ def test_full_loop_routes_artifact_and_injects_skill():
     ends = [e for e in events if e["type"] == "tool_end"]
     assert starts and len(starts) == len(ends)
     assert [e["id"] for e in starts] == [e["id"] for e in ends]
-    assert any(e["name"] == "run_process" for e in starts)
+    assert any(e["name"] == "vintent_dataset" for e in starts)
     assert all("content" in e for e in ends)
 
     artifacts = result.get("artifacts") or []
@@ -301,8 +300,8 @@ def test_full_loop_routes_artifact_and_injects_skill():
     assert artifacts[0]["spec"]["mark"] == {"type": "point"}
 
     # The model saw a compact reference, not the full spec.
-    tool_msgs = [m for m in result["messages"] if m.get("role") == "tool" and m.get("name") == "run_process"]
-    assert tool_msgs, "no run_process tool result in transcript"
+    tool_msgs = [m for m in result["messages"] if m.get("role") == "tool" and m.get("name") == "vintent_dataset"]
+    assert tool_msgs, "no vintent_dataset tool result in transcript"
     payload = json.loads(tool_msgs[0]["content"])
     assert payload["artifact"] == {"kind": "vega-lite", "title": "Scatter Plot"}
     assert "spec" not in payload["artifact"]

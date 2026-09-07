@@ -89,7 +89,7 @@ def test_a_view_shares_state_rather_than_resetting_it():
     assert view.catalog._providers is substrate.catalog._providers
 
 
-# --- End to end through run_process ------------------------------------------
+# --- End to end through a process tool ------------------------------------------
 
 
 class RecordingSubstrate(Substrate):
@@ -132,7 +132,7 @@ def test_a_read_only_process_cannot_write_from_a_write_enabled_session():
     processes.register("probe", _capability_probe_graph(), capabilities=["llm", "read"])
     surface = ToolSurface(substrate, processes)
 
-    raw = asyncio.run(surface.dispatch("run_process", {"name": "probe", "inputs": {}})).text
+    raw = asyncio.run(surface.dispatch("probe", {})).text
 
     assert substrate.scoped_with == [["llm", "read"]]
     # The catalog refuses the write op rather than performing it.
