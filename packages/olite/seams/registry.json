@@ -387,7 +387,9 @@
       "source": "loom evals/scenarios",
       "fingerprints": {
         "behavior-underspecified-ask": "464ffdbc1b2a40fa",
+        "execution-after-approval": "3d8f4014d1a232ec",
         "init-gate-galaxy-no-connection": "9b59f2b7a8a639dc",
+        "plan-consults-iwc": "a9f9fae8b9c21cd0",
         "plan-creation-metagenomics": "74c626e60de3e52f",
         "plan-creation-pharmacogenomics": "7c1b7c31c877b8fd",
         "plan-creation-rnaseq": "d32dcf03f13b1114",
@@ -396,6 +398,8 @@
         "routing-clear-galaxy": "21b6b4d5afe67ff7",
         "routing-clear-local": "9d4dd5a98f7cda73",
         "smoke-echo": "0ef9b672b9c90b2b",
+        "udt-authoring-container": "ed21826b2bf647b4",
+        "udt-authoring-select-params": "33252c01161252a5",
         "udt-authoring-threads": "15e165c9ca7dfcaa"
       }
     },
