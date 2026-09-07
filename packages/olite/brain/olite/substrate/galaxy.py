@@ -41,6 +41,8 @@ ALLOWED_METHODS = [API_METHODS.GET, API_METHODS.POST]
 WRITE_ALLOWLIST = {
     "tools.post",  # run_tool
     "histories.post",  # create_history
+    "dataset_collections.post",  # build a collection from datasets already in a history
+    "histories.show.contents.show.tags.show.post",  # tag one dataset
 }
 PROVIDER_NAME = "galaxy"
 # Prefix allowlist scopes what the agent can reach. Widened past polaris's read

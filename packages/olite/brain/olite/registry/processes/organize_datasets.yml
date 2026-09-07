@@ -1,0 +1,104 @@
+version: 1
+id: organize_datasets
+kind: agent_pipeline
+description: Group loose datasets in a history into a collection and tag them.
+when_to_use: when the user asks to organise, group, or collect loose datasets in a history, or to build a collection from files that arrived separately
+
+# Least privilege: reads the history, writes only a collection and its tags.
+capabilities: ["read", "write"]
+
+start: list_contents
+
+inputs:
+  history_id:
+    type: string
+  collection_name:
+    type: string
+  structure:
+    type: string
+  tags:
+    type: array
+
+state:
+  contents:
+    type: array
+  grouping:
+    type: object
+  collection:
+    type: object
+  tagged:
+    type: array
+
+nodes:
+  # What is in the history, unhidden and undeleted.
+  list_contents:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.histories.show.contents.get
+      input:
+        history_id:
+          $ref: inputs.history_id
+        v: dev
+        deleted: false
+        visible: true
+    emit:
+      state.contents: result
+    next: group
+
+  # Pair or list them; the rule lives in collections.group.
+  group:
+    type: materializer
+    target: collections.group
+    args:
+      datasets:
+        $ref: state.contents
+      structure:
+        $ref: inputs.structure
+    emit:
+      state.grouping: result
+    next: build_collection
+
+  # One collection from the grouping.
+  build_collection:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.dataset_collections.post
+      input:
+        history_id:
+          $ref: inputs.history_id
+        name:
+          $ref: inputs.collection_name
+        collection_type:
+          $ref: state.grouping.structure
+        element_identifiers:
+          $ref: state.grouping.elements
+        type: dataset_collection
+    emit:
+      state.collection: result
+    next: tag_collection
+
+  # The API takes one tag per request.
+  tag_collection:
+    type: loop
+    over:
+      $ref: inputs.tags
+    as: tag
+    execute:
+      op: api.call
+      target: galaxy.histories.show.contents.show.tags.show.post
+      input:
+        history_id:
+          $ref: inputs.history_id
+        history_content_id:
+          $ref: state.collection.id
+        tag_name:
+          $ref: loop.tag
+    emit:
+      state.tagged:
+        $append: result
+    next: done
+
+  done:
+    type: terminal
