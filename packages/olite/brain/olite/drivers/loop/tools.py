@@ -45,19 +45,28 @@ FINISH = {
 }
 
 
+def _runnable(process, manifest):
+    """Whether the session grants every capability the process declares."""
+    return all(manifest.allows(c) for c in (process.capabilities or []))
+
+
 _JSON_TYPES = {"string": "string", "array": "array", "object": "object",
                "integer": "integer", "number": "number", "boolean": "boolean"}
 
 
-def _process_tool_schemas(processes):
-    """One top-level tool per crystallized process, its schema read from the yml inputs.
+def _process_tool_schemas(processes, manifest=None):
+    """One tool per crystallized process, its schema read from the yml inputs.
 
-    Measured: dispatched 0/3 when a process sat one level below the tool list, 3/3 once it
-    had a name of its own.
+    Only processes the manifest can actually run are advertised: a process runs on
+    `Substrate.scoped(declared)`, so one declaring more than the session grants would fail
+    on its first call. Measured: dispatched 0/3 when a process sat one level below the tool
+    list, 3/3 once it had a name of its own.
     """
     schemas = []
     for name in processes.names():
         proc = processes.get(name)
+        if manifest and not _runnable(proc, manifest):
+            continue
         properties, required = {}, []
         for key, spec in (proc.graph.get("inputs") or {}).items():
             spec = spec or {}
@@ -179,7 +188,7 @@ class ToolSurface:
         if self.skills and self.skills.names():
             tools.append(_skills_fetch_schema(self.skills))
         if self.processes and self.processes.names():
-            tools.extend(_process_tool_schemas(self.processes))
+            tools.extend(_process_tool_schemas(self.processes, self.substrate.manifest))
         return tools
 
     def _missing_required(self, name, args):

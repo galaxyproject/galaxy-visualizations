@@ -8,12 +8,16 @@ from olite.registry import ProcessRegistry
 
 
 class FakeManifest:
+    def __init__(self, granted=None):
+        self.granted = granted
+
     def allows(self, capability):
-        return True
+        return True if self.granted is None else capability in self.granted
 
 
 class FakeSubstrate:
-    manifest = FakeManifest()
+    def __init__(self, granted=None):
+        self.manifest = FakeManifest(granted)
 
     def scoped(self, capabilities):
         return self
@@ -27,8 +31,13 @@ def _processes():
     return ProcessRegistry().load_packaged()
 
 
-def _surface():
-    return ToolSurface(FakeSubstrate(), _processes())
+def _surface(granted=None):
+    return ToolSurface(FakeSubstrate(granted), _processes())
+
+
+def _advertised(granted):
+    names = [t["function"]["name"] for t in _surface(granted).schemas()]
+    return sorted(n for n in names if n in _processes().names())
 
 
 def test_every_registered_process_is_advertised_exactly_once():
@@ -81,3 +90,25 @@ def test_a_missing_required_input_is_refused_before_the_graph_runs():
 def test_an_unknown_name_is_still_unknown():
     outcome = asyncio.run(_surface().dispatch("organise_datasets", {}))
     assert outcome.is_error and "Unknown tool" in outcome.text
+
+
+def test_a_session_without_read_sees_no_processes():
+    assert _advertised({"llm", "local"}) == []
+
+
+def test_a_read_only_session_does_not_see_the_writer():
+    advertised = _advertised({"llm", "local", "read"})
+    assert "organize_datasets" not in advertised
+    assert "vintent_dataset" in advertised and "lineage_report" in advertised
+
+
+def test_a_write_session_sees_every_process():
+    assert _advertised({"llm", "local", "read", "write"}) == sorted(_processes().names())
+
+
+def test_a_process_is_never_advertised_where_it_could_not_run():
+    """Scoped() intersects, so advertising past the grant offers a tool that must fail."""
+    for granted in ({"llm", "local"}, {"llm", "local", "read"}, {"llm", "local", "read", "write"}):
+        for name in _advertised(granted):
+            declared = _processes().get(name).capabilities or []
+            assert set(declared) <= granted, f"{name} advertised without {set(declared) - granted}"
