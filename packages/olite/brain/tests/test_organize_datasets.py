@@ -30,6 +30,8 @@ class FakeCatalog:
             return {"ok": True, "result": self.contents}
         if target == "galaxy.dataset_collections.post":
             return {"ok": True, "result": {"id": "hdca1", "name": (input or {}).get("name")}}
+        if target == "galaxy.histories.show.contents.bulk.put":
+            return {"ok": True, "result": {"success_count": len(self.contents), "errors": []}}
         if target.endswith("tags.show.post"):
             return {"ok": True, "result": {"user_tags": [(input or {}).get("tag_name")]}}
         raise AssertionError(f"unexpected op: {target}")
@@ -97,9 +99,31 @@ def test_no_tags_means_no_tag_calls():
 
 
 def test_it_only_reads_and_writes_what_the_process_declares():
-    catalog, _ = _run(SRA, tags=["sra"])
+    catalog, _ = _run(SRA, tags=["sra"], datatype="fastqsanger.gz")
     assert set(catalog.targets()) <= {
         "galaxy.histories.show.contents.get",
+        "galaxy.histories.show.contents.bulk.put",
         "galaxy.dataset_collections.post",
         "galaxy.histories.show.contents.show.tags.show.post",
     }
+
+
+def test_a_requested_datatype_retypes_every_dataset_in_one_call():
+    catalog, _ = _run(SRA, datatype="fastqsanger.gz")
+    body = catalog.input_for("contents.bulk.put")
+    assert body["operation"] == "change_datatype"
+    assert body["params"] == {"type": "change_datatype", "datatype": "fastqsanger.gz"}
+    assert [i["id"] for i in body["items"]] == [d["id"] for d in SRA]
+
+
+def test_no_datatype_means_no_write():
+    catalog, _ = _run(SRA)
+    assert "galaxy.histories.show.contents.bulk.put" not in catalog.targets()
+
+
+def test_the_datatype_is_set_before_the_collection_is_built():
+    catalog, _ = _run(SRA, datatype="fastqsanger.gz")
+    order = catalog.targets()
+    assert order.index("galaxy.histories.show.contents.bulk.put") < order.index(
+        "galaxy.dataset_collections.post"
+    )

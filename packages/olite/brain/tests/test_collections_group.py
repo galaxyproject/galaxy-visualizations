@@ -69,7 +69,7 @@ def test_r1_wins_over_a_trailing_1_on_the_same_name():
 
 def test_empty_input_is_an_empty_flat_list():
     out = group_datasets(datasets=[])
-    assert out == {"structure": "list", "elements": [], "unmatched": []}
+    assert out == {"structure": "list", "elements": [], "unmatched": [], "items": []}
 
 
 # An unzip tool deposits one dataset per member, named after the member.

@@ -53,6 +53,11 @@ def group_datasets(datasets=None, structure="auto", name_field="name"):
     """
     datasets = datasets or []
     named = [(_basename(d.get(name_field) or d.get("id")), d) for d in datasets]
+    # Every dataset seen, addressable by the bulk history-contents operations.
+    items = [
+        {"id": d.get("id"), "history_content_type": d.get("history_content_type", "dataset")}
+        for _, d in named
+    ]
 
     pairs = {}
     unpaired = []
@@ -82,9 +87,14 @@ def group_datasets(datasets=None, structure="auto", name_field="name"):
             for sample in sorted(complete)
         ]
         leftover = [n for n, _ in unpaired] + [s for s in pairs if s not in complete]
-        return {"structure": "list:paired", "elements": elements, "unmatched": sorted(leftover)}
+        return {
+            "structure": "list:paired",
+            "elements": elements,
+            "unmatched": sorted(leftover),
+            "items": items,
+        }
 
     elements = [
         {"identifier": str(name), "type": "dataset", "id": d.get("id")} for name, d in named
     ]
-    return {"structure": "list", "elements": elements, "unmatched": []}
+    return {"structure": "list", "elements": elements, "unmatched": [], "items": items}

@@ -16,6 +16,8 @@ inputs:
     type: string
   structure:
     type: string
+  datatype:
+    type: string
   tags:
     type: array
 
@@ -23,6 +25,8 @@ state:
   contents:
     type: array
   grouping:
+    type: object
+  retyped:
     type: object
   collection:
     type: object
@@ -57,6 +61,37 @@ nodes:
         $ref: inputs.structure
     emit:
       state.grouping: result
+    next: needs_datatype
+
+  # Datatype is optional; only write one when the caller asked for it.
+  needs_datatype:
+    type: control
+    condition:
+      op: control.branch
+      cases:
+        - when:
+            inputs.datatype: null
+          next: build_collection
+      default: set_datatype
+
+  # One bulk call retypes every dataset, whatever the collection ends up looking like.
+  set_datatype:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.histories.show.contents.bulk.put
+      input:
+        history_id:
+          $ref: inputs.history_id
+        operation: change_datatype
+        items:
+          $ref: state.grouping.items
+        params:
+          type: change_datatype
+          datatype:
+            $ref: inputs.datatype
+    emit:
+      state.retyped: result
     next: build_collection
 
   # One collection from the grouping.
