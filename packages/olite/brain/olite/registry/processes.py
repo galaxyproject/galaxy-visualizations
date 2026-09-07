@@ -45,6 +45,9 @@ class Process:
                 spec["required"] = True
             elif param.default is not None:
                 spec["default"] = param.default
+            help_text = getattr(self.fn, "inputs_help", {}).get(name)
+            if help_text:
+                spec["help"] = help_text
             out[name] = spec
         return out
 

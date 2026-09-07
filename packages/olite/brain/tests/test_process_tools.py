@@ -112,3 +112,10 @@ def test_a_process_is_never_advertised_where_it_could_not_run():
         for name in _advertised(granted):
             declared = _processes().get(name).capabilities or []
             assert set(declared) <= granted, f"{name} advertised without {set(declared) - granted}"
+
+
+def test_per_input_help_reaches_the_model():
+    """A parameter the model cannot guess at needs its description carried through."""
+    props = _schemas()["organize_datasets"]["parameters"]["properties"]
+    assert "sample" in props["sample_regex"]["description"]
+    assert "mate" in props["sample_regex"]["description"]

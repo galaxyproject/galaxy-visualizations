@@ -71,8 +71,11 @@ def _process_tool_schemas(processes, manifest=None):
         for key, spec in proc.inputs.items():
             kind = _JSON_TYPES.get(spec.get("type", "string"), "string")
             properties[key] = {"type": "array", "items": {"type": "string"}} if kind == "array" else {"type": kind}
+            described = [spec["help"]] if spec.get("help") else []
             if spec.get("default") is not None:
-                properties[key]["description"] = f"Defaults to {spec['default']!r}."
+                described.append(f"Defaults to {spec['default']!r}.")
+            if described:
+                properties[key]["description"] = " ".join(described)
             if spec.get("required"):
                 required.append(key)
         description = proc.description

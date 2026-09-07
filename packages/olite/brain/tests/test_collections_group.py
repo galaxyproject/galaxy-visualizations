@@ -198,3 +198,49 @@ def test_identifiers_are_unique_across_every_layout():
         out = group_datasets(datasets=names(layout))
         identifiers = [e["name"] for e in out["elements"]]
         assert len(set(identifiers)) == len(identifiers), (layout, identifiers)
+
+
+# --- The caller-supplied pattern -------------------------------------------------
+# The escape hatch for conventions the built-in rules cannot infer. The model reads a
+# few names and supplies one small regex; Python applies it to however many files.
+
+
+def test_a_pattern_pairs_a_convention_the_rules_cannot_infer():
+    out = group_datasets(
+        datasets=names(["A01_fwd_seq.fq.gz", "A01_rev_seq.fq.gz", "A02_fwd_seq.fq.gz", "A02_rev_seq.fq.gz"]),
+        sample_regex=r"(?P<sample>[A-Z]\d+)_(?P<mate>fwd|rev)_seq",
+    )
+    assert out["structure"] == "list:paired"
+    assert [e["name"] for e in out["elements"]] == ["A01", "A02"]
+
+
+def test_a_pattern_can_take_the_sample_from_the_directory():
+    out = group_datasets(
+        datasets=names(["donorA/part1.fq.gz", "donorA/part2.fq.gz", "donorB/part1.fq.gz", "donorB/part2.fq.gz"]),
+        sample_regex=r"(?P<sample>[^/]+)/part(?P<mate>[12])",
+    )
+    assert [e["name"] for e in out["elements"]] == ["donorA", "donorB"]
+
+
+def test_a_pattern_needs_no_second_sample_to_be_believed():
+    """The caller asserted the convention, so the weak-evidence rule does not apply."""
+    out = group_datasets(
+        datasets=names(["only_a.fq", "only_b.fq"]),
+        sample_regex=r"(?P<sample>only)_(?P<mate>[ab])".replace("[ab]", "[ab]"),
+    )
+    assert out["structure"] == "list"  # a/b are not mates; nothing is forced
+
+
+def test_a_file_the_pattern_misses_is_a_leftover_not_a_guess():
+    out = group_datasets(
+        datasets=names(["good_R1.fq", "good_R2.fq", "stray.txt"]),
+        sample_regex=r"(?P<sample>\w+)_(?P<mate>R[12])",
+    )
+    assert out["unmatched"] == ["stray.txt"]
+
+
+def test_a_broken_pattern_says_so():
+    import pytest
+
+    with pytest.raises(ValueError, match="not a valid regular expression"):
+        group_datasets(datasets=names(["a.fq"]), sample_regex="(?P<sample>")

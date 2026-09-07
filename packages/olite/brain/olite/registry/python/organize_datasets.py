@@ -35,13 +35,15 @@ async def _collection(substrate, history_id, name, collection_type, elements):
 
 async def organize_datasets(substrate, history_id: str, collection_name: str = "Collection",
                             include: str = "*", structure: str = "auto",
-                            datatype: str = None, tags: list = None):
+                            datatype: str = None, tags: list = None,
+                            sample_regex: str = None):
     """Group loose datasets in a history into a collection, tag it, and set their datatype."""
     contents = await _call(substrate, "galaxy.histories.show.contents.get", {
         "history_id": history_id, "v": "dev", "deleted": False, "visible": True,
     })
 
-    grouping = group_datasets(datasets=contents, structure=structure, include=include)
+    grouping = group_datasets(datasets=contents, structure=structure, include=include,
+                              sample_regex=sample_regex)
     if grouping["empty"]:
         return {"grouping": grouping}
 
@@ -71,6 +73,13 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
 
 
 organize_datasets.capabilities = ["read", "write"]
+organize_datasets.inputs_help = {
+    "sample_regex": (
+        "Optional regex over each archive path naming a `sample` group and an optional "
+        "`mate` group, e.g. '(?P<sample>[^/]+)/part(?P<mate>[12])'. Use it when the file "
+        "names follow a convention this tool did not infer; read a few names first."
+    ),
+}
 organize_datasets.when_to_use = (
     "when the user asks to organise, group, or collect loose datasets in a history, to build "
     "a collection from files that arrived separately, or to tag or set the datatype of a set "

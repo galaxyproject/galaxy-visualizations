@@ -10,7 +10,7 @@ from olite.drivers.graph import register_materializer
 _EXPLICIT_MATE = re.compile(r"^(?:R|read)([12])$", re.IGNORECASE)
 _WORD_MATE = re.compile(r"^(?:(forward|fwd)|(reverse|rev))$", re.IGNORECASE)
 _WEAK_MATE = re.compile(r"^([12])$")
-_SEP = re.compile(r"[._-]")
+_SEP = re.compile(r"[._\-\s]+")
 # Extensions stripped before pairing, so sample_1.fastq.gz pairs on "sample".
 _STRIP = (".gz", ".bz2", ".zip", ".fastq", ".fq", ".fasta", ".fa", ".txt", ".tabular")
 
@@ -48,21 +48,46 @@ def _mate_of(segment):
     return None, False
 
 
-def _split_mate(name):
+def _split_mate(name, pattern=None, path=None):
     """(sample, mate, explicit) for a read name, or (stem, None, False).
+
+    A caller-supplied `pattern` wins: it names the convention outright, so it counts as
+    explicit evidence and needs no corroborating second sample. A file it does not match
+    becomes a leftover rather than being forced into a guess.
 
     The marker may sit in any segment but the first, so Illumina's trailing `_001` survives.
     """
     stem = _stem(name)
+    if pattern is not None:
+        found = pattern.search(path if path is not None else name)
+        if not found:
+            return stem, None, False
+        groups = found.groupdict()
+        sample = groups.get("sample") or stem
+        mate, _ = _mate_of(groups.get("mate") or "")
+        return sample, mate, True
+
     segments = _SEP.split(stem)
-    for i in range(len(segments) - 1, 0, -1):
+    # Right to left, and never the first segment for a bare 1/2: a leading digit is a
+    # sample number. An explicit R1/forward reads the same wherever it sits.
+    for i in range(len(segments) - 1, -1, -1):
         mate, explicit = _mate_of(segments[i])
-        if mate:
+        if mate and (explicit or i > 0):
             return "_".join(segments[:i] + segments[i + 1 :]), mate, explicit
     return stem, None, False
 
 
-def _identify(datasets, name_field):
+def _compile(sample_regex):
+    """The caller's pattern, or None. A bad pattern is the caller's error, said plainly."""
+    if not sample_regex:
+        return None
+    try:
+        return re.compile(sample_regex)
+    except re.error as exc:
+        raise ValueError(f"sample_regex is not a valid regular expression: {exc}") from exc
+
+
+def _identify(datasets, name_field, pattern=None):
     """Per dataset: (sample, file_id, mate, explicit, dataset).
 
     A paired element is named by its sample, a flat element by the file. Both fall back to
@@ -72,8 +97,10 @@ def _identify(datasets, name_field):
     """
     rows = []
     for d in datasets:
-        dirs, base = _parts(d.get(name_field) or d.get("id"))
-        sample, mate, explicit = _split_mate(base)
+        raw = str(d.get(name_field) or d.get("id"))
+        dirs, base = _parts(raw)
+        # The pattern sees the whole archive path, so a sample can live in a directory.
+        sample, mate, explicit = _split_mate(base, pattern, path=raw.replace("\\", "/"))
         rows.append((dirs, base, sample, mate, explicit, d))
 
     def qualify(values, keys):
@@ -88,12 +115,16 @@ def _identify(datasets, name_field):
 
 
 @register_materializer("collections.group")
-def group_datasets(datasets=None, structure=None, name_field="name", include=None):
+def group_datasets(datasets=None, structure=None, name_field="name", include=None,
+                   sample_regex=None):
     """Partition datasets into collection elements plus whatever did not fit.
 
     `include` is a filename glob scoping which datasets are in play at all. `structure` is
     "paired", "list", or "auto". Nothing is discarded: a dataset is in `elements`, in
     `leftovers`, or out of scope, and `out_of_scope` names the last group.
+
+    `sample_regex` overrides the built-in conventions: a regex over the archive path with a
+    named `sample` group and an optional `mate` group, for layouts this module cannot infer.
 
     `auto` pairs only on evidence. An explicit marker (R1/read2/forward) is enough on its
     own; a bare 1/2 could be a sample number, so it also needs a second sample showing the
@@ -101,7 +132,7 @@ def group_datasets(datasets=None, structure=None, name_field="name", include=Non
     """
     datasets = datasets or []
     structure = structure or "auto"
-    rows = _identify(datasets, name_field)
+    rows = _identify(datasets, name_field, _compile(sample_regex))
 
     in_scope, out_of_scope = [], []
     for row in rows:
