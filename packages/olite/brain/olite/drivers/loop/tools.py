@@ -55,7 +55,7 @@ _JSON_TYPES = {"string": "string", "array": "array", "object": "object",
 
 
 def _process_tool_schemas(processes, manifest=None):
-    """One tool per crystallized process, its schema read from the yml inputs.
+    """One tool per crystallized process, its schema read from the process's declared inputs.
 
     Only processes the manifest can actually run are advertised: a process runs on
     `Substrate.scoped(declared)`, so one declaring more than the session grants would fail
@@ -68,12 +68,14 @@ def _process_tool_schemas(processes, manifest=None):
         if manifest and not _runnable(proc, manifest):
             continue
         properties, required = {}, []
-        for key, spec in (proc.graph.get("inputs") or {}).items():
-            spec = spec or {}
+        for key, spec in proc.inputs.items():
             kind = _JSON_TYPES.get(spec.get("type", "string"), "string")
             properties[key] = {"type": "array", "items": {"type": "string"}} if kind == "array" else {"type": kind}
+            described = [spec["help"]] if spec.get("help") else []
             if spec.get("default") is not None:
-                properties[key]["description"] = f"Defaults to {spec['default']!r}."
+                described.append(f"Defaults to {spec['default']!r}.")
+            if described:
+                properties[key]["description"] = " ".join(described)
             if spec.get("required"):
                 required.append(key)
         description = proc.description
@@ -295,14 +297,13 @@ class ToolSurface:
         proc = self.processes.get(args.get("name")) if self.processes else None
         if not proc:
             return ToolOutcome(json.dumps({"error": f"unknown process: {args.get('name')}"}), is_error=True)
-        from olite.drivers.graph import GraphDriver
         from olite.registry import load_primitives
 
         load_primitives()
 
         # Least privilege: the process manifest, intersected with the session's.
         substrate = self.substrate.scoped(proc.capabilities)
-        result = await GraphDriver(substrate).run(proc.graph, args.get("inputs") or {})
+        result = await proc.run(substrate, args.get("inputs") or {})
         last = result.get("last") or {}
         summary = _summarize(result.get("state") or {})
         if summary and last.get("ok") is not False:

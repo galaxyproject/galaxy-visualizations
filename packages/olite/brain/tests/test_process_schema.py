@@ -19,12 +19,23 @@ nodes:
 """
 
 
-def test_the_shipped_processes_validate():
-    """The drift check: every process olite ships must match the grammar."""
+def test_the_shipped_graphs_validate():
+    """The drift check: every graph olite ships must match the grammar."""
     registry = ProcessRegistry().load_packaged()
-    assert registry.names()
-    for name in registry.names():
+    graphs = [n for n in registry.names() if registry.get(n).graph is not None]
+    assert graphs
+    for name in graphs:
         AgentDefinition.model_validate(registry.get(name).graph)
+
+
+def test_a_python_process_declares_the_same_things_a_graph_does():
+    """Both kinds carry inputs and capabilities; only the body differs."""
+    registry = ProcessRegistry().load_packaged()
+    for name in registry.names():
+        process = registry.get(name)
+        assert process.inputs, f"{name} declares no inputs"
+        assert process.capabilities, f"{name} declares no capabilities"
+        assert (process.graph is None) != (process.fn is None), f"{name} must be one kind"
 
 
 def test_the_grammar_knows_the_fields_the_processes_actually_use():

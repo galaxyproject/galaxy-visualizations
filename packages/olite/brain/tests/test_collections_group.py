@@ -33,7 +33,7 @@ def test_illumina_r1_r2_pairs():
 
 
 def test_a_pair_is_a_nested_collection_the_api_accepts():
-    out = group_datasets(datasets=[ds("s_1.fastq.gz", 0), ds("s_2.fastq.gz", 1)])
+    out = group_datasets(datasets=[ds("s_R1.fastq.gz", 0), ds("s_R2.fastq.gz", 1)])
     element = out["elements"][0]
     assert element["src"] == "new_collection" and element["collection_type"] == "paired"
     assert element["element_identifiers"] == [
@@ -55,15 +55,15 @@ def test_run_numbers_are_not_mistaken_for_mates():
 
 
 def test_a_half_pair_is_named_as_a_leftover_not_dropped():
-    out = group_datasets(datasets=names(["s1_1.fq.gz", "s1_2.fq.gz", "s2_1.fq.gz"]))
+    out = group_datasets(datasets=names(["s1_R1.fq.gz", "s1_R2.fq.gz", "s2_R1.fq.gz"]))
     assert out["structure"] == "list:paired"
     assert [e["name"] for e in out["elements"]] == ["s1"]
-    assert out["unmatched"] == ["s2_1.fq.gz"]
+    assert out["unmatched"] == ["s2_R1.fq.gz"]
     assert out["has_leftovers"] is True
 
 
 def test_a_non_read_file_becomes_a_leftover():
-    out = group_datasets(datasets=names(["a_1.fastq.gz", "a_2.fastq.gz", "notes.txt"]))
+    out = group_datasets(datasets=names(["a_R1.fastq.gz", "a_R2.fastq.gz", "notes.txt"]))
     assert out["structure"] == "list:paired"
     assert out["unmatched"] == ["notes.txt"]
 
@@ -111,19 +111,19 @@ def test_a_zip_of_single_end_reads_lists():
 
 
 def test_nested_archive_directories_do_not_reach_the_identifiers():
-    out = group_datasets(datasets=zipped(["a/b/c/SRR1_1.fastq.gz", "a/b/c/SRR1_2.fastq.gz"]))
+    out = group_datasets(datasets=zipped(["a/b/c/SRR1_R1.fastq.gz", "a/b/c/SRR1_R2.fastq.gz"]))
     assert [e["name"] for e in out["elements"]] == ["SRR1"]
 
 
 def test_an_archive_holding_both_shapes_keeps_the_odd_member():
-    out = group_datasets(datasets=zipped(["p_1.fastq.gz", "p_2.fastq.gz", "notes.txt"]))
+    out = group_datasets(datasets=zipped(["p_R1.fastq.gz", "p_R2.fastq.gz", "notes.txt"]))
     assert out["structure"] == "list:paired"
     assert out["unmatched"] == ["notes.txt"]
 
 
 def test_include_puts_a_non_read_file_beyond_reach():
     out = group_datasets(
-        datasets=names(["a_1.fastq.gz", "a_2.fastq.gz", "notes.txt"]), include="*.fastq.gz"
+        datasets=names(["a_R1.fastq.gz", "a_R2.fastq.gz", "notes.txt"]), include="*.fastq.gz"
     )
     assert out["out_of_scope"] == ["notes.txt"]
     assert out["unmatched"] == [] and out["has_leftovers"] is False
@@ -131,5 +131,116 @@ def test_include_puts_a_non_read_file_beyond_reach():
 
 
 def test_items_cover_leftovers_so_a_datatype_write_reaches_them():
-    out = group_datasets(datasets=names(["s1_1.fq.gz", "s1_2.fq.gz", "s2_1.fq.gz"]))
+    out = group_datasets(datasets=names(["s1_R1.fq.gz", "s1_R2.fq.gz", "s2_R1.fq.gz"]))
     assert len(out["items"]) == 3
+
+
+# --- Evidence for pairing --------------------------------------------------------
+# A bare 1/2 can be a sample number; R1/read2/forward cannot.
+
+
+def test_two_unrelated_samples_are_not_married_into_a_pair():
+    """patient_1 and patient_2 are people, not mates. This is the dangerous case."""
+    out = group_datasets(datasets=names(["patient_1.fastq.gz", "patient_2.fastq.gz"]))
+    assert out["structure"] == "list"
+    assert [e["name"] for e in out["elements"]] == ["patient_1.fastq.gz", "patient_2.fastq.gz"]
+
+
+def test_an_explicit_marker_pairs_a_single_sample():
+    out = group_datasets(datasets=names(["patient_R1.fastq.gz", "patient_R2.fastq.gz"]))
+    assert out["structure"] == "list:paired"
+    assert [e["name"] for e in out["elements"]] == ["patient"]
+
+
+def test_a_bare_marker_pairs_once_a_second_sample_shows_the_convention():
+    out = group_datasets(datasets=names(["a_1.fq", "a_2.fq", "b_1.fq", "b_2.fq"]))
+    assert out["structure"] == "list:paired"
+    assert [e["name"] for e in out["elements"]] == ["a", "b"]
+
+
+def test_structure_paired_overrides_the_evidence_rule():
+    out = group_datasets(datasets=names(["patient_1.fq", "patient_2.fq"]), structure="paired")
+    assert out["structure"] == "list:paired"
+
+
+def test_word_markers_are_recognised():
+    for forward, reverse in (("forward", "reverse"), ("fwd", "rev"), ("read1", "read2")):
+        out = group_datasets(datasets=names([f"s_{forward}.fq", f"s_{reverse}.fq"]))
+        assert out["structure"] == "list:paired", (forward, reverse)
+        assert [e["name"] for e in out["elements"]] == ["s"]
+
+
+# --- Identifier collisions -------------------------------------------------------
+# Galaxy rejects a collection with duplicate element identifiers (HTTP 400).
+
+
+def test_per_sample_directories_pair_without_colliding():
+    members = [f"Sample{k}/reads_R{m}.fq.gz" for k in (1, 2, 3) for m in (1, 2)]
+    out = group_datasets(datasets=zipped(members))
+    assert out["structure"] == "list:paired"
+    assert [e["name"] for e in out["elements"]] == ["Sample1_reads", "Sample2_reads", "Sample3_reads"]
+
+
+def test_a_flat_list_of_colliding_names_is_qualified_by_directory():
+    out = group_datasets(datasets=zipped(["A/notes.txt", "B/notes.txt"]))
+    assert [e["name"] for e in out["elements"]] == ["A_notes.txt", "B_notes.txt"]
+
+
+def test_identifiers_are_unique_across_every_layout():
+    layouts = [
+        [f"SRR100{n}_{m}.fastq.gz" for n in range(1, 4) for m in (1, 2)],
+        [f"S{n}_S1_L001_R{m}_001.fastq.gz" for n in range(1, 4) for m in (1, 2)],
+        [f"Sample{k}/reads_R{m}.fq.gz" for k in (1, 2) for m in (1, 2)],
+        [f"lane{k}/S{n}_R{m}.fq" for k in (1, 2) for n in (1, 2) for m in (1, 2)],
+        ["A/notes.txt", "B/notes.txt", "C/notes.txt"],
+    ]
+    for layout in layouts:
+        out = group_datasets(datasets=names(layout))
+        identifiers = [e["name"] for e in out["elements"]]
+        assert len(set(identifiers)) == len(identifiers), (layout, identifiers)
+
+
+# --- The caller-supplied pattern -------------------------------------------------
+# The escape hatch for conventions the built-in rules cannot infer. The model reads a
+# few names and supplies one small regex; Python applies it to however many files.
+
+
+def test_a_pattern_pairs_a_convention_the_rules_cannot_infer():
+    out = group_datasets(
+        datasets=names(["A01_fwd_seq.fq.gz", "A01_rev_seq.fq.gz", "A02_fwd_seq.fq.gz", "A02_rev_seq.fq.gz"]),
+        sample_regex=r"(?P<sample>[A-Z]\d+)_(?P<mate>fwd|rev)_seq",
+    )
+    assert out["structure"] == "list:paired"
+    assert [e["name"] for e in out["elements"]] == ["A01", "A02"]
+
+
+def test_a_pattern_can_take_the_sample_from_the_directory():
+    out = group_datasets(
+        datasets=names(["donorA/part1.fq.gz", "donorA/part2.fq.gz", "donorB/part1.fq.gz", "donorB/part2.fq.gz"]),
+        sample_regex=r"(?P<sample>[^/]+)/part(?P<mate>[12])",
+    )
+    assert [e["name"] for e in out["elements"]] == ["donorA", "donorB"]
+
+
+def test_a_pattern_needs_no_second_sample_to_be_believed():
+    """The caller asserted the convention, so the weak-evidence rule does not apply."""
+    out = group_datasets(
+        datasets=names(["only_a.fq", "only_b.fq"]),
+        sample_regex=r"(?P<sample>only)_(?P<mate>[ab])".replace("[ab]", "[ab]"),
+    )
+    assert out["structure"] == "list"  # a/b are not mates; nothing is forced
+
+
+def test_a_file_the_pattern_misses_is_a_leftover_not_a_guess():
+    out = group_datasets(
+        datasets=names(["good_R1.fq", "good_R2.fq", "stray.txt"]),
+        sample_regex=r"(?P<sample>\w+)_(?P<mate>R[12])",
+    )
+    assert out["unmatched"] == ["stray.txt"]
+
+
+def test_a_broken_pattern_says_so():
+    import pytest
+
+    with pytest.raises(ValueError, match="not a valid regular expression"):
+        group_datasets(datasets=names(["a.fq"]), sample_regex="(?P<sample>")

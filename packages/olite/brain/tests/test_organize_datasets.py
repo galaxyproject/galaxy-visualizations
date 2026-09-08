@@ -61,8 +61,8 @@ def _run(contents, **inputs):
     substrate = FakeSubstrate(contents)
     args = {"history_id": "h1", "collection_name": "reads", "structure": "auto", "tags": []}
     args.update(inputs)
-    result = asyncio.run(GraphDriver(substrate).run(proc.graph, args))
-    assert (result.get("last") or {}).get("ok"), f"graph did not complete: {result.get('last')}"
+    result = asyncio.run(proc.run(substrate, args))
+    assert (result.get("last") or {}).get("ok"), f"process did not complete: {result.get('last')}"
     return substrate.catalog, result
 
 
@@ -124,18 +124,20 @@ def test_the_datatype_is_set_before_the_collection_is_built():
 def test_a_caller_who_names_neither_structure_nor_collection_still_gets_pairs():
     proc = ProcessRegistry().load_packaged().get("organize_datasets")
     substrate = FakeSubstrate(SRA)
-    asyncio.run(GraphDriver(substrate).run(proc.graph, {"history_id": "h1"}))
+    asyncio.run(proc.run(substrate, {"history_id": "h1"}))
     body = substrate.catalog.input_for("dataset_collections.post")
     assert body["collection_type"] == "list:paired"
     assert body["name"] == "Collection"
 
 
-def test_a_call_without_a_history_says_so_instead_of_asking_galaxy():
-    proc = ProcessRegistry().load_packaged().get("organize_datasets")
+def test_a_call_without_a_history_is_refused_before_galaxy_is_touched():
+    """The guard is the generated schema, checked in dispatch, whichever kind the process is."""
+    from olite.drivers.loop.tools import ToolSurface
+
     substrate = FakeSubstrate(SRA)
-    result = asyncio.run(GraphDriver(substrate).run(proc.graph, {}))
-    assert result["last"]["error"]["code"] == "missing_inputs"
-    assert "history_id" in result["last"]["error"]["message"]
+    surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
+    outcome = asyncio.run(surface.dispatch("organize_datasets", {}))
+    assert outcome.is_error and "history_id" in outcome.text
     assert substrate.catalog.calls == []
 
 
@@ -175,3 +177,36 @@ def test_the_datatype_write_is_batched():
     catalog, _ = _run(many, datatype="fastqsanger.gz")
     writes = [i for _, i in catalog.calls if i.get("operation") == "change_datatype"]
     assert [len(w["items"]) for w in writes] == [1000, 1000, 500]
+
+
+WITH_COLLECTION = [
+    {"id": "c1", "name": "reads", "history_content_type": "dataset_collection",
+     "collection_type": "list", "element_count": 4},
+    *SRA,
+]
+
+
+def test_a_collection_already_in_the_history_is_not_treated_as_a_file():
+    """Galaxy's own zip fetch leaves a collection in the history alongside its members."""
+    catalog, _ = _run(WITH_COLLECTION, datatype="fastqsanger.gz")
+    body = next(i for _, i in catalog.calls if i.get("operation") == "change_datatype")
+    assert "c1" not in [i["id"] for i in body["items"]]
+    built = [i for t, i in catalog.calls if t == "galaxy.dataset_collections.post"]
+    for element in built[0]["element_identifiers"]:
+        for inner in element.get("element_identifiers", [element]):
+            assert inner["id"] != "c1"
+
+
+def test_datasets_already_at_the_datatype_are_not_retyped():
+    """Galaxy detects the datatype on upload; retyping queues a task per dataset for nothing."""
+    typed = [{**d, "extension": "fastqsanger.gz"} for d in SRA]
+    catalog, result = _run(typed, datatype="fastqsanger.gz")
+    assert not [i for _, i in catalog.calls if i.get("operation") == "change_datatype"]
+    assert result["state"]["datatype_already_set"] == len(typed)
+
+
+def test_a_mixed_history_retypes_only_what_needs_it():
+    half = [{**d, "extension": "fastqsanger.gz"} if n < 2 else d for n, d in enumerate(SRA)]
+    catalog, _ = _run(half, datatype="fastqsanger.gz")
+    body = next(i for _, i in catalog.calls if i.get("operation") == "change_datatype")
+    assert len(body["items"]) == len(SRA) - 2
