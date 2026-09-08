@@ -332,7 +332,7 @@ test("save notebook to galaxy", async ({ page }, testInfo) => {
 
     // Trigger save via menu (more reliable across platforms than keyboard shortcuts)
     await page.click("#jp-MainMenu");
-    await page.click('text=File');
+    await page.click("text=File");
     await page.click('[data-command="docmanager:save"]');
 
     // Wait for and interact with the save dialog
@@ -353,4 +353,68 @@ test("save notebook to galaxy", async ({ page }, testInfo) => {
     expect(savedPayload.targets).toBeDefined();
     expect(savedPayload.targets[0].elements[0].name).toBe("my-saved-notebook");
     expect(savedPayload.targets[0].elements[0].ext).toBe("ipynb");
+});
+
+test("save failure is reported to the user", async ({ page }, testInfo) => {
+    await startService(page, testInfo.title);
+
+    // The upload endpoint rejects; the dialog must say so rather than failing to the console.
+    await page.unroute("**/root/api/tools/fetch");
+    await page.route("**/root/api/tools/fetch", async (route) => {
+        await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    });
+
+    await page.click(".jp-NotebookPanel");
+    await page.click("#jp-MainMenu");
+    await page.click("text=File");
+    await page.click('[data-command="docmanager:save"]');
+
+    const dialog = page.locator(".jp-Dialog");
+    await dialog.waitFor({ timeout: 5000 });
+    await dialog.locator("input").fill("doomed-notebook");
+    await dialog.locator('button:has-text("OK")').click();
+
+    const failure = page.locator(".jp-Dialog", { hasText: "Save to Galaxy failed" });
+    await expect(failure).toBeVisible({ timeout: 10000 });
+    await expect(failure).toContainText("doomed-notebook");
+});
+
+test("unreachable dataset falls back to the default notebook", async ({ page }) => {
+    // Every other route stays mocked; only the notebook source is unavailable.
+    await page.route("**/root/api/datasets/dataset_0/display", async (route) => {
+        await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+    });
+    await page.route("**/root/history/current_history_json", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ id: "history_id" }),
+        });
+    });
+
+    await page.goto(LANDING);
+
+    // A usable notebook opens with the template's cells rather than an empty document.
+    // The template names its own kernel, so no kernel picker appears here.
+    await page.waitForSelector(".jp-NotebookPanel");
+    const cells = page.locator(".jp-Notebook .jp-Cell");
+    await expect(cells.first()).toBeVisible({ timeout: 30000 });
+    expect(await cells.count()).toBeGreaterThan(0);
+});
+
+test("no dataset identifier loads the default notebook", async ({ page }) => {
+    await page.route("**/root/history/current_history_json", async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ id: "history_id" }),
+        });
+    });
+
+    await page.goto("http://localhost:8000/lab/index.html?root=/root/&history_id=history_id");
+
+    await page.waitForSelector(".jp-NotebookPanel");
+    const cells = page.locator(".jp-Notebook .jp-Cell");
+    await expect(cells.first()).toBeVisible({ timeout: 30000 });
+    expect(await cells.count()).toBeGreaterThan(0);
 });
