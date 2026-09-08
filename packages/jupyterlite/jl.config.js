@@ -57,9 +57,6 @@ config.settingsOverrides[AI_SETTINGS] = {
             provider: "generic",
             model: "jnaut",
             baseURL: galaxyApiBase,
-            parameters: {
-                maxTokens: 4096,
-            },
         },
     ],
 };
