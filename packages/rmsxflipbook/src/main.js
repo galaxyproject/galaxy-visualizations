@@ -1,4 +1,5 @@
 import { Viewer } from "molstar/lib/apps/viewer/app";
+import { Binding } from "molstar/lib/mol-util/binding";
 import "molstar/build/viewer/molstar.css";
 import "./main.css";
 
@@ -42,20 +43,39 @@ import "./main.css";
     const VISUAL_MIN = 0;
     const VISUAL_MAX = 1;
     const LAYOUTS = new Set(["tiled"]);
+    const VIEW_MODES = new Set(["structures", "heatmap", "analysis"]);
     const CONTROL_PANEL_KEYS = ["view", "style", "rotation", "metrics"];
     const RENDER_PRESETS = new Set(["clean-interactive", "soft"]);
+    const COMPACT_SPACING = Object.freeze({ min: 0.3, max: 0.7, default: 0.5, step: 0.01 });
 
     let REPORT = null;
     let viewer = null;
     let dragState = null;
     let renderToken = 0;
     let queuedSceneUpdate = null;
+    let sceneReloadPromise = null;
+    let sceneReloadRequested = false;
+    let sceneReloadAutoView = false;
     let interactiveFrame = null;
     let resizeObserver = null;
     let resizeResetTimer = null;
+    let heatmapResizeObserver = null;
+    let heatmapDrawFrame = null;
+    let analysisResizeObserver = null;
+    let analysisDrawFrame = null;
+    let analysisLayoutFrame = null;
+    let analysisDragState = null;
+    let analysisLoadingPromise = null;
+    let analysisCameraSnapshot = null;
+    let analysisLayoutTargets = new Map();
+    const analysisPdbCache = new Map();
+    const analysisStatsCache = new Map();
+    let markerUpdateTimer = null;
+    let markerUpdateToken = 0;
 
     const state = {
         layout: "tiled",
+        activeView: "structures",
         currentIndex: 0,
         visible: new Set(),
         paletteName: "viridis",
@@ -78,6 +98,8 @@ import "./main.css";
         representationMode: "-",
         records: [],
         loaded: false,
+        analysisLoaded: false,
+        analysisCameraReady: false,
         liveTransforms: false,
         forceCoordinateFallback: false,
     };
@@ -90,6 +112,11 @@ import "./main.css";
           <div class="control-row primary-row">
             <button id="resetViewButton" type="button" data-testid="molstar-reset">Reset View</button>
           </div>
+          <div class="view-tabs" role="tablist" aria-label="Viewer mode" data-testid="viewer-mode-tabs">
+            <button id="structuresTab" class="active" type="button" role="tab" aria-selected="true" aria-controls="molstarViewport" data-testid="structures-tab">Structures</button>
+            <button id="heatmapTab" type="button" role="tab" aria-selected="false" aria-controls="heatmapView" data-testid="heatmap-tab">Heatmap</button>
+            <button id="analysisTab" type="button" role="tab" aria-selected="false" aria-controls="molstarViewport analysisView" data-testid="analysis-tab">Analysis</button>
+          </div>
         </div>
         <div id="status" class="status sidebar-status">Loading RMSX manifest...</div>
         <p class="citation-note">Please cite: RMSX/Flipbook paper, Scientific Reports (2026), doi:<a href="https://doi.org/10.1038/s41598-026-39869-7" target="_blank" rel="noopener noreferrer">10.1038/s41598-026-39869-7</a>.</p>
@@ -97,7 +124,7 @@ import "./main.css";
           <details class="control-panel active" open data-panel="view" data-testid="molstar-panel-layout">
             <summary>View</summary>
             <div class="panel-grid">
-              <label>Spacing <input id="spacingRange" type="range" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-number"></label>
+              <label>Spacing <input id="spacingRange" type="range" min="0.3" max="0.7" value="0.5" step="0.01" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0.3" max="0.7" value="0.5" step="0.01" data-testid="molstar-spacing-number"></label>
               <label>Cols <input id="columnsNumber" type="number" min="1" value="1" step="1" data-testid="molstar-columns-number"></label>
               <div class="slice-visibility">
                 <div class="field-label">Slices</div>
@@ -159,8 +186,31 @@ import "./main.css";
           </details>
         </div>
       </aside>
-      <section class="rmsx-viewer" data-testid="molstar-report">
-        <div id="molstarViewport" class="viewport" data-testid="molstar-viewport"></div>
+      <section id="viewerRegion" class="rmsx-viewer" data-testid="molstar-report">
+        <div id="molstarViewport" class="viewport" role="tabpanel" aria-labelledby="structuresTab" data-testid="molstar-viewport"></div>
+        <div id="heatmapView" class="heatmap-view" role="tabpanel" aria-labelledby="heatmapTab" data-testid="rmsx-heatmap-view" hidden>
+          <header class="heatmap-header">
+            <h2>RMSX heatmap</h2>
+            <div id="heatmapSelection" class="heatmap-selection" aria-live="polite">-</div>
+          </header>
+          <div id="heatmapChains" class="heatmap-chains" data-testid="rmsx-heatmap-chains"></div>
+          <div id="heatmapTooltip" class="heatmap-tooltip" role="tooltip" hidden></div>
+        </div>
+        <div id="analysisView" class="analysis-view" role="tabpanel" aria-labelledby="analysisTab" data-testid="rmsx-analysis-view" hidden>
+          <div id="analysisContent" class="analysis-content">
+            <header class="analysis-header">
+              <h2>RMSX trajectory analysis</h2>
+              <div id="analysisSelection" class="heatmap-selection" aria-live="polite">-</div>
+            </header>
+            <div id="analysisChainGrid" class="analysis-chain-grid" data-testid="rmsx-analysis-chain-grid"></div>
+            <section id="analysisAssemblyPanel" class="analysis-assembly-panel" data-testid="rmsx-analysis-assembly" hidden>
+              <h3>All chains</h3>
+              <div id="analysisAssemblyLane" class="analysis-structure-lane assembly-lane" data-lane="assembly" data-testid="rmsx-analysis-assembly-lane"></div>
+            </section>
+          </div>
+          <div id="analysisTooltip" class="heatmap-tooltip analysis-tooltip" role="tooltip" hidden></div>
+          <div id="analysisDebugOverlay" class="analysis-debug-overlay" aria-hidden="true" hidden></div>
+        </div>
       </section>
     </main>
   `;
@@ -168,6 +218,10 @@ import "./main.css";
     const elements = {
         status: document.getElementById("status"),
         resetViewButton: document.getElementById("resetViewButton"),
+        structuresTab: document.getElementById("structuresTab"),
+        heatmapTab: document.getElementById("heatmapTab"),
+        analysisTab: document.getElementById("analysisTab"),
+        viewerRegion: document.getElementById("viewerRegion"),
         controlPanels: [...document.querySelectorAll("[data-panel]")],
         outlineCheckbox: document.getElementById("outlineCheckbox"),
         paletteSelect: document.getElementById("paletteSelect"),
@@ -195,6 +249,18 @@ import "./main.css";
         resetScaleButton: document.getElementById("resetScaleButton"),
         sliceChips: document.getElementById("sliceChips"),
         viewport: document.getElementById("molstarViewport"),
+        heatmapView: document.getElementById("heatmapView"),
+        heatmapChains: document.getElementById("heatmapChains"),
+        heatmapSelection: document.getElementById("heatmapSelection"),
+        heatmapTooltip: document.getElementById("heatmapTooltip"),
+        analysisView: document.getElementById("analysisView"),
+        analysisContent: document.getElementById("analysisContent"),
+        analysisChainGrid: document.getElementById("analysisChainGrid"),
+        analysisAssemblyPanel: document.getElementById("analysisAssemblyPanel"),
+        analysisAssemblyLane: document.getElementById("analysisAssemblyLane"),
+        analysisSelection: document.getElementById("analysisSelection"),
+        analysisTooltip: document.getElementById("analysisTooltip"),
+        analysisDebugOverlay: document.getElementById("analysisDebugOverlay"),
         legendColorBar: document.getElementById("legendColorBar"),
         domainMin: document.getElementById("domainMin"),
         domainMid: document.getElementById("domainMid"),
@@ -282,6 +348,45 @@ import "./main.css";
         if (!Array.isArray(manifest.residues) || !manifest.residues.length) {
             throw new Error("RMSX manifest does not contain residue-level RMSX values.");
         }
+        if (manifest.analysis !== undefined) {
+            const chains = manifest.analysis?.chains;
+            if (!Array.isArray(chains) || !chains.length) {
+                throw new Error("RMSX manifest analysis data must contain at least one chain.");
+            }
+            for (const chain of chains) {
+                const rmsd = chain?.rmsd;
+                const rmsf = chain?.rmsf;
+                const rmsdLengths = [rmsd?.frames, rmsd?.timeNs, rmsd?.values].map((values) =>
+                    Array.isArray(values) ? values.length : -1,
+                );
+                const rmsfLengths = [rmsf?.residueIds, rmsf?.values].map((values) =>
+                    Array.isArray(values) ? values.length : -1,
+                );
+                if (
+                    !chain?.id ||
+                    rmsdLengths.some((length) => length <= 0 || length !== rmsdLengths[0]) ||
+                    rmsfLengths.some((length) => length <= 0 || length !== rmsfLengths[0])
+                ) {
+                    throw new Error(`RMSX manifest analysis arrays are invalid for chain ${chain?.id || "unknown"}.`);
+                }
+            }
+        }
+        for (const slice of manifest.slices) {
+            if (slice.chainAtomRanges === undefined) {
+                continue;
+            }
+            if (
+                !Array.isArray(slice.chainAtomRanges) ||
+                slice.chainAtomRanges.some(
+                    (range) =>
+                        !range?.chain ||
+                        !Number.isFinite(Number(range.atomSerialStart)) ||
+                        !Number.isFinite(Number(range.atomSerialEnd)),
+                )
+            ) {
+                throw new Error(`RMSX manifest chain atom ranges are invalid for ${slice.filename}.`);
+            }
+        }
     }
 
     function clamp(value, min, max) {
@@ -332,15 +437,30 @@ import "./main.css";
     }
 
     function minSpacing() {
-        return Number(REPORT.flipbookReference?.minimumSpacingFactor ?? 0.1);
+        const requested = Number(REPORT.flipbookReference?.minimumSpacingFactor ?? COMPACT_SPACING.min);
+        return clamp(
+            Number.isFinite(requested) ? requested : COMPACT_SPACING.min,
+            COMPACT_SPACING.min,
+            COMPACT_SPACING.max,
+        );
     }
 
     function maxSpacing() {
-        return Number(REPORT.flipbookReference?.maximumSpacingFactor ?? 2.5);
+        const requested = Number(REPORT.flipbookReference?.maximumSpacingFactor ?? COMPACT_SPACING.max);
+        return clamp(Number.isFinite(requested) ? requested : COMPACT_SPACING.max, minSpacing(), COMPACT_SPACING.max);
     }
 
     function defaultSpacing() {
-        return Number(REPORT.flipbookReference?.defaultSpacingFactor ?? 1);
+        const requested = Number(REPORT.flipbookReference?.defaultSpacingFactor ?? COMPACT_SPACING.default);
+        if (!Number.isFinite(requested) || requested < minSpacing() || requested > maxSpacing()) {
+            return clamp(COMPACT_SPACING.default, minSpacing(), maxSpacing());
+        }
+        return requested;
+    }
+
+    function spacingStep() {
+        const requested = Number(REPORT.flipbookReference?.spacingStepFactor ?? COMPACT_SPACING.step);
+        return Number.isFinite(requested) && requested > 0 ? requested : COMPACT_SPACING.step;
     }
 
     function defaultTileColumns() {
@@ -433,6 +553,70 @@ import "./main.css";
             map.set(residue.id, residue);
         });
         return map;
+    }
+
+    function analysisChainGroups() {
+        return heatmapChainGroups();
+    }
+
+    function analysisMetricForChain(chainId) {
+        return REPORT?.analysis?.chains?.find((chain) => String(chain.id) === String(chainId)) || null;
+    }
+
+    function laneKey(lane) {
+        return lane?.kind === "chain" ? `chain:${lane.chain}` : "assembly";
+    }
+
+    function primaryAnalysisLane() {
+        const groups = analysisChainGroups();
+        return groups.length === 1 ? { kind: "chain", chain: groups[0].chain } : { kind: "assembly" };
+    }
+
+    function atomSerialForLine(line) {
+        const serial = Number.parseInt(String(line).slice(6, 11).trim(), 10);
+        return Number.isFinite(serial) ? serial : null;
+    }
+
+    function logicalChainForAtom(slice, line) {
+        const serial = atomSerialForLine(line);
+        if (serial !== null && Array.isArray(slice?.chainAtomRanges)) {
+            const range = slice.chainAtomRanges.find(
+                (candidate) => serial >= Number(candidate.atomSerialStart) && serial <= Number(candidate.atomSerialEnd),
+            );
+            if (range?.chain) {
+                return String(range.chain);
+            }
+        }
+        return String(line).padEnd(22, " ").slice(21, 22).trim();
+    }
+
+    function pdbForLane(slice, lane = { kind: "assembly" }) {
+        if (!lane || lane.kind !== "chain") {
+            return slice.pdb;
+        }
+        const key = `${slice.id}:${laneKey(lane)}`;
+        if (analysisPdbCache.has(key)) {
+            return analysisPdbCache.get(key);
+        }
+        const lines = slice.pdb.split(/\r?\n/);
+        const filtered = lines.filter((line) => {
+            if (!line.startsWith("ATOM") && !line.startsWith("HETATM")) {
+                return !line.startsWith("END");
+            }
+            return logicalChainForAtom(slice, line) === String(lane.chain);
+        });
+        filtered.push("END");
+        const pdb = filtered.join("\n");
+        analysisPdbCache.set(key, pdb);
+        return pdb;
+    }
+
+    function structureStatsForLane(slice, lane = { kind: "assembly" }) {
+        const key = `${slice.id}:${laneKey(lane)}`;
+        if (!analysisStatsCache.has(key)) {
+            analysisStatsCache.set(key, structureStats(pdbForLane(slice, lane)));
+        }
+        return analysisStatsCache.get(key);
     }
 
     function structureStats(pdb) {
@@ -762,8 +946,9 @@ import "./main.css";
         setRotationMatrix(multiplyMatrices(delta, rotationMatrix()));
     }
 
-    function transformedPdb(slice, index, mode, applySceneTransform = true) {
-        const stats = structureStats(slice.pdb);
+    function transformedPdb(slice, index, mode, applySceneTransform = true, lane = { kind: "assembly" }) {
+        const sourcePdb = pdbForLane(slice, lane);
+        const stats = structureStats(sourcePdb);
         const anchor = structureStats(REPORT.slices[0].pdb).center;
         const offset = tileOffset(index);
         const target = {
@@ -774,7 +959,7 @@ import "./main.css";
         const matrix = rotationMatrix();
         const residues = residueByKey();
         let atomCount = 0;
-        const lines = slice.pdb
+        const lines = sourcePdb
             .split(/\r?\n/)
             .map((line) => {
                 if (!line.startsWith("ATOM") && !line.startsWith("HETATM")) {
@@ -784,7 +969,7 @@ import "./main.css";
                 const x = Number(padded.slice(30, 38));
                 const y = Number(padded.slice(38, 46));
                 const z = Number(padded.slice(46, 54));
-                const chainId = padded.slice(21, 22).trim();
+                const chainId = logicalChainForAtom(slice, padded);
                 const residueId = padded.slice(22, 26).trim();
                 const masked = isMasked(chainId, residueId);
                 if (mode === "unmasked" && masked) {
@@ -811,27 +996,81 @@ import "./main.css";
         return { pdb: lines.join("\n"), atomCount };
     }
 
-    function sceneTransformForSlice(slice, index) {
-        const stats = structureStats(slice.pdb);
+    function analysisLaneForRecord(lane = { kind: "assembly" }) {
+        if (lane.kind === "assembly" && analysisChainGroups().length === 1) {
+            return primaryAnalysisLane();
+        }
+        return lane;
+    }
+
+    function analysisTargetForSlice(index, lane = { kind: "assembly" }) {
+        return analysisLayoutTargets.get(`${laneKey(analysisLaneForRecord(lane))}:${index}`) || null;
+    }
+
+    function sceneTransformForSlice(slice, index, lane = { kind: "assembly" }, useAnalysisLayout = true) {
+        const stats = structureStatsForLane(slice, lane);
         const anchor = structureStats(REPORT.slices[0].pdb).center;
         const offset = tileOffset(index);
-        const target = {
+        let target = {
             x: anchor.x + offset.x,
             y: anchor.y + offset.y,
             z: anchor.z + offset.z,
         };
+        let scale = 1;
+        if (useAnalysisLayout && state.activeView === "analysis") {
+            const analysisTarget = analysisTargetForSlice(index, lane);
+            if (analysisTarget) {
+                target = analysisTarget.target;
+                scale = analysisTarget.scale;
+            }
+        }
         const matrix = rotationMatrix();
-        return { matrix, center: stats.center, target };
+        return { matrix, center: stats.center, target, scale };
     }
 
-    function molstarTransformForSlice(slice, index) {
-        const transform = sceneTransformForSlice(slice, index);
+    function molstarTransformForSlice(slice, index, lane = { kind: "assembly" }) {
+        const transform = sceneTransformForSlice(slice, index, lane);
         const r = transform.matrix;
         const c = transform.center;
         const t = transform.target;
-        const tx = t.x - (r[0][0] * c.x + r[0][1] * c.y + r[0][2] * c.z);
-        const ty = t.y - (r[1][0] * c.x + r[1][1] * c.y + r[1][2] * c.z);
-        const tz = t.z - (r[2][0] * c.x + r[2][1] * c.y + r[2][2] * c.z);
+        const s = Number(transform.scale || 1);
+        const tx = t.x - s * (r[0][0] * c.x + r[0][1] * c.y + r[0][2] * c.z);
+        const ty = t.y - s * (r[1][0] * c.x + r[1][1] * c.y + r[1][2] * c.z);
+        const tz = t.z - s * (r[2][0] * c.x + r[2][1] * c.y + r[2][2] * c.z);
+        return [
+            s * r[0][0],
+            s * r[1][0],
+            s * r[2][0],
+            0,
+            s * r[0][1],
+            s * r[1][1],
+            s * r[2][1],
+            0,
+            s * r[0][2],
+            s * r[1][2],
+            s * r[2][2],
+            0,
+            tx,
+            ty,
+            tz,
+            1,
+        ];
+    }
+
+    function molstarTransformFromBaked(record) {
+        const base = record.bakedSceneTransform;
+        const current = sceneTransformForSlice(record.slice, record.index, record.lane);
+        const inverseBaseRotation = [
+            [base.matrix[0][0], base.matrix[1][0], base.matrix[2][0]],
+            [base.matrix[0][1], base.matrix[1][1], base.matrix[2][1]],
+            [base.matrix[0][2], base.matrix[1][2], base.matrix[2][2]],
+        ];
+        const rotation = multiplyMatrices(current.matrix, inverseBaseRotation);
+        const scale = Number(current.scale || 1) / Number(base.scale || 1);
+        const r = rotation.map((row) => row.map((value) => value * scale));
+        const tx = current.target.x - (r[0][0] * base.target.x + r[0][1] * base.target.y + r[0][2] * base.target.z);
+        const ty = current.target.y - (r[1][0] * base.target.x + r[1][1] * base.target.y + r[1][2] * base.target.z);
+        const tz = current.target.z - (r[2][0] * base.target.x + r[2][1] * base.target.y + r[2][2] * base.target.z);
         return [
             r[0][0],
             r[1][0],
@@ -852,13 +1091,14 @@ import "./main.css";
         ];
     }
 
-    function selectedResiduePdb(slice, index, applySceneTransform = true) {
+    function selectedResiduePdb(slice, index, applySceneTransform = true, lane = { kind: "assembly" }) {
         if (!state.marker || !state.selectedResidueKey) {
             return { pdb: "", atomCount: 0 };
         }
         const selected =
             REPORT.residues.find((residue) => residue.key === state.selectedResidueKey) || REPORT.residues[0];
-        const stats = structureStats(slice.pdb);
+        const sourcePdb = pdbForLane(slice, lane);
+        const stats = structureStats(sourcePdb);
         const anchor = structureStats(REPORT.slices[0].pdb).center;
         const offset = tileOffset(index);
         const target = {
@@ -868,14 +1108,14 @@ import "./main.css";
         };
         const matrix = rotationMatrix();
         let atomCount = 0;
-        const lines = slice.pdb
+        const lines = sourcePdb
             .split(/\r?\n/)
             .map((line) => {
                 if (!line.startsWith("ATOM") && !line.startsWith("HETATM")) {
                     return null;
                 }
                 const padded = line.padEnd(80, " ");
-                const chainId = padded.slice(21, 22).trim();
+                const chainId = logicalChainForAtom(slice, padded);
                 const residueId = padded.slice(22, 26).trim();
                 if (selected.chain && chainId !== selected.chain) {
                     return null;
@@ -1107,6 +1347,18 @@ import "./main.css";
             viewportShowAnimation: false,
         });
         applyMolstarRenderStyle();
+        const canvas3d = viewer?.plugin?.canvas3d;
+        const trackballBindings = canvas3d?.attribs?.trackball?.bindings;
+        if (canvas3d?.setAttribs && trackballBindings) {
+            canvas3d.setAttribs({
+                trackball: {
+                    bindings: {
+                        ...trackballBindings,
+                        dragRotate: Binding.Empty,
+                    },
+                },
+            });
+        }
         setupViewportResizeObserver();
     }
 
@@ -1123,18 +1375,21 @@ import "./main.css";
 
     function schedulePostLayoutReset() {
         if (!state.loaded) {
-            return;
+            return Promise.resolve();
         }
         const resetAfterLayout = () => {
             requestMolstarDraw();
             resetView();
         };
         const scheduleFrame = window.requestAnimationFrame || ((callback) => window.setTimeout(callback, 16));
-        scheduleFrame(() => {
+        return new Promise((resolve) => {
             scheduleFrame(() => {
-                resetAfterLayout();
-                window.setTimeout(resetAfterLayout, 180);
-                window.setTimeout(resetAfterLayout, 700);
+                scheduleFrame(() => {
+                    resetAfterLayout();
+                    scheduleFrame(() => window.setTimeout(resolve, 80));
+                    window.setTimeout(resetAfterLayout, 180);
+                    window.setTimeout(resetAfterLayout, 700);
+                });
             });
         });
     }
@@ -1160,7 +1415,13 @@ import "./main.css";
             window.clearTimeout(resizeResetTimer);
             resizeResetTimer = window.setTimeout(() => {
                 requestMolstarDraw();
-                resetView();
+                if (state.activeView === "analysis") {
+                    requestAnalysisDraw();
+                    requestAnalysisLayout();
+                    window.setTimeout(requestAnalysisLayout, 260);
+                } else {
+                    resetView();
+                }
             }, 120);
         });
         resizeObserver.observe(elements.viewport);
@@ -1214,6 +1475,124 @@ import "./main.css";
         }
     }
 
+    async function addSelectedResidueMarkerRecord(
+        plugin,
+        entry,
+        coordinateBaked,
+        lane = { kind: "assembly" },
+        visibility = {},
+    ) {
+        if (!state.marker) {
+            return null;
+        }
+        const marker = selectedResiduePdb(entry.slice, entry.index, coordinateBaked, lane);
+        if (!marker.pdb.trim()) {
+            return null;
+        }
+        const data = await plugin.builders.data.rawData({
+            data: marker.pdb,
+            label: `${entry.slice.label} selected residue ${state.selectedResidueKey}`,
+        });
+        const trajectory = await plugin.builders.structure.parseTrajectory(data, "pdb");
+        const model = await plugin.builders.structure.createModel(trajectory);
+        const structure = await plugin.builders.structure.createStructure(model);
+        const representation = await plugin.builders.structure.representation.addRepresentation(structure, {
+            type: "spacefill",
+            typeParams: { sizeFactor: 0.36, alpha: 0.86, quality: "high" },
+            color: "uniform",
+            colorParams: { value: 0x111827 },
+        });
+        return {
+            ...entry,
+            lane,
+            ...visibility,
+            kind: "marker",
+            representation,
+            rootRef: data.ref,
+            bakedSceneTransform: coordinateBaked ? sceneTransformForSlice(entry.slice, entry.index, lane, false) : null,
+        };
+    }
+
+    async function removeSelectedResidueMarkerRecords(plugin) {
+        const markerRecords = state.records.filter((record) => record.kind === "marker");
+        state.records = state.records.filter((record) => record.kind !== "marker");
+        elements.heatmapView.dataset.markerRecords = "0";
+        await deleteMarkerRecordRoots(plugin, markerRecords);
+    }
+
+    async function deleteMarkerRecordRoots(plugin, records) {
+        const rootRefs = [...new Set(records.map((record) => record.rootRef).filter(Boolean))];
+        if (!rootRefs.length || !plugin?.state?.data?.build) {
+            return;
+        }
+        const update = plugin.state.data.build();
+        rootRefs.forEach((ref) => update.delete(ref));
+        await update.commit();
+    }
+
+    async function refreshSelectedResidueMarkers() {
+        const plugin = viewer?.plugin;
+        if (!plugin || !state.loaded) {
+            return;
+        }
+        const token = ++markerUpdateToken;
+        await removeSelectedResidueMarkerRecords(plugin);
+        if (!state.marker || token !== markerUpdateToken) {
+            applyLiveTransforms(false, true);
+            return;
+        }
+        const records = [];
+        const multipleChains = analysisChainGroups().length > 1;
+        const laneRequests = [
+            {
+                coordinateBaked: state.forceCoordinateFallback,
+                lane: { kind: "assembly" },
+                visibility: { structuresOnly: multipleChains && state.forceCoordinateFallback },
+            },
+        ];
+        if (state.analysisLoaded && multipleChains) {
+            laneRequests.push(
+                { coordinateBaked: false, lane: { kind: "assembly" }, visibility: { analysisOnly: true } },
+                ...analysisChainGroups().map(({ chain }) => ({
+                    coordinateBaked: false,
+                    lane: { kind: "chain", chain },
+                    visibility: { analysisOnly: true },
+                })),
+            );
+        }
+        for (const request of laneRequests) {
+            for (const entry of allEntries()) {
+                const record = await addSelectedResidueMarkerRecord(
+                    plugin,
+                    entry,
+                    request.coordinateBaked,
+                    request.lane,
+                    request.visibility,
+                );
+                if (record) {
+                    records.push(record);
+                }
+            }
+        }
+        if (token !== markerUpdateToken) {
+            await deleteMarkerRecordRoots(plugin, records);
+            return;
+        }
+        state.records.push(...records);
+        elements.heatmapView.dataset.markerRecords = String(records.length);
+        applyLiveTransforms(false, true);
+    }
+
+    function queueSelectedResidueMarkerUpdate(delay = 100) {
+        window.clearTimeout(markerUpdateTimer);
+        markerUpdateTimer = window.setTimeout(() => {
+            refreshSelectedResidueMarkers().catch((error) => {
+                console.error(error);
+                setStatus(`Could not update the selected residue marker: ${error.message}`, true);
+            });
+        }, delay);
+    }
+
     function representationObject(representation) {
         return (
             representation?.cell?.obj?.data?.repr ||
@@ -1242,6 +1621,9 @@ import "./main.css";
     }
 
     function disposeViewer() {
+        markerUpdateToken += 1;
+        window.clearTimeout(markerUpdateTimer);
+        elements.heatmapView.dataset.markerRecords = "0";
         if (viewer?.dispose) {
             viewer.dispose();
         } else if (viewer?.plugin?.dispose) {
@@ -1250,7 +1632,11 @@ import "./main.css";
         viewer = null;
         state.records = [];
         state.loaded = false;
+        state.analysisLoaded = false;
+        state.analysisCameraReady = false;
         state.liveTransforms = false;
+        analysisCameraSnapshot = null;
+        analysisLayoutTargets = new Map();
         elements.viewport.replaceChildren();
     }
 
@@ -1276,14 +1662,26 @@ import "./main.css";
         }
     }
 
+    function recordVisibleInActiveView(record) {
+        if (state.activeView === "analysis") {
+            return !record.structuresOnly;
+        }
+        return !record.analysisOnly && record.lane?.kind !== "chain";
+    }
+
     function applyRecordTransform(record) {
         const repr = recordRepresentation(record);
         if (!repr?.setState) {
             return null;
         }
-        const visible = isSliceVisible(record.index) && (record.kind !== "marker" || state.marker);
+        const visible =
+            recordVisibleInActiveView(record) &&
+            isSliceVisible(record.index) &&
+            (record.kind !== "marker" || state.marker);
         repr.setState({
-            transform: molstarTransformForSlice(record.slice, record.index),
+            transform: record.bakedSceneTransform
+                ? molstarTransformFromBaked(record)
+                : molstarTransformForSlice(record.slice, record.index, record.lane),
             visible,
             pickable: visible,
         });
@@ -1292,12 +1690,30 @@ import "./main.css";
 
     function applyLiveTransforms(autoView = false, fast = false) {
         const updated = [];
+        let visibleRecordCount = 0;
         for (const record of state.records) {
             const repr = applyRecordTransform(record);
             if (repr) {
                 updated.push(repr);
+                if (
+                    recordVisibleInActiveView(record) &&
+                    isSliceVisible(record.index) &&
+                    (record.kind !== "marker" || state.marker)
+                ) {
+                    visibleRecordCount += 1;
+                }
             }
         }
+        elements.viewport.dataset.visibleRecordCount = String(visibleRecordCount);
+        elements.viewport.dataset.uniqueRepresentations = String(new Set(updated).size);
+        elements.viewport.dataset.tileColumns = String(state.columns);
+        elements.viewport.dataset.assemblyTargetX = JSON.stringify(
+            state.records
+                .filter((record) => record.lane?.kind === "assembly" && record.kind === "all")
+                .map((record) =>
+                    Number(sceneTransformForSlice(record.slice, record.index, record.lane).target.x.toFixed(3)),
+                ),
+        );
         state.liveTransforms = updated.length > 0;
         if (updated.length) {
             flushMolstarDraw(updated, fast);
@@ -1308,6 +1724,97 @@ import "./main.css";
         setLoadedSceneStatus();
         updateMetrics();
         return updated.length;
+    }
+
+    async function loadAnalysisChainRecords() {
+        if (state.analysisLoaded || analysisChainGroups().length <= 1) {
+            state.analysisLoaded = true;
+            return;
+        }
+        const plugin = viewer?.plugin;
+        if (!plugin) {
+            return;
+        }
+        setStatus("Loading synchronized Analysis lanes...");
+        const coordinateBaked = false;
+        const hasMask = (REPORT.maskSummary?.maskedKeys || []).length > 0;
+        const lanes = [{ kind: "assembly" }, ...analysisChainGroups().map(({ chain }) => ({ kind: "chain", chain }))];
+        for (const lane of lanes) {
+            const laneLabel = lane.kind === "chain" ? `chain ${lane.chain}` : "all chains";
+            for (const entry of allEntries()) {
+                const bakedSceneTransform = null;
+                if (hasMask) {
+                    const unmasked = transformedPdb(entry.slice, entry.index, "unmasked", coordinateBaked, lane);
+                    const unmaskedRep = await addStructure(
+                        plugin,
+                        unmasked.pdb,
+                        `${entry.slice.label} ${laneLabel} analysis unmasked`,
+                        1,
+                        false,
+                    );
+                    state.records.push({
+                        ...entry,
+                        lane,
+                        analysisOnly: true,
+                        bakedSceneTransform,
+                        kind: "unmasked",
+                        representation: unmaskedRep,
+                    });
+                    const masked = transformedPdb(entry.slice, entry.index, "masked", coordinateBaked, lane);
+                    const maskedRep = await addStructure(
+                        plugin,
+                        masked.pdb,
+                        `${entry.slice.label} ${laneLabel} analysis masked`,
+                        REPORT.maskOpacity || 0.3,
+                        false,
+                    );
+                    state.records.push({
+                        ...entry,
+                        lane,
+                        analysisOnly: true,
+                        bakedSceneTransform,
+                        kind: "masked",
+                        representation: maskedRep,
+                    });
+                } else {
+                    const all = transformedPdb(entry.slice, entry.index, "all", coordinateBaked, lane);
+                    const representation = await addStructure(
+                        plugin,
+                        all.pdb,
+                        `${entry.slice.label} ${laneLabel} analysis`,
+                        1,
+                        false,
+                    );
+                    state.records.push({
+                        ...entry,
+                        lane,
+                        analysisOnly: true,
+                        bakedSceneTransform,
+                        kind: "all",
+                        representation,
+                    });
+                }
+                const markerRecord = await addSelectedResidueMarkerRecord(plugin, entry, coordinateBaked, lane, {
+                    analysisOnly: true,
+                });
+                if (markerRecord) {
+                    state.records.push(markerRecord);
+                }
+            }
+        }
+        state.analysisLoaded = true;
+    }
+
+    function ensureAnalysisRecords() {
+        if (state.analysisLoaded) {
+            return Promise.resolve();
+        }
+        if (!analysisLoadingPromise) {
+            analysisLoadingPromise = loadAnalysisChainRecords().finally(() => {
+                analysisLoadingPromise = null;
+            });
+        }
+        return analysisLoadingPromise;
     }
 
     async function loadLiveScene(autoView) {
@@ -1322,6 +1829,7 @@ import "./main.css";
                 const unmaskedRep = await addStructure(plugin, unmasked.pdb, `${entry.slice.label} unmasked`, 1, false);
                 state.records.push({
                     ...entry,
+                    lane: { kind: "assembly" },
                     kind: "unmasked",
                     representation: unmaskedRep,
                 });
@@ -1335,28 +1843,18 @@ import "./main.css";
                 );
                 state.records.push({
                     ...entry,
+                    lane: { kind: "assembly" },
                     kind: "masked",
                     representation: maskedRep,
                 });
             } else {
                 const all = transformedPdb(entry.slice, entry.index, "all", false);
                 const representation = await addStructure(plugin, all.pdb, entry.slice.label, 1, false);
-                state.records.push({ ...entry, kind: "all", representation });
+                state.records.push({ ...entry, lane: { kind: "assembly" }, kind: "all", representation });
             }
-            const marker = selectedResiduePdb(entry.slice, entry.index, false);
-            const markerRep = await addStructure(
-                plugin,
-                marker.pdb,
-                `${entry.slice.label} selected residue`,
-                0.86,
-                true,
-            );
-            if (markerRep) {
-                state.records.push({
-                    ...entry,
-                    kind: "marker",
-                    representation: markerRep,
-                });
+            const markerRecord = await addSelectedResidueMarkerRecord(plugin, entry, false, { kind: "assembly" });
+            if (markerRecord) {
+                state.records.push(markerRecord);
             }
         }
         state.loaded = true;
@@ -1379,22 +1877,68 @@ import "./main.css";
         }
         const plugin = viewer.plugin;
         const hasMask = (REPORT.maskSummary?.maskedKeys || []).length > 0;
-        for (const entry of activeEntries()) {
+        const structuresOnly = analysisChainGroups().length > 1;
+        const centerIndex = (REPORT.slices.length - 1) / 2;
+        const entries = activeEntries().sort(
+            (left, right) => Math.abs(left.index - centerIndex) - Math.abs(right.index - centerIndex),
+        );
+        for (const entry of entries) {
+            const bakedSceneTransform = sceneTransformForSlice(entry.slice, entry.index, { kind: "assembly" }, false);
             if (hasMask) {
                 const unmasked = transformedPdb(entry.slice, entry.index, "unmasked", true);
-                await addStructure(plugin, unmasked.pdb, `${entry.slice.label} unmasked`, 1, false);
+                const unmaskedRep = await addStructure(plugin, unmasked.pdb, `${entry.slice.label} unmasked`, 1, false);
+                state.records.push({
+                    ...entry,
+                    lane: { kind: "assembly" },
+                    structuresOnly,
+                    bakedSceneTransform,
+                    kind: "unmasked",
+                    representation: unmaskedRep,
+                });
                 const masked = transformedPdb(entry.slice, entry.index, "masked", true);
-                await addStructure(plugin, masked.pdb, `${entry.slice.label} masked`, REPORT.maskOpacity || 0.3, false);
+                const maskedRep = await addStructure(
+                    plugin,
+                    masked.pdb,
+                    `${entry.slice.label} masked`,
+                    REPORT.maskOpacity || 0.3,
+                    false,
+                );
+                state.records.push({
+                    ...entry,
+                    lane: { kind: "assembly" },
+                    structuresOnly,
+                    bakedSceneTransform,
+                    kind: "masked",
+                    representation: maskedRep,
+                });
             } else {
                 const all = transformedPdb(entry.slice, entry.index, "all", true);
-                await addStructure(plugin, all.pdb, entry.slice.label, 1, false);
+                const representation = await addStructure(plugin, all.pdb, entry.slice.label, 1, false);
+                state.records.push({
+                    ...entry,
+                    lane: { kind: "assembly" },
+                    structuresOnly,
+                    bakedSceneTransform,
+                    kind: "all",
+                    representation,
+                });
             }
-            const marker = selectedResiduePdb(entry.slice, entry.index, true);
-            await addStructure(plugin, marker.pdb, `${entry.slice.label} selected residue`, 0.86, true);
+            const markerRecord = await addSelectedResidueMarkerRecord(
+                plugin,
+                entry,
+                true,
+                { kind: "assembly" },
+                { structuresOnly },
+            );
+            if (markerRecord) {
+                state.records.push(markerRecord);
+            }
         }
+        state.loaded = true;
+        applyLiveTransforms(false);
         if (autoView !== false) {
             resetView();
-            schedulePostLayoutReset();
+            await schedulePostLayoutReset();
         }
         setLoadedSceneStatus();
         updateMetrics();
@@ -1404,18 +1948,23 @@ import "./main.css";
         if (!REPORT) {
             return;
         }
-        if (!state.forceCoordinateFallback && state.loaded && state.liveTransforms) {
+        if (state.loaded && state.liveTransforms) {
             applyLiveTransforms(autoView !== false);
-            return;
-        }
-        if (!state.forceCoordinateFallback) {
+        } else if (!state.forceCoordinateFallback) {
             await loadLiveScene(autoView !== false);
-            return;
+        } else {
+            await renderCoordinateScene(autoView !== false);
         }
-        await renderCoordinateScene(autoView !== false);
+        if (state.activeView === "analysis") {
+            await activateAnalysis();
+        }
     }
 
     function resetView() {
+        if (state.activeView === "analysis") {
+            requestAnalysisLayout();
+            return;
+        }
         const plugin = viewer?.plugin;
         const sphere = sceneFocusSphere();
         if (sphere && plugin?.managers?.camera?.focusSphere) {
@@ -1442,8 +1991,10 @@ import "./main.css";
         const maskText = hasMaskedResidues()
             ? `; ${Number(REPORT.maskSummary?.maskedResidues ?? REPORT.maskSummary?.maskedKeys?.length ?? 0)} masked`
             : "";
+        const selected = selectedHeatmapCell();
+        const selectionText = state.marker && selected.residue ? `; selected ${selected.residue.key}` : "";
         setStatus(
-            `${visibleCount}/${REPORT.slices.length} slices visible; ${state.paletteName}; ${state.representationMode}${maskText}.`,
+            `${visibleCount}/${REPORT.slices.length} slices visible; ${state.paletteName}; ${state.representationMode}${maskText}${selectionText}.`,
         );
     }
 
@@ -1500,6 +2051,11 @@ import "./main.css";
         elements.rotateSensitivityRange.value = String(Number(state.rotationSensitivity.toFixed(3)));
         elements.rotateSensitivityNumber.value = String(Number(state.rotationSensitivity.toFixed(3)));
         updateLegend();
+        if (state.activeView === "heatmap") {
+            requestHeatmapDraw();
+        } else if (state.activeView === "analysis") {
+            requestAnalysisDraw();
+        }
     }
 
     function hexToRgb(hex) {
@@ -1636,6 +2192,1026 @@ import "./main.css";
         });
     }
 
+    function heatmapChainGroups() {
+        const groups = new Map();
+        for (const residue of REPORT?.residues || []) {
+            const chain = String(residue.chain || "Unassigned");
+            if (!groups.has(chain)) {
+                groups.set(chain, []);
+            }
+            groups.get(chain).push(residue);
+        }
+        return [...groups.entries()].map(([chain, residues]) => ({ chain, residues }));
+    }
+
+    function selectedHeatmapCell() {
+        const residue =
+            REPORT?.residues?.find((candidate) => candidate.key === state.selectedResidueKey) || REPORT?.residues?.[0];
+        const sliceIndex = clamp(Math.round(Number(state.currentIndex) || 0), 0, Math.max(0, REPORT.slices.length - 1));
+        const slice = REPORT?.slices?.[sliceIndex];
+        return {
+            residue,
+            slice,
+            sliceIndex,
+            value: Number(residue?.values?.[slice?.rmsxColumn]),
+        };
+    }
+
+    function updateHeatmapSelection() {
+        const selected = selectedHeatmapCell();
+        if (!selected.residue || !selected.slice) {
+            elements.heatmapSelection.textContent = "-";
+            return;
+        }
+        const chain = selected.residue.chain ? `Chain ${selected.residue.chain}` : "Unassigned chain";
+        elements.heatmapSelection.textContent = `${chain} · Residue ${selected.residue.id} · ${selected.slice.label} · RMSX ${formatNumber(selected.value)}`;
+    }
+
+    function prepareChartCanvas(canvas, requestedHeight) {
+        const logicalWidth = Math.max(240, Math.floor(canvas.clientWidth));
+        const logicalHeight = Math.max(120, Math.floor(requestedHeight || canvas.clientHeight));
+        const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        if (!canvas.classList.contains("analysis-chart")) {
+            canvas.style.height = `${logicalHeight}px`;
+        }
+        canvas.width = Math.round(logicalWidth * pixelRatio);
+        canvas.height = Math.round(logicalHeight * pixelRatio);
+        const context = canvas.getContext("2d");
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, logicalWidth, logicalHeight);
+        return { context, logicalHeight, logicalWidth };
+    }
+
+    function analysisChartInsets(canvas) {
+        return canvas.classList.contains("analysis-chart")
+            ? { bottom: 36, left: 72, right: 14, top: 8 }
+            : { bottom: 42, left: 64, right: 18, top: 8 };
+    }
+
+    function chartPlot(logicalWidth, logicalHeight, insets) {
+        return {
+            x: insets.left,
+            y: insets.top,
+            width: Math.max(1, logicalWidth - insets.left - insets.right),
+            height: Math.max(1, logicalHeight - insets.top - insets.bottom),
+        };
+    }
+
+    function sliceTimeNs(slice, index) {
+        const center = Number(slice?.time?.centerNs);
+        if (Number.isFinite(center)) {
+            return center;
+        }
+        const domain = REPORT?.analysis?.timeDomainNs;
+        if (Array.isArray(domain) && domain.length === 2) {
+            const start = Number(domain[0]);
+            const end = Number(domain[1]);
+            if (Number.isFinite(start) && Number.isFinite(end)) {
+                return start + (end - start) * ((index + 0.5) / Math.max(1, REPORT.slices.length));
+            }
+        }
+        return Number(slice?.index ?? index + 1);
+    }
+
+    function drawVerticalHeatmapLegend(context, plot) {
+        const legendX = 10;
+        const legendWidth = 9;
+        const gradient = context.createLinearGradient(0, plot.y + plot.height, 0, plot.y);
+        currentPaletteColors().forEach((color, index, colors) => {
+            gradient.addColorStop(index / Math.max(1, colors.length - 1), color);
+        });
+        context.fillStyle = gradient;
+        context.fillRect(legendX, plot.y, legendWidth, plot.height);
+        context.strokeStyle = "#98A2B3";
+        context.strokeRect(legendX + 0.5, plot.y + 0.5, legendWidth - 1, plot.height - 1);
+        context.fillStyle = "#5F6B7A";
+        context.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        context.textAlign = "left";
+        context.textBaseline = "top";
+        context.fillText(formatNumber(colorDomainMax()), legendX + legendWidth + 4, plot.y);
+        context.textBaseline = "bottom";
+        context.fillText(formatNumber(colorDomainMin()), legendX + legendWidth + 4, plot.y + plot.height);
+        context.save();
+        context.translate(2, plot.y + plot.height / 2);
+        context.rotate(-Math.PI / 2);
+        context.textAlign = "center";
+        context.textBaseline = "top";
+        context.fillText("RMSX", 0, 0);
+        context.restore();
+    }
+
+    function drawHeatmapCanvas(canvas) {
+        const group = canvas.heatmapGroup;
+        if (!group || !REPORT || canvas.clientWidth <= 0) {
+            return;
+        }
+        const slices = REPORT.slices;
+        const residues = group.residues;
+        const analysisCanvas = canvas.classList.contains("analysis-chart");
+        const requestedHeight = analysisCanvas
+            ? canvas.clientHeight
+            : Math.max(248, Math.min(560, residues.length * 2.6 + 60));
+        const { context, logicalHeight, logicalWidth } = prepareChartCanvas(canvas, requestedHeight);
+        const plot = chartPlot(logicalWidth, logicalHeight, analysisChartInsets(canvas));
+        const cellWidth = plot.width / Math.max(1, slices.length);
+        const cellHeight = plot.height / Math.max(1, residues.length);
+        const selected = selectedHeatmapCell();
+
+        slices.forEach((slice, column) => {
+            residues.forEach((residue, residueIndex) => {
+                const row = residues.length - residueIndex - 1;
+                const value = Number(residue.values?.[slice.rmsxColumn]);
+                context.fillStyle = expectedColorForNormalizedRmsx(normalizedRmsx(value));
+                const x = plot.x + column * cellWidth;
+                const y = plot.y + row * cellHeight;
+                context.fillRect(x, y, Math.ceil(cellWidth + 0.25), Math.ceil(cellHeight + 0.25));
+                if (selected.sliceIndex === column && selected.residue?.key === residue.key) {
+                    context.strokeStyle = "#FFFFFF";
+                    context.lineWidth = 3;
+                    context.strokeRect(x + 1.5, y + 1.5, Math.max(1, cellWidth - 3), Math.max(1, cellHeight - 3));
+                    context.strokeStyle = "#1D2630";
+                    context.lineWidth = 1;
+                    context.strokeRect(x + 0.5, y + 0.5, Math.max(1, cellWidth - 1), Math.max(1, cellHeight - 1));
+                }
+            });
+        });
+
+        context.strokeStyle = "#98A2B3";
+        context.lineWidth = 1;
+        context.strokeRect(plot.x + 0.5, plot.y + 0.5, plot.width - 1, plot.height - 1);
+        context.fillStyle = "#5F6B7A";
+        context.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        context.textBaseline = "middle";
+        context.textAlign = "right";
+        const residueStep = Math.max(1, Math.ceil(residues.length / 6));
+        residues.forEach((residue, residueIndex) => {
+            if (residueIndex % residueStep === 0 || residueIndex === residues.length - 1) {
+                const y = plot.y + (residues.length - residueIndex - 0.5) * cellHeight;
+                context.fillText(String(residue.id || ""), plot.x - 7, y);
+            }
+        });
+
+        const tickCount = Math.min(5, slices.length);
+        const tickIndexes = new Set();
+        for (let tick = 0; tick < tickCount; tick += 1) {
+            tickIndexes.add(Math.round((tick * (slices.length - 1)) / Math.max(1, tickCount - 1)));
+        }
+        context.textBaseline = "top";
+        [...tickIndexes].forEach((index, tickPosition, indexes) => {
+            const x = plot.x + (index + 0.5) * cellWidth;
+            context.textAlign = tickPosition === 0 ? "left" : tickPosition === indexes.length - 1 ? "right" : "center";
+            context.fillText(
+                REPORT.analysis
+                    ? formatNumber(sliceTimeNs(slices[index], index))
+                    : String(slices[index]?.index ?? index + 1),
+                x,
+                plot.y + plot.height + 6,
+            );
+        });
+        context.textAlign = "center";
+        context.fillText(REPORT.analysis ? "Time (ns)" : "Slice", plot.x + plot.width / 2, logicalHeight - 13);
+        context.save();
+        context.translate(analysisCanvas ? 50 : 12, plot.y + plot.height / 2);
+        context.rotate(-Math.PI / 2);
+        context.textBaseline = "top";
+        context.fillText("Residue", 0, 0);
+        context.restore();
+        if (analysisCanvas) {
+            drawVerticalHeatmapLegend(context, plot);
+        }
+
+        canvas.heatmapGeometry = { cellHeight, cellWidth, logicalHeight, logicalWidth, plot };
+        canvas.dataset.renderedCells = String(residues.length * slices.length);
+        canvas.dataset.colorMin = String(colorDomainMin());
+        canvas.dataset.colorMax = String(colorDomainMax());
+        canvas.dataset.palette = state.paletteName;
+        canvas.dataset.plotLeft = String(plot.x);
+        canvas.dataset.plotRight = String(plot.x + plot.width);
+        canvas.dataset.plotTop = String(plot.y);
+        canvas.dataset.plotBottom = String(plot.y + plot.height);
+        canvas.dataset.sliceAnchors = JSON.stringify(
+            slices.map((_, index) => plot.x + (index + 0.5) * (plot.width / Math.max(1, slices.length))),
+        );
+    }
+
+    function requestHeatmapDraw() {
+        if (heatmapDrawFrame !== null) {
+            return;
+        }
+        heatmapDrawFrame = window.requestAnimationFrame(() => {
+            heatmapDrawFrame = null;
+            elements.heatmapChains.querySelectorAll("canvas").forEach(drawHeatmapCanvas);
+            updateHeatmapSelection();
+        });
+    }
+
+    function heatmapHitForEvent(canvas, event) {
+        const geometry = canvas.heatmapGeometry;
+        const group = canvas.heatmapGroup;
+        if (!geometry || !group) {
+            return null;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * geometry.logicalWidth;
+        const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * geometry.logicalHeight;
+        const { plot, cellWidth, cellHeight } = geometry;
+        if (x < plot.x || x >= plot.x + plot.width || y < plot.y || y >= plot.y + plot.height) {
+            return null;
+        }
+        const sliceIndex = clamp(Math.floor((x - plot.x) / cellWidth), 0, REPORT.slices.length - 1);
+        const visualResidueIndex = clamp(Math.floor((y - plot.y) / cellHeight), 0, group.residues.length - 1);
+        const residueIndex = group.residues.length - visualResidueIndex - 1;
+        const residue = group.residues[residueIndex];
+        const slice = REPORT.slices[sliceIndex];
+        return {
+            residue,
+            residueIndex,
+            slice,
+            sliceIndex,
+            value: Number(residue.values?.[slice.rmsxColumn]),
+        };
+    }
+
+    function showHeatmapTooltip(event, hit) {
+        if (!hit) {
+            elements.heatmapTooltip.hidden = true;
+            return;
+        }
+        const chain = hit.residue.chain ? `Chain ${hit.residue.chain}` : "Unassigned chain";
+        elements.heatmapTooltip.textContent = `${chain} · Residue ${hit.residue.id} · ${hit.slice.label} · RMSX ${formatNumber(hit.value)}`;
+        elements.heatmapTooltip.hidden = false;
+        const viewRect = elements.heatmapView.getBoundingClientRect();
+        const left = event.clientX - viewRect.left + elements.heatmapView.scrollLeft + 12;
+        const top = event.clientY - viewRect.top + elements.heatmapView.scrollTop + 12;
+        elements.heatmapTooltip.style.left = `${Math.max(
+            8,
+            Math.min(left, elements.heatmapView.scrollWidth - elements.heatmapTooltip.offsetWidth - 8),
+        )}px`;
+        elements.heatmapTooltip.style.top = `${top}px`;
+    }
+
+    function selectHeatmapCell(hit) {
+        if (!hit) {
+            return;
+        }
+        state.currentIndex = hit.sliceIndex;
+        state.selectedResidueKey = hit.residue.key;
+        state.marker = true;
+        renderChips();
+        updateHeatmapSelection();
+        requestHeatmapDraw();
+        requestAnalysisDraw();
+        queueSelectedResidueMarkerUpdate();
+    }
+
+    function handleHeatmapKeydown(canvas, event) {
+        if (!REPORT || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter", " "].includes(event.key)) {
+            return;
+        }
+        const group = canvas.heatmapGroup;
+        const selected = selectedHeatmapCell();
+        let residueIndex = Math.max(
+            0,
+            group.residues.findIndex((residue) => residue.key === selected.residue?.key),
+        );
+        let sliceIndex = selected.sliceIndex;
+        if (event.key === "ArrowLeft") sliceIndex -= 1;
+        if (event.key === "ArrowRight") sliceIndex += 1;
+        if (event.key === "ArrowUp") residueIndex += 1;
+        if (event.key === "ArrowDown") residueIndex -= 1;
+        residueIndex = clamp(residueIndex, 0, group.residues.length - 1);
+        sliceIndex = clamp(sliceIndex, 0, REPORT.slices.length - 1);
+        const residue = group.residues[residueIndex];
+        const slice = REPORT.slices[sliceIndex];
+        event.preventDefault();
+        selectHeatmapCell({
+            residue,
+            residueIndex,
+            slice,
+            sliceIndex,
+            value: Number(residue.values?.[slice.rmsxColumn]),
+        });
+    }
+
+    function renderHeatmapPanels() {
+        const panels = heatmapChainGroups().map((group) => {
+            const section = document.createElement("section");
+            section.className = "chain-heatmap";
+            section.dataset.chain = group.chain;
+            section.dataset.testid = "rmsx-chain-heatmap";
+            const heading = document.createElement("h3");
+            heading.className = "chain-heatmap-heading";
+            const chainLabel = document.createElement("span");
+            chainLabel.textContent = group.chain === "Unassigned" ? "Unassigned chain" : `Chain ${group.chain}`;
+            const count = document.createElement("span");
+            count.className = "chain-heatmap-count";
+            count.textContent = `${group.residues.length} residues`;
+            heading.append(chainLabel, count);
+            const canvas = document.createElement("canvas");
+            canvas.className = "heatmap-canvas";
+            canvas.tabIndex = 0;
+            canvas.dataset.testid = "rmsx-heatmap-canvas";
+            canvas.dataset.chain = group.chain;
+            canvas.setAttribute("role", "img");
+            canvas.setAttribute(
+                "aria-label",
+                `RMSX heatmap for ${chainLabel.textContent}, ${group.residues.length} residues by ${REPORT.slices.length} slices`,
+            );
+            canvas.heatmapGroup = group;
+            canvas.addEventListener("pointermove", (event) =>
+                showHeatmapTooltip(event, heatmapHitForEvent(canvas, event)),
+            );
+            canvas.addEventListener("pointerleave", () => {
+                elements.heatmapTooltip.hidden = true;
+            });
+            canvas.addEventListener("click", (event) => selectHeatmapCell(heatmapHitForEvent(canvas, event)));
+            canvas.addEventListener("keydown", (event) => handleHeatmapKeydown(canvas, event));
+            section.append(heading, canvas);
+            return section;
+        });
+        elements.heatmapChains.replaceChildren(...panels);
+        elements.heatmapView.dataset.markerRecords ||= "0";
+        if (!heatmapResizeObserver && typeof ResizeObserver !== "undefined") {
+            heatmapResizeObserver = new ResizeObserver(requestHeatmapDraw);
+            heatmapResizeObserver.observe(elements.heatmapChains);
+        }
+        updateHeatmapSelection();
+    }
+
+    function analysisTimeDomain(metric) {
+        const manifestDomain = REPORT?.analysis?.timeDomainNs;
+        const times = metric?.rmsd?.timeNs || [];
+        const start = Number(manifestDomain?.[0] ?? times[0] ?? 0);
+        const end = Number(manifestDomain?.[1] ?? times[times.length - 1] ?? REPORT.slices.length);
+        return Number.isFinite(start) && Number.isFinite(end) && end > start ? [start, end] : [0, 1];
+    }
+
+    function finiteMaximum(values, fallback = 1) {
+        const finite = (values || []).map(Number).filter(Number.isFinite);
+        return finite.length ? Math.max(...finite) : fallback;
+    }
+
+    function drawChartGrid(context, plot, horizontalLines = 4, verticalLines = 4) {
+        context.save();
+        context.strokeStyle = "#E3E7EC";
+        context.lineWidth = 1;
+        for (let index = 0; index <= horizontalLines; index += 1) {
+            const y = plot.y + (index / Math.max(1, horizontalLines)) * plot.height;
+            context.beginPath();
+            context.moveTo(plot.x, y + 0.5);
+            context.lineTo(plot.x + plot.width, y + 0.5);
+            context.stroke();
+        }
+        for (let index = 0; index <= verticalLines; index += 1) {
+            const x = plot.x + (index / Math.max(1, verticalLines)) * plot.width;
+            context.beginPath();
+            context.moveTo(x + 0.5, plot.y);
+            context.lineTo(x + 0.5, plot.y + plot.height);
+            context.stroke();
+        }
+        context.restore();
+    }
+
+    function drawAnalysisRmsdCanvas(canvas) {
+        const metric = canvas.analysisMetric;
+        if (!metric?.rmsd || canvas.clientWidth <= 0) {
+            return;
+        }
+        const { context, logicalHeight, logicalWidth } = prepareChartCanvas(canvas, canvas.clientHeight);
+        const plot = chartPlot(logicalWidth, logicalHeight, analysisChartInsets(canvas));
+        const times = metric.rmsd.timeNs.map(Number);
+        const values = metric.rmsd.values.map(Number);
+        const [timeMin, timeMax] = analysisTimeDomain(metric);
+        const valueMax = Math.max(0.001, finiteMaximum(values, 1) * 1.08);
+        const xForTime = (time) => plot.x + ((time - timeMin) / Math.max(0.000001, timeMax - timeMin)) * plot.width;
+        const yForValue = (value) => plot.y + plot.height - (value / valueMax) * plot.height;
+        drawChartGrid(context, plot, 3, 4);
+        context.strokeStyle = "#111827";
+        context.lineWidth = 1.35;
+        context.beginPath();
+        let started = false;
+        values.forEach((value, index) => {
+            if (!Number.isFinite(value) || !Number.isFinite(times[index])) {
+                return;
+            }
+            const x = xForTime(times[index]);
+            const y = yForValue(value);
+            if (!started) {
+                context.moveTo(x, y);
+                started = true;
+            } else {
+                context.lineTo(x, y);
+            }
+        });
+        context.stroke();
+        const selectedTime = sliceTimeNs(REPORT.slices[state.currentIndex], state.currentIndex);
+        const markerX = xForTime(selectedTime);
+        context.strokeStyle = "#B42318";
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.moveTo(markerX + 0.5, plot.y);
+        context.lineTo(markerX + 0.5, plot.y + plot.height);
+        context.stroke();
+        context.fillStyle = "#5F6B7A";
+        context.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        context.textAlign = "right";
+        context.textBaseline = "middle";
+        for (let tick = 0; tick <= 3; tick += 1) {
+            const value = (valueMax * tick) / 3;
+            context.fillText(value.toFixed(valueMax < 10 ? 1 : 0), plot.x - 7, yForValue(value));
+        }
+        context.save();
+        context.translate(12, plot.y + plot.height / 2);
+        context.rotate(-Math.PI / 2);
+        context.textAlign = "center";
+        context.textBaseline = "top";
+        context.fillText(`RMSD (${REPORT.analysis?.distanceUnit || "angstrom"})`, 0, 0);
+        context.restore();
+        canvas.analysisGeometry = { logicalHeight, logicalWidth, plot, timeMax, timeMin, valueMax };
+        canvas.dataset.plotLeft = String(plot.x);
+        canvas.dataset.plotRight = String(plot.x + plot.width);
+        canvas.dataset.pointCount = String(values.length);
+    }
+
+    function drawAnalysisRmsfCanvas(canvas) {
+        const metric = canvas.analysisMetric;
+        const group = canvas.heatmapGroup;
+        if (!metric?.rmsf || !group || canvas.clientWidth <= 0) {
+            return;
+        }
+        const { context, logicalHeight, logicalWidth } = prepareChartCanvas(canvas, canvas.clientHeight);
+        const insets = { ...analysisChartInsets(canvas), left: 8, right: 14 };
+        const plot = chartPlot(logicalWidth, logicalHeight, insets);
+        const metricValues = new Map(
+            metric.rmsf.residueIds.map((residueId, index) => [String(residueId), Number(metric.rmsf.values[index])]),
+        );
+        const values = group.residues.map((residue) => metricValues.get(String(residue.id)) ?? NaN);
+        const valueMax = Math.max(0.001, finiteMaximum(values, 1) * 1.08);
+        const cellHeight = plot.height / Math.max(1, group.residues.length);
+        const xForValue = (value) => plot.x + (value / valueMax) * plot.width;
+        const yForIndex = (index) => plot.y + (group.residues.length - index - 0.5) * cellHeight;
+        drawChartGrid(context, plot, 3, 3);
+        context.strokeStyle = "#111827";
+        context.lineWidth = 1.35;
+        context.beginPath();
+        let started = false;
+        values.forEach((value, index) => {
+            if (!Number.isFinite(value)) {
+                started = false;
+                return;
+            }
+            const x = xForValue(value);
+            const y = yForIndex(index);
+            if (!started) {
+                context.moveTo(x, y);
+                started = true;
+            } else {
+                context.lineTo(x, y);
+            }
+        });
+        context.stroke();
+        const selectedIndex = group.residues.findIndex((residue) => residue.key === state.selectedResidueKey);
+        if (selectedIndex >= 0) {
+            const markerY = yForIndex(selectedIndex);
+            context.strokeStyle = "#B42318";
+            context.lineWidth = 1.5;
+            context.beginPath();
+            context.moveTo(plot.x, markerY + 0.5);
+            context.lineTo(plot.x + plot.width, markerY + 0.5);
+            context.stroke();
+        }
+        context.fillStyle = "#5F6B7A";
+        context.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        context.textAlign = "center";
+        context.textBaseline = "top";
+        context.fillText("RMSF", plot.x + plot.width / 2, logicalHeight - 13);
+        canvas.analysisGeometry = { cellHeight, logicalHeight, logicalWidth, plot, valueMax, values };
+        canvas.dataset.plotTop = String(plot.y);
+        canvas.dataset.plotBottom = String(plot.y + plot.height);
+        canvas.dataset.pointCount = String(values.filter(Number.isFinite).length);
+    }
+
+    function showAnalysisTooltip(event, textContent) {
+        if (!textContent) {
+            elements.analysisTooltip.hidden = true;
+            return;
+        }
+        elements.analysisTooltip.textContent = textContent;
+        elements.analysisTooltip.hidden = false;
+        const left = Math.min(event.clientX + 12, window.innerWidth - elements.analysisTooltip.offsetWidth - 8);
+        const top = Math.min(event.clientY + 12, window.innerHeight - elements.analysisTooltip.offsetHeight - 8);
+        elements.analysisTooltip.style.left = `${Math.max(8, left)}px`;
+        elements.analysisTooltip.style.top = `${Math.max(8, top)}px`;
+    }
+
+    function sliceIndexForTime(time) {
+        let closest = 0;
+        let distance = Infinity;
+        REPORT.slices.forEach((slice, index) => {
+            const candidate = Math.abs(sliceTimeNs(slice, index) - time);
+            if (candidate < distance) {
+                closest = index;
+                distance = candidate;
+            }
+        });
+        return closest;
+    }
+
+    function handleAnalysisRmsdEvent(canvas, event, select = false) {
+        const geometry = canvas.analysisGeometry;
+        if (!geometry) {
+            return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * geometry.logicalWidth;
+        if (x < geometry.plot.x || x > geometry.plot.x + geometry.plot.width) {
+            showAnalysisTooltip(event, null);
+            return;
+        }
+        const fraction = (x - geometry.plot.x) / geometry.plot.width;
+        const time = geometry.timeMin + fraction * (geometry.timeMax - geometry.timeMin);
+        const sliceIndex = sliceIndexForTime(time);
+        const slice = REPORT.slices[sliceIndex];
+        showAnalysisTooltip(event, `${slice.label} · ${formatNumber(sliceTimeNs(slice, sliceIndex))} ns`);
+        if (select) {
+            state.currentIndex = sliceIndex;
+            renderChips();
+            requestHeatmapDraw();
+            requestAnalysisDraw();
+            queueSelectedResidueMarkerUpdate();
+        }
+    }
+
+    function handleAnalysisRmsfEvent(canvas, event, select = false) {
+        const geometry = canvas.analysisGeometry;
+        const group = canvas.heatmapGroup;
+        if (!geometry || !group) {
+            return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * geometry.logicalHeight;
+        if (y < geometry.plot.y || y > geometry.plot.y + geometry.plot.height) {
+            showAnalysisTooltip(event, null);
+            return;
+        }
+        const visualIndex = clamp(
+            Math.floor((y - geometry.plot.y) / geometry.cellHeight),
+            0,
+            group.residues.length - 1,
+        );
+        const residueIndex = group.residues.length - visualIndex - 1;
+        const residue = group.residues[residueIndex];
+        const value = geometry.values[residueIndex];
+        showAnalysisTooltip(event, `Chain ${group.chain} · Residue ${residue.id} · RMSF ${formatNumber(value)}`);
+        if (select) {
+            state.selectedResidueKey = residue.key;
+            state.marker = true;
+            requestHeatmapDraw();
+            requestAnalysisDraw();
+            queueSelectedResidueMarkerUpdate();
+        }
+    }
+
+    function createAnalysisLane(lane, testid) {
+        const laneElement = document.createElement("div");
+        laneElement.className = "analysis-structure-lane";
+        laneElement.dataset.laneKind = lane.kind;
+        if (lane.chain) {
+            laneElement.dataset.chain = lane.chain;
+        }
+        laneElement.dataset.testid = testid;
+        laneElement.style.setProperty("--slice-count", String(REPORT.slices.length));
+        const grid = document.createElement("div");
+        grid.className = "analysis-slice-grid";
+        REPORT.slices.forEach((slice, index) => {
+            const anchor = document.createElement("span");
+            anchor.className = "analysis-slice-anchor";
+            anchor.dataset.sliceIndex = String(index);
+            anchor.dataset.sliceLabel = slice.label;
+            grid.append(anchor);
+        });
+        laneElement.append(grid);
+        wireAnalysisLaneDrag(laneElement);
+        return laneElement;
+    }
+
+    function renderAnalysisPanels() {
+        const panels = analysisChainGroups().map((group) => {
+            const metric = analysisMetricForChain(group.chain);
+            const hasMetrics = Boolean(metric?.rmsd && metric?.rmsf);
+            const panel = document.createElement("section");
+            panel.className = `analysis-chain-panel${hasMetrics ? "" : " metrics-missing"}`;
+            panel.dataset.chain = group.chain;
+            panel.dataset.testid = "rmsx-analysis-chain-panel";
+            panel.dataset.metrics = hasMetrics ? "present" : "missing";
+            const heading = document.createElement("h3");
+            heading.className = "analysis-chain-title";
+            const chainLabel = document.createElement("span");
+            chainLabel.textContent = `Chain ${group.chain}`;
+            const residueCount = document.createElement("span");
+            residueCount.className = "analysis-chain-count";
+            residueCount.textContent = `${group.residues.length} residues`;
+            heading.append(chainLabel, residueCount);
+            panel.append(heading);
+            if (hasMetrics) {
+                const rmsd = document.createElement("canvas");
+                rmsd.className = "analysis-chart analysis-rmsd";
+                rmsd.dataset.testid = "rmsx-analysis-rmsd";
+                rmsd.analysisMetric = metric;
+                rmsd.addEventListener("pointermove", (event) => handleAnalysisRmsdEvent(rmsd, event));
+                rmsd.addEventListener("pointerleave", () => showAnalysisTooltip({}, null));
+                rmsd.addEventListener("click", (event) => handleAnalysisRmsdEvent(rmsd, event, true));
+                panel.append(rmsd);
+            }
+            const heatmap = document.createElement("canvas");
+            heatmap.className = "analysis-chart analysis-heatmap";
+            heatmap.dataset.testid = "rmsx-analysis-heatmap";
+            heatmap.tabIndex = 0;
+            heatmap.heatmapGroup = group;
+            heatmap.addEventListener("pointermove", (event) => {
+                const hit = heatmapHitForEvent(heatmap, event);
+                showAnalysisTooltip(
+                    event,
+                    hit
+                        ? `Chain ${hit.residue.chain} · Residue ${hit.residue.id} · ${hit.slice.label} · RMSX ${formatNumber(hit.value)}`
+                        : null,
+                );
+            });
+            heatmap.addEventListener("pointerleave", () => showAnalysisTooltip({}, null));
+            heatmap.addEventListener("click", (event) => selectHeatmapCell(heatmapHitForEvent(heatmap, event)));
+            heatmap.addEventListener("keydown", (event) => handleHeatmapKeydown(heatmap, event));
+            panel.append(heatmap);
+            if (hasMetrics) {
+                const rmsf = document.createElement("canvas");
+                rmsf.className = "analysis-chart analysis-rmsf";
+                rmsf.dataset.testid = "rmsx-analysis-rmsf";
+                rmsf.analysisMetric = metric;
+                rmsf.heatmapGroup = group;
+                rmsf.addEventListener("pointermove", (event) => handleAnalysisRmsfEvent(rmsf, event));
+                rmsf.addEventListener("pointerleave", () => showAnalysisTooltip({}, null));
+                rmsf.addEventListener("click", (event) => handleAnalysisRmsfEvent(rmsf, event, true));
+                panel.append(rmsf);
+            }
+            panel.append(createAnalysisLane({ kind: "chain", chain: group.chain }, "rmsx-analysis-chain-lane"));
+            return panel;
+        });
+        elements.analysisChainGrid.replaceChildren(...panels);
+        const multipleChains = panels.length > 1;
+        elements.analysisAssemblyPanel.hidden = !multipleChains;
+        if (multipleChains) {
+            elements.analysisAssemblyLane.replaceWith(
+                createAnalysisLane({ kind: "assembly" }, "rmsx-analysis-assembly-lane"),
+            );
+            elements.analysisAssemblyLane = elements.analysisAssemblyPanel.querySelector(
+                '[data-testid="rmsx-analysis-assembly-lane"]',
+            );
+        }
+        if (!analysisResizeObserver && typeof ResizeObserver !== "undefined") {
+            analysisResizeObserver = new ResizeObserver(() => {
+                requestAnalysisDraw();
+                requestAnalysisLayout();
+            });
+            analysisResizeObserver.observe(elements.analysisContent);
+        }
+        if (!elements.analysisView.dataset.scrollWired) {
+            elements.analysisView.dataset.scrollWired = "true";
+            elements.analysisView.addEventListener("scroll", requestAnalysisLayout, { passive: true });
+        }
+        requestAnalysisDraw();
+    }
+
+    function requestAnalysisDraw() {
+        if (analysisDrawFrame !== null) {
+            return;
+        }
+        analysisDrawFrame = window.requestAnimationFrame(() => {
+            analysisDrawFrame = null;
+            elements.analysisChainGrid.querySelectorAll(".analysis-heatmap").forEach(drawHeatmapCanvas);
+            elements.analysisChainGrid.querySelectorAll(".analysis-rmsd").forEach(drawAnalysisRmsdCanvas);
+            elements.analysisChainGrid.querySelectorAll(".analysis-rmsf").forEach(drawAnalysisRmsfCanvas);
+            updateHeatmapSelection();
+            const selected = selectedHeatmapCell();
+            if (selected.residue && selected.slice) {
+                elements.analysisSelection.textContent = `Chain ${selected.residue.chain} · Residue ${selected.residue.id} · ${selected.slice.label}`;
+            }
+        });
+    }
+
+    function rotatedScreenExtents(stats, matrix) {
+        const corners = [
+            [stats.minX, stats.minY, stats.minZ],
+            [stats.minX, stats.minY, stats.maxZ],
+            [stats.minX, stats.maxY, stats.minZ],
+            [stats.minX, stats.maxY, stats.maxZ],
+            [stats.maxX, stats.minY, stats.minZ],
+            [stats.maxX, stats.minY, stats.maxZ],
+            [stats.maxX, stats.maxY, stats.minZ],
+            [stats.maxX, stats.maxY, stats.maxZ],
+        ].map(([x, y, z]) => transformPoint(matrix, stats.center, { x: 0, y: 0, z: 0 }, x, y, z));
+        return {
+            width: Math.max(1, 2 * Math.max(...corners.map((point) => Math.abs(point.x)))),
+            height: Math.max(1, 2 * Math.max(...corners.map((point) => Math.abs(point.y)))),
+        };
+    }
+
+    function molstarCanvasRect() {
+        return (
+            elements.viewport.querySelector("canvas")?.getBoundingClientRect() ||
+            elements.viewport.getBoundingClientRect()
+        );
+    }
+
+    function worldPointForClient(clientX, clientY) {
+        const camera = viewer?.plugin?.canvas3d?.camera;
+        if (!camera) {
+            return null;
+        }
+        camera.update?.();
+        const rect = molstarCanvasRect();
+        if (!rect.width || !rect.height) {
+            return null;
+        }
+        const viewport = camera.viewport;
+        const screenX = viewport.x + ((clientX - rect.left) / rect.width) * viewport.width;
+        const screenY = viewport.y + ((rect.bottom - clientY) / rect.height) * viewport.height;
+        const projectedTarget = new Float32Array(4);
+        camera.project(projectedTarget, camera.target);
+        const world = new Float32Array(3);
+        camera.unproject(world, new Float32Array([screenX, screenY, projectedTarget[2]]));
+        return { x: world[0], y: world[1], z: world[2] };
+    }
+
+    function clientPointForWorld(world) {
+        const camera = viewer?.plugin?.canvas3d?.camera;
+        if (!camera) {
+            return null;
+        }
+        const rect = molstarCanvasRect();
+        const viewport = camera.viewport;
+        const projected = new Float32Array(4);
+        camera.project(projected, new Float32Array([world.x, world.y, world.z]));
+        return {
+            x: rect.left + ((projected[0] - viewport.x) / viewport.width) * rect.width,
+            y: rect.bottom - ((projected[1] - viewport.y) / viewport.height) * rect.height,
+        };
+    }
+
+    function distanceBetween(left, right) {
+        return Math.sqrt((left.x - right.x) ** 2 + (left.y - right.y) ** 2 + (left.z - right.z) ** 2);
+    }
+
+    function laneDescriptor(laneElement) {
+        return laneElement.dataset.laneKind === "chain"
+            ? { kind: "chain", chain: laneElement.dataset.chain }
+            : { kind: "assembly" };
+    }
+
+    function prepareAnalysisCamera() {
+        const camera = viewer?.plugin?.canvas3d?.camera;
+        if (!camera || state.analysisCameraReady) {
+            return;
+        }
+        analysisCameraSnapshot = camera.getSnapshot?.() || null;
+        const stats = structureStats(REPORT.slices[0].pdb);
+        const radius = Math.max(40, stats.width, stats.height, stats.depth) * 1.4;
+        camera.setState({ mode: "orthographic" }, 0);
+        camera.focus(new Float32Array([stats.center.x, stats.center.y, stats.center.z]), radius, 0);
+        camera.update?.();
+        state.analysisCameraReady = true;
+        viewer?.plugin?.canvas3d?.requestDraw?.();
+    }
+
+    function restoreStructureCamera() {
+        viewer?.plugin?.canvas3d?.setProps({ camera: { manualReset: false } });
+        const camera = viewer?.plugin?.canvas3d?.camera;
+        if (camera && analysisCameraSnapshot) {
+            camera.setState(analysisCameraSnapshot, 0);
+            camera.update?.();
+        }
+        analysisCameraSnapshot = null;
+        state.analysisCameraReady = false;
+        analysisLayoutTargets = new Map();
+    }
+
+    function renderAnalysisDebugOverlay() {
+        const enabled = import.meta.env.DEV && new URL(window.location.href).searchParams.get("layoutDebug") === "1";
+        elements.analysisDebugOverlay.hidden = !enabled;
+        if (!enabled) {
+            elements.analysisDebugOverlay.replaceChildren();
+            return;
+        }
+        const items = [];
+        elements.analysisChainGrid.querySelectorAll(".analysis-chain-panel").forEach((panel) => {
+            const rect = panel.getBoundingClientRect();
+            const box = document.createElement("span");
+            box.className = "analysis-debug-box";
+            Object.assign(box.style, {
+                height: `${rect.height}px`,
+                left: `${rect.left}px`,
+                top: `${rect.top}px`,
+                width: `${rect.width}px`,
+            });
+            items.push(box);
+        });
+        elements.analysisView.querySelectorAll(".analysis-structure-lane").forEach((lane) => {
+            const laneRect = lane.getBoundingClientRect();
+            const centerLine = document.createElement("span");
+            centerLine.className = "analysis-debug-horizontal";
+            Object.assign(centerLine.style, {
+                left: `${laneRect.left}px`,
+                top: `${laneRect.top + laneRect.height / 2}px`,
+                width: `${laneRect.width}px`,
+            });
+            items.push(centerLine);
+            lane.querySelectorAll(".analysis-slice-anchor").forEach((anchor) => {
+                const rect = anchor.getBoundingClientRect();
+                const line = document.createElement("span");
+                line.className = "analysis-debug-line";
+                Object.assign(line.style, {
+                    height: `${laneRect.height}px`,
+                    left: `${rect.left + rect.width / 2}px`,
+                    top: `${laneRect.top}px`,
+                });
+                items.push(line);
+            });
+        });
+        elements.analysisDebugOverlay.replaceChildren(...items);
+    }
+
+    function updateAnalysisLayout() {
+        if (state.activeView !== "analysis" || !state.loaded || !state.analysisLoaded || !viewer) {
+            return;
+        }
+        prepareAnalysisCamera();
+        const targets = new Map();
+        const matrix = rotationMatrix();
+        elements.analysisView.querySelectorAll(".analysis-structure-lane").forEach((laneElement) => {
+            const lane = laneDescriptor(laneElement);
+            const laneRect = laneElement.getBoundingClientRect();
+            let maxAnchorError = 0;
+            laneElement.querySelectorAll(".analysis-slice-anchor").forEach((anchor, index) => {
+                const anchorRect = anchor.getBoundingClientRect();
+                const clientX = anchorRect.left + anchorRect.width / 2;
+                const clientY = laneRect.top + laneRect.height / 2;
+                const target = worldPointForClient(clientX, clientY);
+                const onePixelRight = worldPointForClient(clientX + 1, clientY);
+                if (!target || !onePixelRight) {
+                    return;
+                }
+                const worldPerCssPixel = distanceBetween(target, onePixelRight);
+                const stats = structureStatsForLane(REPORT.slices[index], lane);
+                const extents = rotatedScreenExtents(stats, matrix);
+                const slotWidth = anchorRect.width;
+                // Leave a visible inter-slice gutter even when a chain's widest
+                // projection is aligned with the horizontal lane.
+                const desiredWidth = slotWidth * 0.86 * worldPerCssPixel;
+                const desiredHeight = laneRect.height * 0.82 * worldPerCssPixel;
+                const radiusPadding = estimatedVisualRadius() * 2;
+                const scale = Math.max(
+                    0.001,
+                    Math.min(
+                        desiredWidth / Math.max(1, extents.width + radiusPadding),
+                        desiredHeight / Math.max(1, extents.height + radiusPadding),
+                    ),
+                );
+                targets.set(`${laneKey(lane)}:${index}`, {
+                    anchor: { x: clientX, y: clientY },
+                    lane,
+                    scale,
+                    target,
+                });
+                const projected = clientPointForWorld(target);
+                if (projected) {
+                    maxAnchorError = Math.max(maxAnchorError, Math.hypot(projected.x - clientX, projected.y - clientY));
+                }
+            });
+            laneElement.dataset.clusterCount = String(REPORT.slices.length);
+            laneElement.dataset.maxAnchorError = maxAnchorError.toFixed(3);
+        });
+        analysisLayoutTargets = targets;
+        renderAnalysisDebugOverlay();
+        applyLiveTransforms(false, true);
+    }
+
+    function requestAnalysisLayout() {
+        if (analysisLayoutFrame !== null) {
+            return;
+        }
+        analysisLayoutFrame = window.requestAnimationFrame(() => {
+            analysisLayoutFrame = null;
+            updateAnalysisLayout();
+        });
+    }
+
+    function wireAnalysisLaneDrag(laneElement) {
+        laneElement.addEventListener("pointerdown", (event) => {
+            if (!state.localDrag || event.button !== 0) {
+                return;
+            }
+            event.preventDefault();
+            analysisDragState = {
+                axes: currentScreenRotationAxes(),
+                pointerId: event.pointerId,
+                x: event.clientX,
+                y: event.clientY,
+            };
+            laneElement.classList.add("dragging");
+            laneElement.setPointerCapture?.(event.pointerId);
+        });
+        laneElement.addEventListener("pointermove", (event) => {
+            if (!analysisDragState || analysisDragState.pointerId !== event.pointerId) {
+                return;
+            }
+            event.preventDefault();
+            const dx = event.clientX - analysisDragState.x;
+            const dy = event.clientY - analysisDragState.y;
+            if (!dx && !dy) {
+                return;
+            }
+            applyScreenRotationDrag(dx, dy, analysisDragState.axes);
+            analysisDragState.x = event.clientX;
+            analysisDragState.y = event.clientY;
+            syncRotationControls();
+            queueInteractiveGeometryUpdate(false);
+            requestAnalysisDraw();
+        });
+        const finish = (event) => {
+            if (!analysisDragState || analysisDragState.pointerId !== event.pointerId) {
+                return;
+            }
+            analysisDragState = null;
+            laneElement.classList.remove("dragging");
+            laneElement.releasePointerCapture?.(event.pointerId);
+            queueGeometryUpdate(false, 20);
+        };
+        laneElement.addEventListener("pointerup", finish);
+        laneElement.addEventListener("pointercancel", finish);
+    }
+
+    async function activateAnalysis() {
+        if (!state.loaded || state.activeView !== "analysis") {
+            return;
+        }
+        // Adding chain representations or selection markers must not trigger Molstar's
+        // automatic camera reset after the lanes have been positioned in screen space.
+        viewer?.plugin?.canvas3d?.setProps({ camera: { manualReset: true } });
+        await ensureAnalysisRecords();
+        if (state.activeView !== "analysis") {
+            return;
+        }
+        prepareAnalysisCamera();
+        requestMolstarDraw();
+        window.requestAnimationFrame(() => {
+            requestAnalysisDraw();
+            requestAnalysisLayout();
+        });
+    }
+
+    function setActiveView(view) {
+        const next = VIEW_MODES.has(view) ? view : "structures";
+        const leavingAnalysis = state.activeView === "analysis" && next !== "analysis";
+        if (leavingAnalysis) {
+            restoreStructureCamera();
+        }
+        state.activeView = next;
+        const structuresSelected = next === "structures";
+        const heatmapSelected = next === "heatmap";
+        const analysisSelected = next === "analysis";
+        const structuresVisible = structuresSelected || analysisSelected;
+        const heatmapVisible = heatmapSelected;
+        elements.structuresTab.classList.toggle("active", structuresSelected);
+        elements.structuresTab.setAttribute("aria-selected", structuresSelected ? "true" : "false");
+        elements.heatmapTab.classList.toggle("active", heatmapSelected);
+        elements.heatmapTab.setAttribute("aria-selected", heatmapSelected ? "true" : "false");
+        elements.analysisTab.classList.toggle("active", analysisSelected);
+        elements.analysisTab.setAttribute("aria-selected", analysisSelected ? "true" : "false");
+        elements.viewerRegion.classList.toggle("analysis-view-active", analysisSelected);
+        elements.viewport.hidden = !structuresVisible;
+        elements.heatmapView.hidden = !heatmapVisible;
+        elements.analysisView.hidden = !analysisSelected;
+        elements.heatmapTooltip.hidden = true;
+        elements.analysisTooltip.hidden = true;
+        elements.spacingRange.disabled = analysisSelected;
+        elements.spacingNumber.disabled = analysisSelected;
+        elements.columnsNumber.disabled = analysisSelected;
+        if (state.loaded) {
+            applyLiveTransforms(false, true);
+        }
+        if (structuresVisible) {
+            requestMolstarDraw();
+        }
+        if (heatmapVisible) {
+            requestHeatmapDraw();
+        }
+        if (analysisSelected) {
+            requestAnalysisDraw();
+            activateAnalysis().catch((error) => {
+                console.error(error);
+                setStatus(`Could not open the Analysis view: ${error.message}`, true);
+            });
+        }
+    }
+
     function visibleSliceIndexes() {
         return REPORT.slices.map((_, index) => index).filter((index) => state.visible.has(index));
     }
@@ -1683,6 +3259,8 @@ import "./main.css";
         elements.spacingNumber.min = String(minSpacing());
         elements.spacingRange.max = String(maxSpacing());
         elements.spacingNumber.max = String(maxSpacing());
+        elements.spacingRange.step = String(spacingStep());
+        elements.spacingNumber.step = String(spacingStep());
         elements.colorMinNumber.min = String(REPORT.domain.min);
         elements.colorMinNumber.max = String(REPORT.domain.max);
         elements.colorMaxNumber.min = String(REPORT.domain.min);
@@ -1699,6 +3277,9 @@ import "./main.css";
         setActiveControlPanel(state.activePanel);
         updateMetrics();
         renderChips();
+        renderHeatmapPanels();
+        renderAnalysisPanels();
+        setActiveView("structures");
     }
 
     function setActiveControlPanel(panel) {
@@ -1718,9 +3299,10 @@ import "./main.css";
             ...REPORT.slices.map((slice, index) => {
                 const button = document.createElement("button");
                 button.type = "button";
-                button.className = `chip${isSliceVisible(index) ? " active" : ""}`;
+                button.className = `chip${isSliceVisible(index) ? " active" : ""}${state.currentIndex === index ? " current" : ""}`;
                 button.dataset.testid = "molstar-slice-chip";
                 button.dataset.sliceIndex = String(index + 1);
+                button.setAttribute("aria-current", state.currentIndex === index ? "true" : "false");
                 button.setAttribute("aria-pressed", state.visible.has(index) ? "true" : "false");
                 button.setAttribute(
                     "aria-label",
@@ -1736,6 +3318,7 @@ import "./main.css";
                     }
                     state.currentIndex = index;
                     renderChips();
+                    requestHeatmapDraw();
                     renderScene(true);
                 });
                 return button;
@@ -1744,9 +3327,26 @@ import "./main.css";
     }
 
     function reloadScene(autoView = false) {
-        state.loaded = false;
-        state.liveTransforms = false;
-        renderScene(autoView);
+        sceneReloadRequested = true;
+        sceneReloadAutoView = sceneReloadAutoView || autoView;
+        if (sceneReloadPromise) {
+            return sceneReloadPromise;
+        }
+        elements.viewport.dataset.sceneReloading = "true";
+        sceneReloadPromise = (async () => {
+            while (sceneReloadRequested) {
+                const nextAutoView = sceneReloadAutoView;
+                sceneReloadRequested = false;
+                sceneReloadAutoView = false;
+                state.loaded = false;
+                state.liveTransforms = false;
+                await renderScene(nextAutoView);
+            }
+        })().finally(() => {
+            sceneReloadPromise = null;
+            elements.viewport.dataset.sceneReloading = "false";
+        });
+        return sceneReloadPromise;
     }
 
     function queueSceneReload(autoView = false, delay = 120) {
@@ -1763,6 +3363,14 @@ import "./main.css";
                 reloadScene(autoView);
             }
         }, delay);
+    }
+
+    function queueTileLayoutUpdate() {
+        if (state.forceCoordinateFallback) {
+            queueSceneReload(true, 100);
+            return;
+        }
+        queueGeometryUpdate(true);
     }
 
     function queueInteractiveGeometryUpdate(autoView = false) {
@@ -1807,6 +3415,9 @@ import "./main.css";
     }
 
     function updateSpacing(value) {
+        if (state.activeView === "analysis") {
+            return;
+        }
         const next = clamp(Number(value), minSpacing(), maxSpacing());
         if (!Number.isFinite(next)) {
             return;
@@ -1816,11 +3427,14 @@ import "./main.css";
         elements.spacingNumber.value = next.toFixed(3);
         updateMetrics();
         if (state.layout === "tiled") {
-            queueGeometryUpdate(true);
+            queueTileLayoutUpdate();
         }
     }
 
     function updateTileColumns(value) {
+        if (state.activeView === "analysis") {
+            return;
+        }
         const next = clamp(Math.round(Number(value)), 1, REPORT.slices.length);
         if (!Number.isFinite(next)) {
             return;
@@ -1829,7 +3443,7 @@ import "./main.css";
         elements.columnsNumber.value = String(next);
         updateMetrics();
         if (state.layout === "tiled") {
-            queueGeometryUpdate(true);
+            queueTileLayoutUpdate();
         }
     }
 
@@ -1913,6 +3527,9 @@ import "./main.css";
             });
         });
         elements.resetViewButton.addEventListener("click", resetView);
+        elements.structuresTab.addEventListener("click", () => setActiveView("structures"));
+        elements.heatmapTab.addEventListener("click", () => setActiveView("heatmap"));
+        elements.analysisTab.addEventListener("click", () => setActiveView("analysis"));
         elements.paletteSelect.addEventListener("change", (event) => updatePalette(event.target.value));
         elements.outlineCheckbox.addEventListener("change", (event) => setOutline(event.target.checked));
         elements.thicknessRange.addEventListener("input", (event) => updateThickness(event.target.value));
@@ -1971,48 +3588,56 @@ import "./main.css";
         elements.radiusMaxNumber.addEventListener("input", (event) => updateRadiusRange("max", event.target.value));
         elements.radiusMaxNumber.addEventListener("change", (event) => updateRadiusRange("max", event.target.value));
         elements.resetScaleButton.addEventListener("click", resetScale);
-        elements.viewport.addEventListener("pointerdown", (event) => {
-            if (!state.localDrag || event.button !== 0) {
-                return;
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            dragState = {
-                pointerId: event.pointerId,
-                x: event.clientX,
-                y: event.clientY,
-                axes: currentScreenRotationAxes(),
-            };
-            elements.viewport.classList.add("dragging");
-            elements.viewport.setPointerCapture?.(event.pointerId);
-        });
-        elements.viewport.addEventListener("pointermove", (event) => {
-            if (!dragState || dragState.pointerId !== event.pointerId) {
-                return;
-            }
-            event.preventDefault();
-            event.stopPropagation();
-            const coalesced = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
-            const samples = coalesced.length ? coalesced : [event];
-            const latest = samples[samples.length - 1] || event;
-            const dx = latest.clientX - dragState.x;
-            const dy = latest.clientY - dragState.y;
-            const axes = dragState.axes || currentScreenRotationAxes();
-            dragState = {
-                pointerId: event.pointerId,
-                x: latest.clientX,
-                y: latest.clientY,
-                axes,
-            };
-            if (dx === 0 && dy === 0) {
-                return;
-            }
-            applyScreenRotationDrag(dx, dy, axes);
-            syncRotationControls();
-            queueInteractiveGeometryUpdate(false);
-        });
+        elements.viewport.addEventListener(
+            "pointerdown",
+            (event) => {
+                if (!state.localDrag || event.button !== 0) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                dragState = {
+                    pointerId: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    axes: currentScreenRotationAxes(),
+                };
+                elements.viewport.classList.add("dragging");
+                elements.viewport.setPointerCapture?.(event.pointerId);
+            },
+            true,
+        );
+        elements.viewport.addEventListener(
+            "pointermove",
+            (event) => {
+                if (!dragState || dragState.pointerId !== event.pointerId) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                const coalesced = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
+                const samples = coalesced.length ? coalesced : [event];
+                const latest = samples[samples.length - 1] || event;
+                const dx = latest.clientX - dragState.x;
+                const dy = latest.clientY - dragState.y;
+                const axes = dragState.axes || currentScreenRotationAxes();
+                dragState = {
+                    pointerId: event.pointerId,
+                    x: latest.clientX,
+                    y: latest.clientY,
+                    axes,
+                };
+                if (dx === 0 && dy === 0) {
+                    return;
+                }
+                applyScreenRotationDrag(dx, dy, axes);
+                syncRotationControls();
+                queueInteractiveGeometryUpdate(false);
+            },
+            true,
+        );
         const endDrag = (event) => {
-            if (dragState && dragState.pointerId !== event.pointerId) {
+            if (!dragState || dragState.pointerId !== event.pointerId) {
                 return;
             }
             dragState = null;
@@ -2020,8 +3645,8 @@ import "./main.css";
             elements.viewport.releasePointerCapture?.(event.pointerId);
             queueGeometryUpdate(false, 20);
         };
-        elements.viewport.addEventListener("pointerup", endDrag);
-        elements.viewport.addEventListener("pointercancel", endDrag);
+        elements.viewport.addEventListener("pointerup", endDrag, true);
+        elements.viewport.addEventListener("pointercancel", endDrag, true);
         document.addEventListener("keydown", (event) => {
             if (event.target && ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) {
                 return;
@@ -2036,9 +3661,9 @@ import "./main.css";
                 k: ["rotate-z-negative", () => addRotation("z", -5)],
                 "[": ["thickness-increase", () => updateThickness(state.thickness + 0.05)],
                 "]": ["thickness-decrease", () => updateThickness(state.thickness - 0.05)],
-                "-": ["spacing-decrease", () => updateSpacing(state.spacing - 0.05)],
-                "=": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
-                "+": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
+                "-": ["spacing-decrease", () => updateSpacing(state.spacing - spacingStep())],
+                "=": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
+                "+": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
                 ",": ["color-domain-low-increase", () => updateColorDomain("min", state.colorMin + colorStep)],
                 ".": ["color-domain-high-decrease", () => updateColorDomain("max", state.colorMax - colorStep)],
             };
@@ -2056,6 +3681,7 @@ import "./main.css";
         try {
             REPORT = await fetchManifest();
             validateManifest(REPORT);
+            state.forceCoordinateFallback = analysisChainGroups().length > 1;
             document.title = REPORT.title || "RMSX Flipbook";
             populateControls();
             wireEvents();
