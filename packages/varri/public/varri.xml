@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+<visualization name="vaRRI" embeddable="true">
+    <description>Visual annotation of RNA-RNA interactions</description>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">json</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <help format="markdown"><![CDATA[
+# vaRRI - Visual Annotation of RNA-RNA Interactions
+
+This visualization embeds the complete, unmodified [vaRRI-js viewer](https://backofenlab.github.io/vaRRI-js/)
+in an iframe. It visualizes the base pairing of RNA-RNA interactions (RRIs) as 2D diagrams with
+additional annotation like coloring, region/subsequence highlights, point mutations, and probability
+profiles - see the upstream site for the full, always up-to-date list of settings and export options.
+
+## Input
+
+The dataset must be either:
+
+- a JSON object of [vaRRI-js URL parameters](https://backofenlab.github.io/vaRRI-js/README.html#url-parameters--sharing),
+  using upstream's own parameter names, forwarded through unchanged, e.g.:
+
+  ```json
+  {
+    "sequence": "AACUCGCGAAAGCCAUAAAAACCAGGGAGACA&UUCCCUGGUGUUGGCGCAGUAUUCGCGCA",
+    "structure": "....((((((.((((.....((((((((....&.))))))))..))))......))))))..",
+    "startIndex1": -35,
+    "startIndex2": 2,
+    "coloring": "strand",
+    "forceLayout": "1"
+  }
+  ```
+
+- or a plain-text query string / full shareable URL, exactly as produced by vaRRI-js's own
+  "🔗 Share Link" export button (simplest: use the input website to build your visualization, then
+  save its Share Link output as the dataset).
+
+## Features
+
+Everything the upstream [vaRRI-js viewer](https://backofenlab.github.io/vaRRI-js/) supports, unmodified:
+settings panel, region/subsequence/point-mutation editors, probability profiles, zoom/pan, and SVG/PNG export.
+
+Learn more at: [https://backofenlab.github.io/vaRRI-js/](https://backofenlab.github.io/vaRRI-js/)
+    ]]></help>
+</visualization>

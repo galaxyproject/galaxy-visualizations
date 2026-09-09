@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vaRRI</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!--
+      Galaxy's VisualizationFrame.vue injects only a single
+      <script src=".../index.js"> into a blank iframe and never loads this
+      index.html file, so main.js is responsible for locating and embedding
+      the vendored vaRRI-js viewer itself, relative to its own bundled URL.
+      This index.html (used only for local `vite dev`/`vite preview`) mirrors
+      that by loading nothing extra beyond main.js.
+    -->
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
+
