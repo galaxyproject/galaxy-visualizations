@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/varri",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "description": "Galaxy visualization for vaRRI - visual annotation of RNA-RNA interactions",
     "license": "MIT",
@@ -8,8 +8,17 @@
         "static"
     ],
     "scripts": {
-        "build": "node scripts/fetch_upstream.mjs",
-        "fetch-upstream": "node scripts/fetch_upstream.mjs",
-        "test": "npm run build && node --test tests/*.test.mjs"
+        "dev": "vite",
+        "build": "vite build",
+        "prettier": "prettier --write 'package.json' 'main.js'",
+        "preview": "vite preview",
+        "test": "node --test tests/*.test.mjs"
+    },
+    "devDependencies": {
+        "prettier": "^3.5.3",
+        "varri-js": "^1.0.1",
+        "vite": "^6.2.2",
+        "vite-plugin-static-copy": "^3.1.4"
     }
 }
+
