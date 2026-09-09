@@ -429,7 +429,12 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
     });
     await page.getByTestId("molstar-rotation-z-number").fill("0");
     await page.waitForTimeout(400);
-    expectNineClustersInOneRow(await renderedProteinClusters(page));
+    // A rotation can rebuild the scene; software WebGL on CI may take longer
+    // than a fixed delay to paint the replacement canvas.
+    await expect(async () => {
+        await expect(page.locator("#molstarViewport")).toHaveAttribute("data-scene-reloading", "false");
+        expectNineClustersInOneRow(await renderedProteinClusters(page));
+    }).toPass({ timeout: 20000 });
     await page.getByText("Rotation", { exact: true }).click();
 
     const viewport = page.locator("#molstarViewport");
