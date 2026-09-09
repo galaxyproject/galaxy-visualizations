@@ -11,6 +11,6 @@ test("basic", async ({ page }) => {
     });
 
     // start
-    await page.goto("http://localhost:5173/");
+    await page.goto("/");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
 });

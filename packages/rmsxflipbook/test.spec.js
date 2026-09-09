@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const VIEWER_URL = `http://localhost:${process.env.PLAYWRIGHT_PORT || 5173}`;
+const VIEWER_URL = "/";
 const SCHEMA_VERSION = "flipbook-molstar-viewer/v1";
 
 async function routeDatasetDisplay(page, handler) {

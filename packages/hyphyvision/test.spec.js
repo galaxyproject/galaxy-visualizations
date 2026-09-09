@@ -28,7 +28,7 @@ test("basic", async ({ page }) => {
         });
     });
     for (const [name, selector] of Object.entries(TESTS)) {
-        await page.goto(`http://localhost:8080?dataset_id=${name}`);
+        await page.goto(`/?dataset_id=${name}`);
         await page.waitForSelector(selector);
         await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });
     }

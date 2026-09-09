@@ -17,7 +17,7 @@ test("basic", async ({ page }) => {
         await route.fulfill({ status: 204, body: "" });
     });
 
-    await page.goto("http://localhost:5173/");
+    await page.goto("/");
     await page.waitForSelector("canvas");
     // Give OpenLayers a moment to finish its initial render
     await page.waitForTimeout(1000);

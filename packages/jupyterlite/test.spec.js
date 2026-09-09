@@ -19,7 +19,7 @@ const DATASET_1 = {
 
 const DATASET_HASH = "f1b9ff97-c70c-4889-a0d0-40896db528eb";
 
-const LANDING = "http://localhost:8000/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id";
+const LANDING = "/lab/index.html?root=/root/&dataset_id=dataset_0&history_id=history_id";
 
 async function checkOutputArea(page, index, contains) {
     const outputs = page.locator(".jp-OutputArea-output");
@@ -269,7 +269,7 @@ test("strip authorization header for galaxy api requests", async ({ page }, test
 
     // Test 2: Absolute URL (should be stripped)
     await page.evaluate(async () => {
-        await fetch("http://localhost:8000/root/api/plugins/jupyterlite/test", {
+        await fetch("/root/api/plugins/jupyterlite/test", {
             headers: { Authorization: "Bearer secret-token" },
         });
     });
@@ -288,7 +288,7 @@ test("strip authorization header for galaxy api requests", async ({ page }, test
 
     // Test 4: URL object (should be stripped)
     await page.evaluate(async () => {
-        const url = new URL("http://localhost:8000/root/api/plugins/jupyterlite/test");
+        const url = new URL("/root/api/plugins/jupyterlite/test", location.origin);
         await fetch(url, {
             headers: { Authorization: "Bearer secret-token" },
         });
@@ -411,7 +411,7 @@ test("no dataset identifier loads the default notebook", async ({ page }) => {
         });
     });
 
-    await page.goto("http://localhost:8000/lab/index.html?root=/root/&history_id=history_id");
+    await page.goto("/lab/index.html?root=/root/&history_id=history_id");
 
     await page.waitForSelector(".jp-NotebookPanel");
     const cells = page.locator(".jp-Notebook .jp-Cell");

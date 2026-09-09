@@ -35,7 +35,7 @@ function fulfillBinary(route, data) {
 
 test("Run plot", async ({ page }) => {
     // Test variables
-    const URL = "http://localhost:5173/";
+    const URL = "/";
     const CHR_INPUT = "raya560ne.2.1.2"; // a chromosome
     const POINT = "#lz-plot_association_associationpvalues_-RAYA560NE21261284_TC"; // a point in the plot
     const POINT_LOCATOR = page.locator(POINT);
