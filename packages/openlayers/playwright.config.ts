@@ -1,15 +1,5 @@
 import { defineConfig } from "@playwright/test";
 
-export default defineConfig({
-    snapshotPathTemplate: "{testDir}/test-data/{arg}.png",
-    testIgnore: ["src/**"],
-    use: {
-        headless: !!process.env.CI,
-    },
-    webServer: {
-        command: "npm run dev",
-        url: "http://localhost:5173",
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-    },
-});
+import { visualizationConfig } from "../../playwright.shared.mjs";
+
+export default defineConfig(visualizationConfig());

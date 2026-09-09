@@ -23,6 +23,6 @@ test("basic", async ({ page }) => {
             body: DATASET_CONTENT,
         });
     });
-    await page.goto("http://localhost:5173/");
+    await page.goto("/");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
 });

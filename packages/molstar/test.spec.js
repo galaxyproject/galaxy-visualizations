@@ -45,9 +45,9 @@ test("basic", async ({ page }) => {
     });
 
     // start
-    await page.goto("http://localhost:5173/");
+    await page.goto("/");
     await expect(page).toHaveScreenshot("test_pdb.png", { maxDiffPixelRatio });
 
-    await page.goto("http://localhost:5173?dataset_id=__cif__");
+    await page.goto("/?dataset_id=__cif__");
     await expect(page).toHaveScreenshot("test_cif.png", { maxDiffPixelRatio });
 });

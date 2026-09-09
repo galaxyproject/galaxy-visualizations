@@ -107,7 +107,7 @@ test("basic load and drag-drop dataset", async ({ page }) => {
     }
     const messages = [];
     page.on("console", (msg) => messages.push(msg.text()));
-    await page.goto("http://localhost:5173?dataset_id=__test_pw__");
+    await page.goto("/?dataset_id=__test_pw__");
     await page.waitForSelector(".igv-track-label[title='__test_pw__']");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.03 });
     await page.click(".n-button");
