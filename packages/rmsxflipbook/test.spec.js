@@ -649,16 +649,17 @@ test("dev mode loads the bundled example manifest without a dataset id", async (
 });
 
 test("renders a fresh Galaxy multi-chain job with actual slice times", async ({ page }, testInfo) => {
-    const manifest = JSON.parse(readFileSync(join(__dirname, "test-data", "two-chain-ubiquitin.rmsx.json"), "utf8"));
+    const manifest = JSON.parse(readFileSync(join(__dirname, "test-data", "protease-galaxy.rmsx.json"), "utf8"));
     expect(manifest.analysis.chains.map((chain) => chain.id)).toEqual(["A", "B"]);
     expect(manifest.analysis.timeDomainNs[1]).toBeGreaterThan(manifest.analysis.timeDomainNs[0]);
+    expect(manifest.analysis.chains.map((chain) => chain.rmsf.values.length)).toEqual([99, 99]);
     expect(manifest.slices[0].time.startFrame).toBe(0);
-    expect(manifest.slices[8].time.endFrame).toBe(35);
+    expect(manifest.slices[8].time.endFrame).toBe(179);
     await routeDatasetDisplay(page, async (route) => {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(manifest) });
     });
     await page.setViewportSize({ width: 2000, height: 1100 });
-    await page.goto(`${VIEWER_URL}?dataset_id=two-chain-ubiquitin`);
+    await page.goto(`${VIEWER_URL}?dataset_id=protease-galaxy`);
     await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
     await page.getByTestId("analysis-tab").click();
     await expect(page.getByTestId("rmsx-analysis-chain-panel")).toHaveCount(2);
@@ -676,7 +677,7 @@ test("renders a fresh Galaxy multi-chain job with actual slice times", async ({ 
             expectNineAnchoredAnalysisClusters(await renderedAnalysisLaneClusters(page, lane));
         }).toPass({ timeout: 30000 });
     }
-    await expect(page).toHaveScreenshot("analysis-two-chain-ubiquitin.png", {
+    await expect(page).toHaveScreenshot("analysis-protease-galaxy.png", {
         maxDiffPixelRatio: 0.07,
         timeout: 20000,
     });
