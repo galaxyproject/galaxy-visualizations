@@ -13,7 +13,8 @@ This package follows the same [Galaxy Charts](https://charts.galaxyproject.org/)
 convention used by the other packages in this repository (see e.g. `packages/aladin`):
 
 - `main.js` — Galaxy glue: reads the `data-incoming` attribute, fetches the dataset from
-  the Galaxy API, and renders it with `vaRRI.validate()` / `vaRRI.render()`.
+  the Galaxy API, and embeds the vendored upstream viewer in an `<iframe>` with the
+  dataset parameters forwarded as URL query strings.
 - `main.css` — minimal layout/toolbar styling.
 - `index.html` — the Vite entry HTML page.
 - `vite.config.js` / `vite.config.charts.js` — build configuration; `vite build` bundles
@@ -51,9 +52,8 @@ npm test        # sanity-checks the built static/ output
 
 ## Dataset format
 
-The dataset must be a `json` Galaxy dataset containing a flat object of `varri-js`
-library parameters — see the
-[`vaRRI.validate()` / `vaRRI.render()` API](https://www.npmjs.com/package/varri-js).
+The dataset must be a `json` Galaxy dataset containing a flat object of
+[vaRRI-js URL parameters](https://backofenlab.github.io/vaRRI-js/README.html#url-parameters--sharing).
 All keys are optional except `sequence` and `structure`:
 
 ```json
@@ -68,21 +68,27 @@ All keys are optional except `sequence` and `structure`:
 }
 ```
 
-A wrapper object `{"vaRRIParams": {...}}` is also accepted. Note that `subsequenceHighlights`,
+A plain-text query string or a full shareable URL (as produced by vaRRI-js's own
+"Share Link" button) is also accepted. Note that `subsequenceHighlights`,
 `regionHighlights`, and `pointMutations` are arrays of structured objects matching the
 library's own schema — not the comma-separated mini-language used by the upstream
-`vaRRI-js` demo/editor GUI, which this plugin does not embed (see below).
+vaRRI-js editor GUI's input fields (see below).
 
-## Not included: the upstream editor GUI
+## How the upstream editor UI is embedded
 
-The [BackofenLab/vaRRI-js](https://github.com/BackofenLab/vaRRI-js) GitHub repository also
-ships a standalone, interactive demo/editor web page (`index.html`, `index.js`,
-`style.css`, `example-data.js`, ...) for manually authoring and exploring vaRRI diagrams.
-That demo page is not published to npm and is **not** part of this plugin: Galaxy only
-needs to render a specific dataset read-only, the same way `packages/aladin` renders a FITS
-image with `aladin-lite` without embedding an external editor UI. If interactive parameter
-editing is desired in the future, it should be built as a proper Vue/Vite view in this
-package using the `varri-js` API directly, rather than by vendoring the upstream demo page.
+The `varri-js` npm package ships a complete viewer/editor web page (`index.html`,
+`index.js`, `style.css`, ...) — the same page served at
+<https://backofenlab.github.io/vaRRI-js/>. This plugin **does** embed that page,
+unmodified, in an `<iframe>`: the entire editing UI (settings panel, annotation
+controls, export buttons, citation page, ...) is available inside the iframe, just
+like the standalone page. The only tweak is the `hideFooterAndHeader` URL
+parameter, which removes the page's header and footer but keeps the controls
+panel visible — exactly as documented by upstream, so users can still tweak
+parameters and re-render after loading. Galaxy supplies the dataset parameters as
+a query string and the upstream page handles all the rendering, so this plugin
+contains no duplicated UI or rendering code. This is similar to how
+`packages/aladin` embeds `aladin-lite` — the difference is that `varri-js`
+bundles its own HTML page while `aladin-lite` exposes a JavaScript API.
 
 ## Testing locally
 

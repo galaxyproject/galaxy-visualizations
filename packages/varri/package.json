@@ -2,7 +2,7 @@
     "name": "@galaxyproject/varri",
     "version": "0.0.1",
     "type": "module",
-    "description": "Galaxy visualization for vaRRI - visual annotation of RNA-RNA interactions",
+    "description": "Galaxy visualization for vaRRI-js - visual annotation of RNA-RNA interactions",
     "license": "MIT",
     "files": [
         "static"
