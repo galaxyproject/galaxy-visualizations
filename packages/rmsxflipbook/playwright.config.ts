@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-const webServerCommand = process.env.PLAYWRIGHT_WEB_SERVER_COMMAND || "npm run dev";
+const port = Number(process.env.PLAYWRIGHT_PORT || 5173);
+const webServerCommand = process.env.PLAYWRIGHT_WEB_SERVER_COMMAND || `npm run dev -- --port ${port} --strictPort`;
 
 export default defineConfig({
     snapshotPathTemplate: "{testDir}/test-data/{arg}.png",
@@ -16,7 +17,7 @@ export default defineConfig({
     },
     webServer: {
         command: webServerCommand,
-        url: "http://localhost:5173",
+        url: `http://localhost:${port}`,
         reuseExistingServer: !process.env.CI,
         timeout: 120000,
     },

@@ -2909,14 +2909,8 @@ import "./main.css";
             [stats.maxX, stats.maxY, stats.maxZ],
         ].map(([x, y, z]) => transformPoint(matrix, stats.center, { x: 0, y: 0, z: 0 }, x, y, z));
         return {
-            width: Math.max(
-                1,
-                Math.max(...corners.map((point) => point.x)) - Math.min(...corners.map((point) => point.x)),
-            ),
-            height: Math.max(
-                1,
-                Math.max(...corners.map((point) => point.y)) - Math.min(...corners.map((point) => point.y)),
-            ),
+            width: Math.max(1, 2 * Math.max(...corners.map((point) => Math.abs(point.x)))),
+            height: Math.max(1, 2 * Math.max(...corners.map((point) => Math.abs(point.y)))),
         };
     }
 
@@ -2988,6 +2982,7 @@ import "./main.css";
     }
 
     function restoreStructureCamera() {
+        viewer?.plugin?.canvas3d?.setProps({ camera: { manualReset: false } });
         const camera = viewer?.plugin?.canvas3d?.camera;
         if (camera && analysisCameraSnapshot) {
             camera.setState(analysisCameraSnapshot, 0);
@@ -3044,7 +3039,7 @@ import "./main.css";
     }
 
     function updateAnalysisLayout() {
-        if (state.activeView !== "analysis" || !state.loaded || !viewer) {
+        if (state.activeView !== "analysis" || !state.loaded || !state.analysisLoaded || !viewer) {
             return;
         }
         prepareAnalysisCamera();
@@ -3066,7 +3061,7 @@ import "./main.css";
                 const worldPerCssPixel = distanceBetween(target, onePixelRight);
                 const stats = structureStatsForLane(REPORT.slices[index], lane);
                 const extents = rotatedScreenExtents(stats, matrix);
-                const slotWidth = laneRect.width / Math.max(1, REPORT.slices.length);
+                const slotWidth = anchorRect.width;
                 // Leave a visible inter-slice gutter even when a chain's widest
                 // projection is aligned with the horizontal lane.
                 const desiredWidth = slotWidth * 0.86 * worldPerCssPixel;
@@ -3157,6 +3152,9 @@ import "./main.css";
         if (!state.loaded || state.activeView !== "analysis") {
             return;
         }
+        // Adding chain representations or selection markers must not trigger Molstar's
+        // automatic camera reset after the lanes have been positioned in screen space.
+        viewer?.plugin?.canvas3d?.setProps({ camera: { manualReset: true } });
         await ensureAnalysisRecords();
         if (state.activeView !== "analysis") {
             return;

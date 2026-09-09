@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const VIEWER_URL = `http://localhost:${process.env.PLAYWRIGHT_PORT || 5173}`;
 const SCHEMA_VERSION = "flipbook-molstar-viewer/v1";
 
 async function routeDatasetDisplay(page, handler) {
@@ -231,10 +232,14 @@ async function renderedAnalysisLaneClusters(page, lane) {
 }
 
 function expectNineAnchoredAnalysisClusters(result, tolerance = 6) {
+    const slotWidth = result.anchors.length > 1 ? Math.abs(result.anchors[1] - result.anchors[0]) : result.width;
     expect(result.clusters).toHaveLength(9);
     result.clusters.forEach((cluster, index) => {
         expect(Math.abs(cluster.centerX - result.anchors[index])).toBeLessThanOrEqual(tolerance);
-        expect((cluster.height + 1) / result.height).toBeGreaterThanOrEqual(0.45);
+        const width = cluster.maxX - cluster.minX + 1;
+        // Either dimension can constrain a rotated molecule, particularly on mobile.
+        expect(Math.max(cluster.height / result.height, width / slotWidth)).toBeGreaterThanOrEqual(0.45);
+        expect(width / slotWidth).toBeLessThanOrEqual(0.95);
         expect(cluster.height / result.height).toBeLessThanOrEqual(0.85);
     });
 }
@@ -304,7 +309,7 @@ async function expectStatusError(page, message) {
 }
 
 test("shows an error when Galaxy does not provide a dataset id", async ({ page }) => {
-    await page.goto("http://localhost:5173?dataset_id=");
+    await page.goto(`${VIEWER_URL}?dataset_id=`);
     await expectStatusError(page, "No Galaxy dataset id was provided");
 });
 
@@ -317,7 +322,7 @@ test("shows an error for non-RMSX JSON datasets", async ({ page }) => {
         });
     });
 
-    await page.goto("http://localhost:5173?dataset_id=not-rmsx");
+    await page.goto(`${VIEWER_URL}?dataset_id=not-rmsx`);
     await expectStatusError(page, "not an RMSX Flipbook manifest");
 });
 
@@ -330,7 +335,7 @@ test("shows an error when the RMSX manifest is missing required fields", async (
         });
     });
 
-    await page.goto("http://localhost:5173?dataset_id=missing-fields");
+    await page.goto(`${VIEWER_URL}?dataset_id=missing-fields`);
     await expectStatusError(page, "RMSX manifest is missing required field");
 });
 
@@ -343,7 +348,7 @@ test("shows an error when Galaxy dataset display requests fail", async ({ page }
         });
     });
 
-    await page.goto("http://localhost:5173?dataset_id=http-error");
+    await page.goto(`${VIEWER_URL}?dataset_id=http-error`);
     await expectStatusError(page, "Could not load RMSX manifest from Galaxy dataset");
 });
 
@@ -353,7 +358,7 @@ test("renders the flipbook viewer for a valid manifest", async ({ page }) => {
         await route.fulfill({ status: 200, contentType: "application/json", body: manifest });
     });
 
-    await page.goto("http://localhost:5173?dataset_id=example");
+    await page.goto(`${VIEWER_URL}?dataset_id=example`);
     await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
     await expect(page.getByTestId("molstar-slice-chip")).toHaveCount(9);
     await page.mouse.move(0, 0);
@@ -372,13 +377,13 @@ test("renders the flipbook viewer for a valid manifest", async ({ page }) => {
     await expect(page.locator("#molstarViewport")).toBeVisible();
 });
 
-test("renders nine real multi-chain protease timepoints in one row", async ({ page }) => {
+test("renders nine real multi-chain protease timepoints in one row", async ({ page }, testInfo) => {
     const manifest = readFileSync(join(__dirname, "test-data", "protease-multichain.rmsx.json"));
     await routeDatasetDisplay(page, async (route) => {
         await route.fulfill({ status: 200, contentType: "application/json", body: manifest });
     });
 
-    await page.goto("http://localhost:5173?dataset_id=protease-multichain");
+    await page.goto(`${VIEWER_URL}?dataset_id=protease-multichain`);
     await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
     await expect(page.getByTestId("molstar-slice-chip")).toHaveCount(9);
     await expect(page.getByTestId("molstar-columns-number")).toHaveValue("9");
@@ -487,7 +492,7 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
 
     // Reload before the visual baselines so they represent the clean default
     // Analysis layout rather than the marker and rotation interaction above.
-    await page.goto("http://localhost:5173?dataset_id=protease-multichain");
+    await page.goto(`${VIEWER_URL}?dataset_id=protease-multichain`);
     await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
     await page.setViewportSize({ width: 2000, height: 1100 });
     await page.getByTestId("analysis-tab").click();
@@ -591,6 +596,7 @@ test("renders nine real multi-chain protease timepoints in one row", async ({ pa
             maxDiffPixelRatio: 0.07,
             timeout: 20000,
         });
+        await page.screenshot({ path: testInfo.outputPath(`analysis-${viewportSize.width}.png`) });
         for (const lane of await page.locator(".analysis-structure-lane").all()) {
             await lane.scrollIntoViewIfNeeded();
             await page.waitForTimeout(200);
@@ -619,7 +625,7 @@ test("renders a compact Analysis fallback for legacy manifests without metrics",
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(manifest) });
     });
 
-    await page.goto("http://localhost:5173?dataset_id=legacy-example");
+    await page.goto(`${VIEWER_URL}?dataset_id=legacy-example`);
     await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
     await page.getByTestId("analysis-tab").click();
     const panel = page.getByTestId("rmsx-analysis-chain-panel");
@@ -636,8 +642,43 @@ test("renders a compact Analysis fallback for legacy manifests without metrics",
 });
 
 test("dev mode loads the bundled example manifest without a dataset id", async ({ page }) => {
-    await page.goto("http://localhost:5173");
+    await page.goto(`${VIEWER_URL}`);
     await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
     await expect(page.getByTestId("molstar-slice-chip")).toHaveCount(9);
     await expect(page.locator("#status")).not.toHaveClass(/error/);
+});
+
+test("renders a fresh Galaxy multi-chain job with actual slice times", async ({ page }, testInfo) => {
+    const manifest = JSON.parse(readFileSync(join(__dirname, "test-data", "two-chain-ubiquitin.rmsx.json"), "utf8"));
+    expect(manifest.analysis.chains.map((chain) => chain.id)).toEqual(["A", "B"]);
+    expect(manifest.analysis.timeDomainNs[1]).toBeGreaterThan(manifest.analysis.timeDomainNs[0]);
+    expect(manifest.slices[0].time.startFrame).toBe(0);
+    expect(manifest.slices[8].time.endFrame).toBe(35);
+    await routeDatasetDisplay(page, async (route) => {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(manifest) });
+    });
+    await page.setViewportSize({ width: 2000, height: 1100 });
+    await page.goto(`${VIEWER_URL}?dataset_id=two-chain-ubiquitin`);
+    await expect(page.locator("#status")).toContainText("9/9 slices visible", { timeout: 90000 });
+    await page.getByTestId("analysis-tab").click();
+    await expect(page.getByTestId("rmsx-analysis-chain-panel")).toHaveCount(2);
+    await expect(page.getByTestId("rmsx-analysis-rmsd")).toHaveCount(2);
+    await expect(page.getByTestId("rmsx-analysis-rmsf")).toHaveCount(2);
+    for (const lane of await page.getByTestId("rmsx-analysis-chain-lane").all()) {
+        await expect(lane).toHaveAttribute("data-cluster-count", "9", { timeout: 30000 });
+    }
+    await expect(page.getByTestId("rmsx-analysis-assembly")).toBeVisible();
+    await expect(page.locator("#status")).not.toHaveClass(/error/);
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: testInfo.outputPath("fresh-galaxy-before-assertions.png") });
+    for (const lane of await page.getByTestId("rmsx-analysis-chain-lane").all()) {
+        await expect(async () => {
+            expectNineAnchoredAnalysisClusters(await renderedAnalysisLaneClusters(page, lane));
+        }).toPass({ timeout: 30000 });
+    }
+    await expect(page).toHaveScreenshot("analysis-two-chain-ubiquitin.png", {
+        maxDiffPixelRatio: 0.07,
+        timeout: 20000,
+    });
+    await page.screenshot({ path: testInfo.outputPath("fresh-galaxy-analysis.png"), fullPage: true });
 });
