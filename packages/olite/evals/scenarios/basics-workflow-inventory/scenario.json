@@ -1,0 +1,50 @@
+{
+  "name": "basics: take inventory of the workflows on the instance",
+  "description": "Tier 3, live Galaxy. What a researcher asks on arriving: what workflows are here, and which relate to my assay. The subject filter is the hard part -- Galaxy's own ?search drops raw terms under four characters, so delegating 'rna seq' to it matches every workflow, and a naive name substring matches none.",
+  "tier": 3,
+  "substrate": "live",
+  "workflows": {
+    "files": [
+      "rnaseq-quantification.ga",
+      "rnaseq-differential.ga",
+      "variant-calling.ga",
+      "chipseq-peaks.ga",
+      "qc-trimming.ga"
+    ],
+    "history": "workflow inventory"
+  },
+  "inputs": [
+    "How many workflows do I have on this server?",
+    "How many of them are related to RNA-seq?",
+    "Name those ones, and tell me how many steps each has."
+  ],
+  "timeoutMs": 600000,
+  "assertions": {
+    "events": {
+      "mustInclude": [
+        "turn_start"
+      ]
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "toolCalls": {
+      "mustInclude": [
+        {
+          "name": "list_workflows"
+        }
+      ]
+    },
+    "chatText": {
+      "mustMatch": [
+        "\\b(5|five)\\b",
+        "\\b(2|two)\\b",
+        "RNA.?seq quantification",
+        "RNAseq differential expression"
+      ],
+      "mustNotMatch": [
+        "all (5|five) (of (them|these|your) )?(are |relate)"
+      ]
+    }
+  }
+}

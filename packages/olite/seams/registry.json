@@ -531,7 +531,8 @@
         "upload_file": "no access to the user's disk",
         "get_workflow_input_template": "drops the optional `verbose` parameter",
         "invoke_workflow": "drops the optional `parameters_normalized` parameter",
-        "get_tool_panel": "ADDED: galaxy-mcp returns the raw panel, ~25k tokens on a 170-tool server and unbounded on a public one. olite returns section, id, name and description."
+        "get_tool_panel": "ADDED: galaxy-mcp returns the raw panel, ~25k tokens on a 170-tool server and unbounded on a public one. olite returns section, id, name and description.",
+        "list_workflows": "DIVERGES: galaxy-mcp filters `name` as a lowercase substring of the workflow name. olite compares alphanumerics only and also matches tags, so \"rna seq\" finds \"RNA-seq quantification\" and anything tagged rna-seq. Delegating to Galaxy's own ?search is not the fix: it drops raw terms under four characters, so \"rna seq\" there matches every workflow."
       },
       "upstream": {
         "connect": "caf57caed25afac8",

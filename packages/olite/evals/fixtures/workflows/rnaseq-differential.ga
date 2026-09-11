@@ -1,0 +1,53 @@
+{
+  "a_galaxy_workflow": "true",
+  "format-version": "0.1",
+  "name": "RNAseq differential expression",
+  "tags": [
+    "rna-seq"
+  ],
+  "annotation": "Compare expression between two conditions.",
+  "steps": {
+    "0": {
+      "id": 0,
+      "type": "data_input",
+      "label": "reads",
+      "tool_state": "{\"optional\": false}",
+      "inputs": [
+        {
+          "name": "reads",
+          "description": ""
+        }
+      ],
+      "input_connections": {},
+      "position": {
+        "left": 0,
+        "top": 0
+      },
+      "workflow_outputs": []
+    },
+    "1": {
+      "id": 1,
+      "type": "tool",
+      "tool_id": "Cut1",
+      "tool_version": "1.0.2",
+      "label": "extract columns",
+      "tool_state": "{\"columnList\": \"c1,c2\", \"delimiter\": \"T\", \"input\": {\"__class__\": \"ConnectedValue\"}}",
+      "input_connections": {
+        "input": {
+          "id": 0,
+          "output_name": "output"
+        }
+      },
+      "position": {
+        "left": 250,
+        "top": 0
+      },
+      "workflow_outputs": [
+        {
+          "output_name": "out_file1",
+          "label": null
+        }
+      ]
+    }
+  }
+}

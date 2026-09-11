@@ -1,6 +1,6 @@
 {
   "name": "basics: orient on the instance before doing anything",
-  "description": "Tier 3, live Galaxy. The first minute of a session: what server is this, what can it do, what is in front of me. Reading the tool panel is the expensive call in that sequence -- raw it is ~25k tokens on a 170-tool server -- so a scenario that asks about the toolset is also the one that would show the cost returning.",
+  "description": "Tier 3, live Galaxy. The first minute of a session: what server is this, what can it do, what is in front of me. Reading the tool panel is the expensive call in that sequence -- raw it is ~25k tokens on a 170-tool server -- so a scenario that asks about the toolset is also the one that would show the cost returning. The count assertion guards the observed failure where the panel was read but only its first few entries were reported.",
   "tier": 3,
   "substrate": "live",
   "dataset": {
@@ -26,6 +26,19 @@
       "mustInclude": [
         "26.2",
         "cat1"
+      ],
+      "mustMatch": [
+        "\\b1[0-9]{2}\\b"
+      ],
+      "mustNotMatch": [
+        "\\b(only|just)\\s+(a few|one|two|three|[1-9])\\s+tools\\b"
+      ]
+    },
+    "toolCalls": {
+      "mustInclude": [
+        {
+          "name": "get_tool_panel"
+        }
       ]
     }
   }

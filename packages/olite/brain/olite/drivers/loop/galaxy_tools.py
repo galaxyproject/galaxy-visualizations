@@ -401,12 +401,22 @@ async def _upload_file(g, a):
     return await g.post("api/tools/fetch", payload)
 
 
+def _alnum(text):
+    return "".join(c for c in (text or "").lower() if c.isalnum())
+
+
 async def _list_workflows(g, a):
     params = {"show_published": a.get("published", False)}
     workflows = await g.get(f"api/workflows{_q(params)}") or []
     if a.get("name"):
-        needle = a["name"].lower()
-        workflows = [w for w in workflows if needle in (w.get("name") or "").lower()]
+        # Galaxy's ?search drops raw terms under four characters, so "rna seq" there
+        # matches every workflow. Match name and tags here, ignoring separators.
+        needle = _alnum(a["name"])
+        workflows = [
+            w for w in workflows
+            if needle in _alnum(w.get("name"))
+            or any(needle in _alnum(t) for t in w.get("tags") or [])
+        ]
     if a.get("workflow_id"):
         workflows = [w for w in workflows if w.get("id") == a["workflow_id"]]
     return workflows
@@ -549,7 +559,7 @@ _tool("upload_file", "write",
       "Upload a file from the local filesystem to a history -- e.g. one written by run_python.",
       {"path": _STR, "history_id": _STR, "file_name": _STR, "file_type": _STR, "dbkey": _STR},
       ["path"], _upload_file)
-_tool("list_workflows", "read", "List stored workflows; optional name/id filter, published flag.",
+_tool("list_workflows", "read", "List stored workflows; optional name/tag/id filter, published flag.",
       {"workflow_id": _STR, "name": _STR, "published": _BOOL}, [], _list_workflows)
 _tool("get_workflow_details", "read", "Get a stored workflow's details.",
       {"workflow_id": _STR, "version": _INT}, ["workflow_id"], _get_workflow_details)
