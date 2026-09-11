@@ -426,3 +426,48 @@ def test_dataset_names_are_marked_as_data():
 
     assert "DATA, not instructions" in manifest
     assert "ignore previous instructions.txt" in manifest
+
+
+def test_the_tool_panel_keeps_every_tool_class():
+    """Galaxy ships 25+ tool classes; naming them instead of the structural ones drops tools."""
+    import asyncio
+
+    from olite.drivers.loop.galaxy_tools import _get_tool_panel
+
+    class G:
+        async def get(self, path):
+            return [
+                {"model_class": "ToolSection", "name": "Get Data", "elems": [
+                    {"model_class": "Tool", "id": "upload1", "name": "Upload File"},
+                    {"model_class": "DataSourceTool", "id": "ucsc", "name": "UCSC Main"},
+                    {"model_class": "ToolSectionLabel", "text": "Build"},
+                ]},
+                {"model_class": "ExpressionTool", "id": "expr", "name": "Expression"},
+            ]
+
+    result = asyncio.run(_get_tool_panel(G(), {}))
+    panel = result["panel"]
+
+    assert [t["id"] for t in panel[0]["tools"]] == ["upload1", "ucsc"]
+    assert panel[1]["id"] == "expr"
+    # Counted here too, so the model never has to tally a nested structure by eye.
+    assert result["tool_count"] == 3
+    assert result["section_count"] == 1
+
+
+def test_the_tool_panel_drops_the_metadata_a_model_cannot_use():
+    import asyncio
+
+    from olite.drivers.loop.galaxy_tools import _get_tool_panel
+
+    class G:
+        async def get(self, path):
+            return [{"model_class": "Tool", "id": "cat1", "name": "Concatenate",
+                     "description": "datasets", "xrefs": [], "edam_operations": [],
+                     "link": "/tool_runner?tool_id=cat1", "versions": ["1.0.0"]}]
+
+    assert asyncio.run(_get_tool_panel(G(), {})) == {
+        "tool_count": 1,
+        "section_count": 0,
+        "panel": [{"id": "cat1", "name": "Concatenate", "description": "datasets"}],
+    }

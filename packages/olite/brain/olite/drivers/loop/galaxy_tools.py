@@ -215,9 +215,15 @@ async def _search_tools_by_keywords(g, a):
     return await g.get(f"api/tools{_q({'q': ' '.join(a.get('keywords') or [])})}")
 
 
-# Everything in the panel that is not a section or a label is a runnable tool; Galaxy
-# names each kind separately (Tool, DataSourceTool, ExpressionTool, the collection operations).
-PANEL_NON_TOOL = ("ToolSection", "ToolSectionLabel")
+# Everything in the panel that is not one of these is a tool. Galaxy ships 25+ tool
+# classes (DataSourceTool, UnzipCollectionTool, ...), so naming the tools instead would
+# silently drop whichever the list misses.
+PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
+PANEL_KEEP = ("id", "name", "description")
+
+
+def _panel_entry(entry):
+    return {k: entry[k] for k in PANEL_KEEP if entry.get(k)}
 
 
 def _count_panel(entries):
@@ -231,15 +237,28 @@ def _count_panel(entries):
             sub_tools, sub_sections = _count_panel(entry.get("elems"))
             tools += sub_tools
             sections += sub_sections
-        elif entry.get("model_class") not in PANEL_NON_TOOL:
+        elif entry.get("model_class") not in PANEL_STRUCTURAL:
             tools += 1
     return tools, sections
 
 
 async def _get_tool_panel(g, a):
-    panel = await g.get("api/tools?in_panel=true") or []
+    """Sections and their tools, counted. The raw panel is ~25k tokens on a small server."""
+    panel = await g.get("api/tools?in_panel=true")
+    if not isinstance(panel, list):
+        return panel
     tools, sections = _count_panel(panel)
-    return {"tool_count": tools, "section_count": sections, "panel": panel}
+    out = []
+    for entry in panel:
+        if entry.get("model_class") == "ToolSection":
+            out.append({
+                "section": entry.get("name"),
+                "tools": [_panel_entry(e) for e in entry.get("elems") or []
+                          if e.get("model_class") not in PANEL_STRUCTURAL],
+            })
+        elif entry.get("model_class") not in PANEL_STRUCTURAL:
+            out.append(_panel_entry(entry))
+    return {"tool_count": tools, "section_count": sections, "panel": out}
 
 
 async def _get_tool_citations(g, a):

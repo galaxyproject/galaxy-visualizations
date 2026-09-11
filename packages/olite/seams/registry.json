@@ -530,7 +530,8 @@
         "download_dataset": "no local filesystem; returns content instead",
         "upload_file": "no access to the user's disk",
         "get_workflow_input_template": "drops the optional `verbose` parameter",
-        "invoke_workflow": "drops the optional `parameters_normalized` parameter"
+        "invoke_workflow": "drops the optional `parameters_normalized` parameter",
+        "get_tool_panel": "ADDED: galaxy-mcp returns the raw panel, ~25k tokens on a 170-tool server and unbounded on a public one. olite returns section, id, name and description."
       },
       "upstream": {
         "connect": "caf57caed25afac8",

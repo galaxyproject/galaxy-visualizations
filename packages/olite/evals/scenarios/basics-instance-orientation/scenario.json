@@ -1,0 +1,32 @@
+{
+  "name": "basics: orient on the instance before doing anything",
+  "description": "Tier 3, live Galaxy. The first minute of a session: what server is this, what can it do, what is in front of me. Reading the tool panel is the expensive call in that sequence -- raw it is ~25k tokens on a 170-tool server -- so a scenario that asks about the toolset is also the one that would show the cost returning.",
+  "tier": 3,
+  "substrate": "live",
+  "dataset": {
+    "file": "health.tabular",
+    "history": "orientation"
+  },
+  "inputs": [
+    "What Galaxy server am I on, and what version?",
+    "Roughly how many tools does it have, and what sections are they organised into?",
+    "Is there a tool here for concatenating datasets? Give me its id."
+  ],
+  "timeoutMs": 600000,
+  "assertions": {
+    "events": {
+      "mustInclude": [
+        "turn_start"
+      ]
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "chatText": {
+      "mustInclude": [
+        "26.2",
+        "cat1"
+      ]
+    }
+  }
+}
