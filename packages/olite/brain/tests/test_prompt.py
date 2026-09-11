@@ -446,7 +446,7 @@ def test_the_tool_panel_keeps_every_tool_class():
             ]
 
     result = asyncio.run(_get_tool_panel(G(), {}))
-    panel = result["panel"]
+    panel = result["items"]
 
     assert [t["id"] for t in panel[0]["tools"]] == ["upload1", "ucsc"]
     assert panel[1]["id"] == "expr"
@@ -466,8 +466,6 @@ def test_the_tool_panel_drops_the_metadata_a_model_cannot_use():
                      "description": "datasets", "xrefs": [], "edam_operations": [],
                      "link": "/tool_runner?tool_id=cat1", "versions": ["1.0.0"]}]
 
-    assert asyncio.run(_get_tool_panel(G(), {})) == {
-        "tool_count": 1,
-        "section_count": 0,
-        "panel": [{"id": "cat1", "name": "Concatenate", "description": "datasets"}],
-    }
+    result = asyncio.run(_get_tool_panel(G(), {}))
+    assert result["items"] == [{"id": "cat1", "name": "Concatenate", "description": "datasets"}]
+    assert result["tool_count"] == 1

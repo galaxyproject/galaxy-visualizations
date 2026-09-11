@@ -2,6 +2,7 @@
 
 import json
 
+from .paging import ROW_CAP, page
 from .tool_inputs import build_input_template, summarize_tool_inputs
 import os
 import sys
@@ -67,7 +68,7 @@ async def _get_user(g, a):
 
 
 async def _get_histories(g, a):
-    params = {"limit": a.get("limit"), "offset": a.get("offset", 0)}
+    params = {"limit": a.get("limit", ROW_CAP), "offset": a.get("offset", 0)}
     if a.get("name"):
         params["q"] = "name-contains"
         params["qv"] = a["name"]
@@ -258,7 +259,14 @@ async def _get_tool_panel(g, a):
             })
         elif entry.get("model_class") not in PANEL_STRUCTURAL:
             out.append(_panel_entry(entry))
-    return {"tool_count": tools, "section_count": sections, "panel": out}
+    if a.get("section"):
+        needle = _alnum(a["section"])
+        out = [s for s in out if needle in _alnum(s.get("section"))]
+    result = page(out, a.get("offset"), a.get("limit"))
+    # The counts describe the instance, not the page, which is what "how many tools" asks.
+    result["tool_count"] = tools
+    result["section_count"] = sections
+    return result
 
 
 async def _get_tool_citations(g, a):
@@ -419,7 +427,7 @@ async def _list_workflows(g, a):
         ]
     if a.get("workflow_id"):
         workflows = [w for w in workflows if w.get("id") == a["workflow_id"]]
-    return workflows
+    return page(workflows, a.get("offset"), a.get("limit"))
 
 
 async def _get_workflow_details(g, a):
@@ -538,7 +546,8 @@ _tool("update_history", "write", "Update a history's name, annotation, tags, or 
        "deleted": _BOOL, "published": _BOOL}, ["history_id"], _update_history)
 _tool("search_tools_by_keywords", "read", "Search the Galaxy tool catalog by a list of keywords.",
       {"keywords": {"type": "array", "items": _STR}}, ["keywords"], _search_tools_by_keywords)
-_tool("get_tool_panel", "read", "Get the Galaxy tool panel (sections and tools).", {}, [], _get_tool_panel)
+_tool("get_tool_panel", "read", "Get the Galaxy tool panel (sections and tools); optional section filter, limit/offset paging.",
+      {"section": _STR, "limit": _INT, "offset": _INT}, [], _get_tool_panel)
 _tool("get_tool_citations", "read", "Get a tool's citations (bibtex).", {"tool_id": _STR}, ["tool_id"], _get_tool_citations)
 _tool("get_tool_input_template", "read", "Get a tool's input parameter schema (a fillable template).",
       {"tool_id": _STR}, ["tool_id"], _get_tool_input_template)
@@ -559,8 +568,10 @@ _tool("upload_file", "write",
       "Upload a file from the local filesystem to a history -- e.g. one written by run_python.",
       {"path": _STR, "history_id": _STR, "file_name": _STR, "file_type": _STR, "dbkey": _STR},
       ["path"], _upload_file)
-_tool("list_workflows", "read", "List stored workflows; optional name/tag/id filter, published flag.",
-      {"workflow_id": _STR, "name": _STR, "published": _BOOL}, [], _list_workflows)
+_tool("list_workflows", "read", "List stored workflows; optional name/tag/id filter, published flag, "
+      "limit/offset paging.",
+      {"workflow_id": _STR, "name": _STR, "published": _BOOL, "limit": _INT, "offset": _INT},
+      [], _list_workflows)
 _tool("get_workflow_details", "read", "Get a stored workflow's details.",
       {"workflow_id": _STR, "version": _INT}, ["workflow_id"], _get_workflow_details)
 _tool("get_workflow_input_template", "read", "Get a workflow's run-form input template (fill and pass to invoke_workflow).",

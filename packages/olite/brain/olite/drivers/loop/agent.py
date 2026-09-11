@@ -32,7 +32,14 @@ MALFORMED_ARGS_ERROR = (
 )
 # pi's wording for a call dropped because the run was aborted.
 ABORTED_ERROR = "Operation aborted"
-# Tool results are NOT truncated, matching Orbit.
+# Backstop only: a result this large ends the turn, because compaction summarises older
+# messages and cannot shrink the one that just arrived. Healthy reads are under 20 KB.
+MAX_TOOL_RESULT_BYTES = 64 * 1024
+OVERSIZED_RESULT_ERROR = (
+    'Tool call "{name}" returned {size} KB, over the {cap} KB limit for a single result, so '
+    "it was discarded. Re-issue it with a narrower query: add a filter, or set a smaller "
+    "limit and page with offset."
+)
 
 
 class LoopDriver:
@@ -177,6 +184,12 @@ class LoopDriver:
                     logs.append(f"  -> {brief(outcome.content)}")
                     content, is_error = outcome.text, outcome.is_error
                     gated = gated or outcome.refused
+                    size = len(content.encode("utf-8"))
+                    if size > MAX_TOOL_RESULT_BYTES:
+                        logs.append(f"  -> discarded {size} bytes, over the result limit")
+                        content, is_error = OVERSIZED_RESULT_ERROR.format(
+                            name=name, size=size // 1024,
+                            cap=MAX_TOOL_RESULT_BYTES // 1024), True
                 tool_message = {
                     "role": "tool",
                     "tool_call_id": call_id,

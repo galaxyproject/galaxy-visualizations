@@ -26,12 +26,26 @@ class FakeGalaxy:
         return list(WORKFLOWS)
 
 
+def result(**args):
+    return asyncio.run(_list_workflows(FakeGalaxy(), args))
+
+
 def names(**args):
-    return [w["name"] for w in asyncio.run(_list_workflows(FakeGalaxy(), args))]
+    return [w["name"] for w in result(**args)["items"]]
 
 
 def test_unfiltered_returns_every_workflow():
-    assert len(names()) == 5
+    assert len(names()) == 5 and result()["total"] == 5
+
+
+def test_a_page_names_the_offset_to_continue_from():
+    got = result(limit=2)
+    assert got["shown"] == 2 and got["total"] == 5
+    assert got["truncated"] is True and got["next_offset"] == 2
+
+
+def test_the_last_page_is_not_marked_truncated():
+    assert "next_offset" not in result(offset=4)
 
 
 def test_a_spaced_query_matches_a_hyphenated_name():
