@@ -3,7 +3,7 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 
 import { viteConfigCharts } from "./vite.config.charts";
 
-// Vendor the complete, unmodified upstream vaRRI-js viewer
+// Vendor the complete, unmodified upstream vaRRI viewer
 // (https://www.npmjs.com/package/varri-js) into the build output, so
 // main.js can embed it in an <iframe> - see main.js's module docstring for
 // why we embed the upstream viewer wholesale instead of reimplementing any

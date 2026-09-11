@@ -1,6 +1,6 @@
 # @galaxyproject/varri
 
-Galaxy visualization plugin for [vaRRI-js](https://www.npmjs.com/package/varri-js) —
+Galaxy visualization plugin for [vaRRI](https://www.npmjs.com/package/varri-js) —
 visual annotation of RNA-RNA interactions.
 
 The plugin renders a Galaxy dataset (JSON with `sequence` and `structure`) using the
@@ -25,12 +25,12 @@ convention used by the other packages in this repository (see e.g. `packages/ala
 
 ### Why the upstream viewer is vendored wholesale, and how
 
-This plugin does not reimplement any part of the [vaRRI-js](https://backofenlab.github.io/vaRRI-js/)
+This plugin does not reimplement any part of the [vaRRI](https://backofenlab.github.io/vaRRI/)
 UI (settings panel, highlight/mutation editors, SVG/PNG export, help, citation page, ...).
 Instead, `main.js` embeds the complete, unmodified upstream viewer in an `<iframe>`, and
 drives it purely through the URL parameters it already supports for sharing/embedding (see
 "URL Parameters & Sharing" in its README). This means no button/label duplication and no
-dependency on the vaRRI-js JS API to maintain here — if upstream adds, renames, or removes
+dependency on the vaRRI JS API to maintain here — if upstream adds, renames, or removes
 settings, this plugin keeps working unchanged; only a `varri-js` version bump is needed.
 
 The `vite-plugin-static-copy` plugin (configured in `vite.config.js`) copies the entire
@@ -45,7 +45,7 @@ in the `varri-js` npm package.
 
 ```sh
 npm install     # installs varri-js (devDependency) among others
-npm run build   # runs `vite build` into static/, vendoring the varri-js viewer as it goes
+npm run build   # runs `vite build` into static/, vendoring the vaRRI viewer as it goes
 npm run dev     # local development server (vendor assets served directly, not copied)
 npm test        # sanity-checks the built static/ output
 ```
@@ -53,7 +53,7 @@ npm test        # sanity-checks the built static/ output
 ## Dataset format
 
 The dataset must be a `json` Galaxy dataset containing a flat object of
-[vaRRI-js URL parameters](https://backofenlab.github.io/vaRRI-js/README.html#url-parameters--sharing).
+[vaRRI URL parameters](https://backofenlab.github.io/vaRRI/README.html#url-parameters--sharing).
 All keys are optional except `sequence` and `structure`:
 
 ```json
@@ -68,17 +68,17 @@ All keys are optional except `sequence` and `structure`:
 }
 ```
 
-A plain-text query string or a full shareable URL (as produced by vaRRI-js's own
+A plain-text query string or a full shareable URL (as produced by vaRRI's own
 "Share Link" button) is also accepted. Note that `subsequenceHighlights`,
 `regionHighlights`, and `pointMutations` are arrays of structured objects matching the
 library's own schema — not the comma-separated mini-language used by the upstream
-vaRRI-js editor GUI's input fields (see below).
+vaRRI editor GUI's input fields (see below).
 
 ## How the upstream editor UI is embedded
 
 The `varri-js` npm package ships a complete viewer/editor web page (`index.html`,
 `index.js`, `style.css`, ...) — the same page served at
-<https://backofenlab.github.io/vaRRI-js/>. This plugin **does** embed that page,
+<https://backofenlab.github.io/vaRRI/>. This plugin **does** embed that page,
 unmodified, in an `<iframe>`: the entire editing UI (settings panel, annotation
 controls, export buttons, citation page, ...) is available inside the iframe, just
 like the standalone page. The only tweak is the `hideFooterAndHeader` URL

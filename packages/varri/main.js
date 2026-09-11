@@ -11,24 +11,24 @@ import "./main.css";
  * loads this package's `index.html`. So this module is responsible for
  * loading every other asset it needs itself.
  *
- * This plugin does NOT reimplement any part of the vaRRI-js UI. Instead, it
+ * This plugin does NOT reimplement any part of the vaRRI UI. Instead, it
  * embeds the complete, unmodified upstream viewer
- * (https://backofenlab.github.io/vaRRI-js/) - the exact same HTML/JS/CSS
+ * (https://backofenlab.github.io/vaRRI/) - the exact same HTML/JS/CSS
  * shipped in the `varri-js` npm package and vendored, unmodified, by
  * `vite-plugin-static-copy` (see vite.config.js) - in a nested <iframe>, and
  * drives it purely through the URL parameters it already supports for
  * sharing/embedding (see
  * "URL Parameters & Sharing" / "Embedding / Web Integration" in its README).
  * That means: no rendering code, no button/label duplication, and no
- * dependency on vaRRI-js's internal JS API to maintain here - if upstream
+ * dependency on vaRRI's internal JS API to maintain here - if upstream
  * adds, renames, or removes settings, this plugin keeps working unchanged.
  *
  * The Galaxy dataset is expected to contain either:
- *   - a JSON object of vaRRI-js URL parameters (e.g. `{"sequence": "...",
+ *   - a JSON object of vaRRI URL parameters (e.g. `{"sequence": "...",
  *     "structure": "...", "highlighting": "region", ...}`), using upstream's
  *     own parameter names (see its README), forwarded through verbatim; or
  *   - a plain-text query string or full shareable URL, e.g. copied directly
- *     from vaRRI-js's own "🔗 Share Link" export button.
+ *     from vaRRI's own "🔗 Share Link" export button.
  */
 
 // Access container element
@@ -36,10 +36,11 @@ const appElement = document.querySelector("#app");
 
 // Attach mock data for development
 if (import.meta.env.DEV) {
+    const pageUrl = new URL(window.location.href);
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: process.env.dataset_id,
+            dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -70,7 +71,7 @@ async function fetchDataset(datasetId) {
 }
 
 /**
- * Turn the dataset's contents into a vaRRI-js URL query string, without
+ * Turn the dataset's contents into a vaRRI URL query string, without
  * interpreting, validating, or renaming any of its parameters - see the
  * module docstring above for the accepted shapes.
  */
@@ -89,9 +90,9 @@ function toQueryString(datasetText) {
         return queryIndex === -1 ? text : text.slice(queryIndex + 1);
     }
 
-    // A JSON object of upstream vaRRI-js URL parameter names -> values,
+    // A JSON object of upstream vaRRI URL parameter names -> values,
     // forwarded through as-is. Arrays are comma-joined, matching the format
-    // vaRRI-js itself uses for list-valued parameters (e.g. `mutations`,
+    // vaRRI itself uses for list-valued parameters (e.g. `mutations`,
     // `subseqHighlights`, `regionHighlights`).
     if (parsed && typeof parsed === "object") {
         const params = new URLSearchParams();
@@ -104,7 +105,7 @@ function toQueryString(datasetText) {
         return params.toString();
     }
 
-    throw new Error("Dataset must be a vaRRI-js parameter object, query string, or shareable URL.");
+    throw new Error("Dataset must be a vaRRI parameter object, query string, or shareable URL.");
 }
 
 async function main() {
@@ -125,24 +126,23 @@ async function main() {
     try {
         queryString = toQueryString(datasetText);
     } catch (err) {
-        showError(`Dataset ${datasetId} is not a valid vaRRI-js input`, err.message);
+        showError(`Dataset ${datasetId} is not a valid vaRRI input`, err.message);
         return;
     }
 
     const viewerUrl = new URL(/* @vite-ignore */ "vendor/varri-js/index.html", import.meta.url);
     viewerUrl.search = queryString;
     // Galaxy already provides its own page chrome around the visualization
-    // iframe, so hide vaRRI-js's own header/footer (its own
+    // iframe, so hide vaRRI's own header/footer (its own
     // "hideFooterAndHeader" URL parameter/checkbox - see
-    // https://github.com/BackofenLab/vaRRI-js/blob/main/index.js).
+    // https://github.com/BackofenLab/vaRRI/blob/main/index.js).
     viewerUrl.searchParams.set("hideFooterAndHeader", "1");
 
     const iframe = document.createElement("iframe");
     iframe.id = "varri-viewer";
     iframe.src = viewerUrl.href;
-    iframe.title = "vaRRI-js";
+    iframe.title = "vaRRI";
     appElement.appendChild(iframe);
 }
 
 main();
-

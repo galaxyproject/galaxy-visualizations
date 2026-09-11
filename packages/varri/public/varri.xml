@@ -15,7 +15,7 @@
     <help format="markdown"><![CDATA[
 # vaRRI - Visual Annotation of RNA-RNA Interactions
 
-This visualization embeds the complete, unmodified [vaRRI-js viewer](https://backofenlab.github.io/vaRRI-js/)
+This visualization embeds the complete, unmodified [vaRRI viewer](https://backofenlab.github.io/vaRRI/)
 in an iframe. It visualizes the base pairing of RNA-RNA interactions (RRIs) as 2D diagrams with
 additional annotation like coloring, region/subsequence highlights, point mutations, and probability
 profiles - see the upstream site for the full, always up-to-date list of settings and export options.
@@ -24,7 +24,7 @@ profiles - see the upstream site for the full, always up-to-date list of setting
 
 The dataset must be either:
 
-- a JSON object of [vaRRI-js URL parameters](https://backofenlab.github.io/vaRRI-js/README.html#url-parameters--sharing),
+- a JSON object of [vaRRI URL parameters](https://backofenlab.github.io/vaRRI/README.html#url-parameters--sharing),
   using upstream's own parameter names, forwarded through unchanged, e.g.:
 
   ```json
@@ -38,15 +38,15 @@ The dataset must be either:
   }
   ```
 
-- or a plain-text query string / full shareable URL, exactly as produced by vaRRI-js's own
+- or a plain-text query string / full shareable URL, exactly as produced by vaRRI's own
   "🔗 Share Link" export button (simplest: use the input website to build your visualization, then
   save its Share Link output as the dataset).
 
 ## Features
 
-Everything the upstream [vaRRI-js viewer](https://backofenlab.github.io/vaRRI-js/) supports, unmodified:
+Everything the upstream [vaRRI viewer](https://backofenlab.github.io/vaRRI/) supports, unmodified:
 settings panel, region/subsequence/point-mutation editors, probability profiles, zoom/pan, and SVG/PNG export.
 
-Learn more at: [https://backofenlab.github.io/vaRRI-js/](https://backofenlab.github.io/vaRRI-js/)
+Learn more at: [https://backofenlab.github.io/vaRRI/](https://backofenlab.github.io/vaRRI/)
     ]]></help>
 </visualization>
