@@ -104,6 +104,8 @@ def test_malformed_arguments_are_reported_not_defaulted():
     assert driver.substrate.local.ran == [], "ran with substituted empty arguments"
     (tool_message,) = _tool_messages(result)
     assert "not valid JSON" in tool_message["content"]
+    # pi tells the model what to do next; saying only what broke leaves it to infer.
+    assert "Re-issue the tool call" in tool_message["content"]
 
 
 def test_finish_alongside_real_work_does_not_end_the_turn():

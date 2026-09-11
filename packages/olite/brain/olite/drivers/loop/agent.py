@@ -26,7 +26,8 @@ TRUNCATED_ERROR = (
 # advice matters: the usual cause is a large value pasted into a string argument.
 MALFORMED_ARGS_ERROR = (
     'Tool call "{name}" was not executed: its arguments are not valid JSON ({detail}). '
-    "Re-issue it as one JSON object. Do not paste tool results or file contents into an "
+    "Re-issue the tool call with valid arguments as one JSON object. Do not paste tool "
+    "results or file contents into an "
     "argument: read them from the value the earlier tool already returned."
 )
 # pi's wording for a call dropped because the run was aborted.
