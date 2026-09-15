@@ -96,13 +96,6 @@
       }
     </style>
   </defs>
-  <ellipse
-     style="fill:#ffffff;stroke:#ffffff;stroke-width:1;stroke-miterlimit:0;stop-color:#000000"
-     id="path1425"
-     cx="101.16312"
-     cy="100.20045"
-     rx="97.163124"
-     ry="98.200447" />
   <!-- Hintergrund (Optional, leicht transparent/weiß) -->
   <rect
      width="100%"
