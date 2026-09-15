@@ -68,11 +68,9 @@ All keys are optional except `sequence` and `structure`:
 }
 ```
 
-A plain-text query string or a full shareable URL (as produced by vaRRI's own
-"Share Link" button) is also accepted. Note that `subsequenceHighlights`,
-`regionHighlights`, and `pointMutations` are arrays of structured objects matching the
-library's own schema — not the comma-separated mini-language used by the upstream
-vaRRI editor GUI's input fields (see below).
+Note that `subsequenceHighlights`, `regionHighlights`, and `pointMutations` are arrays
+of structured objects matching the library's own schema — not the comma-separated
+mini-language used by the upstream vaRRI editor GUI's input fields (see below).
 
 ## How the upstream editor UI is embedded
 

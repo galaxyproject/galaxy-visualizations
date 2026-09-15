@@ -27,25 +27,20 @@ profiles - see the upstream site for the full, always up-to-date list of setting
 
 ## Input
 
-The dataset must be either:
+The dataset is a JSON object of
+[vaRRI URL parameters](https://backofenlab.github.io/vaRRI/README.html#url-parameters--sharing),
+using upstream's own parameter names, forwarded through unchanged, e.g.:
 
-- a JSON object of [vaRRI URL parameters](https://backofenlab.github.io/vaRRI/README.html#url-parameters--sharing),
-  using upstream's own parameter names, forwarded through unchanged, e.g.:
-
-  ```json
-  {
-    "sequence": "AACUCGCGAAAGCCAUAAAAACCAGGGAGACA&UUCCCUGGUGUUGGCGCAGUAUUCGCGCA",
-    "structure": "....((((((.((((.....((((((((....&.))))))))..))))......))))))..",
-    "startIndex1": -35,
-    "startIndex2": 2,
-    "coloring": "strand",
-    "forceLayout": "1"
-  }
-  ```
-
-- or a plain-text query string / full shareable URL, exactly as produced by vaRRI's own
-  "🔗 Share Link" export button (simplest: use the input website to build your visualization, then
-  save its Share Link output as the dataset).
+```json
+{
+  "sequence": "AACUCGCGAAAGCCAUAAAAACCAGGGAGACA&UUCCCUGGUGUUGGCGCAGUAUUCGCGCA",
+  "structure": "....((((((.((((.....((((((((....&.))))))))..))))......))))))..",
+  "startIndex1": -35,
+  "startIndex2": 2,
+  "coloring": "strand",
+  "forceLayout": "1"
+}
+```
 
 ## Features
 
