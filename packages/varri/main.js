@@ -28,6 +28,11 @@ import "./main.css";
  * using upstream's own parameter names (see its README), forwarded verbatim.
  */
 
+// `npm run dev` with no dataset falls back to this id, which is served from the
+// package's own test-data rather than a running Galaxy.
+const TEST_DATASET_ID = "__test__";
+const TEST_DATA_FILE = "test-data/test-intra.json";
+
 // Access container element
 const appElement = document.querySelector("#app");
 
@@ -37,7 +42,7 @@ if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
+            dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || TEST_DATASET_ID,
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -60,7 +65,9 @@ function showError(title, details) {
 }
 
 async function fetchDataset(datasetId) {
-    const response = await fetch(`${root}api/datasets/${datasetId}/display`);
+    const url =
+        datasetId === TEST_DATASET_ID ? TEST_DATA_FILE : `${root}api/datasets/${datasetId}/display`;
+    const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Could not fetch dataset ${datasetId}: HTTP ${response.status}.`);
     }
@@ -127,8 +134,9 @@ async function main() {
 
     const iframe = document.createElement("iframe");
     iframe.id = "varri-viewer";
-    iframe.src = viewerUrl.href;
     iframe.title = "vaRRI";
+    iframe.addEventListener("load", () => iframe.classList.add("ready"), { once: true });
+    iframe.src = viewerUrl.href;
     appElement.appendChild(iframe);
 }
 
