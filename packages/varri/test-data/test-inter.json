@@ -1,0 +1,9 @@
+{
+    "sequence": "ACGAUCAUGGAUUAGAGCAUUCGACAGCAG&ACGAAAAAAAGAGCAUACGACAGUAG",
+    "structure": "..<<<<...>>>>...((..(((...((..&............))...)))..))..",
+    "startIndex1": -6,
+    "startIndex2": 100,
+    "coloring": "strand",
+    "highlighting": "region",
+    "forceLayout": "on"
+}
