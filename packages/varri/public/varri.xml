@@ -5,7 +5,7 @@
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
-            <test test_attr="ext">json</test>
+            <test test_attr="ext">varri.json</test>
         </data_source>
     </data_sources>
     <params>
