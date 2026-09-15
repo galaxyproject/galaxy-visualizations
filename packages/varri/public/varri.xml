@@ -5,13 +5,18 @@
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
-            <test test_attr="ext">json</test>
+            <test test_attr="ext">varri.json</test>
         </data_source>
     </data_sources>
     <params>
         <param required="true">dataset_id</param>
     </params>
-    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.varri.json" ftype="varri.json" />
+        </test>
+    </tests>
     <help format="markdown"><![CDATA[
 # vaRRI - Visual Annotation of RNA-RNA Interactions
 
@@ -22,25 +27,20 @@ profiles - see the upstream site for the full, always up-to-date list of setting
 
 ## Input
 
-The dataset must be either:
+The dataset is a JSON object of
+[vaRRI URL parameters](https://backofenlab.github.io/vaRRI/README.html#url-parameters--sharing),
+using upstream's own parameter names, forwarded through unchanged, e.g.:
 
-- a JSON object of [vaRRI URL parameters](https://backofenlab.github.io/vaRRI/README.html#url-parameters--sharing),
-  using upstream's own parameter names, forwarded through unchanged, e.g.:
-
-  ```json
-  {
-    "sequence": "AACUCGCGAAAGCCAUAAAAACCAGGGAGACA&UUCCCUGGUGUUGGCGCAGUAUUCGCGCA",
-    "structure": "....((((((.((((.....((((((((....&.))))))))..))))......))))))..",
-    "startIndex1": -35,
-    "startIndex2": 2,
-    "coloring": "strand",
-    "forceLayout": "1"
-  }
-  ```
-
-- or a plain-text query string / full shareable URL, exactly as produced by vaRRI's own
-  "🔗 Share Link" export button (simplest: use the input website to build your visualization, then
-  save its Share Link output as the dataset).
+```json
+{
+  "sequence": "AACUCGCGAAAGCCAUAAAAACCAGGGAGACA&UUCCCUGGUGUUGGCGCAGUAUUCGCGCA",
+  "structure": "....((((((.((((.....((((((((....&.))))))))..))))......))))))..",
+  "startIndex1": -35,
+  "startIndex2": 2,
+  "coloring": "strand",
+  "forceLayout": "1"
+}
+```
 
 ## Features
 

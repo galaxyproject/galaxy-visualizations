@@ -23,13 +23,15 @@ import "./main.css";
  * dependency on vaRRI's internal JS API to maintain here - if upstream
  * adds, renames, or removes settings, this plugin keeps working unchanged.
  *
- * The Galaxy dataset is expected to contain either:
- *   - a JSON object of vaRRI URL parameters (e.g. `{"sequence": "...",
- *     "structure": "...", "highlighting": "region", ...}`), using upstream's
- *     own parameter names (see its README), forwarded through verbatim; or
- *   - a plain-text query string or full shareable URL, e.g. copied directly
- *     from vaRRI's own "🔗 Share Link" export button.
+ * The Galaxy dataset is a JSON object of vaRRI URL parameters (e.g.
+ * `{"sequence": "...", "structure": "...", "highlighting": "region", ...}`),
+ * using upstream's own parameter names (see its README), forwarded verbatim.
  */
+
+// `npm run dev` with no dataset falls back to this id, which is served from the
+// package's own test-data rather than a running Galaxy.
+const TEST_DATASET_ID = "__test__";
+const TEST_DATA_FILE = "test-data/test-intra.json";
 
 // Access container element
 const appElement = document.querySelector("#app");
@@ -40,7 +42,7 @@ if (import.meta.env.DEV) {
     const dataIncoming = {
         root: "/",
         visualization_config: {
-            dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
+            dataset_id: pageUrl.searchParams.get("dataset_id") || process.env.dataset_id || TEST_DATASET_ID,
         },
     };
     appElement.setAttribute("data-incoming", JSON.stringify(dataIncoming));
@@ -63,7 +65,9 @@ function showError(title, details) {
 }
 
 async function fetchDataset(datasetId) {
-    const response = await fetch(`${root}api/datasets/${datasetId}/display`);
+    const url =
+        datasetId === TEST_DATASET_ID ? TEST_DATA_FILE : `${root}api/datasets/${datasetId}/display`;
+    const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Could not fetch dataset ${datasetId}: HTTP ${response.status}.`);
     }
@@ -72,40 +76,30 @@ async function fetchDataset(datasetId) {
 
 /**
  * Turn the dataset's contents into a vaRRI URL query string, without
- * interpreting, validating, or renaming any of its parameters - see the
- * module docstring above for the accepted shapes.
+ * interpreting, validating, or renaming any of its parameters. Arrays are
+ * comma-joined, matching the format vaRRI itself uses for list-valued
+ * parameters (e.g. `mutations`, `subseqHighlights`, `regionHighlights`).
  */
 function toQueryString(datasetText) {
     let parsed;
     try {
         parsed = JSON.parse(datasetText);
     } catch {
-        parsed = datasetText;
+        throw new Error("Dataset is not valid JSON.");
     }
 
-    // Plain text: either a full shareable URL or a bare query string.
-    if (typeof parsed === "string") {
-        const text = parsed.trim();
-        const queryIndex = text.indexOf("?");
-        return queryIndex === -1 ? text : text.slice(queryIndex + 1);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Dataset must be a JSON object of vaRRI parameters.");
     }
 
-    // A JSON object of upstream vaRRI URL parameter names -> values,
-    // forwarded through as-is. Arrays are comma-joined, matching the format
-    // vaRRI itself uses for list-valued parameters (e.g. `mutations`,
-    // `subseqHighlights`, `regionHighlights`).
-    if (parsed && typeof parsed === "object") {
-        const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(parsed)) {
-            if (value === undefined || value === null) {
-                continue;
-            }
-            params.set(key, Array.isArray(value) ? value.join(",") : String(value));
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(parsed)) {
+        if (value === undefined || value === null) {
+            continue;
         }
-        return params.toString();
+        params.set(key, Array.isArray(value) ? value.join(",") : String(value));
     }
-
-    throw new Error("Dataset must be a vaRRI parameter object, query string, or shareable URL.");
+    return params.toString();
 }
 
 async function main() {
@@ -140,8 +134,9 @@ async function main() {
 
     const iframe = document.createElement("iframe");
     iframe.id = "varri-viewer";
-    iframe.src = viewerUrl.href;
     iframe.title = "vaRRI";
+    iframe.addEventListener("load", () => iframe.classList.add("ready"), { once: true });
+    iframe.src = viewerUrl.href;
     appElement.appendChild(iframe);
 }
 

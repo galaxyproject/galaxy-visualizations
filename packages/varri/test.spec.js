@@ -33,7 +33,7 @@ test("basic", async ({ page }) => {
     });
 
     for (const name of Object.keys(TESTS)) {
-        await page.goto(`http://localhost:5173?dataset_id=${name}`);
+        await page.goto(`?dataset_id=${name}`);
         const viewerFrame = page.frameLocator("#varri-viewer");
         await expect(viewerFrame.locator("#rendering-canvas svg")).toBeVisible({ timeout: 90000 });
         await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });

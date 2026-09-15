@@ -55,4 +55,11 @@ body,
     width: 100%;
     height: 100vh;
     border: none;
+    /* The viewer hides its own header and footer from a script that runs after its
+       first paint, so reveal the frame only once that has happened. */
+    visibility: hidden;
+}
+
+#varri-viewer.ready {
+    visibility: visible;
 }
