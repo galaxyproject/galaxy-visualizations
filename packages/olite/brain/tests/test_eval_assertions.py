@@ -23,3 +23,31 @@ def test_unrelated_text_is_not_rewritten():
 
 def test_longer_numbers_group_in_threes():
     assert "1,000,000" in _grouped_forms("1000000")
+
+
+def test_not_empty_fails_a_page_that_is_actually_empty():
+    """The original check only looked for the starter text, so `""` passed it."""
+    from lib.assertions import _record
+
+    class FakeGalaxy:
+        def __init__(self, content):
+            self._content = content
+
+        def call(self, path):
+            if path == "api/pages":
+                return [{"id": "p1", "slug": "olite-h1"}]
+            return {"content": "", "content_editor": self._content}
+
+    class Run:
+        def __init__(self, content):
+            self.staged = {"galaxy": FakeGalaxy(content), "history_id": "h1"}
+
+    def grade(content):
+        failures, _ = [], set()
+        _record({"notEmpty": True}, Run(content), failures, set())
+        return [f.assertion for f in failures]
+
+    assert grade("") == ["record.notEmpty"]
+    assert grade("   \n ") == ["record.notEmpty"]
+    assert grade("## Record\n\n_No entries yet._\n") == ["record.notEmpty"]
+    assert grade("## Record\n\nRan Grouping1; mean Glucose 141.3") == []

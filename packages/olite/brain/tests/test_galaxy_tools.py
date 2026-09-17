@@ -78,3 +78,53 @@ def test_run_tool_posts_to_api_tools_and_needs_write():
     assert sub2.galaxy.calls[0][0] == "POST"
     assert sub2.galaxy.calls[0][1] == "api/tools"
     assert sub2.galaxy.calls[0][2] == {"history_id": "h", "tool_id": "cat1", "inputs": {}}
+
+
+def test_tool_panel_counts_tools_not_panel_entries():
+    # The panel's top level is mostly sections; counting it answers ~20 for a server
+    # with hundreds of tools. The count has to come from the tool, not the reader.
+    panel = [
+        {"model_class": "ToolSection", "name": "Get Data", "elems": [
+            {"model_class": "DataSourceTool", "id": "upload1"},
+            {"model_class": "Tool", "id": "ftp"},
+            {"model_class": "ToolSectionLabel", "text": "not a tool"},
+        ]},
+        {"model_class": "ToolSection", "name": "Collection Operations", "elems": [
+            {"model_class": "UnzipCollectionTool", "id": "unzip"},
+            {"model_class": "FilterFailedDatasetsTool", "id": "filter_failed"},
+        ]},
+        {"model_class": "Tool", "id": "loose_tool"},
+        {"model_class": "ToolSectionLabel", "text": "also not a tool"},
+    ]
+    from olite.drivers.loop.galaxy_tools import _count_panel
+
+    assert _count_panel(panel) == (5, 2)
+
+
+def test_get_tool_panel_reports_the_count_alongside_the_hierarchy():
+    class PanelGalaxy(FakeGalaxy):
+        async def get(self, path):
+            self.manifest.require("read")
+            self.calls.append(("GET", path))
+            return [
+                {"model_class": "ToolSection", "elems": [{"model_class": "Tool", "id": "a"},
+                                                         {"model_class": "Tool", "id": "b"}]},
+                {"model_class": "Tool", "id": "c"},
+            ]
+
+    sub = FakeSubstrate(("read",))
+    sub.galaxy = PanelGalaxy(sub.manifest)
+    out = asyncio.run(ToolSurface(sub).dispatch("get_tool_panel", {})).text
+    assert '"tool_count": 3' in out.replace("'", '"') or '"tool_count":3' in out.replace(" ", "")
+    assert "section_count" in out
+
+
+def test_create_page_declares_markdown_so_galaxy_does_not_sanitize_it_as_html():
+    # Galaxy defaults a page to html and runs the body through sanitize_html; markdown
+    # sent without the format lands mangled or empty.
+    sub = FakeSubstrate(("read", "write"))
+    asyncio.run(ToolSurface(sub).dispatch(
+        "create_page", {"title": "T", "slug": "s", "content": "## Heading\n\ntext"}))
+    method, path, body = sub.galaxy.calls[0]
+    assert (method, path) == ("POST", "api/pages")
+    assert body["content_format"] == "markdown"

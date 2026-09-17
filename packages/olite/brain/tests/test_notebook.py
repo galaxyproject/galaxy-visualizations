@@ -250,3 +250,15 @@ def test_the_binding_block_survives_a_history_it_cannot_list():
 
     assert "## Galaxy binding" in out
     assert "## Datasets in this history" not in out
+
+
+def test_page_source_prefers_the_editable_markdown_over_the_expanded_render():
+    # Galaxy returns `content` embed-expanded and `content_editor` as the saved source.
+    # Reading `content` and writing it back replaces the source with its own render.
+    from olite.drivers.loop.notebook import _page_source
+
+    page = {"content": "<expanded render>", "content_editor": "## Record\n\nreal source"}
+    assert _page_source(page) == "## Record\n\nreal source"
+    # html pages carry no content_editor, so fall back rather than return nothing
+    assert _page_source({"content": "<p>html page</p>"}) == "<p>html page</p>"
+    assert _page_source({}) == ""

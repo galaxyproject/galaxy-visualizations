@@ -1,0 +1,32 @@
+{
+  "name": "instance: how many tools are installed",
+  "description": "Tier 2. The panel's top level is mostly sections, so an agent that counts panel entries answers ~20 when the server has an order of magnitude more. Asserts the answer is not a section count.",
+  "tier": 2,
+  "inputs": [
+    "How many tools are available on this Galaxy?"
+  ],
+  "timeoutMs": 120000,
+  "assertions": {
+    "events": {
+      "mustInclude": [
+        "turn_start"
+      ]
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "toolCalls": {
+      "mustInclude": [
+        "get_tool_panel"
+      ]
+    },
+    "chatText": {
+      "mustMatch": [
+        "\\b\\d{3,}\\b"
+      ],
+      "mustNotMatch": [
+        "\\b(?:1[0-9]|2[0-5])\\s+tools\\b"
+      ]
+    }
+  }
+}

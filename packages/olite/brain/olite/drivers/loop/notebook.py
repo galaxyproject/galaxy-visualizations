@@ -7,6 +7,11 @@ logger = logging.getLogger(__name__)
 # Galaxy slugs are lowercase alphanumerics and hyphens.
 SLUG_PREFIX = "olite"
 
+def _page_source(page):
+    """The editable markdown. `content` is the embed-expanded render, not the source."""
+    return page.get("content_editor") or page.get("content") or ""
+
+
 STARTER = """## Record
 
 This page is the running record for this analysis, maintained by olite. It holds the
@@ -99,7 +104,7 @@ async def excerpt(g, history_id):
         logger.debug("record excerpt unavailable", exc_info=True)
         return ""
 
-    content = (full.get("content") if isinstance(full, dict) else "") or ""
+    content = (_page_source(full) if isinstance(full, dict) else "") or ""
     if not content.strip():
         return ""
 
@@ -147,7 +152,7 @@ async def _notebook_resume(g, args):
         page_id = existing.get("id")
         # `get_page` withholds content unless asked; the record is only useful read.
         full = await g.get(f"api/pages/{page_id}") or {}
-        content = full.get("content") if isinstance(full, dict) else None
+        content = _page_source(full) if isinstance(full, dict) else None
         return {
             "created": False,
             "page_id": page_id,
@@ -163,6 +168,7 @@ async def _notebook_resume(g, args):
             "slug": slug,
             "history_id": history_id,
             "content": STARTER,
+            "content_format": "markdown",
         },
     )
     if not isinstance(created, dict) or not created.get("id"):

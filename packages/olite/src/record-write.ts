@@ -39,15 +39,17 @@ export async function editRecord(
 ): Promise<boolean> {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         try {
-            const page = await findRecord(t);
-            if (!page) return false;
-            const res = await fetch(`${t.root}api/pages/${page.id}`, { credentials: t.credentials });
+            const found = await findRecord(t);
+            if (!found) return false;
+            const res = await fetch(`${t.root}api/pages/${found.id}`, { credentials: t.credentials });
             if (!res.ok) return false;
-            const before = ((await res.json()) || {}).content || "";
+            const page = (await res.json()) || {};
+            // `content` is the embed-expanded render; `content_editor` is the saved source.
+            const before = page.content_editor || page.content || "";
             const after = edit(before);
             if (after === before) return true;
 
-            const put = await fetch(`${t.root}api/pages/${page.id}`, {
+            const put = await fetch(`${t.root}api/pages/${found.id}`, {
                 method: "PUT",
                 credentials: t.credentials,
                 headers: { "Content-Type": "application/json" },

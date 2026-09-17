@@ -390,11 +390,17 @@ def _record(spec, run, failures, exercised):
     if not page:
         failures.append(Failure("record.exists", "no record page for the bound history", "record"))
         return
-    content = (galaxy.call(f"api/pages/{page['id']}") or {}).get("content") or ""
+    full = galaxy.call(f"api/pages/{page['id']}") or {}
+    # `content` is the embed-expanded render; `content_editor` is the source that was saved.
+    content = full.get("content_editor") or full.get("content") or ""
     for needle in spec.get("mustMention") or []:
         if needle.lower() not in content.lower():
             failures.append(Failure("record.mustMention",
                                     f"the record never mentions {needle!r}", "record"))
-    if spec.get("notEmpty") and "_No entries yet._" in content:
-        failures.append(Failure("record.notEmpty",
-                                "the record was never written to", "record"))
+    if spec.get("notEmpty"):
+        if not content.strip():
+            failures.append(Failure("record.notEmpty",
+                                    "the record page exists but its content is empty", "record"))
+        elif "_No entries yet._" in content:
+            failures.append(Failure("record.notEmpty",
+                                    "the record was never written to", "record"))

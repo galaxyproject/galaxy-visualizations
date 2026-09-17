@@ -215,8 +215,31 @@ async def _search_tools_by_keywords(g, a):
     return await g.get(f"api/tools{_q({'q': ' '.join(a.get('keywords') or [])})}")
 
 
+# Everything in the panel that is not a section or a label is a runnable tool; Galaxy
+# names each kind separately (Tool, DataSourceTool, ExpressionTool, the collection operations).
+PANEL_NON_TOOL = ("ToolSection", "ToolSectionLabel")
+
+
+def _count_panel(entries):
+    """Tools and sections in a panel subtree, counted rather than left to the reader."""
+    tools = sections = 0
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("model_class") == "ToolSection":
+            sections += 1
+            sub_tools, sub_sections = _count_panel(entry.get("elems"))
+            tools += sub_tools
+            sections += sub_sections
+        elif entry.get("model_class") not in PANEL_NON_TOOL:
+            tools += 1
+    return tools, sections
+
+
 async def _get_tool_panel(g, a):
-    return await g.get("api/tools?in_panel=true")
+    panel = await g.get("api/tools?in_panel=true") or []
+    tools, sections = _count_panel(panel)
+    return {"tool_count": tools, "section_count": sections, "panel": panel}
 
 
 async def _get_tool_citations(g, a):
@@ -455,6 +478,9 @@ async def _create_page(g, a):
     payload = {k: a[k] for k in ("title", "content", "annotation", "slug") if a.get(k) is not None}
     if a.get("history_id"):
         payload["history_id"] = a["history_id"]
+    # Galaxy defaults a page to html and sanitizes the body against that; this tool's
+    # content is Galaxy-flavored markdown, which survives only if the format says so.
+    payload["content_format"] = "markdown"
     return await g.post("api/pages", payload)
 
 
