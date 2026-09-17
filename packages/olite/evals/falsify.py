@@ -32,27 +32,36 @@ BRAIN = ROOT / "brain"
 class Break:
     """One targeted defect, the scenarios it should sink, and the assertion that catches it."""
 
-    def __init__(self, family, why, path, find, replace, scenarios, expect):
+    def __init__(self, family, why, scenarios, expect, path=None, find=None, replace=None,
+                 edits=None):
         self.family = family
         self.why = why
-        self.path = ROOT / path
-        self.find = find
-        self.replace = replace
         self.scenarios = scenarios
         self.expect = expect
+        # Galaxy states the same fact in several places, so removing a capability can take
+        # more than one edit. Removing only one leaves a route open and the agent finds it,
+        # which reads as a missed break when it is the agent working.
+        self.edits = edits or [(path, find, replace)]
+
+    def _paths(self):
+        return sorted({ROOT / path for path, _, _ in self.edits})
 
     def apply(self):
-        source = self.path.read_text()
-        found = source.count(self.find)
-        if found != 1:
-            raise SystemExit(
-                f"{self.family}: anchor appears {found} times in {self.path.name}; "
-                "the break is stale and would patch the wrong thing"
-            )
-        self.path.write_text(source.replace(self.find, self.replace))
+        for path, find, replace in self.edits:
+            target = ROOT / path
+            source = target.read_text()
+            found = source.count(find)
+            if found != 1:
+                self.restore()
+                raise SystemExit(
+                    f"{self.family}: anchor appears {found} times in {target.name}; "
+                    "the break is stale and would patch the wrong thing"
+                )
+            target.write_text(source.replace(find, replace))
 
     def restore(self):
-        subprocess.run(["git", "checkout", "--", str(self.path)], cwd=ROOT, check=True)
+        for target in self._paths():
+            subprocess.run(["git", "checkout", "--", str(target)], cwd=ROOT, check=True)
 
 
 BREAKS = [
@@ -157,22 +166,16 @@ BREAKS = [
     ),
     Break(
         family="emptyResult",
-        why="nothing the agent can read about a dataset says how much is in it -- no line "
-            "count, no size, no preview. Every state field already says ok here, so with "
-            "those gone a filter that kept nothing is indistinguishable from one that kept "
-            "everything. Stripping the metadata alone is not enough: the agent reads the "
-            "empty preview instead, which is the agent working",
-        path="brain/olite/drivers/loop/galaxy_tools.py",
-        find="""    return dataset
-
-
-_STR = {"type": "string"}""",
-        replace="""    return {k: v for k, v in dataset.items()  # FALSIFY: no way to see it is empty
-            if k not in ("metadata_data_lines", "misc_info", "file_size",
-                         "blurb", "preview", "metadata_comment_lines")}
-
-
-_STR = {"type": "string"}""",
+        why="nothing the agent can read says how much is in a dataset, in the listing or "
+            "in the details. Every state field already says ok here, so with the sizes gone "
+            "a filter that kept nothing is indistinguishable from one that kept everything. "
+            "Three edits because Galaxy states it in several places, and stripping one leaves "
+            "the agent reading another -- which is the agent working, not the scenario failing",
+        edits=[
+            ("brain/olite/drivers/loop/galaxy_tools.py", 'PREVIEW_LINES = 50', 'PREVIEW_LINES = 50\n_FALSIFY_SIZE_KEYS = ("metadata_data_lines", "metadata_comment_lines", "misc_info",\n                      "misc_blurb", "blurb", "peek", "file_size", "preview")'),
+            ("brain/olite/drivers/loop/galaxy_tools.py", '    return dataset\n\n\n_STR = {"type": "string"}', '    return {k: v for k, v in dataset.items()  # FALSIFY: size signals gone\n            if k not in _FALSIFY_SIZE_KEYS}\n\n\n_STR = {"type": "string"}'),
+            ("brain/olite/drivers/loop/galaxy_tools.py", '    return await g.get(f"api/histories/{a[\'history_id\']}/contents{_q(params)}")', '    _items = await g.get(f"api/histories/{a[\'history_id\']}/contents{_q(params)}")\n    return ([{k: v for k, v in i.items() if k not in _FALSIFY_SIZE_KEYS} for i in _items]\n            if isinstance(_items, list) else _items)'),
+        ],
         scenarios=["notices-an-empty-result"],
         expect=["chatText.mustMatch"],
     ),
