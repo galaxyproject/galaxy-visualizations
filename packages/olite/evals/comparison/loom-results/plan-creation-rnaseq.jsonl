@@ -1,0 +1,3 @@
+{"scenario":"plan creation: agent ends up with an RNA-seq plan","modelId":"tacc:gpt-oss-120b","runIndex":0,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":16128}
+{"scenario":"plan creation: agent ends up with an RNA-seq plan","modelId":"tacc:gpt-oss-120b","runIndex":1,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":19758}
+{"scenario":"plan creation: agent ends up with an RNA-seq plan","modelId":"tacc:gpt-oss-120b","runIndex":2,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":14626}

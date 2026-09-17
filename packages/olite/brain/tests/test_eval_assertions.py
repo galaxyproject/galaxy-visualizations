@@ -34,7 +34,7 @@ def test_not_empty_fails_a_page_that_is_actually_empty():
             self._content = content
 
         def call(self, path):
-            if path == "api/pages":
+            if path.startswith("api/pages?"):        # looked up by slug, not listed
                 return [{"id": "p1", "slug": "olite-h1"}]
             return {"content": "", "content_editor": self._content}
 
@@ -64,7 +64,7 @@ def test_not_empty_accepts_content_appended_below_the_starter():
     class FakeGalaxy:
         def __init__(self, content): self._c = content
         def call(self, path):
-            if path == "api/pages":
+            if path.startswith("api/pages?"):        # looked up by slug, not listed
                 return [{"id": "p1", "slug": "olite-h1"}]
             return {"content": "", "content_editor": self._c}
 

@@ -1,0 +1,3 @@
+{"scenario":"routing: a plainly local task should not be routed to Galaxy","modelId":"tacc:gpt-oss-120b","runIndex":0,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":16223}
+{"scenario":"routing: a plainly local task should not be routed to Galaxy","modelId":"tacc:gpt-oss-120b","runIndex":1,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":20808}
+{"scenario":"routing: a plainly local task should not be routed to Galaxy","modelId":"tacc:gpt-oss-120b","runIndex":2,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":15122}

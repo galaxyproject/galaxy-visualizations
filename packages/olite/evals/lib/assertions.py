@@ -472,10 +472,13 @@ def _record(spec, run, failures, exercised):
         failures.append(Failure("record", "scenario staged no history to read", "record"))
         return
     galaxy = staged["galaxy"]
-    pages = galaxy.call("api/pages") or []
     # Default target is the history's record; `slug` points at a page the agent was
     # asked to create itself, which is a different write path in Galaxy.
     slug = spec.get("slug") or f"olite-{staged['history_id']}"
+    # Asked for by slug rather than by listing: `api/pages` returns the first 100, and a
+    # server that has accumulated more than that from previous runs answers without the
+    # page this run just created. That reads as "the agent never wrote it".
+    pages = galaxy.call(f"api/pages?search=slug:{slug}") or []
     page = next((p for p in pages if p.get("slug") == slug), None)
     if not page:
         failures.append(Failure("record.exists", f"no page with slug {slug!r}", "record"))
