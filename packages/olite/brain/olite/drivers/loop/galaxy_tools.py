@@ -434,10 +434,58 @@ async def _get_workflow_details(g, a):
     return await g.get(f"api/workflows/{a['workflow_id']}{_q({'version': a.get('version')})}")
 
 
+# Steps that ask the caller for something. Everything else in the run model is the tool
+# form the web client renders, which on a 7-step workflow is 194 KB of conditional cases.
+WORKFLOW_INPUT_STEPS = {"data_input", "data_collection_input", "parameter_input"}
+# A data input that accepts hundreds of datatypes is saying "anything"; the list is noise.
+EXTENSION_LIST_CAP = 12
+
+
+def _trim_extensions(value):
+    if isinstance(value, list) and len(value) > EXTENSION_LIST_CAP:
+        return {"count": len(value), "note": "accepts most datatypes"}
+    return value
+
+
+def _input_step(step):
+    """What a caller must supply for one step, without the form model around it."""
+    inputs = []
+    for item in step.get("inputs") or []:
+        if not isinstance(item, dict):
+            continue
+        inputs.append({k: (_trim_extensions(v) if k == "acceptable_extensions" else v)
+                       for k, v in item.items()
+                       if k in ("name", "label", "optional", "acceptable_extensions",
+                                "collection_type", "value", "type")})
+    return {
+        "step_index": step.get("step_index"),
+        "label": step.get("step_label"),
+        "name": step.get("step_name"),
+        "type": step.get("step_type"),
+        "annotation": step.get("annotation"),
+        "inputs": inputs,
+    }
+
+
 async def _get_workflow_input_template(g, a):
-    # style=run is the webapp's own run-form model; good enough as a template.
+    """The inputs a workflow asks for, and any version warnings Galaxy raises."""
+    # style=run is the webapp's run-form model. It also validates that every tool is
+    # installed, which is why it is still the source: a missing tool must surface here.
     params = {"style": "run", "instance": "false", "history_id": a.get("history_id")}
-    return await g.get(f"api/workflows/{a['workflow_id']}/download{_q(params)}")
+    model = await g.get(f"api/workflows/{a['workflow_id']}/download{_q(params)}")
+    if not isinstance(model, dict) or "steps" not in model:
+        return model
+    steps = [s for s in model["steps"] if isinstance(s, dict)
+             and s.get("step_type") in WORKFLOW_INPUT_STEPS]
+    return {
+        "workflow_id": a["workflow_id"],
+        "name": model.get("name"),
+        "history_id": model.get("history_id"),
+        "has_upgrade_messages": model.get("has_upgrade_messages"),
+        "step_version_changes": model.get("step_version_changes"),
+        "inputs_by": "step_index",
+        "inputs": [_input_step(s) for s in steps],
+    }
 
 
 async def _invoke_workflow(g, a):
