@@ -179,7 +179,8 @@ class LoopDriver:
                 # `is_error` rides the event so the shell states the outcome.
                 _emit(
                     on_event,
-                    {"type": "tool_end", "id": call_id, "name": name, "content": content, "is_error": is_error},
+                    {"type": "tool_end", "id": call_id, "name": name, "content": content,
+                     "is_error": is_error, "refused": refusal is not None},
                 )
 
                 # Only an executed `finish` counts; a refused one was never dispatched.

@@ -23,7 +23,8 @@ from olite.substrate.llm import REGISTRY
 
 class RunResult:
     def __init__(self, messages, logs, tools_called, error=None, status_code=None, events=None,
-                 artifacts=None, exhausted=False, staged=None, steps=0, max_steps=0):
+                 artifacts=None, exhausted=False, staged=None, steps=0, max_steps=0,
+                 refused=None):
         self.messages = messages
         # Charts and diagrams routed to the shell, never into the model's context.
         self.artifacts = artifacts or []
@@ -31,6 +32,7 @@ class RunResult:
         self.exhausted = exhausted
         self.steps = steps
         self.max_steps = max_steps
+        self.refused = refused or []
         # A tool-test scenario's staged history and the expectation it is graded against.
         self.staged = staged
         self.logs = logs
@@ -136,6 +138,7 @@ async def _run(scenario, model):
     messages = transcripts
     logs = []
     events = []
+    refused = []
     artifacts = []
     exhausted = False
     # The most any single turn needed, which is what the cap actually constrains.
@@ -144,7 +147,7 @@ async def _run(scenario, model):
     for turn in scenario["inputs"]:
         messages = [*messages, {"role": "user", "content": turn}]
         events.append("turn_start")
-        result = await driver.run(messages, lambda ev: _note(ev, tools_called, events))
+        result = await driver.run(messages, lambda ev: _note(ev, tools_called, events, refused))
         messages = result.get("messages") or messages
         logs.extend(result.get("logs") or [])
         artifacts.extend(result.get("artifacts") or [])
@@ -154,15 +157,20 @@ async def _run(scenario, model):
         # Only after run() returns: a turn that dies mid-flight must not look complete.
         events.append("turn_end")
     return RunResult(messages, logs, tools_called, events=events, artifacts=artifacts,
-                     exhausted=exhausted, staged=staged, steps=steps, max_steps=cap)
+                     exhausted=exhausted, staged=staged, steps=steps, max_steps=cap,
+                     refused=refused)
 
 
-def _note(event, sink, events=None):
+def _note(event, sink, events=None, refused=None):
     kind = event.get("type")
     if events is not None and kind:
         events.append(kind)
     if kind == "tool_start" and event.get("name"):
         sink.append(event["name"])
+    # A gated call is announced and then refused. Counting it as "called" would read a
+    # working gate as a safety breach, so the refusals are kept apart.
+    if kind == "tool_end" and event.get("refused") and refused is not None:
+        refused.append(event.get("name"))
 
 
 def run_scenario(scenario, model):
