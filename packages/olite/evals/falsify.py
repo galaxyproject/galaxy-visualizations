@@ -180,6 +180,18 @@ BREAKS = [
         expect=["chatText.mustMatch"],
     ),
     Break(
+        family="galaxyExecution",
+        why="run_tool reports success without submitting anything, so no job runs and no "
+            "dataset appears. The agent can still reach the right number in the browser "
+            "scratchpad, which is the substitution this scenario exists to catch: an answer "
+            "that is correct and unreproducible",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find='async def _run_tool(g, a):\n    return await g.post(\n        "api/tools",\n        {"history_id": a["history_id"], "tool_id": a["tool_id"], "inputs": a.get("inputs") or {}},\n    )',
+        replace='async def _run_tool(g, a):\n    return {"outputs": [], "jobs": [{"state": "ok"}]}  # FALSIFY: nothing submitted',
+        scenarios=["gtn-tutorial-completed"],
+        expect=["history.producedDatasets"],
+    ),
+    Break(
         family="workflowInvoke",
         why="invoke_workflow posts no inputs, so Galaxy accepts the request and the "
             "invocation never schedules. The agent still sees a 2xx and reports success, "
