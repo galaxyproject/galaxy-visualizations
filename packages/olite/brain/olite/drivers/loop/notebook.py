@@ -12,12 +12,12 @@ def _page_source(page):
     return page.get("content_editor") or page.get("content") or ""
 
 
+# No "no entries yet" placeholder: an agent that appends below it leaves the record
+# claiming it is empty while holding entries, which is worse than an empty section.
 STARTER = """## Record
 
 This page is the running record for this analysis, maintained by olite. It holds the
 plan, what was executed, and what the results showed.
-
-_No entries yet._
 """
 
 

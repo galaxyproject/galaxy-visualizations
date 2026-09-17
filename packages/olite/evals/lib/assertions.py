@@ -426,9 +426,17 @@ def _record(spec, run, failures, exercised):
             failures.append(Failure("record.mustMention",
                                     f"the record never mentions {needle!r}", "record"))
     if spec.get("notEmpty"):
+        # "written to" means content beyond the starter olite plants, not the absence of a
+        # placeholder string: an agent that appends below the placeholder has still written.
+        from olite.drivers.loop.notebook import STARTER
+
+        body = content
+        for line in STARTER.splitlines():
+            body = body.replace(line, "")
+        body = body.replace("_No entries yet._", "")
         if not content.strip():
             failures.append(Failure("record.notEmpty",
                                     "the record page exists but its content is empty", "record"))
-        elif "_No entries yet._" in content:
+        elif not body.strip():
             failures.append(Failure("record.notEmpty",
-                                    "the record was never written to", "record"))
+                                    "the record holds only the starter; nothing was written", "record"))

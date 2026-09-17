@@ -51,3 +51,31 @@ def test_not_empty_fails_a_page_that_is_actually_empty():
     assert grade("   \n ") == ["record.notEmpty"]
     assert grade("## Record\n\n_No entries yet._\n") == ["record.notEmpty"]
     assert grade("## Record\n\nRan Grouping1; mean Glucose 141.3") == []
+
+
+def test_not_empty_accepts_content_appended_below_the_starter():
+    """The agent had written; it just left the placeholder above its entry."""
+    from lib.assertions import _record
+    from olite.drivers.loop.notebook import STARTER
+
+    class FakeGalaxy:
+        def __init__(self, content): self._c = content
+        def call(self, path):
+            if path == "api/pages":
+                return [{"id": "p1", "slug": "olite-h1"}]
+            return {"content": "", "content_editor": self._c}
+
+    class Run:
+        def __init__(self, content):
+            self.staged = {"galaxy": FakeGalaxy(content), "history_id": "h1"}
+
+    def grade(content):
+        failures = []
+        _record({"notEmpty": True}, Run(content), failures, set())
+        return [f.assertion for f in failures]
+
+    assert grade(STARTER) == ["record.notEmpty"]
+    assert grade(STARTER + "\n_No entries yet._\n") == ["record.notEmpty"]
+    # appended below a leftover placeholder still counts as written
+    assert grade(STARTER + "\n_No entries yet._\n\n## Findings\n\nmean Glucose 141.3\n") == []
+    assert grade(STARTER + "\n## Findings\n\nmean Glucose 141.3\n") == []
