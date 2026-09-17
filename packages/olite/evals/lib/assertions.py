@@ -53,6 +53,7 @@ def evaluate(scenario, run):
     _artifacts(a.get("artifacts"), run, failures, exercised)
     _tool_output(a.get("toolOutput"), run, failures, exercised)
     _record(a.get("record"), run, failures, exercised)
+    _budget(a.get("budget"), run, failures, exercised)
     return failures, exercised
 
 
@@ -271,6 +272,47 @@ def _behavior(spec, run, failures, exercised):
             failures.append(
                 Failure("behavior.doesNotExecute", f"called {tool} before any approval", "behavior")
             )
+
+
+def _budget(spec, run, failures, exercised):
+    """What the task cost, not just whether it finished.
+
+    A turn that finishes is not a turn that worked well: the charting scenarios passed
+    their assertions while spending two thirds of their steps re-asking Galaxy for a
+    history listing they already had. Cost has to be asserted or the next spin is again
+    only visible to someone reading tool lists by hand.
+    """
+    if not spec:
+        return
+    exercised.add("budget")
+
+    ceiling = spec.get("maxSteps")
+    if ceiling and run.steps and run.steps > ceiling:
+        failures.append(Failure(
+            "budget.maxSteps",
+            f"took {run.steps} steps against a ceiling of {ceiling}", "budget"))
+
+    allowed = spec.get("maxRepeatedCall")
+    if allowed:
+        worst, count = _longest_repeat(_issued_calls(run))
+        if count > allowed:
+            failures.append(Failure(
+                "budget.maxRepeatedCall",
+                f"called {worst} with the same arguments {count} times in a row "
+                f"(allowed {allowed})", "budget"))
+
+
+def _longest_repeat(issued):
+    """The longest run of one tool called with identical arguments, and its length."""
+    worst, count = "", 0
+    current, streak = None, 0
+    for name, args in issued:
+        key = (name, args)
+        streak = streak + 1 if key == current else 1
+        current = key
+        if streak > count:
+            worst, count = name, streak
+    return worst, count
 
 
 def validate_patterns(scenarios):
