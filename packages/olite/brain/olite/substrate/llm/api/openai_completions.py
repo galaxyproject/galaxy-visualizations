@@ -9,6 +9,8 @@ MIN = 0.0000001
 MAX = 999999999
 TEMPERATURE = 0.3
 TOP_P = 0.8
+# The spellings providers use for chain of thought, in the order they are preferred.
+REASONING_KEYS = ("reasoning_content", "reasoning")
 
 
 @dataclass
@@ -18,6 +20,8 @@ class Reply:
     content: str = ""
     # gpt-oss puts its chain of thought here and leaves content empty on a tool call.
     reasoning: str = ""
+    # The spelling this provider used, so the reply can go back under the same key.
+    reasoning_key: str = REASONING_KEYS[0]
     tool_calls: list = field(default_factory=list)
     finish_reason: str | None = None
     usage: dict = field(default_factory=dict)
@@ -64,9 +68,11 @@ class OpenAICompletions:
         payload = payload if isinstance(payload, dict) else {}
         choice = (payload.get("choices") or [{}])[0] or {}
         message = choice.get("message") or {}
+        reasoning_key = next((k for k in REASONING_KEYS if message.get(k)), REASONING_KEYS[0])
         reply = Reply(
             content=message.get("content") or "",
-            reasoning=message.get("reasoning_content") or message.get("reasoning") or "",
+            reasoning=message.get(reasoning_key) or "",
+            reasoning_key=reasoning_key,
             tool_calls=message.get("tool_calls") or [],
             finish_reason=choice.get("finish_reason"),
             usage=payload.get("usage") or {},

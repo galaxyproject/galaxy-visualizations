@@ -117,15 +117,14 @@ class LoopDriver:
                 f"reasoning={_detail.get('reasoning_tokens')}"
             )
 
-            assistant = {
-                "role": "assistant",
-                "content": reply.content,
-                "tool_calls": tool_calls,
-            }
-            # Without it the transcript is a run of contentless tool calls: the model
-            # cannot see what it already concluded and re-issues the same call.
+            # `content` is null and `tool_calls` absent unless the reply carries them:
+            # the OpenAI shape for an assistant turn.
+            assistant = {"role": "assistant", "content": reply.content or None}
+            if tool_calls:
+                assistant["tool_calls"] = tool_calls
+            # Under the spelling the provider used, so it reads its own field back.
             if reply.reasoning:
-                assistant["reasoning_content"] = reply.reasoning
+                assistant[reply.reasoning_key] = reply.reasoning
             messages.append(assistant)
             produced.append(assistant)
             # Kept beside the message, which goes back to the provider verbatim.

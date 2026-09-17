@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 
-from olite.substrate import Confirmation
+from olite.substrate import Confirmation, LocalExecutionError
 
 from . import confusables, galaxy_destructive, galaxy_tools, gtn, notebook
 from .brief import brief
@@ -232,7 +232,10 @@ class ToolSurface:
                 return ToolOutcome(refusal, is_error=True, refused=True)
 
         if name == "run_python":
-            return self.substrate.local.run(args.get("code", ""))
+            try:
+                return self.substrate.local.run(args.get("code", ""))
+            except LocalExecutionError as exc:
+                return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
         if name == "skills_fetch":
