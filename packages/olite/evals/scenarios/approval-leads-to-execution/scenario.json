@@ -5,8 +5,7 @@
   "substrate": "live",
   "dataset": {
     "file": "prices.csv",
-    "history": "approval then execution",
-    "header_lines": "1"
+    "history": "approval then execution"
   },
   "inputs": [
     "Take the dataset in this history and make a copy of it into a new history called 'approved copy $run'. Plan it first.",

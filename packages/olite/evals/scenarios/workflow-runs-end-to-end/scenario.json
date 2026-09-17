@@ -5,8 +5,7 @@
   "substrate": "live",
   "dataset": {
     "file": "prices.csv",
-    "history": "workflow run $run",
-    "header_lines": "1"
+    "history": "workflow run $run"
   },
   "workflows": {
     "files": [

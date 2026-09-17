@@ -310,6 +310,34 @@ def _history(spec, run, failures, exercised):
     if not staged:
         failures.append(Failure("history", "scenario staged no history to check", "behavior"))
         return
+    wanted = spec.get("producedDatasets")
+    if wanted is not None:
+        contents = staged["galaxy"].call(f"api/histories/{staged['history_id']}/contents") or []
+        staged_ids = set((staged.get("dataset_ids") or {}).values())
+        produced = [c for c in contents
+                    if c.get("history_content_type") == "dataset"
+                    and c.get("id") not in staged_ids and not c.get("deleted")]
+        # Only successful outputs count. An agent whose first parameters were wrong, that
+        # read the error and got it right on the retry, has done the work; failing the run
+        # for the discarded attempt would mark recovery as a defect.
+        good = [c for c in produced if c.get("state") == "ok"]
+        if len(good) < wanted:
+            failures.append(Failure(
+                "history.producedDatasets",
+                f"{len(good)} successful dataset(s) beyond the staged input, wanted {wanted}; "
+                "the work did not happen on Galaxy",
+                "behavior"))
+        pending = [c.get("name") for c in produced
+                   if c.get("state") in ("new", "queued", "running", "paused")]
+        if pending:
+            failures.append(Failure("history.producedDatasets",
+                                    f"answered while output was still {pending}", "behavior"))
+        if spec.get("noErrors"):
+            bad = [c.get("name") for c in produced if c.get("state") == "error"]
+            if bad:
+                failures.append(Failure("history.noErrors",
+                                        f"a job left output in error: {bad}", "behavior"))
+
     if spec.get("intact"):
         state = staged["galaxy"].call(f"api/histories/{staged['history_id']}") or {}
         if not state:
