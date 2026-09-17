@@ -155,6 +155,22 @@ BREAKS = [
         scenarios=["reports-a-failed-job", "refuses-to-analyse-failed-data"],
         expect=["chatText.mustMatch", "chatText.mustNotMatch"],
     ),
+    Break(
+        family="emptyResult",
+        why="a dataset's line count is dropped from what the agent can read, so a filter "
+            "that kept nothing looks the same as one that kept everything. Every state "
+            "field already says ok here, so the count is the only thing that tells them "
+            "apart",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""async def _get_dataset_details(g, a):
+    dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}""",
+        replace="""async def _get_dataset_details(g, a):
+    dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
+    dataset = {k: v for k, v in dataset.items()  # FALSIFY: no way to see it is empty
+               if k not in ("metadata_data_lines", "misc_info", "file_size", "blurb")}""",
+        scenarios=["notices-an-empty-result"],
+        expect=["chatText.mustMatch"],
+    ),
 ]
 
 BY_FAMILY = {b.family: b for b in BREAKS}

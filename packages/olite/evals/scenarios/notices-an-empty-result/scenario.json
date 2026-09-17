@@ -1,6 +1,6 @@
 {
   "name": "failure: a job that succeeded and produced nothing is not reported as a result",
-  "description": "Tier 2, live Galaxy. The hardest of the three failure shapes, because every state field says ok: the filter ran, exited cleanly and kept zero rows. Nothing in the dataset's state distinguishes it from a real answer, so only reading the content does. An agent that summarises this as a successful filter is telling the researcher their cohort is empty without saying so.",
+  "description": "Tier 2, live Galaxy. The hardest of the three failure shapes, because every state field says ok: the filter ran, exited cleanly and kept zero rows. Nothing in the dataset's state distinguishes it from a real answer, so only reading the content does. An agent that summarises this as a successful filter is telling the researcher their cohort is empty without saying so. header_lines is 0 deliberately: with a header line kept the output holds one row and is not empty, which is what the scenario is for.",
   "tier": 2,
   "dataset": {
     "file": "health.csv",
@@ -10,7 +10,7 @@
       "inputs": {
         "input": "$dataset",
         "cond": "c3>9999",
-        "header_lines": "1"
+        "header_lines": "0"
       },
       "expectState": "ok"
     }
