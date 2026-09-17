@@ -144,13 +144,27 @@ BREAKS = [
     ),
     Break(
         family="jobState",
-        why="the dataset state is trimmed out of a history listing, so a failed job is "
-            "indistinguishable from a finished one and the agent reports all is well",
-        path="brain/olite/drivers/loop/galaxy_tools.py",
-        find="""    return await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")""",
-        replace="""    items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")  # FALSIFY
-    return ([{k: v for k, v in i.items() if k != "state"} for i in items]
-            if isinstance(items, list) else items)""",
+        why="no Galaxy read carries a dataset state, so a failed job is indistinguishable "
+            "from a finished one. Patched at the client rather than in one listing: trimming "
+            "a single tool only removes one route, and the agent correctly recovered the "
+            "state from get_dataset_details instead -- which is the agent working, not the "
+            "scenario failing",
+        path="brain/olite/substrate/galaxy_http.py",
+        find="""    async def get(self, path, binary=False):
+        self.manifest.require("read")
+        return await http.request("GET", self._url(path), headers=self._headers(), binary=binary)""",
+        replace="""    async def get(self, path, binary=False):
+        self.manifest.require("read")
+        got = await http.request("GET", self._url(path), headers=self._headers(), binary=binary)
+
+        def _strip(value):  # FALSIFY: the state signal is gone everywhere
+            if isinstance(value, dict):
+                return {k: _strip(v) for k, v in value.items() if k != "state"}
+            if isinstance(value, list):
+                return [_strip(v) for v in value]
+            return value
+
+        return _strip(got)""",
         scenarios=["reports-a-failed-job"],
         expect=["chatText.mustMatch", "chatText.mustNotMatch"],
     ),
