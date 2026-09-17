@@ -157,17 +157,22 @@ BREAKS = [
     ),
     Break(
         family="emptyResult",
-        why="a dataset's line count is dropped from what the agent can read, so a filter "
-            "that kept nothing looks the same as one that kept everything. Every state "
-            "field already says ok here, so the count is the only thing that tells them "
-            "apart",
+        why="nothing the agent can read about a dataset says how much is in it -- no line "
+            "count, no size, no preview. Every state field already says ok here, so with "
+            "those gone a filter that kept nothing is indistinguishable from one that kept "
+            "everything. Stripping the metadata alone is not enough: the agent reads the "
+            "empty preview instead, which is the agent working",
         path="brain/olite/drivers/loop/galaxy_tools.py",
-        find="""async def _get_dataset_details(g, a):
-    dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}""",
-        replace="""async def _get_dataset_details(g, a):
-    dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
-    dataset = {k: v for k, v in dataset.items()  # FALSIFY: no way to see it is empty
-               if k not in ("metadata_data_lines", "misc_info", "file_size", "blurb")}""",
+        find="""    return dataset
+
+
+_STR = {"type": "string"}""",
+        replace="""    return {k: v for k, v in dataset.items()  # FALSIFY: no way to see it is empty
+            if k not in ("metadata_data_lines", "misc_info", "file_size",
+                         "blurb", "preview", "metadata_comment_lines")}
+
+
+_STR = {"type": "string"}""",
         scenarios=["notices-an-empty-result"],
         expect=["chatText.mustMatch"],
     ),
