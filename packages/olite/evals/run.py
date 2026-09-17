@@ -2,10 +2,12 @@
 """Scenario-driven evals for olite. Ported from loom's `evals/run.ts`."""
 
 import argparse
+import copy
 import json
 import logging
 import os
 import sys
+import uuid
 import time
 
 # The brain logs every tool call and a parse warning for a corpus SKILL.md whose
@@ -39,6 +41,28 @@ def available_models(matrix, only):
         missing = [v for v in model.get("envRequires", []) if not os.environ.get(v)]
         (skipped if missing else usable).append((model, missing))
     return [m for m, _ in usable], skipped
+
+
+def _resolve_run_tokens(scenario):
+    """Give `$run` a value unique to this run, in inputs and assertions alike.
+
+    A scenario that names a fixed Galaxy slug is self-poisoning: Galaxy refuses a
+    duplicate slug, so the second run creates nothing and grades the page the first run
+    left behind. It then passes whatever the code does. Found by falsification, which is
+    the only thing that could have found it.
+    """
+    token = uuid.uuid4().hex[:10]
+
+    def sub(value):
+        if isinstance(value, str):
+            return value.replace("$run", token)
+        if isinstance(value, list):
+            return [sub(v) for v in value]
+        if isinstance(value, dict):
+            return {k: sub(v) for k, v in value.items()}
+        return value
+
+    return sub(copy.deepcopy(scenario))
 
 
 def main():
@@ -103,6 +127,7 @@ def main():
           for run_index in range(runs):
               if args.delay and results:
                   time.sleep(args.delay)
+              scenario = _resolve_run_tokens(scenario)
               run = run_scenario(scenario, model)
               if run.error:
                   failures, exercised = [], set()
