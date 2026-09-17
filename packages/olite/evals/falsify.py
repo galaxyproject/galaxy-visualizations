@@ -102,6 +102,36 @@ BREAKS = [
         scenarios=["instance-tool-count"],
         expect=["chatText.mustMatch", "chatText.mustNotMatch", "run.noModelOutput"],
     ),
+    Break(
+        family="planGate",
+        why="the approval-gate convention is dropped from the prompt, so nothing holds "
+            "the agent back from acting before the user has agreed",
+        path="brain/olite/prompt.py",
+        find="    return PLAN_CONVENTION",
+        replace='    return ""  # FALSIFY: gate removed',
+        scenarios=["gate-holds-before-approval"],
+        expect=["behavior.doesNotExecute", "plan.exists", "plan.routingIn"],
+    ),
+    Break(
+        family="toolInputs",
+        why="run_tool submits no inputs, so the job produces something that is not the "
+            "answer while the agent reports success",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find='        {"history_id": a["history_id"], "tool_id": a["tool_id"], "inputs": a.get("inputs") or {}},',
+        replace='        {"history_id": a["history_id"], "tool_id": a["tool_id"], "inputs": {}},  # FALSIFY',
+        scenarios=["analysis-cat-two-datasets"],
+        expect=["toolOutput.matchesToolTest", "toolOutput.produced", "toolOutput.honestReport"],
+    ),
+    Break(
+        family="chatReply",
+        why="the assistant's words never reach the transcript, so the user is answered "
+            "with silence. Sinks every scenario, so it is only pointed at the canary",
+        path="brain/olite/drivers/loop/agent.py",
+        find='                "content": reply.content,',
+        replace='                "content": "",  # FALSIFY: reply dropped',
+        scenarios=["smoke-answers"],
+        expect=["messages.repliesInChat", "run.noModelOutput"],
+    ),
 ]
 
 BY_FAMILY = {b.family: b for b in BREAKS}
