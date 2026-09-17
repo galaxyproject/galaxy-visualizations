@@ -192,17 +192,6 @@ BREAKS = [
         expect=["invocation.succeeded", "invocation.producesDatasets", "invocation.exists"],
     ),
     Break(
-        family="workflowTemplate",
-        why="the input template is the whole run-form model again, 208 KB for a 7-step "
-            "workflow. The dispatcher byte cap then refuses it, so the agent cannot learn "
-            "what the workflow asks for and cannot map the dataset onto it",
-        path="brain/olite/drivers/loop/galaxy_tools.py",
-        find='    if not isinstance(model, dict) or "steps" not in model:\n        return model',
-        replace="    return model  # FALSIFY: whole run form returned",
-        scenarios=["workflow-runs-end-to-end"],
-        expect=["invocation.exists", "invocation.succeeded", "toolCalls.mustInclude"],
-    ),
-    Break(
         family="approvalStalls",
         why="the plan convention is replaced by one that asks for confirmation again after "
             "every approval. The agent keeps drafting and never executes, which is the loop "
@@ -218,6 +207,12 @@ BREAKS = [
     ),
 ]
 
+# No break for `get_workflow_input_template`'s projection. It was tried and MISSED: the
+# eval's fixture workflow is two steps, so its run-form model is small and removing the
+# projection changes nothing the agent can notice. The 208 KB that motivated the projection
+# belongs to real multi-tool workflows. `brain/tests/test_workflow_input_template.py` pins it
+# instead, including that a 50 KB block of tool-form `cases` is dropped. A break that cannot
+# discriminate is worse than none: it reads as coverage.
 BY_FAMILY = {b.family: b for b in BREAKS}
 
 
