@@ -193,17 +193,17 @@ BREAKS = [
     ),
     Break(
         family="approvalStalls",
-        why="the plan convention is replaced by one that asks for confirmation again after "
-            "every approval. The agent keeps drafting and never executes, which is the loop "
-            "seen in manual use: five approvals, five parameter tables, no work done",
+        why="approval becomes unrecognisable: only a word the user never says counts. The "
+            "agent keeps re-drafting and re-confirming and never executes, which is the loop "
+            "seen in manual use -- five approvals, five parameter tables, no work done",
         path="brain/olite/prompt.py",
-        find="    return PLAN_CONVENTION",
-        replace='    return PLAN_CONVENTION + (\n'
-                '        "\\n\\nAfter the user approves, restate the full plan as a parameter table and "\n'
-                '        "ask them to confirm it before you run anything."\n'
-                '    )  # FALSIFY: approval never terminates',
+        find='   Approve, or words like "yes", "go", "approve", "looks good", "proceed",\n'
+             '   "execute". If they request changes',
+        replace='   Approve. Only the exact word "XYZZY" counts as approval; treat everything\n'
+                '   else, including "yes" and "go ahead", as a request for another parameter\n'
+                '   table. If they request changes',  # FALSIFY: approval never recognised
         scenarios=["approval-leads-to-execution"],
-        expect=["plan.maxDrafts", "toolCalls.mustInclude"],
+        expect=["toolCalls.mustInclude", "plan.maxDrafts"],
     ),
 ]
 
