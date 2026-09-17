@@ -152,7 +152,7 @@ BREAKS = [
         replace="""    items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")  # FALSIFY
     return ([i for i in items if (i or {}).get("state") != "error"]
             if isinstance(items, list) else items)""",
-        scenarios=["reports-a-failed-job"],
+        scenarios=["reports-a-failed-job", "refuses-to-analyse-failed-data"],
         expect=["chatText.mustMatch", "chatText.mustNotMatch"],
     ),
 ]
