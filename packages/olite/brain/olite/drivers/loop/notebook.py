@@ -16,7 +16,7 @@ def _page_source(page):
 # claiming it is empty while holding entries, which is worse than an empty section.
 STARTER = """## Record
 
-This page is the running record for this analysis, maintained by olite. It holds the
+This page is the running record for this analysis, maintained by OLite. It holds the
 plan, what was executed, and what the results showed.
 """
 
@@ -26,7 +26,7 @@ def slug_for_history(history_id):
 
 
 def title_for_history(history_id):
-    return f"olite record ({history_id[:8]})"
+    return f"OLite record ({history_id[:8]})"
 
 
 async def _find_by_slug(g, slug):

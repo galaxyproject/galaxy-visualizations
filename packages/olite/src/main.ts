@@ -19,7 +19,7 @@ import { renderArtifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
 
 const PLUGIN_NAME = "olite";
-const PROMPT_DEFAULT = "You are olite. Communicate only by calling tools.";
+const PROMPT_DEFAULT = "You are OLite. Communicate only by calling tools.";
 
 async function main() {
     const scriptUrl = new URL(import.meta.url);
@@ -54,7 +54,7 @@ async function main() {
           <div id="input-area">
             <div class="composer-row">
               <textarea id="input" rows="1" aria-label="Chat input"
-                placeholder="Ask olite to run something..."></textarea>
+                placeholder="Ask OLite to run something..."></textarea>
               <button id="send-btn" title="Send" aria-label="Send message">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -297,16 +297,16 @@ async function main() {
         extraPackages: [`${indexURL}/olite-0.0.0-py3-none-any.whl`],
     });
     let ready = false;
-    const readyInfo = chat.addInfoMessage("Loading olite...");
+    const readyInfo = chat.addInfoMessage("Loading OLite...");
     pyodide
         .initialize()
         .then(() => {
             ready = true;
             readyInfo.textContent = resumed
-                ? "Resumed this history's conversation. olite ready."
-                : "olite ready. Ask me to run something.";
+                ? "Resumed this history's conversation. OLite ready."
+                : "OLite ready. Ask me to run something.";
         })
-        .catch((e) => chat.addErrorMessage(`Failed to load olite: ${e}`));
+        .catch((e) => chat.addErrorMessage(`Failed to load OLite: ${e}`));
 
     // Advances submitted Galaxy work between turns, so no turn blocks on a job.
     const watcher = new InvocationWatcher({
