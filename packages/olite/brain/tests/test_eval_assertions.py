@@ -47,9 +47,12 @@ def test_not_empty_fails_a_page_that_is_actually_empty():
         _record({"notEmpty": True}, Run(content), failures, set())
         return [f.assertion for f in failures]
 
+    from olite.drivers.loop.notebook import STARTER
+
     assert grade("") == ["record.notEmpty"]
     assert grade("   \n ") == ["record.notEmpty"]
-    assert grade("## Record\n\n_No entries yet._\n") == ["record.notEmpty"]
+    # the starter alone is not a written record
+    assert grade(STARTER) == ["record.notEmpty"]
     assert grade("## Record\n\nRan Grouping1; mean Glucose 141.3") == []
 
 
@@ -75,7 +78,9 @@ def test_not_empty_accepts_content_appended_below_the_starter():
         return [f.assertion for f in failures]
 
     assert grade(STARTER) == ["record.notEmpty"]
-    assert grade(STARTER + "\n_No entries yet._\n") == ["record.notEmpty"]
-    # appended below a leftover placeholder still counts as written
-    assert grade(STARTER + "\n_No entries yet._\n\n## Findings\n\nmean Glucose 141.3\n") == []
+    # a line the agent added counts, wherever it sits relative to the starter
     assert grade(STARTER + "\n## Findings\n\nmean Glucose 141.3\n") == []
+    assert grade("## Findings\n\nmean Glucose 141.3\n\n" + STARTER) == []
+    # a starter line quoted inside real content must not subtract from it
+    assert grade(STARTER + "\n## Record\n") == ["record.notEmpty"]
+    assert grade(STARTER + "\n## Record\n\nRan Grouping1\n") == []

@@ -319,10 +319,10 @@ class ToolSurface:
             payload = {k: v for k, v in output.items() if k != "artifact"}
             payload["ok"] = True
             payload["artifact"] = {"kind": art.get("kind"), "title": art.get("title")}
-            # The spec went to the shell, so from the model's side nothing visibly
-            # happened and it goes hunting for an output the history will never hold.
-            payload["rendered_to_user"] = True
-            payload["next"] = ("The chart is already displayed to the user. It is not a "
+            # The spec goes to the shell, not into the context, so from the model's side
+            # nothing visibly happened and it hunts the history for an output that can
+            # never be there. `hint` is the same channel gtn.py uses to steer a next step.
+            payload["hint"] = ("This artifact is already displayed to the user and is not a "
                                "history dataset, so do not look for it there. Describe what "
                                "it shows and finish.")
             return json.dumps(payload, default=str)
