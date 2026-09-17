@@ -191,22 +191,16 @@ BREAKS = [
         scenarios=["workflow-runs-end-to-end"],
         expect=["invocation.succeeded", "invocation.producesDatasets", "invocation.exists"],
     ),
-    Break(
-        family="approvalStalls",
-        why="approval becomes unrecognisable: only a word the user never says counts. The "
-            "agent keeps re-drafting and re-confirming and never executes, which is the loop "
-            "seen in manual use -- five approvals, five parameter tables, no work done",
-        path="brain/olite/prompt.py",
-        find='   Approve, or words like "yes", "go", "approve", "looks good", "proceed",\n'
-             '   "execute". If they request changes',
-        replace='   Approve. Only the exact word "XYZZY" counts as approval; treat everything\n'
-                '   else, including "yes" and "go ahead", as a request for another parameter\n'
-                '   table. If they request changes',  # FALSIFY: approval never recognised
-        scenarios=["approval-leads-to-execution"],
-        expect=["toolCalls.mustInclude", "plan.maxDrafts"],
-    ),
 ]
 
+# No break for `approval-leads-to-execution`. Two were tried and both MISSED: appending a
+# "confirm again after every approval" instruction to the plan convention, and making approval
+# unrecognisable so only a word the user never says counts. On a simple task the model executes
+# after an explicit approval regardless of what the gate says, so the prompt is not the lever.
+# The loop this scenario is named for was observed on a 38-step RNA-seq plan under context
+# pressure; reproducing it needs a scenario of that weight. The scenario is admitted
+# PROVISIONALLY, and `plan.maxDrafts` is the instrument that would catch it if it recurs.
+#
 # No break for `get_workflow_input_template`'s projection. It was tried and MISSED: the
 # eval's fixture workflow is two steps, so its run-form model is small and removing the
 # projection changes nothing the agent can notice. The 208 KB that motivated the projection
