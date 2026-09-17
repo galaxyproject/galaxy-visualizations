@@ -3,7 +3,7 @@
   "description": "Tier 2. Treemap rebuilds rows inside compile rather than through a declared transform, so the reference decision cannot rest on the transform flag alone. Two turns: the agent proposes the step and waits, as the approval gate intends, so the chart is graded after approval rather than instead of it.",
   "tier": 2,
   "inputs": [
-    "Show the share of records per Obesity category in dataset ds_health_1 as a treemap.",
+    "Show the share of records per Obesity category in this history as a treemap.",
     "Yes, go ahead."
   ],
   "timeoutMs": 300000,
@@ -21,7 +21,7 @@
         {
           "name": "vintent_dataset",
           "argsContains": {
-            "dataset_id": "ds_health_1"
+            "dataset_id": "$staged:health.csv"
           }
         }
       ]
@@ -36,6 +36,8 @@
       ]
     }
   },
-  "substrate": "stub",
-  "substrateReason": "asserts stub id ds_health_1; convert by staging the dataset like the live scenarios do"
+  "dataset": {
+    "file": "health.csv",
+    "history": "charting session"
+  }
 }

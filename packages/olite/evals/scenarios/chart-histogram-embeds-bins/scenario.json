@@ -3,7 +3,7 @@
   "description": "Tier 2. Histogram bins in Python, so rows behind a URL would no longer match the encoding. Guards the rule that only untransformed rows may be referenced.",
   "tier": 2,
   "inputs": [
-    "Show me the distribution of Glucose in dataset ds_health_1 as a histogram."
+    "Show me the distribution of Glucose in this history as a histogram."
   ],
   "timeoutMs": 180000,
   "assertions": {
@@ -20,7 +20,7 @@
         {
           "name": "vintent_dataset",
           "argsContains": {
-            "dataset_id": "ds_health_1"
+            "dataset_id": "$staged:health.csv"
           }
         }
       ]
@@ -38,6 +38,8 @@
       ]
     }
   },
-  "substrate": "stub",
-  "substrateReason": "asserts stub id ds_health_1; convert by staging the dataset like the live scenarios do"
+  "dataset": {
+    "file": "health.csv",
+    "history": "charting session"
+  }
 }

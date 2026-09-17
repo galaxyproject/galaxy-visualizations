@@ -107,6 +107,20 @@ def _issued_calls(run):
     return out
 
 
+def _resolve_staged(value, run):
+    """`$staged:<fixture>` becomes the id the harness actually uploaded this run.
+
+    Scenarios used to assert the stub's constant ids, which pinned them to the stub. The
+    id a real Galaxy hands out is only known at run time, so the scenario names the
+    fixture and the grader resolves it.
+    """
+    if not isinstance(value, str) or not value.startswith("$staged:"):
+        return value
+    wanted = value.split(":", 1)[1]
+    staged = getattr(run, "staged", None) or {}
+    return (staged.get("dataset_ids") or {}).get(wanted, value)
+
+
 def _tool_calls(spec, run, failures, exercised):
     """loom's `toolCalls.mustInclude`, including its `argsContains` form."""
     if not spec:
@@ -115,7 +129,7 @@ def _tool_calls(spec, run, failures, exercised):
     issued = _issued_calls(run)
     for want in spec.get("mustInclude") or []:
         name = want.get("name")
-        contains = want.get("argsContains") or {}
+        contains = {k: _resolve_staged(v, run) for k, v in (want.get("argsContains") or {}).items()}
         hit = False
         for called, args in issued:
             if called != name:
@@ -303,9 +317,11 @@ def _artifacts(spec, run, failures, exercised):
             if "url" not in data:
                 failures.append(Failure("artifacts.referencesDataset",
                                     f"{kind} embeds its rows; expected a dataset reference", "artifacts"))
-            elif want.get("datasetId") and want["datasetId"] not in data["url"]:
-                failures.append(Failure("artifacts.datasetId",
-                                    f"{kind} references {data['url']}, not {want['datasetId']}", "artifacts"))
+            else:
+                wanted_id = _resolve_staged(want.get("datasetId"), run)
+                if wanted_id and wanted_id not in data["url"]:
+                    failures.append(Failure("artifacts.datasetId",
+                                        f"{kind} references {data['url']}, not {wanted_id}", "artifacts"))
         if want.get("embedsRows") and "values" not in data:
             failures.append(Failure("artifacts.embedsRows",
                                 f"{kind} references the dataset; expected embedded rows", "artifacts"))

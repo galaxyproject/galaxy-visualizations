@@ -15,138 +15,10 @@ from olite.runtime import _inject_context, _inject_record
 from olite.substrate import Substrate
 from olite.substrate.llm import REGISTRY
 
-
-# A dataset the analysis scenario can actually compute over. Longer than the
-# 50-line preview cap on purpose, so a model that sums the preview instead of
-# reading the file gets a visibly wrong answer.
-_PRICES = [1200] * 50 + [3600] * 10
-DATASET_SUM = sum(_PRICES)  # 96000
-DATASET_ID = "ds_prices_1"
-DATASET_CSV = "Transaction_date,Product,Price,Country\n" + "\n".join(
-    f"1/{i % 28 + 1}/09 6:17,Product{i % 3 + 1},{price},United States"
-    for i, price in enumerate(_PRICES)
-)
-
-
-HISTORY_ID = "hist1"
-VINTENT_DATASET_ID = "ds_health_1"
-VINTENT_CSV = (
-    pathlib.Path(__file__).resolve().parents[3] / "vintent" / "test-data" / "dataset.csv"
-).read_text()
-
-
-class StubCatalog:
-    """Op names -> StubGalaxy, so process scenarios run without an OpenAPI spec."""
-
-    def __init__(self, galaxy):
-        self.galaxy = galaxy
-        self.calls = []
-
-    def scoped(self, manifest):
-        return self
-
-    async def init(self):
-        return self
-
-    async def call(self, target, input=None):
-        args = dict(input or {})
-        self.calls.append((target, args))
-        if target == "galaxy.datasets.show.display.get":
-            # the graph addresses datasets as history_content_id
-            ds = args.get("history_content_id") or args.get("dataset_id")
-            return {"ok": True, "result": await self.galaxy.get(f"api/datasets/{ds}/display")}
-        if target == "galaxy.histories.show.contents.get":
-            return {"ok": True, "result": await self.galaxy.get(
-                f"api/histories/{args.get('history_id')}/contents")}
-        if target == "galaxy.histories.show.graph.get":
-            return {"ok": True, "result": {"nodes": [], "edges": [], "truncated": {}}}
-        return {"ok": False, "error": {"code": "unknown_api_op", "message": target}}
-
-
-class StubGalaxy:
-    """A Galaxy that answers plausibly and records what was asked."""
-
-    def __init__(self):
-        self.calls = []
-
-    def scoped(self, manifest):
-        """Processes narrow the substrate before running; the stub has one view."""
-        return self
-
-    async def get(self, path, binary=False):
-        self.calls.append(("GET", path))
-        # Real dataset bytes, so the download -> run_python path is exercised end to
-        # end rather than only the tool call being emitted.
-        if path.startswith(f"api/datasets/{VINTENT_DATASET_ID}/display"):
-            return VINTENT_CSV.encode("utf-8") if binary else VINTENT_CSV
-        if path.startswith(f"api/datasets/{VINTENT_DATASET_ID}"):
-            return {"id": VINTENT_DATASET_ID, "name": "health.csv", "extension": "csv",
-                    "state": "ok", "file_size": len(VINTENT_CSV)}
-        if path.startswith(f"api/datasets/{DATASET_ID}/display"):
-            return DATASET_CSV.encode("utf-8") if binary else DATASET_CSV
-        if path.startswith(f"api/datasets/{DATASET_ID}"):
-            return {"id": DATASET_ID, "name": "prices.csv", "extension": "csv",
-                    "state": "ok", "file_size": len(DATASET_CSV)}
-        # The dataset has to be discoverable, not just fetchable: a well-behaved agent
-        # looks it up in the history before downloading it.
-        if "api/histories" in path and "contents" in path:
-            return [{"id": DATASET_ID, "hid": 1, "name": "prices.csv", "extension": "csv",
-                     "history_content_type": "dataset", "state": "ok", "deleted": False,
-                     "visible": True},
-                    {"id": VINTENT_DATASET_ID, "hid": 2, "name": "health.csv", "extension": "csv",
-                     "history_content_type": "dataset", "state": "ok", "deleted": False,
-                     "visible": True}]
-        if "api/histories" in path:
-            return [{"id": "hist1", "name": "Eval history", "state": "ok"}]
-        if path.startswith("api/tools/"):
-            # One real-shaped tool, so an execution scenario can verify before running.
-            return {
-                "id": "addValue", "name": "Add column", "version": "1.0.0",
-                "description": "to an existing dataset",
-                "inputs": [
-                    {"name": "exp", "type": "text", "label": "Add this value", "value": "1"},
-                    {"name": "input", "type": "data", "label": "to Dataset", "extensions": ["tabular"]},
-                    {"name": "iterate", "type": "select", "label": "Iterate?", "value": "no",
-                     "options": [["NO", "no", False], ["YES", "yes", False]]},
-                ],
-                "outputs": [{"name": "out_file1", "format": "input"}],
-            }
-        if "api/tools" in path:
-            # Only answer for the tool the execution scenario names; a stub that returns the
-            # same tool for every query would teach the model the wrong thing.
-            q = path.split("q=")[-1].split("&")[0].lower() if "q=" in path else ""
-            if "addvalue" in q or "add+column" in q or "add%20column" in q:
-                return [{"id": "addValue", "name": "Add column",
-                         "description": "to an existing dataset",
-                         "panel_section_name": "Text Manipulation"}]
-            return []
-        if path.startswith("api/pages/"):
-            return {"id": "page1", "slug": f"olite-{HISTORY_ID}",
-                    "content": "## Record\n\n_No entries yet._\n"}
-        if "api/pages" in path:
-            return [{"id": "page1", "slug": f"olite-{HISTORY_ID}", "title": "olite record"}]
-        # Empty identity reads as "Galaxy unreachable" and the agent abandons the task.
-        if path.startswith("api/whoami"):
-            return {"id": "user1", "username": "eval", "email": "eval@example.org"}
-        if path.startswith("api/version"):
-            return {"version_major": "26.2", "version_minor": "dev0"}
-        if path.startswith("api/configuration"):
-            return {"brand": "Eval Galaxy", "version_major": "26.2", "enable_celery_tasks": True}
-        return {}
-
-    async def post(self, path, body=None):
-        self.calls.append(("POST", path, body))
-        if path.endswith("api/pages"):
-            return {"id": "page1", "slug": (body or {}).get("slug"), "title": (body or {}).get("title")}
-        return {"id": "obj1", "jobs": [{"id": "job1", "state": "new"}]}
-
-    async def put(self, path, body=None):
-        self.calls.append(("PUT", path, body))
-        return {"id": "obj1"}
-
-    async def delete(self, path):
-        self.calls.append(("DELETE", path))
-        return {}
+# The eval substrate is a real Galaxy, deliberately. A stub answers Galaxy questions
+# with our own beliefs about Galaxy, so anything whose correctness is the server
+# contract is invisible to it -- which is how a total failure to save page content
+# survived a suite that nominally covered it. Stubs belong in the unit tests.
 
 
 class RunResult:
@@ -178,7 +50,7 @@ class RunResult:
         )
 
 
-def build_config(model, capabilities=None, substrate=None):
+def build_config(model, capabilities=None):
     """Resolve through the brain's provider registry, so evals and the app agree."""
     # Shared scenarios carry loom's restricted surface; others get the full one.
     capabilities = capabilities or os.environ.get("OLITE_EVAL_CAPABILITIES", "llm,local,read,write")
@@ -196,12 +68,10 @@ def build_config(model, capabilities=None, substrate=None):
     }
     if base:
         config["ai_base_url"] = base.rstrip("/")
-    # GALAXY_URL swaps the stub for a real client, so both suites can face one server.
+    # Both suites face one real server. run.py refuses to start without these.
     galaxy_root = os.environ.get("GALAXY_URL", "").strip()
-    if galaxy_root and (substrate or os.environ.get("OLITE_EVAL_SUBSTRATE", "live")) != "stub":
-        config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
-        config["galaxy_key"] = os.environ.get("GALAXY_API_KEY", "")
-        config["live_galaxy"] = True
+    config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
+    config["galaxy_key"] = os.environ.get("GALAXY_API_KEY", "")
     key = _api_key(model)
     if key:
         config["ai_api_key"] = key
@@ -220,37 +90,26 @@ def _api_key(model):
 
 
 async def _run(scenario, model):
-    config = build_config(model, scenario.get("capabilities"), scenario.get("substrate"))
+    config = build_config(model, scenario.get("capabilities"))
     substrate = Substrate(config)
-    # `galaxy_root` always holds a sentinel, so only the explicit flag can decide.
-    if not config.get("live_galaxy"):
-        # Stub scenarios exercise the loop, not the graph driver.
-        substrate.galaxy = StubGalaxy()
-        substrate.catalog = StubCatalog(substrate.galaxy)
-    else:
-        # A process reaches Galaxy through the catalog, so a live run has to load it
-        # or every process call fails with catalog_unavailable.
-        await substrate.catalog.init()
+    # A process reaches Galaxy through the catalog, so the run has to load it or every
+    # process call fails with catalog_unavailable.
+    await substrate.catalog.init()
 
     # A tool-test scenario runs against a real Galaxy: the harness puts the test's input
     # files in a history, and the agent is told the goal, not the test's parameters.
     staged = None
     if scenario.get("dataset"):
-        if not config.get("live_galaxy"):
-            raise RuntimeError("dataset scenarios need GALAXY_URL; no stub can run a tool")
         staged = stage_dataset(config, scenario["dataset"])
     elif scenario.get("toolTest"):
-        if not config.get("live_galaxy"):
-            raise RuntimeError("toolTest scenarios need GALAXY_URL; no stub can run a tool")
         staged = stage_tool_test(config, scenario["toolTest"])
 
     processes = ProcessRegistry().load_packaged()
     skills = SkillRegistry().load_packaged()
     driver = LoopDriver(substrate, processes, skills)
 
-    # StubGalaxy answers tool calls, so Galaxy is available to the agent here even though
-    # the catalog is not initialised. Passed explicitly: production derives this from the
-    # catalog in runtime.py, and the two assemblies must not drift apart silently.
+    # Passed explicitly: production derives this from the catalog in runtime.py, and the
+    # two assemblies must not drift apart silently.
     context = "\n\n".join(
         t for t in (prompt.system_text(galaxy_ok=True), skills.router_text()) if t
     )
@@ -259,7 +118,9 @@ async def _run(scenario, model):
     )
     # Production binds a history and lists its datasets every turn (runtime.py); without it
     # the agent has to hunt for which history holds a dataset, and sometimes stops to ask.
-    bound_history = staged["history_id"] if staged else HISTORY_ID
+    # Production binds a real history every turn. A scenario that stages no dataset still
+    # needs one, or the agent is bound to nothing and hunts for a history that is not there.
+    bound_history = staged["history_id"] if staged else _empty_history(config, scenario)
     transcripts = _inject_record(
         transcripts, await notebook.excerpt(substrate.galaxy, bound_history)
     )
@@ -354,6 +215,12 @@ def _resume_record(galaxy, history_id):
         "content": "## Record\n\n_No entries yet._\n",
         "content_format": "markdown",
     })
+
+
+def _empty_history(config, scenario):
+    """A fresh, empty history for scenarios that stage no data."""
+    galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
+    return galaxy.new_history(f"olite eval: {scenario.get('id', 'scenario')}")
 
 
 def stage_dataset(config, spec):
