@@ -385,14 +385,26 @@ def _record(spec, run, failures, exercised):
         return
     galaxy = staged["galaxy"]
     pages = galaxy.call("api/pages") or []
-    slug = f"olite-{staged['history_id']}"
+    # Default target is the history's record; `slug` points at a page the agent was
+    # asked to create itself, which is a different write path in Galaxy.
+    slug = spec.get("slug") or f"olite-{staged['history_id']}"
     page = next((p for p in pages if p.get("slug") == slug), None)
     if not page:
-        failures.append(Failure("record.exists", "no record page for the bound history", "record"))
+        failures.append(Failure("record.exists", f"no page with slug {slug!r}", "record"))
         return
     full = galaxy.call(f"api/pages/{page['id']}") or {}
-    # `content` is the embed-expanded render; `content_editor` is the source that was saved.
-    content = full.get("content_editor") or full.get("content") or ""
+    # What the page editor loads, and so what the user sees when they open it. Galaxy
+    # populates `content_editor` only for markdown pages; a page stored as html returns
+    # it empty however much text `content` carries, and opens blank. Reading `content`
+    # here would call that page fine.
+    content = full.get("content_editor") or ""
+    if not content.strip() and (full.get("content") or "").strip():
+        failures.append(Failure(
+            "record.editable",
+            f"page {slug!r} holds content but none of it is editable "
+            f"(content_format={full.get('content_format')!r}); it opens empty",
+            "record"))
+        return
     for needle in spec.get("mustMention") or []:
         if needle.lower() not in content.lower():
             failures.append(Failure("record.mustMention",
