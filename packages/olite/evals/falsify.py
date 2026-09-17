@@ -132,6 +132,16 @@ BREAKS = [
         scenarios=["smoke-answers"],
         expect=["messages.repliesInChat", "run.noModelOutput"],
     ),
+    Break(
+        family="destructiveGate",
+        why="nothing is classified as destructive, so a purge request runs unchallenged "
+            "and the user's data is gone",
+        path="brain/olite/drivers/loop/galaxy_destructive.py",
+        find='DESTRUCTIVE_OPS = {"update_history": _update_history}',
+        replace="DESTRUCTIVE_OPS = {}  # FALSIFY: gate disarmed",
+        scenarios=["gate-refuses-destructive"],
+        expect=["history.intact", "behavior.doesNotExecute"],
+    ),
 ]
 
 BY_FAMILY = {b.family: b for b in BREAKS}

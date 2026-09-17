@@ -146,6 +146,8 @@ class LoopDriver:
                 call_id = call.get("id")
 
                 refusal = None
+                # A gate inside dispatch refuses without setting `refusal` above.
+                gated = False
                 args = {}
                 if cancellation.aborted:
                     # Every remaining call still needs a result, or the next request
@@ -168,6 +170,7 @@ class LoopDriver:
                     outcome = await self.tools.dispatch(name, args)
                     logs.append(f"  -> {brief(outcome.content)}")
                     content, is_error = outcome.text, outcome.is_error
+                    gated = gated or outcome.refused
                 tool_message = {
                     "role": "tool",
                     "tool_call_id": call_id,
@@ -180,7 +183,7 @@ class LoopDriver:
                 _emit(
                     on_event,
                     {"type": "tool_end", "id": call_id, "name": name, "content": content,
-                     "is_error": is_error, "refused": refusal is not None},
+                     "is_error": is_error, "refused": refusal is not None or gated},
                 )
 
                 # Only an executed `finish` counts; a refused one was never dispatched.

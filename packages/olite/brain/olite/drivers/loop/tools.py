@@ -164,6 +164,9 @@ class ToolOutcome:
 
     content: object
     is_error: bool = False
+    # A gate declined to run this; distinct from a tool that ran and failed, because a
+    # held gate is the system working and must not read as a side effect.
+    refused: bool = False
 
     @property
     def text(self):
@@ -226,7 +229,7 @@ class ToolSurface:
         if destructive is not None:
             refusal = await self._gate_destructive(name, destructive)
             if refusal is not None:
-                return ToolOutcome(refusal, is_error=True)
+                return ToolOutcome(refusal, is_error=True, refused=True)
 
         if name == "run_python":
             return self.substrate.local.run(args.get("code", ""))
