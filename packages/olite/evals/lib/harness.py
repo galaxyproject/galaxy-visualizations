@@ -178,7 +178,7 @@ class RunResult:
         )
 
 
-def build_config(model, capabilities=None):
+def build_config(model, capabilities=None, substrate=None):
     """Resolve through the brain's provider registry, so evals and the app agree."""
     # Shared scenarios carry loom's restricted surface; others get the full one.
     capabilities = capabilities or os.environ.get("OLITE_EVAL_CAPABILITIES", "llm,local,read,write")
@@ -198,7 +198,7 @@ def build_config(model, capabilities=None):
         config["ai_base_url"] = base.rstrip("/")
     # GALAXY_URL swaps the stub for a real client, so both suites can face one server.
     galaxy_root = os.environ.get("GALAXY_URL", "").strip()
-    if galaxy_root:
+    if galaxy_root and (substrate or os.environ.get("OLITE_EVAL_SUBSTRATE", "live")) != "stub":
         config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
         config["galaxy_key"] = os.environ.get("GALAXY_API_KEY", "")
         config["live_galaxy"] = True
@@ -220,7 +220,7 @@ def _api_key(model):
 
 
 async def _run(scenario, model):
-    config = build_config(model, scenario.get("capabilities"))
+    config = build_config(model, scenario.get("capabilities"), scenario.get("substrate"))
     substrate = Substrate(config)
     # `galaxy_root` always holds a sentinel, so only the explicit flag can decide.
     if not config.get("live_galaxy"):

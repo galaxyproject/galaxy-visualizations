@@ -2,7 +2,6 @@
   "name": "record: what the agent says it saved is actually on the page",
   "description": "Tier 2, live Galaxy. The agent reporting that it saved the session is not evidence the page holds anything: a page stored in the wrong content format, or a read-modify-write against the expanded render rather than the source, leaves a page that exists and is empty. Cheap enough to run routinely, unlike the tier-3 session scenario that nominally covered this.",
   "tier": 2,
-  "substrate": "live",
   "dataset": {
     "file": "health.tabular",
     "history": "record content check"

@@ -52,6 +52,8 @@ def main():
                     help="override the run count; scenarios shared with loom carry their own")
     ap.add_argument("--loom", default=os.environ.get("LOOM_SCENARIOS", os.path.expanduser("~/loom/evals/scenarios")),
                     help="loom's scenario directory, the source of truth for shared scenarios")
+    ap.add_argument("--substrate", choices=("live", "stub", "auto"), default="auto",
+                    help="live needs GALAXY_URL; auto picks live when it is set")
     ap.add_argument("--only-local", action="store_true", help="skip the scenarios shared with loom")
     args = ap.parse_args()
 
@@ -68,13 +70,26 @@ def main():
                 print(f"  skip {name}: {why}")
         scenarios = shared + scenarios
 
-    # A live scenario needs a Galaxy. Without one it cannot run, and a scenario that
-    # cannot run must not report a verdict.
-    if not os.environ.get("GALAXY_URL", "").strip():
-        live = [s for s in scenarios if s.get("substrate") == "live"]
-        for s in live:
-            print(f"  skip {s['id']}: needs GALAXY_URL; substrate is live")
-        scenarios = [s for s in scenarios if s.get("substrate") != "live"]
+    # A scenario's `substrate` is a requirement, not a preference: absent means it runs
+    # under either, "live" means it needs a real server, "stub" means it is pinned to the
+    # fake. loom's scenarios carry no such field and so run under whichever is selected.
+    have_galaxy = bool(os.environ.get("GALAXY_URL", "").strip())
+    substrate = args.substrate
+    if substrate == "auto":
+        substrate = "live" if have_galaxy else "stub"
+    if substrate == "live" and not have_galaxy:
+        print("  --substrate live needs GALAXY_URL and GALAXY_API_KEY")
+        return 2
+    if substrate == "stub":
+        print("  substrate: stub -- the loop is exercised against fixtures. A stub cannot "
+              "validate what Galaxy stores or returns, so it cannot validate a Galaxy release.")
+    else:
+        print(f"  substrate: live -- {os.environ.get('GALAXY_URL', '').strip()}")
+    for s in [s for s in scenarios if s.get("substrate") and s.get("substrate") != substrate]:
+        print(f"  skip {s['id']}: requires substrate {s['substrate']!r}"
+              + (f" ({s['substrateReason']})" if s.get("substrateReason") else ""))
+    scenarios = [s for s in scenarios if not s.get("substrate") or s.get("substrate") == substrate]
+    os.environ["OLITE_EVAL_SUBSTRATE"] = substrate
 
     models, skipped = available_models(matrix, args.model)
 

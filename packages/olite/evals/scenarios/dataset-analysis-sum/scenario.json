@@ -1,6 +1,6 @@
 {
   "name": "data: download a dataset and compute over it in run_python",
-  "description": "Tier 2. The data path the plan scenarios never touch: fetch real dataset bytes to the browser filesystem, then compute over the file with run_python. The fixture is 61 lines against a 50-line preview cap, so summing the preview instead of reading the file yields 58800 rather than 96000 — a wrong answer that is visibly wrong. This is the regime where inline dataset content used to break tool-call JSON on tabs and newlines.",
+  "description": "Tier 2. The data path the plan scenarios never touch: fetch real dataset bytes to the browser filesystem, then compute over the file with run_python. The fixture is 61 lines against a 50-line preview cap, so summing the preview instead of reading the file yields 58800 rather than 96000 \u2014 a wrong answer that is visibly wrong. This is the regime where inline dataset content used to break tool-call JSON on tabs and newlines.",
   "tier": 2,
   "inputs": [
     "Download dataset ds_prices_1 and tell me the sum of all values in the Price column. Compute it, do not estimate."
@@ -33,5 +33,7 @@
         "96000"
       ]
     }
-  }
+  },
+  "substrate": "stub",
+  "substrateReason": "asserts stub id ds_prices_1; convert by staging the dataset like the live scenarios do"
 }
