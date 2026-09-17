@@ -5,6 +5,7 @@ import logging
 
 from olite import compaction
 from olite.substrate import Cancellation
+from olite.substrate.llm.json_parse import loads_with_repair
 
 from .brief import brief
 
@@ -21,8 +22,13 @@ TRUNCATED_ERROR = (
     'Tool call "{name}" was not executed: the response hit the output token limit, so '
     "its arguments may be truncated. Re-issue the tool call with complete arguments."
 )
-# Reported back rather than replaced with `{}`, which would run the wrong request.
-MALFORMED_ARGS_ERROR = 'Tool call "{name}" was not executed: its arguments are not valid JSON ({detail}).'
+# Reported back rather than replaced with `{}`, which would run the wrong request. The
+# advice matters: the usual cause is a large value pasted into a string argument.
+MALFORMED_ARGS_ERROR = (
+    'Tool call "{name}" was not executed: its arguments are not valid JSON ({detail}). '
+    "Re-issue it as one JSON object. Do not paste tool results or file contents into an "
+    "argument: read them from the value the earlier tool already returned."
+)
 # pi's wording for a call dropped because the run was aborted.
 ABORTED_ERROR = "Operation aborted"
 # Tool results are NOT truncated, matching Orbit.
@@ -155,7 +161,7 @@ class LoopDriver:
                     refusal = TRUNCATED_ERROR.format(name=name)
                 else:
                     try:
-                        args = json.loads(fn.get("arguments") or "{}")
+                        args = loads_with_repair(fn.get("arguments") or "{}")
                     except json.JSONDecodeError as e:
                         refusal = MALFORMED_ARGS_ERROR.format(name=name, detail=e)
 
