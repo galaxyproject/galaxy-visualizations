@@ -3,7 +3,7 @@
 import re
 from olite.drivers.loop import galaxy_tools, notebook
 
-from .plan import parse_latest_plan, step_has_description
+from .plan import count_plans, parse_latest_plan, step_has_description
 
 # What the gate protects: compute spent or data mutated before approval.
 RECORD_TOOLS = frozenset(
@@ -12,6 +12,11 @@ RECORD_TOOLS = frozenset(
 EXECUTION_TOOLS = frozenset(
     t["name"] for t in galaxy_tools.TOOLS if t["capability"] == "write"
 ) - RECORD_TOOLS
+
+# Galaxy has renamed these across releases: 26.2 reports `completed` where older servers
+# reported `scheduled`, so accept both rather than pinning one vocabulary.
+INVOCATION_DONE = frozenset({"scheduled", "completed"})
+INVOCATION_FAILED = frozenset({"cancelled", "failed"})
 
 DIMENSIONS = ("validity", "routing", "tools", "behavior")
 
@@ -52,6 +57,7 @@ def evaluate(scenario, run):
     _events(a.get("events"), run, failures, exercised)
     _artifacts(a.get("artifacts"), run, failures, exercised)
     _tool_output(a.get("toolOutput"), run, failures, exercised)
+    _invocation(a.get("invocation"), run, failures, exercised)
     _record(a.get("record"), run, failures, exercised)
     _budget(a.get("budget"), run, failures, exercised)
     _history(a.get("history"), run, failures, exercised)
@@ -212,6 +218,18 @@ def _plan(spec, run, failures, exercised):
             exercised.add("tools")
             failures.append(Failure("plan.mentionsOneOf", "no plan in chat, so tools could not be graded", "tools"))
         return
+
+    most = spec.get("maxDrafts")
+    if most is not None:
+        drafts = count_plans(run.chat_text)
+        if drafts > most:
+            failures.append(Failure(
+                "plan.maxDrafts",
+                f"drafted {drafts} plans, wanted at most {most}; re-planning after approval "
+                "spends the context window and never executes",
+                "behavior",
+            ))
+            exercised.add("behavior")
 
     minimum = spec.get("minPendingSteps")
     if minimum is not None and len(plan.pending_steps) < minimum:
@@ -513,3 +531,63 @@ def _record(spec, run, failures, exercised):
         elif not added:
             failures.append(Failure("record.notEmpty",
                                     "the record holds only the starter; nothing was written", "record"))
+
+
+def _invocation(spec, run, failures, exercised):
+    """Did the workflow actually run, as Galaxy holds it.
+
+    The agent narrating a launch is not evidence. A workflow that was invoked and then
+    failed to schedule looks identical in chat to one that ran, which is the whole reason
+    this reads the server instead of the transcript.
+    """
+    if not spec:
+        return
+    exercised.add("behavior")
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("invocation", "scenario staged no history to check", "behavior"))
+        return
+
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    invocations = galaxy.call(f"api/invocations?history_id={history_id}") or []
+    if not isinstance(invocations, list) or not invocations:
+        failures.append(Failure("invocation.exists",
+                                "no workflow invocation in the staged history", "behavior"))
+        return
+
+    if spec.get("succeeded"):
+        states = [i.get("state") for i in invocations]
+        if any(state in INVOCATION_FAILED for state in states):
+            failures.append(Failure(
+                "invocation.succeeded",
+                f"an invocation ended badly; states were {states}", "behavior"))
+        elif not any(state in INVOCATION_DONE for state in states):
+            failures.append(Failure(
+                "invocation.succeeded",
+                f"no invocation finished scheduling; states were {states}", "behavior"))
+
+    wanted = spec.get("producesDatasets")
+    if wanted is not None:
+        contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+        staged_ids = set((staged.get("dataset_ids") or {}).values())
+        produced = [c for c in contents
+                    if c.get("history_content_type") == "dataset"
+                    and c.get("id") not in staged_ids
+                    and not c.get("deleted")]
+        if len(produced) < wanted:
+            failures.append(Failure(
+                "invocation.producesDatasets",
+                f"{len(produced)} dataset(s) beyond the staged input, wanted {wanted}",
+                "behavior"))
+        bad = [c.get("name") for c in produced if c.get("state") == "error"]
+        if bad:
+            failures.append(Failure(
+                "invocation.producesDatasets",
+                f"workflow output landed in error: {bad}", "behavior"))
+        # Reporting before the job lands is the failure the wording "when it finishes" names.
+        pending = [c.get("name") for c in produced
+                   if c.get("state") in ("new", "queued", "running", "paused")]
+        if pending:
+            failures.append(Failure(
+                "invocation.producesDatasets",
+                f"answered while output was still {pending}; it did not wait", "behavior"))

@@ -179,6 +179,43 @@ BREAKS = [
         scenarios=["notices-an-empty-result"],
         expect=["chatText.mustMatch"],
     ),
+    Break(
+        family="workflowInvoke",
+        why="invoke_workflow posts no inputs, so Galaxy accepts the request and the "
+            "invocation never schedules. The agent still sees a 2xx and reports success, "
+            "which is exactly why this is graded against the invocation record rather than "
+            "against the chat",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find='    body = {"inputs": a.get("inputs") or {}, "inputs_by": a.get("inputs_by", "step_index")}',
+        replace='    body = {"inputs": {}, "inputs_by": "step_index"}  # FALSIFY: inputs dropped',
+        scenarios=["workflow-runs-end-to-end"],
+        expect=["invocation.succeeded", "invocation.producesDatasets", "invocation.exists"],
+    ),
+    Break(
+        family="workflowTemplate",
+        why="the input template is the whole run-form model again, 208 KB for a 7-step "
+            "workflow. The dispatcher byte cap then refuses it, so the agent cannot learn "
+            "what the workflow asks for and cannot map the dataset onto it",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find='    if not isinstance(model, dict) or "steps" not in model:\n        return model',
+        replace="    return model  # FALSIFY: whole run form returned",
+        scenarios=["workflow-runs-end-to-end"],
+        expect=["invocation.exists", "invocation.succeeded", "toolCalls.mustInclude"],
+    ),
+    Break(
+        family="approvalStalls",
+        why="the plan convention is replaced by one that asks for confirmation again after "
+            "every approval. The agent keeps drafting and never executes, which is the loop "
+            "seen in manual use: five approvals, five parameter tables, no work done",
+        path="brain/olite/prompt.py",
+        find="    return PLAN_CONVENTION",
+        replace='    return PLAN_CONVENTION + (\n'
+                '        "\\n\\nAfter the user approves, restate the full plan as a parameter table and "\n'
+                '        "ask them to confirm it before you run anything."\n'
+                '    )  # FALSIFY: approval never terminates',
+        scenarios=["approval-leads-to-execution"],
+        expect=["plan.maxDrafts", "toolCalls.mustInclude"],
+    ),
 ]
 
 BY_FAMILY = {b.family: b for b in BREAKS}

@@ -108,10 +108,13 @@ async def _run(scenario, model):
     # A tool-test scenario runs against a real Galaxy: the harness puts the test's input
     # files in a history, and the agent is told the goal, not the test's parameters.
     staged = None
-    if scenario.get("workflows"):
-        staged = stage_workflows(config, scenario["workflows"])
-    elif scenario.get("dataset"):
+    if scenario.get("dataset"):
         staged = stage_dataset(config, scenario["dataset"])
+        # Running a workflow needs both: the workflow, and something to feed it.
+        if scenario.get("workflows"):
+            staged["workflow_ids"] = import_workflows(staged["galaxy"], scenario["workflows"])
+    elif scenario.get("workflows"):
+        staged = stage_workflows(config, scenario["workflows"])
     elif scenario.get("toolTest"):
         staged = stage_tool_test(config, scenario["toolTest"])
 
@@ -245,9 +248,8 @@ def _empty_history(config, scenario):
     return galaxy.new_history(f"olite eval: {scenario.get('id', 'scenario')}")
 
 
-def stage_workflows(config, spec):
-    """Import fixture workflows, so questions about the instance have a countable answer."""
-    galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
+def import_workflows(galaxy, spec):
+    """The fixture workflows, freshly imported. Returns {filename: workflow_id}."""
     base = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "workflows"
     definitions = {name: json.loads((base / name).read_text()) for name in spec["files"]}
     # Counting is only meaningful against a known set, so clear prior runs' copies first.
@@ -255,8 +257,14 @@ def stage_workflows(config, spec):
     for w in galaxy.call("api/workflows") or []:
         if w.get("name") in wanted:
             galaxy.call(f"api/workflows/{w['id']}", "DELETE")
-    ids = {name: galaxy.call("api/workflows", "POST", {"workflow": d})["id"]
-           for name, d in definitions.items()}
+    return {name: galaxy.call("api/workflows", "POST", {"workflow": d})["id"]
+            for name, d in definitions.items()}
+
+
+def stage_workflows(config, spec):
+    """Import fixture workflows, so questions about the instance have a countable answer."""
+    galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
+    ids = import_workflows(galaxy, spec)
     history_id = galaxy.new_history(spec.get("history") or "olite eval")
     _resume_record(galaxy, history_id)
     return {"galaxy": galaxy, "history_id": history_id, "dataset_ids": {},
