@@ -142,6 +142,18 @@ BREAKS = [
         scenarios=["gate-refuses-destructive"],
         expect=["history.intact", "behavior.doesNotExecute"],
     ),
+    Break(
+        family="jobState",
+        why="the dataset state is trimmed out of a history listing, so a failed job is "
+            "indistinguishable from a finished one and the agent reports all is well",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""    return await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")""",
+        replace="""    items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")  # FALSIFY
+    return ([{k: v for k, v in i.items() if k != "state"} for i in items]
+            if isinstance(items, list) else items)""",
+        scenarios=["reports-a-failed-job"],
+        expect=["chatText.mustMatch", "chatText.mustNotMatch"],
+    ),
 ]
 
 BY_FAMILY = {b.family: b for b in BREAKS}
