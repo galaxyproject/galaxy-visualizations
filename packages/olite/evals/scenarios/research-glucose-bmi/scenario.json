@@ -36,6 +36,10 @@
         "Glucose",
         "BMI"
       ]
+    },
+    "budget": {
+      "maxSteps": 20,
+      "maxRepeatedCall": 3
     }
   }
 }

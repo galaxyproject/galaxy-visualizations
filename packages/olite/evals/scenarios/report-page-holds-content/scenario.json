@@ -33,6 +33,10 @@
         "SESSION-SUMMARY",
         "## Findings"
       ]
+    },
+    "budget": {
+      "maxSteps": 15,
+      "maxRepeatedCall": 3
     }
   }
 }

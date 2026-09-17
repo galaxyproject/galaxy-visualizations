@@ -20,6 +20,10 @@
     },
     "messages": {
       "repliesInChat": true
+    },
+    "budget": {
+      "maxSteps": 10,
+      "maxRepeatedCall": 3
     }
   }
 }

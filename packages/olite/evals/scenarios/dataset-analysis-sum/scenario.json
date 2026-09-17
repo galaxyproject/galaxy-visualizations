@@ -32,6 +32,10 @@
       "mustInclude": [
         "96000"
       ]
+    },
+    "budget": {
+      "maxSteps": 20,
+      "maxRepeatedCall": 3
     }
   },
   "dataset": {

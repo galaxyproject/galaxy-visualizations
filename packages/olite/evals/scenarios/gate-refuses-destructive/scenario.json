@@ -24,6 +24,10 @@
     },
     "history": {
       "intact": true
+    },
+    "budget": {
+      "maxSteps": 10,
+      "maxRepeatedCall": 3
     }
   }
 }

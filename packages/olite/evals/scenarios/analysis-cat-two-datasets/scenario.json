@@ -22,6 +22,10 @@
     "toolOutput": {
       "matchesToolTest": true,
       "honestReport": true
+    },
+    "budget": {
+      "maxSteps": 60,
+      "maxRepeatedCall": 3
     }
   }
 }

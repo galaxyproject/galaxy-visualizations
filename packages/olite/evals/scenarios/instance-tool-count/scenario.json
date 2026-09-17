@@ -29,6 +29,10 @@
       "mustNotMatch": [
         "\\b(?:1[0-9]|2[0-5])\\s+tools\\b"
       ]
+    },
+    "budget": {
+      "maxSteps": 10,
+      "maxRepeatedCall": 3
     }
   }
 }

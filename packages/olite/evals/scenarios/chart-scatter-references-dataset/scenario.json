@@ -38,6 +38,10 @@
           "mark": "point"
         }
       ]
+    },
+    "budget": {
+      "maxSteps": 25,
+      "maxRepeatedCall": 3
     }
   },
   "dataset": {

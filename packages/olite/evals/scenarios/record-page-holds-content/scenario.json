@@ -25,6 +25,10 @@
       "mustMention": [
         "SESSION-SUMMARY"
       ]
+    },
+    "budget": {
+      "maxSteps": 15,
+      "maxRepeatedCall": 3
     }
   }
 }
