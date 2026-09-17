@@ -109,12 +109,21 @@ def main():
                   verdict = "quota" if is_quota(run) else "ERROR"
                   note = run.error.replace("\n", " ")
               else:
-                  failures, exercised = evaluate(scenario, run)
-                  verdict = "pass" if not failures else "FAIL"
-                  note = "" if not failures else failures[0].detail
+                  try:
+                      failures, exercised = evaluate(scenario, run)
+                      verdict = "pass" if not failures else "FAIL"
+                      note = "" if not failures else failures[0].detail
+                  except Exception as exc:
+                      # A scenario that cannot be graded -- a missing fixture, an
+                      # unreachable service -- is one ERROR row, not a lost matrix.
+                      failures, exercised = [], set()
+                      verdict = "ERROR"
+                      note = f"could not grade: {type(exc).__name__}: {exc}"
+                      run.error = run.error or note
               # Flushed per result: a full matrix runs for many minutes, and Python
               tag = f" #{run_index + 1}" if runs > 1 else ""
-              print(f"  [{verdict:5s}] {model['id']:24s} {scenario['id']:34s}{tag} {note[:60]}", flush=True)
+              budget = f" {run.steps}/{run.max_steps} steps" if run.max_steps else ""
+              print(f"  [{verdict:5s}] {model['id']:24s} {scenario['id']:34s}{tag}{budget} {note[:52]}", flush=True)
               for f in failures[1:]:
                   print(f"          {f}")
               results.append(
@@ -128,6 +137,8 @@ def main():
                       "failures": [
                           {"assertion": f.assertion, "detail": f.detail, "dimension": f.dimension} for f in failures
                       ],
+                      "steps": run.steps,
+                      "maxSteps": run.max_steps,
                       "toolsCalled": run.tools_called,
                       # A pass is the artifact worth keeping, not just the verdict.
                       "chatText": run.chat_text if run.messages else "",

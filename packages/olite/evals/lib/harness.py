@@ -23,12 +23,14 @@ from olite.substrate.llm import REGISTRY
 
 class RunResult:
     def __init__(self, messages, logs, tools_called, error=None, status_code=None, events=None,
-                 artifacts=None, exhausted=False, staged=None):
+                 artifacts=None, exhausted=False, staged=None, steps=0, max_steps=0):
         self.messages = messages
         # Charts and diagrams routed to the shell, never into the model's context.
         self.artifacts = artifacts or []
         # The turn hit MAX_STEPS. The shell says so; grading must not read it as silence.
         self.exhausted = exhausted
+        self.steps = steps
+        self.max_steps = max_steps
         # A tool-test scenario's staged history and the expectation it is graded against.
         self.staged = staged
         self.logs = logs
@@ -68,6 +70,11 @@ def build_config(model, capabilities=None):
     }
     if base:
         config["ai_base_url"] = base.rstrip("/")
+    # A measured run can raise olite's browser-tab backstop to find what a task really
+    # costs. pi and loom cap nothing, so a raised cap is also closer to Orbit.
+    max_steps = os.environ.get("OLITE_EVAL_MAX_STEPS", "").strip()
+    if max_steps:
+        config["max_steps"] = int(max_steps)
     # Both suites face one real server. run.py refuses to start without these.
     galaxy_root = os.environ.get("GALAXY_URL", "").strip()
     config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
@@ -131,6 +138,9 @@ async def _run(scenario, model):
     events = []
     artifacts = []
     exhausted = False
+    # The most any single turn needed, which is what the cap actually constrains.
+    steps = 0
+    cap = 0
     for turn in scenario["inputs"]:
         messages = [*messages, {"role": "user", "content": turn}]
         events.append("turn_start")
@@ -139,10 +149,12 @@ async def _run(scenario, model):
         logs.extend(result.get("logs") or [])
         artifacts.extend(result.get("artifacts") or [])
         exhausted = exhausted or bool(result.get("exhausted"))
+        steps = max(steps, int(result.get("steps") or 0))
+        cap = int(result.get("max_steps") or 0) or cap
         # Only after run() returns: a turn that dies mid-flight must not look complete.
         events.append("turn_end")
     return RunResult(messages, logs, tools_called, events=events, artifacts=artifacts,
-                     exhausted=exhausted, staged=staged)
+                     exhausted=exhausted, staged=staged, steps=steps, max_steps=cap)
 
 
 def _note(event, sink, events=None):

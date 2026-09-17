@@ -37,6 +37,10 @@ class LoopDriver:
         )
         # A tool result carries whatever a command printed, including a key it read.
         self.secrets = collect_secret_values(getattr(substrate, "config", None))
+        # The backstop is olite's, not Orbit's. Configurable so a measured run can raise it
+        # and report what a task actually costs instead of reporting the cap.
+        config = getattr(substrate, "config", None) or {}
+        self.max_steps = int(config.get("max_steps") or MAX_STEPS)
 
     async def run(self, transcripts, on_event=None, cancellation=None):
         messages = [dict(m) for m in transcripts]
@@ -52,7 +56,9 @@ class LoopDriver:
         measured = None
         cancellation = cancellation or Cancellation()
 
-        for _ in range(MAX_STEPS):
+        steps = 0
+        for _ in range(self.max_steps):
+            steps += 1
             if cancellation.aborted:
                 aborted, exhausted = True, False
                 break
@@ -198,6 +204,8 @@ class LoopDriver:
             "exhausted": exhausted,
             "artifacts": self.tools.artifacts,
             "usage": usage,
+            "steps": steps,
+            "max_steps": self.max_steps,
         }
 
 
