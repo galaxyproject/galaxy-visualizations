@@ -5,13 +5,14 @@
   "dataset": {
     "file": "health.csv",
     "history": "failed job $run",
-    "thenFails": {
+    "thenRuns": {
       "tool_id": "Filter1",
       "inputs": {
         "input": "$dataset",
         "cond": "c99>0",
         "header_lines": "1"
-      }
+      },
+      "expectState": "error"
     }
   },
   "inputs": [

@@ -255,19 +255,19 @@ def stage_dataset(config, spec):
     _resume_record(galaxy, history_id)
     staged = {"galaxy": galaxy, "history_id": history_id,
               "dataset_ids": {spec["file"]: dataset_id}, "test": None, "tool_id": None}
-    if spec.get("thenFails"):
-        staged["failed_dataset_id"] = _stage_failure(galaxy, history_id, dataset_id,
-                                                     spec["thenFails"])
+    if spec.get("thenRuns"):
+        staged["produced_dataset_id"] = _stage_run(galaxy, history_id, dataset_id,
+                                                   spec["thenRuns"])
     return staged
 
 
-def _stage_failure(galaxy, history_id, dataset_id, spec):
-    """Leave a failed job in the history, as a researcher would find after a bad run.
+def _stage_run(galaxy, history_id, dataset_id, spec):
+    """Leave a prior job in the history, as a researcher would find after a session.
 
     Staged rather than requested: asked to do something visibly impossible the agent
-    refuses before running, and then nothing exercises how it reports a failure that has
-    already happened. The job must actually fail, so a tool that quietly succeeds here is
-    an error in the scenario rather than a pass.
+    refuses before running, and then nothing exercises how it handles a result that
+    already exists. `expectState` is asserted, so a scenario cannot silently test a
+    failure that never failed or an empty result that came back full.
     """
     inputs = dict(spec.get("inputs") or {})
     for key, value in list(inputs.items()):
@@ -278,10 +278,11 @@ def _stage_failure(galaxy, history_id, dataset_id, spec):
     outputs = submitted.get("outputs") or []
     if not outputs:
         raise tooltests.ToolTestError(f"{spec['tool_id']} produced no output to fail")
-    failed_id = outputs[0]["id"]
-    state = galaxy.await_dataset(failed_id).get("state")
-    if state != "error":
+    produced_id = outputs[0]["id"]
+    wanted = spec.get("expectState", "error")
+    state = galaxy.await_dataset(produced_id).get("state")
+    if state != wanted:
         raise tooltests.ToolTestError(
-            f"{spec['tool_id']} was expected to fail but landed in state {state!r}; "
-            "the scenario cannot test failure reporting without a failure")
-    return failed_id
+            f"{spec['tool_id']} was expected to land in state {wanted!r} but landed in "
+            f"{state!r}; the scenario would not be testing what it claims")
+    return produced_id
