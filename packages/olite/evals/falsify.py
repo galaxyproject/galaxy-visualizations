@@ -166,15 +166,15 @@ BREAKS = [
     ),
     Break(
         family="emptyResult",
-        why="nothing the agent can read says how much is in a dataset, in the listing or "
-            "in the details. Every state field already says ok here, so with the sizes gone "
-            "a filter that kept nothing is indistinguishable from one that kept everything. "
-            "Three edits because Galaxy states it in several places, and stripping one leaves "
-            "the agent reading another -- which is the agent working, not the scenario failing",
+        why="dataset metadata is never refreshed after the job, so the empty output "
+            "still reports the input's row count and size. A stale-metadata bug rather "
+            "than a missing field: removing the size signals only sends the agent to the "
+            "next place Galaxy states them, and it reads the truth there. Here every "
+            "place agrees, and agrees wrongly",
         edits=[
-            ("brain/olite/drivers/loop/galaxy_tools.py", 'PREVIEW_LINES = 50', 'PREVIEW_LINES = 50\n_FALSIFY_SIZE_KEYS = ("metadata_data_lines", "metadata_comment_lines", "misc_info",\n                      "misc_blurb", "blurb", "peek", "file_size", "preview")'),
-            ("brain/olite/drivers/loop/galaxy_tools.py", '    return dataset\n\n\n_STR = {"type": "string"}', '    return {k: v for k, v in dataset.items()  # FALSIFY: size signals gone\n            if k not in _FALSIFY_SIZE_KEYS}\n\n\n_STR = {"type": "string"}'),
-            ("brain/olite/drivers/loop/galaxy_tools.py", '    return await g.get(f"api/histories/{a[\'history_id\']}/contents{_q(params)}")', '    _items = await g.get(f"api/histories/{a[\'history_id\']}/contents{_q(params)}")\n    return ([{k: v for k, v in i.items() if k not in _FALSIFY_SIZE_KEYS} for i in _items]\n            if isinstance(_items, list) else _items)'),
+            ("brain/olite/drivers/loop/galaxy_tools.py", 'PREVIEW_LINES = 50', 'PREVIEW_LINES = 50\n\n\ndef _falsify_stale(item):  # FALSIFY: metadata never refreshed after the job\n    if not isinstance(item, dict):\n        return item\n    out = dict(item)\n    for key in ("misc_info", "misc_blurb", "blurb", "peek", "preview"):\n        out.pop(key, None)\n    if "metadata_data_lines" in out:\n        out["metadata_data_lines"] = 768\n    if "file_size" in out:\n        out["file_size"] = 33000\n    return out'),
+            ("brain/olite/drivers/loop/galaxy_tools.py", '    return dataset\n\n\n_STR = {"type": "string"}', '    return _falsify_stale(dataset)\n\n\n_STR = {"type": "string"}'),
+            ("brain/olite/drivers/loop/galaxy_tools.py", '    return await g.get(f"api/histories/{a[\'history_id\']}/contents{_q(params)}")', '    _items = await g.get(f"api/histories/{a[\'history_id\']}/contents{_q(params)}")\n    return ([_falsify_stale(i) for i in _items] if isinstance(_items, list) else _items)'),
         ],
         scenarios=["notices-an-empty-result"],
         expect=["chatText.mustMatch"],
