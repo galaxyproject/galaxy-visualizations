@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 import os
 import pathlib
 
@@ -150,6 +151,12 @@ async def _run(scenario, model):
         cap = int(result.get("max_steps") or 0) or cap
         # Only after run() returns: a turn that dies mid-flight must not look complete.
         events.append("turn_end")
+        # The shell runs a watcher outside the loop (src/invocations.ts) that advances
+        # submitted work between turns, so production never meets the next user message
+        # with its jobs still queued. Without this the harness promises a watcher the
+        # prompt describes and does not provide.
+        if staged:
+            _settle_pending(staged, events)
     return RunResult(graded if restart_after else messages,
                      logs, tools_called, events=events, artifacts=artifacts,
                      exhausted=exhausted, staged=staged, steps=steps, max_steps=cap,
@@ -316,3 +323,25 @@ def _stage_run(galaxy, history_id, dataset_id, spec):
             f"{spec['tool_id']} was expected to land in state {wanted!r} but landed in "
             f"{state!r}; the scenario would not be testing what it claims")
     return produced_id
+
+
+# Job states Galaxy will not leave, matching src/invocations.ts.
+RUNNING_STATES = ("new", "queued", "running", "paused", "upload", "setting_metadata")
+
+
+def _settle_pending(staged, events, timeout=180, interval=3):
+    """Advance submitted work to a terminal state, as the shell's watcher does."""
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    deadline = time.time() + timeout
+    settled_any = False
+    while time.time() < deadline:
+        contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+        pending = [c for c in contents
+                   if isinstance(c, dict) and not c.get("deleted")
+                   and c.get("state") in RUNNING_STATES]
+        if not pending:
+            break
+        settled_any = True
+        time.sleep(interval)
+    if settled_any:
+        events.append("work_settled")
