@@ -26,6 +26,9 @@
     "budget": {
       "maxSteps": 60,
       "maxRepeatedCall": 3
+    },
+    "history": {
+      "lineageIntact": true
     }
   }
 }

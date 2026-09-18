@@ -321,6 +321,53 @@ def _answers_from_galaxy(run, failures):
     failures.append(Failure("behavior.answersFromGalaxy", detail, "behavior"))
 
 
+def _lineage_intact(run, failures):
+    """Every job this run submitted must consume data from the history it is bound to.
+
+    Read from Galaxy's job records, never the transcript. An identifier can be valid, resolve
+    cleanly and still name a dataset from someone else's analysis, which `record.idsResolve`
+    cannot see. Jobs whose own history is elsewhere are skipped: that is how a copied or
+    imported dataset legitimately enters, and it was not submitted by this run.
+    """
+    staged = getattr(run, "staged", None)
+    if not staged:
+        return
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+    queue = [c["id"] for c in contents
+             if isinstance(c, dict) and c.get("history_content_type") == "dataset"
+             and not c.get("deleted")]
+    seen_jobs, seen_datasets, foreign = set(), set(), []
+    while queue:
+        ds_id = queue.pop()
+        if ds_id in seen_datasets:
+            continue
+        seen_datasets.add(ds_id)
+        detail = galaxy.call(f"api/datasets/{ds_id}") or {}
+        job_id = detail.get("creating_job")
+        if not job_id or job_id in seen_jobs:
+            continue
+        seen_jobs.add(job_id)
+        job = galaxy.call(f"api/jobs/{job_id}?full=true") or {}
+        if job.get("history_id") != history_id:
+            continue
+        for value in (job.get("inputs") or {}).values():
+            if not isinstance(value, dict) or value.get("src") != "hda":
+                continue
+            parent = value.get("id")
+            where = (galaxy.call(f"api/datasets/{parent}") or {}).get("history_id")
+            if where != history_id:
+                foreign.append((job.get("tool_id"), parent, where))
+            else:
+                queue.append(parent)
+    for tool_id, parent, where in foreign:
+        failures.append(Failure(
+            "history.lineageIntact",
+            f"{tool_id} consumed dataset {parent} from history {where}, not from this "
+            "analysis; the result does not descend from the staged inputs",
+            "behavior"))
+
+
 def _history(spec, run, failures, exercised):
     """The staged history, as Galaxy holds it after the turn.
 
@@ -416,6 +463,9 @@ def _history(spec, run, failures, exercised):
                     "history.landedDataset",
                     f"largest arrived dataset has {best} data lines, wanted at least {minimum}",
                     "behavior"))
+
+    if spec.get("lineageIntact"):
+        _lineage_intact(run, failures)
 
     if spec.get("intact"):
         state = staged["galaxy"].call(f"api/histories/{staged['history_id']}") or {}

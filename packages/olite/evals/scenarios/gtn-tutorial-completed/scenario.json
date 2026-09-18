@@ -28,7 +28,8 @@
       ]
     },
     "history": {
-      "producedDatasets": 2
+      "producedDatasets": 2,
+      "lineageIntact": true
     },
     "chatText": {
       "mustMatch": [

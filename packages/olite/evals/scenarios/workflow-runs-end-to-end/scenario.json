@@ -44,6 +44,9 @@
     },
     "behavior": {
       "answersFromGalaxy": true
+    },
+    "history": {
+      "lineageIntact": true
     }
   }
 }

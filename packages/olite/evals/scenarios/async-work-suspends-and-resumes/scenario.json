@@ -29,7 +29,8 @@
           "txt"
         ],
         "minBytes": 30000000
-      }
+      },
+      "lineageIntact": true
     },
     "messages": {
       "repliesInChat": true
