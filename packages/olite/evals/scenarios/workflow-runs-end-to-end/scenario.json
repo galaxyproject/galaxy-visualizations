@@ -41,6 +41,9 @@
       "mustNotMatch": [
         "(?i)\\b(cannot|could not|unable to|failed to)\\s+(run|invoke|launch|start)\\b"
       ]
+    },
+    "behavior": {
+      "answersFromGalaxy": true
     }
   }
 }

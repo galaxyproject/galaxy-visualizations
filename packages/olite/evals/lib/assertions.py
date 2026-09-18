@@ -282,6 +282,9 @@ def _behavior(spec, run, failures, exercised):
                 )
             )
 
+    if spec.get("answersFromGalaxy"):
+        _answers_from_galaxy(run, failures)
+
     if spec.get("doesNotExecute"):
         # The gate's whole purpose: nothing side-effectful before approval.
         executed = set(run.tools_called) - set(getattr(run, "refused", []) or [])
@@ -289,6 +292,33 @@ def _behavior(spec, run, failures, exercised):
             failures.append(
                 Failure("behavior.doesNotExecute", f"called {tool} before any approval", "behavior")
             )
+
+
+def _answers_from_galaxy(run, failures):
+    """Fail a run that reached its answer in the browser instead of on Galaxy.
+
+    `history.producedDatasets` says Galaxy did no work; on its own that reads the same
+    whether the agent gave up or quietly computed the result itself. This separates them.
+    """
+    called = run.tools_called or []
+    if "run_python" not in called:
+        return
+    staged = getattr(run, "staged", None)
+    if not staged:
+        return
+    contents = staged["galaxy"].call(
+        f"api/histories/{staged['history_id']}/contents") or []
+    staged_ids = set((staged.get("dataset_ids") or {}).values())
+    produced = [c for c in contents
+                if c.get("history_content_type") == "dataset"
+                and c.get("id") not in staged_ids
+                and not c.get("deleted") and c.get("state") == "ok"]
+    if produced:
+        return
+    detail = "answered with run_python while Galaxy produced nothing"
+    if "download_dataset" in called:
+        detail += "; the dataset was pulled into the browser first"
+    failures.append(Failure("behavior.answersFromGalaxy", detail, "behavior"))
 
 
 def _history(spec, run, failures, exercised):

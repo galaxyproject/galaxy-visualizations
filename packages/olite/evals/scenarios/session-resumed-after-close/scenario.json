@@ -50,6 +50,9 @@
     "budget": {
       "maxSteps": 60,
       "maxRepeatedCall": 15
+    },
+    "behavior": {
+      "answersFromGalaxy": true
     }
   }
 }
