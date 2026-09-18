@@ -43,10 +43,21 @@ class RunResult:
 
     @property
     def chat_text(self):
-        """Everything the agent said, in order — what a user would have read."""
-        return "\n\n".join(
-            m.get("content") or "" for m in self.messages if m.get("role") == "assistant" and m.get("content")
-        )
+        """Everything the agent said, in order — what a user would have read.
+
+        Includes `finish`, whose summary the shell renders as the closing reply
+        (src/transcript.ts); reading assistant content alone scores a turn that spoke
+        only through `finish` as silent.
+        """
+        parts = []
+        for m in self.messages:
+            if not isinstance(m, dict) or not m.get("content"):
+                continue
+            if m.get("role") == "assistant":
+                parts.append(m["content"])
+            elif m.get("role") == "tool" and m.get("name") == "finish":
+                parts.append(m["content"])
+        return "\n\n".join(parts)
 
 
 def build_config(model, capabilities=None):
