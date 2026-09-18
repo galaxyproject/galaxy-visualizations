@@ -3,7 +3,7 @@
   "description": "Tier 2. Aggregation over a text column, exercising shell selection on a non-numeric field rather than the numeric default.",
   "tier": 2,
   "inputs": [
-    "Compare average Glucose by Obesity in dataset ds_health_1 as a bar chart."
+    "Compare average Glucose by Obesity in this history as a bar chart."
   ],
   "timeoutMs": 180000,
   "assertions": {
@@ -20,7 +20,7 @@
         {
           "name": "vintent_dataset",
           "argsContains": {
-            "dataset_id": "ds_health_1"
+            "dataset_id": "$staged:health.csv"
           }
         }
       ]
@@ -36,6 +36,14 @@
           ]
         }
       ]
+    },
+    "budget": {
+      "maxSteps": 25,
+      "maxRepeatedCall": 3
     }
+  },
+  "dataset": {
+    "file": "health.csv",
+    "history": "charting session"
   }
 }

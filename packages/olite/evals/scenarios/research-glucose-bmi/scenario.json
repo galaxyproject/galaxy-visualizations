@@ -2,7 +2,6 @@
   "name": "research: explore a clinical table, group it, chart it, write it up",
   "description": "Tier 3, live Galaxy. A researcher's working session rather than a single request: look at the data, ask for a grouped comparison, chart it, then have the finding written into the record. Grouping1 carries a repeat, so the turn that runs it exercises the input-template path that previously produced an empty one. The chart turn names vintent: this scenario grades the session, not whether a charting request routes there, which is measured separately.",
   "tier": 3,
-  "substrate": "live",
   "dataset": {
     "file": "health.tabular",
     "history": "diabetes cohort"
@@ -37,6 +36,10 @@
         "Glucose",
         "BMI"
       ]
+    },
+    "budget": {
+      "maxSteps": 20,
+      "maxRepeatedCall": 3
     }
   }
 }

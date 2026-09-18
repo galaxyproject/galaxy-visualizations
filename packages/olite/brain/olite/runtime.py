@@ -20,7 +20,6 @@ async def run(config, inputs, on_event=None):
     skills = SkillRegistry().load_packaged()
     driver = LoopDriver(substrate, processes, skills, confirm.from_js())
     # The shell seeds the identity prompt; the brain appends discipline and the router.
-    # Name the resolved target, not the config hint -- the manifest can supply the model.
     target = substrate.llm.target
     context = "\n\n".join(
         t
@@ -28,8 +27,7 @@ async def run(config, inputs, on_event=None):
             prompt.system_text(
                 model=target.model.id,
                 provider=target.provider.id,
-                # loom gates its Galaxy guidance on a live connection; olite's equivalent
-                # is the tool catalog having loaded.
+                # loom gates its Galaxy guidance on a live connection.
                 galaxy_ok=bool(substrate.catalog.status().get("op_count")),
             ),
             skills.router_text(),

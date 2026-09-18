@@ -1,0 +1,55 @@
+{
+    "a_galaxy_workflow": "true",
+    "format-version": "0.1",
+    "name": "Filter table rows by value",
+    "tags": [
+        "qc"
+    ],
+    "annotation": "Keep rows whose second column is above a threshold.",
+    "steps": {
+        "0": {
+            "id": 0,
+            "type": "data_input",
+            "label": "table",
+            "tool_state": "{\"optional\": false, \"format\": [\"tabular\"]}",
+            "inputs": [
+                {
+                    "name": "table",
+                    "description": "A tabular dataset"
+                }
+            ],
+            "input_connections": {},
+            "position": {
+                "left": 0,
+                "top": 0
+            },
+            "workflow_outputs": [],
+            "annotation": "A tabular dataset"
+        },
+        "1": {
+            "id": 1,
+            "type": "tool",
+            "tool_id": "Filter1",
+            "tool_version": "1.0.2",
+            "label": "filter rows",
+            "tool_state": "{\"cond\": \"c2>1000\", \"header_lines\": \"1\", \"input\": {\"__class__\": \"ConnectedValue\"}}",
+            "input_connections": {
+                "input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "position": {
+                "left": 250,
+                "top": 0
+            },
+            "workflow_outputs": [
+                {
+                    "output_name": "out_file1",
+                    "label": null
+                }
+            ],
+            "annotation": "Keep rows where c2 > 1000"
+        }
+    }
+}

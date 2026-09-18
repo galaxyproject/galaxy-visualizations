@@ -31,8 +31,7 @@ class BaseShell:
 
     description: Optional[str] = None
 
-    # Analytical goals this shell supports (used for intent-based selection)
-    # Valid goals: distribution, relationship, comparison, composition, trend, ranking, summary, outliers
+    # Analytical goals this shell supports (used for intent-based selection) Valid goals.
     goals: List[str] = []
 
     # metadata

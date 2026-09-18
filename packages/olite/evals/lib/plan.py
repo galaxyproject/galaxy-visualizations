@@ -21,6 +21,13 @@ class ParsedPlan:
         return [s for s in self.steps if s["state"] == " "]
 
 
+def count_plans(content):
+    """How many plan blocks the run produced. Re-drafting after approval is the defect."""
+    if not content:
+        return 0
+    return sum(1 for line in content.splitlines() if PLAN_HEADING.match(line.strip()))
+
+
 def parse_latest_plan(content):
     """The last plan section in `content`, or None."""
     if not content:

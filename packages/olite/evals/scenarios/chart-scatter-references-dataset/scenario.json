@@ -3,7 +3,7 @@
   "description": "Tier 2. Scatter encodes columns straight from the file, so the spec must carry a URL and no rows: the case a Galaxy page benefits from.",
   "tier": 2,
   "inputs": [
-    "Plot Glucose against BMI from dataset ds_health_1 as a scatter plot."
+    "Plot Glucose against BMI in this history as a scatter plot."
   ],
   "timeoutMs": 180000,
   "assertions": {
@@ -20,7 +20,7 @@
         {
           "name": "vintent_dataset",
           "argsContains": {
-            "dataset_id": "ds_health_1"
+            "dataset_id": "$staged:health.csv"
           }
         }
       ]
@@ -30,7 +30,7 @@
         {
           "kind": "vega-lite",
           "referencesDataset": true,
-          "datasetId": "ds_health_1",
+          "datasetId": "$staged:health.csv",
           "encodes": [
             "Glucose",
             "BMI"
@@ -38,6 +38,14 @@
           "mark": "point"
         }
       ]
+    },
+    "budget": {
+      "maxSteps": 25,
+      "maxRepeatedCall": 3
     }
+  },
+  "dataset": {
+    "file": "health.csv",
+    "history": "charting session"
   }
 }

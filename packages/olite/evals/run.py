@@ -2,10 +2,12 @@
 """Scenario-driven evals for olite. Ported from loom's `evals/run.ts`."""
 
 import argparse
+import copy
 import json
 import logging
 import os
 import sys
+import uuid
 import time
 
 # The brain logs every tool call and a parse warning for a corpus SKILL.md whose
@@ -41,6 +43,22 @@ def available_models(matrix, only):
     return [m for m, _ in usable], skipped
 
 
+def _resolve_run_tokens(scenario):
+    """Replace `$run` with a token unique to this run."""
+    token = uuid.uuid4().hex[:10]
+
+    def sub(value):
+        if isinstance(value, str):
+            return value.replace("$run", token)
+        if isinstance(value, list):
+            return [sub(v) for v in value]
+        if isinstance(value, dict):
+            return {k: sub(v) for k, v in value.items()}
+        return value
+
+    return sub(copy.deepcopy(scenario))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("scenario", nargs="?", help="substring filter on scenario directory")
@@ -68,13 +86,10 @@ def main():
                 print(f"  skip {name}: {why}")
         scenarios = shared + scenarios
 
-    # A live scenario needs a Galaxy. Without one it cannot run, and a scenario that
-    # cannot run must not report a verdict.
-    if not os.environ.get("GALAXY_URL", "").strip():
-        live = [s for s in scenarios if s.get("substrate") == "live"]
-        for s in live:
-            print(f"  skip {s['id']}: needs GALAXY_URL; substrate is live")
-        scenarios = [s for s in scenarios if s.get("substrate") != "live"]
+    if not os.environ.get("GALAXY_URL", "").strip() or not os.environ.get("GALAXY_API_KEY", "").strip():
+        print("  evals need GALAXY_URL and GALAXY_API_KEY: they run against a real Galaxy.")
+        return 2
+    print(f"  galaxy: {os.environ['GALAXY_URL'].strip()}")
 
     models, skipped = available_models(matrix, args.model)
 
@@ -104,18 +119,26 @@ def main():
           for run_index in range(runs):
               if args.delay and results:
                   time.sleep(args.delay)
+              scenario = _resolve_run_tokens(scenario)
               run = run_scenario(scenario, model)
               if run.error:
                   failures, exercised = [], set()
                   verdict = "quota" if is_quota(run) else "ERROR"
                   note = run.error.replace("\n", " ")
               else:
-                  failures, exercised = evaluate(scenario, run)
-                  verdict = "pass" if not failures else "FAIL"
-                  note = "" if not failures else failures[0].detail
+                  try:
+                      failures, exercised = evaluate(scenario, run)
+                      verdict = "pass" if not failures else "FAIL"
+                      note = "" if not failures else failures[0].detail
+                  except Exception as exc:
+                      failures, exercised = [], set()
+                      verdict = "ERROR"
+                      note = f"could not grade: {type(exc).__name__}: {exc}"
+                      run.error = run.error or note
               # Flushed per result: a full matrix runs for many minutes, and Python
               tag = f" #{run_index + 1}" if runs > 1 else ""
-              print(f"  [{verdict:5s}] {model['id']:24s} {scenario['id']:34s}{tag} {note[:60]}", flush=True)
+              budget = f" {run.steps}/{run.max_steps} steps" if run.max_steps else ""
+              print(f"  [{verdict:5s}] {model['id']:24s} {scenario['id']:34s}{tag}{budget} {note[:52]}", flush=True)
               for f in failures[1:]:
                   print(f"          {f}")
               results.append(
@@ -129,7 +152,10 @@ def main():
                       "failures": [
                           {"assertion": f.assertion, "detail": f.detail, "dimension": f.dimension} for f in failures
                       ],
+                      "steps": run.steps,
+                      "maxSteps": run.max_steps,
                       "toolsCalled": run.tools_called,
+                      "events": run.events,
                       # A pass is the artifact worth keeping, not just the verdict.
                       "chatText": run.chat_text if run.messages else "",
                       "messages": run.messages or [],

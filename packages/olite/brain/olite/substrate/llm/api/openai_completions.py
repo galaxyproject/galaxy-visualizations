@@ -9,6 +9,8 @@ MIN = 0.0000001
 MAX = 999999999
 TEMPERATURE = 0.3
 TOP_P = 0.8
+# The spellings providers use for chain of thought, in the order they are preferred.
+REASONING_KEYS = ("reasoning_content", "reasoning")
 
 
 @dataclass
@@ -18,6 +20,8 @@ class Reply:
     content: str = ""
     # gpt-oss puts its chain of thought here and leaves content empty on a tool call.
     reasoning: str = ""
+    # The spelling this provider used, so the reply can go back under the same key.
+    reasoning_key: str = REASONING_KEYS[0]
     tool_calls: list = field(default_factory=list)
     finish_reason: str | None = None
     usage: dict = field(default_factory=dict)
@@ -32,9 +36,6 @@ class OpenAICompletions:
         return f"{base}/chat/completions"
 
     def headers(self, target):
-        # Bearer is the OpenAI-compatible standard. x-api-key is opt-in: browsers
-        # preflight every header, and endpoints that do not allow it (Gemini)
-        # reject the request before it is sent.
         headers = {"Content-Type": "application/json"}
         if target.api_key is not None:
             headers["Authorization"] = f"Bearer {target.api_key}"
@@ -64,17 +65,17 @@ class OpenAICompletions:
         payload = payload if isinstance(payload, dict) else {}
         choice = (payload.get("choices") or [{}])[0] or {}
         message = choice.get("message") or {}
+        reasoning_key = next((k for k in REASONING_KEYS if message.get(k)), REASONING_KEYS[0])
         reply = Reply(
             content=message.get("content") or "",
-            reasoning=message.get("reasoning_content") or message.get("reasoning") or "",
+            reasoning=message.get(reasoning_key) or "",
+            reasoning_key=reasoning_key,
             tool_calls=message.get("tool_calls") or [],
             finish_reason=choice.get("finish_reason"),
             usage=payload.get("usage") or {},
             raw=payload,
         )
-        # pi turns an unusable provider response into a terminal error rather than an
-        # empty turn (`stopReason: "error"`); a reply with no stop reason and nothing
-        # in it is the endpoint failing, not the model choosing to stop.
+        # No stop reason and no content means the endpoint failed.
         if reply.finish_reason is None and not reply.content and not reply.tool_calls:
             raise ProviderError("The model provider returned an empty response.")
         return reply

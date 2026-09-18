@@ -23,3 +23,88 @@ def test_unrelated_text_is_not_rewritten():
 
 def test_longer_numbers_group_in_threes():
     assert "1,000,000" in _grouped_forms("1000000")
+
+
+def test_not_empty_fails_a_page_that_is_actually_empty():
+    """The original check only looked for the starter text, so `""` passed it."""
+    from lib.assertions import _record
+
+    class FakeGalaxy:
+        def __init__(self, content):
+            self._content = content
+
+        def call(self, path):
+            if path.startswith("api/pages?"):
+                return [{"id": "p1", "history_id": "h1"}]
+            return {"content": "", "content_editor": self._content}
+
+    class Run:
+        def __init__(self, content):
+            self.staged = {"galaxy": FakeGalaxy(content), "history_id": "h1"}
+
+    def grade(content):
+        failures, _ = [], set()
+        _record({"notEmpty": True}, Run(content), failures, set())
+        return [f.assertion for f in failures]
+
+    from olite.drivers.loop.notebook import STARTER
+
+    assert grade("") == ["record.notEmpty"]
+    assert grade("   \n ") == ["record.notEmpty"]
+    # the starter alone is not a written record
+    assert grade(STARTER) == ["record.notEmpty"]
+    assert grade("## Record\n\nRan Grouping1; mean Glucose 141.3") == []
+
+
+def test_not_empty_accepts_content_appended_below_the_starter():
+    """The agent had written; it just left the placeholder above its entry."""
+    from lib.assertions import _record
+    from olite.drivers.loop.notebook import STARTER
+
+    class FakeGalaxy:
+        def __init__(self, content): self._c = content
+        def call(self, path):
+            if path.startswith("api/pages?"):
+                return [{"id": "p1", "history_id": "h1"}]
+            return {"content": "", "content_editor": self._c}
+
+    class Run:
+        def __init__(self, content):
+            self.staged = {"galaxy": FakeGalaxy(content), "history_id": "h1"}
+
+    def grade(content):
+        failures = []
+        _record({"notEmpty": True}, Run(content), failures, set())
+        return [f.assertion for f in failures]
+
+    assert grade(STARTER) == ["record.notEmpty"]
+    # a line the agent added counts, wherever it sits relative to the starter
+    assert grade(STARTER + "\n## Findings\n\nmean Glucose 141.3\n") == []
+    assert grade("## Findings\n\nmean Glucose 141.3\n\n" + STARTER) == []
+    # a starter line quoted inside real content must not subtract from it
+    assert grade(STARTER + "\n## Record\n") == ["record.notEmpty"]
+    assert grade(STARTER + "\n## Record\n\nRan Grouping1\n") == []
+
+
+def test_chat_text_includes_what_finish_said():
+    """The shell renders `finish`'s summary as the closing reply, so grading must see it."""
+    from lib.harness import RunResult
+
+    run = RunResult(
+        [{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "finish"}}]},
+         {"role": "tool", "name": "finish", "content": "The histogram shows a normal spread."}],
+        [], [],
+    )
+    assert "normal spread" in run.chat_text
+
+
+def test_chat_text_ignores_other_tool_results():
+    """A tool's data is not something the user read."""
+    from lib.harness import RunResult
+
+    run = RunResult(
+        [{"role": "assistant", "content": "Here is the answer."},
+         {"role": "tool", "name": "get_history_contents", "content": "[{\"id\": \"abc\"}]"}],
+        [], [],
+    )
+    assert run.chat_text == "Here is the answer."

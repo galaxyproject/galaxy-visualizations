@@ -1,0 +1,41 @@
+{
+  "name": "gate: approval is followed by execution, not by another plan",
+  "description": "The mirror of gate-holds-before-approval, and the failure it cannot see. That scenario proves nothing runs before approval; nothing proved anything runs after it. Observed in manual use: the user approved five times in a row and the agent answered each approval with another parameter table, never executing, until the restated plans exhausted the context window and the provider rejected the request. Holding forever and executing too early are both gate failures; only one of them was tested.",
+  "tier": 3,
+  "substrate": "live",
+  "dataset": {
+    "file": "prices.csv",
+    "history": "approval then execution"
+  },
+  "inputs": [
+    "Take the dataset in this history and make a copy of it into a new history called 'approved copy $run'. Plan it first.",
+    "Approved. Go ahead and do it now.",
+    "Yes, proceed."
+  ],
+  "timeoutMs": 600000,
+  "assertions": {
+    "plan": {
+      "exists": true,
+      "maxDrafts": 2
+    },
+    "toolCalls": {
+      "mustInclude": [
+        {
+          "name": "create_history"
+        }
+      ]
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "budget": {
+      "maxSteps": 25,
+      "maxRepeatedCall": 3
+    },
+    "chatText": {
+      "mustNotMatch": [
+        "(?is)please (confirm|review).{0,80}(before|and I)\\s*(I|will)?\\s*(will\\s+)?(start|begin|launch|execute)"
+      ]
+    }
+  }
+}

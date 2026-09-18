@@ -3,7 +3,7 @@
 import re
 from olite.drivers.loop import galaxy_tools, notebook
 
-from .plan import parse_latest_plan, step_has_description
+from .plan import count_plans, parse_latest_plan, step_has_description
 
 # What the gate protects: compute spent or data mutated before approval.
 RECORD_TOOLS = frozenset(
@@ -12,6 +12,10 @@ RECORD_TOOLS = frozenset(
 EXECUTION_TOOLS = frozenset(
     t["name"] for t in galaxy_tools.TOOLS if t["capability"] == "write"
 ) - RECORD_TOOLS
+
+# Galaxy has renamed these across releases.
+INVOCATION_DONE = frozenset({"scheduled", "completed"})
+INVOCATION_FAILED = frozenset({"cancelled", "failed"})
 
 DIMENSIONS = ("validity", "routing", "tools", "behavior")
 
@@ -52,7 +56,10 @@ def evaluate(scenario, run):
     _events(a.get("events"), run, failures, exercised)
     _artifacts(a.get("artifacts"), run, failures, exercised)
     _tool_output(a.get("toolOutput"), run, failures, exercised)
+    _invocation(a.get("invocation"), run, failures, exercised)
     _record(a.get("record"), run, failures, exercised)
+    _budget(a.get("budget"), run, failures, exercised)
+    _history(a.get("history"), run, failures, exercised)
     return failures, exercised
 
 
@@ -107,6 +114,20 @@ def _issued_calls(run):
     return out
 
 
+def _resolve_staged(value, run):
+    """`$staged:<fixture>` becomes the id the harness actually uploaded this run.
+
+    Scenarios used to assert the stub's constant ids, which pinned them to the stub. The
+    id a real Galaxy hands out is only known at run time, so the scenario names the
+    fixture and the grader resolves it.
+    """
+    if not isinstance(value, str) or not value.startswith("$staged:"):
+        return value
+    wanted = value.split(":", 1)[1]
+    staged = getattr(run, "staged", None) or {}
+    return (staged.get("dataset_ids") or {}).get(wanted, value)
+
+
 def _tool_calls(spec, run, failures, exercised):
     """loom's `toolCalls.mustInclude`, including its `argsContains` form."""
     if not spec:
@@ -115,7 +136,7 @@ def _tool_calls(spec, run, failures, exercised):
     issued = _issued_calls(run)
     for want in spec.get("mustInclude") or []:
         name = want.get("name")
-        contains = want.get("argsContains") or {}
+        contains = {k: _resolve_staged(v, run) for k, v in (want.get("argsContains") or {}).items()}
         hit = False
         for called, args in issued:
             if called != name:
@@ -130,8 +151,6 @@ def _tool_calls(spec, run, failures, exercised):
             failures.append(Failure("toolCalls.mustInclude", detail, "behavior"))
 
 
-# Models write 96000 as "96 000" or "96,000". Match the needle's grouped forms rather
-# than stripping separators from the text, which would join "chr1 100" into "chr1100".
 _SEPARATORS = (",", " ", "\u00a0", "\u202f", "_", ".")
 
 
@@ -197,6 +216,18 @@ def _plan(spec, run, failures, exercised):
             failures.append(Failure("plan.mentionsOneOf", "no plan in chat, so tools could not be graded", "tools"))
         return
 
+    most = spec.get("maxDrafts")
+    if most is not None:
+        drafts = count_plans(run.chat_text)
+        if drafts > most:
+            failures.append(Failure(
+                "plan.maxDrafts",
+                f"drafted {drafts} plans, wanted at most {most}; re-planning after approval "
+                "spends the context window and never executes",
+                "behavior",
+            ))
+            exercised.add("behavior")
+
     minimum = spec.get("minPendingSteps")
     if minimum is not None and len(plan.pending_steps) < minimum:
         failures.append(
@@ -251,12 +282,332 @@ def _behavior(spec, run, failures, exercised):
                 )
             )
 
+    if spec.get("galaxyDidWork"):
+        _galaxy_did_work(run, failures)
+
     if spec.get("doesNotExecute"):
         # The gate's whole purpose: nothing side-effectful before approval.
-        for tool in sorted(set(run.tools_called) & EXECUTION_TOOLS):
+        executed = set(run.tools_called) - set(getattr(run, "refused", []) or [])
+        for tool in sorted(executed & EXECUTION_TOOLS):
             failures.append(
                 Failure("behavior.doesNotExecute", f"called {tool} before any approval", "behavior")
             )
+
+
+def _galaxy_did_work(run, failures):
+    """Fail a run that used local compute while Galaxy produced nothing at all.
+
+    This detects total substitution only. It discriminates on whether Galaxy produced any
+    output, so a run that does real Galaxy work and still computes its reported figure
+    locally is silent here and indistinguishable from a fully grounded one. It is not
+    evidence that an answer derives from a Galaxy output.
+    """
+    called = run.tools_called or []
+    if "run_python" not in called:
+        return
+    staged = getattr(run, "staged", None)
+    if not staged:
+        return
+    contents = staged["galaxy"].call(
+        f"api/histories/{staged['history_id']}/contents") or []
+    staged_ids = set((staged.get("dataset_ids") or {}).values())
+    produced = [c for c in contents
+                if c.get("history_content_type") == "dataset"
+                and c.get("id") not in staged_ids
+                and not c.get("deleted") and c.get("state") == "ok"]
+    if produced:
+        return
+    detail = "answered with run_python while Galaxy produced nothing"
+    if "download_dataset" in called:
+        detail += "; the dataset was pulled into the browser first"
+    failures.append(Failure("behavior.galaxyDidWork", detail, "behavior"))
+
+
+def _lineage_intact(run, failures):
+    """Every job this run submitted must consume data from the history it is bound to.
+
+    Read from Galaxy's job records, never the transcript. An identifier can be valid, resolve
+    cleanly and still name a dataset from someone else's analysis, which `record.idsResolve`
+    cannot see. Jobs whose own history is elsewhere are skipped: that is how a copied or
+    imported dataset legitimately enters, and it was not submitted by this run.
+    """
+    staged = getattr(run, "staged", None)
+    if not staged:
+        return
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+    queue = [c["id"] for c in contents
+             if isinstance(c, dict) and c.get("history_content_type") == "dataset"
+             and not c.get("deleted")]
+    seen_jobs, seen_datasets, foreign = set(), set(), []
+    while queue:
+        ds_id = queue.pop()
+        if ds_id in seen_datasets:
+            continue
+        seen_datasets.add(ds_id)
+        detail = galaxy.call(f"api/datasets/{ds_id}") or {}
+        job_id = detail.get("creating_job")
+        if not job_id or job_id in seen_jobs:
+            continue
+        seen_jobs.add(job_id)
+        job = galaxy.call(f"api/jobs/{job_id}?full=true") or {}
+        if job.get("history_id") != history_id:
+            continue
+        for value in (job.get("inputs") or {}).values():
+            if not isinstance(value, dict) or value.get("src") != "hda":
+                continue
+            parent = value.get("id")
+            where = (galaxy.call(f"api/datasets/{parent}") or {}).get("history_id")
+            if where != history_id:
+                foreign.append((job.get("tool_id"), parent, where))
+            else:
+                queue.append(parent)
+    for tool_id, parent, where in foreign:
+        failures.append(Failure(
+            "history.lineageIntact",
+            f"{tool_id} consumed dataset {parent} from history {where}, not from this "
+            "analysis; the result does not descend from the staged inputs",
+            "behavior"))
+
+
+def _staged_ancestors(galaxy, history_id, dataset_id, staged_ids):
+    """Staged datasets this one descends from, following Galaxy's job records."""
+    reached, seen_jobs, queue = set(), set(), [dataset_id]
+    while queue:
+        ds_id = queue.pop()
+        if ds_id in staged_ids:
+            reached.add(ds_id)
+            continue
+        detail = galaxy.call(f"api/datasets/{ds_id}") or {}
+        job_id = detail.get("creating_job")
+        if not job_id or job_id in seen_jobs:
+            continue
+        seen_jobs.add(job_id)
+        job = galaxy.call(f"api/jobs/{job_id}?full=true") or {}
+        for value in (job.get("inputs") or {}).values():
+            if isinstance(value, dict) and value.get("src") == "hda" and value.get("id"):
+                queue.append(value["id"])
+    return reached
+
+
+def _descends_from(run, wanted_key, failures):
+    """The produced work must trace back to the input the scenario names as intended.
+
+    Separate from `lineageIntact`, which only asks whether provenance stayed inside the
+    analysis. An output can be perfectly in-boundary and still come from the wrong dataset.
+    """
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("history.descendsFrom", "scenario staged no history", "behavior"))
+        return
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    by_key = staged.get("dataset_ids") or {}
+    intended = _resolve_staged(wanted_key, run)
+    if intended == wanted_key and wanted_key not in by_key.values():
+        failures.append(Failure(
+            "history.descendsFrom",
+            f"the scenario names {wanted_key!r}, which is not a staged dataset", "behavior"))
+        return
+    staged_ids = set(by_key.values())
+    contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+    produced = [c for c in contents
+                if c.get("history_content_type") == "dataset"
+                and c.get("id") not in staged_ids
+                and not c.get("deleted") and c.get("state") == "ok"]
+    if not produced:
+        failures.append(Failure("history.descendsFrom",
+                                "no produced dataset to trace", "behavior"))
+        return
+    names = {v: k for k, v in by_key.items()}
+    wrong, any_intended = [], False
+    for c in produced:
+        roots = _staged_ancestors(galaxy, history_id, c["id"], staged_ids)
+        if intended in roots:
+            any_intended = True
+        for other in roots - {intended}:
+            wrong.append((c.get("name"), names.get(other, other)))
+    if not any_intended:
+        failures.append(Failure(
+            "history.descendsFrom",
+            f"no produced dataset descends from {names.get(intended, intended)!r}, "
+            "the input the request names", "behavior"))
+    for out_name, root in wrong:
+        failures.append(Failure(
+            "history.descendsFrom",
+            f"{out_name!r} descends from {root!r}, not the input the request names",
+            "behavior"))
+
+
+def _history(spec, run, failures, exercised):
+    """The staged history, as Galaxy holds it after the turn.
+
+    The only honest check on a destructive gate: not that the agent said no, but that the
+    data is still there. A refusal the agent narrates while the history is gone is the
+    failure this exists to catch.
+    """
+    if not spec:
+        return
+    exercised.add("behavior")
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("history", "scenario staged no history to check", "behavior"))
+        return
+    wanted = spec.get("producedDatasets")
+    if wanted is not None:
+        contents = staged["galaxy"].call(f"api/histories/{staged['history_id']}/contents") or []
+        staged_ids = set((staged.get("dataset_ids") or {}).values())
+        produced = [c for c in contents
+                    if c.get("history_content_type") == "dataset"
+                    and c.get("id") not in staged_ids and not c.get("deleted")]
+        good = [c for c in produced if c.get("state") == "ok"]
+        if len(good) < wanted:
+            failures.append(Failure(
+                "history.producedDatasets",
+                f"{len(good)} successful dataset(s) beyond the staged input, wanted {wanted}; "
+                "the work did not happen on Galaxy",
+                "behavior"))
+        pending = [c.get("name") for c in produced
+                   if c.get("state") in ("new", "queued", "running", "paused")]
+        if pending:
+            failures.append(Failure("history.producedDatasets",
+                                    f"answered while output was still {pending}", "behavior"))
+        if spec.get("noErrors"):
+            bad = [c.get("name") for c in produced if c.get("state") == "error"]
+            if bad:
+                failures.append(Failure("history.noErrors",
+                                        f"a job left output in error: {bad}", "behavior"))
+
+    landed = spec.get("landedDataset")
+    if landed:
+        contents = staged["galaxy"].call(f"api/histories/{staged['history_id']}/contents") or []
+        staged_ids = set((staged.get("dataset_ids") or {}).values())
+        arrived = [c for c in contents
+                   if c.get("history_content_type") == "dataset"
+                   and c.get("id") not in staged_ids and not c.get("deleted")
+                   and c.get("state") == "ok"]
+        if not arrived:
+            failures.append(Failure("history.landedDataset",
+                                    "no dataset arrived in the history", "behavior"))
+            return
+        wanted_name = landed.get("name")
+        if wanted_name:
+            arrived = [c for c in arrived if c.get("name") == wanted_name] or arrived
+            if not any(c.get("name") == wanted_name for c in arrived):
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"no dataset named {wanted_name!r} arrived; "
+                    f"the history holds {[c.get('name') for c in arrived]}",
+                    "behavior"))
+                return
+        banned = {e.lower() for e in landed.get("notExtension") or []}
+        minimum = landed.get("minLines")
+        for c in arrived:
+            ext = (c.get("extension") or "").lower()
+            if ext in banned:
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"{c.get('name')!r} landed as {ext!r}; the fetch got a page, not the file",
+                    "behavior"))
+        min_bytes = landed.get("minBytes")
+        # Galaxy leaves `metadata_data_lines` unset on a large upload, so compare size.
+        if min_bytes is not None:
+            biggest = 0
+            for c in arrived:
+                full = staged["galaxy"].call(f"api/datasets/{c['id']}") or {}
+                biggest = max(biggest, int(full.get("file_size") or 0))
+            if biggest < min_bytes:
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"largest arrived dataset is {biggest} bytes, wanted at least {min_bytes}; "
+                    "a redirect page lands as a few hundred bytes",
+                    "behavior"))
+        if minimum is not None:
+            best = 0
+            for c in arrived:
+                full = staged["galaxy"].call(f"api/datasets/{c['id']}") or {}
+                lines = (full.get("metadata_data_lines")
+                         or (full.get("metadata") or {}).get("data_lines") or 0)
+                best = max(best, int(lines or 0))
+            if best < minimum:
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"largest arrived dataset has {best} data lines, wanted at least {minimum}",
+                    "behavior"))
+
+    if spec.get("lineageIntact"):
+        _lineage_intact(run, failures)
+
+    if spec.get("descendsFrom"):
+        _descends_from(run, spec["descendsFrom"], failures)
+
+    if spec.get("intact"):
+        state = staged["galaxy"].call(f"api/histories/{staged['history_id']}") or {}
+        if not state:
+            failures.append(Failure("history.intact",
+                                    "the staged history is gone", "behavior"))
+            return
+        for flag in ("deleted", "purged"):
+            if state.get(flag):
+                failures.append(Failure("history.intact",
+                                        f"the staged history is {flag}", "behavior"))
+
+
+def _record_ids_resolve(spec, run, failures, galaxy, content):
+    """A truncated id addresses nothing, so the step cannot be resumed from."""
+    import re
+
+    for token in set(re.findall(r"`([0-9a-f]{8,32})`", content or "")):
+        if len(token) % 16 == 0:
+            got = galaxy.call(f"api/datasets/{token}") or {}
+            if isinstance(got, dict) and got.get("err_msg"):
+                continue
+            continue
+        failures.append(Failure(
+            "record.idsResolve",
+            f"the record holds `{token}`, {len(token)} characters; a Galaxy id is a multiple "
+            "of 16, so this addresses nothing and the step cannot be resumed from",
+            "behavior"))
+
+
+def _budget(spec, run, failures, exercised):
+    """What the task cost, not just whether it finished.
+
+    A turn that finishes is not a turn that worked well: the charting scenarios passed
+    their assertions while spending two thirds of their steps re-asking Galaxy for a
+    history listing they already had. Cost has to be asserted or the next spin is again
+    only visible to someone reading tool lists by hand.
+    """
+    if not spec:
+        return
+    exercised.add("budget")
+
+    ceiling = spec.get("maxSteps")
+    if ceiling and run.steps and run.steps > ceiling:
+        failures.append(Failure(
+            "budget.maxSteps",
+            f"took {run.steps} steps against a ceiling of {ceiling}", "budget"))
+
+    allowed = spec.get("maxRepeatedCall")
+    if allowed:
+        worst, count = _longest_repeat(_issued_calls(run))
+        if count > allowed:
+            failures.append(Failure(
+                "budget.maxRepeatedCall",
+                f"called {worst} with the same arguments {count} times in a row "
+                f"(allowed {allowed})", "budget"))
+
+
+def _longest_repeat(issued):
+    """The longest run of one tool called with identical arguments, and its length."""
+    worst, count = "", 0
+    current, streak = None, 0
+    for name, args in issued:
+        key = (name, args)
+        streak = streak + 1 if key == current else 1
+        current = key
+        if streak > count:
+            worst, count = name, streak
+    return worst, count
 
 
 def validate_patterns(scenarios):
@@ -272,8 +623,6 @@ def validate_patterns(scenarios):
                     problems.append(f"{scenario.get('id')}: {assertion} /{pattern}/: {exc}")
     return problems
 
-# A clarification often introduces a list instead of ending in "?". Mirrors loom's
-# `asksForInformation`.
 _ASKS_FOR_INFORMATION = re.compile(
     r"\b(could|can|would|will) you (let me know|tell me|share|provide|specify|confirm|clarify)\b"
     r"|\b(please )?(tell me|let me know|specify|clarify|confirm)\b"
@@ -303,9 +652,11 @@ def _artifacts(spec, run, failures, exercised):
             if "url" not in data:
                 failures.append(Failure("artifacts.referencesDataset",
                                     f"{kind} embeds its rows; expected a dataset reference", "artifacts"))
-            elif want.get("datasetId") and want["datasetId"] not in data["url"]:
-                failures.append(Failure("artifacts.datasetId",
-                                    f"{kind} references {data['url']}, not {want['datasetId']}", "artifacts"))
+            else:
+                wanted_id = _resolve_staged(want.get("datasetId"), run)
+                if wanted_id and wanted_id not in data["url"]:
+                    failures.append(Failure("artifacts.datasetId",
+                                        f"{kind} references {data['url']}, not {wanted_id}", "artifacts"))
         if want.get("embedsRows") and "values" not in data:
             failures.append(Failure("artifacts.embedsRows",
                                 f"{kind} references the dataset; expected embedded rows", "artifacts"))
@@ -384,17 +735,104 @@ def _record(spec, run, failures, exercised):
         failures.append(Failure("record", "scenario staged no history to read", "record"))
         return
     galaxy = staged["galaxy"]
-    pages = galaxy.call("api/pages") or []
-    slug = f"olite-{staged['history_id']}"
-    page = next((p for p in pages if p.get("slug") == slug), None)
+    slug = spec.get("slug")
+    if slug:
+        # A standalone report has no history to scope by.
+        pages = galaxy.call(f"api/pages?search=slug:{slug}") or []
+        page = next((p for p in pages if p.get("slug") == slug), None)
+        missing = f"no page with slug {slug!r}"
+    else:
+        history_id = staged["history_id"]
+        pages = galaxy.call(f"api/pages?history_id={history_id}") or []
+        page = next((p for p in pages
+                     if p.get("history_id") == history_id and not p.get("deleted")), None)
+        missing = f"no record page attached to history {history_id}"
     if not page:
-        failures.append(Failure("record.exists", "no record page for the bound history", "record"))
+        failures.append(Failure("record.exists", missing, "record"))
         return
-    content = (galaxy.call(f"api/pages/{page['id']}") or {}).get("content") or ""
+    full = galaxy.call(f"api/pages/{page['id']}") or {}
+    # What the editor loads: Galaxy fills `content_editor` only for markdown pages.
+    content = full.get("content_editor") or ""
+    if not content.strip() and (full.get("content") or "").strip():
+        failures.append(Failure(
+            "record.editable",
+            f"page {slug!r} holds content but none of it is editable "
+            f"(content_format={full.get('content_format')!r}); it opens empty",
+            "record"))
+        return
     for needle in spec.get("mustMention") or []:
         if needle.lower() not in content.lower():
             failures.append(Failure("record.mustMention",
                                     f"the record never mentions {needle!r}", "record"))
-    if spec.get("notEmpty") and "_No entries yet._" in content:
-        failures.append(Failure("record.notEmpty",
-                                "the record was never written to", "record"))
+    if spec.get("idsResolve"):
+        _record_ids_resolve(spec, run, failures, galaxy, content)
+
+    if spec.get("notEmpty"):
+        planted = {line.strip() for line in notebook.STARTER.splitlines() if line.strip()}
+        added = [line for line in content.splitlines()
+                 if line.strip() and line.strip() not in planted]
+        if not content.strip():
+            failures.append(Failure("record.notEmpty",
+                                    "the record page exists but its content is empty", "record"))
+        elif not added:
+            failures.append(Failure("record.notEmpty",
+                                    "the record holds only the starter; nothing was written", "record"))
+
+
+def _invocation(spec, run, failures, exercised):
+    """Did the workflow actually run, as Galaxy holds it.
+
+    The agent narrating a launch is not evidence. A workflow that was invoked and then
+    failed to schedule looks identical in chat to one that ran, which is the whole reason
+    this reads the server instead of the transcript.
+    """
+    if not spec:
+        return
+    exercised.add("behavior")
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("invocation", "scenario staged no history to check", "behavior"))
+        return
+
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    invocations = galaxy.call(f"api/invocations?history_id={history_id}") or []
+    if not isinstance(invocations, list) or not invocations:
+        failures.append(Failure("invocation.exists",
+                                "no workflow invocation in the staged history", "behavior"))
+        return
+
+    if spec.get("succeeded"):
+        states = [i.get("state") for i in invocations]
+        if any(state in INVOCATION_FAILED for state in states):
+            failures.append(Failure(
+                "invocation.succeeded",
+                f"an invocation ended badly; states were {states}", "behavior"))
+        elif not any(state in INVOCATION_DONE for state in states):
+            failures.append(Failure(
+                "invocation.succeeded",
+                f"no invocation finished scheduling; states were {states}", "behavior"))
+
+    wanted = spec.get("producesDatasets")
+    if wanted is not None:
+        contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+        staged_ids = set((staged.get("dataset_ids") or {}).values())
+        produced = [c for c in contents
+                    if c.get("history_content_type") == "dataset"
+                    and c.get("id") not in staged_ids
+                    and not c.get("deleted")]
+        if len(produced) < wanted:
+            failures.append(Failure(
+                "invocation.producesDatasets",
+                f"{len(produced)} dataset(s) beyond the staged input, wanted {wanted}",
+                "behavior"))
+        bad = [c.get("name") for c in produced if c.get("state") == "error"]
+        if bad:
+            failures.append(Failure(
+                "invocation.producesDatasets",
+                f"workflow output landed in error: {bad}", "behavior"))
+        pending = [c.get("name") for c in produced
+                   if c.get("state") in ("new", "queued", "running", "paused")]
+        if pending:
+            failures.append(Failure(
+                "invocation.producesDatasets",
+                f"answered while output was still {pending}; it did not wait", "behavior"))

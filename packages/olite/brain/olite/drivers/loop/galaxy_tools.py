@@ -2,6 +2,8 @@
 
 import json
 
+from . import page_edit
+from .paging import ROW_CAP, page
 from .tool_inputs import build_input_template, summarize_tool_inputs
 import os
 import sys
@@ -13,8 +15,6 @@ from .galaxy_tool_docs import DOCS
 TOOLS = []
 
 # Pyodide's MEMFS is olite's equivalent of the filesystem Orbit has on disk.
-# Datasets land here so run_python can read them as files.
-# Pyodide's MEMFS allows a directory at the root; a host filesystem does not.
 DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.gettempdir(), "olite-data")
 # Enough to show the header and shape of a table without a run_python round trip.
 PREVIEW_LINES = 50
@@ -67,7 +67,7 @@ async def _get_user(g, a):
 
 
 async def _get_histories(g, a):
-    params = {"limit": a.get("limit"), "offset": a.get("offset", 0)}
+    params = {"limit": a.get("limit", ROW_CAP), "offset": a.get("offset", 0)}
     if a.get("name"):
         params["q"] = "name-contains"
         params["qv"] = a["name"]
@@ -85,13 +85,23 @@ CONTENTS_NOTE = ("This is just a count. To get actual datasets, use "
 
 
 async def _get_history_details(g, a):
-    # galaxy-mcp pairs the metadata with a count and steers to get_history_contents,
-    # so a model does not read a metadata-only reply as an empty history.
     history = await g.get(f"api/histories/{a['history_id']}")
     contents = await g.get(f"api/histories/{a['history_id']}/contents{_q({'v': 'dev', 'keys': 'id'})}")
     total = len(contents) if isinstance(contents, list) else 0
     return {"history": history,
             "contents_summary": {"total_items": total, "note": CONTENTS_NOTE}}
+
+
+# Galaxy returns the underlying Dataset id beside the HDA id. Both encode the same way, so
+# the wrong one resolves to an unrelated object instead of erroring.
+CONFUSABLE_ID_FIELDS = ("dataset_id",)
+
+
+def _one_identifier(item):
+    """Leave exactly one id a dataset-taking tool accepts."""
+    if not isinstance(item, dict):
+        return item
+    return {k: v for k, v in item.items() if k not in CONFUSABLE_ID_FIELDS}
 
 
 async def _get_history_contents(g, a):
@@ -102,17 +112,63 @@ async def _get_history_contents(g, a):
         "visible": a.get("visible", True),
         "order": a.get("order", "hid-asc"),
     }
-    return await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
+    items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
+    if isinstance(items, list):
+        return [_one_identifier(i) for i in items]
+    return items
 
 
 async def _create_history(g, a):
     return await g.post("api/histories", {"name": a["history_name"]})
 
 
+def _hda_inputs(inputs):
+    """Every `{src: hda, id: ...}` in a tool payload, with the field that carries it."""
+    found = []
+
+    def walk(name, value):
+        if isinstance(value, dict):
+            if value.get("src") == "hda" and value.get("id"):
+                found.append((name, value["id"]))
+                return
+            for key, item in value.items():
+                walk(f"{name}.{key}" if name else key, item)
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                walk(f"{name}[{index}]", item)
+
+    walk("", inputs or {})
+    return found
+
+
+async def _foreign_inputs(g, inputs, history_id):
+    """Dataset inputs that belong to a history other than the one the job will run in."""
+    foreign = []
+    for name, dataset_id in _hda_inputs(inputs):
+        detail = await g.get(f"api/datasets/{dataset_id}") or {}
+        where = detail.get("history_id") if isinstance(detail, dict) else None
+        if where and where != history_id:
+            foreign.append({"input": name, "supplied_id": dataset_id,
+                            "resolves_to_history_id": where, "resolves_to_name": detail.get("name")})
+    return foreign
+
+
 async def _run_tool(g, a):
+    history_id = a["history_id"]
+    inputs = a.get("inputs") or {}
+    foreign = await _foreign_inputs(g, inputs, history_id)
+    if foreign:
+        return {
+            "submitted": False,
+            "error": "Refused: an input id does not identify a dataset in the target history.",
+            "target_history_id": history_id,
+            "rejected_inputs": foreign,
+            "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
+                    "history. To use data from elsewhere, copy it into this history first.",
+        }
     return await g.post(
         "api/tools",
-        {"history_id": a["history_id"], "tool_id": a["tool_id"], "inputs": a.get("inputs") or {}},
+        {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
     )
 
 
@@ -136,8 +192,6 @@ async def _get_dataset_details(g, a):
     dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     if a.get("include_preview", True):
         try:
-            # A chunk, not the whole file: /display streams everything, so previewing a
-            # large dataset would pull it all into memory to show ten lines.
             want = int(a.get("preview_lines", 10) or 10)
             text = await _chunk(g, a["dataset_id"], PREVIEW_BYTES)
             if text is None:
@@ -215,8 +269,53 @@ async def _search_tools_by_keywords(g, a):
     return await g.get(f"api/tools{_q({'q': ' '.join(a.get('keywords') or [])})}")
 
 
+PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
+PANEL_KEEP = ("id", "name", "description")
+
+
+def _panel_entry(entry):
+    return {k: entry[k] for k in PANEL_KEEP if entry.get(k)}
+
+
+def _count_panel(entries):
+    """Tools and sections in a panel subtree."""
+    tools = sections = 0
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("model_class") == "ToolSection":
+            sections += 1
+            sub_tools, sub_sections = _count_panel(entry.get("elems"))
+            tools += sub_tools
+            sections += sub_sections
+        elif entry.get("model_class") not in PANEL_STRUCTURAL:
+            tools += 1
+    return tools, sections
+
+
 async def _get_tool_panel(g, a):
-    return await g.get("api/tools?in_panel=true")
+    """Sections and their tools, counted."""
+    panel = await g.get("api/tools?in_panel=true")
+    if not isinstance(panel, list):
+        return panel
+    tools, sections = _count_panel(panel)
+    out = []
+    for entry in panel:
+        if entry.get("model_class") == "ToolSection":
+            out.append({
+                "section": entry.get("name"),
+                "tools": [_panel_entry(e) for e in entry.get("elems") or []
+                          if e.get("model_class") not in PANEL_STRUCTURAL],
+            })
+        elif entry.get("model_class") not in PANEL_STRUCTURAL:
+            out.append(_panel_entry(entry))
+    if a.get("section"):
+        needle = _alnum(a["section"])
+        out = [s for s in out if needle in _alnum(s.get("section"))]
+    result = page(out, a.get("offset"), a.get("limit"))
+    result["tool_count"] = tools
+    result["section_count"] = sections
+    return result
 
 
 async def _get_tool_citations(g, a):
@@ -228,8 +327,7 @@ async def _get_tool_citations(g, a):
 
 
 async def _get_tool_input_template(g, a):
-    # galaxy-mcp builds the skeleton the description promises; the raw request schema
-    # hides a repeat behind three $refs and the model submits an empty one.
+    # galaxy-mcp builds the skeleton the description promises.
     info = await g.get(f"api/tools/{a['tool_id']}{_q({'io_details': True})}") or {}
     return {
         "tool_id": a["tool_id"],
@@ -270,8 +368,7 @@ async def _chunk(g, dataset_id, size):
 
 
 async def _download_dataset(g, a):
-    # Written to the filesystem as bytes: inline content breaks tool-call JSON, and
-    # decoding as text corrupts BAM/HDF5/gzip.
+    # Written to the filesystem as bytes.
     details = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     stated = details.get("file_size") if isinstance(details, dict) else None
     partial = False
@@ -327,9 +424,7 @@ async def _upload_file_from_url(g, a):
 
 
 async def _upload_file(g, a):
-    # The counterpart to download_dataset: read back from the Pyodide filesystem so a
-    # file produced by run_python can be sent to Galaxy. Uploaded as pasted content,
-    # since a browser cannot hand Galaxy a path on disk.
+    # The counterpart to download_dataset.
     path = a["path"]
     if not os.path.isfile(path):
         return {"error": f"No such file: {path}", "path": path}
@@ -338,8 +433,7 @@ async def _upload_file(g, a):
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        # Galaxy's fetch API takes pasted content as text (data_fetch.py uses StringIO),
-        # so binary would have to go up as multipart. Refuse rather than corrupt it.
+        # Pasted content goes up as text, so binary is refused.
         return {
             "error": "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
             "Use upload_file_from_url for binary data.",
@@ -359,25 +453,78 @@ async def _upload_file(g, a):
     return await g.post("api/tools/fetch", payload)
 
 
+def _alnum(text):
+    return "".join(c for c in (text or "").lower() if c.isalnum())
+
+
 async def _list_workflows(g, a):
     params = {"show_published": a.get("published", False)}
     workflows = await g.get(f"api/workflows{_q(params)}") or []
     if a.get("name"):
-        needle = a["name"].lower()
-        workflows = [w for w in workflows if needle in (w.get("name") or "").lower()]
+        # Galaxy's ?search drops short terms, so match name and tags here instead.
+        needle = _alnum(a["name"])
+        workflows = [
+            w for w in workflows
+            if needle in _alnum(w.get("name"))
+            or any(needle in _alnum(t) for t in w.get("tags") or [])
+        ]
     if a.get("workflow_id"):
         workflows = [w for w in workflows if w.get("id") == a["workflow_id"]]
-    return workflows
+    return page(workflows, a.get("offset"), a.get("limit"))
 
 
 async def _get_workflow_details(g, a):
     return await g.get(f"api/workflows/{a['workflow_id']}{_q({'version': a.get('version')})}")
 
 
+WORKFLOW_INPUT_STEPS = {"data_input", "data_collection_input", "parameter_input"}
+EXTENSION_LIST_CAP = 12
+
+
+def _trim_extensions(value):
+    if isinstance(value, list) and len(value) > EXTENSION_LIST_CAP:
+        return {"count": len(value), "note": "accepts most datatypes"}
+    return value
+
+
+def _input_step(step):
+    """Populates the input step."""
+    inputs = []
+    for item in step.get("inputs") or []:
+        if not isinstance(item, dict):
+            continue
+        inputs.append({k: (_trim_extensions(v) if k == "acceptable_extensions" else v)
+                       for k, v in item.items()
+                       if k in ("name", "label", "optional", "acceptable_extensions",
+                                "collection_type", "value", "type")})
+    return {
+        "step_index": step.get("step_index"),
+        "label": step.get("step_label"),
+        "name": step.get("step_name"),
+        "type": step.get("step_type"),
+        "annotation": step.get("annotation"),
+        "inputs": inputs,
+    }
+
+
 async def _get_workflow_input_template(g, a):
-    # style=run is the webapp's own run-form model; good enough as a template.
+    """The inputs a workflow asks for, and any version warnings Galaxy raises."""
+    # style=run also validates that every tool is installed, so a missing one surfaces.
     params = {"style": "run", "instance": "false", "history_id": a.get("history_id")}
-    return await g.get(f"api/workflows/{a['workflow_id']}/download{_q(params)}")
+    model = await g.get(f"api/workflows/{a['workflow_id']}/download{_q(params)}")
+    if not isinstance(model, dict) or "steps" not in model:
+        return model
+    steps = [s for s in model["steps"] if isinstance(s, dict)
+             and s.get("step_type") in WORKFLOW_INPUT_STEPS]
+    return {
+        "workflow_id": a["workflow_id"],
+        "name": model.get("name"),
+        "history_id": model.get("history_id"),
+        "has_upgrade_messages": model.get("has_upgrade_messages"),
+        "step_version_changes": model.get("step_version_changes"),
+        "inputs_by": "step_index",
+        "inputs": [_input_step(s) for s in steps],
+    }
 
 
 async def _invoke_workflow(g, a):
@@ -444,23 +591,51 @@ async def _list_pages(g, a):
 
 
 async def _get_page(g, a):
-    page = await g.get(f"api/pages/{a['page_id']}") or {}
-    if not a.get("include_rendered") and isinstance(page, dict):
-        page = dict(page)
-        page.pop("content", None)
-    return page
+    result = await g.get(f"api/pages/{a['page_id']}") or {}
+    if isinstance(result, dict):
+        result = dict(result)
+        result["content_hash"] = page_edit.djb2_hash(
+            result.get("content_editor") or result.get("content") or "")
+        if not a.get("include_rendered"):
+            result.pop("content", None)
+    return result
 
 
 async def _create_page(g, a):
     payload = {k: a[k] for k in ("title", "content", "annotation", "slug") if a.get(k) is not None}
+    payload.setdefault("edit_source", "agent")
     if a.get("history_id"):
         payload["history_id"] = a["history_id"]
+    # Galaxy defaults a page to html and sanitizes the body against that.
+    payload["content_format"] = "markdown"
     return await g.post("api/pages", payload)
 
 
 async def _update_page(g, a):
     payload = {k: a[k] for k in ("title", "content") if a.get(k) is not None}
-    return await g.put(f"api/pages/{a['page_id']}", payload)
+    payload.setdefault("edit_source", "agent")
+
+    heading, section = a.get("section_heading"), a.get("section_content")
+    expect = a.get("expect_hash")
+    if heading or section or expect:
+        current = await g.get(f"api/pages/{a['page_id']}") or {}
+        source = current.get("content_editor") or current.get("content") or ""
+        actual = page_edit.djb2_hash(source)
+        if expect and expect != actual:
+            return {
+                "written": False,
+                "reason": "the page changed since you read it",
+                "content_hash": actual,
+                "content": source,
+            }
+        if heading and section is not None:
+            payload["content"] = page_edit.apply_section_edit(source, heading, section)
+
+    written = await g.put(f"api/pages/{a['page_id']}", payload)
+    if isinstance(written, dict):
+        body = written.get("content_editor") or written.get("content") or ""
+        written["content_hash"] = page_edit.djb2_hash(body)
+    return written
 
 
 async def _list_page_revisions(g, a):
@@ -483,7 +658,8 @@ _tool("update_history", "write", "Update a history's name, annotation, tags, or 
        "deleted": _BOOL, "published": _BOOL}, ["history_id"], _update_history)
 _tool("search_tools_by_keywords", "read", "Search the Galaxy tool catalog by a list of keywords.",
       {"keywords": {"type": "array", "items": _STR}}, ["keywords"], _search_tools_by_keywords)
-_tool("get_tool_panel", "read", "Get the Galaxy tool panel (sections and tools).", {}, [], _get_tool_panel)
+_tool("get_tool_panel", "read", "Get the Galaxy tool panel (sections and tools); optional section filter, limit/offset paging.",
+      {"section": _STR, "limit": _INT, "offset": _INT}, [], _get_tool_panel)
 _tool("get_tool_citations", "read", "Get a tool's citations (bibtex).", {"tool_id": _STR}, ["tool_id"], _get_tool_citations)
 _tool("get_tool_input_template", "read", "Get a tool's input parameter schema (a fillable template).",
       {"tool_id": _STR}, ["tool_id"], _get_tool_input_template)
@@ -504,8 +680,10 @@ _tool("upload_file", "write",
       "Upload a file from the local filesystem to a history -- e.g. one written by run_python.",
       {"path": _STR, "history_id": _STR, "file_name": _STR, "file_type": _STR, "dbkey": _STR},
       ["path"], _upload_file)
-_tool("list_workflows", "read", "List stored workflows; optional name/id filter, published flag.",
-      {"workflow_id": _STR, "name": _STR, "published": _BOOL}, [], _list_workflows)
+_tool("list_workflows", "read", "List stored workflows; optional name/tag/id filter, published flag, "
+      "limit/offset paging.",
+      {"workflow_id": _STR, "name": _STR, "published": _BOOL, "limit": _INT, "offset": _INT},
+      [], _list_workflows)
 _tool("get_workflow_details", "read", "Get a stored workflow's details.",
       {"workflow_id": _STR, "version": _INT}, ["workflow_id"], _get_workflow_details)
 _tool("get_workflow_input_template", "read", "Get a workflow's run-form input template (fill and pass to invoke_workflow).",
@@ -533,8 +711,12 @@ _tool("get_page", "read", "Get a page's editable content and metadata.",
       {"page_id": _STR, "include_rendered": _BOOL}, ["page_id"], _get_page)
 _tool("create_page", "write", "Create a page (Notebook if history_id given, else a standalone Report).",
       {"history_id": _STR, "title": _STR, "content": _STR, "annotation": _STR, "slug": _STR}, [], _create_page)
-_tool("update_page", "write", "Update a page's content and/or title.",
-      {"page_id": _STR, "content": _STR, "title": _STR}, ["page_id"], _update_page)
+_tool("update_page", "write",
+      "Update a page. Give `section_heading` and `section_content` to replace one section, "
+      "or `content` to replace the body. Pass `expect_hash` from when you read the page and "
+      "the write is refused if someone edited it since.",
+      {"page_id": _STR, "content": _STR, "title": _STR, "section_heading": _STR,
+       "section_content": _STR, "expect_hash": _STR}, ["page_id"], _update_page)
 _tool("list_page_revisions", "read", "List a page's edit revisions.",
       {"page_id": _STR, "sort_desc": _BOOL}, ["page_id"], _list_page_revisions)
 _tool("get_page_revision", "read", "Get one page revision.",

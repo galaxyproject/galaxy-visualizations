@@ -49,7 +49,6 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
         return {"grouping": grouping}
 
     # Galaxy detects the datatype on upload, so most of these are usually already right.
-    # Retyping them anyway queues one background task per dataset for no change.
     if datatype:
         already = {d.get("id") for d in contents if d.get("extension") == datatype}
         pending = [i for i in grouping["items"] if i["id"] not in already]

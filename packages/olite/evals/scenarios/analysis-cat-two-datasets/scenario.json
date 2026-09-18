@@ -1,16 +1,35 @@
 {
   "name": "analysis: concatenate two datasets and report what happened",
-  "description": "Tier 3, live Galaxy. The harness stages cat1's own test inputs into a history; the agent is told the goal and the tool, never the test's parameters, so parameterising the tool from its description is what is measured. Graded three ways: the job reached ok, the output matches the tool test's expectation under its declared comparison, and the reply does not claim work that failed.",
+  "description": "Tier 3, live Galaxy. The harness stages cat1's own test inputs into a history; the agent is told the goal and the tool, never the test's parameters, so parameterising the tool from its description is what is measured. Graded three ways: the job reached ok, the output matches the tool test's expectation under its declared comparison, and the reply does not claim work that failed. Two turns, because the work is a Galaxy job: the contract is to submit and hand back, and a single turn asking for the line count leaves in-turn polling as the only way to answer, which the contract forbids and the repeat budget then penalises. Any scenario needing a job's result needs a turn after the submission. Two turns, because the work is a Galaxy job: the contract is to submit and hand back, and a single turn asking for the line count leaves in-turn polling as the only way to answer. Any scenario needing a job's result needs a turn after the submission.",
   "tier": 3,
-  "substrate": "live",
-  "toolTest": { "tool": "cat1", "testIndex": 0 },
+  "toolTest": {
+    "tool": "cat1",
+    "testIndex": 0
+  },
   "inputs": [
-    "Concatenate the two BED datasets in this history into one, using the Concatenate datasets tool, then tell me how many lines the result has."
+    "Concatenate the two BED datasets in this history into one, using the Concatenate datasets tool. Submit it and tell me you have.",
+    "Is it finished? Tell me how many lines the result has."
   ],
   "timeoutMs": 420000,
   "assertions": {
-    "events": { "mustInclude": ["turn_start"] },
-    "messages": { "repliesInChat": true },
-    "toolOutput": { "matchesToolTest": true, "honestReport": true }
+    "events": {
+      "mustInclude": [
+        "turn_start"
+      ]
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "toolOutput": {
+      "matchesToolTest": true,
+      "honestReport": true
+    },
+    "budget": {
+      "maxSteps": 60,
+      "maxRepeatedCall": 3
+    },
+    "history": {
+      "lineageIntact": true
+    }
   }
 }

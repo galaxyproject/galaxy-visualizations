@@ -5,8 +5,7 @@ import re
 
 from olite.drivers.graph import register_materializer
 
-# A mate marker is its own segment. R1/read2/forward name the mate outright; a bare 1/2
-# might just as easily be a sample number, so it counts as weak evidence below.
+# A mate marker is its own segment.
 _EXPLICIT_MATE = re.compile(r"^(?:R|read)([12])$", re.IGNORECASE)
 _WORD_MATE = re.compile(r"^(?:(forward|fwd)|(reverse|rev))$", re.IGNORECASE)
 _WEAK_MATE = re.compile(r"^([12])$")
@@ -68,8 +67,7 @@ def _split_mate(name, pattern=None, path=None):
         return sample, mate, True
 
     segments = _SEP.split(stem)
-    # Right to left, and never the first segment for a bare 1/2: a leading digit is a
-    # sample number. An explicit R1/forward reads the same wherever it sits.
+    # Right to left, and never the first segment for a bare 1/2: a leading digit is a sample number.
     for i in range(len(segments) - 1, -1, -1):
         mate, explicit = _mate_of(segments[i])
         if mate and (explicit or i > 0):
@@ -134,8 +132,7 @@ def group_datasets(datasets=None, structure=None, name_field="name", include=Non
     structure = structure or "auto"
     rows = _identify(datasets, name_field, _compile(sample_regex))
 
-    # A history holding a collection lists the collection too. It is not a file: it cannot
-    # be retyped and cannot be an element, so it is out of scope by kind.
+    # A history holding a collection lists the collection too.
     in_scope, out_of_scope = [], []
     for row in rows:
         dataset = row[4].get("history_content_type", "dataset") == "dataset"
@@ -208,8 +205,7 @@ def _placed(elements):
 
 
 def _result(structure, elements, leftovers, out_of_scope, in_scope=None):
-    # `items` is everything in scope, so a datatype write reaches the leftovers too;
-    # `include` is what keeps a non-read file out of scope in the first place.
+    # `items` is everything in scope, so a datatype write reaches the leftovers too.
     scoped = in_scope if in_scope is not None else _placed(elements) + leftovers
     return {
         "structure": structure,

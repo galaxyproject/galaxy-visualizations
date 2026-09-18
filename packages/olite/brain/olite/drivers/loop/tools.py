@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 
-from olite.substrate import Confirmation
+from olite.substrate import Confirmation, LocalExecutionError
 
 from . import confusables, galaxy_destructive, galaxy_tools, gtn, notebook
 from .brief import brief
@@ -149,8 +149,6 @@ def _summarize(state):
                        "elements": len(grouping.get("elements") or [])},
         "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
         "out_of_scope": sample(grouping.get("out_of_scope")),
-        # Galaxy queues one task per dataset for a datatype change, so this is accepted
-        # work, not finished work. Saying "done" here would be a lie at any real size.
         "datatype": {
             "queued": len(grouping.get("items") or []),
             "state": "Galaxy applies these in the background; they are not converted yet",
@@ -164,6 +162,7 @@ class ToolOutcome:
 
     content: object
     is_error: bool = False
+    refused: bool = False
 
     @property
     def text(self):
@@ -226,10 +225,13 @@ class ToolSurface:
         if destructive is not None:
             refusal = await self._gate_destructive(name, destructive)
             if refusal is not None:
-                return ToolOutcome(refusal, is_error=True)
+                return ToolOutcome(refusal, is_error=True, refused=True)
 
         if name == "run_python":
-            return self.substrate.local.run(args.get("code", ""))
+            try:
+                return self.substrate.local.run(args.get("code", ""))
+            except LocalExecutionError as exc:
+                return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
         if name == "skills_fetch":
@@ -319,5 +321,8 @@ class ToolSurface:
             payload = {k: v for k, v in output.items() if k != "artifact"}
             payload["ok"] = True
             payload["artifact"] = {"kind": art.get("kind"), "title": art.get("title")}
+            payload["hint"] = ("This artifact is already displayed to the user and is not a "
+                               "history dataset, so do not look for it there. Describe what "
+                               "it shows and finish.")
             return json.dumps(payload, default=str)
         return json.dumps(output)

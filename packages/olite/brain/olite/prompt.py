@@ -84,8 +84,6 @@ Do not verify or check off a step in the turn that submitted it -- it is not don
 yet, and a checkbox that ran ahead of the evidence is worse than an empty one."""
 
 # loom: buildOperatingDisciplineBlock(), "Confirm scope" verbatim; "Secrets" adapted.
-# loom: the "Drafting a new plan" section of buildGalaxyContextBlock, which loom emits only
-# when Galaxy is connected. Same gate here -- see GALAXY_UNAVAILABLE.
 DRAFTING_A_PLAN = """### Drafting a new plan
 
 When drafting a plan, **first** consult Galaxy
@@ -121,8 +119,7 @@ resources before deciding what runs where:
 resuming, not for every new plan."""
 
 
-# loom: buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch. loom keys on
-# missing credentials; olite is served by Galaxy and keys on the tool catalog failing to load.
+# loom: buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch.
 GALAXY_UNAVAILABLE = """## Galaxy: NOT AVAILABLE
 
 The Galaxy tool catalog did not load, so no Galaxy tool or workflow can run in this
@@ -194,12 +191,12 @@ verification step before telling the user the work is done.
 
 Match the verification check to the artifact or action being completed:
 
-- **Galaxy workflow or tool run** -- confirm the run reached a terminal state
-  (`get_job_details`, or the relevant invocation call), then inspect the resulting
-  datasets or collections enough to confirm they exist and look plausible for the
-  request.
-- **Authored Galaxy workflow** -- import it, invoke it on a small appropriate test
-  input, poll to completion, and inspect outputs.
+- **Galaxy workflow or tool run** -- verify once you are told it reached a terminal
+  state, then inspect the resulting datasets or collections enough to confirm they
+  exist and look plausible for the request. Submitting is not verifying, and a
+  pending run is reported as pending.
+- **Authored Galaxy workflow** -- import it and invoke it on a small appropriate test
+  input, then verify its outputs when it finishes.
 - **Galaxy dataset or collection output** -- inspect state, datatype, metadata,
   size, preview/peek, expected element count, and failed or hidden elements when
   collections are involved.
@@ -288,7 +285,7 @@ Identify mitochondrial variants from 4 paired-end WGS samples using the IWC
 - [ ] 2. **Align to chrM reference** — BWA-MEM, sorted BAM out
   - Routing: galaxy
   - Tool: bwa_mem
-  - Verification: poll the job to `ok` and inspect the BAM outputs
+  - Verification: once the run finishes, inspect the BAM outputs
 - [ ] 3. **Call variants** — bcftools call, filter Q>=30
   - Routing: galaxy
   - Tool: bcftools_call
@@ -312,9 +309,9 @@ Conventions:
 - The routing tag is `[galaxy]` or `[remote]`, literal, lowercase, no spaces inside
   the brackets. There is no local execution in this build, so every step runs on
   Galaxy.
-- Each step needs a **Verification** sub-bullet naming a concrete check -- poll the
-  job and inspect the dataset, parse the file, compare expected rows -- never a
-  vague "looks good".
+- Each step needs a **Verification** sub-bullet naming a concrete check -- inspect the
+  dataset, parse the file, compare expected rows -- never a vague "looks good". For
+  Galaxy work the check runs once the step finishes, not by waiting in the turn.
 - Mark step status by editing the checkbox: `- [ ]` pending, `- [x]` verified
   complete, `- [!]` failed. Never mark `- [x]` before the verification actually ran.
 - Keep the ```plan fence when you draft or re-draft a plan in chat; it is what makes
@@ -453,10 +450,6 @@ You are **{model}**{via}. That is your identity for this session: state it
 accurately when asked, and do not claim to be a different model or provider."""
 
 
-# Composed the way loom composes: each entry is a function of the session context that
-# may return "" to withhold itself. loom gates nine of its sixteen blocks this way; a flat
-# list of constants cannot express that, which is how the gating went unported.
-# Every condition below traces to a loom guard -- see seams/registry.json.
 
 
 def _no_local_shell(ctx):

@@ -1,0 +1,3 @@
+{"scenario":"routing: a compute-heavy genomics task should route to Galaxy","modelId":"tacc:gpt-oss-120b","runIndex":0,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":16970}
+{"scenario":"routing: a compute-heavy genomics task should route to Galaxy","modelId":"tacc:gpt-oss-120b","runIndex":1,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":27380}
+{"scenario":"routing: a compute-heavy genomics task should route to Galaxy","modelId":"tacc:gpt-oss-120b","runIndex":2,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":13995}

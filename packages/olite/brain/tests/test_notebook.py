@@ -39,20 +39,24 @@ def run(coro):
 # --- Identity -----------------------------------------------------------------
 
 
-def test_the_slug_is_derived_from_the_history_not_invented():
-    assert notebook.slug_for_history(HISTORY) == f"olite-{HISTORY}"
-    # Same history, same slug, every time — that is the whole resume mechanism.
-    assert notebook.slug_for_history(HISTORY) == notebook.slug_for_history(HISTORY)
-    assert notebook.slug_for_history("other") != notebook.slug_for_history(HISTORY)
+def test_the_record_is_found_by_history_association():
+    g = FakeGalaxy([{"id": "p1", "history_id": HISTORY, "content": "prior work"}])
+    out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
+
+    assert out["created"] is False
+    assert out["page_id"] == "p1"
+    assert any("history_id=" in path for path in g.gets), "must ask Galaxy to scope by history"
 
 
-def test_the_slug_is_a_legal_galaxy_slug():
-    slug = notebook.slug_for_history(HISTORY)
-    assert slug == slug.lower()
-    assert all(c.isalnum() or c == "-" for c in slug)
 
+def test_creation_does_not_invent_a_slug():
+    g = FakeGalaxy()
+    run(notebook._notebook_resume(g, {"history_id": HISTORY}))
 
-# --- Resume -------------------------------------------------------------------
+    _, payload = g.posted[0]
+    assert payload["history_id"] == HISTORY
+    assert "slug" not in payload
+
 
 
 def test_a_first_call_creates_the_record_once():
@@ -61,12 +65,10 @@ def test_a_first_call_creates_the_record_once():
 
     assert out["created"] is True
     assert out["page_id"] == "newpage1"
-    assert out["slug"] == f"olite-{HISTORY}"
     path, payload = g.posted[0]
     assert path == "api/pages"
     # Attached to the history, so it shows up as that history's notebook in Galaxy.
     assert payload["history_id"] == HISTORY
-    assert payload["slug"] == f"olite-{HISTORY}"
 
 
 def test_a_second_call_reattaches_instead_of_creating_a_second_record():
@@ -82,7 +84,7 @@ def test_a_second_call_reattaches_instead_of_creating_a_second_record():
 
 def test_resuming_returns_the_existing_body_so_prior_work_is_readable():
     g = FakeGalaxy([
-        {"id": "p1", "slug": f"olite-{HISTORY}", "title": "olite record", "content": "## Record\n\nStep 1 done."}
+        {"id": "p1", "history_id": HISTORY, "slug": f"olite-{HISTORY}", "title": "olite record", "content": "## Record\n\nStep 1 done."}
     ])
     out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
 
@@ -102,7 +104,7 @@ def test_a_page_that_merely_mentions_the_slug_is_not_the_record():
 
 
 def test_a_record_for_another_history_is_not_reused():
-    g = FakeGalaxy([{"id": "other", "slug": "olite-aaaaaaaaaaaaaaaa", "content": "not this one"}])
+    g = FakeGalaxy([{"id": "other", "history_id": "aaaaaaaaaaaaaaaa", "content": "not this one"}])
     out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
 
     assert out["created"] is True
@@ -161,7 +163,7 @@ def test_no_record_yet_means_no_excerpt():
 
 
 def test_the_excerpt_carries_the_record_and_the_data_boundary():
-    page = {"id": "p1", "slug": notebook.slug_for_history(HISTORY), "content": "## Record\n\nStep 1 done."}
+    page = {"id": "p1", "history_id": HISTORY, "content": "## Record\n\nStep 1 done."}
 
     text = _excerpt(FakeGalaxy([page]))
 
@@ -172,7 +174,7 @@ def test_the_excerpt_carries_the_record_and_the_data_boundary():
 
 def test_a_long_record_is_elided_in_the_middle_like_loom():
     body = "H" * notebook.HEAD_MAX_CHARS + "M" * 5000 + "T" * notebook.TAIL_MAX_CHARS
-    page = {"id": "p1", "slug": notebook.slug_for_history(HISTORY), "content": body}
+    page = {"id": "p1", "history_id": HISTORY, "content": body}
 
     text = _excerpt(FakeGalaxy([page]))
 
@@ -192,7 +194,7 @@ def test_an_unreachable_galaxy_does_not_break_the_turn():
 def test_the_excerpt_names_the_bound_history():
     """loom's buildGalaxyPageBindingBlock tells the agent the history every turn; without it
     the agent omits history_id and Galaxy puts outputs in a history the user never opened."""
-    page = {"id": "p1", "slug": notebook.slug_for_history(HISTORY), "content": "## Record\n\nx"}
+    page = {"id": "p1", "history_id": HISTORY, "content": "## Record\n\nx"}
 
     text = _excerpt(FakeGalaxy([page]))
 
@@ -211,7 +213,7 @@ def test_the_binding_block_lists_the_history_datasets():
             if path.endswith("/p1"):
                 return {"id": "p1", "content": "## Record"}
             if "pages" in path:
-                return [{"id": "p1", "slug": notebook.slug_for_history("h1")}]
+                return [{"id": "p1", "history_id": "h1"}]
             if "contents" in path:
                 return [
                     {"id": "aaaa000000000001", "name": "reads.fastq", "extension": "fastq",
@@ -243,10 +245,22 @@ def test_the_binding_block_survives_a_history_it_cannot_list():
             if path.endswith("/p1"):
                 return {"id": "p1", "content": "## Record"}
             if "pages" in path:
-                return [{"id": "p1", "slug": notebook.slug_for_history("h1")}]
+                return [{"id": "p1", "history_id": "h1"}]
             return {}
 
     out = asyncio.run(notebook.excerpt(G(), "h1"))
 
     assert "## Galaxy binding" in out
     assert "## Datasets in this history" not in out
+
+
+def test_page_source_prefers_the_editable_markdown_over_the_expanded_render():
+    # Galaxy returns `content` embed-expanded and `content_editor` as the saved source.
+    # Reading `content` and writing it back replaces the source with its own render.
+    from olite.drivers.loop.notebook import _page_source
+
+    page = {"content": "<expanded render>", "content_editor": "## Record\n\nreal source"}
+    assert _page_source(page) == "## Record\n\nreal source"
+    # html pages carry no content_editor, so fall back rather than return nothing
+    assert _page_source({"content": "<p>html page</p>"}) == "<p>html page</p>"
+    assert _page_source({}) == ""

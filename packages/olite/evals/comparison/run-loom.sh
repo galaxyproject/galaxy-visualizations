@@ -46,12 +46,20 @@ echo "model    ${MODEL}"
 echo "results  ${OUT}"
 echo "${#scenarios[@]} scenario(s)"
 
-# 4. loom overwrites its results file each invocation; snapshot after each.
+# 5. A model id loom does not know, or any other early exit, leaves its results
+# directory untouched -- and `ls -t` then hands back a file from a previous run, which
+# gets filed under this scenario's name. Month-old numbers for a scenario that never ran
+# read exactly like fresh ones. So the snapshot is taken only if loom wrote something
+# newer than this invocation.
 for s in "${scenarios[@]}"; do
     echo "=== $s"
+    marker="$(mktemp)"                       # a timestamp to compare against
     (cd "$LOOM_DIR" && npm run evals -- "$s" --model "$MODEL" 2>&1) | grep -E "PASS|FAIL|passed|failed" || true
-    latest=$(find "$LOOM_DIR/evals/results" -name '*.jsonl' -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1 || true)
-    [ -n "$latest" ] && cp "$latest" "$OUT/$s.jsonl"
+    latest=$(find "$LOOM_DIR/evals/results" -name '*.jsonl' -newer "$marker" -print0 2>/dev/null \
+        | xargs -0 ls -t 2>/dev/null | head -1 || true)
+    rm -f "$marker"
+    [ -n "$latest" ] || fail "loom wrote no results for $s; it did not run (a stale file would have been copied here)"
+    cp "$latest" "$OUT/$s.jsonl"
 done
 
 echo "done; per-scenario results under $OUT"
