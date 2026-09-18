@@ -44,13 +44,7 @@ def available_models(matrix, only):
 
 
 def _resolve_run_tokens(scenario):
-    """Give `$run` a value unique to this run, in inputs and assertions alike.
-
-    A scenario that names a fixed Galaxy slug is self-poisoning: Galaxy refuses a
-    duplicate slug, so the second run creates nothing and grades the page the first run
-    left behind. It then passes whatever the code does. Found by falsification, which is
-    the only thing that could have found it.
-    """
+    """Replace `$run` with a token unique to this run."""
     token = uuid.uuid4().hex[:10]
 
     def sub(value):
