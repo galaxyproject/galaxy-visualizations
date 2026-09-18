@@ -64,11 +64,9 @@ def build_config(model, capabilities=None):
     }
     if base:
         config["ai_base_url"] = base.rstrip("/")
-    # A measured run can raise olite's browser-tab backstop to find what a task really costs.
     max_steps = os.environ.get("OLITE_EVAL_MAX_STEPS", "").strip()
     if max_steps:
         config["max_steps"] = int(max_steps)
-    # Both suites face one real server. run.py refuses to start without these.
     galaxy_root = os.environ.get("GALAXY_URL", "").strip()
     config["galaxy_root"] = galaxy_root.rstrip("/") + "/"
     config["galaxy_key"] = os.environ.get("GALAXY_API_KEY", "")
@@ -92,20 +90,16 @@ def _api_key(model):
 async def _run(scenario, model):
     config = build_config(model, scenario.get("capabilities"))
     substrate = Substrate(config)
-    # Processes reach Galaxy through the catalog, so it has to be loaded.
     await substrate.catalog.init()
 
-    # A tool-test scenario runs against a real Galaxy.
     staged = None
     if scenario.get("dataset"):
         staged = stage_dataset(config, scenario["dataset"])
-        # Running a workflow needs both: the workflow, and something to feed it.
         if scenario.get("workflows"):
             staged["workflow_ids"] = import_workflows(staged["galaxy"], scenario["workflows"])
     elif scenario.get("workflows"):
         staged = stage_workflows(config, scenario["workflows"])
     elif scenario.get("emptyHistory"):
-        # Nothing staged, but assertions still need the history to read.
         staged = stage_empty(config, scenario["emptyHistory"])
     elif scenario.get("toolTest"):
         staged = stage_tool_test(config, scenario["toolTest"])
@@ -114,14 +108,12 @@ async def _run(scenario, model):
     skills = SkillRegistry().load_packaged()
     driver = LoopDriver(substrate, processes, skills)
 
-    # Passed explicitly.
     context = "\n\n".join(
         t for t in (prompt.system_text(galaxy_ok=True), skills.router_text()) if t
     )
     transcripts = _inject_context(
         [{"role": "system", "content": scenario.get("systemPrompt", "You are olite.")}], context
     )
-    # Production binds a history and lists its datasets every turn (runtime.py).
     bound_history = staged["history_id"] if staged else _empty_history(config, scenario)
     transcripts = _inject_record(
         transcripts, await notebook.excerpt(substrate.galaxy, bound_history)
@@ -140,7 +132,6 @@ async def _run(scenario, model):
     # `restartAfter` models closing the browser and coming back with nothing stored.
     restart_after = scenario.get("restartAfter")
     opening = list(messages)
-    # The driver's transcript shrinks at a restart; the grader's must not.
     graded = list(messages)
     for index, turn in enumerate(scenario["inputs"], start=1):
         if restart_after and index == restart_after + 1:
@@ -171,7 +162,6 @@ def _note(event, sink, events=None, refused=None):
         events.append(kind)
     if kind == "tool_start" and event.get("name"):
         sink.append(event["name"])
-    # A gated call is announced and then refused.
     if kind == "tool_end" and event.get("refused") and refused is not None:
         refused.append(event.get("name"))
 
@@ -259,7 +249,6 @@ def import_workflows(galaxy, spec):
     """The fixture workflows, freshly imported. Returns {filename: workflow_id}."""
     base = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "workflows"
     definitions = {name: json.loads((base / name).read_text()) for name in spec["files"]}
-    # Counting is only meaningful against a known set, so clear prior runs' copies first.
     wanted = {d["name"] for d in definitions.values()}
     for w in galaxy.call("api/workflows") or []:
         if w.get("name") in wanted:
@@ -283,7 +272,6 @@ def stage_dataset(config, spec):
     galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
     path = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / spec["file"]
     if not path.exists():
-        # Large fixtures are generated, not committed.
         gen = path.with_suffix(path.suffix + ".gen.py")
         if not gen.exists():
             gen = path.parent / (path.stem + ".gen.py")

@@ -31,7 +31,6 @@ MALFORMED_ARGS_ERROR = (
 )
 # pi's wording for a call dropped because the run was aborted.
 ABORTED_ERROR = "Operation aborted"
-# Backstop only.
 MAX_TOOL_RESULT_BYTES = 64 * 1024
 OVERSIZED_RESULT_ERROR = (
     'Tool call "{name}" returned {size} KB, over the {cap} KB limit for a single result, so '
@@ -155,7 +154,6 @@ class LoopDriver:
                 call_id = call.get("id")
 
                 refusal = None
-                # A gate inside dispatch refuses without setting `refusal` above.
                 gated = False
                 args = {}
                 if cancellation.aborted:

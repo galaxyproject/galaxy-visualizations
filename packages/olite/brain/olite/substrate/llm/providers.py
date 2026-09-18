@@ -79,7 +79,6 @@ DEEPSEEK = Provider(
     models={"deepseek-v4-flash": Model("deepseek-v4-flash", context_window=1_000_000)},
 )
 
-# One key across vendors, which is what the eval matrix wants.
 OPENROUTER = Provider(
     id="openrouter",
     name="OpenRouter",

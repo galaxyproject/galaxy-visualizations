@@ -38,7 +38,6 @@ class Break:
         self.why = why
         self.scenarios = scenarios
         self.expect = expect
-        # Several edits, because leaving one route open reads as a missed break.
         self.edits = edits or [(path, find, replace)]
 
     def _paths(self):

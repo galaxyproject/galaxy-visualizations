@@ -163,7 +163,6 @@ class ToolOutcome:
 
     content: object
     is_error: bool = False
-    # A gate declined to run this.
     refused: bool = False
 
     @property

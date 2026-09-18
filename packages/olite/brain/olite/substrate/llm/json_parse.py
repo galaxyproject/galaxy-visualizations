@@ -46,7 +46,6 @@ def repair_json(text):
                 out.append("\\" + nxt)
                 i += 2
                 continue
-            # Keep the backslash as data.
             out.append("\\\\")
             i += 1
             continue

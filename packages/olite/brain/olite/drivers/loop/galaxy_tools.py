@@ -134,7 +134,6 @@ async def _get_dataset_details(g, a):
     dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     if a.get("include_preview", True):
         try:
-            # A chunk, not the whole file.
             want = int(a.get("preview_lines", 10) or 10)
             text = await _chunk(g, a["dataset_id"], PREVIEW_BYTES)
             if text is None:
@@ -212,7 +211,7 @@ async def _search_tools_by_keywords(g, a):
     return await g.get(f"api/tools{_q({'q': ' '.join(a.get('keywords') or [])})}")
 
 
-# Listing tool classes instead would drop whichever Galaxy adds next.
+# Structural panel classes.
 PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
 PANEL_KEEP = ("id", "name", "description")
 
@@ -547,7 +546,6 @@ async def _get_page(g, a):
 
 async def _create_page(g, a):
     payload = {k: a[k] for k in ("title", "content", "annotation", "slug") if a.get(k) is not None}
-    # Marks the revision as an agent edit, so it can be told apart and reverted.
     payload.setdefault("edit_source", "agent")
     if a.get("history_id"):
         payload["history_id"] = a["history_id"]
@@ -558,7 +556,6 @@ async def _create_page(g, a):
 
 async def _update_page(g, a):
     payload = {k: a[k] for k in ("title", "content") if a.get(k) is not None}
-    # Marks the revision as an agent edit.
     payload.setdefault("edit_source", "agent")
     return await g.put(f"api/pages/{a['page_id']}", payload)
 

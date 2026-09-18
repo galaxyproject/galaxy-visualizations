@@ -36,7 +36,6 @@ class OpenAICompletions:
         return f"{base}/chat/completions"
 
     def headers(self, target):
-        # Bearer is the OpenAI-compatible standard.
         headers = {"Content-Type": "application/json"}
         if target.api_key is not None:
             headers["Authorization"] = f"Bearer {target.api_key}"

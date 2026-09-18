@@ -313,7 +313,6 @@ def _history(spec, run, failures, exercised):
         produced = [c for c in contents
                     if c.get("history_content_type") == "dataset"
                     and c.get("id") not in staged_ids and not c.get("deleted")]
-        # Only successful outputs count.
         good = [c for c in produced if c.get("state") == "ok"]
         if len(good) < wanted:
             failures.append(Failure(
@@ -407,12 +406,11 @@ def _record_ids_resolve(spec, run, failures, galaxy, content):
     """A truncated id addresses nothing, so the step cannot be resumed from."""
     import re
 
-    # Galaxy ids are hex; a 12- or 8-character run is a truncation, not an id.
+    # A Galaxy id is a multiple of 16 hex characters.
     for token in set(re.findall(r"`([0-9a-f]{8,32})`", content or "")):
         if len(token) % 16 == 0:
             got = galaxy.call(f"api/datasets/{token}") or {}
             if isinstance(got, dict) and got.get("err_msg"):
-                # Not every hex token is a dataset; pages and jobs live elsewhere.
                 continue
             continue
         failures.append(Failure(
@@ -589,7 +587,6 @@ def _record(spec, run, failures, exercised):
         failures.append(Failure("record", "scenario staged no history to read", "record"))
         return
     galaxy = staged["galaxy"]
-    # Default target is the history's record.
     slug = spec.get("slug") or f"olite-{staged['history_id']}"
     # Asked for by slug: a listing is capped, and a busy server pushes the record past it.
     pages = galaxy.call(f"api/pages?search=slug:{slug}") or []
@@ -678,7 +675,7 @@ def _invocation(spec, run, failures, exercised):
             failures.append(Failure(
                 "invocation.producesDatasets",
                 f"workflow output landed in error: {bad}", "behavior"))
-        # Reporting before the job lands is the failure the wording "when it finishes" names.
+        # The answer must wait for the job.
         pending = [c.get("name") for c in produced
                    if c.get("state") in ("new", "queued", "running", "paused")]
         if pending:

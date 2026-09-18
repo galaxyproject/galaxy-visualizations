@@ -450,7 +450,6 @@ You are **{model}**{via}. That is your identity for this session: state it
 accurately when asked, and do not claim to be a different model or provider."""
 
 
-# Composed the way loom composes.
 
 
 def _no_local_shell(ctx):
