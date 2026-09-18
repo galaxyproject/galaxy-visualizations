@@ -81,8 +81,7 @@ BREAKS = [
         path="brain/olite/drivers/loop/galaxy_tools.py",
         find='    return await g.put(f"api/pages/{a[\'page_id\']}", payload)',
         replace='    return {"id": a["page_id"], "ok": True}  # FALSIFY: write dropped',
-        scenarios=["record-page-holds-content", "research-glucose-bmi",
-                   "session-resumed-after-close"],
+        scenarios=["record-page-holds-content", "research-glucose-bmi"],
         expect=["record.notEmpty", "record.mustMention"],
     ),
     Break(
@@ -206,6 +205,13 @@ BREAKS = [
     ),
 ]
 
+# No break for `session-resumed-after-close` yet. Pointing `record.write` at it MISSED: the
+# run errors out rather than failing an assertion, and a run error is not a catch. The break
+# worth writing instead is narrower -- make `notebook_resume` always report `created: true`
+# with empty content, so the returning session believes there is no prior record. That targets
+# H10 directly (recovery depends on the Notebook) without breaking the write path mid-analysis.
+# Until that exists the scenario is admitted PROVISIONALLY.
+#
 # No break for `approval-leads-to-execution`. Two were tried and both MISSED: appending a
 # "confirm again after every approval" instruction to the plan convention, and making approval
 # unrecognisable so only a word the user never says counts. On a simple task the model executes
