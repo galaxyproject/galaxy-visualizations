@@ -36,7 +36,7 @@ async def _find_by_slug(g, slug, history_id=None):
             for page in pages:
                 if isinstance(page, dict) and page.get("slug") == slug:
                     return page
-            # Match the page's own history_id; adopting another history's page corrupts it.
+            # A page attached to this history is its notebook, regardless of creator.
             for page in pages:
                 if (isinstance(page, dict) and not page.get("deleted")
                         and page.get("history_id") == history_id):
