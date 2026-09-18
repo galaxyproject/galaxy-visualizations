@@ -42,8 +42,8 @@ def test_a_dataset_from_another_history_is_refused_before_submission():
     out = run(g, HERE, {"input": {"src": "hda", "id": "d1"}})
     assert g.posted is None, "nothing may reach Galaxy"
     assert out["submitted"] is False
-    assert out["foreign_inputs"][0]["dataset_id"] == "d1"
-    assert out["foreign_inputs"][0]["belongs_to_history_id"] == ELSEWHERE
+    assert out["rejected_inputs"][0]["supplied_id"] == "d1"
+    assert out["rejected_inputs"][0]["resolves_to_history_id"] == ELSEWHERE
     assert out["target_history_id"] == HERE
 
 
@@ -61,7 +61,7 @@ def test_one_bad_input_among_several_refuses_the_whole_submission():
                         "b": {"src": "hda", "id": "d2"},
                         "c": {"src": "hda", "id": "d3"}})
     assert g.posted is None
-    assert [f["dataset_id"] for f in out["foreign_inputs"]] == ["d2"]
+    assert [f["supplied_id"] for f in out["rejected_inputs"]] == ["d2"]
 
 
 def test_nested_and_repeated_inputs_are_inspected():
@@ -69,7 +69,7 @@ def test_nested_and_repeated_inputs_are_inspected():
     out = run(g, HERE, {"queries": [{"input2": {"src": "hda", "id": "d1"}},
                                     {"input2": {"src": "hda", "id": "d2"}}]})
     assert g.posted is None
-    assert [f["dataset_id"] for f in out["foreign_inputs"]] == ["d2"]
+    assert [f["supplied_id"] for f in out["rejected_inputs"]] == ["d2"]
 
 
 def test_non_dataset_parameters_are_left_alone():
@@ -83,3 +83,20 @@ def test_the_finder_reaches_nested_structures():
                          "r": [{"b": {"src": "hda", "id": "y"}}],
                          "plain": 3})
     assert sorted(i for _, i in found) == ["x", "y"]
+
+
+def test_history_contents_offers_one_identifier():
+    """Galaxy returns the HDA id and the underlying Dataset id; both encode alike, so the
+    wrong one resolves to an unrelated object rather than failing."""
+    import asyncio
+
+    from olite.drivers.loop.galaxy_tools import _get_history_contents
+
+    class G:
+        async def get(self, path, **kwargs):
+            return [{"id": "hda1", "dataset_id": "underlying1", "name": "x.tabular", "hid": 1}]
+
+    items = asyncio.run(_get_history_contents(G(), {"history_id": HERE}))
+    assert items[0]["id"] == "hda1"
+    assert "dataset_id" not in items[0]
+    assert items[0]["hid"] == 1 and items[0]["name"] == "x.tabular"

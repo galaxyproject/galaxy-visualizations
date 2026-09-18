@@ -92,6 +92,18 @@ async def _get_history_details(g, a):
             "contents_summary": {"total_items": total, "note": CONTENTS_NOTE}}
 
 
+# Galaxy returns the underlying Dataset id beside the HDA id. Both encode the same way, so
+# the wrong one resolves to an unrelated object instead of erroring.
+CONFUSABLE_ID_FIELDS = ("dataset_id",)
+
+
+def _one_identifier(item):
+    """Leave exactly one id a dataset-taking tool accepts."""
+    if not isinstance(item, dict):
+        return item
+    return {k: v for k, v in item.items() if k not in CONFUSABLE_ID_FIELDS}
+
+
 async def _get_history_contents(g, a):
     params = {
         "limit": a.get("limit", 100),
@@ -100,7 +112,10 @@ async def _get_history_contents(g, a):
         "visible": a.get("visible", True),
         "order": a.get("order", "hid-asc"),
     }
-    return await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
+    items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
+    if isinstance(items, list):
+        return [_one_identifier(i) for i in items]
+    return items
 
 
 async def _create_history(g, a):
@@ -133,8 +148,8 @@ async def _foreign_inputs(g, inputs, history_id):
         detail = await g.get(f"api/datasets/{dataset_id}") or {}
         where = detail.get("history_id") if isinstance(detail, dict) else None
         if where and where != history_id:
-            foreign.append({"input": name, "dataset_id": dataset_id,
-                            "belongs_to_history_id": where, "name": detail.get("name")})
+            foreign.append({"input": name, "supplied_id": dataset_id,
+                            "resolves_to_history_id": where, "resolves_to_name": detail.get("name")})
     return foreign
 
 
@@ -145,11 +160,11 @@ async def _run_tool(g, a):
     if foreign:
         return {
             "submitted": False,
-            "error": "Refused: a tool can only consume datasets from the history it runs in.",
+            "error": "Refused: an input id does not identify a dataset in the target history.",
             "target_history_id": history_id,
-            "foreign_inputs": foreign,
-            "hint": "Use a dataset listed in the target history, or copy the one you want into "
-                    "that history first as a separate step.",
+            "rejected_inputs": foreign,
+            "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
+                    "history. To use data from elsewhere, copy it into this history first.",
         }
     return await g.post(
         "api/tools",
