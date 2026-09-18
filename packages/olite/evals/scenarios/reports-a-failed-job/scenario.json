@@ -30,7 +30,7 @@
     },
     "chatText": {
       "mustMatch": [
-        "(?i)\\b(fail(ed|ure)?|error|did not succeed|unsuccessful)\\b"
+        "(?i)\\b(fail(ed|ure)?|error|did\\s+not\\s+succeed|unsuccessful)\\b"
       ],
       "mustNotMatch": [
         "(?i)\\ball (datasets|of them|jobs) (are|were|completed) (ok|fine|successful)"

@@ -41,7 +41,7 @@
     },
     "chatText": {
       "mustMatch": [
-        "\\bUnited States\\b",
+        "\\bUnited\\s+States\\b",
         "6[\\s,   ]?093"
       ]
     },

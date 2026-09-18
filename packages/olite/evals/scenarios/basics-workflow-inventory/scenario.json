@@ -37,8 +37,8 @@
     "chatText": {
       "mustMatch": [
         "\\b(2|two)\\b",
-        "RNA.?seq quantification",
-        "RNAseq differential expression"
+        "RNA.?seq\\s+quantification",
+        "RNAseq\\s+differential\\s+expression"
       ],
       "mustNotMatch": [
         "all (5|five) (of (them|these|your) )?(are |relate)"
