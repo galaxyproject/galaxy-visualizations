@@ -43,7 +43,7 @@
       ]
     },
     "behavior": {
-      "answersFromGalaxy": true
+      "galaxyDidWork": true
     },
     "history": {
       "lineageIntact": true

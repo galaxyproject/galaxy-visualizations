@@ -53,7 +53,7 @@
       "maxRepeatedCall": 15
     },
     "behavior": {
-      "answersFromGalaxy": true
+      "galaxyDidWork": true
     }
   }
 }

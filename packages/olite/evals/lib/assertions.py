@@ -282,8 +282,8 @@ def _behavior(spec, run, failures, exercised):
                 )
             )
 
-    if spec.get("answersFromGalaxy"):
-        _answers_from_galaxy(run, failures)
+    if spec.get("galaxyDidWork"):
+        _galaxy_did_work(run, failures)
 
     if spec.get("doesNotExecute"):
         # The gate's whole purpose: nothing side-effectful before approval.
@@ -294,11 +294,13 @@ def _behavior(spec, run, failures, exercised):
             )
 
 
-def _answers_from_galaxy(run, failures):
-    """Fail a run that reached its answer in the browser instead of on Galaxy.
+def _galaxy_did_work(run, failures):
+    """Fail a run that used local compute while Galaxy produced nothing at all.
 
-    `history.producedDatasets` says Galaxy did no work; on its own that reads the same
-    whether the agent gave up or quietly computed the result itself. This separates them.
+    This detects total substitution only. It discriminates on whether Galaxy produced any
+    output, so a run that does real Galaxy work and still computes its reported figure
+    locally is silent here and indistinguishable from a fully grounded one. It is not
+    evidence that an answer derives from a Galaxy output.
     """
     called = run.tools_called or []
     if "run_python" not in called:
@@ -318,7 +320,7 @@ def _answers_from_galaxy(run, failures):
     detail = "answered with run_python while Galaxy produced nothing"
     if "download_dataset" in called:
         detail += "; the dataset was pulled into the browser first"
-    failures.append(Failure("behavior.answersFromGalaxy", detail, "behavior"))
+    failures.append(Failure("behavior.galaxyDidWork", detail, "behavior"))
 
 
 def _lineage_intact(run, failures):
@@ -365,6 +367,74 @@ def _lineage_intact(run, failures):
             "history.lineageIntact",
             f"{tool_id} consumed dataset {parent} from history {where}, not from this "
             "analysis; the result does not descend from the staged inputs",
+            "behavior"))
+
+
+def _staged_ancestors(galaxy, history_id, dataset_id, staged_ids):
+    """Staged datasets this one descends from, following Galaxy's job records."""
+    reached, seen_jobs, queue = set(), set(), [dataset_id]
+    while queue:
+        ds_id = queue.pop()
+        if ds_id in staged_ids:
+            reached.add(ds_id)
+            continue
+        detail = galaxy.call(f"api/datasets/{ds_id}") or {}
+        job_id = detail.get("creating_job")
+        if not job_id or job_id in seen_jobs:
+            continue
+        seen_jobs.add(job_id)
+        job = galaxy.call(f"api/jobs/{job_id}?full=true") or {}
+        for value in (job.get("inputs") or {}).values():
+            if isinstance(value, dict) and value.get("src") == "hda" and value.get("id"):
+                queue.append(value["id"])
+    return reached
+
+
+def _descends_from(run, wanted_key, failures):
+    """The produced work must trace back to the input the scenario names as intended.
+
+    Separate from `lineageIntact`, which only asks whether provenance stayed inside the
+    analysis. An output can be perfectly in-boundary and still come from the wrong dataset.
+    """
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("history.descendsFrom", "scenario staged no history", "behavior"))
+        return
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    by_key = staged.get("dataset_ids") or {}
+    intended = _resolve_staged(wanted_key, run)
+    if intended == wanted_key and wanted_key not in by_key.values():
+        failures.append(Failure(
+            "history.descendsFrom",
+            f"the scenario names {wanted_key!r}, which is not a staged dataset", "behavior"))
+        return
+    staged_ids = set(by_key.values())
+    contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+    produced = [c for c in contents
+                if c.get("history_content_type") == "dataset"
+                and c.get("id") not in staged_ids
+                and not c.get("deleted") and c.get("state") == "ok"]
+    if not produced:
+        failures.append(Failure("history.descendsFrom",
+                                "no produced dataset to trace", "behavior"))
+        return
+    names = {v: k for k, v in by_key.items()}
+    wrong, any_intended = [], False
+    for c in produced:
+        roots = _staged_ancestors(galaxy, history_id, c["id"], staged_ids)
+        if intended in roots:
+            any_intended = True
+        for other in roots - {intended}:
+            wrong.append((c.get("name"), names.get(other, other)))
+    if not any_intended:
+        failures.append(Failure(
+            "history.descendsFrom",
+            f"no produced dataset descends from {names.get(intended, intended)!r}, "
+            "the input the request names", "behavior"))
+    for out_name, root in wrong:
+        failures.append(Failure(
+            "history.descendsFrom",
+            f"{out_name!r} descends from {root!r}, not the input the request names",
             "behavior"))
 
 
@@ -466,6 +536,9 @@ def _history(spec, run, failures, exercised):
 
     if spec.get("lineageIntact"):
         _lineage_intact(run, failures)
+
+    if spec.get("descendsFrom"):
+        _descends_from(run, spec["descendsFrom"], failures)
 
     if spec.get("intact"):
         state = staged["galaxy"].call(f"api/histories/{staged['history_id']}") or {}
