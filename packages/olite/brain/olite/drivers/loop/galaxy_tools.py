@@ -84,7 +84,6 @@ CONTENTS_NOTE = ("This is just a count. To get actual datasets, use "
 
 
 async def _get_history_details(g, a):
-    # Paired with a count so a metadata-only reply does not read as an empty history.
     history = await g.get(f"api/histories/{a['history_id']}")
     contents = await g.get(f"api/histories/{a['history_id']}/contents{_q({'v': 'dev', 'keys': 'id'})}")
     total = len(contents) if isinstance(contents, list) else 0
@@ -211,7 +210,6 @@ async def _search_tools_by_keywords(g, a):
     return await g.get(f"api/tools{_q({'q': ' '.join(a.get('keywords') or [])})}")
 
 
-# Structural panel classes.
 PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
 PANEL_KEEP = ("id", "name", "description")
 
@@ -256,7 +254,6 @@ async def _get_tool_panel(g, a):
         needle = _alnum(a["section"])
         out = [s for s in out if needle in _alnum(s.get("section"))]
     result = page(out, a.get("offset"), a.get("limit"))
-    # The counts describe the instance, not the page, which is what "how many tools" asks.
     result["tool_count"] = tools
     result["section_count"] = sections
     return result
@@ -377,7 +374,7 @@ async def _upload_file(g, a):
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        # Pasted content goes up as text, so refuse binary rather than corrupt it.
+        # Pasted content goes up as text, so binary is refused.
         return {
             "error": "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
             "Use upload_file_from_url for binary data.",
@@ -421,9 +418,7 @@ async def _get_workflow_details(g, a):
     return await g.get(f"api/workflows/{a['workflow_id']}{_q({'version': a.get('version')})}")
 
 
-# Everything else in the run model is the tool form the web client renders.
 WORKFLOW_INPUT_STEPS = {"data_input", "data_collection_input", "parameter_input"}
-# A long extension list says "anything"; the count is the useful part.
 EXTENSION_LIST_CAP = 12
 
 
@@ -434,7 +429,7 @@ def _trim_extensions(value):
 
 
 def _input_step(step):
-    """What a caller must supply for one step."""
+    """Populates the input step."""
     inputs = []
     for item in step.get("inputs") or []:
         if not isinstance(item, dict):

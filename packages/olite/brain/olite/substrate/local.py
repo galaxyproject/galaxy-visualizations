@@ -45,7 +45,6 @@ class LocalPython:
         if result is not None:
             parts.append(repr(result))
         if failure is not None:
-            # Keep what ran before the failure; it says how far the code got.
             raise LocalExecutionError("\n\n".join(parts + [failure]))
         return "\n".join(parts) if parts else "(no output)"
 

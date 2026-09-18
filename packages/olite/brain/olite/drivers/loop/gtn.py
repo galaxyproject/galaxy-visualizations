@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 GTN_HOST = "training.galaxyproject.org"
 GTN_BASE = f"https://{GTN_HOST}"
 GTN_API = f"{GTN_BASE}/training-material/api"
-# Bounded here: a tutorial page exceeds the dispatcher's per-result budget.
 FETCH_MAX_CHARS = 40000
-# Without this the whole HTML error body lands in the transcript.
 ERROR_MAX_CHARS = 400
 
 # Chrome that carries no tutorial content; dropped whole, as loom drops them.

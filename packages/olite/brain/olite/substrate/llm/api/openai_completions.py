@@ -75,7 +75,7 @@ class OpenAICompletions:
             usage=payload.get("usage") or {},
             raw=payload,
         )
-        # No stop reason and nothing in it: the endpoint failed, so error rather than stop.
+        # No stop reason and no content means the endpoint failed.
         if reply.finish_reason is None and not reply.content and not reply.tool_calls:
             raise ProviderError("The model provider returned an empty response.")
         return reply

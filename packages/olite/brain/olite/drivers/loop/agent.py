@@ -22,7 +22,6 @@ TRUNCATED_ERROR = (
     'Tool call "{name}" was not executed: the response hit the output token limit, so '
     "its arguments may be truncated. Re-issue the tool call with complete arguments."
 )
-# Reported back rather than replaced with `{}`, which would run the wrong request.
 MALFORMED_ARGS_ERROR = (
     'Tool call "{name}" was not executed: its arguments are not valid JSON ({detail}). '
     "Re-issue the tool call with valid arguments as one JSON object. Do not paste tool "
@@ -48,7 +47,6 @@ class LoopDriver:
         )
         # A tool result carries whatever a command printed, including a key it read.
         self.secrets = collect_secret_values(getattr(substrate, "config", None))
-        # The backstop is olite's, not Orbit's.
         config = getattr(substrate, "config", None) or {}
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
 
@@ -127,11 +125,9 @@ class LoopDriver:
                 f"reasoning={_detail.get('reasoning_tokens')}"
             )
 
-            # The OpenAI shape: null content, and no tool_calls key unless there are any.
             assistant = {"role": "assistant", "content": reply.content or None}
             if tool_calls:
                 assistant["tool_calls"] = tool_calls
-            # Under the provider's own spelling.
             if reply.reasoning:
                 assistant[reply.reasoning_key] = reply.reasoning
             messages.append(assistant)

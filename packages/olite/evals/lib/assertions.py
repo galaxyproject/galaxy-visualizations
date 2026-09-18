@@ -151,7 +151,6 @@ def _tool_calls(spec, run, failures, exercised):
             failures.append(Failure("toolCalls.mustInclude", detail, "behavior"))
 
 
-# Models write 96000 as "96 000" or "96,000".
 _SEPARATORS = (",", " ", "\u00a0", "\u202f", "_", ".")
 
 
@@ -343,7 +342,6 @@ def _history(spec, run, failures, exercised):
             failures.append(Failure("history.landedDataset",
                                     "no dataset arrived in the history", "behavior"))
             return
-        # The checks describe the fetched file, not everything the agent derived from it.
         wanted_name = landed.get("name")
         if wanted_name:
             arrived = [c for c in arrived if c.get("name") == wanted_name] or arrived
@@ -356,7 +354,6 @@ def _history(spec, run, failures, exercised):
                 return
         banned = {e.lower() for e in landed.get("notExtension") or []}
         minimum = landed.get("minLines")
-        # A redirect page lands as a small HTML stub that Galaxy accepts.
         for c in arrived:
             ext = (c.get("extension") or "").lower()
             if ext in banned:
@@ -365,7 +362,7 @@ def _history(spec, run, failures, exercised):
                     f"{c.get('name')!r} landed as {ext!r}; the fetch got a page, not the file",
                     "behavior"))
         min_bytes = landed.get("minBytes")
-        # Size, not line count: Galaxy leaves `metadata_data_lines` unset on a large upload.
+        # Galaxy leaves `metadata_data_lines` unset on a large upload, so compare size.
         if min_bytes is not None:
             biggest = 0
             for c in arrived:
@@ -406,7 +403,6 @@ def _record_ids_resolve(spec, run, failures, galaxy, content):
     """A truncated id addresses nothing, so the step cannot be resumed from."""
     import re
 
-    # A Galaxy id is a multiple of 16 hex characters.
     for token in set(re.findall(r"`([0-9a-f]{8,32})`", content or "")):
         if len(token) % 16 == 0:
             got = galaxy.call(f"api/datasets/{token}") or {}
@@ -474,7 +470,6 @@ def validate_patterns(scenarios):
                     problems.append(f"{scenario.get('id')}: {assertion} /{pattern}/: {exc}")
     return problems
 
-# A clarification often introduces a list instead of ending in "?".
 _ASKS_FOR_INFORMATION = re.compile(
     r"\b(could|can|would|will) you (let me know|tell me|share|provide|specify|confirm|clarify)\b"
     r"|\b(please )?(tell me|let me know|specify|clarify|confirm)\b"
@@ -612,7 +607,6 @@ def _record(spec, run, failures, exercised):
         _record_ids_resolve(spec, run, failures, galaxy, content)
 
     if spec.get("notEmpty"):
-        # "Written to" means a line the agent added, not the absence of a placeholder.
         planted = {line.strip() for line in notebook.STARTER.splitlines() if line.strip()}
         added = [line for line in content.splitlines()
                  if line.strip() and line.strip() not in planted]
@@ -675,7 +669,6 @@ def _invocation(spec, run, failures, exercised):
             failures.append(Failure(
                 "invocation.producesDatasets",
                 f"workflow output landed in error: {bad}", "behavior"))
-        # The answer must wait for the job.
         pending = [c.get("name") for c in produced
                    if c.get("state") in ("new", "queued", "running", "paused")]
         if pending:

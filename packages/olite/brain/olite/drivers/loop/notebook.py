@@ -12,7 +12,6 @@ def _page_source(page):
     return page.get("content_editor") or page.get("content") or ""
 
 
-# No "no entries yet" placeholder: an appended entry would leave it contradicting itself.
 STARTER = """## Record
 
 This page is the running record for this analysis, maintained by OLite. It holds the

@@ -149,7 +149,6 @@ def _summarize(state):
                        "elements": len(grouping.get("elements") or [])},
         "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
         "out_of_scope": sample(grouping.get("out_of_scope")),
-        # A datatype change is queued per dataset: accepted, not finished.
         "datatype": {
             "queued": len(grouping.get("items") or []),
             "state": "Galaxy applies these in the background; they are not converted yet",
@@ -322,7 +321,6 @@ class ToolSurface:
             payload = {k: v for k, v in output.items() if k != "artifact"}
             payload["ok"] = True
             payload["artifact"] = {"kind": art.get("kind"), "title": art.get("title")}
-            # The spec goes to the shell, so without this the model hunts the history for it.
             payload["hint"] = ("This artifact is already displayed to the user and is not a "
                                "history dataset, so do not look for it there. Describe what "
                                "it shows and finish.")
