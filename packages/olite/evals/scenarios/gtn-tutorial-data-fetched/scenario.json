@@ -1,0 +1,39 @@
+{
+  "name": "gtn: get the tutorial's own data into Galaxy, and get the real file",
+  "description": "Split out from gtn-tutorial-completed, which stages a fixture and therefore never tests acquisition -- getting the data is a genuine part of completing a tutorial, and it was the untested half. Isolated deliberately: this one depends on an external host, so its flakiness stays here rather than spreading into the scenario that grades analysis. The trap is real and the tutorial walks into it: the URL printed on the GTN page returns an HTML redirect stub, not the file, and Galaxy accepts the stub without complaint, after which every downstream step works on the wrong data. Graded on what landed, not on what the agent says it fetched.",
+  "tier": 3,
+  "substrate": "live",
+  "emptyHistory": "gtn data fetch $run",
+  "inputs": [
+    "Find the Galaxy Training Network tutorial on data manipulation and tell me what data it uses.",
+    "Get that tutorial's country information dataset into my history, then confirm it arrived and tell me how many rows it has."
+  ],
+  "timeoutMs": 900000,
+  "assertions": {
+    "toolCalls": {
+      "mustInclude": [
+        {
+          "name": "upload_file_from_url"
+        }
+      ]
+    },
+    "history": {
+      "producedDatasets": 1,
+      "landedDataset": {
+        "notExtension": [
+          "html",
+          "txt",
+          "data"
+        ],
+        "minLines": 200
+      }
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "budget": {
+      "maxSteps": 30,
+      "maxRepeatedCall": 15
+    }
+  }
+}

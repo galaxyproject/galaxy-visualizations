@@ -115,6 +115,10 @@ async def _run(scenario, model):
             staged["workflow_ids"] = import_workflows(staged["galaxy"], scenario["workflows"])
     elif scenario.get("workflows"):
         staged = stage_workflows(config, scenario["workflows"])
+    elif scenario.get("emptyHistory"):
+        # Nothing staged, but the history is still recorded so assertions can read what the
+        # agent put there. That is the whole point when acquisition is what is under test.
+        staged = stage_empty(config, scenario["emptyHistory"])
     elif scenario.get("toolTest"):
         staged = stage_tool_test(config, scenario["toolTest"])
 
@@ -240,6 +244,15 @@ def _resume_record(galaxy, history_id):
         "content": "## Record\n\n_No entries yet._\n",
         "content_format": "markdown",
     })
+
+
+def stage_empty(config, name):
+    """An empty history, in the shape the assertions read. For acquisition scenarios."""
+    galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
+    history_id = galaxy.new_history(name or "olite eval")
+    _resume_record(galaxy, history_id)
+    return {"galaxy": galaxy, "history_id": history_id, "dataset_ids": {},
+            "test": None, "tool_id": None}
 
 
 def _empty_history(config, scenario):

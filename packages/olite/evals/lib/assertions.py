@@ -338,6 +338,42 @@ def _history(spec, run, failures, exercised):
                 failures.append(Failure("history.noErrors",
                                         f"a job left output in error: {bad}", "behavior"))
 
+    landed = spec.get("landedDataset")
+    if landed:
+        contents = staged["galaxy"].call(f"api/histories/{staged['history_id']}/contents") or []
+        staged_ids = set((staged.get("dataset_ids") or {}).values())
+        arrived = [c for c in contents
+                   if c.get("history_content_type") == "dataset"
+                   and c.get("id") not in staged_ids and not c.get("deleted")
+                   and c.get("state") == "ok"]
+        if not arrived:
+            failures.append(Failure("history.landedDataset",
+                                    "no dataset arrived in the history", "behavior"))
+            return
+        banned = {e.lower() for e in landed.get("notExtension") or []}
+        minimum = landed.get("minLines")
+        # A fetch that followed a redirect page instead of the file lands a small HTML stub
+        # that Galaxy accepts happily. Every downstream step then works on the wrong data.
+        for c in arrived:
+            ext = (c.get("extension") or "").lower()
+            if ext in banned:
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"{c.get('name')!r} landed as {ext!r}; the fetch got a page, not the file",
+                    "behavior"))
+        if minimum is not None:
+            best = 0
+            for c in arrived:
+                full = staged["galaxy"].call(f"api/datasets/{c['id']}") or {}
+                lines = (full.get("metadata_data_lines")
+                         or (full.get("metadata") or {}).get("data_lines") or 0)
+                best = max(best, int(lines or 0))
+            if best < minimum:
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"largest arrived dataset has {best} data lines, wanted at least {minimum}",
+                    "behavior"))
+
     if spec.get("intact"):
         state = staged["galaxy"].call(f"api/histories/{staged['history_id']}") or {}
         if not state:

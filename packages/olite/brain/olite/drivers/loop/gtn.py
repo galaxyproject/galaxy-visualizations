@@ -11,6 +11,12 @@ logger = logging.getLogger(__name__)
 GTN_HOST = "training.galaxyproject.org"
 GTN_BASE = f"https://{GTN_HOST}"
 GTN_API = f"{GTN_BASE}/training-material/api"
+# A tutorial page is routinely over 100 KB of readable text, past the dispatcher's budget for
+# a single result. Bounded here instead, where the tool knows the head is the part that
+# matters -- objectives and the first hands-on sections -- and can say how to get the rest.
+FETCH_MAX_CHARS = 40000
+# An error page is HTML too; without this the whole 404 body lands in the transcript.
+ERROR_MAX_CHARS = 400
 
 # Chrome that carries no tutorial content; dropped whole, as loom drops them.
 DROP_TAGS = {"script", "style", "nav", "header", "footer", "aside", "noscript"}
@@ -172,10 +178,25 @@ async def _gtn_fetch(args):
     if not url.lower().startswith(("http://", "https://")) or host != GTN_HOST:
         return {"error": f"Only URLs on {GTN_HOST} are allowed. Got: {host or url}"}
 
-    page = await http.request("GET", url)
+    try:
+        page = await http.request("GET", url)
+    except Exception as exc:
+        detail = str(exc)
+        if len(detail) > ERROR_MAX_CHARS:
+            detail = detail[:ERROR_MAX_CHARS] + " ..."
+        return {"url": url, "error": detail,
+                "hint": "Check the url with gtn_search; tutorial paths include the topic, "
+                        "and a topic listed in one place may live under another."}
     if not isinstance(page, str):
         page = json.dumps(page)
-    return {"url": url, "content": _strip_html(page)}
+    text = _strip_html(page)
+    if len(text) > FETCH_MAX_CHARS:
+        return {"url": url, "content": text[:FETCH_MAX_CHARS], "truncated": True,
+                "chars_total": len(text),
+                "note": f"Showing the first {FETCH_MAX_CHARS} of {len(text)} characters. "
+                        "Objectives and the first hands-on sections are here; open the url "
+                        "for the rest."}
+    return {"url": url, "content": text}
 
 
 # --- Schemas -----------------------------------------------------------------
