@@ -2,6 +2,7 @@
 
 import json
 
+from . import page_edit
 from .paging import ROW_CAP, page
 from .tool_inputs import build_input_template, summarize_tool_inputs
 import os
@@ -532,11 +533,14 @@ async def _list_pages(g, a):
 
 
 async def _get_page(g, a):
-    page = await g.get(f"api/pages/{a['page_id']}") or {}
-    if not a.get("include_rendered") and isinstance(page, dict):
-        page = dict(page)
-        page.pop("content", None)
-    return page
+    result = await g.get(f"api/pages/{a['page_id']}") or {}
+    if isinstance(result, dict):
+        result = dict(result)
+        result["content_hash"] = page_edit.djb2_hash(
+            result.get("content_editor") or result.get("content") or "")
+        if not a.get("include_rendered"):
+            result.pop("content", None)
+    return result
 
 
 async def _create_page(g, a):
@@ -552,7 +556,28 @@ async def _create_page(g, a):
 async def _update_page(g, a):
     payload = {k: a[k] for k in ("title", "content") if a.get(k) is not None}
     payload.setdefault("edit_source", "agent")
-    return await g.put(f"api/pages/{a['page_id']}", payload)
+
+    heading, section = a.get("section_heading"), a.get("section_content")
+    expect = a.get("expect_hash")
+    if heading or section or expect:
+        current = await g.get(f"api/pages/{a['page_id']}") or {}
+        source = current.get("content_editor") or current.get("content") or ""
+        actual = page_edit.djb2_hash(source)
+        if expect and expect != actual:
+            return {
+                "written": False,
+                "reason": "the page changed since you read it",
+                "content_hash": actual,
+                "content": source,
+            }
+        if heading and section is not None:
+            payload["content"] = page_edit.apply_section_edit(source, heading, section)
+
+    written = await g.put(f"api/pages/{a['page_id']}", payload)
+    if isinstance(written, dict):
+        body = written.get("content_editor") or written.get("content") or ""
+        written["content_hash"] = page_edit.djb2_hash(body)
+    return written
 
 
 async def _list_page_revisions(g, a):
@@ -628,8 +653,12 @@ _tool("get_page", "read", "Get a page's editable content and metadata.",
       {"page_id": _STR, "include_rendered": _BOOL}, ["page_id"], _get_page)
 _tool("create_page", "write", "Create a page (Notebook if history_id given, else a standalone Report).",
       {"history_id": _STR, "title": _STR, "content": _STR, "annotation": _STR, "slug": _STR}, [], _create_page)
-_tool("update_page", "write", "Update a page's content and/or title.",
-      {"page_id": _STR, "content": _STR, "title": _STR}, ["page_id"], _update_page)
+_tool("update_page", "write",
+      "Update a page. Give `section_heading` and `section_content` to replace one section, "
+      "or `content` to replace the body. Pass `expect_hash` from when you read the page and "
+      "the write is refused if someone edited it since.",
+      {"page_id": _STR, "content": _STR, "title": _STR, "section_heading": _STR,
+       "section_content": _STR, "expect_hash": _STR}, ["page_id"], _update_page)
 _tool("list_page_revisions", "read", "List a page's edit revisions.",
       {"page_id": _STR, "sort_desc": _BOOL}, ["page_id"], _list_page_revisions)
 _tool("get_page_revision", "read", "Get one page revision.",

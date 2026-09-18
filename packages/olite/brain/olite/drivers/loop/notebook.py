@@ -2,11 +2,11 @@
 
 import logging
 
+from . import page_edit
+
 logger = logging.getLogger(__name__)
 
 # Galaxy slugs are lowercase alphanumerics and hyphens.
-SLUG_PREFIX = "olite"
-
 def _page_source(page):
     """The editable markdown. `content` is the embed-expanded render, not the source."""
     return page.get("content_editor") or page.get("content") or ""
@@ -19,32 +19,19 @@ plan, what was executed, and what the results showed.
 """
 
 
-def slug_for_history(history_id):
-    return f"{SLUG_PREFIX}-{history_id}"
-
-
 def title_for_history(history_id):
     return f"OLite record ({history_id[:8]})"
 
 
-async def _find_by_slug(g, slug, history_id=None):
-    """The record page for this history. Galaxy scopes pages by history, so ask it directly."""
-    if history_id:
-        pages = await g.get(f"api/pages?history_id={history_id}") or []
-        if isinstance(pages, list):
-            for page in pages:
-                if isinstance(page, dict) and page.get("slug") == slug:
-                    return page
-            # A page attached to this history is its notebook, regardless of creator.
-            for page in pages:
-                if (isinstance(page, dict) and not page.get("deleted")
-                        and page.get("history_id") == history_id):
-                    return page
-    pages = await g.get(f"api/pages?search=slug:{slug}") or []
+async def _find_for_history(g, history_id):
+    """The record page for this history."""
+    pages = await g.get(f"api/pages?history_id={history_id}") or []
     if not isinstance(pages, list):
         return None
+    # A page attached to this history is its notebook, regardless of creator.
     for page in pages:
-        if isinstance(page, dict) and page.get("slug") == slug:
+        if (isinstance(page, dict) and not page.get("deleted")
+                and page.get("history_id") == history_id):
             return page
     return None
 
@@ -104,7 +91,7 @@ async def excerpt(g, history_id):
     if not history_id:
         return ""
     try:
-        page = await _find_by_slug(g, slug_for_history(history_id), history_id)
+        page = await _find_for_history(g, history_id)
         if not page:
             return ""
         full = await g.get(f"api/pages/{page.get('id')}") or {}
@@ -128,7 +115,7 @@ async def excerpt(g, history_id):
     return f"""## Galaxy binding
 
 This session is bound to **history `{history_id}`** and its record page
-`{page.get('id')}` (slug `{slug_for_history(history_id)}`). That history is the one the
+`{page.get('id')}`. That history is the one the
 user is looking at. **Pass `history_id="{history_id}"` when you run a tool or invoke a
 workflow** -- omit it and Galaxy puts the outputs in a new history the user never opened,
 where they will not find them.{manifest_block}
@@ -154,8 +141,7 @@ async def _notebook_resume(g, args):
     if not history_id:
         return {"error": "history_id is required to resume this history's record."}
 
-    slug = slug_for_history(history_id)
-    existing = await _find_by_slug(g, slug, history_id)
+    existing = await _find_for_history(g, history_id)
 
     if existing:
         page_id = existing.get("id")
@@ -165,16 +151,16 @@ async def _notebook_resume(g, args):
         return {
             "created": False,
             "page_id": page_id,
-            "slug": slug,
+            "slug": existing.get("slug"),
             "title": existing.get("title"),
             "content": content or "",
+            "content_hash": page_edit.djb2_hash(content or ""),
         }
 
     created = await g.post(
         "api/pages",
         {
             "title": title_for_history(history_id),
-            "slug": slug,
             "history_id": history_id,
             "content": STARTER,
             "content_format": "markdown",
@@ -186,7 +172,7 @@ async def _notebook_resume(g, args):
     return {
         "created": True,
         "page_id": created.get("id"),
-        "slug": slug,
+        "slug": created.get("slug"),
         "title": created.get("title"),
         "content": STARTER,
     }

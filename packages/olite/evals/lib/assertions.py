@@ -582,12 +582,20 @@ def _record(spec, run, failures, exercised):
         failures.append(Failure("record", "scenario staged no history to read", "record"))
         return
     galaxy = staged["galaxy"]
-    slug = spec.get("slug") or f"olite-{staged['history_id']}"
-    # Asked for by slug: a listing is capped, and a busy server pushes the record past it.
-    pages = galaxy.call(f"api/pages?search=slug:{slug}") or []
-    page = next((p for p in pages if p.get("slug") == slug), None)
+    slug = spec.get("slug")
+    if slug:
+        # A standalone report has no history to scope by.
+        pages = galaxy.call(f"api/pages?search=slug:{slug}") or []
+        page = next((p for p in pages if p.get("slug") == slug), None)
+        missing = f"no page with slug {slug!r}"
+    else:
+        history_id = staged["history_id"]
+        pages = galaxy.call(f"api/pages?history_id={history_id}") or []
+        page = next((p for p in pages
+                     if p.get("history_id") == history_id and not p.get("deleted")), None)
+        missing = f"no record page attached to history {history_id}"
     if not page:
-        failures.append(Failure("record.exists", f"no page with slug {slug!r}", "record"))
+        failures.append(Failure("record.exists", missing, "record"))
         return
     full = galaxy.call(f"api/pages/{page['id']}") or {}
     # What the editor loads: Galaxy fills `content_editor` only for markdown pages.

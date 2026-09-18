@@ -221,11 +221,10 @@ def _resume_record(galaxy, history_id):
     """
     from olite.drivers.loop import notebook
 
-    slug = notebook.slug_for_history(history_id)
     galaxy.call("api/pages", "POST", {
-        "slug": slug,
+        "history_id": history_id,
         "title": notebook.title_for_history(history_id),
-        "content": "## Record\n\n_No entries yet._\n",
+        "content": notebook.STARTER,
         "content_format": "markdown",
     })
 
