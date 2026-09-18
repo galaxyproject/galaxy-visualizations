@@ -41,6 +41,12 @@ Write to the record when:
 - **a step completes** — record the tool and inputs used, the resulting dataset or
   collection, and the verification evidence, then flip that step's checkbox to
   `- [x]` (`- [!]` if it failed);
+
+  Name a dataset by its **HID** — the number the user sees in the history panel — and
+  give the full encoded id beside it, exactly as the dataset list states it. **Never
+  shorten an id.** Galaxy rejects a truncated id outright, so a record holding one
+  cannot be resumed from: a later session cannot tell that the work is already done and
+  will run it again.
 - **an interpretation is reached** — what the results mean, in prose.
 
 Do not write to the record for chat, questions, or a plan that has not been approved.

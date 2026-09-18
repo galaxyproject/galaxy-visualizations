@@ -561,6 +561,9 @@ async def _get_page(g, a):
 
 async def _create_page(g, a):
     payload = {k: a[k] for k in ("title", "content", "annotation", "slug") if a.get(k) is not None}
+    # Galaxy records who wrote each revision; an agent edit that claims to be a user edit
+    # cannot be told apart in the revision list, or reverted as a unit.
+    payload.setdefault("edit_source", "agent")
     if a.get("history_id"):
         payload["history_id"] = a["history_id"]
     # Galaxy defaults a page to html and sanitizes the body against that; this tool's
@@ -571,6 +574,8 @@ async def _create_page(g, a):
 
 async def _update_page(g, a):
     payload = {k: a[k] for k in ("title", "content") if a.get(k) is not None}
+    # Every save is a revision; `agent` is what makes it attributable and revertible as one.
+    payload.setdefault("edit_source", "agent")
     return await g.put(f"api/pages/{a['page_id']}", payload)
 
 

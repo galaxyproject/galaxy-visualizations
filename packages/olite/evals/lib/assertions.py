@@ -414,6 +414,31 @@ def _history(spec, run, failures, exercised):
                                         f"the staged history is {flag}", "behavior"))
 
 
+def _record_ids_resolve(spec, run, failures, galaxy, content):
+    """Every Galaxy id written into the record must still address something.
+
+    The failure this exists for: a run wrote `4583cc7e1498` for its filtered dataset, a
+    truncated form Galaxy rejects with "Invalid id length, must be multiple of 16". The
+    record looked complete and the returning session could not follow it, so it re-ran work
+    that was already done.
+    """
+    import re
+
+    # Galaxy ids are hex; a 12- or 8-character run is a truncation, not an id.
+    for token in set(re.findall(r"`([0-9a-f]{8,32})`", content or "")):
+        if len(token) % 16 == 0:
+            got = galaxy.call(f"api/datasets/{token}") or {}
+            if isinstance(got, dict) and got.get("err_msg"):
+                # Not every hex token is a dataset; pages and jobs live elsewhere.
+                continue
+            continue
+        failures.append(Failure(
+            "record.idsResolve",
+            f"the record holds `{token}`, {len(token)} characters; a Galaxy id is a multiple "
+            "of 16, so this addresses nothing and the step cannot be resumed from",
+            "behavior"))
+
+
 def _budget(spec, run, failures, exercised):
     """What the task cost, not just whether it finished.
 
@@ -610,6 +635,9 @@ def _record(spec, run, failures, exercised):
         if needle.lower() not in content.lower():
             failures.append(Failure("record.mustMention",
                                     f"the record never mentions {needle!r}", "record"))
+    if spec.get("idsResolve"):
+        _record_ids_resolve(spec, run, failures, galaxy, content)
+
     if spec.get("notEmpty"):
         # "Written to" means a line the agent added, not the absence of a placeholder: an
         # agent that appends below olite's starter has still written. Compared line by line
