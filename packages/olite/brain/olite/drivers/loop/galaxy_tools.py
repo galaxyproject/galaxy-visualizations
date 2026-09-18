@@ -556,16 +556,17 @@ async def _get_invocations(g, a):
     return await g.get(f"api/invocations{_q(params)}")
 
 
+# api/dynamic_tools is admin-only; a user's own tools live behind api/unprivileged_tools.
 async def _list_user_tools(g, a):
-    return await g.get(f"api/dynamic_tools{_q({'active': a.get('active', True)})}")
+    return await g.get(f"api/unprivileged_tools{_q({'active': a.get('active', True)})}")
 
 
 async def _create_user_tool(g, a):
-    return await g.post("api/dynamic_tools", a["representation"])
+    return await g.post("api/unprivileged_tools", {"representation": a["representation"]})
 
 
 async def _delete_user_tool(g, a):
-    await g.delete(f"api/dynamic_tools/{a['uuid']}")
+    await g.delete(f"api/unprivileged_tools/{a['uuid']}")
     return {"uuid": a["uuid"], "deactivated": True}
 
 
