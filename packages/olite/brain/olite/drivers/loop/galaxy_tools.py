@@ -107,10 +107,53 @@ async def _create_history(g, a):
     return await g.post("api/histories", {"name": a["history_name"]})
 
 
+def _hda_inputs(inputs):
+    """Every `{src: hda, id: ...}` in a tool payload, with the field that carries it."""
+    found = []
+
+    def walk(name, value):
+        if isinstance(value, dict):
+            if value.get("src") == "hda" and value.get("id"):
+                found.append((name, value["id"]))
+                return
+            for key, item in value.items():
+                walk(f"{name}.{key}" if name else key, item)
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                walk(f"{name}[{index}]", item)
+
+    walk("", inputs or {})
+    return found
+
+
+async def _foreign_inputs(g, inputs, history_id):
+    """Dataset inputs that belong to a history other than the one the job will run in."""
+    foreign = []
+    for name, dataset_id in _hda_inputs(inputs):
+        detail = await g.get(f"api/datasets/{dataset_id}") or {}
+        where = detail.get("history_id") if isinstance(detail, dict) else None
+        if where and where != history_id:
+            foreign.append({"input": name, "dataset_id": dataset_id,
+                            "belongs_to_history_id": where, "name": detail.get("name")})
+    return foreign
+
+
 async def _run_tool(g, a):
+    history_id = a["history_id"]
+    inputs = a.get("inputs") or {}
+    foreign = await _foreign_inputs(g, inputs, history_id)
+    if foreign:
+        return {
+            "submitted": False,
+            "error": "Refused: a tool can only consume datasets from the history it runs in.",
+            "target_history_id": history_id,
+            "foreign_inputs": foreign,
+            "hint": "Use a dataset listed in the target history, or copy the one you want into "
+                    "that history first as a separate step.",
+        }
     return await g.post(
         "api/tools",
-        {"history_id": a["history_id"], "tool_id": a["tool_id"], "inputs": a.get("inputs") or {}},
+        {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
     )
 
 
