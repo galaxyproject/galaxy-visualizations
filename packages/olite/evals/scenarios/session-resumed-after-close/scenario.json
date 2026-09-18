@@ -1,6 +1,6 @@
 {
   "name": "session: close the browser mid-analysis, come back and carry on",
-  "description": "Exp-G from the decision log, and the test of the claim that research state is durable Galaxy state while conversation state is transient. Two turns start an analysis and submit work; `restartAfter` then drops the conversation entirely, modelling someone closing the browser and returning with nothing stored -- a different machine, cleared storage, a session that never persisted. The remaining turns run from the system context alone, so anything the agent recovers has to come from the Notebook and from Galaxy. The jobs keep running server-side regardless, which is the half a browser-delivered agent gets for free and a local shell does not.",
+  "description": "Exp-G from the decision log, and the test of the claim that research state is durable Galaxy state while conversation state is transient. Two turns start an analysis and submit work; `restartAfter` then drops the conversation entirely, modelling someone closing the browser and returning with nothing stored -- a different machine, cleared storage, a session that never persisted. The remaining turns run from the system context alone, so anything the agent recovers has to come from the Notebook and from Galaxy. The jobs keep running server-side regardless, which is the half a browser-delivered agent gets for free and a local shell does not. Does not assert `notebook_resume`: the binding block already hands the agent the record's id and content and names `update_page`, so attaching again is redundant and asserting it would test the mechanism rather than the outcome. The record assertions below test the outcome.",
   "tier": 3,
   "substrate": "live",
   "dataset": {
@@ -18,9 +18,6 @@
   "assertions": {
     "toolCalls": {
       "mustInclude": [
-        {
-          "name": "notebook_resume"
-        },
         {
           "name": "run_tool"
         }
