@@ -81,7 +81,8 @@ BREAKS = [
         path="brain/olite/drivers/loop/galaxy_tools.py",
         find='    return await g.put(f"api/pages/{a[\'page_id\']}", payload)',
         replace='    return {"id": a["page_id"], "ok": True}  # FALSIFY: write dropped',
-        scenarios=["record-page-holds-content", "research-glucose-bmi"],
+        scenarios=["record-page-holds-content", "research-glucose-bmi",
+                   "session-resumed-after-close"],
         expect=["record.notEmpty", "record.mustMention"],
     ),
     Break(

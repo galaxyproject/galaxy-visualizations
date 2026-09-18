@@ -153,11 +153,25 @@ async def _run(scenario, model):
     # The most any single turn needed, which is what the cap actually constrains.
     steps = 0
     cap = 0
-    for turn in scenario["inputs"]:
+    # `restartAfter` models closing the browser and coming back with nothing stored: the
+    # conversation is dropped and the next turn starts from the system context alone. What
+    # the agent can still recover has to come from the Notebook and from Galaxy.
+    restart_after = scenario.get("restartAfter")
+    opening = list(messages)
+    # What the driver sees shrinks at a restart; what the grader sees must not. Assertions
+    # read the transcript, and a scenario that deliberately discards it would otherwise be
+    # graded on its second half only.
+    graded = list(messages)
+    for index, turn in enumerate(scenario["inputs"], start=1):
+        if restart_after and index == restart_after + 1:
+            messages = list(opening)
+            events.append("session_restart")
         messages = [*messages, {"role": "user", "content": turn}]
+        graded.append({"role": "user", "content": turn})
         events.append("turn_start")
         result = await driver.run(messages, lambda ev: _note(ev, tools_called, events, refused))
         messages = result.get("messages") or messages
+        graded.extend(result.get("new_messages") or [])
         logs.extend(result.get("logs") or [])
         artifacts.extend(result.get("artifacts") or [])
         exhausted = exhausted or bool(result.get("exhausted"))
@@ -165,7 +179,8 @@ async def _run(scenario, model):
         cap = int(result.get("max_steps") or 0) or cap
         # Only after run() returns: a turn that dies mid-flight must not look complete.
         events.append("turn_end")
-    return RunResult(messages, logs, tools_called, events=events, artifacts=artifacts,
+    return RunResult(graded if restart_after else messages,
+                     logs, tools_called, events=events, artifacts=artifacts,
                      exhausted=exhausted, staged=staged, steps=steps, max_steps=cap,
                      refused=refused)
 
