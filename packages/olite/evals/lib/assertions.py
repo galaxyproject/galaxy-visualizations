@@ -350,6 +350,19 @@ def _history(spec, run, failures, exercised):
             failures.append(Failure("history.landedDataset",
                                     "no dataset arrived in the history", "behavior"))
             return
+        # The checks describe the fetched file, not everything the agent derived from it.
+        # Named if the scenario says so, otherwise the biggest thing in the history: a raw
+        # download dwarfs anything computed from it, and a redirect stub is tiny.
+        wanted_name = landed.get("name")
+        if wanted_name:
+            arrived = [c for c in arrived if c.get("name") == wanted_name] or arrived
+            if not any(c.get("name") == wanted_name for c in arrived):
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"no dataset named {wanted_name!r} arrived; "
+                    f"the history holds {[c.get('name') for c in arrived]}",
+                    "behavior"))
+                return
         banned = {e.lower() for e in landed.get("notExtension") or []}
         minimum = landed.get("minLines")
         # A fetch that followed a redirect page instead of the file lands a small HTML stub
@@ -360,6 +373,21 @@ def _history(spec, run, failures, exercised):
                 failures.append(Failure(
                     "history.landedDataset",
                     f"{c.get('name')!r} landed as {ext!r}; the fetch got a page, not the file",
+                    "behavior"))
+        min_bytes = landed.get("minBytes")
+        # Size, not line count: Galaxy leaves `metadata_data_lines` unset on a large upload,
+        # so asserting on lines reads a 37 MB file as empty and a small derived one as the
+        # biggest thing in the history.
+        if min_bytes is not None:
+            biggest = 0
+            for c in arrived:
+                full = staged["galaxy"].call(f"api/datasets/{c['id']}") or {}
+                biggest = max(biggest, int(full.get("file_size") or 0))
+            if biggest < min_bytes:
+                failures.append(Failure(
+                    "history.landedDataset",
+                    f"largest arrived dataset is {biggest} bytes, wanted at least {min_bytes}; "
+                    "a redirect page lands as a few hundred bytes",
                     "behavior"))
         if minimum is not None:
             best = 0
