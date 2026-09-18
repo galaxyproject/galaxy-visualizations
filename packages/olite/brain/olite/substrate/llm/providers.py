@@ -79,8 +79,7 @@ DEEPSEEK = Provider(
     models={"deepseek-v4-flash": Model("deepseek-v4-flash", context_window=1_000_000)},
 )
 
-# One key across vendors, which is what the eval matrix wants; ids and windows are
-# OpenRouter's own, read from its public catalog rather than assumed.
+# One key across vendors, which is what the eval matrix wants.
 OPENROUTER = Provider(
     id="openrouter",
     name="OpenRouter",
@@ -97,7 +96,6 @@ OPENROUTER = Provider(
 )
 
 # Free for ACCESS accounts, hosted at IU; the Open WebUI proxy is the OpenAI-compatible path.
-# Model ids and windows read from GET /api/models rather than assumed.
 JETSTREAM2 = Provider(
     id="jetstream2",
     name="Jetstream2 LLM inference service",

@@ -91,8 +91,7 @@ class Llm:
             try:
                 return self.adapter.parse_reply(payload)
             except ProviderError:
-                # A 200 carrying nothing usable is transport-shaped, so it is retried here
-                # rather than in the loop, which pi leaves to its caller.
+                # A 200 carrying nothing usable is transport-shaped, so retry here.
                 if attempt == EMPTY_REPLY_ATTEMPTS - 1:
                     raise
                 logger.warning("empty provider reply, retrying (%d/%d)", attempt + 1, EMPTY_REPLY_ATTEMPTS - 1)

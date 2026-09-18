@@ -22,8 +22,7 @@ TRUNCATED_ERROR = (
     'Tool call "{name}" was not executed: the response hit the output token limit, so '
     "its arguments may be truncated. Re-issue the tool call with complete arguments."
 )
-# Reported back rather than replaced with `{}`, which would run the wrong request. The
-# advice matters: the usual cause is a large value pasted into a string argument.
+# Reported back rather than replaced with `{}`, which would run the wrong request.
 MALFORMED_ARGS_ERROR = (
     'Tool call "{name}" was not executed: its arguments are not valid JSON ({detail}). '
     "Re-issue the tool call with valid arguments as one JSON object. Do not paste tool "
@@ -32,8 +31,7 @@ MALFORMED_ARGS_ERROR = (
 )
 # pi's wording for a call dropped because the run was aborted.
 ABORTED_ERROR = "Operation aborted"
-# Backstop only: a result this large ends the turn, because compaction summarises older
-# messages and cannot shrink the one that just arrived. Healthy reads are under 20 KB.
+# Backstop only.
 MAX_TOOL_RESULT_BYTES = 64 * 1024
 OVERSIZED_RESULT_ERROR = (
     'Tool call "{name}" returned {size} KB, over the {cap} KB limit for a single result, so '
@@ -51,8 +49,7 @@ class LoopDriver:
         )
         # A tool result carries whatever a command printed, including a key it read.
         self.secrets = collect_secret_values(getattr(substrate, "config", None))
-        # The backstop is olite's, not Orbit's. Configurable so a measured run can raise it
-        # and report what a task actually costs instead of reporting the cap.
+        # The backstop is olite's, not Orbit's.
         config = getattr(substrate, "config", None) or {}
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
 
@@ -131,12 +128,11 @@ class LoopDriver:
                 f"reasoning={_detail.get('reasoning_tokens')}"
             )
 
-            # `content` is null and `tool_calls` absent unless the reply carries them:
-            # the OpenAI shape for an assistant turn.
+            # The OpenAI shape: null content, and no tool_calls key unless there are any.
             assistant = {"role": "assistant", "content": reply.content or None}
             if tool_calls:
                 assistant["tool_calls"] = tool_calls
-            # Under the spelling the provider used, so it reads its own field back.
+            # Under the provider's own spelling.
             if reply.reasoning:
                 assistant[reply.reasoning_key] = reply.reasoning
             messages.append(assistant)

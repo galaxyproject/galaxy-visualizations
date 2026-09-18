@@ -84,8 +84,6 @@ Do not verify or check off a step in the turn that submitted it -- it is not don
 yet, and a checkbox that ran ahead of the evidence is worse than an empty one."""
 
 # loom: buildOperatingDisciplineBlock(), "Confirm scope" verbatim; "Secrets" adapted.
-# loom: the "Drafting a new plan" section of buildGalaxyContextBlock, which loom emits only
-# when Galaxy is connected. Same gate here -- see GALAXY_UNAVAILABLE.
 DRAFTING_A_PLAN = """### Drafting a new plan
 
 When drafting a plan, **first** consult Galaxy
@@ -121,8 +119,7 @@ resources before deciding what runs where:
 resuming, not for every new plan."""
 
 
-# loom: buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch. loom keys on
-# missing credentials; olite is served by Galaxy and keys on the tool catalog failing to load.
+# loom: buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch.
 GALAXY_UNAVAILABLE = """## Galaxy: NOT AVAILABLE
 
 The Galaxy tool catalog did not load, so no Galaxy tool or workflow can run in this
@@ -453,10 +450,7 @@ You are **{model}**{via}. That is your identity for this session: state it
 accurately when asked, and do not claim to be a different model or provider."""
 
 
-# Composed the way loom composes: each entry is a function of the session context that
-# may return "" to withhold itself. loom gates nine of its sixteen blocks this way; a flat
-# list of constants cannot express that, which is how the gating went unported.
-# Every condition below traces to a loom guard -- see seams/registry.json.
+# Composed the way loom composes.
 
 
 def _no_local_shell(ctx):

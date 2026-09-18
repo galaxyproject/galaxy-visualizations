@@ -1,10 +1,4 @@
-"""Parsing JSON a model emitted, which is not always valid JSON.
-
-Ported from pi's `utils/json-parse.ts`. Two failures are common enough that pi repairs
-them rather than rejecting the call: a raw control character inside a string (a model
-writing real line breaks into code instead of `\\n`) and a backslash that does not begin
-a valid escape (`\\d` in a regex, a Windows path).
-"""
+"""Parsing JSON a model emitted. Ported from pi's `utils/json-parse.ts`."""
 
 import json
 
@@ -52,7 +46,7 @@ def repair_json(text):
                 out.append("\\" + nxt)
                 i += 2
                 continue
-            # Not an escape the model meant; keep the backslash as data.
+            # Keep the backslash as data.
             out.append("\\\\")
             i += 1
             continue

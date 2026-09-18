@@ -22,8 +22,7 @@
         "test:unit": "vitest run",
         "test:watch": "vitest --watch",
         "seams": "python3 seams/check.py && python3 seams/check_vendored.py",
-        "test:e2e": "bash e2e/run-all.sh",
-        "deploy": "npm run build && rsync -a --delete static/ \"${GALAXY_PLUGIN_DIR:-$HOME/galaxy/config/plugins/visualizations/olite/static}\"/"
+        "test:e2e": "bash e2e/run-all.sh"
     },
     "dependencies": {
         "mermaid": "^11.16.1",

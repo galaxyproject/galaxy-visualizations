@@ -15,10 +15,7 @@ from olite.runtime import _inject_context, _inject_record
 from olite.substrate import Substrate
 from olite.substrate.llm import REGISTRY
 
-# The eval substrate is a real Galaxy, deliberately. A stub answers Galaxy questions
-# with our own beliefs about Galaxy, so anything whose correctness is the server
-# contract is invisible to it -- which is how a total failure to save page content
-# survived a suite that nominally covered it. Stubs belong in the unit tests.
+# The eval substrate is a real Galaxy, deliberately.
 
 
 class RunResult:
@@ -38,9 +35,6 @@ class RunResult:
         self.logs = logs
         self.tools_called = tools_called
         # Every event the brain emitted, plus turn boundaries synthesised by the harness.
-        # loom's pi emits agent_start/turn_start/turn_end itself; olite's brain emits a
-        # smaller vocabulary, so the runner records the boundaries it already knows about
-        # rather than the product growing events to satisfy a test.
         self.events = events or []
         self.error = error
         # The provider's HTTP status, preserved so grading never sniffs the message.
@@ -66,14 +60,11 @@ def build_config(model, capabilities=None):
         "ai_provider": model.get("provider"),
         "ai_model": model["model"],
         # Write is granted, or "did not execute" would assert about an unadvertised tool.
-        # Trimmable so the tool-surface hypothesis can be tested; loom runs plan
-        # scenarios with a smaller surface than olite advertises.
         "capabilities": capabilities.split(","),
     }
     if base:
         config["ai_base_url"] = base.rstrip("/")
-    # A measured run can raise olite's browser-tab backstop to find what a task really
-    # costs. pi and loom cap nothing, so a raised cap is also closer to Orbit.
+    # A measured run can raise olite's browser-tab backstop to find what a task really costs.
     max_steps = os.environ.get("OLITE_EVAL_MAX_STEPS", "").strip()
     if max_steps:
         config["max_steps"] = int(max_steps)
@@ -101,12 +92,10 @@ def _api_key(model):
 async def _run(scenario, model):
     config = build_config(model, scenario.get("capabilities"))
     substrate = Substrate(config)
-    # A process reaches Galaxy through the catalog, so the run has to load it or every
-    # process call fails with catalog_unavailable.
+    # Processes reach Galaxy through the catalog, so it has to be loaded.
     await substrate.catalog.init()
 
-    # A tool-test scenario runs against a real Galaxy: the harness puts the test's input
-    # files in a history, and the agent is told the goal, not the test's parameters.
+    # A tool-test scenario runs against a real Galaxy.
     staged = None
     if scenario.get("dataset"):
         staged = stage_dataset(config, scenario["dataset"])
@@ -116,8 +105,7 @@ async def _run(scenario, model):
     elif scenario.get("workflows"):
         staged = stage_workflows(config, scenario["workflows"])
     elif scenario.get("emptyHistory"):
-        # Nothing staged, but the history is still recorded so assertions can read what the
-        # agent put there. That is the whole point when acquisition is what is under test.
+        # Nothing staged, but assertions still need the history to read.
         staged = stage_empty(config, scenario["emptyHistory"])
     elif scenario.get("toolTest"):
         staged = stage_tool_test(config, scenario["toolTest"])
@@ -126,18 +114,14 @@ async def _run(scenario, model):
     skills = SkillRegistry().load_packaged()
     driver = LoopDriver(substrate, processes, skills)
 
-    # Passed explicitly: production derives this from the catalog in runtime.py, and the
-    # two assemblies must not drift apart silently.
+    # Passed explicitly.
     context = "\n\n".join(
         t for t in (prompt.system_text(galaxy_ok=True), skills.router_text()) if t
     )
     transcripts = _inject_context(
         [{"role": "system", "content": scenario.get("systemPrompt", "You are olite.")}], context
     )
-    # Production binds a history and lists its datasets every turn (runtime.py); without it
-    # the agent has to hunt for which history holds a dataset, and sometimes stops to ask.
-    # Production binds a real history every turn. A scenario that stages no dataset still
-    # needs one, or the agent is bound to nothing and hunts for a history that is not there.
+    # Production binds a history and lists its datasets every turn (runtime.py).
     bound_history = staged["history_id"] if staged else _empty_history(config, scenario)
     transcripts = _inject_record(
         transcripts, await notebook.excerpt(substrate.galaxy, bound_history)
@@ -153,14 +137,10 @@ async def _run(scenario, model):
     # The most any single turn needed, which is what the cap actually constrains.
     steps = 0
     cap = 0
-    # `restartAfter` models closing the browser and coming back with nothing stored: the
-    # conversation is dropped and the next turn starts from the system context alone. What
-    # the agent can still recover has to come from the Notebook and from Galaxy.
+    # `restartAfter` models closing the browser and coming back with nothing stored.
     restart_after = scenario.get("restartAfter")
     opening = list(messages)
-    # What the driver sees shrinks at a restart; what the grader sees must not. Assertions
-    # read the transcript, and a scenario that deliberately discards it would otherwise be
-    # graded on its second half only.
+    # The driver's transcript shrinks at a restart; the grader's must not.
     graded = list(messages)
     for index, turn in enumerate(scenario["inputs"], start=1):
         if restart_after and index == restart_after + 1:
@@ -191,8 +171,7 @@ def _note(event, sink, events=None, refused=None):
         events.append(kind)
     if kind == "tool_start" and event.get("name"):
         sink.append(event["name"])
-    # A gated call is announced and then refused. Counting it as "called" would read a
-    # working gate as a safety breach, so the refusals are kept apart.
+    # A gated call is announced and then refused.
     if kind == "tool_end" and event.get("refused") and refused is not None:
         refused.append(event.get("name"))
 
@@ -303,6 +282,14 @@ def stage_dataset(config, spec):
     """A history holding one fixture file, as a researcher's would when they sit down."""
     galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
     path = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / spec["file"]
+    if not path.exists():
+        # Large fixtures are generated, not committed.
+        gen = path.with_suffix(path.suffix + ".gen.py")
+        if not gen.exists():
+            gen = path.parent / (path.stem + ".gen.py")
+        namespace: dict = {}
+        exec(compile(gen.read_text(), str(gen), "exec"), namespace)
+        path.write_text(namespace["build"]())
     history_id = galaxy.new_history(spec.get("history") or "olite eval")
     dataset_id = galaxy.upload(history_id, spec["file"], path.read_bytes())
     state = galaxy.await_dataset(dataset_id).get("state")

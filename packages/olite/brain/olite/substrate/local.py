@@ -45,14 +45,13 @@ class LocalPython:
         if result is not None:
             parts.append(repr(result))
         if failure is not None:
-            # Whatever ran before the failure is kept: it says how far the code got, and
-            # without it the only way to find out is to run the code again.
+            # Keep what ran before the failure; it says how far the code got.
             raise LocalExecutionError("\n\n".join(parts + [failure]))
         return "\n".join(parts) if parts else "(no output)"
 
 
 def _failure_text(exc):
-    """The traceback as the code itself would print it, without this module's frames."""
+    """The traceback without this module's own frames."""
     frames = [f for f in traceback.extract_tb(exc.__traceback__) if f.filename == "<olite>"]
     lines = []
     if frames:

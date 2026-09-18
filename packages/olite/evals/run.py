@@ -92,8 +92,7 @@ def main():
                 print(f"  skip {name}: {why}")
         scenarios = shared + scenarios
 
-    # Evals run against a real Galaxy and a real model, always. Unit tests are where
-    # stubs belong; an eval that cannot see what Galaxy stored cannot validate a release.
+    # Evals run against a real Galaxy and a real model, always.
     if not os.environ.get("GALAXY_URL", "").strip() or not os.environ.get("GALAXY_API_KEY", "").strip():
         print("  evals need GALAXY_URL and GALAXY_API_KEY: they run against a real Galaxy.")
         return 2
@@ -139,8 +138,7 @@ def main():
                       verdict = "pass" if not failures else "FAIL"
                       note = "" if not failures else failures[0].detail
                   except Exception as exc:
-                      # A scenario that cannot be graded -- a missing fixture, an
-                      # unreachable service -- is one ERROR row, not a lost matrix.
+                      # A scenario that cannot be graded.
                       failures, exercised = [], set()
                       verdict = "ERROR"
                       note = f"could not grade: {type(exc).__name__}: {exc}"

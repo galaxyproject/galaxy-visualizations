@@ -13,8 +13,7 @@ EXECUTION_TOOLS = frozenset(
     t["name"] for t in galaxy_tools.TOOLS if t["capability"] == "write"
 ) - RECORD_TOOLS
 
-# Galaxy has renamed these across releases: 26.2 reports `completed` where older servers
-# reported `scheduled`, so accept both rather than pinning one vocabulary.
+# Galaxy has renamed these across releases.
 INVOCATION_DONE = frozenset({"scheduled", "completed"})
 INVOCATION_FAILED = frozenset({"cancelled", "failed"})
 
@@ -152,8 +151,7 @@ def _tool_calls(spec, run, failures, exercised):
             failures.append(Failure("toolCalls.mustInclude", detail, "behavior"))
 
 
-# Models write 96000 as "96 000" or "96,000". Match the needle's grouped forms rather
-# than stripping separators from the text, which would join "chr1 100" into "chr1100".
+# Models write 96000 as "96 000" or "96,000".
 _SEPARATORS = (",", " ", "\u00a0", "\u202f", "_", ".")
 
 
@@ -286,9 +284,7 @@ def _behavior(spec, run, failures, exercised):
             )
 
     if spec.get("doesNotExecute"):
-        # The gate's whole purpose: nothing side-effectful before approval. A call the
-        # gate refused was announced and then blocked, which is the gate working; counting
-        # it here would read a held gate as a breach.
+        # The gate's whole purpose: nothing side-effectful before approval.
         executed = set(run.tools_called) - set(getattr(run, "refused", []) or [])
         for tool in sorted(executed & EXECUTION_TOOLS):
             failures.append(
@@ -317,9 +313,7 @@ def _history(spec, run, failures, exercised):
         produced = [c for c in contents
                     if c.get("history_content_type") == "dataset"
                     and c.get("id") not in staged_ids and not c.get("deleted")]
-        # Only successful outputs count. An agent whose first parameters were wrong, that
-        # read the error and got it right on the retry, has done the work; failing the run
-        # for the discarded attempt would mark recovery as a defect.
+        # Only successful outputs count.
         good = [c for c in produced if c.get("state") == "ok"]
         if len(good) < wanted:
             failures.append(Failure(
@@ -351,8 +345,6 @@ def _history(spec, run, failures, exercised):
                                     "no dataset arrived in the history", "behavior"))
             return
         # The checks describe the fetched file, not everything the agent derived from it.
-        # Named if the scenario says so, otherwise the biggest thing in the history: a raw
-        # download dwarfs anything computed from it, and a redirect stub is tiny.
         wanted_name = landed.get("name")
         if wanted_name:
             arrived = [c for c in arrived if c.get("name") == wanted_name] or arrived
@@ -365,8 +357,7 @@ def _history(spec, run, failures, exercised):
                 return
         banned = {e.lower() for e in landed.get("notExtension") or []}
         minimum = landed.get("minLines")
-        # A fetch that followed a redirect page instead of the file lands a small HTML stub
-        # that Galaxy accepts happily. Every downstream step then works on the wrong data.
+        # A redirect page lands as a small HTML stub that Galaxy accepts.
         for c in arrived:
             ext = (c.get("extension") or "").lower()
             if ext in banned:
@@ -375,9 +366,7 @@ def _history(spec, run, failures, exercised):
                     f"{c.get('name')!r} landed as {ext!r}; the fetch got a page, not the file",
                     "behavior"))
         min_bytes = landed.get("minBytes")
-        # Size, not line count: Galaxy leaves `metadata_data_lines` unset on a large upload,
-        # so asserting on lines reads a 37 MB file as empty and a small derived one as the
-        # biggest thing in the history.
+        # Size, not line count: Galaxy leaves `metadata_data_lines` unset on a large upload.
         if min_bytes is not None:
             biggest = 0
             for c in arrived:
@@ -415,13 +404,7 @@ def _history(spec, run, failures, exercised):
 
 
 def _record_ids_resolve(spec, run, failures, galaxy, content):
-    """Every Galaxy id written into the record must still address something.
-
-    The failure this exists for: a run wrote `4583cc7e1498` for its filtered dataset, a
-    truncated form Galaxy rejects with "Invalid id length, must be multiple of 16". The
-    record looked complete and the returning session could not follow it, so it re-ran work
-    that was already done.
-    """
+    """A truncated id addresses nothing, so the step cannot be resumed from."""
     import re
 
     # Galaxy ids are hex; a 12- or 8-character run is a truncation, not an id.
@@ -493,8 +476,7 @@ def validate_patterns(scenarios):
                     problems.append(f"{scenario.get('id')}: {assertion} /{pattern}/: {exc}")
     return problems
 
-# A clarification often introduces a list instead of ending in "?". Mirrors loom's
-# `asksForInformation`.
+# A clarification often introduces a list instead of ending in "?".
 _ASKS_FOR_INFORMATION = re.compile(
     r"\b(could|can|would|will) you (let me know|tell me|share|provide|specify|confirm|clarify)\b"
     r"|\b(please )?(tell me|let me know|specify|clarify|confirm)\b"
@@ -607,22 +589,16 @@ def _record(spec, run, failures, exercised):
         failures.append(Failure("record", "scenario staged no history to read", "record"))
         return
     galaxy = staged["galaxy"]
-    # Default target is the history's record; `slug` points at a page the agent was
-    # asked to create itself, which is a different write path in Galaxy.
+    # Default target is the history's record.
     slug = spec.get("slug") or f"olite-{staged['history_id']}"
-    # Asked for by slug rather than by listing: `api/pages` returns the first 100, and a
-    # server that has accumulated more than that from previous runs answers without the
-    # page this run just created. That reads as "the agent never wrote it".
+    # Asked for by slug: a listing is capped, and a busy server pushes the record past it.
     pages = galaxy.call(f"api/pages?search=slug:{slug}") or []
     page = next((p for p in pages if p.get("slug") == slug), None)
     if not page:
         failures.append(Failure("record.exists", f"no page with slug {slug!r}", "record"))
         return
     full = galaxy.call(f"api/pages/{page['id']}") or {}
-    # What the page editor loads, and so what the user sees when they open it. Galaxy
-    # populates `content_editor` only for markdown pages; a page stored as html returns
-    # it empty however much text `content` carries, and opens blank. Reading `content`
-    # here would call that page fine.
+    # What the editor loads: Galaxy fills `content_editor` only for markdown pages.
     content = full.get("content_editor") or ""
     if not content.strip() and (full.get("content") or "").strip():
         failures.append(Failure(
@@ -639,9 +615,7 @@ def _record(spec, run, failures, exercised):
         _record_ids_resolve(spec, run, failures, galaxy, content)
 
     if spec.get("notEmpty"):
-        # "Written to" means a line the agent added, not the absence of a placeholder: an
-        # agent that appends below olite's starter has still written. Compared line by line
-        # so a starter line quoted inside real content cannot subtract from it.
+        # "Written to" means a line the agent added, not the absence of a placeholder.
         planted = {line.strip() for line in notebook.STARTER.splitlines() if line.strip()}
         added = [line for line in content.splitlines()
                  if line.strip() and line.strip() not in planted]

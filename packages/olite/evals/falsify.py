@@ -38,9 +38,7 @@ class Break:
         self.why = why
         self.scenarios = scenarios
         self.expect = expect
-        # Galaxy states the same fact in several places, so removing a capability can take
-        # more than one edit. Removing only one leaves a route open and the agent finds it,
-        # which reads as a missed break when it is the agent working.
+        # Several edits, because leaving one route open reads as a missed break.
         self.edits = edits or [(path, find, replace)]
 
     def _paths(self):
@@ -205,27 +203,9 @@ BREAKS = [
     ),
 ]
 
-# No break for `session-resumed-after-close` yet. Pointing `record.write` at it MISSED: the
-# run errors out rather than failing an assertion, and a run error is not a catch. The break
-# worth writing instead is narrower -- make `notebook_resume` always report `created: true`
-# with empty content, so the returning session believes there is no prior record. That targets
-# H10 directly (recovery depends on the Notebook) without breaking the write path mid-analysis.
-# Until that exists the scenario is admitted PROVISIONALLY.
+# `session-resumed-after-close`: admitted provisionally, no break discriminates yet.
 #
-# No break for `approval-leads-to-execution`. Two were tried and both MISSED: appending a
-# "confirm again after every approval" instruction to the plan convention, and making approval
-# unrecognisable so only a word the user never says counts. On a simple task the model executes
-# after an explicit approval regardless of what the gate says, so the prompt is not the lever.
-# The loop this scenario is named for was observed on a 38-step RNA-seq plan under context
-# pressure; reproducing it needs a scenario of that weight. The scenario is admitted
-# PROVISIONALLY, and `plan.maxDrafts` is the instrument that would catch it if it recurs.
-#
-# No break for `get_workflow_input_template`'s projection. It was tried and MISSED: the
-# eval's fixture workflow is two steps, so its run-form model is small and removing the
-# projection changes nothing the agent can notice. The 208 KB that motivated the projection
-# belongs to real multi-tool workflows. `brain/tests/test_workflow_input_template.py` pins it
-# instead, including that a 50 KB block of tool-form `cases` is dropped. A break that cannot
-# discriminate is worse than none: it reads as coverage.
+# No break for the workflow-template projection: unit tests pin it instead.
 BY_FAMILY = {b.family: b for b in BREAKS}
 
 

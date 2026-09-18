@@ -12,8 +12,7 @@ def _page_source(page):
     return page.get("content_editor") or page.get("content") or ""
 
 
-# No "no entries yet" placeholder: an agent that appends below it leaves the record
-# claiming it is empty while holding entries, which is worse than an empty section.
+# No "no entries yet" placeholder: an appended entry would leave it contradicting itself.
 STARTER = """## Record
 
 This page is the running record for this analysis, maintained by OLite. It holds the
@@ -37,10 +36,7 @@ async def _find_by_slug(g, slug, history_id=None):
             for page in pages:
                 if isinstance(page, dict) and page.get("slug") == slug:
                     return page
-            # A page created elsewhere for THIS history -- by a user, or by Galaxy's own page
-            # assistant -- is still this history's notebook. Checked against the page's own
-            # history_id rather than trusting the query: adopting a page belonging to another
-            # history would write this analysis into someone else's document.
+            # Match the page's own history_id; adopting another history's page corrupts it.
             for page in pages:
                 if (isinstance(page, dict) and not page.get("deleted")
                         and page.get("history_id") == history_id):
@@ -63,13 +59,7 @@ MANIFEST_MAX = 40
 
 
 async def _dataset_manifest(g, history_id):
-    """The bound history's datasets, id first, injected fresh every turn.
-
-    Two live runs wrote a *wrong input dataset id* -- a real id from elsewhere on the
-    server, recalled rather than looked up -- and two rounds of prompt wording did not stop
-    it. Asking the model to remember an opaque hex string is the wrong instrument. The shell
-    knows these ids, so it states them, and the model copies from the turn it is in.
-    """
+    """The bound history's datasets, injected fresh every turn so ids are copied, not recalled."""
     try:
         items = await g.get(
             f"api/histories/{history_id}/contents",

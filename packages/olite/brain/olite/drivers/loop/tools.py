@@ -149,8 +149,7 @@ def _summarize(state):
                        "elements": len(grouping.get("elements") or [])},
         "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
         "out_of_scope": sample(grouping.get("out_of_scope")),
-        # Galaxy queues one task per dataset for a datatype change, so this is accepted
-        # work, not finished work. Saying "done" here would be a lie at any real size.
+        # A datatype change is queued per dataset: accepted, not finished.
         "datatype": {
             "queued": len(grouping.get("items") or []),
             "state": "Galaxy applies these in the background; they are not converted yet",
@@ -164,8 +163,7 @@ class ToolOutcome:
 
     content: object
     is_error: bool = False
-    # A gate declined to run this; distinct from a tool that ran and failed, because a
-    # held gate is the system working and must not read as a side effect.
+    # A gate declined to run this.
     refused: bool = False
 
     @property
@@ -325,9 +323,7 @@ class ToolSurface:
             payload = {k: v for k, v in output.items() if k != "artifact"}
             payload["ok"] = True
             payload["artifact"] = {"kind": art.get("kind"), "title": art.get("title")}
-            # The spec goes to the shell, not into the context, so from the model's side
-            # nothing visibly happened and it hunts the history for an output that can
-            # never be there. `hint` is the same channel gtn.py uses to steer a next step.
+            # The spec goes to the shell, so without this the model hunts the history for it.
             payload["hint"] = ("This artifact is already displayed to the user and is not a "
                                "history dataset, so do not look for it there. Describe what "
                                "it shows and finish.")

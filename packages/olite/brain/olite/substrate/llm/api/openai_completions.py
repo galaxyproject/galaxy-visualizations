@@ -36,9 +36,7 @@ class OpenAICompletions:
         return f"{base}/chat/completions"
 
     def headers(self, target):
-        # Bearer is the OpenAI-compatible standard. x-api-key is opt-in: browsers
-        # preflight every header, and endpoints that do not allow it (Gemini)
-        # reject the request before it is sent.
+        # Bearer is the OpenAI-compatible standard.
         headers = {"Content-Type": "application/json"}
         if target.api_key is not None:
             headers["Authorization"] = f"Bearer {target.api_key}"
@@ -78,9 +76,7 @@ class OpenAICompletions:
             usage=payload.get("usage") or {},
             raw=payload,
         )
-        # pi turns an unusable provider response into a terminal error rather than an
-        # empty turn (`stopReason: "error"`); a reply with no stop reason and nothing
-        # in it is the endpoint failing, not the model choosing to stop.
+        # No stop reason and nothing in it: the endpoint failed, so error rather than stop.
         if reply.finish_reason is None and not reply.content and not reply.tool_calls:
             raise ProviderError("The model provider returned an empty response.")
         return reply

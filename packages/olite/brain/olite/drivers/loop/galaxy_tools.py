@@ -14,8 +14,6 @@ from .galaxy_tool_docs import DOCS
 TOOLS = []
 
 # Pyodide's MEMFS is olite's equivalent of the filesystem Orbit has on disk.
-# Datasets land here so run_python can read them as files.
-# Pyodide's MEMFS allows a directory at the root; a host filesystem does not.
 DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.gettempdir(), "olite-data")
 # Enough to show the header and shape of a table without a run_python round trip.
 PREVIEW_LINES = 50
@@ -86,8 +84,7 @@ CONTENTS_NOTE = ("This is just a count. To get actual datasets, use "
 
 
 async def _get_history_details(g, a):
-    # galaxy-mcp pairs the metadata with a count and steers to get_history_contents,
-    # so a model does not read a metadata-only reply as an empty history.
+    # Paired with a count so a metadata-only reply does not read as an empty history.
     history = await g.get(f"api/histories/{a['history_id']}")
     contents = await g.get(f"api/histories/{a['history_id']}/contents{_q({'v': 'dev', 'keys': 'id'})}")
     total = len(contents) if isinstance(contents, list) else 0
@@ -137,8 +134,7 @@ async def _get_dataset_details(g, a):
     dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     if a.get("include_preview", True):
         try:
-            # A chunk, not the whole file: /display streams everything, so previewing a
-            # large dataset would pull it all into memory to show ten lines.
+            # A chunk, not the whole file.
             want = int(a.get("preview_lines", 10) or 10)
             text = await _chunk(g, a["dataset_id"], PREVIEW_BYTES)
             if text is None:
@@ -216,9 +212,7 @@ async def _search_tools_by_keywords(g, a):
     return await g.get(f"api/tools{_q({'q': ' '.join(a.get('keywords') or [])})}")
 
 
-# Everything in the panel that is not one of these is a tool. Galaxy ships 25+ tool
-# classes (DataSourceTool, UnzipCollectionTool, ...), so naming the tools instead would
-# silently drop whichever the list misses.
+# Listing tool classes instead would drop whichever Galaxy adds next.
 PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
 PANEL_KEEP = ("id", "name", "description")
 
@@ -228,7 +222,7 @@ def _panel_entry(entry):
 
 
 def _count_panel(entries):
-    """Tools and sections in a panel subtree, counted rather than left to the reader."""
+    """Tools and sections in a panel subtree."""
     tools = sections = 0
     for entry in entries or []:
         if not isinstance(entry, dict):
@@ -244,7 +238,7 @@ def _count_panel(entries):
 
 
 async def _get_tool_panel(g, a):
-    """Sections and their tools, counted. The raw panel is ~25k tokens on a small server."""
+    """Sections and their tools, counted."""
     panel = await g.get("api/tools?in_panel=true")
     if not isinstance(panel, list):
         return panel
@@ -278,8 +272,7 @@ async def _get_tool_citations(g, a):
 
 
 async def _get_tool_input_template(g, a):
-    # galaxy-mcp builds the skeleton the description promises; the raw request schema
-    # hides a repeat behind three $refs and the model submits an empty one.
+    # galaxy-mcp builds the skeleton the description promises.
     info = await g.get(f"api/tools/{a['tool_id']}{_q({'io_details': True})}") or {}
     return {
         "tool_id": a["tool_id"],
@@ -320,8 +313,7 @@ async def _chunk(g, dataset_id, size):
 
 
 async def _download_dataset(g, a):
-    # Written to the filesystem as bytes: inline content breaks tool-call JSON, and
-    # decoding as text corrupts BAM/HDF5/gzip.
+    # Written to the filesystem as bytes.
     details = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     stated = details.get("file_size") if isinstance(details, dict) else None
     partial = False
@@ -377,9 +369,7 @@ async def _upload_file_from_url(g, a):
 
 
 async def _upload_file(g, a):
-    # The counterpart to download_dataset: read back from the Pyodide filesystem so a
-    # file produced by run_python can be sent to Galaxy. Uploaded as pasted content,
-    # since a browser cannot hand Galaxy a path on disk.
+    # The counterpart to download_dataset.
     path = a["path"]
     if not os.path.isfile(path):
         return {"error": f"No such file: {path}", "path": path}
@@ -388,8 +378,7 @@ async def _upload_file(g, a):
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        # Galaxy's fetch API takes pasted content as text (data_fetch.py uses StringIO),
-        # so binary would have to go up as multipart. Refuse rather than corrupt it.
+        # Pasted content goes up as text, so refuse binary rather than corrupt it.
         return {
             "error": "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
             "Use upload_file_from_url for binary data.",
@@ -417,8 +406,7 @@ async def _list_workflows(g, a):
     params = {"show_published": a.get("published", False)}
     workflows = await g.get(f"api/workflows{_q(params)}") or []
     if a.get("name"):
-        # Galaxy's ?search drops raw terms under four characters, so "rna seq" there
-        # matches every workflow. Match name and tags here, ignoring separators.
+        # Galaxy's ?search drops short terms, so match name and tags here instead.
         needle = _alnum(a["name"])
         workflows = [
             w for w in workflows
@@ -434,10 +422,9 @@ async def _get_workflow_details(g, a):
     return await g.get(f"api/workflows/{a['workflow_id']}{_q({'version': a.get('version')})}")
 
 
-# Steps that ask the caller for something. Everything else in the run model is the tool
-# form the web client renders, which on a 7-step workflow is 194 KB of conditional cases.
+# Everything else in the run model is the tool form the web client renders.
 WORKFLOW_INPUT_STEPS = {"data_input", "data_collection_input", "parameter_input"}
-# A data input that accepts hundreds of datatypes is saying "anything"; the list is noise.
+# A long extension list says "anything"; the count is the useful part.
 EXTENSION_LIST_CAP = 12
 
 
@@ -448,7 +435,7 @@ def _trim_extensions(value):
 
 
 def _input_step(step):
-    """What a caller must supply for one step, without the form model around it."""
+    """What a caller must supply for one step."""
     inputs = []
     for item in step.get("inputs") or []:
         if not isinstance(item, dict):
@@ -469,8 +456,7 @@ def _input_step(step):
 
 async def _get_workflow_input_template(g, a):
     """The inputs a workflow asks for, and any version warnings Galaxy raises."""
-    # style=run is the webapp's run-form model. It also validates that every tool is
-    # installed, which is why it is still the source: a missing tool must surface here.
+    # style=run also validates that every tool is installed, so a missing one surfaces.
     params = {"style": "run", "instance": "false", "history_id": a.get("history_id")}
     model = await g.get(f"api/workflows/{a['workflow_id']}/download{_q(params)}")
     if not isinstance(model, dict) or "steps" not in model:
@@ -561,20 +547,18 @@ async def _get_page(g, a):
 
 async def _create_page(g, a):
     payload = {k: a[k] for k in ("title", "content", "annotation", "slug") if a.get(k) is not None}
-    # Galaxy records who wrote each revision; an agent edit that claims to be a user edit
-    # cannot be told apart in the revision list, or reverted as a unit.
+    # Marks the revision as an agent edit, so it can be told apart and reverted.
     payload.setdefault("edit_source", "agent")
     if a.get("history_id"):
         payload["history_id"] = a["history_id"]
-    # Galaxy defaults a page to html and sanitizes the body against that; this tool's
-    # content is Galaxy-flavored markdown, which survives only if the format says so.
+    # Galaxy defaults a page to html and sanitizes the body against that.
     payload["content_format"] = "markdown"
     return await g.post("api/pages", payload)
 
 
 async def _update_page(g, a):
     payload = {k: a[k] for k in ("title", "content") if a.get(k) is not None}
-    # Every save is a revision; `agent` is what makes it attributable and revertible as one.
+    # Marks the revision as an agent edit.
     payload.setdefault("edit_source", "agent")
     return await g.put(f"api/pages/{a['page_id']}", payload)
 

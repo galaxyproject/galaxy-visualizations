@@ -47,9 +47,7 @@ TOOL_NAMES = {
 # loom also teaches `local` and `hybrid`; this build has no local execution.
 ROUTING_TAGS = {"galaxy", "remote"}
 
-# loom's `--tools` mapped to the nearest capability set. `read,write,edit` is pi's file
-# tools, so those scenarios get no Galaxy tools -- granting them would let this suite
-# consult IWC while loom cannot. No `loomArgs` means the full production surface.
+# loom's `--tools` mapped to the nearest capability set.
 TOOL_CAPABILITIES = {
     "read,write,edit": "llm,local",
     "skills_fetch": "llm,local",

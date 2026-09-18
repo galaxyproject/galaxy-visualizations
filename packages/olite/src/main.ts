@@ -101,8 +101,7 @@ async function main() {
         </div>
       </div>`;
 
-    // Artifact pane, ported from Orbit (app.ts:453-473). The split matters: a narrow
-    // window collapses the pane visually, but must not overwrite what the user chose.
+    // Artifact pane, ported from Orbit (app.ts:453-473).
     const ARTIFACT_COLLAPSED_KEY = "olite.artifactCollapsed";
     const ARTIFACT_BREAKPOINT = 700;
 
@@ -140,8 +139,7 @@ async function main() {
     const abortBtn = container.querySelector<HTMLButtonElement>("#abort-btn")!;
     const artifactContent = container.querySelector<HTMLElement>("#artifact-content")!;
 
-    // Ask for a provider/key before the worker starts: initialize carries the
-    // credentials, so a later prompt would mean re-initializing the brain.
+    // Ask for a provider/key before the worker starts.
     const creds = await ensureCredentials(container);
     const config = buildConfig(incoming, creds);
     // Runtime context: where relative fetches resolve and what origin Galaxy calls hit.
@@ -165,14 +163,10 @@ async function main() {
         config.history_id,
         await galaxyUserId(config.galaxy_root, credentials),
     );
-    // Naming the active model in the button makes a misconfigured run obvious,
-    // and reopening the picker avoids clearing browser storage by hand.
-    // Orbit's auto-grow (app.ts:2375). The textarea is `resize: none`, so its height
-    // has to follow the content; 150 mirrors the max-height in the vendored CSS.
+    // Naming the active model makes a misconfigured run obvious.
     input.addEventListener("input", () => {
         input.style.height = "auto";
-        // scrollHeight excludes the border that border-box counts in height, so adding
-        // it back is what stops a one-line box from showing a scrollbar.
+        // scrollHeight excludes the border that border-box counts in height.
         const chrome = input.offsetHeight - input.clientHeight;
         const wanted = input.scrollHeight + chrome;
         input.style.height = Math.min(wanted, 150) + "px";
@@ -216,8 +210,7 @@ async function main() {
     const artifactBtn = container.querySelector<HTMLButtonElement>("#artifact-btn")!;
     artifactBtn.addEventListener("click", () => setArtifactCollapsed(!artifactCollapsed()));
 
-    // Orbit's Ctrl/Cmd+\ (app.ts:487). Scoped to the container: a Galaxy page owns the
-    // document, and a plugin should not claim shortcuts outside its own frame.
+    // Orbit's Ctrl/Cmd+\ (app.ts:487).
     container.addEventListener("keydown", (e) => {
         const ev = e as KeyboardEvent;
         if ((ev.ctrlKey || ev.metaKey) && ev.key === "\\") {
@@ -226,9 +219,7 @@ async function main() {
         }
     });
 
-    // Responsive auto-collapse (Orbit's applyResponsiveLayout). Visual only, so a narrow
-    // window does not overwrite the stored preference -- Galaxy often renders a plugin
-    // in a panel narrower than this.
+    // Responsive auto-collapse (Orbit's applyResponsiveLayout).
     let wasNarrow = window.innerWidth < ARTIFACT_BREAKPOINT;
     if (wasNarrow) {
         applyArtifactCollapsed(true);
@@ -311,9 +302,7 @@ async function main() {
     // Advances submitted Galaxy work between turns, so no turn blocks on a job.
     const watcher = new InvocationWatcher({
         readState: galaxyStateReader(config.galaxy_root, credentials),
-        // loom's agent calls galaxy_invocation_record so the poller owns the entry. olite's
-        // watcher already holds the id from the tool result, so the shell writes it -- a live
-        // run recorded an invocation's uuid where Galaxy's id was needed, and nothing matched.
+        // loom's agent calls galaxy_invocation_record so the poller owns the entry.
         onSubmitted: (w) => {
             if (!config.history_id) return;
             void editRecord(
@@ -329,8 +318,7 @@ async function main() {
             } else {
                 chat.addInfoMessage(`${what} ${w.id} finished (${state}). Ask me to check the results.`);
             }
-            // loom's poller advances the notebook itself; do the same to the record, so a
-            // turn that ends before its jobs do does not leave the record claiming they run.
+            // loom's poller advances the notebook itself.
             if (config.history_id) {
                 void editRecord(
                     { root: config.galaxy_root, credentials, historyId: config.history_id },
@@ -424,8 +412,7 @@ async function main() {
             convo.length = 0;
             convo.push(...(reply.messages || []));
             void session.save(convo);
-            // loom writes a session block into the notebook itself; the record then carries
-            // shell-written proof of the session even if the agent wrote nothing.
+            // loom writes a session block into the notebook itself.
             void writeSessionSummary(config.galaxy_root, credentials, config.history_id, {
                 id: sessionId,
                 startedAt,
@@ -531,8 +518,7 @@ async function main() {
     messagesEl.addEventListener("plan-draft-action", (e) => {
         const { action, body } = (e as CustomEvent<{ action: string; body: string }>).detail;
         if (action === "approve") {
-            // loom's init gate refuses /execute when Galaxy cannot run the plan; Approve is
-            // the equivalent control here, so it refuses before the turn is ever sent.
+            // loom's init gate refuses /execute when Galaxy cannot run the plan.
             if (!galaxyCanRun(latestCatalog)) {
                 chat.addErrorMessage(catalogRefusalMessage(latestCatalog));
                 return;
