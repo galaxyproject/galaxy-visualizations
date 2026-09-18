@@ -161,6 +161,7 @@ def main():
                       "steps": run.steps,
                       "maxSteps": run.max_steps,
                       "toolsCalled": run.tools_called,
+                      "events": run.events,
                       # A pass is the artifact worth keeping, not just the verdict.
                       "chatText": run.chat_text if run.messages else "",
                       "messages": run.messages or [],

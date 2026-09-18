@@ -329,7 +329,7 @@ def _stage_run(galaxy, history_id, dataset_id, spec):
 RUNNING_STATES = ("new", "queued", "running", "paused", "upload", "setting_metadata")
 
 
-def _settle_pending(staged, events, timeout=180, interval=3):
+def _settle_pending(staged, events, timeout=180, interval=1):
     """Advance submitted work to a terminal state, as the shell's watcher does."""
     galaxy, history_id = staged["galaxy"], staged["history_id"]
     deadline = time.time() + timeout
