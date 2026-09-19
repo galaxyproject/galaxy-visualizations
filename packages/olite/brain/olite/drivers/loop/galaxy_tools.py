@@ -153,6 +153,28 @@ async def _foreign_inputs(g, inputs, history_id):
     return foreign
 
 
+class ToolParameterError(Exception):
+    """A rejected parameter, carrying the template the tool actually accepts."""
+
+    def __init__(self, detail, template):
+        super().__init__(
+            f"{detail}\nThe tool accepts these input keys. Fill this template and resend:\n"
+            f"{json.dumps(template, indent=1)}"
+        )
+
+
+def _is_parameter_error(exc):
+    return "invalid key structure" in str(exc) or "has no attribute" in str(exc)
+
+
+async def _input_template_for(g, tool_id):
+    try:
+        info = await g.get(f"api/tools/{tool_id}{_q({'io_details': True})}")
+        return build_input_template(info) if info else None
+    except Exception:
+        return None
+
+
 async def _run_tool(g, a):
     history_id = a["history_id"]
     inputs = a.get("inputs") or {}
@@ -166,10 +188,17 @@ async def _run_tool(g, a):
             "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
                     "history. To use data from elsewhere, copy it into this history first.",
         }
-    return await g.post(
-        "api/tools",
-        {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
-    )
+    try:
+        return await g.post(
+            "api/tools",
+            {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
+        )
+    except Exception as exc:
+        template = await _input_template_for(g, a["tool_id"]) if _is_parameter_error(exc) else None
+        if template is None:
+            raise
+        # Galaxy names the offending key but not the shape it wanted; OLite holds it.
+        raise ToolParameterError(str(exc), template) from exc
 
 
 async def _search_tools_by_name(g, a):

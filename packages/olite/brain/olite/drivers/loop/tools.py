@@ -203,6 +203,11 @@ class ToolSurface:
     async def dispatch(self, name, args):
         """Run one tool call. Always a ToolOutcome — never a raised exception."""
         logger.info("tool %s(%s)", name, brief(args))
+        repeated = self._repeating_a_failure(name, args)
+        if repeated:
+            logger.info("  -> breaking a loop of identical failing calls")
+            self._last_failure = None  # a speed bump, not a ban
+            return ToolOutcome(repeated, is_error=True, refused=True)
         missing = self._missing_required(name, args)
         if missing:
             logger.info("  -> missing required %s", missing)
@@ -213,11 +218,33 @@ class ToolSurface:
         try:
             result = await self._dispatch(name, args)
             outcome = result if isinstance(result, ToolOutcome) else ToolOutcome(result)
+            self._note_outcome(name, args, outcome.is_error)
             logger.info("  -> %s", brief(outcome.content))
             return outcome
         except Exception as e:
             logger.warning("tool %s raised: %s", name, e)
             return ToolOutcome(f"Tool '{name}' raised: {e}", is_error=True)
+
+    # An identical call that just failed will fail again; three is enough to establish it.
+    FAILED_REPEAT_LIMIT = 3
+
+    def _repeating_a_failure(self, name, args):
+        last = getattr(self, "_last_failure", None)
+        if not last or last["key"] != (name, brief(args)) or last["count"] < self.FAILED_REPEAT_LIMIT:
+            return None
+        return (f"Refused: '{name}' was already called with these exact arguments "
+                f"{last['count']} times and failed each time. Change the arguments or the "
+                f"approach; resending the same call cannot succeed.")
+
+    def _note_outcome(self, name, args, is_error):
+        key = (name, brief(args))
+        last = getattr(self, "_last_failure", None)
+        if not is_error:
+            self._last_failure = None
+        elif last and last["key"] == key:
+            last["count"] += 1
+        else:
+            self._last_failure = {"key": key, "count": 1}
 
     async def _dispatch(self, name, args):
         # First, so the confusables fold below cannot route around it.
@@ -234,6 +261,13 @@ class ToolSurface:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
+        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found".
+        if name == "run_tool" and self.processes:
+            wanted = args.get("tool_id")
+            if wanted in (self.processes.names() or []):
+                return ToolOutcome(
+                    f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
+                    is_error=True)
         if name == "skills_fetch":
             return self._skills_fetch(args)
         if name == "finish":
