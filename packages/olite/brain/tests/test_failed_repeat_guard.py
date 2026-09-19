@@ -44,3 +44,19 @@ def test_the_refusal_breaks_the_loop_without_banning_the_call():
     r.fails = False
     out = call(r, {"a": 1})
     assert not out.refused and out.content == "fine"
+
+
+class Raiser(Runner):
+    """Galaxy rejections arrive as exceptions, which is the path that matters most."""
+
+    async def _dispatch(self, name, args):
+        self.calls += 1
+        raise RuntimeError("HTTP 400: invalid key structure")
+
+
+def test_a_call_that_keeps_raising_is_also_cut_off():
+    r = Raiser()
+    for _ in range(ToolSurface.FAILED_REPEAT_LIMIT):
+        assert not call(r, {"a": 1}).refused
+    assert call(r, {"a": 1}).refused
+    assert r.calls == ToolSurface.FAILED_REPEAT_LIMIT

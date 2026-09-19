@@ -223,6 +223,7 @@ class ToolSurface:
             return outcome
         except Exception as e:
             logger.warning("tool %s raised: %s", name, e)
+            self._note_outcome(name, args, True)
             return ToolOutcome(f"Tool '{name}' raised: {e}", is_error=True)
 
     # An identical call that just failed will fail again; three is enough to establish it.
