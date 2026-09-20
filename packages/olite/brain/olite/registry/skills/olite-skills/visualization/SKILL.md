@@ -33,8 +33,8 @@ Choose by what the user asked for:
 - A non-tabular datatype: **`show_visualization`**, since `vintent_dataset` cannot read it.
 - The user asks to keep, save, share or come back to the chart: **`save_visualization`**.
 - A named visualization that has to bind particular columns, settings or tracks:
-  **`save_visualization`**. Galaxy renders a displayed visualization from the dataset alone, so
-  settings only survive in a saved config. To change them afterwards, call it again with the
+  **`get_visualization_details`** for its schema, then **`save_visualization`**. Galaxy renders a
+  displayed visualization from the dataset alone, so settings only survive in a saved config. To change them afterwards, call it again with the
   `visualization_id` it returned; that revises the one visualization instead of adding another.
 
 Showing is the default. Seeing a visualization is not a reason to add one to the user's saved
@@ -50,6 +50,12 @@ servers and changes over time, so it is never something to answer from memory.
 It answers only that question. For the dataset's columns and their types, use
 `get_dataset_details`. A tabular chart does not need this call at all: `vintent_dataset` reads
 the file and chooses its own encodings.
+
+For one visualization's parameters, use `get_visualization_details`. It returns the schema that
+`settings` and `tracks` must match, built from the plugin's own XML, so the shape and the legal
+values are stated rather than guessed. Call it before binding anything, the way
+`get_tool_details` comes before `run_tool`. It is per visualization on purpose: carrying every
+schema in the listing would send hundreds of times more than the one being used.
 
 An entry marked `preferred_for_datatype` is the visualization the datatype itself declares, and is
 the best default when the user has no preference.

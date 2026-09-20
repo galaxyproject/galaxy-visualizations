@@ -686,6 +686,37 @@ def _visualization_config(a):
     return config
 
 
+async def _get_visualization_details(g, a):
+    """One plugin's parameters, fetched per plugin so a listing stays cheap.
+
+    Galaxy builds `parameters_schema` from the plugin's own XML, so it states the shape and the
+    legal values rather than leaving the agent to infer them from parameter names.
+    """
+    name = a["visualization"]
+    plugin = await g.get(f"api/plugins/{name}") or {}
+    if not plugin.get("name"):
+        return {"error": f"Refused: {name!r} is not an installed visualization.",
+                "hint": "Call list_visualizations for a dataset to see what this server offers."}
+
+    details = {
+        "name": plugin.get("name"),
+        "description": plugin.get("description"),
+        "settings": [p.get("name") for p in (plugin.get("settings") or [])],
+        "tracks": [p.get("name") for p in (plugin.get("tracks") or [])],
+    }
+    schema = plugin.get("parameters_schema")
+    if schema:
+        details["parameters_schema"] = schema
+        details["hint"] = ("Build `settings` and `tracks` to this schema and pass them to "
+                           "save_visualization. Settings cannot ride in a displayed "
+                           "visualization, only in a saved one.")
+    else:
+        details["hint"] = ("This Galaxy does not publish a parameter schema, so only the "
+                           "parameter names above are known. Prefer show_visualization with the "
+                           "plugin's defaults over guessing at values.")
+    return details
+
+
 async def _show_visualization(g, a):
     dataset, refusal = await _resolve_visualization(g, a)
     if refusal:
@@ -888,6 +919,10 @@ _tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _S
 _tool("run_user_tool", "write", "Run a dynamic (user-defined) tool by uuid in a history.",
       {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
       ["history_id", "tool_uuid", "inputs"], _run_user_tool)
+_tool("get_visualization_details", "read",
+      "Get one visualization's parameters, including the schema its settings and tracks must "
+      "match. Call before binding settings or tracks.",
+      {"visualization": _STR}, ["visualization"], _get_visualization_details)
 _tool("show_visualization", "read",
       "Display a dataset with an installed visualization. Renders only; saves nothing. Takes the "
       "plugin's defaults -- use save_visualization to bind settings or tracks.",
