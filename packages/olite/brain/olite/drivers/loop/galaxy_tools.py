@@ -2,6 +2,8 @@
 
 import json
 
+from olite import vendor
+
 from . import page_edit
 from .paging import ROW_CAP, page
 from .tool_inputs import build_input_template, summarize_tool_inputs
@@ -686,11 +688,48 @@ def _visualization_config(a):
     return config
 
 
+def _describe_parameter(param, types):
+    """One declared input, joined with what galaxy-charts stores for its type."""
+    kind = param.get("type")
+    spec = types.get(kind) or {}
+    described = {"name": param.get("name"), "type": kind}
+    for key in ("label", "help"):
+        if param.get(key):
+            described[key] = param[key]
+    if spec.get("stores"):
+        described["stores"] = spec["stores"]
+    for bound in spec.get("bounds") or []:
+        if param.get(bound) is not None:
+            described[bound] = param[bound]
+
+    source = spec.get("options")
+    if source:
+        options = {"kind": source["kind"]}
+        declared = param.get(source.get("from") or "")
+        if declared:
+            options["values" if source["kind"] == "declared" else source["from"]] = declared
+        for f in source.get("filters") or []:
+            if param.get(f) is not None:
+                options[f] = param[f]
+        described["options"] = options
+
+    test = param.get("test_param")
+    if test:
+        described["chosen_by"] = _describe_parameter(test, types)
+        described["cases"] = [
+            {"when": c.get("value"),
+             "inputs": [_describe_parameter(i, types) for i in (c.get("inputs") or [])]}
+            for c in (param.get("cases") or [])
+        ]
+    return described
+
+
 async def _get_visualization_details(g, a):
     """One plugin's parameters, fetched per plugin so a listing stays cheap.
 
-    Galaxy builds `parameters_schema` from the plugin's own XML, so it states the shape and the
-    legal values rather than leaving the agent to infer them from parameter names.
+    Galaxy declares which inputs a plugin has; galaxy-charts owns what each input type
+    stores. Joining them here states the shape and the legal values instead of leaving the
+    agent to infer them from parameter names.
     """
     name = a["visualization"]
     plugin = await g.get(f"api/plugins/{name}") or {}
@@ -698,23 +737,16 @@ async def _get_visualization_details(g, a):
         return {"error": f"Refused: {name!r} is not an installed visualization.",
                 "hint": "Call list_visualizations for a dataset to see what this server offers."}
 
-    details = {
+    types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+    return {
         "name": plugin.get("name"),
         "description": plugin.get("description"),
-        "settings": [p.get("name") for p in (plugin.get("settings") or [])],
-        "tracks": [p.get("name") for p in (plugin.get("tracks") or [])],
+        "settings": [_describe_parameter(p, types) for p in (plugin.get("settings") or [])],
+        "tracks": [_describe_parameter(p, types) for p in (plugin.get("tracks") or [])],
+        "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
+                "them and pass them to save_visualization: settings cannot ride in a displayed "
+                "visualization, only in a saved one.",
     }
-    schema = plugin.get("parameters_schema")
-    if schema:
-        details["parameters_schema"] = schema
-        details["hint"] = ("Build `settings` and `tracks` to this schema and pass them to "
-                           "save_visualization. Settings cannot ride in a displayed "
-                           "visualization, only in a saved one.")
-    else:
-        details["hint"] = ("This Galaxy does not publish a parameter schema, so only the "
-                           "parameter names above are known. Prefer show_visualization with the "
-                           "plugin's defaults over guessing at values.")
-    return details
 
 
 async def _get_visualization(g, a):

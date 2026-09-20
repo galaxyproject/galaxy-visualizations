@@ -1,0 +1,170 @@
+{
+  "version": "0.1.11",
+  "types": {
+    "boolean": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "boolean"
+      }
+    },
+    "color": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      }
+    },
+    "text": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      }
+    },
+    "textarea": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      }
+    },
+    "integer": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "bounds": [
+        "min",
+        "max"
+      ]
+    },
+    "float": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "number"
+      },
+      "bounds": [
+        "min",
+        "max"
+      ]
+    },
+    "select": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      },
+      "options": {
+        "kind": "declared",
+        "from": "data"
+      }
+    },
+    "data_column": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      },
+      "options": {
+        "kind": "dataset_column",
+        "filters": [
+          "is_auto",
+          "is_text",
+          "is_number"
+        ]
+      }
+    },
+    "data": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "hid": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": {}
+      },
+      "options": {
+        "kind": "history_dataset",
+        "from": "extension"
+      }
+    },
+    "data_table": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "row": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "table": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": {}
+      },
+      "options": {
+        "kind": "data_table",
+        "from": "tables"
+      }
+    },
+    "data_json": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": {}
+      },
+      "options": {
+        "kind": "data_json",
+        "from": "url"
+      }
+    },
+    "conditional": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": {}
+      },
+      "nests": "conditional"
+    }
+  }
+}
