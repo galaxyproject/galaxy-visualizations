@@ -843,6 +843,20 @@ def _visualization(spec, run, failures, exercised):
                 "visualization.type",
                 f"saved visualization(s) of type {types}, wanted one of {allowed}", "behavior"))
 
+    for path, wanted in (spec.get("settingsContain") or {}).items():
+        seen = set()
+        for v in matching:
+            node = ((v.get("latest_revision") or {}).get("config") or {}).get("settings") or {}
+            for part in path.split("."):
+                node = node.get(part) if isinstance(node, dict) else None
+            if node is not None:
+                seen.add(str(node))
+        if not any(str(wanted) in s for s in seen):
+            failures.append(Failure(
+                "visualization.settingsContain",
+                f"no saved visualization has settings.{path} containing {wanted!r}; "
+                f"found {sorted(seen) or 'nothing'}", "behavior"))
+
     # Adding a track means the saved config gained a dataset, which no assertion about the
     # chat or the pane can see: the agent reports success either way.
     for want in spec.get("tracksDataset") or []:

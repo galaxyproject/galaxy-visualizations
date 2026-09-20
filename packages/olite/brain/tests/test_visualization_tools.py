@@ -172,3 +172,77 @@ def test_the_declared_track_key_is_accepted():
 def test_a_plugin_declaring_nothing_is_not_treated_as_allowing_nothing():
     g = Galaxy()
     assert save(g, visualization="atlas", settings={"anything": 1})["saved"] is True
+
+
+def test_settings_sent_as_a_list_is_refused():
+    """A list of one-key objects is not what the form writes, and Galaxy stores it anyway."""
+    g = DeclaringGalaxy()
+    out = save(g, visualization="igv", settings=[{"locus": "chr1:1-100"}])
+    assert out["saved"] is False and g.posted is None
+    assert "one object keyed by parameter name" in out["error"]
+
+
+def test_an_object_valued_parameter_refuses_a_bare_id():
+    g = DeclaringGalaxy()
+    plugin = dict(IGV_PLUGIN, settings=[{"name": "genome", "type": "data"}])
+
+    class G(DeclaringGalaxy):
+        async def get(self, path, **kwargs):
+            if path == "api/plugins/igv":
+                return plugin
+            return await super().get(path, **kwargs)
+
+    g = G()
+    out = save(g, visualization="igv", settings={"genome": "hg38"})
+    assert out["saved"] is False and g.posted is None
+    assert "whole entry" in out["error"]
+    assert out["expected"]["required"] == ["id"]
+    assert "get_visualization_options" in out["hint"]
+
+
+CONDITIONAL_PLUGIN = {
+    "name": "igv",
+    "settings": [
+        {"name": "locus", "type": "text"},
+        {"name": "source", "type": "conditional",
+         "test_param": {"name": "origin", "type": "select"},
+         "cases": [{"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]}]},
+    ],
+    "tracks": [{"name": "urlDataset", "type": "data"}],
+}
+
+
+class ConditionalGalaxy(Galaxy):
+    async def get(self, path, **kwargs):
+        if path == "api/plugins/igv":
+            return CONDITIONAL_PLUGIN
+        if path.startswith("api/plugins"):
+            return [{"name": "igv"}]
+        return await super().get(path, **kwargs)
+
+
+def test_a_conditionals_parameters_may_not_be_flattened_beside_it():
+    """galaxy-charts nests them under the conditional; flat is a shape it never writes."""
+    g = ConditionalGalaxy()
+    out = save(g, visualization="igv",
+               settings={"locus": "chr1:1-2", "origin": "igv", "genome": {"id": "hg38"}})
+    assert out["saved"] is False and g.posted is None
+    assert "declares no parameter" in out["error"]
+    assert sorted(out["declared"]) == ["locus", "source"]
+
+
+def test_the_nested_form_is_accepted():
+    g = ConditionalGalaxy()
+    out = save(g, visualization="igv",
+               settings={"locus": "chr1:1-2",
+                         "source": {"origin": "igv", "genome": {"id": "hg38"}}})
+    assert out["saved"] is True
+    assert g.posted[1]["config"]["settings"]["source"]["genome"] == {"id": "hg38"}
+
+
+def test_a_case_parameter_is_only_valid_for_the_chosen_case():
+    g = ConditionalGalaxy()
+    out = save(g, visualization="igv",
+               settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}})
+    assert out["saved"] is False
+    assert "genome" in out["error"]

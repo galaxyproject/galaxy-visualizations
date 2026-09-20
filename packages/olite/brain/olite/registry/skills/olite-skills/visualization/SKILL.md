@@ -55,6 +55,12 @@ For one visualization's parameters, use `get_visualization_details`. Each input 
 `stores`, the shape its value must take, and `options`, where its legal values come from. Call it
 before binding anything, the way `get_tool_details` comes before `run_tool`.
 
+`get_visualization_options` resolves an `options` source into the actual choices, whether they
+come from a remote list, a Galaxy data table or the history. Where a value is an object, pass the
+one it returns through unchanged: it carries fields the plugin needs and rebuilding it from an id
+produces something that looks right and does not load. A name a conditional declares in more than
+one case needs `when` to say which case you mean.
+
 `options` is what separates inputs that look alike. Two inputs can both take a dataset and accept
 different datatypes: a genome takes a reference, a track takes the track formats. Match the
 dataset to the `extension` list before using it. An input whose options come from a data table or

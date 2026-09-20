@@ -1,6 +1,6 @@
 {
-  "name": "visualizations: a second dataset is added as a track",
-  "description": "Two genomic datasets and a viewer that shows both. The first turn opens the BED in IGV, where it becomes the visualization's dataset_id; the second asks for the GFF3 alongside it, which means reading the saved config and adding to its tracks, because saving replaces the config rather than merging into it. Graded on the saved object: the BED as the dataset it references and the GFF3 as a track. A track names its own dataset, and it is not the only input on this plugin that takes one -- a genome accepts fasta or twobit and nothing else -- so writing the right key into the right parameter is the thing being tested. Reading the config back before writing is one way to get there and not the only one, so the grading stays on what Galaxy holds rather than on which route the agent took.",
+  "name": "visualizations: a track, a genome and a locus on one saved visualization",
+  "description": "Three turns against one IGV visualization, each needing a different kind of parameter. The bed opens it and becomes the dataset it references. The gff3 is added as a track, which means writing the dataset into the parameter that takes one, not the genome parameter that also takes a dataset and accepts neither format. The genome is then switched, and its value is an entry copied whole from a remote list the plugin names, so it cannot be invented from an id. Finally a locus is set, which must not cost the tracks or the genome, because saving replaces the config rather than merging into it. Graded on what Galaxy stores, since every one of these reports success in chat whether or not it survived.",
   "tier": 3,
   "substrate": "live",
   "dataset": {
@@ -18,9 +18,10 @@
   },
   "inputs": [
     "In my history \"igv tracks $run\", open tracks.bed in IGV and keep it so I can come back to it.",
-    "Now add features.gff3 to that same IGV visualization as a second track."
+    "Now add features.gff3 to that same IGV visualization as a second track.",
+    "Switch that visualization to the hg38 reference genome and focus it on chr1:11,000-30,000."
   ],
-  "timeoutMs": 360000,
+  "timeoutMs": 480000,
   "assertions": {
     "events": {
       "mustInclude": [
@@ -54,10 +55,14 @@
       ],
       "tracksDataset": [
         "$staged:features.gff3"
-      ]
+      ],
+      "settingsContain": {
+        "locus": "chr1",
+        "source.genome.id": "hg38"
+      }
     },
     "budget": {
-      "maxSteps": 25,
+      "maxSteps": 30,
       "maxRepeatedCall": 3
     }
   }

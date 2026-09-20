@@ -749,6 +749,113 @@ async def _get_visualization_details(g, a):
     }
 
 
+def _find_declared(params, wanted, when=None):
+    """Every declaration of a name, paired with the conditional case it sits in.
+
+    A conditional can declare the same name in several cases with different sources: igv's
+    `genome` is a remote list under one origin and a data table under another. Picking the
+    first would resolve the wrong one silently.
+    """
+    found = []
+    for param in params or []:
+        if not isinstance(param, dict):
+            continue
+        if param.get("name") == wanted:
+            found.append((when, param))
+        test = param.get("test_param") or {}
+        if test.get("name") == wanted:
+            found.append((when, test))
+        for case in param.get("cases") or []:
+            found += _find_declared(case.get("inputs"), wanted, case.get("value"))
+    return found
+
+
+def _match(entry, search):
+    if not search:
+        return False
+    hay = " ".join(str(entry.get(k) or "") for k in ("id", "name", "label", "value")).lower()
+    return search.lower() in hay
+
+
+async def _get_visualization_options(g, a):
+    """What a parameter's options actually are, resolved from where the plugin says they live.
+
+    The declaration says a genome comes from a remote list or a data table; it does not say
+    what is in one. Without this the agent invents an option, and for a parameter whose value
+    is an object copied verbatim it cannot invent a usable one.
+    """
+    name, wanted = a["visualization"], a["parameter"]
+    plugin = await g.get(f"api/plugins/{name}") or {}
+    if not isinstance(plugin, dict) or not plugin.get("name"):
+        return {"error": f"Refused: {name!r} is not an installed visualization."}
+
+    found = (_find_declared(plugin.get("settings"), wanted)
+             + _find_declared(plugin.get("tracks"), wanted))
+    if not found:
+        return {"error": f"Refused: {name!r} declares no parameter {wanted!r}.",
+                "hint": f"Call get_visualization_details for {name!r} to see what it declares."}
+
+    when = a.get("when")
+    if when is not None:
+        found = [(w, p) for w, p in found if w == when]
+        if not found:
+            return {"error": f"Refused: {wanted!r} is not declared when {when!r}."}
+    if len(found) > 1:
+        cases = sorted({w for w, _ in found if w is not None})
+        return {"error": f"Refused: {name!r} declares {wanted!r} in more than one case, and "
+                         "they do not share a source.",
+                "cases": cases,
+                "hint": "Pass `when` with the case you mean."}
+    declared = found[0][1]
+
+    types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+    source = ((types.get(declared.get("type")) or {}).get("options")) or {}
+    kind = source.get("kind")
+    search = a.get("search")
+
+    entries = []
+    if kind == "declared":
+        entries = [dict(o) for o in (declared.get("data") or [])]
+    elif kind == "data_json":
+        url = declared.get("url")
+        if not url:
+            return {"error": f"{wanted!r} names no url to read its options from."}
+        from olite.substrate.http import http
+
+        fetched = await http.request("GET", url)
+        entries = fetched if isinstance(fetched, list) else []
+    elif kind == "data_table":
+        # Column choice follows galaxy-charts' dataTableStore, which owns this shape.
+        for table in declared.get("tables") or []:
+            data = await g.get(f"api/tool_data/{table}") or {}
+            columns = data.get("columns") or []
+            name_col = max(columns.index("name"), 0) if "name" in columns else 0
+            value_col = max(columns.index("value"), 0) if "value" in columns else 0
+            for row in data.get("fields") or []:
+                whole = len(row) == len(columns)
+                entries.append({"id": row[value_col] if whole else (row[0] if row else None),
+                                "name": row[name_col] if whole else (row[0] if row else None),
+                                "columns": columns, "row": row, "table": table})
+    else:
+        return {"parameter": wanted, "source": kind or declared.get("type"),
+                "hint": "This parameter's options are not a list to browse; "
+                        "get_visualization_details says what it accepts."}
+
+    # Labels are cheap to scan; the stored value is only returned for what was asked for,
+    # because these can be large and only the chosen one is ever written.
+    listed = [{"id": e.get("id"), "name": e.get("name") or e.get("label")} for e in entries]
+    result = {"parameter": wanted, "source": kind, "total": len(entries),
+              "options": listed[:ROW_CAP]}
+    if search:
+        result["matches"] = [e for e in entries if _match(e, search)][:5]
+        result["hint"] = ("`matches` holds the values to store as given; pass one through "
+                          "unchanged rather than rebuilding it.")
+    else:
+        result["hint"] = ("Call again with `search` to get the value to store for one of these; "
+                          "the stored value is the whole entry, not its id.")
+    return result
+
+
 async def _get_visualization(g, a):
     """A saved visualization's current config, to change rather than overwrite.
 
@@ -792,53 +899,86 @@ async def _show_visualization(g, a):
     }
 
 
-def _declared_names(params, types):
-    """Parameter names a plugin declares, conditional cases included."""
-    names = set()
-    for param in params or []:
-        if not isinstance(param, dict):
+def _level_names(declared):
+    """Names valid at this level. A conditional contributes its own name, not its inputs."""
+    return {p["name"] for p in declared or [] if isinstance(p, dict) and p.get("name")}
+
+
+def _check_level(entry, declared, types, where):
+    """Validate one object against the inputs declared for it.
+
+    Mirrors galaxy-charts `parseValues`: a conditional's value is an object holding its test
+    parameter and the inputs of the matching case. Flattening those to the parent is a shape
+    the form never writes, and Galaxy stores it without complaint.
+    """
+    allowed = _level_names(declared)
+    if not allowed:
+        return None
+    if not isinstance(entry, dict):
+        return {"error": f"Refused: {where} is an object keyed by parameter name; "
+                         f"got {type(entry).__name__}.",
+                "declared": sorted(allowed)}
+
+    unknown = sorted(set(entry) - allowed)
+    if unknown:
+        return {"error": f"Refused: {where} declares no parameter {unknown[0]!r}.",
+                "declared": sorted(allowed),
+                "hint": "Parameters inside a conditional belong in that conditional's object, "
+                        "not beside it. get_visualization_details shows the nesting."}
+
+    for param in declared or []:
+        if not isinstance(param, dict) or param.get("name") not in entry:
             continue
-        if param.get("name"):
-            names.add(param["name"])
-        test = param.get("test_param") or {}
-        if test.get("name"):
-            names.add(test["name"])
-        for case in param.get("cases") or []:
-            names |= _declared_names(case.get("inputs"), types)
-    return names
+        value = entry[param["name"]]
+        if param.get("type") == "conditional":
+            test = (param.get("test_param") or {}).get("name")
+            chosen = value.get(test) if isinstance(value, dict) else None
+            inputs = next((c.get("inputs") or [] for c in param.get("cases") or []
+                           if c.get("value") == chosen), [])
+            nested = _check_level(value, [param.get("test_param")] + list(inputs), types,
+                                  f"{param['name']}")
+            if nested:
+                return nested
+            continue
+        spec = (types.get(param.get("type")) or {}).get("stores") or {}
+        if spec.get("type") == "object" and value is not None and not isinstance(value, dict):
+            return {"error": f"Refused: {param['name']!r} takes the whole entry it was chosen "
+                             f"from, not {value!r}.",
+                    "expected": spec,
+                    "hint": "Call get_visualization_options with `search` and pass the value it "
+                            "returns through unchanged."}
+    return None
 
 
 def _reject_undeclared(plugin, a):
-    """Refuse a config whose keys the plugin does not declare, naming the ones it does.
+    """Refuse a config the plugin would not produce, naming what it declares.
 
-    The shape is published by get_visualization_details, and an agent that writes tracks
-    without asking invents a key: `dataset_id` instead of the declared `urlDataset`. Galaxy
-    stores either happily and the plugin reads only one, so a silent accept produces a
-    visualization that renders without the track.
+    The shape is published by get_visualization_details, and an agent that writes without
+    asking invents one: a key the plugin has no input for, a conditional's parameters
+    flattened beside it, or an id where an entry belongs. Galaxy stores all of them and the
+    plugin reads none, so a silent accept renders without the thing that was asked for.
     """
     if not isinstance(plugin, dict):
         return None
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
-    for key, declared in (("settings", plugin.get("settings")),
-                          ("tracks", plugin.get("tracks"))):
-        allowed = _declared_names(declared, types)
-        if not allowed:
-            continue  # nothing declared to check against; not the same as nothing allowed
-        given = a.get(key)
-        entries = given if key == "tracks" else [given]
-        for entry in entries or []:
-            if not isinstance(entry, dict):
-                continue
-            unknown = sorted(set(entry) - allowed)
-            if unknown:
-                return {
-                    "saved": False,
-                    "error": f"Refused: {plugin.get('name')!r} declares no {key} "
-                             f"parameter {unknown[0]!r}.",
-                    "declared": sorted(allowed),
-                    "hint": f"Call get_visualization_details for {plugin.get('name')!r} to see "
-                            f"what each parameter accepts, then send those names.",
-                }
+
+    if a.get("settings") is not None and not isinstance(a["settings"], dict):
+        return {"saved": False,
+                "error": "Refused: settings is one object keyed by parameter name.",
+                "hint": 'Send {"locus": "chr1:1-100"}, not a list.'}
+    if a.get("tracks") is not None and not isinstance(a["tracks"], list):
+        return {"saved": False,
+                "error": "Refused: tracks is a list, one object per track.",
+                "hint": "Send [{...}], one entry for each track."}
+
+    if a.get("settings") is not None:
+        bad = _check_level(a["settings"], plugin.get("settings"), types, "settings")
+        if bad:
+            return {"saved": False, **bad}
+    for track in a.get("tracks") or []:
+        bad = _check_level(track, plugin.get("tracks"), types, "a track")
+        if bad:
+            return {"saved": False, **bad}
     return None
 
 
@@ -1031,6 +1171,11 @@ _tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _S
 _tool("run_user_tool", "write", "Run a dynamic (user-defined) tool by uuid in a history.",
       {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
       ["history_id", "tool_uuid", "inputs"], _run_user_tool)
+_tool("get_visualization_options", "read",
+      "Resolve a visualization parameter's selectable options from wherever the plugin says "
+      "they live. Use `search` to get the value to store.",
+      {"visualization": _STR, "parameter": _STR, "search": _STR, "when": _STR},
+      ["visualization", "parameter"], _get_visualization_options)
 _tool("get_visualization", "read",
       "Get a saved visualization's current settings and tracks. Read before revising it: "
       "save_visualization replaces the config rather than merging into it.",
