@@ -780,6 +780,16 @@ def _record(spec, run, failures, exercised):
                                     "the record holds only the starter; nothing was written", "record"))
 
 
+def _track_dataset(track):
+    """The dataset a track names, however galaxy-charts stored it."""
+    if not isinstance(track, dict):
+        return None
+    value = track.get("urlDataset")
+    if isinstance(value, dict):
+        return value.get("id")
+    return value
+
+
 def _visualization(spec, run, failures, exercised):
     """Did a saved visualization land in Galaxy, pointing at the intended dataset.
 
@@ -832,6 +842,21 @@ def _visualization(spec, run, failures, exercised):
             failures.append(Failure(
                 "visualization.type",
                 f"saved visualization(s) of type {types}, wanted one of {allowed}", "behavior"))
+
+    # Adding a track means the saved config gained a dataset, which no assertion about the
+    # chat or the pane can see: the agent reports success either way.
+    for want in spec.get("tracksDataset") or []:
+        wanted_track = _resolve_staged(want, run)
+        tracked = {
+            _track_dataset(t)
+            for v in matching
+            for t in ((v.get("latest_revision") or {}).get("config") or {}).get("tracks") or []
+        }
+        if wanted_track not in tracked:
+            failures.append(Failure(
+                "visualization.tracksDataset",
+                f"no saved visualization tracks {want}; tracks reference {sorted(tracked - {None})}",
+                "behavior"))
 
 
 def _invocation(spec, run, failures, exercised):

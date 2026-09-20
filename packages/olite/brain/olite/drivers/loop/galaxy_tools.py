@@ -792,10 +792,66 @@ async def _show_visualization(g, a):
     }
 
 
+def _declared_names(params, types):
+    """Parameter names a plugin declares, conditional cases included."""
+    names = set()
+    for param in params or []:
+        if not isinstance(param, dict):
+            continue
+        if param.get("name"):
+            names.add(param["name"])
+        test = param.get("test_param") or {}
+        if test.get("name"):
+            names.add(test["name"])
+        for case in param.get("cases") or []:
+            names |= _declared_names(case.get("inputs"), types)
+    return names
+
+
+def _reject_undeclared(plugin, a):
+    """Refuse a config whose keys the plugin does not declare, naming the ones it does.
+
+    The shape is published by get_visualization_details, and an agent that writes tracks
+    without asking invents a key: `dataset_id` instead of the declared `urlDataset`. Galaxy
+    stores either happily and the plugin reads only one, so a silent accept produces a
+    visualization that renders without the track.
+    """
+    if not isinstance(plugin, dict):
+        return None
+    types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+    for key, declared in (("settings", plugin.get("settings")),
+                          ("tracks", plugin.get("tracks"))):
+        allowed = _declared_names(declared, types)
+        if not allowed:
+            continue  # nothing declared to check against; not the same as nothing allowed
+        given = a.get(key)
+        entries = given if key == "tracks" else [given]
+        for entry in entries or []:
+            if not isinstance(entry, dict):
+                continue
+            unknown = sorted(set(entry) - allowed)
+            if unknown:
+                return {
+                    "saved": False,
+                    "error": f"Refused: {plugin.get('name')!r} declares no {key} "
+                             f"parameter {unknown[0]!r}.",
+                    "declared": sorted(allowed),
+                    "hint": f"Call get_visualization_details for {plugin.get('name')!r} to see "
+                            f"what each parameter accepts, then send those names.",
+                }
+    return None
+
+
 async def _save_visualization(g, a):
     dataset, refusal = await _resolve_visualization(g, a)
     if refusal:
         return {"saved": False, **refusal}
+
+    if a.get("settings") or a.get("tracks"):
+        plugin = await g.get(f"api/plugins/{a['visualization']}") or {}
+        undeclared = _reject_undeclared(plugin, a)
+        if undeclared:
+            return undeclared
 
     name = a["visualization"]
     title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"

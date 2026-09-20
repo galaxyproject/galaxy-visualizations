@@ -241,6 +241,19 @@ BREAKS = [
         scenarios=["viz-structure-shown"],
         expect=["visualization.absent"],
     ),
+    Break(
+        family="visualizationTracks",
+        why="a revision drops the tracks it was given, so the second dataset never reaches the "
+            "saved config. The agent reports the track added and the pane still renders the "
+            "first dataset, so nothing the user or the chat can see distinguishes it from a "
+            "visualization that gained a track",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""    config = _visualization_config(a)""",
+        replace="""    config = _visualization_config(a)
+    config.pop("tracks", None)  # FALSIFY: tracks dropped on save""",
+        scenarios=["viz-igv-second-track"],
+        expect=["visualization.tracksDataset"],
+    ),
 ]
 
 # `session-resumed-after-close`: admitted provisionally, no break discriminates yet.

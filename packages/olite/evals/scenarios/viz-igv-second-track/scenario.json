@@ -1,0 +1,64 @@
+{
+  "name": "visualizations: a second dataset is added as a track",
+  "description": "Two genomic datasets and a viewer that shows both. The first turn opens the BED in IGV, where it becomes the visualization's dataset_id; the second asks for the GFF3 alongside it, which means reading the saved config and adding to its tracks, because saving replaces the config rather than merging into it. Graded on the saved object: the BED as the dataset it references and the GFF3 as a track. A track names its own dataset, and it is not the only input on this plugin that takes one -- a genome accepts fasta or twobit and nothing else -- so writing the right key into the right parameter is the thing being tested. Reading the config back before writing is one way to get there and not the only one, so the grading stays on what Galaxy holds rather than on which route the agent took.",
+  "tier": 3,
+  "substrate": "live",
+  "dataset": {
+    "history": "igv tracks $run",
+    "files": [
+      {
+        "file": "tracks.bed",
+        "datatype": "bed"
+      },
+      {
+        "file": "features.gff3",
+        "datatype": "gff3"
+      }
+    ]
+  },
+  "inputs": [
+    "In my history \"igv tracks $run\", open tracks.bed in IGV and keep it so I can come back to it.",
+    "Now add features.gff3 to that same IGV visualization as a second track."
+  ],
+  "timeoutMs": 360000,
+  "assertions": {
+    "events": {
+      "mustInclude": [
+        "turn_start"
+      ]
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "toolCalls": {
+      "mustInclude": [
+        {
+          "name": "save_visualization",
+          "argsContains": {
+            "dataset_id": "$staged:tracks.bed"
+          }
+        }
+      ]
+    },
+    "artifacts": {
+      "mustInclude": [
+        {
+          "kind": "visualization"
+        }
+      ]
+    },
+    "visualization": {
+      "referencesDataset": "$staged:tracks.bed",
+      "type": [
+        "igv"
+      ],
+      "tracksDataset": [
+        "$staged:features.gff3"
+      ]
+    },
+    "budget": {
+      "maxSteps": 25,
+      "maxRepeatedCall": 3
+    }
+  }
+}

@@ -279,10 +279,8 @@ def stage_workflows(config, spec):
             "workflow_ids": ids, "test": None, "tool_id": None}
 
 
-def stage_dataset(config, spec):
-    """A history holding one fixture file, as a researcher's would when they sit down."""
-    galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
-    path = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / spec["file"]
+def _fixture_path(name):
+    path = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / name
     if not path.exists():
         gen = path.with_suffix(path.suffix + ".gen.py")
         if not gen.exists():
@@ -290,18 +288,36 @@ def stage_dataset(config, spec):
         namespace: dict = {}
         exec(compile(gen.read_text(), str(gen), "exec"), namespace)
         path.write_text(namespace["build"]())
-    history_id = galaxy.new_history(spec.get("history") or "olite eval")
-    datatype = spec.get("datatype")
-    dataset_id = galaxy.upload(history_id, spec["file"], path.read_bytes(), datatype)
+    return path
+
+
+def _upload_fixture(galaxy, history_id, name, datatype):
+    dataset_id = galaxy.upload(history_id, name, _fixture_path(name).read_bytes(), datatype)
     landed = galaxy.await_dataset(dataset_id)
     if landed.get("state") != "ok":
-        raise tooltests.ToolTestError(f"fixture landed in state {landed.get('state')}")
+        raise tooltests.ToolTestError(f"{name} landed in state {landed.get('state')}")
     if datatype and landed.get("extension") != datatype:
         raise tooltests.ToolTestError(
-            f"fixture asked for datatype {datatype} and landed as {landed.get('extension')}")
+            f"{name} asked for datatype {datatype} and landed as {landed.get('extension')}")
+    return dataset_id
+
+
+def stage_dataset(config, spec):
+    """A history holding the scenario's fixtures, as a researcher's would when they sit down.
+
+    `file` stages one; `files` stages several, so a scenario can be about combining them.
+    """
+    galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
+    wanted = spec.get("files") or [{"file": spec["file"], "datatype": spec.get("datatype")}]
+    history_id = galaxy.new_history(spec.get("history") or "olite eval")
+    dataset_ids = {
+        f["file"]: _upload_fixture(galaxy, history_id, f["file"], f.get("datatype"))
+        for f in wanted
+    }
+    dataset_id = dataset_ids[wanted[0]["file"]]
     _resume_record(galaxy, history_id)
     staged = {"galaxy": galaxy, "history_id": history_id,
-              "dataset_ids": {spec["file"]: dataset_id}, "test": None, "tool_id": None}
+              "dataset_ids": dataset_ids, "test": None, "tool_id": None}
     if spec.get("thenRuns"):
         staged["produced_dataset_id"] = _stage_run(galaxy, history_id, dataset_id,
                                                    spec["thenRuns"])

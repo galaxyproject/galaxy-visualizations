@@ -132,3 +132,43 @@ def test_the_revised_address_still_names_the_plugin():
     g = Galaxy()
     q = query_of(save(g, visualization="atlas", visualization_id="v9"))
     assert q["visualization"] == ["atlas"] and q["visualization_id"] == ["v9"]
+
+
+IGV_PLUGIN = {
+    "name": "igv",
+    "settings": [{"name": "locus", "type": "text"}],
+    "tracks": [{"name": "urlDataset", "type": "data"}, {"name": "displayMode", "type": "select"}],
+}
+
+
+class DeclaringGalaxy(Galaxy):
+    async def get(self, path, **kwargs):
+        if path == "api/plugins/igv":
+            return IGV_PLUGIN
+        if path.startswith("api/plugins?"):
+            return [{"name": "igv"}]
+        if path == "api/plugins":
+            return [{"name": "igv"}]
+        return await super().get(path, **kwargs)
+
+
+def test_a_track_key_the_plugin_does_not_declare_is_refused():
+    """The shape is published; inventing a key produces a track no plugin reads."""
+    g = DeclaringGalaxy()
+    out = save(g, visualization="igv", tracks=[{"dataset_id": "d1"}])
+
+    assert out["saved"] is False and g.posted is None
+    assert "dataset_id" in out["error"]
+    assert "urlDataset" in out["declared"]
+    assert "get_visualization_details" in out["hint"]
+
+
+def test_the_declared_track_key_is_accepted():
+    g = DeclaringGalaxy()
+    out = save(g, visualization="igv", tracks=[{"urlDataset": {"id": "d1"}, "displayMode": "EXPANDED"}])
+    assert out["saved"] is True and g.posted is not None
+
+
+def test_a_plugin_declaring_nothing_is_not_treated_as_allowing_nothing():
+    g = Galaxy()
+    assert save(g, visualization="atlas", settings={"anything": 1})["saved"] is True
