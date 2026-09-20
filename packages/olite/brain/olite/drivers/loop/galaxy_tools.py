@@ -585,6 +585,160 @@ async def _get_invocations(g, a):
     return await g.get(f"api/invocations{_q(params)}")
 
 
+NUMERIC_COLUMNS = frozenset({"int", "float"})
+
+
+def _column_parameters(plugin):
+    return [
+        parameter.get("name")
+        for parameter in (plugin.get("tracks") or []) + (plugin.get("settings") or [])
+        if parameter.get("type") == "data_column"
+    ]
+
+
+def _describe_plugin(plugin, preferred):
+    columns = _column_parameters(plugin)
+    described = {
+        "name": plugin.get("name"),
+        "description": plugin.get("description"),
+        "tags": plugin.get("tags") or [],
+        "parameters": len(plugin.get("settings") or []) + len(plugin.get("tracks") or []),
+    }
+    if plugin.get("name") in preferred:
+        described["preferred_for_datatype"] = True
+    if columns:
+        described["column_parameters"] = columns
+    return described
+
+
+async def _preferred_visualizations(g, extension):
+    if not extension:
+        return set()
+    mappings = await g.get(f"api/datatypes/{extension}/visualizations") or []
+    return {m.get("visualization") for m in mappings if isinstance(m, dict)}
+
+
+async def _list_visualizations(g, a):
+    dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
+    extension = dataset.get("extension")
+    column_types = dataset.get("metadata_column_types") or []
+    numeric = [t for t in column_types if t in NUMERIC_COLUMNS]
+
+    matching = await g.get(f"api/plugins{_q({'dataset_id': a['dataset_id']})}") or []
+    preferred = await _preferred_visualizations(g, extension)
+    matching.sort(key=lambda p: p.get("name") not in preferred)
+
+    # Answers only "what can render this". The dataset's columns belong to
+    # get_dataset_details: bundling them here made a column lookup double as a plugin
+    # advertisement, and tabular charts drifted away from vintent_dataset because of it.
+    result = {
+        "dataset_id": a["dataset_id"],
+        "extension": extension,
+        "visualizations": [_describe_plugin(p, preferred) for p in matching],
+    }
+    if not matching:
+        result["hint"] = (
+            f"No installed visualization accepts the datatype {extension!r}. "
+            "Converting the dataset to a supported datatype is the usual route."
+        )
+    elif any(_column_parameters(p) for p in matching) and not numeric:
+        result["hint"] = (
+            "Galaxy detected no numeric columns in this dataset, so visualizations that bind a "
+            "column cannot be filled. Either re-detect the dataset's metadata so the columns are "
+            "recognised, or use vintent_dataset, which reads the file contents directly and works "
+            "on tabular data."
+        )
+    return result
+
+
+# Chrome-free: Galaxy drops the masthead inside any iframe, hide_panels drops the rest.
+_EMBED = {"hide_panels": "true", "hide_masthead": "true"}
+
+
+async def _resolve_visualization(g, a):
+    """The plugin and dataset, or a refusal naming what the server will actually render."""
+    name, dataset_id = a["visualization"], a["dataset_id"]
+    installed = await g.get("api/plugins") or []
+    if not any(p.get("name") == name for p in installed):
+        return None, {
+            "error": f"Refused: {name!r} is not an installed visualization.",
+            "hint": "Call list_visualizations for the dataset to see what this server offers.",
+        }
+
+    dataset = await g.get(f"api/datasets/{dataset_id}") or {}
+    compatible = await g.get(f"api/plugins{_q({'dataset_id': dataset_id})}") or []
+    if not any(p.get("name") == name for p in compatible):
+        return None, {
+            "error": f"Refused: {name!r} cannot render the datatype "
+                     f"{dataset.get('extension')!r}.",
+            "can_render_it": sorted(p.get("name") for p in compatible),
+            "hint": "Call list_visualizations for this dataset for the full picture.",
+        }
+    return dataset, None
+
+
+def _visualization_config(a):
+    config = {"dataset_id": a["dataset_id"]}
+    if a.get("settings"):
+        config["settings"] = a["settings"]
+    if a.get("tracks"):
+        config["tracks"] = a["tracks"]
+    return config
+
+
+async def _show_visualization(g, a):
+    dataset, refusal = await _resolve_visualization(g, a)
+    if refusal:
+        return {"shown": False, **refusal}
+
+    name = a["visualization"]
+    title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"
+    query = {"visualization": name, "dataset_id": a["dataset_id"], **_EMBED}
+    return {
+        "shown": True,
+        "title": title,
+        "artifact": {"kind": "visualization", "title": title,
+                     "visualization": name, "dataset_id": a["dataset_id"],
+                     "url": f"/visualizations/display{_q(query)}"},
+        "hint": "The visualization is displayed to the user. Nothing was added to Galaxy, so "
+                "call save_visualization if they ask to keep it. Say what it shows and finish.",
+    }
+
+
+async def _save_visualization(g, a):
+    dataset, refusal = await _resolve_visualization(g, a)
+    if refusal:
+        return {"saved": False, **refusal}
+
+    name = a["visualization"]
+    title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"
+    config = _visualization_config(a)
+
+    # Revising one visualization rather than adding another: Galaxy keeps the revisions, and
+    # the user's list does not grow every time the settings change.
+    visualization_id = a.get("visualization_id")
+    if visualization_id:
+        await g.put(f"api/visualizations/{visualization_id}", {"title": title, "config": config})
+    else:
+        created = await g.post("api/visualizations",
+                               {"type": name, "title": title, "config": config})
+        visualization_id = (created or {}).get("id")
+    # Galaxy reads the plugin name from the query, never from the saved object.
+    query = {"visualization": name, "visualization_id": visualization_id, **_EMBED}
+    artifact = {"kind": "visualization", "title": title,
+                "visualization": name, "dataset_id": a["dataset_id"],
+                "url": f"/visualizations/display{_q(query)}"}
+    artifact.update({k: a[k] for k in ("settings", "tracks") if a.get(k)})
+    return {
+        "saved": True,
+        "visualization_id": visualization_id,
+        "title": title,
+        "artifact": artifact,
+        "hint": "Saved to the user's visualizations and displayed. It is not a history dataset. "
+                "Say what it shows and finish.",
+    }
+
+
 # api/dynamic_tools is admin-only; a user's own tools live behind api/unprivileged_tools.
 async def _list_user_tools(g, a):
     return await g.get(f"api/unprivileged_tools{_q({'active': a.get('active', True)})}")
@@ -734,6 +888,21 @@ _tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _S
 _tool("run_user_tool", "write", "Run a dynamic (user-defined) tool by uuid in a history.",
       {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
       ["history_id", "tool_uuid", "inputs"], _run_user_tool)
+_tool("show_visualization", "read",
+      "Display a dataset with an installed visualization. Renders only; saves nothing. Takes the "
+      "plugin's defaults -- use save_visualization to bind settings or tracks.",
+      {"dataset_id": _STR, "visualization": _STR, "title": _STR},
+      ["dataset_id", "visualization"], _show_visualization)
+_tool("save_visualization", "write",
+      "Save a Galaxy visualization of a dataset, the durable kind the user keeps. Needed to "
+      "bind settings or tracks, which a displayed visualization cannot carry. Pass "
+      "visualization_id to revise one already saved instead of adding another.",
+      {"dataset_id": _STR, "visualization": _STR, "title": _STR, "visualization_id": _STR,
+       "settings": {"type": "object"}, "tracks": {"type": "array", "items": {"type": "object"}}},
+      ["dataset_id", "visualization"], _save_visualization)
+_tool("list_visualizations", "read",
+      "List the Galaxy visualizations that can display a dataset.",
+      {"dataset_id": _STR}, ["dataset_id"], _list_visualizations)
 _tool("list_pages", "read", "List pages (Galaxy markdown documents; a history-attached page is a Notebook).",
       {"history_id": _STR, "search": _STR, "limit": _INT, "offset": _INT, "show_published": _BOOL, "show_shared": _BOOL},
       [], _list_pages)
