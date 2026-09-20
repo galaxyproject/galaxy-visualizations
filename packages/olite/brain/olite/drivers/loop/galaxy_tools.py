@@ -717,6 +717,30 @@ async def _get_visualization_details(g, a):
     return details
 
 
+async def _get_visualization(g, a):
+    """A saved visualization's current config, to change rather than overwrite.
+
+    save_visualization replaces the config wholesale, so adding a track means reading what
+    is there first: rebuilding it blind drops whatever the plugin itself put there.
+    """
+    saved = await g.get(f"api/visualizations/{a['visualization_id']}") or {}
+    if not saved.get("id"):
+        return {"error": f"No saved visualization {a['visualization_id']!r}.",
+                "hint": "Pass the visualization_id that save_visualization returned."}
+    config = (saved.get("latest_revision") or {}).get("config") or {}
+    return {
+        "visualization_id": saved.get("id"),
+        "visualization": saved.get("type"),
+        "title": saved.get("title"),
+        "dataset_id": config.get("dataset_id"),
+        "settings": config.get("settings") or {},
+        "tracks": config.get("tracks") or [],
+        "hint": "Change what needs changing and pass it all back to save_visualization with this "
+                "visualization_id. Anything left out is dropped, so send the settings and tracks "
+                "you want to keep, not only the new ones.",
+    }
+
+
 async def _show_visualization(g, a):
     dataset, refusal = await _resolve_visualization(g, a)
     if refusal:
@@ -919,6 +943,10 @@ _tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _S
 _tool("run_user_tool", "write", "Run a dynamic (user-defined) tool by uuid in a history.",
       {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
       ["history_id", "tool_uuid", "inputs"], _run_user_tool)
+_tool("get_visualization", "read",
+      "Get a saved visualization's current settings and tracks. Read before revising it: "
+      "save_visualization replaces the config rather than merging into it.",
+      {"visualization_id": _STR}, ["visualization_id"], _get_visualization)
 _tool("get_visualization_details", "read",
       "Get one visualization's parameters, including the schema its settings and tracks must "
       "match. Call before binding settings or tracks.",

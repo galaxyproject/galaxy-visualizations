@@ -71,6 +71,22 @@ visualizations then cannot be parameterised.
 dataset's metadata can be re-detected so the columns are recognised, or `vintent_dataset` can
 chart it as it stands because it reads the contents directly.
 
+## Changing a saved visualization
+
+`save_visualization` replaces the config; it does not merge into it. So revising one is three
+steps, the same shape as editing a page:
+
+1. `get_visualization` for its current `settings` and `tracks`.
+2. Change or add what the user asked for, keeping the rest.
+3. `save_visualization` with the same `visualization_id`, passing everything back.
+
+Anything left out is gone. Adding a second track means sending both tracks, not only the new one.
+
+For IGV specifically, start the visualization from the dataset alone and let the plugin work out
+the genome and the first track. Add further datasets as entries in `tracks`, each naming its
+dataset in `urlDataset`. `get_visualization_details` says which datatypes each input accepts, and
+they differ: a genome takes a reference, a track takes the track formats.
+
 ## Neither tool guesses
 
 Both tools refuse a visualization the server does not have, or one that does not accept the
