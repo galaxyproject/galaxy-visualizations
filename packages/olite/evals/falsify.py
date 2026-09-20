@@ -254,6 +254,35 @@ BREAKS = [
         scenarios=["viz-igv-second-track"],
         expect=["visualization.tracksDataset"],
     ),
+    Break(
+        family="visualizationSettings",
+        why="a revision drops the settings it was given, so the genome and the locus never "
+            "reach the saved config. The tracks still land and the chat still says the view "
+            "moved, which is the point: settings are the half of a visualization that leaves "
+            "no trace anywhere else",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""    config = _visualization_config(a)""",
+        replace="""    config = _visualization_config(a)
+    config.pop("settings", None)  # FALSIFY: settings dropped on save""",
+        scenarios=["viz-igv-second-track"],
+        expect=["visualization.settingsContain"],
+    ),
+    Break(
+        family="visualizationShape",
+        why="a conditional's parameters are written beside it instead of inside it. Galaxy "
+            "stores that without complaint and the visualization saves, renders and looks "
+            "right in the list, but galaxy-charts reads the genome from inside the "
+            "conditional and finds nothing, so the view never moves",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""        config["settings"] = a["settings"]""",
+        replace="""        config["settings"] = {  # FALSIFY: conditionals flattened
+            name: value
+            for key, entry in a["settings"].items()
+            for name, value in (entry.items() if isinstance(entry, dict) else [(key, entry)])
+        }""",
+        scenarios=["viz-igv-second-track"],
+        expect=["visualization.settingsContain"],
+    ),
 ]
 
 # `session-resumed-after-close`: admitted provisionally, no break discriminates yet.
