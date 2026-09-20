@@ -49,4 +49,13 @@ describe("renderArtifact", () => {
         expect(renderMermaid).not.toHaveBeenCalled();
         expect(content.textContent).toContain("Unsupported artifact type: sankey");
     });
+
+    it("sends a Galaxy visualization to the frame at its display address", async () => {
+        const url = "/visualizations/display?visualization=ngl&dataset_id=d1";
+        await renderArtifact(content, { kind: "visualization", title: "Structure", url });
+
+        expect(renderVega).not.toHaveBeenCalled();
+        expect(renderMermaid).not.toHaveBeenCalled();
+        expect(content.querySelector("iframe")?.getAttribute("src")).toBe(url);
+    });
 });

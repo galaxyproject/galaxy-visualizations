@@ -226,6 +226,16 @@ class ToolSurface:
             self._note_outcome(name, args, True)
             return ToolOutcome(f"Tool '{name}' raised: {e}", is_error=True)
 
+    def _claim_artifact(self, result):
+        """Route a renderable artifact to the shell, leaving a reference in the tool result."""
+        if not isinstance(result, dict) or not isinstance(result.get("artifact"), dict):
+            return result
+        artifact = dict(result["artifact"])
+        self.artifacts.append(artifact)
+        payload = dict(result)
+        payload["artifact"] = {"kind": artifact.get("kind"), "title": artifact.get("title")}
+        return payload
+
     # An identical call that just failed will fail again; three is enough to establish it.
     FAILED_REPEAT_LIMIT = 3
 
@@ -275,7 +285,8 @@ class ToolSurface:
             return args.get("summary", "done")
         handler = galaxy_tools.get_handler(name) or notebook.get_handler(name)
         if handler:
-            return json.dumps(await handler(self.substrate.galaxy, args), default=str)
+            result = self._claim_artifact(await handler(self.substrate.galaxy, args))
+            return json.dumps(result, default=str)
         gtn_handler = gtn.get_handler(name)
         if gtn_handler:
             return json.dumps(await gtn_handler(args), default=str)

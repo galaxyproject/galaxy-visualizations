@@ -1,5 +1,6 @@
 import { renderVega } from "./vega";
 import { renderMermaid } from "./mermaid";
+import { renderVisualization } from "./visualization";
 
 /** A typed, renderable result; the kind selects the renderer. */
 export interface Artifact {
@@ -10,7 +11,11 @@ export interface Artifact {
     [key: string]: unknown;
 }
 
-/** Append an artifact card to the pane, dispatching on kind. */
+/** Append an artifact card to the pane, dispatching on kind.
+ *
+ * Two sources, and no third: kinds olite produces itself, and Galaxy visualizations, which
+ * Galaxy renders at its own display route from a dataset or a saved visualization.
+ */
 export async function renderArtifact(content: HTMLElement, artifact: Artifact): Promise<void> {
     const card = document.createElement("div");
     card.className = "artifact-card";
@@ -33,6 +38,8 @@ export async function renderArtifact(content: HTMLElement, artifact: Artifact): 
         await renderVega(body, artifact.spec);
     } else if (artifact.kind === "mermaid") {
         await renderMermaid(body, artifact.diagram);
+    } else if (artifact.kind === "visualization") {
+        renderVisualization(body, artifact.url);
     } else {
         body.textContent = `Unsupported artifact type: ${artifact.kind}`;
     }
