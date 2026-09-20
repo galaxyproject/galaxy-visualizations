@@ -2,6 +2,7 @@
 import "./orbit/styles.css";
 import "./olite.css";
 import { editRecord } from "./record-write";
+import { describeSeedDataset, summarize } from "./seed-dataset";
 import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
@@ -296,6 +297,17 @@ async function main() {
             readyInfo.textContent = resumed
                 ? "Resumed this history's conversation. OLite ready."
                 : "OLite ready. Ask me to run something.";
+            // Its own message, not a replacement: being ready and having a dataset to start
+            // from are separate facts, and the user wants both.
+            if (config.dataset_id) {
+                void describeSeedDataset(config.galaxy_root, credentials, config.dataset_id).then(
+                    (seed) => {
+                        if (seed) {
+                            chat.addInfoMessage(summarize(seed));
+                        }
+                    },
+                );
+            }
         })
         .catch((e) => chat.addErrorMessage(`Failed to load OLite: ${e}`));
 

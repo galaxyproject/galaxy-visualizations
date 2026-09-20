@@ -415,6 +415,17 @@
       },
       "label": "PORTED",
       "note": "olite has one project-data channel (the record); loom has two."
+    },
+    {
+      "id": "prompt.seedDatasetBlock",
+      "kind": "prompt-block",
+      "loom": null,
+      "olite": {
+        "file": "brain/olite/prompt.py",
+        "symbol": "seed_dataset_block"
+      },
+      "label": "ADDED",
+      "note": "loom has no equivalent because nothing opens it on a dataset. Galaxy mounts olite as a visualization plugin, so the user can arrive with one already selected, and naming it is what makes a bare \"plot it\" resolvable: the referent is otherwise only in the shell's chat, which never reaches the model. Emitted only when a dataset was supplied, so a bare start produces byte-identical system text."
     }
   ],
   "layers": {

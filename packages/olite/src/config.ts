@@ -30,6 +30,7 @@ export function buildConfig(incoming: ReturnType<typeof parseIncoming>, creds?: 
         ai_keep_recent_tokens: Number(process.env.llm_keep_recent_tokens) || undefined,
         galaxy_root: incoming.root,
         history_id: incoming.historyId,
+        dataset_id: incoming.datasetId,
         galaxy_key: s.galaxy_api_key,
         // Demo grants write; real deployments gate it via the install/trust tier.
         capabilities: ["llm", "local", "read", "write"],
