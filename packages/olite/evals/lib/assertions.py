@@ -57,6 +57,7 @@ def evaluate(scenario, run):
     _artifacts(a.get("artifacts"), run, failures, exercised)
     _tool_output(a.get("toolOutput"), run, failures, exercised)
     _invocation(a.get("invocation"), run, failures, exercised)
+    _visualization(a.get("visualization"), run, failures, exercised)
     _record(a.get("record"), run, failures, exercised)
     _budget(a.get("budget"), run, failures, exercised)
     _history(a.get("history"), run, failures, exercised)
@@ -777,6 +778,60 @@ def _record(spec, run, failures, exercised):
         elif not added:
             failures.append(Failure("record.notEmpty",
                                     "the record holds only the starter; nothing was written", "record"))
+
+
+def _visualization(spec, run, failures, exercised):
+    """Did a saved visualization land in Galaxy, pointing at the intended dataset.
+
+    Read from the server rather than the transcript: the agent narrating a chart is not
+    evidence that one exists, and an artifact in the pane is not a Galaxy object.
+    """
+    if not spec:
+        return
+    exercised.add("behavior")
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("visualization", "scenario staged no dataset", "behavior"))
+        return
+
+    galaxy = staged["galaxy"]
+    wanted_dataset = _resolve_staged(spec.get("referencesDataset"), run)
+    saved = galaxy.call("api/visualizations") or []
+    if not isinstance(saved, list):
+        saved = []
+
+    matching = []
+    for entry in saved:
+        detail = galaxy.call(f"api/visualizations/{entry.get('id')}") or {}
+        config = (detail.get("latest_revision") or {}).get("config") or {}
+        if wanted_dataset and config.get("dataset_id") != wanted_dataset:
+            continue
+        matching.append(detail)
+
+    # `absent` grades the opposite invariant: showing a chart must not save one.
+    if spec.get("absent"):
+        if matching:
+            failures.append(Failure(
+                "visualization.absent",
+                f"{len(matching)} saved visualization(s) reference the staged dataset; "
+                "displaying a chart must not add one to the user's visualizations", "behavior"))
+        return
+
+    if not matching:
+        failures.append(Failure(
+            "visualization.exists",
+            "no saved visualization references the staged dataset; the chart was never "
+            "written to Galaxy", "behavior"))
+        return
+
+    allowed = spec.get("type")
+    if allowed:
+        allowed = [allowed] if isinstance(allowed, str) else list(allowed)
+        types = [v.get("type") for v in matching]
+        if not any(t in allowed for t in types):
+            failures.append(Failure(
+                "visualization.type",
+                f"saved visualization(s) of type {types}, wanted one of {allowed}", "behavior"))
 
 
 def _invocation(spec, run, failures, exercised):

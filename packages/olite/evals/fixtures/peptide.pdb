@@ -1,0 +1,19 @@
+HEADER    PEPTIDE                                 20-SEP-26   0DEV
+TITLE     SYNTHETIC TRIPEPTIDE FOR VISUALIZATION TESTS
+ATOM      1  N   GLY A   1       1.458   0.000   0.000  1.00 20.00           N
+ATOM      2  CA  GLY A   1       2.009   1.350   0.000  1.00 20.00           C
+ATOM      3  C   GLY A   1       3.525   1.321   0.000  1.00 20.00           C
+ATOM      4  O   GLY A   1       4.140   0.256   0.000  1.00 20.00           O
+ATOM      5  N   ALA A   2       4.131   2.502   0.000  1.00 20.00           N
+ATOM      6  CA  ALA A   2       5.585   2.611   0.000  1.00 20.00           C
+ATOM      7  C   ALA A   2       6.235   1.243   0.000  1.00 20.00           C
+ATOM      8  O   ALA A   2       7.464   1.130   0.000  1.00 20.00           O
+ATOM      9  CB  ALA A   2       6.045   3.404   1.220  1.00 20.00           C
+ATOM     10  N   SER A   3       5.440   0.180   0.000  1.00 20.00           N
+ATOM     11  CA  SER A   3       5.930  -1.190   0.000  1.00 20.00           C
+ATOM     12  C   SER A   3       7.440  -1.290   0.000  1.00 20.00           C
+ATOM     13  O   SER A   3       8.060  -2.350   0.000  1.00 20.00           O
+ATOM     14  CB  SER A   3       5.360  -1.960   1.190  1.00 20.00           C
+ATOM     15  OG  SER A   3       5.800  -3.300   1.190  1.00 20.00           O
+TER      16      SER A   3
+END

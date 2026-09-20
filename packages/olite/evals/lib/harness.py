@@ -291,10 +291,14 @@ def stage_dataset(config, spec):
         exec(compile(gen.read_text(), str(gen), "exec"), namespace)
         path.write_text(namespace["build"]())
     history_id = galaxy.new_history(spec.get("history") or "olite eval")
-    dataset_id = galaxy.upload(history_id, spec["file"], path.read_bytes())
-    state = galaxy.await_dataset(dataset_id).get("state")
-    if state != "ok":
-        raise tooltests.ToolTestError(f"fixture landed in state {state}")
+    datatype = spec.get("datatype")
+    dataset_id = galaxy.upload(history_id, spec["file"], path.read_bytes(), datatype)
+    landed = galaxy.await_dataset(dataset_id)
+    if landed.get("state") != "ok":
+        raise tooltests.ToolTestError(f"fixture landed in state {landed.get('state')}")
+    if datatype and landed.get("extension") != datatype:
+        raise tooltests.ToolTestError(
+            f"fixture asked for datatype {datatype} and landed as {landed.get('extension')}")
     _resume_record(galaxy, history_id)
     staged = {"galaxy": galaxy, "history_id": history_id,
               "dataset_ids": {spec["file"]: dataset_id}, "test": None, "tool_id": None}

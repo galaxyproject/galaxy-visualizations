@@ -1,0 +1,23 @@
+{
+  "name": "visualizations: showing a structure does not save one",
+  "description": "A protein structure, which vintent_dataset cannot read because it is not tabular, so the only honest route is a Galaxy visualization. The user asked to see it, not to keep it, so the pass condition is that a viewer reached the artifact pane and that Galaxy gained nothing. Graded on the absence of a saved object as much as on the artifact, because rendering something used to cost a permanent row in the user's visualization list and that is the regression this scenario exists to catch.",
+  "tier": 3,
+  "substrate": "live",
+  "dataset": { "file": "peptide.pdb", "history": "structure viewing $run", "datatype": "pdb" },
+  "inputs": [
+    "In my history \"structure viewing $run\" there is a protein structure. Open it in a structure viewer."
+  ],
+  "timeoutMs": 240000,
+  "assertions": {
+    "events": { "mustInclude": ["turn_start"] },
+    "messages": { "repliesInChat": true },
+    "toolCalls": {
+      "mustInclude": [
+        { "name": "show_visualization", "argsContains": { "dataset_id": "$staged:peptide.pdb" } }
+      ]
+    },
+    "artifacts": { "mustInclude": [{ "kind": "visualization" }] },
+    "visualization": { "referencesDataset": "$staged:peptide.pdb", "absent": true },
+    "budget": { "maxSteps": 15, "maxRepeatedCall": 3 }
+  }
+}

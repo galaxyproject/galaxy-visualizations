@@ -53,10 +53,12 @@ class Galaxy:
     def new_history(self, name):
         return self.call("api/histories", "POST", {"name": name})["id"]
 
-    def upload(self, history_id, name, payload):
+    def upload(self, history_id, name, payload, datatype=None):
         boundary = uuid.uuid4().hex
-        targets = json.dumps([{"destination": {"type": "hdas"},
-                               "elements": [{"src": "files", "name": name}]}])
+        element = {"src": "files", "name": name}
+        if datatype:
+            element["ext"] = datatype
+        targets = json.dumps([{"destination": {"type": "hdas"}, "elements": [element]}])
         parts = []
         for k, v in (("history_id", history_id), ("targets", targets)):
             parts.append(
