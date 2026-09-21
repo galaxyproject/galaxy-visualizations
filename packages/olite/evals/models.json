@@ -1,5 +1,5 @@
 {
-  "_comment": "Model matrix for the eval suite. Endpoint facts (base URL, key env var, rate limit, context window) come from the brain's provider registry in brain/olite/substrate/llm/providers.py, so the evals resolve an endpoint exactly the way the app does. A model whose envRequires are unset is skipped, not failed, so a local run works without every credential (loom's rule). To use an endpoint the registry does not know, give baseUrl instead of provider. The openrouter entries reach several vendors on one key, which is what makes a cross-model leaderboard a config change; requests transit a third party, so use an institutional endpoint for live runs on real Galaxy data. The or-free-* entries run on OpenRouter's :free variants, which need no credits but carry a low daily request cap; the other openrouter entries need a credit balance and will 402 without one. The js2-* entries use Jetstream2's inference service: free for ACCESS accounts, no credits, and processing stays inside the IU Bloomington data centre \u2014 the right endpoint for runs touching real Galaxy data, where OpenRouter's proxy hop is not.",
+  "_comment": "Model matrix for the eval suite. Endpoint facts (base URL, key env var, rate limit, context window) come from the brain's provider registry in brain/olite/substrate/llm/providers.py, so the evals resolve an endpoint exactly the way the app does. A model whose envRequires are unset is skipped, not failed, so a local run works without every credential (loom's rule). To use an endpoint the registry does not know, give baseUrl instead of provider. The openrouter entries reach several vendors on one key, which is what makes a cross-model leaderboard a config change; requests transit a third party, so use an institutional endpoint for live runs on real Galaxy data. The or-free-* entries run on OpenRouter's :free variants, which need no credits but carry a low daily request cap; the other openrouter entries need a credit balance and will 402 without one. The js2-* entry uses Jetstream2's inference service: free for ACCESS accounts, no credits, and processing stays inside the IU Bloomington data centre \u2014 the right endpoint for runs touching real Galaxy data, where OpenRouter's proxy hop is not.",
   "models": [
     {
       "id": "gemini-3.7-flash",
@@ -80,14 +80,6 @@
       "model": "openai/gpt-oss-20b:free",
       "envRequires": [
         "OPENROUTER_KEY"
-      ]
-    },
-    {
-      "id": "js2-llama-4-scout",
-      "provider": "jetstream2",
-      "model": "llama-4-scout",
-      "envRequires": [
-        "JETSTREAM2_KEY"
       ]
     },
     {
