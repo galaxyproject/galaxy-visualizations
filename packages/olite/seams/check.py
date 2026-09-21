@@ -61,6 +61,16 @@ def check_layers(data):
                     out.append(("DRIFT", f"layer.eval-scenarios/{name}",
                                 "loom changed this scenario -- re-read it, then re-certify"))
 
+    identity = data.get("identity_prompt") or {}
+    if identity.get("fingerprint"):
+        now = layers.identity_prompt().get("fingerprint")
+        if now is None:
+            out.append(("MISSING", "layer.identity-prompt",
+                        "public/olite.xml has no ai_prompt block"))
+        elif now != identity["fingerprint"]:
+            out.append(("DRIFT", "layer.identity-prompt",
+                        "the prompt Galaxy hands the model changed -- justify it, then re-certify"))
+
     skills = data.get("skills") or {}
     if skills.get("files"):
         now = layers.skills_manifest()
@@ -190,6 +200,7 @@ def main():
         + len((data.get("skills") or {}).get("files") or {})
         + len((data.get("tool_surface") or {}).get("upstream") or {})
         + len((data.get("pi") or {}).get("files") or {})
+        + (1 if (data.get("identity_prompt") or {}).get("fingerprint") else 0)
     )
     print(f"\n{len(registry)} seams + {counted} layer entries checked, "
           f"{len(problems)} need attention")

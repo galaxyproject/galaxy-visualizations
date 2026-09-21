@@ -12,6 +12,7 @@ import ast
 import hashlib
 import json
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -22,6 +23,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 def _fp(text):
     return hashlib.sha256(" ".join((text or "").split()).encode()).hexdigest()[:16]
+
+
+def identity_prompt():
+    """Fingerprint the ai_prompt Galaxy hands the model; the ORPHAN check stops at the brain."""
+    text = (ROOT / "public/olite.xml").read_text()
+    found = re.search(r"<ai_prompt><!\[CDATA\[(.*?)\]\]></ai_prompt>", text, re.S)
+    return {"fingerprint": _fp(found.group(1))} if found else {}
 
 
 def loom_scenarios(loom_root):

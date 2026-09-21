@@ -452,6 +452,9 @@
         "udt-authoring-threads": "15e165c9ca7dfcaa"
       }
     },
+    "identity_prompt": {
+      "fingerprint": "6457693fa9a22159"
+    },
     "skills": {
       "repo": "galaxyproject/galaxy-skills",
       "ref": "main",
