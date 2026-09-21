@@ -281,13 +281,13 @@ class ToolSurface:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
-        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found".
-        if name == "run_tool" and self.processes:
-            wanted = args.get("tool_id")
-            if wanted in (self.processes.names() or []):
-                return ToolOutcome(
-                    f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
-                    is_error=True)
+        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found". Every tool
+        # taking a tool_id is a way to ask, and a bare 404 sent one agent hunting the catalog.
+        wanted = args.get("tool_id")
+        if self.processes and wanted in (self.processes.names() or []):
+            return ToolOutcome(
+                f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
+                is_error=True)
         if name == "skills_fetch":
             return self._skills_fetch(args)
         if name == "finish":

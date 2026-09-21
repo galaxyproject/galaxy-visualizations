@@ -150,3 +150,18 @@ def test_a_process_the_manifest_hides_is_refused_rather_than_run():
 
     outcome = asyncio.run(surface.dispatch("organize_datasets", {}))
     assert outcome.refused and "'write' capability" in outcome.text
+
+
+def test_an_olite_tool_is_named_as_one_at_every_galaxy_tool_lookup():
+    """`run_tool` said so; the read-only lookups handed back Galaxy's bare 404.
+
+    An agent searched the catalog nine times for `vintent_dataset`, called
+    get_tool_details twice, and settled for a different route.
+    """
+    surface = _surface()
+    for name in ("run_tool", "get_tool_details", "get_tool_input_template",
+                 "get_tool_run_examples", "get_tool_citations"):
+        outcome = asyncio.run(surface.dispatch(name, {"tool_id": "vintent_dataset",
+                                                      "history_id": "h1", "inputs": {}}))
+        assert "is an OLite tool" in outcome.text, name
+        assert "Call vintent_dataset directly" in outcome.text, name
