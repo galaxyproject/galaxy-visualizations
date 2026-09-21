@@ -361,6 +361,10 @@ class ToolSurface:
         result = await proc.run(substrate, args.get("inputs") or {})
         last = result.get("last") or {}
         summary = proc.summarize(result.get("state") or {}) if proc.summarize else None
+        # A Python process always reports last.ok, so refusing is something only its summary
+        # can say. Without this a refusal read as a successful result.
+        if isinstance(summary, dict) and summary.get("ok") is False:
+            return ToolOutcome(json.dumps(summary), is_error=True, refused=True)
         if summary and last.get("ok") is not False:
             return json.dumps(summary)
         # Surface a failed graph rather than returning a bare null.

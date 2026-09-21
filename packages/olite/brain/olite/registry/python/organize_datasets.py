@@ -6,6 +6,21 @@ from olite.registry.python.galaxy import call as _call
 BATCH = 1000
 
 
+def compression_lost(datatype, datasets):
+    """Names Galaxy already stores compressed that this datatype would relabel plain.
+
+    Galaxy detects `.gz` on upload, so asking for `fastqsanger` over gzipped reads
+    mislabels them; the compressed datatype is the same name with `.gz`.
+    """
+    if not datatype or datatype.endswith((".gz", ".bz2", ".zip")):
+        return []
+    return sorted(
+        {str(d.get("name") or d.get("id")) for d in datasets
+         if str(d.get("extension") or "").endswith(".gz")
+         or str(d.get("name") or "").endswith(".gz")}
+    )
+
+
 async def _bulk(substrate, history_id, operation, items, params):
     return await _call(substrate, "galaxy.histories.show.contents.bulk.put", {
         "history_id": history_id, "operation": operation, "items": items, "params": params,
@@ -33,6 +48,11 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
                               sample_regex=sample_regex)
     if grouping["empty"]:
         return {"grouping": grouping}
+
+    wanted = {i["id"] for i in grouping["items"]}
+    compressed = compression_lost(datatype, [d for d in contents if d.get("id") in wanted])
+    if compressed:
+        return {"compression_lost": {"datatype": datatype, "names": compressed}}
 
     # Galaxy detects the datatype on upload, so most of these are usually already right.
     if datatype:
@@ -66,6 +86,15 @@ NAME_SAMPLE = 10
 
 def summarize_state(state):
     """Counts and a sample of names. The payload itself must never reach the model."""
+    lost = state.get("compression_lost")
+    if lost:
+        return {
+            "ok": False,
+            "error": f"Refused: {lost['datatype']!r} would relabel "
+                     f"{len(lost['names'])} compressed dataset(s) as uncompressed.",
+            "use": f"{lost['datatype']}.gz",
+            "datasets": lost["names"][:NAME_SAMPLE],
+        }
     grouping = state.get("grouping")
     if not isinstance(grouping, dict):
         return None

@@ -165,3 +165,33 @@ def test_an_olite_tool_is_named_as_one_at_every_galaxy_tool_lookup():
                                                       "history_id": "h1", "inputs": {}}))
         assert "is an OLite tool" in outcome.text, name
         assert "Call vintent_dataset directly" in outcome.text, name
+
+
+def test_a_python_process_can_refuse_and_the_loop_hears_it():
+    """`last.ok` is hard-coded True for a function, so only its summary can refuse."""
+    import asyncio as _asyncio
+
+    class Refusing:
+        capabilities = ["read"]
+        inputs = {}
+        description = "refuses"
+        when_to_use = ""
+        graph = None
+
+        async def run(self, substrate, inputs):
+            return {"state": {"bad": True}, "last": {"ok": True, "result": {"bad": True}}}
+
+        def summarize(self, state):
+            return {"ok": False, "error": "Refused: nope."}
+
+    class Registry:
+        def names(self):
+            return ["refuser"]
+
+        def get(self, name):
+            return Refusing() if name == "refuser" else None
+
+    surface = ToolSurface(FakeSubstrate({"llm", "local", "read"}), Registry())
+    outcome = _asyncio.run(surface.dispatch("refuser", {}))
+    assert outcome.is_error and outcome.refused
+    assert "Refused: nope." in outcome.text
