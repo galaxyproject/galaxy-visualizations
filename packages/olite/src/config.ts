@@ -1,11 +1,10 @@
-/** The brain's config, assembled from the plugin manifest and dev env vars. */
+/** The brain's config, assembled from the Charts incoming contract and dev env vars. */
 import { parseIncoming } from "./incoming";
 import { providerById, type Credentials } from "./credentials";
 
 const PLUGIN_NAME = "olite";
 
 export function buildConfig(incoming: ReturnType<typeof parseIncoming>, creds?: Credentials | null) {
-    const s = incoming.specs;
     const picked = creds ? providerById(creds.provider) : undefined;
     return {
         // Dev routes through the vite proxy; a picked provider carries its own base URL;
@@ -19,6 +18,5 @@ export function buildConfig(incoming: ReturnType<typeof parseIncoming>, creds?: 
         galaxy_root: incoming.root,
         history_id: incoming.historyId,
         dataset_id: incoming.datasetId,
-        galaxy_key: s.galaxy_api_key,
     };
 }

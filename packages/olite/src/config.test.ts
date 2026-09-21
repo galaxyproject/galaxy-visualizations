@@ -13,6 +13,10 @@ describe("buildConfig", () => {
         expect("ai_api_key" in config).toBe(false);
     });
 
+    it("carries no Galaxy key: the browser authenticates with the user's session", () => {
+        expect("galaxy_key" in buildConfig(incoming({ galaxy_api_key: "fea4130124bb18ef" }))).toBe(false);
+    });
+
     it("carries no capability grant: an install cannot half-disable the agent", () => {
         expect("capabilities" in buildConfig(incoming({ capabilities: "llm,local,read" }))).toBe(false);
     });
