@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 
@@ -8,10 +8,10 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
     df = pd.DataFrame(rows)
 
-    out: List[Dict[str, object]] = []
+    out: list[dict[str, object]] = []
     for c in df.columns:
         out.append(
             {
@@ -23,7 +23,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     return f"Computed {PROCESS_ID}."
 
 

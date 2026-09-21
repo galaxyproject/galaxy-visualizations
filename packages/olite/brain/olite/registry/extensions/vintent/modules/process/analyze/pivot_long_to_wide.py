@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 
@@ -8,7 +8,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -26,14 +26,14 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
 
     wide = df.pivot(index=id_col, columns=key_col, values=val_col).reset_index()
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for _, r in wide.iterrows():
         out.append(r.where(pd.notnull(r), None).to_dict())
 
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     return "Pivoted data from long to wide format."
 
 

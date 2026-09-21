@@ -1,12 +1,12 @@
 """The agent.yml grammar, as pydantic models. Loading validates against this."""
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 
 # Value types that can include template references
-TemplateValue = Union[str, int, float, bool, dict[str, Any], list[Any], None]
+TemplateValue = str | int | float | bool | dict[str, Any] | list[Any] | None
 
 
 class RefExpr(BaseModel):
@@ -22,7 +22,7 @@ class ComputedExpr(BaseModel):
 
 
 # Union of possible value types including expressions
-DynamicValue = Union[RefExpr, ComputedExpr, TemplateValue]
+DynamicValue = RefExpr | ComputedExpr | TemplateValue
 
 
 class InputSpec(BaseModel):
@@ -67,7 +67,7 @@ class WaitRunSpec(BaseModel):
 
 
 RunSpec = Annotated[
-    Union[ApiCallRunSpec, AgentCallRunSpec, WaitRunSpec],
+    ApiCallRunSpec | AgentCallRunSpec | WaitRunSpec,
     Field(discriminator="op"),
 ]
 
@@ -265,17 +265,7 @@ class MaterializerNode(BaseNode):
 
 # Union of all node types
 NodeDefinition = Annotated[
-    Union[
-        ExecutorNode,
-        TraverseNode,
-        ReasoningNode,
-        TerminalNode,
-        ControlNode,
-        LoopNode,
-        ComputeNode,
-        PlannerNode,
-        MaterializerNode,
-    ],
+    ExecutorNode | TraverseNode | ReasoningNode | TerminalNode | ControlNode | LoopNode | ComputeNode | PlannerNode | MaterializerNode,
     Field(discriminator="type"),
 ]
 

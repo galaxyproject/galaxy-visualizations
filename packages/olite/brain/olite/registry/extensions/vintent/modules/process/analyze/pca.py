@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -10,7 +10,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]):
+def run(rows: list[dict[str, Any]], params: dict[str, Any]):
     columns = params.get("columns") or []
     n_components = params.get("n_components", 2)
     scale = params.get("scale", True)
@@ -48,7 +48,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]):
     components = Vt[:n_components]
     scores = Xc @ components.T
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for r, score in zip(kept_rows, scores):
         nr = dict(r)
         for i in range(n_components):
@@ -58,7 +58,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]):
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     cols = params.get("columns", [])
     n = params.get("n_components", 2)
     return f"Computed PCA with {n} components on columns {cols}."

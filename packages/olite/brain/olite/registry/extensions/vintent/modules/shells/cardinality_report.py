@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.cardinality_report import PROCESS_ID as cardinality_report_id
 from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, ValidationResult
@@ -32,9 +32,9 @@ class CardinalityReportShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 

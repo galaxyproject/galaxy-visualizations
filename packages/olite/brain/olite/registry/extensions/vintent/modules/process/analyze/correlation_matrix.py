@@ -1,5 +1,5 @@
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "correlation_matrix"
 PROCESS_PHASE = "analyze"
@@ -7,11 +7,11 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
     if not rows:
         return []
 
-    numeric_fields: List[str] = []
+    numeric_fields: list[str] = []
     for key, value in rows[0].items():
         if isinstance(value, (int, float)):
             numeric_fields.append(key)
@@ -19,9 +19,9 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     if len(numeric_fields) < 2:
         return []
 
-    series: Dict[str, List[float]] = {}
+    series: dict[str, list[float]] = {}
     for field in numeric_fields:
-        values: List[float] = []
+        values: list[float] = []
         for row in rows:
             v = row.get(field)
             if isinstance(v, (int, float)):
@@ -33,7 +33,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     if len(fields) < 2:
         return []
 
-    out: List[Dict[str, object]] = []
+    out: list[dict[str, object]] = []
 
     for x in fields:
         xs = series[x]
@@ -64,7 +64,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     return "Computed correlation matrix."
 
 

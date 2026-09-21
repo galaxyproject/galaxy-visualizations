@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "rolling_average"
 PROCESS_PHASE = "analyze"
@@ -9,7 +9,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -24,8 +24,8 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if sort_by:
         rows = sorted(rows, key=lambda r: (r.get(sort_by) is None, r.get(sort_by)))
 
-    result: List[Dict[str, Any]] = []
-    values_buffer: List[float] = []
+    result: list[dict[str, Any]] = []
+    values_buffer: list[float] = []
 
     for row in rows:
         v = row.get(field)
@@ -45,7 +45,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field", "unknown")
     window = params.get("window", 3)
     return f"Computed {window}-period rolling average of {field}."

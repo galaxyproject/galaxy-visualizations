@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "sample_rows"
 PROCESS_PHASE = "extract"
@@ -40,7 +40,7 @@ def schema(profile, context=None):
     }
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
     if not rows:
         return []
     n = params.get("n", 10)
@@ -51,7 +51,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return random.sample(rows, n)
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     n = params.get("n", 0)
     return f"Sampled {n} random rows."
 

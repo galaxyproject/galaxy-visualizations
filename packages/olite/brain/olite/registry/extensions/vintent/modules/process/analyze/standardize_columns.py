@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "standardize_columns"
 PROCESS_PHASE = "analyze"
@@ -13,7 +13,7 @@ def _is_finite(v: Any) -> bool:
     return isinstance(v, (int, float)) and math.isfinite(v)
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -24,7 +24,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not columns:
         return rows
 
-    stats: Dict[str, Dict[str, float]] = {}
+    stats: dict[str, dict[str, float]] = {}
 
     for c in columns:
         vals = [float(r[c]) for r in rows if _is_finite(r.get(c))]
@@ -35,7 +35,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         std = math.sqrt(var) if var > 0 else 1.0
         stats[c] = {"mean": mean, "std": std}
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
 
     for r in rows:
         nr = dict(r)
@@ -55,7 +55,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     cols = params.get("columns", [])
     return f"Standardized columns {cols}."
 

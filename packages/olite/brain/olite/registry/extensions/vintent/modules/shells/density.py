@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
-from ..schemas import DatasetProfile, FieldType, ValidationResult
+from ..schemas import FieldType
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 
@@ -12,15 +12,15 @@ class DensityShell(BaseShell):
     goals = ["distribution"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "x": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "color": {"type": "nominal"},
         "tooltip": {"type": "any"},
     }
@@ -28,13 +28,13 @@ class DensityShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {"field": "value", "type": "quantitative"},
             "y": {"field": "density", "type": "quantitative"},
         }

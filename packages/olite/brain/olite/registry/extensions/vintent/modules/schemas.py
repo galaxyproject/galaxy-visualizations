@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
-CompletionsMessage = Dict[str, str]
-CompletionsReply = Dict[str, Any]
+CompletionsMessage = dict[str, str]
+CompletionsReply = dict[str, Any]
 
 FieldType = Literal["any", "nominal", "ordinal", "quantitative", "temporal"]
-TranscriptMessageType = Dict[str, Any]
+TranscriptMessageType = dict[str, Any]
 
 
 class DatasetProfile(TypedDict):
-    fields: Dict[str, FieldInfo]
+    fields: dict[str, FieldInfo]
     row_count: int
 
 
@@ -37,15 +37,15 @@ class ValidationError(TypedDict, total=False):
         "unknown_field",
         "unknown_shell",
     ]
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
 class ValidationWarning(TypedDict, total=False):
     code: Literal["high_cardinality_color", "high_cardinality_x", "large_dataset_embedded"]
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
 class ValidationResult(TypedDict):
-    errors: List[ValidationError]
+    errors: list[ValidationError]
     ok: bool
-    warnings: List[ValidationWarning]
+    warnings: list[ValidationWarning]

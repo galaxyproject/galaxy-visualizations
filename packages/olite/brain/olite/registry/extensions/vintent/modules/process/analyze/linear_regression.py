@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "linear_regression"
 PROCESS_PHASE = "analyze"
@@ -6,7 +6,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
     if not rows:
         return []
 
@@ -15,8 +15,8 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     if not xcol or not ycol:
         return rows
 
-    xs: List[float] = []
-    ys: List[float] = []
+    xs: list[float] = []
+    ys: list[float] = []
 
     for row in rows:
         xv = row.get(xcol)
@@ -38,7 +38,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     slope = sum((x - xm) * (y - ym) for x, y in zip(xs, ys)) / den
     intercept = ym - slope * xm
 
-    out: List[Dict[str, object]] = []
+    out: list[dict[str, object]] = []
     for row in rows:
         xv = row.get(xcol)
         new_row = dict(row)
@@ -51,7 +51,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     return "Computed linear regression."
 
 

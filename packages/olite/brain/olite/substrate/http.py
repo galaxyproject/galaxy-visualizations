@@ -132,8 +132,7 @@ class HttpClient:
 
             stated = retry_after(response_headers, text)
             backoff = stated if stated is not None else INITIAL_BACKOFF * (2**attempt)
-            logger.warning(f"HTTP {status}, retrying in {backoff}s "
-                           f"(attempt {attempt + 1}/{MAX_RETRIES})")
+            logger.warning("HTTP %s, retrying in %ss (attempt %s/%s)", status, backoff, attempt + 1, MAX_RETRIES)
             _report(on_retry, status, backoff, attempt + 1)
             await asyncio.sleep(backoff)
 

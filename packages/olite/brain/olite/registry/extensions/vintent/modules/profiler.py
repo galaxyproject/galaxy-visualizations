@@ -2,7 +2,7 @@ import csv
 import io
 import math
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldInfo, FieldType
 
@@ -51,7 +51,7 @@ def detect_delimiter(text: str) -> str:
     return ','
 
 
-def rows_from_tabular(text: str) -> List[Dict[str, Any]]:
+def rows_from_tabular(text: str) -> list[dict[str, Any]]:
     """Parse tabular data, auto-detecting CSV vs tab-delimited.
 
     For tab-delimited files (no headers), column names are generated as col:1, col:2, etc.
@@ -65,7 +65,7 @@ def rows_from_tabular(text: str) -> List[Dict[str, Any]]:
     return rows_from_csv(clean_text)
 
 
-def source_format(text: str) -> Dict[str, Any]:
+def source_format(text: str) -> dict[str, Any]:
     """Vega `format` for reading this file directly; tabular needs the col:N names."""
     clean_text = skip_comment_lines(text)
     delimiter = detect_delimiter(clean_text)
@@ -80,21 +80,21 @@ def source_format(text: str) -> Dict[str, Any]:
     }
 
 
-def rows_from_tab(tab_text: str) -> List[Dict[str, Any]]:
+def rows_from_tab(tab_text: str) -> list[dict[str, Any]]:
     """Parse tab-delimited text into list of dicts with auto-generated column names.
 
     Column names are generated as col:1, col:2, etc. (1-indexed).
     """
     reader = csv.reader(io.StringIO(tab_text), delimiter='\t')
-    rows: List[Dict[str, Any]] = []
-    fieldnames: List[str] = []
+    rows: list[dict[str, Any]] = []
+    fieldnames: list[str] = []
 
     for i, r in enumerate(reader):
         if i == 0:
             # Generate column names based on number of columns
             fieldnames = [f"col:{j+1}" for j in range(len(r))]
 
-        row: Dict[str, Any] = {}
+        row: dict[str, Any] = {}
         for j, v in enumerate(r):
             if j < len(fieldnames):
                 key = fieldnames[j]
@@ -107,11 +107,11 @@ def rows_from_tab(tab_text: str) -> List[Dict[str, Any]]:
     return rows
 
 
-def rows_from_csv(csv_text: str) -> List[Dict[str, Any]]:
+def rows_from_csv(csv_text: str) -> list[dict[str, Any]]:
     reader = csv.DictReader(io.StringIO(csv_text))
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for r in reader:
-        row: Dict[str, Any] = {}
+        row: dict[str, Any] = {}
         for k, v in r.items():
             if v is None or v == "":
                 row[k] = None
@@ -121,15 +121,15 @@ def rows_from_csv(csv_text: str) -> List[Dict[str, Any]]:
     return rows
 
 
-def profile_rows(rows: List[Dict[str, Any]]) -> DatasetProfile:
+def profile_rows(rows: list[dict[str, Any]]) -> DatasetProfile:
     if not rows:
         return {"fields": {}, "row_count": 0}
     row_count = len(rows)
-    raw_values: Dict[str, List[Any]] = {}
+    raw_values: dict[str, list[Any]] = {}
     for row in rows:
         for k, v in row.items():
             raw_values.setdefault(k, []).append(v)
-    fields: Dict[str, FieldInfo] = {}
+    fields: dict[str, FieldInfo] = {}
     for key, values in raw_values.items():
         non_null = [v for v in values if v is not None]
         missing = row_count - len(non_null)
@@ -162,7 +162,7 @@ def profile_rows(rows: List[Dict[str, Any]]) -> DatasetProfile:
     return {"fields": fields, "row_count": row_count}
 
 
-def infer_column_type(values: List[Any]) -> FieldType:
+def infer_column_type(values: list[Any]) -> FieldType:
     if not values:
         return "nominal"
     types = {type(v) for v in values}

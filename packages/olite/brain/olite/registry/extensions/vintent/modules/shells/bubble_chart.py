@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
-from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
+from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
@@ -13,17 +13,17 @@ class BubbleChartShell(BaseShell):
     goals = ["relationship"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["quantitative", "quantitative", "quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "x": {"type": "quantitative"},
         "y": {"type": "quantitative"},
         "size": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "color": {"type": "nominal"},
         "tooltip": {"type": "any"},
     }
@@ -38,13 +38,13 @@ class BubbleChartShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {"field": params.get("x", ""), "type": "quantitative"},
             "y": {"field": params.get("y", ""), "type": "quantitative"},
             "size": {"field": params.get("size", ""), "type": "quantitative"},

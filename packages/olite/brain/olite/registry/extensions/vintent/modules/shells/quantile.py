@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.quantiles import PROCESS_ID as quantiles_id
 from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
@@ -14,16 +14,16 @@ class QuantileShell(BaseShell):
     goals = ["distribution"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["quantitative"],
         ["nominal", "quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "field": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "group_by": {"type": "nominal"},
     }
 
@@ -49,13 +49,13 @@ class QuantileShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {
                 "field": "q",
                 "type": "quantitative",

@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.group_aggregate import PROCESS_ID as group_aggregate_id
-from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, ValidationResult
+from olite.registry.extensions.vintent.modules.schemas import DatasetProfile
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 
 def _squarify_layout(
-    values: List[Dict[str, Any]],
+    values: list[dict[str, Any]],
     size_field: str,
     x: float = 0,
     y: float = 0,
     width: float = 400,
     height: float = 400,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Compute treemap layout using simplified squarify algorithm."""
     if not values:
         return []
@@ -42,18 +42,18 @@ def _squarify_layout(
     for item in items:
         item["_norm_size"] = (item["_size"] / total) * area
 
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     _squarify_recurse(items, x, y, width, height, result)
     return result
 
 
 def _squarify_recurse(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     x: float,
     y: float,
     width: float,
     height: float,
-    result: List[Dict[str, Any]],
+    result: list[dict[str, Any]],
 ) -> None:
     """Recursively layout items using squarify algorithm."""
     if not items:
@@ -68,7 +68,7 @@ def _squarify_recurse(
     vertical = width >= height
 
     total_size = sum(item["_norm_size"] for item in items)
-    row: List[Dict[str, Any]] = []
+    row: list[dict[str, Any]] = []
     row_size = 0.0
 
     for i, item in enumerate(items):
@@ -112,7 +112,7 @@ def _squarify_recurse(
             _layout_row(row, x, y, width, row_height, vertical, result)
 
 
-def _worst_ratio(row: List[Dict[str, Any]], side: float, vertical: bool) -> float:
+def _worst_ratio(row: list[dict[str, Any]], side: float, vertical: bool) -> float:
     """Calculate worst aspect ratio in a row."""
     if not row or side <= 0:
         return float("inf")
@@ -127,13 +127,13 @@ def _worst_ratio(row: List[Dict[str, Any]], side: float, vertical: bool) -> floa
 
 
 def _layout_row(
-    row: List[Dict[str, Any]],
+    row: list[dict[str, Any]],
     x: float,
     y: float,
     width: float,
     height: float,
     vertical: bool,
-    result: List[Dict[str, Any]],
+    result: list[dict[str, Any]],
 ) -> None:
     """Layout a row of items."""
     offset = 0.0
@@ -209,9 +209,9 @@ class TreemapShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 

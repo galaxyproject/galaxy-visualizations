@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "project_columns"
 PROCESS_PHASE = "extract"
@@ -36,12 +36,12 @@ def schema(profile, context=None):
     }
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
-    out: List[Dict[str, object]] = []
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
+    out: list[dict[str, object]] = []
     if rows:
         cols = params.get("columns", [])
         for row in rows:
-            projected: Dict[str, object] = {}
+            projected: dict[str, object] = {}
             for c in cols:
                 if c in row:
                     projected[c] = row.get(c)
@@ -49,7 +49,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     cols = params.get("columns", [])
     if len(cols) == 0:
         return "No columns selected."

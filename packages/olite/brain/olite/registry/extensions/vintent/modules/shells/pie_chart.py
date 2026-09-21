@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.group_aggregate import PROCESS_ID as group_aggregate_id
-from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, ValidationResult
+from olite.registry.extensions.vintent.modules.schemas import DatasetProfile
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
@@ -53,9 +53,9 @@ class PieChartShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 

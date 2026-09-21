@@ -1,6 +1,6 @@
 import importlib
 import pkgutil
-from typing import Any, Dict
+from typing import Any
 
 import olite.registry.extensions.vintent.modules.process.analyze as analyze_pkg
 import olite.registry.extensions.vintent.modules.process.extract as extract_pkg
@@ -14,8 +14,8 @@ def _snake_to_camel(value: str) -> str:
     return "".join(p[:1].upper() + p[1:] for p in parts)
 
 
-def _discover(package, *, kind: str) -> Dict[str, Any]:
-    registry: Dict[str, Any] = {}
+def _discover(package, *, kind: str) -> dict[str, Any]:
+    registry: dict[str, Any] = {}
     for _, module_name, _ in pkgutil.iter_modules(package.__path__):
         # Skip base module which contains the abstract base class
         if module_name == "base":

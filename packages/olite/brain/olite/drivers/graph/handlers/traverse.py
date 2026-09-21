@@ -381,9 +381,9 @@ class TraverseHandler:
             if result.get("ok"):
                 return result.get("result")
             else:
-                logger.warning(f"Failed to fetch {entity_type} {entity_id}: {result.get('error')}")
+                logger.warning("Failed to fetch %s %s: %s", entity_type, entity_id, result.get('error'))
                 return None
         except Exception as e:
-            logger.warning(f"Error fetching {entity_type} {entity_id}: {e}")
+            logger.warning("Error fetching %s %s: %s", entity_type, entity_id, e)
             return None
 

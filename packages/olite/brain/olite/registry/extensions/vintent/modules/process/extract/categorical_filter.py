@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "categorical_filter"
 PROCESS_PHASE = "extract"
@@ -10,7 +10,7 @@ def schema(profile, context=None):
     categorical_columns = [name for name, meta in profile["fields"].items() if meta.get("type") == "nominal"]
     if not categorical_columns:
         return None
-    properties: Dict[str, Any] = {
+    properties: dict[str, Any] = {
         "field": {
             "type": "string",
             "enum": categorical_columns,
@@ -38,13 +38,13 @@ def schema(profile, context=None):
     }
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     values = ", ".join(str(v) for v in params.get("values", []))
     return f"Filter rows where {params.get('field')} is one of [{values}]."
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
-    out: List[Dict[str, object]] = []
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
+    out: list[dict[str, object]] = []
     if rows:
         field = params.get("field")
         values = set(str(v) for v in params.get("values", []))

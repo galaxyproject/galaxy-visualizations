@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
-from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
+from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
@@ -13,16 +13,16 @@ class DivergingBarShell(BaseShell):
     goals = ["comparison"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["nominal", "quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "category": {"type": "nominal"},
         "value": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "color": {"type": "nominal"},
     }
 
@@ -37,16 +37,16 @@ class DivergingBarShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
         category = params.get("category", "")
         value = params.get("value", "")
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "y": {"field": category, "type": "nominal", "sort": "-x"},
             "x": {"field": value, "type": "quantitative"},
         }

@@ -1,13 +1,14 @@
-from typing import Any, Callable, Dict, List, Literal, Optional, TypedDict
+from typing import Any, Literal, Optional, TypedDict
+from collections.abc import Callable
 
 from olite.registry.extensions.vintent.modules.exceptions import ProcessError
 
 # Type aliases for clarity
 DataShape = Literal["rowwise", "aggregate"]
 ProcessPhase = Literal["extract", "analyze"]
-RowType = Dict[str, Any]
-RowsType = List[RowType]
-ParamsType = Dict[str, Any]
+RowType = dict[str, Any]
+RowsType = list[RowType]
+ParamsType = dict[str, Any]
 
 
 class Process(TypedDict, total=False):
@@ -34,7 +35,7 @@ class Process(TypedDict, total=False):
     produces_shape: DataShape
 
 
-def run_process(process: Process, rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run_process(process: Process, rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     """Execute a data processing step.
 
     Args:
@@ -75,7 +76,7 @@ def run_process(process: Process, rows: List[Dict[str, Any]], params: Dict[str, 
         )
 
 
-def validate_process(process_dict: Dict[str, Any]) -> Process:
+def validate_process(process_dict: dict[str, Any]) -> Process:
     """Validate a process definition has required fields.
 
     Args:

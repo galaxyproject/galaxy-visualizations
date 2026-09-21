@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.group_aggregate import PROCESS_ID as group_aggregate_id
 from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
@@ -18,11 +18,11 @@ class HeatmapCountShell(BaseShell):
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["nominal", "nominal"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "x": {"type": "nominal"},
         "y": {"type": "nominal"},
     }
@@ -49,9 +49,9 @@ class HeatmapCountShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 

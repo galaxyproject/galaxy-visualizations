@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "compute_bins"
 PROCESS_PHASE = "analyze"
@@ -9,12 +9,12 @@ DEFAULT_BINS = 10
 MAX_BINS = 50
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
     if not rows:
         return []
     field = params.get("field")
     bins = params.get("bins", DEFAULT_BINS)
-    values: List[float] = []
+    values: list[float] = []
     for row in rows:
         v = row.get(field)
         if isinstance(v, (int, float)):
@@ -39,7 +39,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
         if idx == bins:
             idx = bins - 1
         counts[idx] += 1
-    out: List[Dict[str, object]] = []
+    out: list[dict[str, object]] = []
     for i, c in enumerate(counts):
         start = min_v + i * width
         end = start + width
@@ -54,7 +54,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     bins = params.get("bins", DEFAULT_BINS)
     return f"Computed histogram bins with {bins} bins."
 

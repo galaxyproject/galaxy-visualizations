@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "quantiles"
 PROCESS_PHASE = "analyze"
@@ -13,7 +13,7 @@ def _is_finite(v: Any) -> bool:
     return isinstance(v, (int, float)) and math.isfinite(v)
 
 
-def _quantile(sorted_vals: List[float], q: float) -> float:
+def _quantile(sorted_vals: list[float], q: float) -> float:
     n = len(sorted_vals)
     if n == 1:
         return sorted_vals[0]
@@ -26,7 +26,7 @@ def _quantile(sorted_vals: List[float], q: float) -> float:
     return sorted_vals[lo] * (1 - w) + sorted_vals[hi] * w
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -37,10 +37,10 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not field:
         return rows
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
 
     if group_by:
-        groups: Dict[Any, List[float]] = {}
+        groups: dict[Any, list[float]] = {}
         for r in rows:
             v = r.get(field)
             if _is_finite(v):
@@ -76,7 +76,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     return "Computed quantiles."
 
 

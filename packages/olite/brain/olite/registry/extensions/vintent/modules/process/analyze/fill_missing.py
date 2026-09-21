@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "fill_missing"
 PROCESS_PHASE = "analyze"
@@ -10,7 +10,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -58,7 +58,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         computed_fill = 0
 
     # Apply fill
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     last_valid = computed_fill
 
     for row in rows:
@@ -80,7 +80,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field", "unknown")
     strategy = params.get("strategy", "mean")
     return f"Filled missing values in {field} using {strategy} strategy."
