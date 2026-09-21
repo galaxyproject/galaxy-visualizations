@@ -1,6 +1,6 @@
 /** Shell-written proof a session happened; loom: session-lifecycle.ts + notebook-writer.ts. */
 
-import { findRecord } from "./record-write";
+import { editRecord } from "./record-write";
 
 const FENCE_OPEN = "```olite-session";
 const FENCE_CLOSE = "```";
@@ -96,23 +96,7 @@ export async function writeSessionSummary(
     summary: Omit<SessionSummary, "record">,
 ): Promise<boolean> {
     if (!historyId) return false;
-    try {
-        const page = await findRecord({ root, credentials, historyId });
-        if (!page) return false;
-        const full = await (await fetch(`${root}api/pages/${page.id}`, { credentials })).json();
-        const content = (full && full.content) || "";
-        const updated = upsertSessionSummary(content, { ...summary, record: page.id });
-        if (updated === content) return true;
-        const put = await fetch(`${root}api/pages/${page.id}`, {
-            method: "PUT",
-            credentials,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: updated }),
-        });
-        return put.ok;
-    } catch (e) {
-        // The record is the agent's to maintain; a failed summary must not break a turn.
-        console.warn("[olite] could not write the session summary", e);
-        return false;
-    }
+    return editRecord({ root, credentials, historyId }, (content, recordId) =>
+        upsertSessionSummary(content, { ...summary, record: recordId }),
+    );
 }

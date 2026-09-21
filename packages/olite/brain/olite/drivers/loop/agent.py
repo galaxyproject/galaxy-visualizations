@@ -153,7 +153,8 @@ class LoopDriver:
                 gated = False
                 args = {}
                 if cancellation.aborted:
-                    # Every remaining call still needs a result, or the next request
+                    # Every remaining call still needs a result, or the next request is
+                    # a tool_call with nothing answering it.
                     refusal = ABORTED_ERROR
                 elif truncated:
                     refusal = TRUNCATED_ERROR.format(name=name)
@@ -173,7 +174,7 @@ class LoopDriver:
                     outcome = await self.tools.dispatch(name, args)
                     logs.append(f"  -> {brief(outcome.content)}")
                     content, is_error = outcome.text, outcome.is_error
-                    gated = gated or outcome.refused
+                    gated = outcome.refused
                     size = len(content.encode("utf-8"))
                     if size > MAX_TOOL_RESULT_BYTES:
                         logs.append(f"  -> discarded {size} bytes, over the result limit")

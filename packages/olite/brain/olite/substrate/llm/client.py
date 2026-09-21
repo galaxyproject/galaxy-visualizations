@@ -87,6 +87,8 @@ class Llm:
                 body=body,
                 signal=cancellation.signal if cancellation else None,
                 on_retry=on_retry,
+                # A completion that errored produced nothing, so asking again repeats nothing.
+                retry_errors=True,
             )
             try:
                 return self.adapter.parse_reply(payload)
