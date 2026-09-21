@@ -18,7 +18,7 @@ GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=local LLM_ROOT=http://127.0.0.1:8
   npm run dev > /tmp/olite-e2e-dev.log 2>&1 & pids+=($!)
 for _ in $(seq 40); do curl -sf -o /dev/null http://localhost:5173/ && break; sleep 1; done
 
-for d in confirm session catalog-refusal ratelimit; do
+for d in confirm session catalog-refusal ratelimit visualization-artifact; do
     if LLM_CONTEXT_WINDOW=40000 node "e2e/$d-drive.cjs" > "/tmp/olite-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else

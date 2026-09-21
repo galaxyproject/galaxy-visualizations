@@ -29,6 +29,7 @@ async def run(config, inputs, on_event=None):
                 provider=target.provider.id,
                 # loom gates its Galaxy guidance on a live connection.
                 galaxy_ok=bool(substrate.catalog.status().get("op_count")),
+                seed_dataset=config.get("dataset_id"),
             ),
             skills.router_text(),
         )

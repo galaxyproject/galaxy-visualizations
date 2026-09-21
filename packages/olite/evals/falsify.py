@@ -200,6 +200,89 @@ BREAKS = [
         scenarios=["workflow-runs-end-to-end"],
         expect=["invocation.succeeded", "invocation.producesDatasets", "invocation.exists"],
     ),
+    Break(
+        family="visualizationSaved",
+        why="save_visualization reports success without posting anything, so the agent "
+            "shows a viewer in the artifact pane and says the structure is saved while "
+            "Galaxy holds no such object. The artifact assertion still passes, which is "
+            "the point: a pane is not a saved visualization, and only grading against "
+            "Galaxy separates the two",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""    created = await g.post("api/visualizations",
+                           {"type": name, "title": title, "config": _visualization_config(a)})""",
+        replace='    created = {"id": "0" * 16}  # FALSIFY: nothing saved',
+        scenarios=["viz-structure-saved"],
+        expect=["visualization.exists"],
+    ),
+    Break(
+        family="visualizationArtifact",
+        why="the artifact is serialized into the tool result instead of being claimed, so "
+            "it never reaches the shell and the user sees no viewer. The saved Galaxy "
+            "object is untouched and the chat still describes it, so only the artifact "
+            "assertion moves: the mirror of visualizationSaved",
+        path="brain/olite/drivers/loop/tools.py",
+        find="            result = self._claim_artifact(await handler(self.substrate.galaxy, args))\n            return json.dumps(result, default=str)",
+        replace="            return json.dumps(await handler(self.substrate.galaxy, args), default=str)  # FALSIFY",
+        scenarios=["viz-structure-shown", "viz-structure-saved"],
+        expect=["artifacts.kind"],
+    ),
+    Break(
+        family="visualizationSpared",
+        why="showing a visualization saves one anyway, the behaviour this split exists to "
+            "end. Everything the user sees is unchanged -- the viewer appears, the chat is "
+            "right, the artifact is there -- and the only trace is a row the user never "
+            "asked for in their visualization list. Nothing but grading Galaxy for what "
+            "should be absent can see it",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""    query = {"visualization": name, "dataset_id": a["dataset_id"], **_EMBED}""",
+        replace="""    await g.post("api/visualizations",  # FALSIFY: showing saves
+                 {"type": name, "title": title, "config": _visualization_config(a)})
+    query = {"visualization": name, "dataset_id": a["dataset_id"], **_EMBED}""",
+        scenarios=["viz-structure-shown"],
+        expect=["visualization.absent"],
+    ),
+    Break(
+        family="visualizationTracks",
+        why="a revision drops the tracks it was given, so the second dataset never reaches the "
+            "saved config. The agent reports the track added and the pane still renders the "
+            "first dataset, so nothing the user or the chat can see distinguishes it from a "
+            "visualization that gained a track",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""    config = _visualization_config(a)""",
+        replace="""    config = _visualization_config(a)
+    config.pop("tracks", None)  # FALSIFY: tracks dropped on save""",
+        scenarios=["viz-igv-second-track"],
+        expect=["visualization.tracksDataset"],
+    ),
+    Break(
+        family="visualizationSettings",
+        why="a revision drops the settings it was given, so the genome and the locus never "
+            "reach the saved config. The tracks still land and the chat still says the view "
+            "moved, which is the point: settings are the half of a visualization that leaves "
+            "no trace anywhere else",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""    config = _visualization_config(a)""",
+        replace="""    config = _visualization_config(a)
+    config.pop("settings", None)  # FALSIFY: settings dropped on save""",
+        scenarios=["viz-igv-second-track"],
+        expect=["visualization.settingsContain"],
+    ),
+    Break(
+        family="visualizationShape",
+        why="a conditional's parameters are written beside it instead of inside it. Galaxy "
+            "stores that without complaint and the visualization saves, renders and looks "
+            "right in the list, but galaxy-charts reads the genome from inside the "
+            "conditional and finds nothing, so the view never moves",
+        path="brain/olite/drivers/loop/galaxy_tools.py",
+        find="""        config["settings"] = a["settings"]""",
+        replace="""        config["settings"] = {  # FALSIFY: conditionals flattened
+            name: value
+            for key, entry in a["settings"].items()
+            for name, value in (entry.items() if isinstance(entry, dict) else [(key, entry)])
+        }""",
+        scenarios=["viz-igv-second-track"],
+        expect=["visualization.settingsContain"],
+    ),
 ]
 
 # `session-resumed-after-close`: admitted provisionally, no break discriminates yet.

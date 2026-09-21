@@ -2,6 +2,8 @@
 
 import json
 
+from olite import vendor
+
 from . import page_edit
 from .paging import ROW_CAP, page
 from .tool_inputs import build_input_template, summarize_tool_inputs
@@ -153,6 +155,28 @@ async def _foreign_inputs(g, inputs, history_id):
     return foreign
 
 
+class ToolParameterError(Exception):
+    """A rejected parameter, carrying the template the tool actually accepts."""
+
+    def __init__(self, detail, template):
+        super().__init__(
+            f"{detail}\nThe tool accepts these input keys. Fill this template and resend:\n"
+            f"{json.dumps(template, indent=1)}"
+        )
+
+
+def _is_parameter_error(exc):
+    return "invalid key structure" in str(exc) or "has no attribute" in str(exc)
+
+
+async def _input_template_for(g, tool_id):
+    try:
+        info = await g.get(f"api/tools/{tool_id}{_q({'io_details': True})}")
+        return build_input_template(info) if info else None
+    except Exception:
+        return None
+
+
 async def _run_tool(g, a):
     history_id = a["history_id"]
     inputs = a.get("inputs") or {}
@@ -166,10 +190,17 @@ async def _run_tool(g, a):
             "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
                     "history. To use data from elsewhere, copy it into this history first.",
         }
-    return await g.post(
-        "api/tools",
-        {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
-    )
+    try:
+        return await g.post(
+            "api/tools",
+            {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
+        )
+    except Exception as exc:
+        template = await _input_template_for(g, a["tool_id"]) if _is_parameter_error(exc) else None
+        if template is None:
+            raise
+        # Galaxy names the offending key but not the shape it wanted; OLite holds it.
+        raise ToolParameterError(str(exc), template) from exc
 
 
 async def _search_tools_by_name(g, a):
@@ -556,16 +587,452 @@ async def _get_invocations(g, a):
     return await g.get(f"api/invocations{_q(params)}")
 
 
+NUMERIC_COLUMNS = frozenset({"int", "float"})
+
+
+def _column_parameters(plugin):
+    return [
+        parameter.get("name")
+        for parameter in (plugin.get("tracks") or []) + (plugin.get("settings") or [])
+        if parameter.get("type") == "data_column"
+    ]
+
+
+def _describe_plugin(plugin, preferred):
+    columns = _column_parameters(plugin)
+    described = {
+        "name": plugin.get("name"),
+        "description": plugin.get("description"),
+        "tags": plugin.get("tags") or [],
+        "parameters": len(plugin.get("settings") or []) + len(plugin.get("tracks") or []),
+    }
+    if plugin.get("name") in preferred:
+        described["preferred_for_datatype"] = True
+    if columns:
+        described["column_parameters"] = columns
+    return described
+
+
+async def _preferred_visualizations(g, extension):
+    if not extension:
+        return set()
+    mappings = await g.get(f"api/datatypes/{extension}/visualizations") or []
+    return {m.get("visualization") for m in mappings if isinstance(m, dict)}
+
+
+async def _list_visualizations(g, a):
+    dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
+    extension = dataset.get("extension")
+    column_types = dataset.get("metadata_column_types") or []
+    numeric = [t for t in column_types if t in NUMERIC_COLUMNS]
+
+    matching = await g.get(f"api/plugins{_q({'dataset_id': a['dataset_id']})}") or []
+    preferred = await _preferred_visualizations(g, extension)
+    matching.sort(key=lambda p: p.get("name") not in preferred)
+
+    # Answers only "what can render this". The dataset's columns belong to
+    # get_dataset_details: bundling them here made a column lookup double as a plugin
+    # advertisement, and tabular charts drifted away from vintent_dataset because of it.
+    result = {
+        "dataset_id": a["dataset_id"],
+        "extension": extension,
+        "visualizations": [_describe_plugin(p, preferred) for p in matching],
+    }
+    if not matching:
+        result["hint"] = (
+            f"No installed visualization accepts the datatype {extension!r}. "
+            "Converting the dataset to a supported datatype is the usual route."
+        )
+    elif any(_column_parameters(p) for p in matching) and not numeric:
+        result["hint"] = (
+            "Galaxy detected no numeric columns in this dataset, so visualizations that bind a "
+            "column cannot be filled. Either re-detect the dataset's metadata so the columns are "
+            "recognised, or use vintent_dataset, which reads the file contents directly and works "
+            "on tabular data."
+        )
+    return result
+
+
+# Chrome-free: Galaxy drops the masthead inside any iframe, hide_panels drops the rest.
+_EMBED = {"hide_panels": "true", "hide_masthead": "true"}
+
+
+async def _resolve_visualization(g, a):
+    """The plugin and dataset, or a refusal naming what the server will actually render."""
+    name, dataset_id = a["visualization"], a["dataset_id"]
+    installed = await g.get("api/plugins") or []
+    if not any(p.get("name") == name for p in installed):
+        return None, {
+            "error": f"Refused: {name!r} is not an installed visualization.",
+            "hint": "Call list_visualizations for the dataset to see what this server offers.",
+        }
+
+    dataset = await g.get(f"api/datasets/{dataset_id}") or {}
+    compatible = await g.get(f"api/plugins{_q({'dataset_id': dataset_id})}") or []
+    if not any(p.get("name") == name for p in compatible):
+        return None, {
+            "error": f"Refused: {name!r} cannot render the datatype "
+                     f"{dataset.get('extension')!r}.",
+            "can_render_it": sorted(p.get("name") for p in compatible),
+            "hint": "Call list_visualizations for this dataset for the full picture.",
+        }
+    return dataset, None
+
+
+def _visualization_config(a):
+    config = {"dataset_id": a["dataset_id"]}
+    if a.get("settings"):
+        config["settings"] = a["settings"]
+    if a.get("tracks"):
+        config["tracks"] = a["tracks"]
+    return config
+
+
+def _describe_parameter(param, types):
+    """One declared input, joined with what galaxy-charts stores for its type."""
+    kind = param.get("type")
+    spec = types.get(kind) or {}
+    described = {"name": param.get("name"), "type": kind}
+    for key in ("label", "help"):
+        if param.get(key):
+            described[key] = param[key]
+    if spec.get("stores"):
+        described["stores"] = spec["stores"]
+    for bound in spec.get("bounds") or []:
+        if param.get(bound) is not None:
+            described[bound] = param[bound]
+
+    source = spec.get("options")
+    if source:
+        options = {"kind": source["kind"]}
+        declared = param.get(source.get("from") or "")
+        if declared:
+            options["values" if source["kind"] == "declared" else source["from"]] = declared
+        for f in source.get("filters") or []:
+            if param.get(f) is not None:
+                options[f] = param[f]
+        described["options"] = options
+
+    test = param.get("test_param")
+    if test:
+        described["chosen_by"] = _describe_parameter(test, types)
+        described["cases"] = [
+            {"when": c.get("value"),
+             "inputs": [_describe_parameter(i, types) for i in (c.get("inputs") or [])]}
+            for c in (param.get("cases") or [])
+        ]
+    return described
+
+
+async def _get_visualization_details(g, a):
+    """One plugin's parameters, fetched per plugin so a listing stays cheap.
+
+    Galaxy declares which inputs a plugin has; galaxy-charts owns what each input type
+    stores. Joining them here states the shape and the legal values instead of leaving the
+    agent to infer them from parameter names.
+    """
+    name = a["visualization"]
+    plugin = await g.get(f"api/plugins/{name}") or {}
+    if not plugin.get("name"):
+        return {"error": f"Refused: {name!r} is not an installed visualization.",
+                "hint": "Call list_visualizations for a dataset to see what this server offers."}
+
+    types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+    return {
+        "name": plugin.get("name"),
+        "description": plugin.get("description"),
+        "settings": [_describe_parameter(p, types) for p in (plugin.get("settings") or [])],
+        "tracks": [_describe_parameter(p, types) for p in (plugin.get("tracks") or [])],
+        "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
+                "them and pass them to save_visualization: settings cannot ride in a displayed "
+                "visualization, only in a saved one.",
+    }
+
+
+def _find_declared(params, wanted, when=None):
+    """Every declaration of a name, paired with the conditional case it sits in.
+
+    A conditional can declare the same name in several cases with different sources: igv's
+    `genome` is a remote list under one origin and a data table under another. Picking the
+    first would resolve the wrong one silently.
+    """
+    found = []
+    for param in params or []:
+        if not isinstance(param, dict):
+            continue
+        if param.get("name") == wanted:
+            found.append((when, param))
+        test = param.get("test_param") or {}
+        if test.get("name") == wanted:
+            found.append((when, test))
+        for case in param.get("cases") or []:
+            found += _find_declared(case.get("inputs"), wanted, case.get("value"))
+    return found
+
+
+def _match(entry, search):
+    if not search:
+        return False
+    hay = " ".join(str(entry.get(k) or "") for k in ("id", "name", "label", "value")).lower()
+    return search.lower() in hay
+
+
+async def _get_visualization_options(g, a):
+    """What a parameter's options actually are, resolved from where the plugin says they live.
+
+    The declaration says a genome comes from a remote list or a data table; it does not say
+    what is in one. Without this the agent invents an option, and for a parameter whose value
+    is an object copied verbatim it cannot invent a usable one.
+    """
+    name, wanted = a["visualization"], a["parameter"]
+    plugin = await g.get(f"api/plugins/{name}") or {}
+    if not isinstance(plugin, dict) or not plugin.get("name"):
+        return {"error": f"Refused: {name!r} is not an installed visualization."}
+
+    found = (_find_declared(plugin.get("settings"), wanted)
+             + _find_declared(plugin.get("tracks"), wanted))
+    if not found:
+        return {"error": f"Refused: {name!r} declares no parameter {wanted!r}.",
+                "hint": f"Call get_visualization_details for {name!r} to see what it declares."}
+
+    when = a.get("when")
+    if when is not None:
+        found = [(w, p) for w, p in found if w == when]
+        if not found:
+            return {"error": f"Refused: {wanted!r} is not declared when {when!r}."}
+    if len(found) > 1:
+        cases = sorted({w for w, _ in found if w is not None})
+        return {"error": f"Refused: {name!r} declares {wanted!r} in more than one case, and "
+                         "they do not share a source.",
+                "cases": cases,
+                "hint": "Pass `when` with the case you mean."}
+    declared = found[0][1]
+
+    types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+    source = ((types.get(declared.get("type")) or {}).get("options")) or {}
+    kind = source.get("kind")
+    search = a.get("search")
+
+    entries = []
+    if kind == "declared":
+        entries = [dict(o) for o in (declared.get("data") or [])]
+    elif kind == "data_json":
+        url = declared.get("url")
+        if not url:
+            return {"error": f"{wanted!r} names no url to read its options from."}
+        from olite.substrate.http import http
+
+        fetched = await http.request("GET", url)
+        entries = fetched if isinstance(fetched, list) else []
+    elif kind == "data_table":
+        # Column choice follows galaxy-charts' dataTableStore, which owns this shape.
+        for table in declared.get("tables") or []:
+            data = await g.get(f"api/tool_data/{table}") or {}
+            columns = data.get("columns") or []
+            name_col = max(columns.index("name"), 0) if "name" in columns else 0
+            value_col = max(columns.index("value"), 0) if "value" in columns else 0
+            for row in data.get("fields") or []:
+                whole = len(row) == len(columns)
+                entries.append({"id": row[value_col] if whole else (row[0] if row else None),
+                                "name": row[name_col] if whole else (row[0] if row else None),
+                                "columns": columns, "row": row, "table": table})
+    else:
+        return {"parameter": wanted, "source": kind or declared.get("type"),
+                "hint": "This parameter's options are not a list to browse; "
+                        "get_visualization_details says what it accepts."}
+
+    # Labels are cheap to scan; the stored value is only returned for what was asked for,
+    # because these can be large and only the chosen one is ever written.
+    listed = [{"id": e.get("id"), "name": e.get("name") or e.get("label")} for e in entries]
+    result = {"parameter": wanted, "source": kind, "total": len(entries),
+              "options": listed[:ROW_CAP]}
+    if search:
+        result["matches"] = [e for e in entries if _match(e, search)][:5]
+        result["hint"] = ("`matches` holds the values to store as given; pass one through "
+                          "unchanged rather than rebuilding it.")
+    else:
+        result["hint"] = ("Call again with `search` to get the value to store for one of these; "
+                          "the stored value is the whole entry, not its id.")
+    return result
+
+
+async def _get_visualization(g, a):
+    """A saved visualization's current config, to change rather than overwrite.
+
+    save_visualization replaces the config wholesale, so adding a track means reading what
+    is there first: rebuilding it blind drops whatever the plugin itself put there.
+    """
+    saved = await g.get(f"api/visualizations/{a['visualization_id']}") or {}
+    if not saved.get("id"):
+        return {"error": f"No saved visualization {a['visualization_id']!r}.",
+                "hint": "Pass the visualization_id that save_visualization returned."}
+    config = (saved.get("latest_revision") or {}).get("config") or {}
+    return {
+        "visualization_id": saved.get("id"),
+        "visualization": saved.get("type"),
+        "title": saved.get("title"),
+        "dataset_id": config.get("dataset_id"),
+        "settings": config.get("settings") or {},
+        "tracks": config.get("tracks") or [],
+        "hint": "Change what needs changing and pass it all back to save_visualization with this "
+                "visualization_id. Anything left out is dropped, so send the settings and tracks "
+                "you want to keep, not only the new ones.",
+    }
+
+
+async def _show_visualization(g, a):
+    dataset, refusal = await _resolve_visualization(g, a)
+    if refusal:
+        return {"shown": False, **refusal}
+
+    name = a["visualization"]
+    title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"
+    query = {"visualization": name, "dataset_id": a["dataset_id"], **_EMBED}
+    return {
+        "shown": True,
+        "title": title,
+        "artifact": {"kind": "visualization", "title": title,
+                     "visualization": name, "dataset_id": a["dataset_id"],
+                     "url": f"/visualizations/display{_q(query)}"},
+        "hint": "The visualization is displayed to the user. Nothing was added to Galaxy, so "
+                "call save_visualization if they ask to keep it. Say what it shows and finish.",
+    }
+
+
+def _level_names(declared):
+    """Names valid at this level. A conditional contributes its own name, not its inputs."""
+    return {p["name"] for p in declared or [] if isinstance(p, dict) and p.get("name")}
+
+
+def _check_level(entry, declared, types, where):
+    """Validate one object against the inputs declared for it.
+
+    Mirrors galaxy-charts `parseValues`: a conditional's value is an object holding its test
+    parameter and the inputs of the matching case. Flattening those to the parent is a shape
+    the form never writes, and Galaxy stores it without complaint.
+    """
+    allowed = _level_names(declared)
+    if not allowed:
+        return None
+    if not isinstance(entry, dict):
+        return {"error": f"Refused: {where} is an object keyed by parameter name; "
+                         f"got {type(entry).__name__}.",
+                "declared": sorted(allowed)}
+
+    unknown = sorted(set(entry) - allowed)
+    if unknown:
+        return {"error": f"Refused: {where} declares no parameter {unknown[0]!r}.",
+                "declared": sorted(allowed),
+                "hint": "Parameters inside a conditional belong in that conditional's object, "
+                        "not beside it. get_visualization_details shows the nesting."}
+
+    for param in declared or []:
+        if not isinstance(param, dict) or param.get("name") not in entry:
+            continue
+        value = entry[param["name"]]
+        if param.get("type") == "conditional":
+            test = (param.get("test_param") or {}).get("name")
+            chosen = value.get(test) if isinstance(value, dict) else None
+            inputs = next((c.get("inputs") or [] for c in param.get("cases") or []
+                           if c.get("value") == chosen), [])
+            nested = _check_level(value, [param.get("test_param")] + list(inputs), types,
+                                  f"{param['name']}")
+            if nested:
+                return nested
+            continue
+        spec = (types.get(param.get("type")) or {}).get("stores") or {}
+        if spec.get("type") == "object" and value is not None and not isinstance(value, dict):
+            return {"error": f"Refused: {param['name']!r} takes the whole entry it was chosen "
+                             f"from, not {value!r}.",
+                    "expected": spec,
+                    "hint": "Call get_visualization_options with `search` and pass the value it "
+                            "returns through unchanged."}
+    return None
+
+
+def _reject_undeclared(plugin, a):
+    """Refuse a config the plugin would not produce, naming what it declares.
+
+    The shape is published by get_visualization_details, and an agent that writes without
+    asking invents one: a key the plugin has no input for, a conditional's parameters
+    flattened beside it, or an id where an entry belongs. Galaxy stores all of them and the
+    plugin reads none, so a silent accept renders without the thing that was asked for.
+    """
+    if not isinstance(plugin, dict):
+        return None
+    types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+
+    if a.get("settings") is not None and not isinstance(a["settings"], dict):
+        return {"saved": False,
+                "error": "Refused: settings is one object keyed by parameter name.",
+                "hint": 'Send {"locus": "chr1:1-100"}, not a list.'}
+    if a.get("tracks") is not None and not isinstance(a["tracks"], list):
+        return {"saved": False,
+                "error": "Refused: tracks is a list, one object per track.",
+                "hint": "Send [{...}], one entry for each track."}
+
+    if a.get("settings") is not None:
+        bad = _check_level(a["settings"], plugin.get("settings"), types, "settings")
+        if bad:
+            return {"saved": False, **bad}
+    for track in a.get("tracks") or []:
+        bad = _check_level(track, plugin.get("tracks"), types, "a track")
+        if bad:
+            return {"saved": False, **bad}
+    return None
+
+
+async def _save_visualization(g, a):
+    dataset, refusal = await _resolve_visualization(g, a)
+    if refusal:
+        return {"saved": False, **refusal}
+
+    if a.get("settings") or a.get("tracks"):
+        plugin = await g.get(f"api/plugins/{a['visualization']}") or {}
+        undeclared = _reject_undeclared(plugin, a)
+        if undeclared:
+            return undeclared
+
+    name = a["visualization"]
+    title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"
+    config = _visualization_config(a)
+
+    # Revising one visualization rather than adding another: Galaxy keeps the revisions, and
+    # the user's list does not grow every time the settings change.
+    visualization_id = a.get("visualization_id")
+    if visualization_id:
+        await g.put(f"api/visualizations/{visualization_id}", {"title": title, "config": config})
+    else:
+        created = await g.post("api/visualizations",
+                               {"type": name, "title": title, "config": config})
+        visualization_id = (created or {}).get("id")
+    # Galaxy reads the plugin name from the query, never from the saved object.
+    query = {"visualization": name, "visualization_id": visualization_id, **_EMBED}
+    artifact = {"kind": "visualization", "title": title,
+                "visualization": name, "dataset_id": a["dataset_id"],
+                "url": f"/visualizations/display{_q(query)}"}
+    artifact.update({k: a[k] for k in ("settings", "tracks") if a.get(k)})
+    return {
+        "saved": True,
+        "visualization_id": visualization_id,
+        "title": title,
+        "artifact": artifact,
+        "hint": "Saved to the user's visualizations and displayed. It is not a history dataset. "
+                "Say what it shows and finish.",
+    }
+
+
+# api/dynamic_tools is admin-only; a user's own tools live behind api/unprivileged_tools.
 async def _list_user_tools(g, a):
-    return await g.get(f"api/dynamic_tools{_q({'active': a.get('active', True)})}")
+    return await g.get(f"api/unprivileged_tools{_q({'active': a.get('active', True)})}")
 
 
 async def _create_user_tool(g, a):
-    return await g.post("api/dynamic_tools", a["representation"])
+    return await g.post("api/unprivileged_tools", {"representation": a["representation"]})
 
 
 async def _delete_user_tool(g, a):
-    await g.delete(f"api/dynamic_tools/{a['uuid']}")
+    await g.delete(f"api/unprivileged_tools/{a['uuid']}")
     return {"uuid": a["uuid"], "deactivated": True}
 
 
@@ -704,6 +1171,34 @@ _tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _S
 _tool("run_user_tool", "write", "Run a dynamic (user-defined) tool by uuid in a history.",
       {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
       ["history_id", "tool_uuid", "inputs"], _run_user_tool)
+_tool("get_visualization_options", "read",
+      "Resolve a visualization parameter's selectable options from wherever the plugin says "
+      "they live. Use `search` to get the value to store.",
+      {"visualization": _STR, "parameter": _STR, "search": _STR, "when": _STR},
+      ["visualization", "parameter"], _get_visualization_options)
+_tool("get_visualization", "read",
+      "Get a saved visualization's current settings and tracks. Read before revising it: "
+      "save_visualization replaces the config rather than merging into it.",
+      {"visualization_id": _STR}, ["visualization_id"], _get_visualization)
+_tool("get_visualization_details", "read",
+      "Get one visualization's parameters, including the schema its settings and tracks must "
+      "match. Call before binding settings or tracks.",
+      {"visualization": _STR}, ["visualization"], _get_visualization_details)
+_tool("show_visualization", "read",
+      "Display a dataset with an installed visualization. Renders only; saves nothing. Takes the "
+      "plugin's defaults -- use save_visualization to bind settings or tracks.",
+      {"dataset_id": _STR, "visualization": _STR, "title": _STR},
+      ["dataset_id", "visualization"], _show_visualization)
+_tool("save_visualization", "write",
+      "Save a Galaxy visualization of a dataset, the durable kind the user keeps. Needed to "
+      "bind settings or tracks, which a displayed visualization cannot carry. Pass "
+      "visualization_id to revise one already saved instead of adding another.",
+      {"dataset_id": _STR, "visualization": _STR, "title": _STR, "visualization_id": _STR,
+       "settings": {"type": "object"}, "tracks": {"type": "array", "items": {"type": "object"}}},
+      ["dataset_id", "visualization"], _save_visualization)
+_tool("list_visualizations", "read",
+      "List the Galaxy visualizations that can display a dataset.",
+      {"dataset_id": _STR}, ["dataset_id"], _list_visualizations)
 _tool("list_pages", "read", "List pages (Galaxy markdown documents; a history-attached page is a Notebook).",
       {"history_id": _STR, "search": _STR, "limit": _INT, "offset": _INT, "show_published": _BOOL, "show_shared": _BOOL},
       [], _list_pages)

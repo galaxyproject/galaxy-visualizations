@@ -510,6 +510,27 @@ def _galaxy_page_markdown(ctx):
     return GALAXY_PAGE_MARKDOWN
 
 
+def seed_dataset_block(dataset_id):
+    """ADDED: olite can be opened on a dataset, which loom has no equivalent for.
+
+    Galaxy mounts olite as a visualization plugin, so the user may arrive with one already
+    selected. Naming it is what makes "plot it" resolvable; without this the referent is only
+    in the shell's chat, which never reaches the model.
+    """
+    if not dataset_id:
+        return ""
+    return (
+        f"## Starting dataset\n\n"
+        f"The user opened OLite on dataset `{dataset_id}`. Take it as the one they mean when "
+        f"they refer to a dataset without naming another, and call `get_dataset_details` for "
+        f"its columns and datatype before acting on it."
+    )
+
+
+def _seed_dataset(ctx):
+    return seed_dataset_block(ctx.get("seed_dataset"))
+
+
 def _active_model(ctx):
     # loom: `if (!active) return ""`.
     return active_model_block(ctx.get("model"), ctx.get("provider"))
@@ -521,6 +542,7 @@ def _current_date(ctx):
 
 # Order follows loom's composition: runtime, then Galaxy, then discipline.
 BLOCKS = [
+    _seed_dataset,
     _active_model,
     _no_local_shell,
     _galaxy_unavailable,
@@ -540,7 +562,8 @@ BLOCKS = [
 ]
 
 
-def system_text(today=None, model=None, provider=None, galaxy_ok=True):
+def system_text(today=None, model=None, provider=None, galaxy_ok=True, seed_dataset=None):
     """The block text appended to the shell-seeded identity prompt."""
-    ctx = {"today": today, "model": model, "provider": provider, "galaxy_ok": galaxy_ok}
+    ctx = {"today": today, "model": model, "provider": provider, "galaxy_ok": galaxy_ok,
+           "seed_dataset": seed_dataset}
     return "\n\n".join(b for b in (block(ctx) for block in BLOCKS) if b)

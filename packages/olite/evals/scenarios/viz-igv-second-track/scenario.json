@@ -1,0 +1,69 @@
+{
+  "name": "visualizations: a track, a genome and a locus on one saved visualization",
+  "description": "Three turns against one IGV visualization, each needing a different kind of parameter. The bed opens it and becomes the dataset it references. The gff3 is added as a track, which means writing the dataset into the parameter that takes one, not the genome parameter that also takes a dataset and accepts neither format. The genome is then switched, and its value is an entry copied whole from a remote list the plugin names, so it cannot be invented from an id. Finally a locus is set, which must not cost the tracks or the genome, because saving replaces the config rather than merging into it. Graded on what Galaxy stores, since every one of these reports success in chat whether or not it survived.",
+  "tier": 3,
+  "substrate": "live",
+  "dataset": {
+    "history": "igv tracks $run",
+    "files": [
+      {
+        "file": "tracks.bed",
+        "datatype": "bed"
+      },
+      {
+        "file": "features.gff3",
+        "datatype": "gff3"
+      }
+    ]
+  },
+  "inputs": [
+    "In my history \"igv tracks $run\", open tracks.bed in IGV and keep it so I can come back to it.",
+    "Now add features.gff3 to that same IGV visualization as a second track.",
+    "Switch that visualization to the hg38 reference genome and focus it on chr1:11,000-30,000."
+  ],
+  "timeoutMs": 480000,
+  "assertions": {
+    "events": {
+      "mustInclude": [
+        "turn_start"
+      ]
+    },
+    "messages": {
+      "repliesInChat": true
+    },
+    "toolCalls": {
+      "mustInclude": [
+        {
+          "name": "save_visualization",
+          "argsContains": {
+            "dataset_id": "$staged:tracks.bed"
+          }
+        }
+      ]
+    },
+    "artifacts": {
+      "mustInclude": [
+        {
+          "kind": "visualization"
+        }
+      ]
+    },
+    "visualization": {
+      "referencesDataset": "$staged:tracks.bed",
+      "type": [
+        "igv"
+      ],
+      "tracksDataset": [
+        "$staged:features.gff3"
+      ],
+      "settingsContain": {
+        "locus": "chr1",
+        "source.genome.id": "hg38"
+      }
+    },
+    "budget": {
+      "maxSteps": 30,
+      "maxRepeatedCall": 3
+    }
+  }
+}

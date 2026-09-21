@@ -39,3 +39,4 @@ include = ["olite*"]
 # Skills are nested corpora (skills/<repo>/<skill>/SKILL.md plus the reference and
 # example files a SKILL.md points at), so the glob has to recurse.
 "olite.registry" = ["processes/*.yml", "skills/**/*"]
+"olite.vendor" = ["*.json"]

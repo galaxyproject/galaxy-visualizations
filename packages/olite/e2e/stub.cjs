@@ -30,6 +30,15 @@ const deleteHistory = [{
     function: { name: "update_history", arguments: JSON.stringify({ history_id: "h1", deleted: true }) },
 }];
 
+const createVisualization = [{
+    id: "call_1",
+    type: "function",
+    function: {
+        name: "show_visualization",
+        arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl" }),
+    },
+}];
+
 const server = http.createServer(async (req, res) => {
     const url = req.url || "";
     if (req.method === "OPTIONS") return json(res, 204, {});
@@ -40,6 +49,12 @@ const server = http.createServer(async (req, res) => {
         rateLimited = 0;
         seen.length = 0;
         return json(res, 200, { script });
+    }
+    // Drives that assert on what the model was sent need the record to start empty;
+    // `/__script` deliberately keeps it, because a drive may switch scripts mid-turn.
+    if (url.startsWith("/__forget")) {
+        prompts.length = 0;
+        return json(res, 200, { prompts: 0 });
     }
     if (url.startsWith("/__seen")) return json(res, 200, { seen, calls, prompts });
 
@@ -59,6 +74,7 @@ const server = http.createServer(async (req, res) => {
         prompts.push({
             hasTools: Array.isArray(body.tools) && body.tools.length > 0,
             roles: (body.messages || []).map((m) => m.role),
+            toolResults: (body.messages || []).filter((m) => m.role === "tool").map((m) => String(m.content)),
             text: JSON.stringify(body.messages || []).slice(0, 4000),
         });
         // A summarization request is the one with no tools, whatever the scenario.
@@ -102,11 +118,22 @@ const server = http.createServer(async (req, res) => {
         // Keyed on the last message; by turn two the transcript always has a tool result.
         const messages = body.messages || [];
         const last = messages[messages.length - 1] || {};
+        if (script === "visualization") {
+            return json(res, 200, last.role === "tool"
+                ? message("The structure is open in the viewer.")
+                : message("", createVisualization));
+        }
         return json(res, 200, last.role === "tool" ? message("Done.") : message("", deleteHistory));
     }
 
     // Everything else is Galaxy; record it so tests can assert on the PUT.
     seen.push(`${req.method} ${url}`);
+    if (url.includes("/api/plugins")) return json(res, 200, [{ name: "ngl", settings: [], tracks: [] }]);
+    if (url.includes("/api/datatypes/")) return json(res, 200, [{ visualization: "ngl" }]);
+    if (url.includes("/api/datasets/")) {
+        return json(res, 200, { id: "d1", name: "peptide.pdb", extension: "pdb" });
+    }
+    if (url.includes("/api/visualizations")) return json(res, 200, { id: "v1" });
     if (url.includes("/api/histories")) return json(res, 200, { id: "h1", name: "stub" });
     return json(res, 200, {});
 });

@@ -20,11 +20,15 @@ export interface RecordTarget {
 
 /** Find this history's record by its deterministic slug, the way the brain does. */
 export async function findRecord(t: RecordTarget): Promise<{ id: string } | null> {
-    const res = await fetch(`${t.root}api/pages?limit=500`, { credentials: t.credentials });
+    const slug = `olite-${t.historyId}`;
+    // Narrow by slug rather than listing every page. The search matches substrings, so the
+    // exact slug is still picked out below.
+    const query = `search=${encodeURIComponent(`slug:${slug}`)}&limit=50`;
+    const res = await fetch(`${t.root}api/pages?${query}`, { credentials: t.credentials });
     if (!res.ok) return null;
     const pages = await res.json();
     if (!Array.isArray(pages)) return null;
-    return pages.find((p: any) => p && p.slug === `olite-${t.historyId}`) || null;
+    return pages.find((p: any) => p && p.slug === slug) || null;
 }
 
 /**
