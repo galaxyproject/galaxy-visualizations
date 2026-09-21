@@ -3,8 +3,8 @@
 import asyncio
 
 from olite.drivers.loop.agent import LoopDriver
-from olite.substrate import Cancellation, CapabilityManifest
-from olite.substrate.llm import Reply
+from olite.substrate import Cancellation
+from .fakes import FakeSubstrate, ScriptedLlm, call, choice, tool_messages
 
 
 class Trigger:
@@ -23,53 +23,9 @@ class Trigger:
         return self.aborted_flag
 
 
-class ScriptedLlm:
-    def __init__(self, *choices, on_call=None):
-        self.choices = list(choices)
-        self.calls = 0
-        self.on_call = on_call
-
-    async def complete(self, messages, tools=None, **kwargs):
-        self.calls += 1
-        if self.on_call:
-            self.on_call()
-        if not self.choices:
-            raise AssertionError("the loop asked for more completions than the test scripted")
-        return self.choices.pop(0)
-
-
-class Local:
-    def __init__(self):
-        self.ran = []
-
-    def run(self, code):
-        self.ran.append(code)
-        return "ran"
-
-
-class FakeSubstrate:
-    def __init__(self, llm):
-        self.llm = llm
-        self.local = Local()
-        self.galaxy = None
-        self.manifest = CapabilityManifest(["llm", "local", "read"])
-
-
-def _call(name, arguments, call_id="c1"):
-    return {"id": call_id, "function": {"name": name, "arguments": arguments}}
-
-
-def _choice(tool_calls, finish_reason="tool_calls", content=""):
-    return Reply(content=content, tool_calls=tool_calls, finish_reason=finish_reason)
-
-
 def _run(llm, cancellation=None):
     driver = LoopDriver(FakeSubstrate(llm))
     return driver, asyncio.run(driver.run([{"role": "user", "content": "go"}], None, cancellation))
-
-
-def _tool_messages(result):
-    return [m for m in result["messages"] if m.get("role") == "tool"]
 
 
 def test_an_already_aborted_run_never_calls_the_model():
@@ -79,26 +35,26 @@ def test_an_already_aborted_run_never_calls_the_model():
 
     _, result = _run(llm, trigger.cancellation)
 
-    assert llm.calls == 0
+    assert llm.calls == []
     assert result["aborted"] is True
 
 
 def test_aborting_mid_turn_stops_before_the_next_completion():
     """The turn ends at the next check point rather than running to the step cap."""
-    llm = ScriptedLlm(*[_choice([_call("run_python", '{"code": "x"}')])] * 5)
+    llm = ScriptedLlm(*[choice([call("run_python", '{"code": "x"}')])] * 5)
     trigger = Trigger()
     llm.on_call = lambda: setattr(trigger, "aborted_flag", True)
 
     _, result = _run(llm, trigger.cancellation)
 
-    assert llm.calls == 1
+    assert len(llm.calls) == 1
     assert result["aborted"] is True
 
 
 def test_every_remaining_call_in_the_batch_still_gets_a_result():
     """A tool_call with no result would make the next request malformed."""
     llm = ScriptedLlm(
-        _choice([_call("run_python", '{"code": "a"}', "c1"), _call("run_python", '{"code": "b"}', "c2")]),
+        choice([call("run_python", '{"code": "a"}', "c1"), call("run_python", '{"code": "b"}', "c2")]),
     )
     trigger = Trigger()
     llm.on_call = lambda: setattr(trigger, "aborted_flag", True)
@@ -106,10 +62,10 @@ def test_every_remaining_call_in_the_batch_still_gets_a_result():
     driver, result = _run(llm, trigger.cancellation)
 
     assert driver.substrate.local.ran == [], "a tool ran after the stop"
-    tool_messages = _tool_messages(result)
-    assert len(tool_messages) == 2
-    assert all(m["content"] == "Operation aborted" for m in tool_messages)
-    assert {m["tool_call_id"] for m in tool_messages} == {"c1", "c2"}
+    answered = tool_messages(result)
+    assert len(answered) == 2
+    assert all(m["content"] == "Operation aborted" for m in answered)
+    assert {m["tool_call_id"] for m in answered} == {"c1", "c2"}
 
 
 def test_a_provider_error_is_reported_as_an_error_unless_the_run_was_aborted():
@@ -146,7 +102,7 @@ def test_a_cancelled_request_raising_is_reported_as_a_stop():
 
 
 def test_a_normal_turn_is_not_aborted():
-    llm = ScriptedLlm(_choice([], content="done"))
+    llm = ScriptedLlm(choice([], content="done"))
     _, result = _run(llm, Trigger().cancellation)
 
     assert result["aborted"] is False

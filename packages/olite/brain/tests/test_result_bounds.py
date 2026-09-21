@@ -12,8 +12,8 @@ import json
 from olite.drivers.loop.agent import MAX_TOOL_RESULT_BYTES, LoopDriver
 from olite.drivers.loop.galaxy_tools import _get_histories, _get_tool_panel
 from olite.drivers.loop.paging import ROW_BYTES_CAP, ROW_CAP, page
-from olite.substrate import CapabilityManifest
 from olite.substrate.llm import Reply
+from .fakes import FakeSubstrate, Local, ScriptedLlm
 
 
 class FakeGalaxy:
@@ -64,30 +64,6 @@ def test_the_tool_panel_can_be_narrowed_to_one_section():
     assert [s["section"] for s in got["items"]] == ["Text Manipulation"]
 
 
-class ScriptedLlm:
-    def __init__(self, *choices):
-        self.choices = list(choices)
-
-    async def complete(self, messages, tools=None, **kwargs):
-        return self.choices.pop(0)
-
-
-class Local:
-    def __init__(self, output):
-        self.output = output
-
-    def run(self, code):
-        return self.output
-
-
-class FakeSubstrate:
-    def __init__(self, llm, output):
-        self.llm = llm
-        self.local = Local(output)
-        self.galaxy = None
-        self.manifest = CapabilityManifest(["llm", "local", "read"])
-
-
 def _run(output):
     llm = ScriptedLlm(
         Reply(content="", tool_calls=[{"id": "c1", "function": {
@@ -95,7 +71,7 @@ def _run(output):
             finish_reason="tool_calls"),
         Reply(content="done", tool_calls=[], finish_reason="stop"),
     )
-    result = asyncio.run(LoopDriver(FakeSubstrate(llm, output)).run(
+    result = asyncio.run(LoopDriver(FakeSubstrate(llm, local=Local(output))).run(
         [{"role": "user", "content": "go"}]))
     return [m for m in result["messages"] if m.get("role") == "tool"][0]
 

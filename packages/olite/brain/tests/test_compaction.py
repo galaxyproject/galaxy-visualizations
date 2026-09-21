@@ -6,6 +6,7 @@ from olite import compaction
 from olite.drivers.loop.agent import LoopDriver
 from olite.substrate import CapabilityManifest
 from olite.substrate.llm import Reply
+from .fakes import FakeSubstrate
 
 
 def _settings(**overrides):
@@ -264,19 +265,10 @@ class ScriptedLlm:
         return Reply(content="done", finish_reason="stop")
 
 
-class FakeSubstrate:
-    def __init__(self, llm, config):
-        self.llm = llm
-        self.local = None
-        self.galaxy = None
-        self.config = config
-        self.manifest = CapabilityManifest(["llm", "local", "read"])
-
-
 def test_the_loop_compacts_before_it_asks_and_the_shell_is_told():
     config = {"ai_context_window": 1000, "ai_reserve_tokens": 200, "ai_keep_recent_tokens": 200}
     llm = ScriptedLlm()
-    driver = LoopDriver(FakeSubstrate(llm, config))
+    driver = LoopDriver(FakeSubstrate(llm, config=config))
     events = []
 
     transcripts = [{"role": "system", "content": "s"}, *_long(_user, 30)]
@@ -294,7 +286,7 @@ def test_a_compacted_turn_still_reports_what_it_produced():
     """The turn reports its own messages, so compaction cannot lose them."""
     config = {"ai_context_window": 1000, "ai_reserve_tokens": 200, "ai_keep_recent_tokens": 200}
     llm = ScriptedLlm()
-    driver = LoopDriver(FakeSubstrate(llm, config))
+    driver = LoopDriver(FakeSubstrate(llm, config=config))
 
     transcripts = [{"role": "system", "content": "s"}, *_long(_user, 30)]
     result = asyncio.run(driver.run(transcripts))
@@ -307,7 +299,7 @@ def test_a_compacted_turn_still_reports_what_it_produced():
 
 def test_new_messages_holds_only_this_turn():
     llm = ScriptedLlm()
-    driver = LoopDriver(FakeSubstrate(llm, {}))
+    driver = LoopDriver(FakeSubstrate(llm, config={}))
     result = asyncio.run(driver.run([{"role": "system", "content": "s"}, _user("hi")]))
 
     assert [m["role"] for m in result["new_messages"]] == ["assistant"]
@@ -315,7 +307,7 @@ def test_new_messages_holds_only_this_turn():
 
 def test_a_normal_turn_never_pays_for_a_summarization():
     llm = ScriptedLlm()
-    driver = LoopDriver(FakeSubstrate(llm, {}))
+    driver = LoopDriver(FakeSubstrate(llm, config={}))
     asyncio.run(driver.run([{"role": "system", "content": "s"}, _user("hi")]))
 
     assert len(llm.calls) == 1
