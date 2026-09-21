@@ -223,4 +223,4 @@ def test_a_tool_search_with_no_matches_says_the_query_is_exhausted():
     out = json.loads(asyncio.run(ToolSurface(sub).dispatch("search_tools_by_name", {"query": "igv"})).text)
 
     assert out["tools"] == [] and out["query"] == "igv"
-    assert "list_visualizations" in out["hint"]
+    assert "searching again" in out["hint"]

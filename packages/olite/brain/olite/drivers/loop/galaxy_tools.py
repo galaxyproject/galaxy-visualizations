@@ -219,8 +219,7 @@ def _no_tool_matched(query):
         "query": query,
         "tools": [],
         "hint": "No installed Galaxy tool matches this text. A near-identical query returns the "
-                "same empty answer, so change the term or the route rather than searching again. "
-                "Displaying a dataset is a visualization: list_visualizations answers that.",
+                "same empty answer, so change the term or the route rather than searching again.",
     }
 
 
