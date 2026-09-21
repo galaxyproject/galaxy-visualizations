@@ -20,11 +20,15 @@ LLM_CONTEXT_WINDOW=40000 node e2e/confirm-drive.cjs   # non-zero if a check fail
 node e2e/session-drive.cjs
 node e2e/catalog-refusal-drive.cjs
 node e2e/ratelimit-drive.cjs
+node e2e/visualization-artifact-drive.cjs
 ```
 
-`LLM_PROVIDER` is required; without it vite refuses to configure and every driver fails at
-"brain reports ready". It also skips the credentials modal, which would otherwise block
-startup, and routes the brain through vite's `/llm` proxy so the key stays out of page JS.
+`bash e2e/run-all.sh` runs both tiers. `live-workflow-drive.cjs` and
+`live-visualization-drive.cjs` need a real Galaxy and model and are opt-in; each says what
+it needs at the top.
+
+`LLM_PROVIDER` skips the credentials modal, which would otherwise block startup, and routes
+the brain through vite's `/llm` proxy.
 
 `LLM_KEEP_RECENT_TOKENS` must be small enough that the short test transcript has something
 older than the kept tail; at 500 the brain correctly reports "nothing older to summarize"

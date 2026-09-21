@@ -25,10 +25,9 @@ a behavioural failure.
 
 ## How it runs
 
-loom spawns `loom --mode json` and parses its event stream. olite needs no
-subprocess: the brain is a Python package, so `lib/harness.py` assembles the same
-pieces `runtime.run` assembles and awaits the driver in-process — faster, no browser,
-and the whole transcript is in hand.
+loom spawns `loom --mode json` and parses its event stream. OLite needs no
+subprocess: the brain is a Python package, so `lib/harness.py` runs turns on the same
+`Session` the shell does, in-process, with the whole transcript in hand.
 
 **Galaxy is stubbed; the LLM is real.** Most scenarios grade planning behaviour, and
 a live Galaxy would add a second source of failure without adding signal. The stub
@@ -46,7 +45,7 @@ model that sums the preview rather than reading the file answers 58800 instead o
 
 **A scenario sets its own tool surface.** A scenario shared with loom carries loom's
 `--tools` restriction and is run under the matching capability manifest, so both suites
-put the same tools in front of the model; scenarios without one get the full 46-tool
+put the same tools in front of the model; scenarios without one get the full tool
 surface this plugin ships with. This was previously fixed at the full surface on the
 argument that trimming measures a condition olite never runs in — true of production,
 but loom does not run trimmed in production either, so a fixed surface on one side and a
@@ -60,12 +59,9 @@ failed**, so a local run works without every credential. Every entry is
 OpenAI-compatible, which is also how olite reaches Galaxy's chat proxy in production,
 so adding a provider is a JSON entry and no code change.
 
-| id | needs |
-|---|---|
-| `gemini-3.7-flash` | `GEMINI_KEY` (free tier is enough) |
-| `gemini-3.1-flash-lite` | `GEMINI_KEY` |
-| `deepseek-v4-flash` | `DEEPSEEK_KEY` |
-| `local-llama` | `LOCAL_LLM_URL` (+ optional `LOCAL_LLM_KEY`) |
+`models.json` lists every entry; each names its provider and the environment variable its
+key comes from. The `or-*` entries reach several vendors through OpenRouter on one key, the
+`or-free-*` ones need no credits, and `js2-*` runs on Jetstream2 for ACCESS accounts.
 
 Keys come from the environment. Note `~/.zshrc` is not read by non-interactive
 shells — `source ~/.zshrc` first, or put the export in `~/.zshenv`.
