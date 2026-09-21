@@ -790,6 +790,34 @@ def _track_dataset(track):
     return value
 
 
+# galaxy-charts stores these as a bare value; only data/data_table/data_json take an entry.
+SCALAR_INPUT_TYPES = {"boolean", "color", "text", "textarea", "integer", "float", "select",
+                      "data_column"}
+
+
+def _object_valued_scalars(galaxy, detail):
+    """Parameters the plugin declares as scalars but whose stored value is an entry.
+
+    Read from the plugin declaration rather than olite's own contract, so a hole in the
+    tool's validation cannot hide behind the same hole here.
+    """
+    config = (detail.get("latest_revision") or {}).get("config") or {}
+    plugin = galaxy.call(f"api/plugins/{detail.get('type')}") or {}
+    declared = {}
+    for group in ("settings", "tracks"):
+        for param in plugin.get(group) or []:
+            if isinstance(param, dict) and param.get("name"):
+                declared[param["name"]] = param.get("type")
+
+    entries = [config.get("settings") or {}, *(config.get("tracks") or [])]
+    return [
+        f"{key}={value!r}"
+        for entry in entries if isinstance(entry, dict)
+        for key, value in entry.items()
+        if declared.get(key) in SCALAR_INPUT_TYPES and isinstance(value, (dict, list))
+    ]
+
+
 def _visualization(spec, run, failures, exercised):
     """Did a saved visualization land in Galaxy, pointing at the intended dataset.
 
@@ -856,6 +884,17 @@ def _visualization(spec, run, failures, exercised):
                 "visualization.settingsContain",
                 f"no saved visualization has settings.{path} containing {wanted!r}; "
                 f"found {sorted(seen) or 'nothing'}", "behavior"))
+
+    # A plugin reads a bare value; an entry stored in its place renders an empty chart while
+    # the agent reports success, so the chat and the pane both look right.
+    if spec.get("scalarValues"):
+        for v in matching:
+            wrong = _object_valued_scalars(galaxy, v)
+            if wrong:
+                failures.append(Failure(
+                    "visualization.scalarValues",
+                    f"saved config stores an entry where the plugin declares a scalar: "
+                    f"{', '.join(wrong)}", "behavior"))
 
     # Adding a track means the saved config gained a dataset, which no assertion about the
     # chat or the pane can see: the agent reports success either way.

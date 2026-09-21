@@ -6,6 +6,8 @@ import sys
 import tempfile
 from urllib.parse import urlencode
 
+import jsonschema
+
 from olite import vendor
 from olite.substrate.http import http
 
@@ -991,14 +993,37 @@ def _check_level(entry, declared, types, where):
             if nested:
                 return nested
             continue
-        spec = (types.get(param.get("type")) or {}).get("stores") or {}
-        if spec.get("type") == "object" and value is not None and not isinstance(value, dict):
-            return {"error": f"Refused: {param['name']!r} takes the whole entry it was chosen "
-                             f"from, not {value!r}.",
-                    "expected": spec,
-                    "hint": "Call get_visualization_options with `search` and pass the value it "
-                            "returns through unchanged."}
+        bad = _wrong_shape(param["name"], value, (types.get(param.get("type")) or {}).get("stores"))
+        if bad:
+            return bad
     return None
+
+
+def _wrong_shape(name, value, spec):
+    """The value against the schema galaxy-charts publishes for the input's type.
+
+    Checked both ways: an id where the entry belongs, and an entry where the value does.
+    Galaxy type-checks neither, so the plugin is left reading a shape it cannot use.
+    """
+    if not spec or value is None:
+        return None
+    try:
+        jsonschema.validate(value, spec)
+        return None
+    except jsonschema.ValidationError as exc:
+        wanted = spec.get("type")
+        if wanted == "object":
+            error = f"Refused: {name!r} takes the whole entry it was chosen from, not {value!r}."
+        elif isinstance(value, (dict, list)):
+            error = f"Refused: {name!r} stores {wanted}, not the entry it was chosen from."
+        else:
+            error = f"Refused: {name!r} stores {wanted}: {exc.message}"
+    return {
+        "error": error,
+        "expected": spec,
+        "hint": "Call get_visualization_options with `search`: it returns the value to store, "
+                "whole for an input that takes an entry and bare for one that takes a string.",
+    }
 
 
 def _reject_undeclared(plugin, a):
