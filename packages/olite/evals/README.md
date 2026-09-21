@@ -23,6 +23,22 @@ counted in its own column, **not graded, and does not fail the suite** — an ex
 account is a fact about the key, not about the agent, and must never be readable as
 a behavioural failure.
 
+## What the run needs
+
+`run.py` exits without running unless `GALAXY_URL` and `GALAXY_API_KEY` name a Galaxy it
+can stage histories in.
+
+```bash
+export GALAXY_URL=http://localhost:8080
+export GALAXY_API_KEY=...          # User > Preferences > Manage API Key
+```
+
+A tool-test scenario grades the output against the tool test's own expectation. Galaxy
+serves a test's **inputs** through `test_data_download` but answers 404 for its expected
+**outputs**, so those live in `fixtures/tool-tests/`, committed, and a run needs nothing
+else. `GALAXY_TEST_DATA` still names a galaxy-test-data clone and is searched after the
+vendored copy, for an expectation that is not worth committing.
+
 ## How it runs
 
 loom spawns `loom --mode json` and parses its event stream. OLite needs no

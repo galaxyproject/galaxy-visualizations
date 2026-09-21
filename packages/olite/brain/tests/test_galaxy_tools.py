@@ -68,7 +68,7 @@ def test_get_histories_hits_the_right_endpoint():
 
 
 def test_run_tool_posts_to_api_tools_and_needs_write():
-    # read-only: run_tool routes to GalaxyHttp.post -> require('write') -> raises -> caught.
+    # read-only: the dispatcher refuses by declaration, so no request is built at all.
     sub = FakeSubstrate(("read",))
     out = asyncio.run(ToolSurface(sub).dispatch("run_tool", {"history_id": "h", "tool_id": "cat1", "inputs": {}})).text
     assert "not granted" in out
@@ -186,3 +186,41 @@ def test_invoke_workflow_passes_parameters_normalized_through():
     asyncio.run(galaxy_tools.get_handler("invoke_workflow")(
         galaxy, {"workflow_id": "w1", "inputs": {}, "parameters_normalized": True}))
     assert galaxy.body["parameters_normalized"] is True
+
+
+def test_a_tool_the_manifest_hides_is_refused_by_name_not_run_headless():
+    """Handlers answer to any name, so hiding a tool has to refuse it, not just unlist it.
+
+    A read-only session was still dispatching save_visualization, whose handler reads
+    a["visualization"] and raised a bare KeyError the model could only guess at.
+    """
+    sub = FakeSubstrate(("read",))
+    out = asyncio.run(ToolSurface(sub).dispatch("save_visualization", {}))
+
+    assert "save_visualization" not in _names(ToolSurface(sub))
+    assert out.refused and "'write' capability" in out.content
+    assert sub.galaxy.calls == []
+
+
+def test_a_granted_tool_still_reports_the_parameters_it_was_not_given():
+    sub = FakeSubstrate(("read", "write"))
+    out = asyncio.run(ToolSurface(sub).dispatch("save_visualization", {"dataset_id": "d1"}))
+
+    assert "missing required parameter(s): visualization" in out.content
+    assert sub.galaxy.calls == []
+
+
+def test_a_tool_search_with_no_matches_says_the_query_is_exhausted():
+    """An empty list is an answer, and the model answered it by searching again."""
+    class EmptyGalaxy(FakeGalaxy):
+        async def get(self, path):
+            self.manifest.require("read")
+            self.calls.append(("GET", path))
+            return []
+
+    sub = FakeSubstrate(("read",))
+    sub.galaxy = EmptyGalaxy(sub.manifest)
+    out = json.loads(asyncio.run(ToolSurface(sub).dispatch("search_tools_by_name", {"query": "igv"})).text)
+
+    assert out["tools"] == [] and out["query"] == "igv"
+    assert "searching again" in out["hint"]

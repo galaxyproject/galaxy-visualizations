@@ -213,8 +213,18 @@ async def _run_tool(g, a):
         raise ToolParameterError(str(exc), template) from exc
 
 
+def _no_tool_matched(query):
+    # An empty list reads as an answer, so the same search comes back; say it is exhausted.
+    return {
+        "query": query,
+        "tools": [],
+        "hint": "No installed Galaxy tool matches this text. A near-identical query returns the "
+                "same empty answer, so change the term or the route rather than searching again.",
+    }
+
+
 async def _search_tools_by_name(g, a):
-    return await g.get(f"api/tools{_q({'q': a['query']})}")
+    return await g.get(f"api/tools{_q({'q': a['query']})}") or _no_tool_matched(a["query"])
 
 
 async def _get_tool_details(g, a):
@@ -310,7 +320,8 @@ async def _update_history(g, a):
 
 
 async def _search_tools_by_keywords(g, a):
-    return await g.get(f"api/tools{_q({'q': ' '.join(a.get('keywords') or [])})}")
+    query = " ".join(a.get("keywords") or [])
+    return await g.get(f"api/tools{_q({'q': query})}") or _no_tool_matched(query)
 
 
 PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
@@ -1359,6 +1370,11 @@ _tool("import_workflow_from_iwc", "write", "Import an IWC workflow into Galaxy b
 def tool_schemas(manifest):
     """Advertised tool schemas, filtered to the capabilities the manifest grants."""
     return [t["schema"] for t in TOOLS if manifest.allows(t["capability"])]
+
+
+def declared(name):
+    """One tool's declaration, whether or not a manifest would advertise it."""
+    return next((t for t in TOOLS if t["name"] == name), None)
 
 
 def get_handler(name):

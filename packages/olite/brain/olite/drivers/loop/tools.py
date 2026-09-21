@@ -171,9 +171,21 @@ class ToolSurface:
             tools.extend(_process_tool_schemas(self.processes, self.substrate.manifest))
         return tools
 
-    def _missing_required(self, name, args):
+    def _declaration(self, name):
+        """A tool's schema and the capability it needs, advertised to this session or not.
+
+        Handlers are reachable by name whatever the manifest grants, so a tool kept out of
+        the tool list still runs, and only the declaration says what it needed.
+        """
+        tool = galaxy_tools.declared(name)
+        if tool:
+            return tool["schema"], tool["capability"]
+        if notebook.get_handler(name):
+            return notebook.NOTEBOOK_RESUME, notebook.CAPABILITY
+        return next((t for t in self.schemas() if t["function"]["name"] == name), None), None
+
+    def _missing_required(self, schema, args):
         """Required parameters the call left out; presence only, not types."""
-        schema = next((t for t in self.schemas() if t["function"]["name"] == name), None)
         if schema is None:
             return []  # unknown name: not ours to validate, and it may still fold
         required = schema["function"].get("parameters", {}).get("required") or []
@@ -187,7 +199,15 @@ class ToolSurface:
             logger.info("  -> breaking a loop of identical failing calls")
             self._last_failure = None  # a speed bump, not a ban
             return ToolOutcome(repeated, is_error=True, refused=True)
-        missing = self._missing_required(name, args)
+        schema, capability = self._declaration(name)
+        if capability and not self.substrate.manifest.allows(capability):
+            logger.info("  -> %s needs the %s capability, which this session lacks", name, capability)
+            return ToolOutcome(
+                f"Refused: '{name}' needs the '{capability}' capability, which is not granted in "
+                f"this session. Tell the user, and stay within the tools you are offered.",
+                is_error=True, refused=True,
+            )
+        missing = self._missing_required(schema, args)
         if missing:
             logger.info("  -> missing required %s", missing)
             return ToolOutcome(

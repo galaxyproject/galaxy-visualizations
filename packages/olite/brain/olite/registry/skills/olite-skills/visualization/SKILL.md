@@ -1,7 +1,7 @@
 ---
 name: visualization
 description: Chart a dataset, either inline through vintent_dataset or as a saved Galaxy visualization.
-when_to_use: the user asks to visualize, chart, plot or graph a dataset, or asks what a dataset can be displayed with
+when_to_use: the user asks to visualize, chart, plot or graph a dataset, asks what a dataset can be displayed with, asks to open a dataset in a named viewer, or asks to change a visualization or add a track to one
 metadata:
   surfaces: [loom]
 ---
