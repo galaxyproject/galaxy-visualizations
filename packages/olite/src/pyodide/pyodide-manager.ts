@@ -57,7 +57,7 @@ export class PyodideManager {
                 if (id && this.pending.has(id)) {
                     const entry = this.pending.get(id)!;
                     this.pending.delete(id);
-                    error ? entry.reject(error) : entry.resolve(result);
+                    error ? entry.reject(new Error(String(error))) : entry.resolve(result);
                 }
             };
             this.worker.onerror = (e) => {
@@ -77,7 +77,7 @@ export class PyodideManager {
 
     private call(type: string, payload?: any): Promise<any> {
         if (this.destroyed) {
-            return Promise.reject("Pyodide destroyed");
+            return Promise.reject(new Error("Pyodide destroyed"));
         } else {
             return new Promise((resolve, reject) => {
                 const id = crypto.randomUUID();
