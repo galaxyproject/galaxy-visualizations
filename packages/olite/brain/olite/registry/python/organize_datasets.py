@@ -125,6 +125,11 @@ def summarize_state(state):
 organize_datasets.summarize = summarize_state
 organize_datasets.capabilities = ["read", "write"]
 organize_datasets.inputs_help = {
+    "datatype": (
+        "Galaxy's datatype for these files, e.g. 'fastqsanger.gz'. A compressed file keeps "
+        "the compression in its datatype, so gzipped reads are 'fastqsanger.gz' and never "
+        "'fastqsanger'; setting the uncompressed name is refused."
+    ),
     "sample_regex": (
         "Optional regex over each archive path naming a `sample` group and an optional "
         "`mate` group, e.g. '(?P<sample>[^/]+)/part(?P<mate>[12])'. Use it when the file "
