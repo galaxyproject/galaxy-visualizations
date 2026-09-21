@@ -575,6 +575,8 @@ async def _invoke_workflow(g, a):
     body = {"inputs": a.get("inputs") or {}, "inputs_by": a.get("inputs_by", "step_index")}
     if a.get("params"):
         body["parameters"] = a["params"]
+    if a.get("parameters_normalized"):
+        body["parameters_normalized"] = True
     if a.get("history_id"):
         body["history_id"] = a["history_id"]
     elif a.get("history_name"):
@@ -1181,7 +1183,9 @@ _tool("upload_file", "write",
       ["path"], _upload_file)
 _tool("list_workflows", "read", "List stored workflows; optional name/tag/id filter, published flag, "
       "limit/offset paging.",
-      {"workflow_id": _STR, "name": _STR, "published": _BOOL, "limit": _INT, "offset": _INT},
+      {"workflow_id": _STR, "name": _STR, "published": _BOOL,
+       "limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
+       "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."}},
       [], _list_workflows)
 _tool("get_workflow_details", "read", "Get a stored workflow's details.",
       {"workflow_id": _STR, "version": _INT}, ["workflow_id"], _get_workflow_details)
@@ -1190,7 +1194,8 @@ _tool("get_workflow_input_template", "read", "Get a workflow's run-form input te
 _tool("invoke_workflow", "write", "Run a workflow. inputs maps input steps to datasets ({id, src}); "
       "give history_id or history_name for the output history.",
       {"workflow_id": _STR, "inputs": {"type": "object"}, "params": {"type": "object"},
-       "history_id": _STR, "history_name": _STR, "inputs_by": _STR}, ["workflow_id"], _invoke_workflow)
+       "history_id": _STR, "history_name": _STR, "inputs_by": _STR,
+       "parameters_normalized": _BOOL}, ["workflow_id"], _invoke_workflow)
 _tool("cancel_workflow_invocation", "write", "Cancel a running workflow invocation.",
       {"invocation_id": _STR}, ["invocation_id"], _cancel_workflow_invocation)
 _tool("get_invocations", "read", "List workflow invocations, or one by id.",
@@ -1242,8 +1247,11 @@ _tool("update_page", "write",
       "Update a page. Give `section_heading` and `section_content` to replace one section, "
       "or `content` to replace the body. Pass `expect_hash` from when you read the page and "
       "the write is refused if someone edited it since.",
-      {"page_id": _STR, "content": _STR, "title": _STR, "section_heading": _STR,
-       "section_content": _STR, "expect_hash": _STR}, ["page_id"], _update_page)
+      {"page_id": _STR, "content": _STR, "title": _STR,
+       "section_heading": {"type": "string", "description": "The exact heading line of the section to replace."},
+       "section_content": {"type": "string", "description": "The section's new text, heading line included."},
+       "expect_hash": {"type": "string", "description": "content_hash from when the page was read; the write is refused if it changed."}},
+      ["page_id"], _update_page)
 _tool("list_page_revisions", "read", "List a page's edit revisions.",
       {"page_id": _STR, "sort_desc": _BOOL}, ["page_id"], _list_page_revisions)
 _tool("get_page_revision", "read", "Get one page revision.",

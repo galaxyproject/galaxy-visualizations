@@ -38,11 +38,11 @@ server-side fetch runs at datacenter bandwidth.
 
 - **Preferred:** `upload_file_from_url({ url, history_id })` (optional `file_name`,
   `file_type`, `dbkey`). One hop, no local copy.
-- **There is no local-upload path here.** `upload_file` is unavailable in the
-  browser; if the user has a file only on their machine, say so and ask them to
-  upload it through the Galaxy UI, then continue from the history."""
+- **There is no path from the user's disk.** `upload_file` reads only the browser
+  filesystem `run_python` writes to; if the user has a file only on their machine,
+  ask them to upload it through the Galaxy UI, then continue from the history."""
 
-# loom: buildGalaxyContextBlock(), "Invoking a Galaxy workflow". Ported as-is apart
+# loom: buildGalaxyContextBlock(), "Invoking a Galaxy workflow".
 INVOKING_WORKFLOW = """### Invoking a Galaxy workflow
 
 Call `get_workflow_input_template` before `invoke_workflow`. Take the
@@ -62,7 +62,7 @@ keep its keys, replace every placeholder (`<value>`, `<dataset_id>`,
   label, index, or uuid won't fix that -- the key was never the problem. Put the
   value in `inputs`."""
 
-# loom: buildGalaxyContextBlock(), "Executing a Galaxy step". Held out until olite
+# loom: buildGalaxyContextBlock(), "Executing a Galaxy step".
 EXECUTING_A_STEP = """### Executing a Galaxy step
 
 **Galaxy work runs in the background -- submit and hand control back to the user.**
@@ -226,7 +226,7 @@ and say exactly what is unverified. Do **not** say "done" or "complete" for that
 artifact. Say "created but not verified" and ask for the missing input or approval
 to change scope."""
 
-# loom: buildPlanConventionBlock(). Three adaptations, all forced by what olite has:
+# loom: buildPlanConventionBlock(), adapted to the controls this build has.
 PLAN_CONVENTION = """## Plans and the approval gate
 
 A plan is drafted in the conversation and, once approved, written into the record
@@ -336,7 +336,7 @@ Default = full set.
 After each edit batch, re-show the table with the modified values in **bold** so the
 user can confirm they took."""
 
-# loom: buildChatFormattingBlock(). The "notebook is the durable progress record"
+# loom: buildChatFormattingBlock(), the record wording retargeted to the page.
 CHAT_FORMATTING = """## Chat formatting
 
 Chat is rendered as markdown. Tokens stream live, so adjacent bold/italic markers
