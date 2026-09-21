@@ -42,9 +42,10 @@ OVERSIZED_RESULT_ERROR = (
 
 
 class LoopDriver:
-    def __init__(self, substrate, processes=None, skills=None, confirmation=None):
+    def __init__(self, substrate, processes=None, skills=None):
         self.substrate = substrate
-        self.tools = ToolSurface(substrate, processes, skills, confirmation)
+        self.processes = processes
+        self.skills = skills
         self.compaction = compaction.Settings(
             getattr(substrate, "config", None), getattr(substrate.llm, "target", None)
         )
@@ -53,7 +54,9 @@ class LoopDriver:
         config = getattr(substrate, "config", None) or {}
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
 
-    async def run(self, transcripts, on_event=None, cancellation=None):
+    async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None):
+        # One surface per turn: its artifacts, repeat guard and approval bridge are the turn's.
+        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation)
         messages = [dict(m) for m in transcripts]
         # This run's output, kept apart from the transcript that compaction rewrites.
         produced = []
@@ -90,7 +93,7 @@ class LoopDriver:
             try:
                 reply = await self.substrate.llm.complete(
                     messages,
-                    tools=self.tools.schemas(),
+                    tools=tools.schemas(),
                     cancellation=cancellation,
                     on_retry=lambda info: _emit(on_event, {"type": "llm_retry", **info}),
                 )
@@ -172,7 +175,7 @@ class LoopDriver:
                     content, is_error = refusal, True
                 else:
                     logs.append(f"call {name}({brief(args)})")
-                    outcome = await self.tools.dispatch(name, args)
+                    outcome = await tools.dispatch(name, args)
                     logs.append(f"  -> {brief(outcome.content)}")
                     content, is_error = outcome.text, outcome.is_error
                     gated = outcome.refused
@@ -216,7 +219,7 @@ class LoopDriver:
             "done": ended == FINISHED,
             "aborted": ended == ABORTED,
             "exhausted": ended == EXHAUSTED,
-            "artifacts": self.tools.artifacts,
+            "artifacts": tools.artifacts,
             "usage": usage,
             "steps": steps,
             "max_steps": self.max_steps,

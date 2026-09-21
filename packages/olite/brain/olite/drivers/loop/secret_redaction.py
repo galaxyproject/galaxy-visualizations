@@ -18,7 +18,7 @@ SECRET_CONFIG_KEYS = ("ai_api_key", "galaxy_key")
 def collect_secret_values(config):
     """The concrete strings to scrub. Pure: the config is passed in."""
     out = set()
-    if not isinstance(config, dict):
+    if config is None:
         return []
     for name in SECRET_CONFIG_KEYS:
         value = config.get(name)

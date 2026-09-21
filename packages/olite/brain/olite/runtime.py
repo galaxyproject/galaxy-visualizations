@@ -13,35 +13,66 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def run(config, inputs, on_event=None):
-    config = config_module.parse(config)
-    substrate = await Substrate(config).init()
-    processes = ProcessRegistry().load_packaged()
-    skills = SkillRegistry().load_packaged()
-    driver = LoopDriver(substrate, processes, skills, confirm.from_js())
-    # The shell seeds the identity prompt; the brain appends discipline and the router.
-    target = substrate.llm.target
-    context = "\n\n".join(
-        t
-        for t in (
+class Session:
+    """Everything a turn runs against, built once per worker and reused across turns."""
+
+    def __init__(self, config):
+        self.config = config
+        self.substrate = Substrate(config)
+        self.processes = ProcessRegistry().load_packaged()
+        self.skills = SkillRegistry().load_packaged()
+        self.driver = LoopDriver(self.substrate, self.processes, self.skills)
+
+    async def init(self):
+        await self.substrate.init()
+        return self
+
+    def context(self):
+        """The brain's own system text: discipline, Galaxy guidance and the skills router."""
+        target = self.substrate.llm.target
+        blocks = (
             prompt.system_text(
                 model=target.model.id,
                 provider=target.provider.id,
-                # loom gates its Galaxy guidance on a live connection.
-                galaxy_ok=bool(substrate.catalog.status().get("op_count")),
-                seed_dataset=config.get("dataset_id"),
+                galaxy_ok=bool(self.substrate.catalog.status().get("op_count")),
+                seed_dataset=self.config.get("dataset_id"),
             ),
-            skills.router_text(),
+            self.skills.router_text(),
         )
-        if t
-    )
-    transcripts = _inject_context(inputs["transcripts"], context)
-    # loom keeps the record out of the cached prefix; it changes every time the agent writes.
-    transcripts = _inject_record(
-        transcripts, await notebook.excerpt(substrate.galaxy, config.get("history_id"))
-    )
+        return "\n\n".join(t for t in blocks if t)
+
+    async def prepare(self, transcripts, history_id):
+        """The transcript with the context block set and the record excerpt refreshed."""
+        transcripts = _inject_context(transcripts, self.context())
+        excerpt = await notebook.excerpt(self.substrate.galaxy, history_id)
+        return _inject_record(transcripts, excerpt)
+
+    async def turn(self, transcripts, on_event=None, cancellation=None, confirmation=None):
+        return await self.driver.run(transcripts, on_event, cancellation, confirmation)
+
+    def diagnostics(self):
+        return {
+            "catalog": self.substrate.catalog.status(),
+            "capabilities": self.substrate.manifest.to_list(),
+        }
+
+
+_session = None
+
+
+async def _session_for(config):
+    """The worker's session, rebuilt only when the config it was built from changes."""
+    global _session
+    if _session is None or _session.config != config:
+        _session = await Session(config).init()
+    return _session
+
+
+async def run(config, inputs, on_event=None):
+    session = await _session_for(config_module.parse(config))
+    transcripts = await session.prepare(inputs["transcripts"], session.config.get("history_id"))
     try:
-        result = await driver.run(transcripts, on_event, cancellation.from_js())
+        result = await session.turn(transcripts, on_event, cancellation.from_js(), confirm.from_js())
     except Exception as e:
         # A failed turn is a result, not a crash.
         logger.exception("turn failed")
@@ -51,11 +82,7 @@ async def run(config, inputs, on_event=None):
             "new_messages": [],
             "error": {"message": str(e), "status_code": getattr(e, "status_code", None)},
         }
-    # Diagnostics for the shell to surface.
-    result["diagnostics"] = {
-        "catalog": substrate.catalog.status(),
-        "capabilities": substrate.manifest.to_list(),
-    }
+    result["diagnostics"] = session.diagnostics()
     return result
 
 
