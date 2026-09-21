@@ -93,15 +93,16 @@ class Resolver:
             return
 
         for dest, src in emit.items():
-            # Strip "state." prefix if present
             key = dest[6:] if dest.startswith("state.") else dest
-
-            if isinstance(src, dict):
-                # Resolve template expressions
+            if isinstance(src, dict) and "$append" in src:
+                appended = src["$append"]
+                value = payload.get("result") if appended == "result" else self.resolve(appended, ctx)
+                self.state.setdefault(key, [])
+                if isinstance(self.state[key], list):
+                    self.state[key].append(value)
+            elif isinstance(src, dict):
                 self.state[key] = self.resolve(src, ctx)
             elif isinstance(src, str):
-                # Direct field reference from payload
                 self.state[key] = payload.get(src)
             else:
-                # Literal value
                 self.state[key] = src

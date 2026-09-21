@@ -1,5 +1,7 @@
 /** Session persistence: pi keeps session.jsonl per analysis directory; the browser gets IndexedDB. */
 
+import type { Message } from "./pyodide-runner";
+
 const DB_NAME = "olite";
 const STORE_NAME = "sessions";
 const VERSION = 1;
@@ -80,7 +82,7 @@ export class SessionMemory {
         return `session:${this.userId || "anon"}:${this.historyId}`;
     }
 
-    async load(): Promise<any[] | null> {
+    async load(): Promise<Message[] | null> {
         if (!this.enabled) {
             return null;
         }
@@ -93,7 +95,7 @@ export class SessionMemory {
     }
 
     /** Persisting must never break a turn, so a failed write is dropped rather than raised. */
-    async save(messages: any[]): Promise<void> {
+    async save(messages: Message[]): Promise<void> {
         if (!this.enabled || !hasConversation(messages)) {
             return;
         }
@@ -116,11 +118,11 @@ export class SessionMemory {
     }
 }
 
-function isMessage(m: unknown): boolean {
-    return Boolean(m && typeof m === "object" && typeof (m as any).role === "string");
+function isMessage(m: unknown): m is Message {
+    return Boolean(m && typeof m === "object" && typeof (m as Message).role === "string");
 }
 
 /** A seeded system prompt on its own is not a conversation worth resuming. */
-function hasConversation(messages: any[]): boolean {
+function hasConversation(messages: Message[]): boolean {
     return Array.isArray(messages) && messages.some((m) => isMessage(m) && m.role !== "system");
 }

@@ -105,8 +105,8 @@ class LoopHandler:
 
             if iteration_result.get("ok"):
                 results.append(iteration_result.get("result"))
-                # Apply emit for this iteration
-                self._apply_loop_emit(emit_spec, iteration_result, ctx, runner)
+                ctx["result"] = iteration_result.get("result")
+                runner.resolver.apply_emit(emit_spec, iteration_result, ctx)
             else:
                 errors.append(
                     {"index": index, "item": item, "error": iteration_result.get("error")}
@@ -149,8 +149,8 @@ class LoopHandler:
                 if delay > 0 and index > 0:
                     await asyncio.sleep(delay)
 
-                # Create isolated context for this iteration
                 iter_ctx: Context = {
+                    **ctx,
                     "loop": {
                         as_var: item,
                         "index": index,
@@ -202,9 +202,9 @@ class LoopHandler:
 
             if iteration_result.get("ok"):
                 results.append(iteration_result.get("result"))
-                # Apply emit using the iteration's context
                 ctx["loop"] = iter_ctx["loop"]
-                self._apply_loop_emit(emit_spec, iteration_result, ctx, runner)
+                ctx["result"] = iteration_result.get("result")
+                runner.resolver.apply_emit(emit_spec, iteration_result, ctx)
             else:
                 errors.append(
                     {"index": index, "item": item, "error": iteration_result.get("error")}
@@ -291,42 +291,3 @@ class LoopHandler:
                 "ok": False,
                 "error": {"code": ErrorCode.UNKNOWN_EXECUTOR_OP, "message": str(op)},
             }
-
-    def _apply_loop_emit(
-        self,
-        emit_spec: dict[str, Any],
-        iteration_result: dict[str, Any],
-        ctx: Context,
-        runner: Any,
-    ) -> None:
-        """Apply emit rules for a single loop iteration."""
-        if not emit_spec:
-            return
-
-        # Make iteration result available in context for template resolution
-        ctx["result"] = iteration_result.get("result")
-
-        for dest, src in emit_spec.items():
-            key = dest[6:] if dest.startswith("state.") else dest
-
-            # Handle $append directive - append to existing array
-            if isinstance(src, dict) and "$append" in src:
-                append_src = src["$append"]
-                if append_src == "result":
-                    value = iteration_result.get("result")
-                else:
-                    value = runner.resolver.resolve(append_src, ctx)
-
-                # Initialize array if needed
-                if key not in runner.state:
-                    runner.state[key] = []
-                if isinstance(runner.state[key], list):
-                    runner.state[key].append(value)
-            else:
-                # Normal emit behavior - this overwrites each iteration
-                if isinstance(src, dict):
-                    runner.state[key] = runner.resolver.resolve(src, ctx)
-                elif isinstance(src, str):
-                    runner.state[key] = iteration_result.get(src)
-                else:
-                    runner.state[key] = src

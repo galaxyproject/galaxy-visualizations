@@ -1,5 +1,7 @@
 import PYODIDE_REQUIREMENTS from "../../pyodide.requirements.txt?raw";
 
+import type { LoopEvent } from "../pyodide-runner";
+
 export interface LlmAuth {
     baseUrl: string;
     apiKey?: string;
@@ -14,7 +16,7 @@ export interface PyodideManagerOptions {
 
 export class PyodideManager {
     // Set per run to receive live progress events forwarded from the worker.
-    onEvent?: (event: any) => void;
+    onEvent?: (event: LoopEvent) => void;
     // Set per run to answer an approval; the turn is parked until it is answered.
     onConfirm?: (confirmId: string, request: any) => void;
     private destroyed: boolean;

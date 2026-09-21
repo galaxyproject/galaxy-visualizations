@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, Any
 
 import jsonschema
 
+from olite.substrate.llm.json_parse import loads_with_repair
+
+from ..builders import get_builder, is_build_spec
 from ..constants import PLANNER_MAX_ATTEMPTS, ErrorCode
 from ..types import Context, NodeDefinition, Result
 
@@ -25,60 +28,37 @@ def build_route_schema(routes: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-class PlannerOutputShim:
-    """Parses and validates planner JSON output; the runner owns control flow."""
-
-    def validate(
-        self,
-        raw_response: str,
-        schema: dict[str, Any],
-    ) -> Result:
-        """Parse JSON and validate against schema."""
-        # Step 1: Parse JSON
-        try:
-            data = json.loads(raw_response)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse planner JSON output: {e}")
-            return {
-                "ok": False,
-                "error": {
-                    "code": ErrorCode.PLANNER_INVALID_JSON,
-                    "message": f"Failed to parse JSON: {e.msg}",
-                    "details": {
-                        "position": e.pos,
-                        "raw_truncated": raw_response[:200],
-                    },
-                },
-            }
-
-        # Step 2: Validate against schema
-        try:
-            jsonschema.validate(data, schema)
-        except jsonschema.ValidationError as e:
-            logger.error(f"Planner output failed schema validation: {e.message}")
-            return {
-                "ok": False,
-                "error": {
-                    "code": ErrorCode.PLANNER_SCHEMA_VALIDATION_FAILED,
-                    "message": f"Schema validation failed: {e.message}",
-                    "details": {
-                        "path": list(e.path),
-                        "schema_path": list(e.schema_path),
-                        "value": e.instance,
-                    },
-                },
-            }
-
-        # Step 3: Return validated data
-        logger.debug("Planner output validated successfully")
-        return {"ok": True, "result": data}
+def validate_output(raw_response: str, schema: dict[str, Any]) -> Result:
+    """Parse the planner's JSON and validate it against the schema."""
+    try:
+        data = loads_with_repair(raw_response)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse planner JSON output: {e}")
+        return {
+            "ok": False,
+            "error": {
+                "code": ErrorCode.PLANNER_INVALID_JSON,
+                "message": f"Failed to parse JSON: {e.msg}",
+                "details": {"position": e.pos, "raw_truncated": raw_response[:200]},
+            },
+        }
+    try:
+        jsonschema.validate(data, schema)
+    except jsonschema.ValidationError as e:
+        logger.error(f"Planner output failed schema validation: {e.message}")
+        return {
+            "ok": False,
+            "error": {
+                "code": ErrorCode.PLANNER_SCHEMA_VALIDATION_FAILED,
+                "message": f"Schema validation failed: {e.message}",
+                "details": {"path": list(e.path), "schema_path": list(e.schema_path), "value": e.instance},
+            },
+        }
+    return {"ok": True, "result": data}
 
 
 class PlannerHandler:
     """Handler for planner nodes: validated JSON only, route or parameter object."""
-
-    def __init__(self) -> None:
-        self.shim = PlannerOutputShim()
 
     async def execute(
         self,
@@ -116,8 +96,7 @@ class PlannerHandler:
         for attempt in range(1, PLANNER_MAX_ATTEMPTS + 1):
             raw_response = await registry.reason_structured(attempt_prompt, schema)
 
-            # Validate through shim (shim only validates, nothing else)
-            result = self.shim.validate(raw_response, schema)
+            result = validate_output(raw_response, schema)
             if result["ok"]:
                 break
 
@@ -172,8 +151,6 @@ allowed options — do not invent field names or values outside an enum."""
         runner: Any,
     ) -> dict[str, Any]:
         """Resolve a json-mode output schema; `{$build: name, args}` resolves against state."""
-        from ..builders import get_builder, is_build_spec
-
         if is_build_spec(spec):
             builder = get_builder(spec["$build"])
             args = runner.resolver.resolve(spec.get("args", {}), ctx) or {}
@@ -218,7 +195,6 @@ Do not include any other text, explanation, or formatting."""
 Respond with valid JSON matching the required schema.
 Do not include any other text, explanation, or formatting."""
 
-        # Add context if available
         if resolved_input:
             prompt = f"""{prompt}
 

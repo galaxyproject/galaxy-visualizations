@@ -15,7 +15,7 @@ import { SessionMemory, galaxyUserId, indexedDbStore } from "./session";
 import { writeSessionSummary } from "./session-summary";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
-import { runOlite } from "./pyodide-runner";
+import { runOlite, type LoopEvent, type Message } from "./pyodide-runner";
 import { renderArtifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
 import { mountLayout } from "./layout";
@@ -87,7 +87,7 @@ async function main() {
     const sessionId = globalThis.crypto?.randomUUID?.() || `session-${Date.now()}`;
     const startedAt = new Date().toISOString();
     const seed = { role: "system", content: incoming.specs.ai_prompt || PROMPT_DEFAULT };
-    const convo: Array<{ role: string; content: string }> = [seed];
+    const convo: Message[] = [seed];
 
     // One conversation per user and history, as pi keys a session by home plus directory.
     const credentials = (process.env.credentials as RequestCredentials) || "include";
@@ -184,11 +184,11 @@ async function main() {
 
     /** Cards rendered live from loop events; the final reconcile skips these ids. */
     function liveEvents(streamed: Set<string>) {
-        return (ev: any) => {
+        return (ev: LoopEvent) => {
             if (ev.type === "tool_start") {
                 streamed.add(ev.id);
                 chat.hideThinking();
-                chat.addToolCard(ev.id, ev.name || "tool");
+                chat.addToolCard(ev.id, ev.name);
             } else if (ev.type === "llm_retry") {
                 // A rate limit means a long silent wait; count it down instead.
                 retryNotice.start(ev.status, ev.wait, ev.attempt, ev.of);
@@ -203,10 +203,10 @@ async function main() {
                 );
             } else if (ev.type === "tool_end") {
                 // The brain states the outcome; toolStatus only guesses at it.
-                const status = ev.is_error ? "error" : toolStatus(ev.content || "");
-                chat.updateToolCard(ev.id, status, ev.content || "");
+                const status = ev.is_error ? "error" : toolStatus(ev.content);
+                chat.updateToolCard(ev.id, status, ev.content);
                 // Galaxy returns the ids, so the model never has to register them.
-                watcher.ingest(ev.name || "", ev.content || "");
+                watcher.ingest(ev.name, ev.content);
             }
         };
     }
