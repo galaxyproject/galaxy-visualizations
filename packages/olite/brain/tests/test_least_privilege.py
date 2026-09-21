@@ -24,6 +24,13 @@ def test_absent_capabilities_take_the_default_but_an_empty_list_grants_nothing()
     assert CapabilityManifest([]).granted == set()
 
 
+def test_the_default_grant_is_everything_the_plugin_ships_to_do():
+    """Galaxy authorizes every call against the user's session, so this widens the agent's
+    reach, never the user's. A narrower default silently half-disabled a real install."""
+    assert CapabilityManifest().allows("write")
+    assert set(DEFAULT_CAPABILITIES) == {"llm", "local", "read", "write"}
+
+
 def test_intersect_narrows_and_cannot_escalate():
     session = CapabilityManifest(["llm", "local", "read"])
 

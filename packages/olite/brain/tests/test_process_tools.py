@@ -141,3 +141,12 @@ def test_a_process_without_a_summary_returns_its_result():
     surface = ToolSurface(FakeSubstrate(), registry)
     out = json.loads(asyncio.run(surface.dispatch("plain", {"value": "kept"})).text)
     assert out == {"grouping": {"structure": "list"}, "value": "kept"}
+
+
+def test_a_process_the_manifest_hides_is_refused_rather_than_run():
+    """`names()` is unfiltered and `_dispatch` routes on it, so hiding one has to refuse it."""
+    surface = _surface({"llm", "local", "read"})
+    assert "organize_datasets" not in _advertised({"llm", "local", "read"})
+
+    outcome = asyncio.run(surface.dispatch("organize_datasets", {}))
+    assert outcome.refused and "'write' capability" in outcome.text

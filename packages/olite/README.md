@@ -13,7 +13,9 @@ difference is recorded in `seams/`. `LAYOUT.md` maps the code.
 
 All three need `npm install` once. `npm run dev` builds the Pyodide assets and the brain
 wheel first, so the first start takes minutes; plain `npx vite` serves what is already built.
-Editing `brain/` does nothing until `npm run build:olite` rebuilds the wheel.
+Editing `brain/` does nothing until `npm run build:olite` rebuilds the wheel, and the
+wheel is named after its contents, so a running dev server keeps asking for the previous
+one. Restart it after rebuilding the brain.
 
 **Stub only, no model, no Galaxy** (`e2e/README.md`):
 

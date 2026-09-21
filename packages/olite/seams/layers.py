@@ -27,8 +27,11 @@ def _fp(text):
 
 def identity_prompt():
     """Fingerprint the ai_prompt Galaxy hands the model; the ORPHAN check stops at the brain."""
-    text = (ROOT / "public/olite.xml").read_text()
-    found = re.search(r"<ai_prompt><!\[CDATA\[(.*?)\]\]></ai_prompt>", text, re.S)
+    try:
+        text = (ROOT / "public/olite.xml").read_text()
+    except OSError:
+        return {}
+    found = re.search(r"<ai_prompt>\s*<!\[CDATA\[(.*?)\]\]>\s*</ai_prompt>", text, re.S)
     return {"fingerprint": _fp(found.group(1))} if found else {}
 
 

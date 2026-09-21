@@ -3,7 +3,6 @@ import { readdirSync } from "node:fs";
 import { defineConfig } from "vite";
 
 const env = {
-    GALAXY_DATASET_ID: "",
     GALAXY_KEY: "",
     GALAXY_ROOT: "http://127.0.0.1:8080",
     // Names a built-in provider (galaxy | gemini | deepseek | openrouter | local). Setting it is
@@ -69,6 +68,16 @@ function llmTargets(): Record<string, { root: string; path: string }> {
     }
 }
 
+/** The commit this bundle was built from; a deployed copy cannot be identified without it. */
+function buildCommit(): string {
+    try {
+        return execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
+    } catch {
+        return "";
+    }
+}
+
+
 /** The brain wheel the build produced; its name carries the version micropip checks. */
 function oliteWheel(): string {
     const wheel = readdirSync("brain/dist").find((f) => f.startsWith("olite-") && f.endsWith(".whl"));
@@ -105,7 +114,8 @@ export const viteConfigCharts = defineConfig({
     define: {
         "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
         "process.env.olite_wheel": JSON.stringify(oliteWheel()),
-        "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
+        "process.env.olite_commit": JSON.stringify(buildCommit()),
+        "process.env.olite_built": JSON.stringify(new Date().toISOString()),
         // Dev only: route the brain through the /llm proxy above, which attaches the key.
         "process.env.llm_base_url": JSON.stringify(env.LLM_PROVIDER || env.LLM_ROOT ? "/llm" : ""),
         "process.env.llm_provider": JSON.stringify(env.LLM_PROVIDER),

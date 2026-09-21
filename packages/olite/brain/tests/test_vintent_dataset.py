@@ -67,8 +67,10 @@ class FakeLlm:
 
 
 class FakeManifest:
+    """These tests grade the graph, so the session grants whatever a process declares."""
+
     def allows(self, capability):
-        return False
+        return True
 
 
 class FakeSubstrate:

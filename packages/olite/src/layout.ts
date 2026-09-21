@@ -39,6 +39,7 @@ export const LAYOUT = `
           <span id="usage-tokens">0 tok</span>
           <span id="usage-cost"></span>
         </div>
+        <span id="build-stamp" class="footer-control hidden"></span>
       </div>
       <!-- Orbit's request modal, reduced to the confirm variant. -->
       <div id="ext-overlay" class="modal-overlay hidden">

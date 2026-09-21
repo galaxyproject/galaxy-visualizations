@@ -2,8 +2,9 @@
 
 from olite.exceptions import CapabilityError
 
-# Write is never default; it is granted explicitly and targeted.
-DEFAULT_CAPABILITIES = ["llm", "local", "read"]
+# Everything the plugin ships to do. Galaxy authorizes each call against the user's own
+# session, so a grant here widens what the agent may attempt, never what the user may do.
+DEFAULT_CAPABILITIES = ["llm", "local", "read", "write"]
 
 
 class CapabilityManifest:

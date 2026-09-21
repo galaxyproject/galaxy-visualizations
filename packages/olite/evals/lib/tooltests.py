@@ -3,7 +3,8 @@
 Galaxy resolves test files from two places and only one is served over HTTP:
 inputs come from the tool's `test-data/` via the API, expected outputs live in a
 clone of galaxy-test-data (`tool_util/verify/test_data.py`, GitDataResolver).
-So the harness needs that clone; `GALAXY_TEST_DATA` names it.
+Galaxy serves those inputs but answers 404 for the expected outputs, so those are
+vendored in `fixtures/tool-tests/`; `GALAXY_TEST_DATA` names a clone to fall back on.
 """
 
 import hashlib

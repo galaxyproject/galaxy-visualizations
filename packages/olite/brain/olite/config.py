@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field, field_validator
 
 class Config(BaseModel):
     galaxy_root: str | None = None
+    # Headless only: the eval harness authenticates with a key. In the browser OLite has
+    # the user's Galaxy session and never carries one.
     galaxy_key: str | None = None
     history_id: str | None = None
     dataset_id: str | None = None
