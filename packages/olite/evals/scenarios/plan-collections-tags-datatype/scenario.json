@@ -1,0 +1,25 @@
+{
+  "name": "plan creation: organise SRA fastq into tagged collections with the right datatype",
+  "description": "From an admin request: 20 fastq.gz files from SRA land in a history and need grouping into collections, tagging, and the datatype corrected to fastqsanger.gz. Neither runtime can execute this today -- building a collection is POST /api/dataset_collections and both tagging and datatype changes are PUT, none of which either tool surface exposes -- so the assertions are on the plan, not the result. What is under test is whether the agent knows the work: that .gz reads are paired into a list:paired collection, that fastqsanger.gz is the datatype rather than the generic fastq, and that tags are set rather than encoded in dataset names. Becomes the capability test unchanged if those operations are ever exposed.",
+  "tier": 2,
+  "requiresModel": true,
+  "inputs": [
+    "I have 20 fastq.gz files from SRA sitting loose in my current history, paired-end so 10 samples, named like SRR000001_1.fastq.gz and SRR000001_2.fastq.gz. Draft a plan to group them into a collection, tag them, and make sure the datatype is right. Don't execute anything yet."
+  ],
+  "timeoutMs": 420000,
+  "assertions": {
+    "plan": {
+      "exists": true
+    },
+    "chatText": {
+      "mustMatch": [
+        "fastqsanger\\.gz",
+        "(?i)list:paired|paired.{0,20}collection|collection.{0,20}paired"
+      ],
+      "mustInclude": [
+        "tag"
+      ]
+    }
+  },
+  "runs": 3
+}
