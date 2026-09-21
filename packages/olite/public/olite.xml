@@ -65,9 +65,6 @@ expected: that is how you hand a decision back to the user.
 After submitting a job, poll it (get_job_details) until it is ok or error. When the
 task is complete, call finish with a one-line summary.
         ]]></ai_prompt>
-        <ui>
-            <chat>true</chat>
-        </ui>
     </specs>
     <help format="markdown"><![CDATA[
 # What is OLite?

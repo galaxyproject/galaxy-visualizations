@@ -3,7 +3,6 @@ import { readdirSync } from "node:fs";
 import { defineConfig } from "vite";
 
 const env = {
-    GALAXY_DATASET_ID: "",
     GALAXY_KEY: "",
     GALAXY_ROOT: "http://127.0.0.1:8080",
     // Names a built-in provider (galaxy | gemini | deepseek | openrouter | local). Setting it is
@@ -117,7 +116,6 @@ export const viteConfigCharts = defineConfig({
         "process.env.olite_wheel": JSON.stringify(oliteWheel()),
         "process.env.olite_commit": JSON.stringify(buildCommit()),
         "process.env.olite_built": JSON.stringify(new Date().toISOString()),
-        "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
         // Dev only: route the brain through the /llm proxy above, which attaches the key.
         "process.env.llm_base_url": JSON.stringify(env.LLM_PROVIDER || env.LLM_ROOT ? "/llm" : ""),
         "process.env.llm_provider": JSON.stringify(env.LLM_PROVIDER),
