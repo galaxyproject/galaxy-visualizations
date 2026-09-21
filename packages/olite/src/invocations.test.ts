@@ -1,8 +1,8 @@
 /** The background watcher that lets the agent hand control back. */
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { InvocationWatcher, extractWatched, isFailure, isTerminal, type Watched } from "./invocations";
+import { InvocationWatcher, extractWatched, galaxyStateReader, isFailure, isTerminal, settleInvocation, type Watched } from "./invocations";
 
 const runToolResult = (jobs: unknown[]) => JSON.stringify({ jobs, outputs: [{ id: "ds1" }] });
 
@@ -41,6 +41,19 @@ describe("terminal states", () => {
         expect(isTerminal("invocation", "scheduled")).toBe(false);
         expect(isTerminal("invocation", "failed")).toBe(true);
         expect(isTerminal("invocation", "cancelled")).toBe(true);
+        expect(isTerminal("invocation", "completed")).toBe(true);
+    });
+
+    it("settles a scheduled invocation from its jobs, as loom does", () => {
+        expect(settleInvocation("scheduled", { running: 1, ok: 2 })).toBe("scheduled");
+        expect(settleInvocation("scheduled", { ok: 3 })).toBe("completed");
+        expect(settleInvocation("scheduled", { ok: 2, error: 1 })).toBe("failed");
+        expect(settleInvocation("scheduled", {})).toBe("scheduled");
+    });
+
+    it("trusts a completed invocation, unless a job errored inside it", () => {
+        expect(settleInvocation("completed", { ok: 2, paused: 1 })).toBe("completed");
+        expect(settleInvocation("completed", { ok: 1, error: 1 })).toBe("failed");
     });
 
     it("knows which job states will not change again", () => {
@@ -138,5 +151,37 @@ describe("InvocationWatcher", () => {
         expect(spy).not.toHaveBeenCalled();
         expect(watcher.pending).toBe(0);
         spy.mockRestore();
+    });
+});
+
+describe("galaxyStateReader", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    function galaxy(routes: Record<string, unknown>) {
+        vi.stubGlobal("fetch", async (url: string) => {
+            const hit = Object.entries(routes).find(([path]) => url.endsWith(path));
+            return { ok: Boolean(hit), json: async () => hit?.[1] };
+        });
+    }
+
+    it("reports a job's state as Galaxy gives it", async () => {
+        galaxy({ "api/jobs/j1": { state: "running" } });
+        expect(await galaxyStateReader("/", "include")({ kind: "job", id: "j1", label: "run_tool" })).toBe("running");
+    });
+
+    it("settles a scheduled invocation whose jobs all finished", async () => {
+        // Older Galaxy never moves past `scheduled`; without the jobs this polled forever.
+        galaxy({
+            "api/invocations/i1": { state: "scheduled" },
+            "api/invocations/i1/jobs_summary": { states: { ok: 2 } },
+        });
+        const read = galaxyStateReader("/", "include");
+        expect(await read({ kind: "invocation", id: "i1", label: "invoke_workflow" })).toBe("completed");
+    });
+
+    it("keeps a cancelled invocation as cancelled without asking about jobs", async () => {
+        galaxy({ "api/invocations/i1": { state: "cancelled" } });
+        const read = galaxyStateReader("/", "include");
+        expect(await read({ kind: "invocation", id: "i1", label: "invoke_workflow" })).toBe("cancelled");
     });
 });

@@ -50,8 +50,8 @@ Beyond Galaxy you also have:
 - run_python(code): run Python locally in the browser (Pyodide; numpy and pandas;
   state persists). Use for quick local computation and inspection. It runs in the
   browser, not on Galaxy.
-- run_process(name, inputs): run a crystallized pipeline. Use visualize_dataset to
-  chart a tabular dataset.
+- vintent_dataset(dataset_id, request): chart a tabular dataset inline from what the
+  user asked for.
 - finish(summary): call when the task is complete.
 
 You both talk and act. Chat carries dialogue and status — questions, a plan draft
@@ -62,18 +62,8 @@ expected: that is how you hand a decision back to the user.
 After submitting a job, poll it (get_job_details) until it is ok or error. When the
 task is complete, call finish with a one-line summary.
         ]]></ai_prompt>
-        <!-- Dev: talk to a local OpenAI-compatible LLM (LiteLLM) directly instead of
-             the Galaxy chat proxy. The vite dev server proxies /llm to LLM_ROOT
-             (default http://127.0.0.1:4000). Set ai_model to a LiteLLM model_name;
-             add <ai_api_key> only if LiteLLM requires one. Remove this block to fall
-             back to the Galaxy proxy (api/plugins/olite). -->
-        <ai_api_base_url>/llm</ai_api_base_url>
-        <!-- The model Orbit documents for production: the `model` flag in loom's
-             README, and the same value in its config example. Orbit has no hardcoded
-             default (the model is per-provider config), so this tracks what Orbit
-             ships in its docs. In a real deployment Galaxy's inference_services
-             config wins; this is the dev-direct path. -->
-        <ai_model>claude-sonnet-4-6</ai_model>
+        <!-- Granted to every user of this install; drop write for a read-only assistant. -->
+        <capabilities>llm,local,read,write</capabilities>
         <ui>
             <chat>true</chat>
         </ui>

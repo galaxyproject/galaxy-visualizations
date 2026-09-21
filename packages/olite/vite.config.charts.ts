@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { defineConfig } from "vite";
 
 const env = {
@@ -68,6 +69,15 @@ function llmTargets(): Record<string, { root: string; path: string }> {
     }
 }
 
+/** The brain wheel the build produced; its name carries the version micropip checks. */
+function oliteWheel(): string {
+    const wheel = readdirSync("brain/dist").find((f) => f.startsWith("olite-") && f.endsWith(".whl"));
+    if (!wheel) {
+        throw new Error("No brain wheel under brain/dist: run `npm run build:olite` first.");
+    }
+    return wheel;
+}
+
 const targets = llmTargets();
 if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
     // Falling through to the local default here is the trap that answers with the wrong model.
@@ -94,9 +104,10 @@ export const viteConfigCharts = defineConfig({
     },
     define: {
         "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
+        "process.env.olite_wheel": JSON.stringify(oliteWheel()),
         "process.env.dataset_id": JSON.stringify(env.GALAXY_DATASET_ID),
         // Dev only: route the brain through the /llm proxy above, which attaches the key.
-        "process.env.llm_base_url": JSON.stringify(env.LLM_ROOT ? "/llm" : ""),
+        "process.env.llm_base_url": JSON.stringify(env.LLM_PROVIDER || env.LLM_ROOT ? "/llm" : ""),
         "process.env.llm_provider": JSON.stringify(env.LLM_PROVIDER),
         "process.env.llm_model": JSON.stringify(env.LLM_MODEL),
         "process.env.llm_context_window": JSON.stringify(env.LLM_CONTEXT_WINDOW),

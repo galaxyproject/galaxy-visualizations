@@ -42,3 +42,11 @@ def test_ordinary_output_is_untouched():
 
 def test_the_minimum_length_is_loom_s():
     assert MIN_SECRET_LEN == 8
+
+
+def test_the_validated_config_the_runtime_builds_is_read():
+    """The runtime hands the driver a Config, not a dict; a dict-only check read nothing."""
+    from olite import config as config_module
+
+    validated = config_module.parse({"ai_api_key": "sk-or-v1-9f3a2b7c4d1e", "galaxy_key": "fea4130124bb18ef"})
+    assert collect_secret_values(validated) == ["fea4130124bb18ef", "sk-or-v1-9f3a2b7c4d1e"]

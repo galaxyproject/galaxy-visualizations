@@ -105,13 +105,6 @@ def test_the_key_goes_only_in_the_authorization_header_by_default():
     assert "x-api-key" not in headers
 
 
-def test_a_provider_can_opt_back_into_x_api_key():
-    target = resolve({"ai_base_url": "https://example.test/v1", "ai_api_key": "k"})
-    object.__setattr__(target.provider, "compat", {"x_api_key": True})
-    headers = get_adapter(target.api).headers(target)
-    assert headers["x-api-key"] == "k"
-
-
 def test_the_adapter_builds_and_parses_one_round_trip():
     target = resolve({"ai_provider": "gemini", "ai_model": "gemini-3.7-flash", "ai_api_key": "k"})
     adapter = get_adapter(target.api)

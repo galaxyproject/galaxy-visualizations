@@ -57,10 +57,10 @@ export function lastLine(text: string): string {
 export function describeError(err: { message?: string; status_code?: number }): string {
     const status = err.status_code;
     if (status === 429) {
-        return "The model provider is out of quota for now. Wait, or switch provider (see the README).";
+        return "The model provider is out of quota for now. Wait, or switch provider with the Model button.";
     }
     if (status === 401 || status === 403) {
-        return "The model provider rejected the credentials. Check LLM_KEY.";
+        return "The model provider rejected the API key. Enter another with the Model button.";
     }
     return lastLine(err.message || "The turn failed.");
 }

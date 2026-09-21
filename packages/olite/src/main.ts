@@ -122,7 +122,9 @@ async function main() {
     const indexURL = `${incoming.root}${base}static/pyodide`;
     const pyodide = new PyodideManager({
         indexURL,
-        extraPackages: [`${indexURL}/olite-0.0.0-py3-none-any.whl`],
+        extraPackages: [`${indexURL}/${process.env.olite_wheel}`],
+        // The key is the worker's to hold; the brain's config never carries it.
+        llm: { baseUrl: config.ai_base_url, apiKey: creds.apiKey },
     });
     let ready = false;
     const readyInfo = chat.addInfoMessage("Loading OLite...");
@@ -296,6 +298,7 @@ async function main() {
         try {
             await runTurn(text);
         } catch (e) {
+            console.error("[olite] turn failed", e);
             chat.hideThinking();
             retryNotice.stop();
             chat.addErrorMessage(lastLine(String(e)));

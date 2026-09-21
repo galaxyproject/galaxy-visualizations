@@ -8,6 +8,7 @@ from dataclasses import replace
 from olite.exceptions import ProviderError
 
 from ..http import http
+from ..rate_limiter import TokenBucketRateLimiter
 from .api import get_adapter
 from .providers import resolve
 
@@ -35,8 +36,6 @@ class Llm:
         self.target = resolve(config)
         self.adapter = get_adapter(self.target.api)
         # The rate comes from the endpoint; one bucket per session, shared by scoped views.
-        from ..rate_limiter import TokenBucketRateLimiter
-
         self._limiter = TokenBucketRateLimiter.from_requests_per_minute(self.target.rate_limit)
         logger.info(
             "llm target: provider=%s model=%s window=%d max_tokens=%d",

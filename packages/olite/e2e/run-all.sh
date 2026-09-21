@@ -10,7 +10,7 @@ cleanup() { for p in "${pids[@]:-}"; do kill "$p" 2>/dev/null || true; done; }
 trap cleanup EXIT
 
 node e2e/stub.cjs > /tmp/olite-e2e-stub.log 2>&1 & pids+=($!)
-sleep 2
+for _ in $(seq 20); do curl -sf -o /dev/null http://127.0.0.1:8099/__seen && break; sleep 0.5; done
 
 GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=local LLM_ROOT=http://127.0.0.1:8099 \
   LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \

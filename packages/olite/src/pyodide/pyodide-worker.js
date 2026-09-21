@@ -1,3 +1,5 @@
+import { authorizedFetch } from "./llm-fetch.js";
+
 let loadPyodide = null;
 let pyodide = null;
 let running = false;
@@ -12,14 +14,6 @@ function settleConfirms(approved) {
         resolve(approved);
     }
     pendingConfirms.clear();
-}
-
-function parseCode(code) {
-    if (Array.isArray(code)) {
-        return code.join("\n");
-    } else {
-        return code;
-    }
 }
 
 self.onmessage = async (e) => {
@@ -48,20 +42,17 @@ self.onmessage = async (e) => {
                 loadPyodide = mod.loadPyodide;
             }
             pyodide = await loadPyodide({ indexURL: payload.indexURL });
+            // The brain fetches through this; the key stays here, out of the interpreter.
+            globalThis.oliteFetch = authorizedFetch(fetch, payload.llm);
             const pyodidePackages = payload.packages;
             if (pyodidePackages) {
                 console.debug("[pyodide-worker] Installing packages:", pyodidePackages);
                 await pyodide.loadPackage(pyodidePackages);
             }
             for (const whl of payload.extraPackages || []) {
-                await pyodide.runPythonAsync(
-                    parseCode([
-                        `print("Loading ${whl}")`,
-                        "import micropip",
-                        `await micropip.install("${whl}")`,
-                        `print("Loaded ${whl}")`,
-                    ]),
-                );
+                console.log(`Loading ${whl}`);
+                await pyodide.runPythonAsync(`import micropip\nawait micropip.install(${JSON.stringify(whl)})`);
+                console.log(`Loaded ${whl}`);
             }
             self.postMessage({ type: "ready" });
         } catch (err) {
@@ -69,19 +60,6 @@ self.onmessage = async (e) => {
         }
     } else {
         if (pyodide) {
-            if (type === "fsWrite") {
-                try {
-                    const fs = pyodide.FS;
-                    const dir = payload.dest.substring(0, payload.dest.lastIndexOf("/"));
-                    if (dir) {
-                        fs.mkdirTree(dir);
-                    }
-                    fs.writeFile(payload.dest, payload.content);
-                    self.postMessage({ id, result: true });
-                } catch (err) {
-                    self.postMessage({ id, error: String(err) });
-                }
-            } else {
                 if (type === "runPythonAsync") {
                     running = true;
                     abortController = new AbortController();
@@ -112,7 +90,7 @@ self.onmessage = async (e) => {
                         }
                     };
                     try {
-                        const result = await pyodide.runPythonAsync(parseCode(payload.code));
+                        const result = await pyodide.runPythonAsync(payload.code);
                         self.postMessage({ id, result });
                     } catch (err) {
                         self.postMessage({ id, error: String(err) });
@@ -125,9 +103,8 @@ self.onmessage = async (e) => {
                         globalThis.oliteAbortSignal = undefined;
                         globalThis.oliteConfirm = undefined;
                     }
-                } else {
-                    self.postMessage({ id, error: `Unknown message type: ${type}` });
-                }
+            } else {
+                self.postMessage({ id, error: `Unknown message type: ${type}` });
             }
         } else {
             self.postMessage({ id, error: "Pyodide not initialized" });

@@ -9,11 +9,11 @@ export interface OliteIncoming {
 }
 
 export function parseIncoming(container: HTMLElement): OliteIncoming {
-    let raw: any = {};
+    let raw: any;
     try {
         raw = JSON.parse(container.dataset.incoming || "{}");
-    } catch {
-        raw = {};
+    } catch (e) {
+        throw new Error(`data-incoming is not JSON: ${e}`);
     }
     const config = raw.visualization_config || {};
     const plugin = raw.visualization_plugin || {};

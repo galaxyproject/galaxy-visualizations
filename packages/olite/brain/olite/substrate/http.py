@@ -194,7 +194,7 @@ def _js_headers(response):
 
 class BrowserHttpClient(HttpClient):
     def __init__(self):
-        from js import fetch
+        from js import oliteFetch as fetch
         from pyodide.ffi import to_js
 
         self._fetch = fetch
@@ -202,7 +202,7 @@ class BrowserHttpClient(HttpClient):
 
     async def _attempt(self, method, url, headers, body, signal, binary):
         headers = dict(headers or {})
-        options = {"method": method, "headers": headers, "cache": "no-store"}
+        options = {"method": method, "headers": headers, "cache": "no-store", "credentials": "same-origin"}
         if body is not None:
             options["body"] = json.dumps(body)
             headers.setdefault("Content-Type", "application/json")

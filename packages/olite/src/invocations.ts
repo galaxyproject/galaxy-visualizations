@@ -12,8 +12,8 @@ export interface Watched {
 
 /** Galaxy job states that will never change again. */
 const JOB_TERMINAL = new Set(["ok", "error", "deleted", "discarded"]);
-/** Terminal invocation states; `scheduled` is not one of them. */
-const INVOCATION_TERMINAL = new Set(["cancelled", "failed"]);
+/** Terminal invocation states. `scheduled` only means every step was scheduled. */
+const INVOCATION_TERMINAL = new Set(["cancelled", "failed", "completed"]);
 
 export function isTerminal(kind: WatchKind, state: string | undefined): boolean {
     if (!state) return false;
@@ -125,13 +125,32 @@ export class InvocationWatcher {
     }
 }
 
+/**
+ * What a scheduled or completed invocation amounts to, from its jobs: an errored job fails
+ * it, and every job settled with some ok completes it. Galaxy 26 reports `completed`
+ * itself; before that a scheduled invocation stays `scheduled` after its jobs finish.
+ */
+export function settleInvocation(state: string, jobStates: Record<string, number> = {}): string {
+    if ((jobStates.error || 0) > 0) return "failed";
+    const active = Object.entries(jobStates).some(([s, n]) => n > 0 && !JOB_TERMINAL.has(s));
+    if (state === "completed" || (!active && (jobStates.ok || 0) > 0)) return "completed";
+    return state;
+}
+
 /** Read a state straight from the Galaxy API the page is already talking to. */
 export function galaxyStateReader(galaxyRoot: string, credentials: RequestCredentials) {
-    return async (w: Watched): Promise<string | undefined> => {
-        const path = w.kind === "job" ? `api/jobs/${w.id}` : `api/invocations/${w.id}`;
+    const read = async (path: string): Promise<any> => {
         const res = await fetch(`${galaxyRoot}${path}`, { credentials });
-        if (!res.ok) return undefined;
-        const body = await res.json();
-        return typeof body?.state === "string" ? body.state : undefined;
+        return res.ok ? res.json() : undefined;
+    };
+    const stateOf = (body: any) => (typeof body?.state === "string" ? body.state : undefined);
+    return async (w: Watched): Promise<string | undefined> => {
+        if (w.kind === "job") {
+            return stateOf(await read(`api/jobs/${w.id}`));
+        }
+        const state = stateOf(await read(`api/invocations/${w.id}`));
+        if (state !== "scheduled" && state !== "completed") return state;
+        const summary = await read(`api/invocations/${w.id}/jobs_summary`);
+        return settleInvocation(state, summary?.states);
     };
 }

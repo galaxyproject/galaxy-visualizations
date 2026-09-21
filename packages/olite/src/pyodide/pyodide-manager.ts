@@ -1,8 +1,15 @@
 import PYODIDE_REQUIREMENTS from "../../pyodide.requirements.txt?raw";
 
+export interface LlmAuth {
+    baseUrl: string;
+    apiKey?: string;
+}
+
 export interface PyodideManagerOptions {
     indexURL: string;
     extraPackages?: string[];
+    /** Held by the worker, which signs the brain's requests to this endpoint. */
+    llm?: LlmAuth;
 }
 
 export class PyodideManager {
@@ -50,7 +57,7 @@ export class PyodideManager {
                 if (id && this.pending.has(id)) {
                     const entry = this.pending.get(id)!;
                     this.pending.delete(id);
-                    error ? entry.reject(error) : entry.resolve(result);
+                    error ? entry.reject(new Error(String(error))) : entry.resolve(result);
                 }
             };
             this.worker.onerror = (e) => {
@@ -59,13 +66,18 @@ export class PyodideManager {
         });
         this.worker.postMessage({
             type: "initialize",
-            payload: { indexURL: options.indexURL, extraPackages: options.extraPackages, packages: this.packages },
+            payload: {
+                indexURL: options.indexURL,
+                extraPackages: options.extraPackages,
+                packages: this.packages,
+                llm: options.llm,
+            },
         });
     }
 
     private call(type: string, payload?: any): Promise<any> {
         if (this.destroyed) {
-            return Promise.reject("Pyodide destroyed");
+            return Promise.reject(new Error("Pyodide destroyed"));
         } else {
             return new Promise((resolve, reject) => {
                 const id = crypto.randomUUID();
@@ -95,22 +107,6 @@ export class PyodideManager {
             this.worker.terminate();
             this.pending.clear();
         }
-    }
-
-    async fsFetch(url: string, dest: string, maxRows: number = 10000): Promise<string> {
-        const res = await fetch(url);
-        if (res.ok) {
-            const content = await res.text();
-            await this.fsWrite(content, dest);
-            return content.split("\n").filter(Boolean).slice(0, maxRows).join("\n");
-        } else {
-            throw new Error(`Failed to fetch ${url}`);
-        }
-    }
-
-    async fsWrite(content: string, dest: string): Promise<void> {
-        await this.ready;
-        await this.call("fsWrite", { content, dest });
     }
 
     async initialize(): Promise<void> {

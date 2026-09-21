@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 
 from olite.exceptions import ProviderError
 
-MIN = 0.0000001
-MAX = 999999999
 TEMPERATURE = 0.3
 TOP_P = 0.8
+# The ranges the chat-completions API accepts.
+TEMPERATURE_RANGE = (0.0, 2.0)
+TOP_P_RANGE = (0.0, 1.0)
 # The spellings providers use for chain of thought, in the order they are preferred.
 REASONING_KEYS = ("reasoning_content", "reasoning")
 
@@ -39,8 +40,6 @@ class OpenAICompletions:
         headers = {"Content-Type": "application/json"}
         if target.api_key is not None:
             headers["Authorization"] = f"Bearer {target.api_key}"
-            if target.compat("x_api_key", False):
-                headers["x-api-key"] = target.api_key
         return headers
 
     def build_request(self, target, messages, tools=None, tool_choice=None, parallel_tools=True):
@@ -51,8 +50,8 @@ class OpenAICompletions:
         }
         # Some models reject temperature and top_p together; a provider can opt out.
         if target.compat("sampling", True):
-            body["temperature"] = _clamp(target.compat("temperature", TEMPERATURE), 0, MAX)
-            body["top_p"] = _clamp(target.compat("top_p", TOP_P), MIN, 1)
+            body["temperature"] = _clamp(target.compat("temperature", TEMPERATURE), *TEMPERATURE_RANGE)
+            body["top_p"] = _clamp(target.compat("top_p", TOP_P), *TOP_P_RANGE)
         if tools:
             body["tools"] = tools
         if tool_choice:

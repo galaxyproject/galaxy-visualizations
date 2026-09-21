@@ -6,15 +6,11 @@ import time
 import os
 import pathlib
 
-from olite import prompt
-from olite.drivers import LoopDriver
-from olite.registry import ProcessRegistry, SkillRegistry
 from olite.drivers.loop import notebook
+from olite.runtime import Session
+from olite.substrate.llm import REGISTRY
 
 from . import tooltests
-from olite.runtime import _inject_context, _inject_record
-from olite.substrate import Substrate
-from olite.substrate.llm import REGISTRY
 
 # The eval substrate is a real Galaxy, deliberately.
 
@@ -96,8 +92,7 @@ def _api_key(model):
 
 async def _run(scenario, model):
     config = build_config(model, scenario.get("capabilities"))
-    substrate = Substrate(config)
-    await substrate.catalog.init()
+    session = await Session(config).init()
 
     staged = None
     if scenario.get("dataset"):
@@ -111,19 +106,9 @@ async def _run(scenario, model):
     elif scenario.get("toolTest"):
         staged = stage_tool_test(config, scenario["toolTest"])
 
-    processes = ProcessRegistry().load_packaged()
-    skills = SkillRegistry().load_packaged()
-    driver = LoopDriver(substrate, processes, skills)
-
-    context = "\n\n".join(
-        t for t in (prompt.system_text(galaxy_ok=True), skills.router_text()) if t
-    )
-    transcripts = _inject_context(
-        [{"role": "system", "content": scenario.get("systemPrompt", "You are olite.")}], context
-    )
     bound_history = staged["history_id"] if staged else _empty_history(config, scenario)
-    transcripts = _inject_record(
-        transcripts, await notebook.excerpt(substrate.galaxy, bound_history)
+    transcripts = await session.prepare(
+        [{"role": "system", "content": scenario.get("systemPrompt", "You are olite.")}], bound_history
     )
 
     tools_called = []
@@ -147,7 +132,7 @@ async def _run(scenario, model):
         messages = [*messages, {"role": "user", "content": turn}]
         graded.append({"role": "user", "content": turn})
         events.append("turn_start")
-        result = await driver.run(messages, lambda ev: _note(ev, tools_called, events, refused))
+        result = await session.turn(messages, lambda ev: _note(ev, tools_called, events, refused))
         messages = result.get("messages") or messages
         graded.extend(result.get("new_messages") or [])
         logs.extend(result.get("logs") or [])
