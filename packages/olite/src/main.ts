@@ -21,6 +21,7 @@ import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
 import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
 import { mountUsageBar } from "./usage-bar";
+import { mountBuildStamp } from "./build-stamp";
 import { createRetryNotice } from "./retry-notice";
 
 const PLUGIN_NAME = "olite";
@@ -98,6 +99,10 @@ async function main() {
     );
 
     const usage = mountUsageBar(container);
+    mountBuildStamp(container, {
+        commit: (process.env.olite_commit as string) || "",
+        built: (process.env.olite_built as string) || "",
+    });
     const retryNotice = createRetryNotice(chat);
 
     el.input.addEventListener("input", () => autosize(el.input));
