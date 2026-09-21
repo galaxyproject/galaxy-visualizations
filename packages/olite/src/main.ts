@@ -102,6 +102,10 @@ async function main() {
     mountBuildStamp(container, {
         commit: (process.env.olite_commit as string) || "",
         built: (process.env.olite_built as string) || "",
+        wheel: (process.env.olite_wheel as string) || "",
+        galaxy: config.galaxy_root,
+        provider: config.ai_provider,
+        model: config.ai_model || "",
     });
     const retryNotice = createRetryNotice(chat);
 
