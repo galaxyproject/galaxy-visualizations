@@ -242,26 +242,3 @@ class TreemapShell(BaseShell):
             "height": "container",
         }
 
-    def validate(
-        self,
-        profile: DatasetProfile,
-        params: ShellParamsType,
-    ) -> ValidationResult:
-        category = params.get("category")
-        fields = profile.get("fields", {})
-
-        if not category or category not in fields:
-            return {
-                "ok": False,
-                "errors": [{"code": "missing_required_encoding"}],
-                "warnings": [],
-            }
-
-        if fields[category].get("type") != "nominal":
-            return {
-                "ok": False,
-                "errors": [{"code": "invalid_field_type"}],
-                "warnings": [],
-            }
-
-        return {"ok": True, "errors": [], "warnings": []}

@@ -40,7 +40,8 @@ class BaseShell:
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
     signatures: Optional[List[List[FieldType]]] = None
 
-    # processes
+    required: Dict[str, Any] = {}
+    optional: Dict[str, Any] = {}
     processes = None
 
     def is_applicable(self, profile: DatasetProfile) -> bool:
@@ -74,14 +75,28 @@ class BaseShell:
         return False
 
     def validate(self, profile: DatasetProfile, params: ShellParamsType) -> ValidationResult:
-        """Validate shell parameters against the dataset profile.
-
-        Subclasses should override this method to implement validation logic.
-
-        Returns:
-            ValidationResult with ok=True if valid, ok=False with errors otherwise.
-        """
-        return {"ok": True, "errors": [], "warnings": []}
+        """Check the encodings the shell declares: present, naming a field, of the declared type."""
+        fields = profile.get("fields", {})
+        declared = {**{k: v for k, v in self.optional.items() if params.get(k)}, **self.required}
+        errors: List[Dict[str, Any]] = []
+        for encoding, spec in declared.items():
+            if not isinstance(spec, dict) or "type" not in spec:
+                continue
+            field = params.get(encoding)
+            if not field:
+                errors.append({"code": "missing_required_encoding", "details": {"encoding": encoding}})
+                continue
+            meta = fields.get(field)
+            if meta is None:
+                errors.append({"code": "unknown_field", "details": {"encoding": encoding, "field": field}})
+                continue
+            expected = spec.get("type", "any")
+            if expected != "any" and meta.get("type") != expected:
+                errors.append({
+                    "code": "invalid_field_type",
+                    "details": {"encoding": encoding, "field": field, "expected": expected, "actual": meta.get("type")},
+                })
+        return {"ok": not errors, "errors": errors, "warnings": []}
 
     def validate_or_raise(self, profile: DatasetProfile, params: ShellParamsType) -> None:
         """Validate parameters and raise ShellError if invalid.

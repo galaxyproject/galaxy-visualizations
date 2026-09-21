@@ -61,36 +61,3 @@ class AreaChartShell(BaseShell):
             "encoding": encoding,
         }
 
-    def validate(
-        self,
-        profile: DatasetProfile,
-        params: ShellParamsType,
-    ) -> ValidationResult:
-        x_field = params.get("x")
-        y_field = params.get("y")
-
-        if not x_field or not y_field:
-            return {
-                "errors": [{"code": "missing_required_encoding"}],
-                "ok": False,
-                "warnings": [],
-            }
-
-        fields = profile.get("fields", {})
-        y_meta = fields.get(y_field)
-
-        if not y_meta:
-            return {
-                "errors": [{"code": "unknown_field"}],
-                "ok": False,
-                "warnings": [],
-            }
-
-        if y_meta.get("type") != "quantitative":
-            return {
-                "errors": [{"code": "invalid_field_type"}],
-                "ok": False,
-                "warnings": [],
-            }
-
-        return {"errors": [], "ok": True, "warnings": []}

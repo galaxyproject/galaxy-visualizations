@@ -55,10 +55,9 @@ def test_validate_invalid_field_types():
     )
     result = shell.validate(profile, params)
     assert result["ok"] is False
-    err = result["errors"][0]
+    [err] = result["errors"]
     assert err["code"] == "invalid_field_type"
-    assert err["details"]["actual"]["x"] == "nominal"
-    assert err["details"]["actual"]["y"] == "quantitative"
+    assert err["details"] == {"encoding": "x", "field": "a", "expected": "quantitative", "actual": "nominal"}
 
 def test_compile_basic_scatter():
     shell = ScatterShell()
