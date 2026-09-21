@@ -1,20 +1,21 @@
 """Orbit-compatible named Galaxy tools, cloned from galaxy-mcp."""
 
 import json
-
-from olite import vendor
-
-from . import page_edit
-from .paging import ROW_CAP, page
-from .tool_inputs import build_input_template, summarize_tool_inputs
 import os
 import sys
 import tempfile
 from urllib.parse import urlencode
 
+from olite import vendor
+from olite.substrate.http import http
+
+from . import page_edit
 from .galaxy_tool_docs import DOCS
+from .paging import ROW_CAP, page
+from .tool_inputs import build_input_template, summarize_tool_inputs
 
 TOOLS = []
+HANDLERS = {}
 
 # Pyodide's MEMFS is olite's equivalent of the filesystem Orbit has on disk.
 DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.gettempdir(), "olite-data")
@@ -35,7 +36,8 @@ def _q(params):
 
 
 def _tool(name, capability, description, properties, required, handler):
-    # galaxy-mcp's verbatim docstring is the model-facing description (see
+    # galaxy-mcp's verbatim docstring is the model-facing description.
+    HANDLERS[name] = handler
     TOOLS.append(
         {
             "name": name,
@@ -87,11 +89,12 @@ CONTENTS_NOTE = ("This is just a count. To get actual datasets, use "
 
 
 async def _get_history_details(g, a):
-    history = await g.get(f"api/histories/{a['history_id']}")
-    contents = await g.get(f"api/histories/{a['history_id']}/contents{_q({'v': 'dev', 'keys': 'id'})}")
-    total = len(contents) if isinstance(contents, list) else 0
+    # Galaxy counts the history's items itself; listing every id to length it made the
+    # cost of this call grow with the history.
+    history = await g.get(f"api/histories/{a['history_id']}") or {}
+    total = history.get("count") if isinstance(history, dict) else None
     return {"history": history,
-            "contents_summary": {"total_items": total, "note": CONTENTS_NOTE}}
+            "contents_summary": {"total_items": total or 0, "note": CONTENTS_NOTE}}
 
 
 # Galaxy returns the underlying Dataset id beside the HDA id. Both encode the same way, so
@@ -165,8 +168,15 @@ class ToolParameterError(Exception):
         )
 
 
+# Galaxy says this in prose on the paths that answer 500 instead of rejecting the request.
+PARAMETER_ERROR_PHRASES = ("invalid key structure", "has no attribute")
+
+
 def _is_parameter_error(exc):
-    return "invalid key structure" in str(exc) or "has no attribute" in str(exc)
+    """Whether the tool rejected the inputs, which is when its template is worth attaching."""
+    if getattr(exc, "status_code", None) == 400:
+        return True
+    return any(phrase in str(exc) for phrase in PARAMETER_ERROR_PHRASES)
 
 
 async def _input_template_for(g, tool_id):
@@ -230,8 +240,11 @@ async def _get_dataset_details(g, a):
                 text = content if isinstance(content, str) else json.dumps(content)
             dataset = dict(dataset)
             dataset["preview"] = "\n".join(text.splitlines()[:want])
-        except Exception:
-            pass
+        except Exception as exc:
+            # A dataset that is still running has nothing to read yet. Naming that beats an
+            # absent field, which reads the same as a dataset with no content at all.
+            dataset = dict(dataset)
+            dataset["preview_unavailable"] = str(exc)
     return dataset
 
 
@@ -519,7 +532,7 @@ def _trim_extensions(value):
 
 
 def _input_step(step):
-    """Populates the input step."""
+    """The parts of an input step a caller has to fill."""
     inputs = []
     for item in step.get("inputs") or []:
         if not isinstance(item, dict):
@@ -588,6 +601,8 @@ async def _get_invocations(g, a):
 
 
 NUMERIC_COLUMNS = frozenset({"int", "float"})
+# A stored value can be a whole entry, so only the ones actually searched for are returned.
+MATCH_CAP = 5
 
 
 def _column_parameters(plugin):
@@ -770,6 +785,16 @@ def _find_declared(params, wanted, when=None):
     return found
 
 
+def _by_id(entries):
+    """One entry per id, ordered by id, as galaxy-charts' dataTableStore offers them."""
+    unique = {}
+    for entry in entries:
+        key = entry.get("id") or ""
+        if key and key not in unique:
+            unique[key] = entry
+    return [unique[key] for key in sorted(unique)]
+
+
 def _match(entry, search):
     if not search:
         return False
@@ -820,22 +845,23 @@ async def _get_visualization_options(g, a):
         url = declared.get("url")
         if not url:
             return {"error": f"{wanted!r} names no url to read its options from."}
-        from olite.substrate.http import http
-
         fetched = await http.request("GET", url)
         entries = fetched if isinstance(fetched, list) else []
     elif kind == "data_table":
-        # Column choice follows galaxy-charts' dataTableStore, which owns this shape.
+        # Follows galaxy-charts' dataTableStore, which owns this shape: the name and value
+        # columns when the row is whole and the first column when it is not, then one entry
+        # per id, ordered by id, which is the order the plugin's own form offers.
         for table in declared.get("tables") or []:
             data = await g.get(f"api/tool_data/{table}") or {}
             columns = data.get("columns") or []
-            name_col = max(columns.index("name"), 0) if "name" in columns else 0
-            value_col = max(columns.index("value"), 0) if "value" in columns else 0
+            name_col = columns.index("name") if "name" in columns else 0
+            value_col = columns.index("value") if "value" in columns else 0
             for row in data.get("fields") or []:
                 whole = len(row) == len(columns)
                 entries.append({"id": row[value_col] if whole else (row[0] if row else None),
                                 "name": row[name_col] if whole else (row[0] if row else None),
                                 "columns": columns, "row": row, "table": table})
+        entries = _by_id(entries)
     else:
         return {"parameter": wanted, "source": kind or declared.get("type"),
                 "hint": "This parameter's options are not a list to browse; "
@@ -847,7 +873,7 @@ async def _get_visualization_options(g, a):
     result = {"parameter": wanted, "source": kind, "total": len(entries),
               "options": listed[:ROW_CAP]}
     if search:
-        result["matches"] = [e for e in entries if _match(e, search)][:5]
+        result["matches"] = [e for e in entries if _match(e, search)][:MATCH_CAP]
         result["hint"] = ("`matches` holds the values to store as given; pass one through "
                           "unchanged rather than rebuilding it.")
     else:
@@ -1001,11 +1027,17 @@ async def _save_visualization(g, a):
     # the user's list does not grow every time the settings change.
     visualization_id = a.get("visualization_id")
     if visualization_id:
+        # Galaxy answers with the new revision, or with nothing when the config is unchanged.
         await g.put(f"api/visualizations/{visualization_id}", {"title": title, "config": config})
     else:
         created = await g.post("api/visualizations",
                                {"type": name, "title": title, "config": config})
         visualization_id = (created or {}).get("id")
+        if not visualization_id:
+            return {"saved": False,
+                    "error": "Galaxy accepted the visualization but returned no id, so there "
+                             "is nothing to display or revise.",
+                    "response": created}
     # Galaxy reads the plugin name from the query, never from the saved object.
     query = {"visualization": name, "visualization_id": visualization_id, **_EMBED}
     artifact = {"kind": "visualization", "title": title,
@@ -1140,7 +1172,7 @@ _tool("download_dataset", "read",
       "bytes_total set; never compute totals or counts from a partial read. "
       "Read the file with run_python (e.g. pandas.read_csv(path, sep='\\t')); do not paste "
       "the preview into code.",
-      {"dataset_id": _STR, "require_ok_state": _BOOL}, ["dataset_id"], _download_dataset)
+      {"dataset_id": _STR}, ["dataset_id"], _download_dataset)
 _tool("upload_file_from_url", "write", "Upload a dataset into a history from a URL.",
       {"url": _STR, "history_id": _STR, "file_type": _STR, "dbkey": _STR, "file_name": _STR}, ["url"], _upload_file_from_url)
 _tool("upload_file", "write",
@@ -1227,8 +1259,6 @@ _iwc_cache = {}
 
 
 async def _iwc_manifest(g):
-    from olite.substrate.http import http
-
     g.manifest.require("read")
     if "workflows" not in _iwc_cache:
         # The manifest is a list of collections; flatten to their workflows.
@@ -1240,6 +1270,25 @@ async def _iwc_manifest(g):
     return _iwc_cache["workflows"]
 
 
+README_SUMMARY_CHARS = 300
+
+
+def _tool_name(tool_id):
+    """The name inside a toolshed id, which is what a user recognises."""
+    parts = tool_id.split("/")
+    return parts[-2] if len(parts) > 2 else tool_id
+
+
+def _iwc_tools(definition):
+    names = []
+    for step in (definition.get("steps") or {}).values():
+        tool_id = step.get("tool_id") if isinstance(step, dict) else None
+        name = _tool_name(tool_id) if tool_id else None
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
 def _iwc_entry(w):
     d = w.get("definition", {})
     return {
@@ -1248,6 +1297,10 @@ def _iwc_entry(w):
         "description": d.get("annotation", ""),
         "tags": d.get("tags", []),
         "categories": w.get("categories", []),
+        "readme_summary": (w.get("readme") or "")[:README_SUMMARY_CHARS],
+        "step_count": len(d.get("steps") or {}),
+        "authors": w.get("authors") or [],
+        "tools_used": _iwc_tools(d),
     }
 
 
@@ -1255,14 +1308,17 @@ async def _get_iwc_workflows(g, a):
     return [_iwc_entry(w) for w in await _iwc_manifest(g)]
 
 
+def _iwc_text(entry):
+    """The words an entry itself carries, which is what the description says it matches."""
+    values = [entry["trsID"], entry["name"], entry["description"], entry["readme_summary"]]
+    values += entry["tags"] + entry["categories"]
+    return " ".join(str(v) for v in values).lower()
+
+
 async def _search_iwc_workflows(g, a):
     needle = (a.get("query") or "").lower()
-    out = []
-    for w in await _iwc_manifest(g):
-        e = _iwc_entry(w)
-        if needle in json.dumps(e).lower():
-            out.append(e)
-    return out
+    entries = [_iwc_entry(w) for w in await _iwc_manifest(g)]
+    return [e for e in entries if needle in _iwc_text(e)]
 
 
 async def _recommend_iwc_workflows(g, a):
@@ -1298,7 +1354,4 @@ def tool_schemas(manifest):
 
 
 def get_handler(name):
-    for t in TOOLS:
-        if t["name"] == name:
-            return t["handler"]
-    return None
+    return HANDLERS.get(name)

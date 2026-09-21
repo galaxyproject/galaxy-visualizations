@@ -11,9 +11,6 @@ from .brief import brief
 
 logger = logging.getLogger(__name__)
 
-
-
-
 RUN_PYTHON = {
     "type": "function",
     "function": {
@@ -124,36 +121,8 @@ def _skills_fetch_schema(skills):
     }
 
 
-NAME_SAMPLE = 10
-
-
-def _summarize(state):
-    """Counts and a sample of names. The payload itself must never reach the model."""
-    grouping = state.get("grouping")
-    if not isinstance(grouping, dict):
-        return None
-
-    def sample(names):
-        names = names or []
-        out = {"count": len(names), "names": names[:NAME_SAMPLE]}
-        if len(names) > NAME_SAMPLE:
-            out["truncated"] = True
-        return out
-
-    collection = state.get("collection") or {}
-    leftovers = state.get("leftovers") or {}
-    return {
-        "ok": True,
-        "collection": {"id": collection.get("id"), "name": collection.get("name"),
-                       "type": grouping.get("structure"),
-                       "elements": len(grouping.get("elements") or [])},
-        "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
-        "out_of_scope": sample(grouping.get("out_of_scope")),
-        "datatype": {
-            "queued": len(grouping.get("items") or []),
-            "state": "Galaxy applies these in the background; they are not converted yet",
-        } if state.get("batches") else None,
-    }
+ARTIFACT_HINT = ("This artifact is already displayed to the user and is not a history dataset, "
+                 "so do not look for it there. Describe what it shows and finish.")
 
 
 @dataclass
@@ -178,8 +147,17 @@ class ToolSurface:
         self.confirmation = confirmation or Confirmation()
         # Renderable artifacts, routed to the shell so no large payload hits the LLM.
         self.artifacts = []
+        # The last call that failed and how often it has repeated, for the loop guard.
+        self._last_failure = None
+        self._schemas = None
 
     def schemas(self):
+        """The advertised tools. Fixed for the session, and read on every dispatch."""
+        if self._schemas is None:
+            self._schemas = self._build_schemas()
+        return self._schemas
+
+    def _build_schemas(self):
         tools = [RUN_PYTHON]
         tools.extend(galaxy_tools.tool_schemas(self.substrate.manifest))
         tools.extend(notebook.tool_schemas(self.substrate.manifest))
@@ -226,7 +204,7 @@ class ToolSurface:
             self._note_outcome(name, args, True)
             return ToolOutcome(f"Tool '{name}' raised: {e}", is_error=True)
 
-    def _claim_artifact(self, result):
+    def _claim_artifact(self, result, hint=None):
         """Route a renderable artifact to the shell, leaving a reference in the tool result."""
         if not isinstance(result, dict) or not isinstance(result.get("artifact"), dict):
             return result
@@ -234,13 +212,15 @@ class ToolSurface:
         self.artifacts.append(artifact)
         payload = dict(result)
         payload["artifact"] = {"kind": artifact.get("kind"), "title": artifact.get("title")}
+        if hint:
+            payload["hint"] = hint
         return payload
 
     # An identical call that just failed will fail again; three is enough to establish it.
     FAILED_REPEAT_LIMIT = 3
 
     def _repeating_a_failure(self, name, args):
-        last = getattr(self, "_last_failure", None)
+        last = self._last_failure
         if not last or last["key"] != (name, brief(args)) or last["count"] < self.FAILED_REPEAT_LIMIT:
             return None
         return (f"Refused: '{name}' was already called with these exact arguments "
@@ -249,7 +229,7 @@ class ToolSurface:
 
     def _note_outcome(self, name, args, is_error):
         key = (name, brief(args))
-        last = getattr(self, "_last_failure", None)
+        last = self._last_failure
         if not is_error:
             self._last_failure = None
         elif last and last["key"] == key:
@@ -353,7 +333,7 @@ class ToolSurface:
         substrate = self.substrate.scoped(proc.capabilities)
         result = await proc.run(substrate, args.get("inputs") or {})
         last = result.get("last") or {}
-        summary = _summarize(result.get("state") or {})
+        summary = proc.summarize(result.get("state") or {}) if proc.summarize else None
         if summary and last.get("ok") is not False:
             return json.dumps(summary)
         # Surface a failed graph rather than returning a bare null.
@@ -361,14 +341,7 @@ class ToolSurface:
             return ToolOutcome(json.dumps({"ok": False, "error": last.get("error")}), is_error=True)
         output = last.get("result")
         # A renderable artifact goes to the shell out of band, not into the context.
-        if isinstance(output, dict) and isinstance(output.get("artifact"), dict):
-            art = dict(output["artifact"])
-            self.artifacts.append(art)
-            payload = {k: v for k, v in output.items() if k != "artifact"}
-            payload["ok"] = True
-            payload["artifact"] = {"kind": art.get("kind"), "title": art.get("title")}
-            payload["hint"] = ("This artifact is already displayed to the user and is not a "
-                               "history dataset, so do not look for it there. Describe what "
-                               "it shows and finish.")
-            return json.dumps(payload, default=str)
+        claimed = self._claim_artifact(output, hint=ARTIFACT_HINT)
+        if claimed is not output:
+            return json.dumps({**claimed, "ok": True}, default=str)
         return json.dumps(output)

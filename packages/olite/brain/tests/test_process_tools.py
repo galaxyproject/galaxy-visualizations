@@ -120,3 +120,24 @@ def test_per_input_help_reaches_the_model():
     props = _schemas()["organize_datasets"]["parameters"]["properties"]
     assert "sample" in props["sample_regex"]["description"]
     assert "mate" in props["sample_regex"]["description"]
+
+
+def test_a_process_summarizes_its_own_state():
+    """organize_datasets owns its summary; the tool surface only asks for one."""
+    from olite.registry.python.organize_datasets import organize_datasets, summarize_state
+
+    assert organize_datasets.summarize is summarize_state
+    assert _processes().get("organize_datasets").summarize is summarize_state
+
+
+def test_a_process_without_a_summary_returns_its_result():
+    registry = ProcessRegistry()
+
+    async def plain(substrate, value: str = "x"):
+        """A process with no summary of its own."""
+        return {"grouping": {"structure": "list"}, "value": value}
+
+    registry.register_python(plain)
+    surface = ToolSurface(FakeSubstrate(), registry)
+    out = json.loads(asyncio.run(surface.dispatch("plain", {"value": "kept"})).text)
+    assert out == {"grouping": {"structure": "list"}, "value": "kept"}

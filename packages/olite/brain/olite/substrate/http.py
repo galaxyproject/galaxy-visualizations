@@ -9,6 +9,11 @@ logger = logging.getLogger(__name__)
 
 # Retry configuration
 RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
+# A rate limit rejected the request, so resending it repeats nothing.
+RATE_LIMITED = 429
+# A server error may have been applied before it was reported; only a request whose repeat
+# is indistinguishable from its first attempt can be resent on one.
+IDEMPOTENT_METHODS = {"GET", "HEAD", "PUT", "DELETE"}
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0  # seconds
 # A rate limiter states how long to wait; guessing shorter guarantees the retry fails.
@@ -93,8 +98,47 @@ def _google_retry_info(body):
     return None
 
 
+def _retryable(status, retry_errors):
+    """Whether this status may be resent, given what the caller said about repeating it."""
+    if status == RATE_LIMITED:
+        return True
+    return retry_errors and status in RETRY_STATUS_CODES
+
+
 class HttpClient:
-    async def request(self, method, url, headers=None, body=None, signal=None, on_retry=None, binary=False):
+    """The retry policy. A transport implements `_attempt` and inherits it."""
+
+    async def request(self, method, url, headers=None, body=None, signal=None, on_retry=None,
+                      binary=False, retry_errors=None):
+        """Send the request, resending it only while that is safe and the server allows it.
+
+        `retry_errors` says whether a server error may be resent; by default only an
+        idempotent method is. A POST Galaxy already applied would run the job twice.
+        """
+        method = method.upper()
+        if retry_errors is None:
+            retry_errors = method in IDEMPOTENT_METHODS
+
+        for attempt in range(MAX_RETRIES):
+            result, failure = await self._attempt(method, url, headers, body, signal, binary)
+            if failure is None:
+                return result
+
+            status, text, response_headers = failure
+            error = HttpError(f"HTTP {status}: {text}", status_code=status,
+                              details={"url": url, "method": method})
+            if not _retryable(status, retry_errors) or attempt == MAX_RETRIES - 1:
+                raise error
+
+            stated = retry_after(response_headers, text)
+            backoff = stated if stated is not None else INITIAL_BACKOFF * (2**attempt)
+            logger.warning(f"HTTP {status}, retrying in {backoff}s "
+                           f"(attempt {attempt + 1}/{MAX_RETRIES})")
+            _report(on_retry, status, backoff, attempt + 1)
+            await asyncio.sleep(backoff)
+
+    async def _attempt(self, method, url, headers, body, signal, binary):
+        """One round trip: `(parsed body, None)`, or `(None, (status, text, headers))`."""
         raise NotImplementedError
 
 
@@ -156,13 +200,9 @@ class BrowserHttpClient(HttpClient):
         self._fetch = fetch
         self._to_js = to_js
 
-    async def request(self, method, url, headers=None, body=None, signal=None, on_retry=None, binary=False):
-        headers = headers or {}
-        options = {
-            "method": method.upper(),
-            "headers": headers,
-            "cache": "no-store",
-        }
+    async def _attempt(self, method, url, headers, body, signal, binary):
+        headers = dict(headers or {})
+        options = {"method": method, "headers": headers, "cache": "no-store"}
         if body is not None:
             options["body"] = json.dumps(body)
             headers.setdefault("Content-Type", "application/json")
@@ -170,37 +210,10 @@ class BrowserHttpClient(HttpClient):
         if signal is not None:
             options["signal"] = signal
 
-        last_error = None
-        for attempt in range(MAX_RETRIES):
-            response = await self._fetch(url, self._to_js(options))
-            if response.ok:
-                return await (parse_response_bytes(response) if binary else parse_response(response))
-
-            status = response.status
-            text = await response.text()
-
-            if status not in RETRY_STATUS_CODES:
-                # Don't retry client errors (except 429)
-                raise HttpError(
-                    f"HTTP {status}: {text}",
-                    status_code=status,
-                    details={"url": url, "method": method},
-                )
-
-            last_error = HttpError(
-                f"HTTP {status}: {text}",
-                status_code=status,
-                details={"url": url, "method": method},
-            )
-
-            if attempt < MAX_RETRIES - 1:
-                stated = retry_after(_js_headers(response), text)
-                backoff = stated if stated is not None else INITIAL_BACKOFF * (2**attempt)
-                logger.warning(f"HTTP {status}, retrying in {backoff}s " f"(attempt {attempt + 1}/{MAX_RETRIES})")
-                _report(on_retry, status, backoff, attempt + 1)
-                await asyncio.sleep(backoff)
-
-        raise last_error
+        response = await self._fetch(url, self._to_js(options))
+        if response.ok:
+            return await (parse_response_bytes(response) if binary else parse_response(response)), None
+        return None, (response.status, await response.text(), _js_headers(response))
 
 
 # ----------------------------
@@ -212,54 +225,20 @@ class ServerHttpClient(HttpClient):
 
         self._aiohttp = aiohttp
 
-    async def request(self, method, url, headers=None, body=None, signal=None, on_retry=None, binary=False):
+    async def _attempt(self, method, url, headers, body, signal, binary):
         # A browser AbortSignal has no meaning here; the loop's own checks still apply.
         del signal
         data = None
         if body is not None:
             data = json.dumps(body)
-            headers = headers or {}
+            headers = dict(headers or {})
             headers.setdefault("Content-Type", "application/json")
 
-        last_error = None
-        last_headers = None
-        for attempt in range(MAX_RETRIES):
-            async with self._aiohttp.ClientSession() as session:
-                async with session.request(
-                    method=method.upper(),
-                    url=url,
-                    headers=headers,
-                    data=data,
-                ) as response:
-                    if response.status < 400:
-                        return await (parse_response_bytes(response) if binary else parse_response(response))
-
-                    status = response.status
-                    text = await response.text()
-                    last_headers = dict(response.headers)
-
-                    if status not in RETRY_STATUS_CODES:
-                        # Don't retry client errors (except 429)
-                        raise HttpError(
-                            f"HTTP {status}: {text}",
-                            status_code=status,
-                            details={"url": url, "method": method},
-                        )
-
-                    last_error = HttpError(
-                        f"HTTP {status}: {text}",
-                        status_code=status,
-                        details={"url": url, "method": method},
-                    )
-
-            if attempt < MAX_RETRIES - 1:
-                stated = retry_after(last_headers, text)
-                backoff = stated if stated is not None else INITIAL_BACKOFF * (2**attempt)
-                logger.warning(f"HTTP {status}, retrying in {backoff}s " f"(attempt {attempt + 1}/{MAX_RETRIES})")
-                _report(on_retry, status, backoff, attempt + 1)
-                await asyncio.sleep(backoff)
-
-        raise last_error
+        async with self._aiohttp.ClientSession() as session:
+            async with session.request(method=method, url=url, headers=headers, data=data) as response:
+                if response.status < 400:
+                    return await (parse_response_bytes(response) if binary else parse_response(response)), None
+                return None, (response.status, await response.text(), dict(response.headers))
 
 
 # ----------------------------

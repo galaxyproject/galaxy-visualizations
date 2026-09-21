@@ -128,3 +128,47 @@ def test_create_page_declares_markdown_so_galaxy_does_not_sanitize_it_as_html():
     method, path, body = sub.galaxy.calls[0]
     assert (method, path) == ("POST", "api/pages")
     assert body["content_format"] == "markdown"
+
+
+def test_history_details_uses_the_count_galaxy_already_reports():
+    """Listing every content id to length it made this call grow with the history."""
+    from olite.drivers.loop import galaxy_tools
+
+    class Counting:
+        def __init__(self):
+            self.paths = []
+
+        async def get(self, path):
+            self.paths.append(path)
+            return {"id": "h1", "name": "Analysis", "count": 42}
+
+    galaxy = Counting()
+    out = asyncio.run(galaxy_tools.get_handler("get_history_details")(galaxy, {"history_id": "h1"}))
+    assert out["contents_summary"]["total_items"] == 42
+    assert galaxy.paths == ["api/histories/h1"]
+
+
+def test_history_details_reports_no_items_when_galaxy_states_none():
+    from olite.drivers.loop import galaxy_tools
+
+    class Empty:
+        async def get(self, path):
+            return {"id": "h1"}
+
+    out = asyncio.run(galaxy_tools.get_handler("get_history_details")(Empty(), {"history_id": "h1"}))
+    assert out["contents_summary"]["total_items"] == 0
+
+
+def test_an_unreadable_preview_says_why():
+    """An absent preview field reads the same as a dataset with no content."""
+    from olite.drivers.loop import galaxy_tools
+
+    class Unreadable:
+        async def get(self, path, **kwargs):
+            if path.endswith("/display") or "ck_size" in path:
+                raise RuntimeError("dataset is in state 'running'")
+            return {"id": "d1", "state": "running"}
+
+    out = asyncio.run(galaxy_tools.get_handler("get_dataset_details")(Unreadable(), {"dataset_id": "d1"}))
+    assert "preview" not in out
+    assert "running" in out["preview_unavailable"]
