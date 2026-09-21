@@ -26,15 +26,18 @@ a behavioural failure.
 ## What the run needs
 
 `run.py` exits without running unless `GALAXY_URL` and `GALAXY_API_KEY` name a Galaxy it
-can stage histories in. A tool-test scenario also compares against galaxy-test-data, so
-`GALAXY_TEST_DATA` must point at a clone of it; without that the scenario reports `could
-not grade` and is counted as an error rather than a failure.
+can stage histories in.
 
 ```bash
 export GALAXY_URL=http://localhost:8080
 export GALAXY_API_KEY=...          # User > Preferences > Manage API Key
-export GALAXY_TEST_DATA=...        # clone of galaxyproject/galaxy-test-data
 ```
+
+A tool-test scenario grades the output against the tool test's own expectation. Galaxy
+serves a test's **inputs** through `test_data_download` but answers 404 for its expected
+**outputs**, so those live in `fixtures/tool-tests/`, committed, and a run needs nothing
+else. `GALAXY_TEST_DATA` still names a galaxy-test-data clone and is searched after the
+vendored copy, for an expectation that is not worth committing.
 
 ## How it runs
 
