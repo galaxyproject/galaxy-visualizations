@@ -41,7 +41,7 @@ def main():
             "source": "loom evals/scenarios",
             "fingerprints": layers.loom_scenarios(LOOM),
         },
-        "identity_prompt": layers.identity_prompt(),
+        "identity_prompt": layers.identity_prompt() or (existing.get("identity_prompt") or {}),
         "skills": layers.skills_manifest(),
         "pi": layers.pi_manifest(LOOM) or (existing.get("pi") or {}),
         "tool_surface": existing.get("tool_surface") or {},

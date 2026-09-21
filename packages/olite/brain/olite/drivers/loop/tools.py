@@ -172,17 +172,21 @@ class ToolSurface:
         return tools
 
     def _declaration(self, name):
-        """A tool's schema and the capability it needs, advertised to this session or not.
+        """A tool's schema and the capabilities it needs, advertised to this session or not.
 
         Handlers are reachable by name whatever the manifest grants, so a tool kept out of
         the tool list still runs, and only the declaration says what it needed.
         """
         tool = galaxy_tools.declared(name)
         if tool:
-            return tool["schema"], tool["capability"]
+            return tool["schema"], [tool["capability"]]
         if notebook.get_handler(name):
-            return notebook.NOTEBOOK_RESUME, notebook.CAPABILITY
-        return next((t for t in self.schemas() if t["function"]["name"] == name), None), None
+            return notebook.NOTEBOOK_RESUME, [notebook.CAPABILITY]
+        if self.processes and name in (self.processes.names() or []):
+            schema = next((s for s in _process_tool_schemas(self.processes)
+                           if s["function"]["name"] == name), None)
+            return schema, list(self.processes.get(name).capabilities or [])
+        return next((t for t in self.schemas() if t["function"]["name"] == name), None), []
 
     def _missing_required(self, schema, args):
         """Required parameters the call left out; presence only, not types."""
@@ -199,17 +203,21 @@ class ToolSurface:
             logger.info("  -> breaking a loop of identical failing calls")
             self._last_failure = None  # a speed bump, not a ban
             return ToolOutcome(repeated, is_error=True, refused=True)
-        schema, capability = self._declaration(name)
-        if capability and not self.substrate.manifest.allows(capability):
-            logger.info("  -> %s needs the %s capability, which this session lacks", name, capability)
+        schema, capabilities = self._declaration(name)
+        ungranted = next((c for c in capabilities if not self.substrate.manifest.allows(c)), None)
+        if ungranted:
+            logger.info("  -> %s needs the %s capability, which this session lacks", name, ungranted)
+            # Counted, so an unchanged repeat meets the loop guard rather than running forever.
+            self._note_outcome(name, args, True)
             return ToolOutcome(
-                f"Refused: '{name}' needs the '{capability}' capability, which is not granted in "
+                f"Refused: '{name}' needs the '{ungranted}' capability, which is not granted in "
                 f"this session. Tell the user, and stay within the tools you are offered.",
                 is_error=True, refused=True,
             )
         missing = self._missing_required(schema, args)
         if missing:
             logger.info("  -> missing required %s", missing)
+            self._note_outcome(name, args, True)
             return ToolOutcome(
                 f"Tool '{name}' was not called: missing required parameter(s): {', '.join(missing)}.",
                 is_error=True,

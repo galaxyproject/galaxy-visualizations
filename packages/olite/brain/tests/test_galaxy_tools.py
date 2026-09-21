@@ -224,3 +224,13 @@ def test_a_tool_search_with_no_matches_says_the_query_is_exhausted():
 
     assert out["tools"] == [] and out["query"] == "igv"
     assert "searching again" in out["hint"]
+
+
+def test_a_refused_tool_meets_the_loop_guard_like_any_other_failure():
+    """The capability refusal is counted, or an unchanged repeat runs to the step cap."""
+    sub = FakeSubstrate(("read",))
+    surface = ToolSurface(sub)
+    args = {"dataset_id": "d1", "visualization": "igv"}
+    for _ in range(ToolSurface.FAILED_REPEAT_LIMIT):
+        assert "'write' capability" in asyncio.run(surface.dispatch("save_visualization", args)).content
+    assert "cannot succeed" in asyncio.run(surface.dispatch("save_visualization", args)).content
