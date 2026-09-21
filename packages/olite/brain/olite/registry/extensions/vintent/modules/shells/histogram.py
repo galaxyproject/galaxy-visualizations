@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.compute_bins import PROCESS_ID as compute_bins_id
 from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
@@ -14,7 +14,7 @@ class HistogramShell(BaseShell):
     goals = ["distribution"]
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["quantitative"],
     ]
 
@@ -22,7 +22,7 @@ class HistogramShell(BaseShell):
         "field": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "tooltip": {"type": "any"},
     }
 
@@ -70,9 +70,9 @@ class HistogramShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 

@@ -34,13 +34,13 @@ class MaterializerHandler:
         workspace_spec = node.get("workspace")
         input_schema = node.get("input_schema")
 
-        logger.debug(f"Materializer executing: {target}")
+        logger.debug("Materializer executing: %s", target)
 
         # Get the materializer function from the catalog
         try:
             fn = catalog.get(target)
         except KeyError as e:
-            logger.error(f"Materializer not found: {target}")
+            logger.error("Materializer not found: %s", target)
             return {
                 "ok": False,
                 "error": {
@@ -64,7 +64,7 @@ class MaterializerHandler:
             try:
                 jsonschema.validate(args, input_schema)
             except jsonschema.ValidationError as e:
-                logger.error(f"Materializer argument validation failed: {e.message}")
+                logger.error("Materializer argument validation failed: %s", e.message)
                 return {
                     "ok": False,
                     "error": {
@@ -77,7 +77,7 @@ class MaterializerHandler:
         # Execute the materializer function
         try:
             result = fn(**args)
-            logger.debug(f"Materializer {target} completed successfully")
+            logger.debug("Materializer %s completed successfully", target)
 
             # Set result in context for emit rules
             ctx["result"] = result
@@ -91,7 +91,7 @@ class MaterializerHandler:
 
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error(f"Materializer {target} failed: {e}\n{tb}")
+            logger.error('Materializer %s failed: %s\n%s', target, e, tb)
             return {
                 "ok": False,
                 "error": {

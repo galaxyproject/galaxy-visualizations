@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .process import Process
 from .profiler import DatasetProfile
@@ -39,10 +39,10 @@ CHOOSE_PROCESS_PREFIX = "choose_process_"
 
 
 def build_choose_process_tools(
-    processes: Dict[str, Process],
+    processes: dict[str, Process],
     profile: DatasetProfile,
     context: Any = None,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """One tool per process variant; the LLM picks exactly one to call.
 
     Avoids JSON Schema `oneOf` at the top level (rejected by Azure OpenAI)
@@ -64,7 +64,7 @@ def build_choose_process_tools(
         "- 'sample 50 rows' → sample_rows"
     )
 
-    tools: List[Dict[str, Any]] = [
+    tools: list[dict[str, Any]] = [
         {
             "type": "function",
             "function": {
@@ -105,7 +105,7 @@ def build_choose_process_tools(
     return tools
 
 
-def get_chosen_process(reply: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def get_chosen_process(reply: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Find the first ``choose_process_<id>`` tool call in `reply`.
 
     Returns ``{"id": <id>, "params": <args>}`` or ``None`` if no choose_process
@@ -133,8 +133,8 @@ def get_chosen_process(reply: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _field_names_by_type(profile: DatasetProfile) -> Dict[str, List[str]]:
-    out: Dict[str, List[str]] = {}
+def _field_names_by_type(profile: DatasetProfile) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
     for name, meta in profile["fields"].items():
         t = meta.get("type") or "nominal"
         out.setdefault(t, []).append(name)
@@ -143,16 +143,16 @@ def _field_names_by_type(profile: DatasetProfile) -> Dict[str, List[str]]:
 
 def build_choose_shell_tool(
     profile: DatasetProfile,
-    parsed_intent: Optional[Dict[str, Any]] = None,
-) -> Optional[Dict[str, Any]]:
+    parsed_intent: Optional[dict[str, Any]] = None,
+) -> Optional[dict[str, Any]]:
     """Build the shell selection tool.
 
     If parsed_intent is provided with a 'goal', shells matching that goal
     are listed first with a [RECOMMENDED] tag.
     """
     target_goal = parsed_intent.get("goal") if parsed_intent else None
-    compatible_shells: List[Dict[str, str]] = []
-    recommended_shells: List[Dict[str, str]] = []
+    compatible_shells: list[dict[str, str]] = []
+    recommended_shells: list[dict[str, str]] = []
 
     for shell_id in sorted(SHELLS.keys()):
         shell = SHELLS[shell_id]
@@ -177,7 +177,7 @@ def build_choose_shell_tool(
     # Combine: recommended shells first, then others
     all_shells = recommended_shells + compatible_shells
     shell_ids = [s["id"] for s in all_shells]
-    logger.debug(f"Shells: {shell_ids}. Target goal: {target_goal}")
+    logger.debug("Shells: %s. Target goal: %s", shell_ids, target_goal)
 
     if not shell_ids:
         return None
@@ -211,13 +211,13 @@ def build_choose_shell_tool(
 def build_fill_shell_params_tool(
     shell: Any,
     profile: DatasetProfile,
-    parsed_intent: Optional[Dict[str, Any]] = None,
-) -> Optional[Dict[str, Any]]:
-    properties: Dict[str, Any] = {}
-    required: List[str] = []
+    parsed_intent: Optional[dict[str, Any]] = None,
+) -> Optional[dict[str, Any]]:
+    properties: dict[str, Any] = {}
+    required: list[str] = []
     fields_by_type = _field_names_by_type(profile)
 
-    def prioritize_fields(fields: List[str]) -> List[str]:
+    def prioritize_fields(fields: list[str]) -> list[str]:
         """Reorder fields: shell fields first, extract fields last."""
         if not parsed_intent:
             return fields
@@ -232,9 +232,9 @@ def build_fill_shell_params_tool(
 
         return viz + neutral + extract
 
-    def fields_for_type(expected_type: str) -> List[str]:
+    def fields_for_type(expected_type: str) -> list[str]:
         if expected_type == "any":
-            names: List[str] = []
+            names: list[str] = []
             for v in fields_by_type.values():
                 names.extend(v)
             return prioritize_fields(names)
@@ -301,7 +301,7 @@ def is_encoding_spec(spec: Any) -> bool:
     return isinstance(spec, dict) and "type" in spec and isinstance(spec["type"], str)
 
 
-def build_parse_intent_tool(profile: DatasetProfile) -> Optional[Dict[str, Any]]:
+def build_parse_intent_tool(profile: DatasetProfile) -> Optional[dict[str, Any]]:
     """Build a tool for extracting user intent from the request.
 
     This tool helps the LLM understand:

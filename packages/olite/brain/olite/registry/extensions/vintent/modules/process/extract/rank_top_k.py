@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "rank_top_k"
 PROCESS_PHASE = "extract"
@@ -46,8 +46,8 @@ def schema(profile, context=None):
     }
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
-    out: List[Dict[str, object]] = []
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
+    out: list[dict[str, object]] = []
     if rows:
         col = params.get("sort_by")
         order = params.get("order")
@@ -65,7 +65,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     col = params.get("sort_by", "unknown")
     order = params.get("order", "desc")
     limit = params.get("limit", 0)

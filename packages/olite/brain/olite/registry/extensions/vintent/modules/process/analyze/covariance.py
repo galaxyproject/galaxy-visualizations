@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -10,7 +10,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]):
+def run(rows: list[dict[str, Any]], params: dict[str, Any]):
     columns = params.get("columns") or []
 
     X = []
@@ -29,7 +29,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]):
     X = np.asarray(X, dtype=float)
     cov = np.cov(X, rowvar=False)
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for i, xi in enumerate(columns):
         for j, yj in enumerate(columns):
             out.append(
@@ -43,7 +43,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]):
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     cols = params.get("columns", [])
     return f"Computed covariance matrix for columns {cols}."
 

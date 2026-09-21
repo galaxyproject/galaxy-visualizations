@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "drop_missing"
 PROCESS_PHASE = "analyze"
@@ -17,7 +17,7 @@ def _is_missing(v: Any) -> bool:
     return False
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -25,7 +25,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not columns:
         return rows
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for r in rows:
         ok = True
         for c in columns:
@@ -38,7 +38,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     cols = params.get("columns", [])
     return f"Dropped rows with missing values in {cols}."
 

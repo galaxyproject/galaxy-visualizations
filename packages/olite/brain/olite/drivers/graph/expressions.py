@@ -1,7 +1,8 @@
 """Expression operators for agent pipelines."""
 
 import logging
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from olite.exceptions import ExpressionError
 from .types import Context

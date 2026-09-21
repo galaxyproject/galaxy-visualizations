@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
-from ..schemas import DatasetProfile, FieldType, ValidationResult
+from ..schemas import FieldType
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
 
@@ -12,16 +12,16 @@ class LineTimeShell(BaseShell):
     goals = ["trend"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["temporal", "quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "x": {"type": "temporal"},
         "y": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "color": {"type": "nominal"},
         "tooltip": {"type": "any"},
     }
@@ -29,13 +29,13 @@ class LineTimeShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {"field": params.get("x", ""), "type": "temporal"},
             "y": {"field": params.get("y", ""), "type": "quantitative"},
         }

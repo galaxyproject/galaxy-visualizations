@@ -1,23 +1,9 @@
 """Group a history's loose datasets into a collection, tag it, set their datatype."""
 
 from olite.registry.extensions.collections.bridge import chunk_items, group_datasets
+from olite.registry.python.galaxy import call as _call
 
 BATCH = 1000
-
-
-class ProcessError(Exception):
-    """A Galaxy call the process cannot continue without."""
-
-    def __init__(self, target, error):
-        super().__init__(f"{target}: {error}")
-        self.target, self.error = target, error
-
-
-async def _call(substrate, target, payload):
-    result = await substrate.catalog.call(target, payload)
-    if not result.get("ok"):
-        raise ProcessError(target, result.get("error"))
-    return result.get("result")
 
 
 async def _bulk(substrate, history_id, operation, items, params):

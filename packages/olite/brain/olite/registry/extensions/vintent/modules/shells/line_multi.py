@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
-from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
+from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
@@ -13,18 +13,18 @@ class LineMultiShell(BaseShell):
     goals = ["trend", "comparison"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["temporal", "quantitative", "nominal"],
         ["quantitative", "quantitative", "nominal"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "x": {"type": "any"},
         "y": {"type": "quantitative"},
         "color": {"type": "nominal"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "strokeDash": {"type": "nominal"},
     }
 
@@ -39,9 +39,9 @@ class LineMultiShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
@@ -56,7 +56,7 @@ class LineMultiShell(BaseShell):
             if isinstance(first_x, (int, float)):
                 x_type = "quantitative"
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {"field": x_field, "type": x_type},
             "y": {"field": y_field, "type": "quantitative"},
             "color": {"field": color_field, "type": "nominal"},

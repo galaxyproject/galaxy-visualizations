@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from olite.exceptions import ConfigurationError, ProviderError
 
@@ -15,19 +16,19 @@ class ApiOp:
     target: str
     handler: Callable
     capability: Optional[str] = None
-    meta: Dict[str, Any] = field(default_factory=dict)
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ApiTarget:
     name: str
     base_url: str
-    headers: Optional[Callable[[], Dict[str, str]]] = None
+    headers: Optional[Callable[[], dict[str, str]]] = None
 
     def build_url(self, path: str) -> str:
         return f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
 
-    def get_headers(self) -> Dict[str, str]:
+    def get_headers(self) -> dict[str, str]:
         if self.headers:
             return self.headers()
         return {}

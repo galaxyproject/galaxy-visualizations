@@ -5,7 +5,8 @@ import json
 
 from olite.drivers.loop import galaxy_destructive
 from olite.drivers.loop.tools import ToolSurface
-from olite.substrate import CapabilityManifest, Confirmation
+from olite.substrate import Confirmation
+from .fakes import FakeSubstrate
 
 
 class RecordingGalaxy:
@@ -25,15 +26,8 @@ class RecordingGalaxy:
         return {"id": "h1"}
 
 
-class FakeSubstrate:
-    def __init__(self):
-        self.galaxy = RecordingGalaxy()
-        self.local = None
-        self.manifest = CapabilityManifest(["llm", "local", "read", "write"])
-
-
 def _dispatch(name, args, confirmation=None):
-    substrate = FakeSubstrate()
+    substrate = FakeSubstrate(galaxy=RecordingGalaxy(), capabilities=("llm", "local", "read", "write"))
     surface = ToolSurface(substrate, confirmation=confirmation)
     return asyncio.run(surface.dispatch(name, args)).text, substrate.galaxy
 
@@ -143,7 +137,7 @@ def test_the_question_carries_the_honest_headline():
 def test_approval_is_never_remembered_between_calls():
     """loom never caches a destructive op; every irreversible action re-prompts."""
     user = Asked(answer=True)
-    substrate = FakeSubstrate()
+    substrate = FakeSubstrate(galaxy=RecordingGalaxy(), capabilities=("llm", "local", "read", "write"))
     surface = ToolSurface(substrate, confirmation=user.confirmation)
 
     for _ in range(3):

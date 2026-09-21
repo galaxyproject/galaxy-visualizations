@@ -172,3 +172,17 @@ def test_an_unreadable_preview_says_why():
     out = asyncio.run(galaxy_tools.get_handler("get_dataset_details")(Unreadable(), {"dataset_id": "d1"}))
     assert "preview" not in out
     assert "running" in out["preview_unavailable"]
+
+
+def test_invoke_workflow_passes_parameters_normalized_through():
+    from olite.drivers.loop import galaxy_tools
+
+    class Posting:
+        async def post(self, path, body):
+            self.body = body
+            return {"id": "inv1"}
+
+    galaxy = Posting()
+    asyncio.run(galaxy_tools.get_handler("invoke_workflow")(
+        galaxy, {"workflow_id": "w1", "inputs": {}, "parameters_normalized": True}))
+    assert galaxy.body["parameters_normalized"] is True

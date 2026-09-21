@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "ecdf"
 PROCESS_PHASE = "analyze"
@@ -13,7 +13,7 @@ def _is_finite(v: Any) -> bool:
     return isinstance(v, (int, float)) and math.isfinite(v)
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -23,7 +23,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not field:
         return rows
 
-    groups: Dict[Any, List[float]] = {}
+    groups: dict[Any, list[float]] = {}
 
     for r in rows:
         v = r.get(field)
@@ -32,7 +32,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         key = r.get(group_by) if group_by else None
         groups.setdefault(key, []).append(float(v))
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
 
     for key, values in groups.items():
         if not values:
@@ -40,7 +40,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         values.sort()
         n = len(values)
         for i, v in enumerate(values, start=1):
-            row: Dict[str, Any] = {
+            row: dict[str, Any] = {
                 field: v,
                 "ecdf": i / n,
             }
@@ -51,7 +51,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field")
     group_by = params.get("group_by")
     if group_by:

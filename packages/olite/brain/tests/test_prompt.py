@@ -62,7 +62,7 @@ def test_the_local_upload_path_is_refused_not_recommended():
     """Orbit tells the agent to upload local files; here that tool cannot work."""
     text = prompt.system_text()
 
-    assert "no local-upload path here" in text
+    assert "no path from the user's disk" in text
     assert "upload_file_from_url" in text
 
 

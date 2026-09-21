@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "group_aggregate"
 PROCESS_PHASE = "analyze"
@@ -15,7 +15,7 @@ def _is_finite(v: Any) -> bool:
     return isinstance(v, (int, float)) and math.isfinite(v)
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
     group_by = params.get("group_by")
@@ -23,11 +23,11 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     metric = params.get("metric")
     if not group_by or not op or op not in AGG_OPS:
         return rows
-    groups: Dict[Any, List[Dict[str, Any]]] = {}
+    groups: dict[Any, list[dict[str, Any]]] = {}
     for row in rows:
         key = row.get(group_by)
         groups.setdefault(key, []).append(row)
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for key, group in groups.items():
         if op == "count":
             out.append({group_by: key, "count": len(group)})
@@ -51,7 +51,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     group_by = params.get("group_by")
     op = params.get("op")
     metric = params.get("metric")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "group_summary_statistics"
 PROCESS_PHASE = "analyze"
@@ -13,7 +13,7 @@ def _is_finite(v: Any) -> bool:
     return isinstance(v, (int, float)) and math.isfinite(v)
 
 
-def _median(vals: List[float]) -> float:
+def _median(vals: list[float]) -> float:
     s = sorted(vals)
     n = len(s)
     m = n // 2
@@ -22,7 +22,7 @@ def _median(vals: List[float]) -> float:
     return (s[m - 1] + s[m]) / 2.0
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -32,11 +32,11 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not group_by or not fields:
         return rows
 
-    groups: Dict[Any, List[Dict[str, Any]]] = {}
+    groups: dict[Any, list[dict[str, Any]]] = {}
     for r in rows:
         groups.setdefault(r.get(group_by), []).append(r)
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
 
     for g, items in groups.items():
         for f in fields:
@@ -64,7 +64,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     return "Computed grouped summary statistics."
 
 

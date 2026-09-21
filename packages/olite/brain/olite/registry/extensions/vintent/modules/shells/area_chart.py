@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
-from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
+from olite.registry.extensions.vintent.modules.schemas import FieldType
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
 
@@ -13,26 +13,26 @@ class AreaChartShell(BaseShell):
     goals = ["trend"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["temporal", "quantitative"],
         ["quantitative", "quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "x": {"type": "any"},
         "y": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "color": {"type": "nominal"},
     }
 
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
@@ -46,7 +46,7 @@ class AreaChartShell(BaseShell):
             if isinstance(first_x, (int, float)):
                 x_type = "quantitative"
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {"field": x_field, "type": x_type},
             "y": {"field": y_field, "type": "quantitative"},
         }

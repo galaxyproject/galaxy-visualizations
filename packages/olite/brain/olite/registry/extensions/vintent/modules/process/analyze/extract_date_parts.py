@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "extract_date_parts"
 PROCESS_PHASE = "analyze"
@@ -21,7 +21,7 @@ def _parse_date(value: Any) -> datetime | None:
     return None
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -31,7 +31,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not field:
         return rows
 
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for row in rows:
         new_row = dict(row)
         date_val = _parse_date(row.get(field))
@@ -60,7 +60,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field", "date")
     parts = params.get("parts", ["year", "month", "day"])
     parts_str = ", ".join(parts)

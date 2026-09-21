@@ -18,7 +18,7 @@ def generate_mermaid(nodes=None, edges=None, seed_id=None):
         label = n.get("name") or n.get("tool_name") or n.get("tool_id") or n.get("id")
         marker = "*" if n.get("id") == seed_id else ""
         shape = '(["{}"])' if n.get("src") == JOB_SRC else '["{}"]'
-        lines.append(f"    {ref}" + shape.format(f"{marker}{label}"))
+        lines.append(f"    {ref}" + shape.format(_label(f"{marker}{label}")))
 
     for e in edges:
         source, target = e.get("source") or {}, e.get("target") or {}
@@ -30,6 +30,11 @@ def generate_mermaid(nodes=None, edges=None, seed_id=None):
         )
 
     return "\n".join(lines)
+
+
+def _label(text):
+    """Mermaid reads a quote as the end of the label; its entity form keeps it as text."""
+    return str(text).replace('"', "#quot;")
 
 
 def _node_id(src, raw):

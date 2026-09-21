@@ -5,6 +5,7 @@ import json
 import time
 import os
 import pathlib
+import runpy
 
 from olite.drivers.loop import notebook
 from olite.runtime import Session
@@ -217,8 +218,6 @@ def _resume_record(galaxy, history_id):
     `notebook.excerpt` returns nothing without one, so the binding block never reaches
     the agent and it asks which history it is in instead of working.
     """
-    from olite.drivers.loop import notebook
-
     galaxy.call("api/pages", "POST", {
         "history_id": history_id,
         "title": notebook.title_for_history(history_id),
@@ -270,9 +269,7 @@ def _fixture_path(name):
         gen = path.with_suffix(path.suffix + ".gen.py")
         if not gen.exists():
             gen = path.parent / (path.stem + ".gen.py")
-        namespace: dict = {}
-        exec(compile(gen.read_text(), str(gen), "exec"), namespace)
-        path.write_text(namespace["build"]())
+        path.write_text(runpy.run_path(str(gen))["build"]())
     return path
 
 

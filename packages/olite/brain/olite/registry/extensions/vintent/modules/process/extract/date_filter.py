@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "date_filter"
 PROCESS_PHASE = "extract"
@@ -59,7 +59,7 @@ def _parse_date(value: Any) -> datetime | None:
     return None
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
     if not rows:
         return []
 
@@ -83,7 +83,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
         if end_str:
             end_date = _parse_date(end_str)
 
-    result: List[Dict[str, object]] = []
+    result: list[dict[str, object]] = []
     for row in rows:
         value = row.get(field)
         date_val = _parse_date(value)
@@ -98,7 +98,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field", "date")
     start = params.get("start")
     end = params.get("end")

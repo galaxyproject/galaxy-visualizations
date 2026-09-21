@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "bin_categories"
 PROCESS_PHASE = "analyze"
@@ -9,7 +9,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -31,7 +31,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     top_categories = set(cat for cat, _ in counter.most_common(top_n))
 
     # Replace others
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for row in rows:
         new_row = dict(row)
         v = row.get(field)
@@ -42,7 +42,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field", "unknown")
     top_n = params.get("top_n", 10)
     other_label = params.get("other_label", "Other")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "outlier_filter"
 PROCESS_PHASE = "analyze"
@@ -9,7 +9,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -47,7 +47,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         lower = mean - threshold * std
         upper = mean + threshold * std
 
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for row in rows:
         v = row.get(field)
         if isinstance(v, (int, float)) and math.isfinite(v):
@@ -60,7 +60,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field", "unknown")
     method = params.get("method", "iqr")
     threshold = params.get("threshold", 1.5 if method == "iqr" else 3.0)

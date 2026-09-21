@@ -1,6 +1,7 @@
 """Type definitions for graph agent execution."""
 
-from typing import Any, Callable, TypedDict
+from typing import Any, TypedDict
+from collections.abc import Callable
 
 # Flexible type aliases for structures with dynamic/optional fields
 Context = dict[str, Any]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.ecdf import PROCESS_ID as ecdf_id
 from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
@@ -18,16 +18,16 @@ class EcdfShell(BaseShell):
 
     semantics: Literal["rowwise", "aggregate"] = "aggregate"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["quantitative"],
         ["nominal", "quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "field": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "group_by": {"type": "nominal"},
     }
 
@@ -52,15 +52,15 @@ class EcdfShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
         field = params["field"]
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {
                 "field": field,
                 "type": "quantitative",

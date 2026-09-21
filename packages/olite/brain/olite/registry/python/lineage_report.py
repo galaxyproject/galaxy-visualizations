@@ -1,24 +1,10 @@
 """Reconstruct a dataset's upstream provenance and summarize how it was produced."""
 
 from olite.registry.extensions.lineage.bridge import generate_mermaid
+from olite.registry.python.galaxy import call as _call
 
 DEFAULT_DEPTH = 4
 DEFAULT_LIMIT = 200
-
-
-class ProcessError(Exception):
-    """A Galaxy call the process cannot continue without."""
-
-    def __init__(self, target, error):
-        super().__init__(f"{target}: {error}")
-        self.target, self.error = target, error
-
-
-async def _call(substrate, target, payload):
-    result = await substrate.catalog.call(target, payload)
-    if not result.get("ok"):
-        raise ProcessError(target, result.get("error"))
-    return result.get("result")
 
 
 async def lineage_report(substrate, history_id: str, dataset_id: str,

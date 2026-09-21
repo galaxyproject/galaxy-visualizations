@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from ..schemas import DatasetProfile, FieldType, ValidationResult
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType
@@ -13,7 +13,7 @@ class BarSeriesShell(BaseShell):
 
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["quantitative"],
     ]
 
@@ -34,15 +34,15 @@ class BarSeriesShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
-        fields: List[str] = params.get("values", [])
+        fields: list[str] = params.get("values", [])
 
-        spec: Dict[str, Any] = {
+        spec: dict[str, Any] = {
             "$schema": VEGA_LITE_SCHEMA,
             "data": {"values": values},
             "transform": [

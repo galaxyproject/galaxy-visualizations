@@ -31,7 +31,7 @@ class ReasoningHandler:
             runner.resolver.apply_emit(node.get("emit"), {"result": result}, ctx)
             return {"ok": True, "result": result}
         except Exception as e:
-            logger.error(f"Reasoning node failed: {e}")
+            logger.error("Reasoning node failed: %s", e)
             return {
                 "ok": False,
                 "error": {

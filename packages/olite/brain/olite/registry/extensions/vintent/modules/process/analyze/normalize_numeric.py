@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "normalize_minmax"
 PROCESS_PHASE = "analyze"
@@ -6,7 +6,7 @@ REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -14,7 +14,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not field:
         return rows
 
-    values: List[float] = []
+    values: list[float] = []
     for r in rows:
         v = r.get(field)
         if isinstance(v, (int, float)):
@@ -26,7 +26,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     vmin = min(values)
     vmax = max(values)
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for r in rows:
         new_row = dict(r)
         v = r.get(field)
@@ -40,7 +40,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field")
     return f"Normalized column '{field}' using min-max scaling."
 

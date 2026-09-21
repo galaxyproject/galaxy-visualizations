@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "time_aggregate"
 PROCESS_PHASE = "analyze"
@@ -36,7 +36,7 @@ def _get_period_key(dt: datetime, period: str) -> str:
         return dt.strftime("%Y-%m-%d")
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     if not rows:
         return []
 
@@ -49,7 +49,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         return rows
 
     # Group by period
-    groups: Dict[str, List[Dict[str, Any]]] = {}
+    groups: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         date_val = _parse_date(row.get(date_field))
         if date_val is None:
@@ -58,7 +58,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         groups.setdefault(key, []).append(row)
 
     # Aggregate
-    result: List[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for key in sorted(groups.keys()):
         group = groups[key]
 
@@ -87,7 +87,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     date_field = params.get("date_field", "date")
     period = params.get("period", "month")
     metric = params.get("metric")

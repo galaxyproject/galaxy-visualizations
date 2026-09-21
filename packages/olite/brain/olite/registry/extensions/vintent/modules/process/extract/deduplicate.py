@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "deduplicate"
 PROCESS_PHASE = "extract"
@@ -38,14 +38,14 @@ def schema(profile, context=None):
     }
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
     if not rows:
         return []
     subset = params.get("subset")
     keep = params.get("keep", "first")
 
-    seen: Dict[str, int] = {}
-    result: List[Dict[str, object]] = []
+    seen: dict[str, int] = {}
+    result: list[dict[str, object]] = []
 
     for i, row in enumerate(rows):
         if subset:
@@ -77,7 +77,7 @@ def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str,
     return result
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     subset = params.get("subset")
     keep = params.get("keep", "first")
     if subset:

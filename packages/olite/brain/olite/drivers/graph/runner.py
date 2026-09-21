@@ -157,7 +157,7 @@ class Runner:
                     if route_value and route_value in routes:
                         next_val = routes[route_value].get("next")
                     else:
-                        logger.warning(f"Invalid route value: {route_value}")
+                        logger.warning("Invalid route value: %s", route_value)
                         next_val = None
 
             else:

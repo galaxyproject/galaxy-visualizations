@@ -2,7 +2,8 @@
 
 import importlib.metadata
 import logging
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class MaterializerCatalog:
         if name in self._registry:
             raise ValueError(f"Materializer '{name}' already registered")
         self._registry[name] = fn
-        logger.debug(f"Registered materializer: {name}")
+        logger.debug("Registered materializer: %s", name)
 
     def get(self, name: str) -> MaterializerFn:
         """Get a materializer function by name."""
@@ -35,7 +36,7 @@ class MaterializerCatalog:
     def freeze(self) -> None:
         """Freeze the catalog, preventing further registrations."""
         self._frozen = True
-        logger.info(f"Materializer catalog frozen with {len(self._registry)} entries")
+        logger.info("Materializer catalog frozen with %s entries", len(self._registry))
 
     def is_frozen(self) -> bool:
         """Check if the catalog is frozen."""
@@ -92,12 +93,12 @@ def load_entry_points() -> None:
 
     eps = importlib.metadata.entry_points(group="olite.materializers")
     for ep in eps:
-        logger.debug(f"Loading materializer entry point: {ep.name}")
+        logger.debug("Loading materializer entry point: %s", ep.name)
         try:
             register_all = ep.load()
             register_all()
         except Exception as e:
-            logger.error(f"Failed to load materializer entry point '{ep.name}': {e}")
+            logger.error("Failed to load materializer entry point '%s': %s", ep.name, e)
             raise
 
     _catalog.freeze()

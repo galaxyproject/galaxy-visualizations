@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -29,7 +29,7 @@ def _kde_1d(x: np.ndarray, grid: np.ndarray) -> np.ndarray:
     return np.exp(-0.5 * diff**2).sum(axis=1) / (n * bw * math.sqrt(2 * math.pi))
 
 
-def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, Any]]:
+def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     group_by = params.get("group_by")
     field = params.get("field")
     points = int(params.get("points", 50))
@@ -37,7 +37,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     if not rows or not field:
         return []
 
-    groups: Dict[Any, List[float]] = {}
+    groups: dict[Any, list[float]] = {}
 
     for r in rows:
         v = r.get(field)
@@ -46,7 +46,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
         key = r.get(group_by) if group_by else "__all__"
         groups.setdefault(key, []).append(float(v))
 
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
 
     for key, values in groups.items():
         if len(values) < 2:
@@ -75,7 +75,7 @@ def run(rows: List[Dict[str, Any]], params: Dict[str, Any]) -> List[Dict[str, An
     return out
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field")
     group_by = params.get("group_by")
     if group_by:

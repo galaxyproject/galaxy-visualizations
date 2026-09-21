@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Literal
 
 from olite.registry.extensions.vintent.modules.process.analyze.normalize_numeric import PROCESS_ID as normalize_id
 from olite.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
@@ -14,15 +14,15 @@ class ParallelCoordinatesShell(BaseShell):
     goals = ["relationship", "comparison"]
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
 
-    signatures: List[List[FieldType]] = [
+    signatures: list[list[FieldType]] = [
         ["quantitative", "quantitative", "quantitative"],
     ]
 
-    required: Dict[str, Any] = {
+    required: dict[str, Any] = {
         "dimensions": {"type": "quantitative"},
     }
 
-    optional: Dict[str, Any] = {
+    optional: dict[str, Any] = {
         "color": {"type": "nominal"},
     }
 
@@ -45,9 +45,9 @@ class ParallelCoordinatesShell(BaseShell):
     def compile(
         self,
         params: ShellParamsType,
-        values: List[Dict[str, Any]],
+        values: list[dict[str, Any]],
         renderer: RendererType,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if renderer != "vega-lite":
             return {}
 
@@ -72,7 +72,7 @@ class ParallelCoordinatesShell(BaseShell):
             new_row["_row_id"] = i
             indexed_values.append(new_row)
 
-        encoding: Dict[str, Any] = {
+        encoding: dict[str, Any] = {
             "x": {"field": "key", "type": "nominal", "title": "Dimension"},
             "y": {"field": "value", "type": "quantitative", "title": "Normalized Value"},
             "detail": {"field": "_row_id", "type": "nominal"},

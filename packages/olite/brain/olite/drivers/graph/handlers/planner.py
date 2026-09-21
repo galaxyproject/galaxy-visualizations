@@ -33,7 +33,7 @@ def validate_output(raw_response: str, schema: dict[str, Any]) -> Result:
     try:
         data = loads_with_repair(raw_response)
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse planner JSON output: {e}")
+        logger.error("Failed to parse planner JSON output: %s", e)
         return {
             "ok": False,
             "error": {
@@ -45,7 +45,7 @@ def validate_output(raw_response: str, schema: dict[str, Any]) -> Result:
     try:
         jsonschema.validate(data, schema)
     except jsonschema.ValidationError as e:
-        logger.error(f"Planner output failed schema validation: {e.message}")
+        logger.error("Planner output failed schema validation: %s", e.message)
         return {
             "ok": False,
             "error": {
@@ -78,7 +78,7 @@ class PlannerHandler:
                 schema = self._resolve_schema(node["output_schema"], ctx, runner)
             except Exception as e:
                 # A builder refusing to produce a contract is the real failure; report it here.
-                logger.error(f"Planner schema build failed: {e}")
+                logger.error("Planner schema build failed: %s", e)
                 return {
                     "ok": False,
                     "error": {
@@ -88,7 +88,7 @@ class PlannerHandler:
                     },
                 }
 
-        logger.debug(f"Planner executing in {output_mode} mode")
+        logger.debug("Planner executing in %s mode", output_mode)
 
         # The schema is advisory prompt text, so a repairable miss retries rather than aborts.
         result: Result = {"ok": False, "error": {"code": ErrorCode.PLANNER_INVALID_JSON, "message": "no attempt made"}}
@@ -101,9 +101,7 @@ class PlannerHandler:
                 break
 
             error = result["error"]
-            logger.warning(
-                f"Planner validation failed (attempt {attempt}/{PLANNER_MAX_ATTEMPTS}): {error['message']}"
-            )
+            logger.warning("Planner validation failed (attempt %s/%s): %s", attempt, PLANNER_MAX_ATTEMPTS, error['message'])
             if attempt < PLANNER_MAX_ATTEMPTS:
                 attempt_prompt = self._repair_prompt(prompt, raw_response, error)
 
@@ -122,7 +120,7 @@ class PlannerHandler:
         if emit:
             runner.resolver.apply_emit(emit, {"result": result["result"]}, ctx)
 
-        logger.debug(f"Planner completed: {result['result']}")
+        logger.debug("Planner completed: %s", result['result'])
         return result
 
     def _repair_prompt(

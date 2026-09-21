@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 PROCESS_ID = "range_filter"
 PROCESS_PHASE = "extract"
@@ -31,7 +31,7 @@ def schema(profile, context=None):
     }
 
 
-def log(params: Dict[str, Any]) -> str:
+def log(params: dict[str, Any]) -> str:
     field = params.get("field")
     min_v = params.get("min")
     max_v = params.get("max")
@@ -44,8 +44,8 @@ def log(params: Dict[str, Any]) -> str:
     return f"No filtering applied on {field}."
 
 
-def run(rows: List[Dict[str, object]], params: Dict[str, Any]) -> List[Dict[str, object]]:
-    out: List[Dict[str, object]] = []
+def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str, object]]:
+    out: list[dict[str, object]] = []
     if rows:
         field = params.get("field")
         min_v = params.get("min")

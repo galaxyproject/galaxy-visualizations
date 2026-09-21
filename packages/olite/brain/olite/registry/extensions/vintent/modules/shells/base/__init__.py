@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
+from typing import Any, Literal, Optional, TypedDict
 
 from olite.registry.extensions.vintent.core.exceptions import AppError
 from olite.registry.extensions.vintent.modules.profiler import DatasetProfile
@@ -15,9 +15,9 @@ class ShellError(AppError):
     code = "SHELL_ERROR"
 
 
-EncodingMapType = Dict[str, "EncodingSpecType"]
+EncodingMapType = dict[str, "EncodingSpecType"]
 RendererType = Literal["vega-lite"]
-ShellParamsType = Dict[str, Any]
+ShellParamsType = dict[str, Any]
 
 
 class BaseShell:
@@ -32,29 +32,29 @@ class BaseShell:
     description: Optional[str] = None
 
     # Analytical goals this shell supports (used for intent-based selection) Valid goals.
-    goals: List[str] = []
+    goals: list[str] = []
 
     # metadata
     optional: Optional[EncodingMapType] = None
     required: Optional[EncodingMapType] = None
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
-    signatures: Optional[List[List[FieldType]]] = None
+    signatures: Optional[list[list[FieldType]]] = None
 
-    required: Dict[str, Any] = {}
-    optional: Dict[str, Any] = {}
+    required: dict[str, Any] = {}
+    optional: dict[str, Any] = {}
     processes = None
 
     def is_applicable(self, profile: DatasetProfile) -> bool:
         if not self.signatures:
             return True
 
-        fields_by_type: Dict[str, List[str]] = {}
+        fields_by_type: dict[str, list[str]] = {}
         for name, meta in profile.get("fields", {}).items():
             t = meta.get("type") or "nominal"
             fields_by_type.setdefault(t, []).append(name)
 
         for sig in self.signatures:
-            needed: Dict[str, int] = {}
+            needed: dict[str, int] = {}
             for t in sig:
                 needed[t] = needed.get(t, 0) + 1
 
@@ -78,7 +78,7 @@ class BaseShell:
         """Check the encodings the shell declares: present, naming a field, of the declared type."""
         fields = profile.get("fields", {})
         declared = {**{k: v for k, v in self.optional.items() if params.get(k)}, **self.required}
-        errors: List[Dict[str, Any]] = []
+        errors: list[dict[str, Any]] = []
         for encoding, spec in declared.items():
             if not isinstance(spec, dict) or "type" not in spec:
                 continue
@@ -136,6 +136,6 @@ class BaseShell:
 
 
 class EncodingSpecType(TypedDict, total=False):
-    aggregate: Union[bool, str]
+    aggregate: bool | str
     bin: bool
     type: FieldType
