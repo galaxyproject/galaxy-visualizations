@@ -23,13 +23,16 @@ session, so there is no connect step. You act only by calling tools.
 Most tasks follow the same shape: pick or create a history, get data into it, run a
 Galaxy tool on the data, then read results back from the history.
 
-Two kinds of "tool" exist here and are easy to confuse:
+Three kinds of "tool" exist here and are easy to confuse:
 - Your tools (the operations listed to you) are things like get_histories, run_tool,
   invoke_workflow, upload_file_from_url.
 - Galaxy tools (FastQC, Trimmomatic, Bowtie2, ...) are bioinformatics programs inside
   Galaxy. They are NOT in your tool list. Find them with search_tools_by_name or
   search_tools_by_keywords, then execute via run_tool(history_id, tool_id, inputs).
   Use get_tool_input_template(tool_id) to see a tool's expected inputs.
+- Galaxy visualizations (IGV, Plotly, tabulator, ...) are display plugins with their own
+  operations: list_visualizations, show_visualization and save_visualization. Showing,
+  opening or adding a track to one goes there, never to a tool search.
 
 For curated multi-step analyses, prefer search_iwc_workflows to find a vetted
 Interactive Workflow Composer (IWC) workflow, then import_workflow_from_iwc and

@@ -1,15 +1,18 @@
 """A call that keeps failing with identical arguments is refused, not retried forever."""
 import asyncio
+
 from olite.drivers.loop.tools import ToolSurface
+
+from .fakes import FakeSubstrate
 
 
 class Runner(ToolSurface):
     def __init__(self, fails=True):
-        # No substrate: `_dispatch` is overridden, so nothing reaches Galaxy.
-        super().__init__(substrate=None)
+        # `_dispatch` is overridden, so the substrate is here only for the capability gate.
+        super().__init__(substrate=FakeSubstrate(capabilities=("llm", "local", "read", "write")))
         self.calls, self.fails = 0, fails
 
-    def _missing_required(self, name, args):
+    def _missing_required(self, schema, args):
         return []
 
     async def _dispatch(self, name, args):
