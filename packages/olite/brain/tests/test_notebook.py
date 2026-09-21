@@ -69,6 +69,9 @@ def test_a_first_call_creates_the_record_once():
     assert path == "api/pages"
     # Attached to the history, so it shows up as that history's notebook in Galaxy.
     assert payload["history_id"] == HISTORY
+    # Galaxy defaults a page to html, which keeps the body out of the editor and leaves a
+    # galaxy directive as literal text.
+    assert payload["content_format"] == "markdown"
 
 
 def test_a_second_call_reattaches_instead_of_creating_a_second_record():
