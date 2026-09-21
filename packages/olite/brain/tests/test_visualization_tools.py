@@ -246,3 +246,19 @@ def test_a_case_parameter_is_only_valid_for_the_chosen_case():
                settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}})
     assert out["saved"] is False
     assert "genome" in out["error"]
+
+
+def test_both_visualization_tools_hand_back_the_directive_that_embeds_them():
+    """The page directive takes the plugin name and the dataset; the saved id renders nothing.
+
+    The agent wrote `visualization(visualization_id=<saved id>)` into a record and Galaxy
+    answered "Missing history_dataset_id for visualization".
+    """
+    g = Galaxy()
+    expected = "visualization(visualization_id=atlas, history_dataset_id=d1)"
+
+    assert show(g, visualization="atlas")["embed"] == expected
+    saved = save(g, visualization="atlas")
+    assert saved["embed"] == expected
+    # The saved object's own id is not what the directive takes.
+    assert saved["visualization_id"] not in saved["embed"]
