@@ -240,8 +240,11 @@ async def _get_dataset_details(g, a):
                 text = content if isinstance(content, str) else json.dumps(content)
             dataset = dict(dataset)
             dataset["preview"] = "\n".join(text.splitlines()[:want])
-        except Exception:
-            pass
+        except Exception as exc:
+            # A dataset that is still running has nothing to read yet. Naming that beats an
+            # absent field, which reads the same as a dataset with no content at all.
+            dataset = dict(dataset)
+            dataset["preview_unavailable"] = str(exc)
     return dataset
 
 

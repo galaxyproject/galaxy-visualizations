@@ -157,3 +157,18 @@ def test_history_details_reports_no_items_when_galaxy_states_none():
 
     out = asyncio.run(galaxy_tools.get_handler("get_history_details")(Empty(), {"history_id": "h1"}))
     assert out["contents_summary"]["total_items"] == 0
+
+
+def test_an_unreadable_preview_says_why():
+    """An absent preview field reads the same as a dataset with no content."""
+    from olite.drivers.loop import galaxy_tools
+
+    class Unreadable:
+        async def get(self, path, **kwargs):
+            if path.endswith("/display") or "ck_size" in path:
+                raise RuntimeError("dataset is in state 'running'")
+            return {"id": "d1", "state": "running"}
+
+    out = asyncio.run(galaxy_tools.get_handler("get_dataset_details")(Unreadable(), {"dataset_id": "d1"}))
+    assert "preview" not in out
+    assert "running" in out["preview_unavailable"]
