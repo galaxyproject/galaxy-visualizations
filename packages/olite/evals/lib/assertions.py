@@ -57,6 +57,7 @@ def evaluate(scenario, run):
     _artifacts(a.get("artifacts"), run, failures, exercised)
     _tool_output(a.get("toolOutput"), run, failures, exercised)
     _invocation(a.get("invocation"), run, failures, exercised)
+    _collection(a.get("collection"), run, failures, exercised)
     _visualization(a.get("visualization"), run, failures, exercised)
     _record(a.get("record"), run, failures, exercised)
     _budget(a.get("budget"), run, failures, exercised)
@@ -910,6 +911,68 @@ def _visualization(spec, run, failures, exercised):
                 "visualization.tracksDataset",
                 f"no saved visualization tracks {want}; tracks reference {sorted(tracked - {None})}",
                 "behavior"))
+
+
+def _collection(spec, run, failures, exercised):
+    """The collection the agent built, as Galaxy holds it.
+
+    `organize_datasets` reports what it did; only the history says whether a tagged
+    collection of the right structure, element count and datatype actually landed.
+    """
+    if not spec:
+        return
+    exercised.add("behavior")
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("collection", "scenario staged no history", "behavior"))
+        return
+
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+    built = [c for c in contents
+             if c.get("history_content_type") == "dataset_collection" and not c.get("deleted")]
+    if not built:
+        failures.append(Failure("collection.exists",
+                                "no dataset collection in the staged history", "behavior"))
+        return
+
+    details = [galaxy.call(f"api/dataset_collections/{c['id']}?instance_type=history") or c
+               for c in built]
+
+    wanted_type = spec.get("type")
+    if wanted_type:
+        seen = [d.get("collection_type") for d in details]
+        if wanted_type not in seen:
+            failures.append(Failure("collection.type",
+                                    f"collection(s) of type {seen}, wanted {wanted_type!r}",
+                                    "behavior"))
+            return
+        details = [d for d in details if d.get("collection_type") == wanted_type]
+
+    wanted_elements = spec.get("elements")
+    if wanted_elements is not None:
+        counts = [d.get("element_count") for d in details]
+        if wanted_elements not in counts:
+            failures.append(Failure("collection.elements",
+                                    f"element counts {counts}, wanted {wanted_elements}",
+                                    "behavior"))
+
+    if spec.get("tagged"):
+        tagged = [d for d in details if d.get("tags")]
+        if not tagged:
+            failures.append(Failure("collection.tagged",
+                                    "the collection carries no tags", "behavior"))
+
+    wanted_datatype = spec.get("elementDatatype")
+    if wanted_datatype:
+        # Galaxy computes this over the leaves; walking `elements` by hand reaches a nested
+        # `object` whose `extension` is absent, which passed the check while proving nothing.
+        seen = {t for d in details for t in (d.get("elements_datatypes") or [])}
+        if seen != {wanted_datatype}:
+            failures.append(Failure(
+                "collection.elementDatatype",
+                f"elements have datatype {sorted(seen) or 'none reported'}, "
+                f"wanted {wanted_datatype!r}", "behavior"))
 
 
 def _invocation(spec, run, failures, exercised):
