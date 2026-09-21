@@ -65,6 +65,11 @@ async function ask(page, msg) {
         process.exit(1);
     }
 
+    // The first turn builds the session; take that cost before anything is timed.
+    await script("compact");
+    await ask(p, "hello");
+    await waitFor(p, () => !document.querySelector("#send-btn").classList.contains("hidden"), 240000);
+
     // ---- 1. a destructive op asks, and declining stops it ---------------------
     await script("confirm");
     await ask(p, "delete my history");

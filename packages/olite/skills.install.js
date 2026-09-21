@@ -25,6 +25,7 @@
  *   GITHUB_TOKEN        optional, raises the API rate limit
  */
 
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -73,8 +74,16 @@ async function resolveRef() {
 }
 
 async function resolveSha(ref) {
+    if (/^[0-9a-f]{40}$/.test(ref)) {
+        return ref;
+    }
     const data = await api(`repos/${REPO}/commits/${encodeURIComponent(ref)}`);
     return data.sha;
+}
+
+/** The id git gives a blob, which is what the tree listing states for each file. */
+function blobSha(content) {
+    return createHash("sha1").update(`blob ${content.length}\0`).update(content).digest("hex");
 }
 
 async function listBlobs(sha) {
@@ -86,13 +95,18 @@ async function listBlobs(sha) {
     return (tree.tree || []).filter((n) => n.type === "blob" && typeof n.path === "string");
 }
 
-async function download(sha, path) {
-    const url = `https://raw.githubusercontent.com/${REPO}/${sha}/${path}`;
+async function download(sha, blob) {
+    const url = `https://raw.githubusercontent.com/${REPO}/${sha}/${blob.path}`;
     const res = await fetch(url, { headers: { "User-Agent": "olite-skills-vendor" } });
     if (!res.ok) {
-        throw new Error(`fetch ${path} failed: HTTP ${res.status}`);
+        throw new Error(`fetch ${blob.path} failed: HTTP ${res.status}`);
     }
-    return Buffer.from(await res.arrayBuffer());
+    const content = Buffer.from(await res.arrayBuffer());
+    const got = blobSha(content);
+    if (got !== blob.sha) {
+        throw new Error(`${blob.path}: blob ${got} does not match the tree's ${blob.sha}`);
+    }
+    return content;
 }
 
 async function main() {
@@ -126,7 +140,7 @@ async function main() {
             throw new Error(`refusing path outside the corpus dir: ${blob.path}`);
         }
         await mkdir(dirname(target), { recursive: true });
-        await writeFile(target, await download(sha, blob.path));
+        await writeFile(target, await download(sha, blob));
         if (blob.path === "SKILL.md" || blob.path.endsWith("/SKILL.md")) {
             skills += 1;
         }
