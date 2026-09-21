@@ -13,12 +13,7 @@ describe("buildConfig", () => {
         expect("ai_api_key" in config).toBe(false);
     });
 
-    it("grants what the manifest declares", () => {
-        expect(buildConfig(incoming({ capabilities: "llm, local,read" })).capabilities).toEqual(["llm", "local", "read"]);
-    });
-
-    it("leaves the grant to the brain's default when the manifest is silent", () => {
-        expect(buildConfig(incoming({})).capabilities).toBeUndefined();
-        expect(buildConfig(incoming({ capabilities: "" })).capabilities).toBeUndefined();
+    it("carries no capability grant: an install cannot half-disable the agent", () => {
+        expect("capabilities" in buildConfig(incoming({ capabilities: "llm,local,read" }))).toBe(false);
     });
 });

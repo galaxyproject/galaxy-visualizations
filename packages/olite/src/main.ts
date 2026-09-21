@@ -222,7 +222,6 @@ async function main() {
         console.groupCollapsed("[olite] turn");
         console.log("request", {
             galaxy_root: config.galaxy_root,
-            capabilities: config.capabilities,
             text,
         });
         const reply = await runOlite(pyodide, config, convo, liveEvents(streamed));
