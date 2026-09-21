@@ -1,5 +1,7 @@
 """Capability manifest: the one contract the substrate enforces, for any scale."""
 
+from olite.exceptions import CapabilityError
+
 # Write is never default; it is granted explicitly and targeted.
 DEFAULT_CAPABILITIES = ["llm", "local", "read"]
 
@@ -22,16 +24,11 @@ class CapabilityManifest:
         return capability in self.granted
 
     def require(self, capability):
-        from olite.exceptions import CapabilityError
-
         if not self.allows(capability):
             raise CapabilityError(
                 f"Capability '{capability}' not granted",
                 details={"granted": sorted(self.granted)},
             )
-
-    def grant(self, capability):
-        self.granted.add(capability)
 
     def to_list(self):
         return sorted(self.granted)

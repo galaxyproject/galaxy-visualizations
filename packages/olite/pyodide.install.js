@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,17 +7,31 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* Download Pyodide package artifacts from the CDN and store them locally. */
-export function downloadFiles(pyodideDir, fileNames, version) {
+function sha256(filePath) {
+    return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+/* Download each package from the CDN unless a copy with the lock's digest is already here. */
+export async function downloadFiles(pyodideDir, files, version) {
     const baseUrl = `https://cdn.jsdelivr.net/pyodide/v${version}/full/`;
     fs.mkdirSync(pyodideDir, { recursive: true });
-    for (const fileName of fileNames) {
+    for (const [fileName, digest] of files) {
         const destPath = path.join(pyodideDir, fileName);
-        if (!fs.existsSync(destPath)) {
-            fs.mkdirSync(path.dirname(destPath), { recursive: true });
-            const url = `${baseUrl}${fileName}`;
-            console.log(`Downloading ${url}.`);
-            execSync(`curl -fsSL -o "${destPath}" "${url}"`);
+        if (fs.existsSync(destPath) && sha256(destPath) === digest) {
+            continue;
+        }
+        const url = `${baseUrl}${fileName}`;
+        console.log(`Downloading ${url}.`);
+        const res = await fetch(url);
+        if (!res.ok) {
+            throw new Error(`${url}: HTTP ${res.status}`);
+        }
+        fs.mkdirSync(path.dirname(destPath), { recursive: true });
+        fs.writeFileSync(destPath, Buffer.from(await res.arrayBuffer()));
+        const got = sha256(destPath);
+        if (got !== digest) {
+            fs.rmSync(destPath);
+            throw new Error(`${fileName}: sha256 ${got} does not match the lock's ${digest}`);
         }
     }
 }
@@ -33,66 +47,32 @@ export function getInstalledVersion(repoRoot) {
     return json.version;
 }
 
-/* Get all package filenames including their dependencies */
-export function getPackageFileNames(pyodideDir, packageNames) {
+/* Every package file the named packages need, with the digest the lock states for it. */
+export function getPackageFiles(pyodideDir, packageNames) {
     const lockPath = path.join(pyodideDir, "pyodide-lock.json");
-    const lockText = fs.readFileSync(lockPath, "utf-8");
-    const lockJson = JSON.parse(lockText);
-    const packages = lockJson.packages || (lockJson.lock && lockJson.lock.packages) || {};
+    const packages = JSON.parse(fs.readFileSync(lockPath, "utf-8")).packages || {};
+    const normalize = (name) => name.toLowerCase().replace(/_/g, "-");
+    const files = new Map();
     const visited = new Set();
-    const files = new Set();
-    function getEntry(name) {
-        return packages[name] || packages[name.replace(/-/g, "_")] || null;
-    }
-    function getDepends(entry) {
-        if (entry && Array.isArray(entry.depends)) {
-            return entry.depends;
-        }
-        if (entry && Array.isArray(entry.dependencies)) {
-            return entry.dependencies;
-        }
-        return [];
-    }
-    function getFileName(entry) {
-        if (entry && typeof entry.file_name === "string") {
-            return entry.file_name;
-        }
-        if (entry && typeof entry.filename === "string") {
-            return entry.filename;
-        }
-        return null;
-    }
-    function normalize(name) {
-        return name.toLowerCase().replace(/_/g, "-");
-    }
-    function getEntry(name) {
-        return packages[normalize(name)] || null;
-    }
     function walk(name) {
         const key = normalize(name);
         if (visited.has(key)) {
             return;
-        } else {
-            visited.add(key);
-            const entry = getEntry(key);
-            if (!entry) {
-                throw new Error(`Package not found in pyodide-lock.json: ${name}`);
-            } else {
-                const fileName = getFileName(entry);
-                if (fileName) {
-                    files.add(fileName);
-                }
-                const deps = getDepends(entry);
-                for (const dep of deps) {
-                    walk(dep);
-                }
-            }
+        }
+        visited.add(key);
+        const entry = packages[key];
+        if (!entry) {
+            throw new Error(`Package not found in pyodide-lock.json: ${name}`);
+        }
+        files.set(entry.file_name, entry.sha256);
+        for (const dep of entry.depends || []) {
+            walk(dep);
         }
     }
     for (const name of packageNames) {
         walk(name);
     }
-    return Array.from(files);
+    return files;
 }
 
 /* Read list of required packages. */
@@ -134,26 +114,22 @@ export function copyRuntime(nodePath, tempDir, destDir, fileNames) {
 }
 
 /** Installs pyodide and packages */
-function main() {
+async function main() {
     const repoRoot = __dirname;
     const destDir = path.join(repoRoot, "static", "pyodide");
     const nodePath = path.join(repoRoot, "node_modules", "pyodide");
     const tempDir = path.join(repoRoot, "temp", "pyodide");
     const version = getInstalledVersion(repoRoot);
     console.log(`Installed version: ${version}.`);
-    const installPackages = getPackageNames(repoRoot);
-    const dependencies = getPackageFileNames(nodePath, installPackages);
-    downloadFiles(tempDir, dependencies, version);
+    const files = getPackageFiles(nodePath, getPackageNames(repoRoot));
+    await downloadFiles(tempDir, files, version);
     // The browser loads from static/pyodide, so the wheels have to land there; the
-    // temp dir is only a download cache. Without this the runtime silently keeps
-    // whatever was vendored last, and a new requirement never reaches the page.
-    copyRuntime(nodePath, tempDir, destDir, dependencies);
+    // temp dir is only a download cache.
+    copyRuntime(nodePath, tempDir, destDir, [...files.keys()]);
     console.log("Done.");
 }
 
-try {
-    main();
-} catch (e) {
+main().catch((e) => {
     console.error(e);
     process.exitCode = 1;
-}
+});

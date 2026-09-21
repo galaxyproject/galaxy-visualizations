@@ -122,7 +122,7 @@ async function main() {
     const indexURL = `${incoming.root}${base}static/pyodide`;
     const pyodide = new PyodideManager({
         indexURL,
-        extraPackages: [`${indexURL}/olite-0.0.0-py3-none-any.whl`],
+        extraPackages: [`${indexURL}/${process.env.olite_wheel}`],
     });
     let ready = false;
     const readyInfo = chat.addInfoMessage("Loading OLite...");

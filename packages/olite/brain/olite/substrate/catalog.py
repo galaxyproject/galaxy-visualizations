@@ -41,7 +41,7 @@ class Catalog:
         return view
 
     def status(self):
-        """Whether the catalog loaded, how many ops, and any load error. So an empty"""
+        """Whether the catalog loaded, how many ops it holds, and any load error."""
         op_count = 0
         for provider in self._providers:
             catalog = getattr(provider, "openapi", None)

@@ -4,6 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 
+from olite.registry import load_primitives
 from olite.substrate import Confirmation, LocalExecutionError
 
 from . import confusables, galaxy_destructive, galaxy_tools, gtn, notebook
@@ -325,8 +326,6 @@ class ToolSurface:
         proc = self.processes.get(args.get("name")) if self.processes else None
         if not proc:
             return ToolOutcome(json.dumps({"error": f"unknown process: {args.get('name')}"}), is_error=True)
-        from olite.registry import load_primitives
-
         load_primitives()
 
         # Least privilege: the process manifest, intersected with the session's.

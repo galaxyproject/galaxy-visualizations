@@ -8,7 +8,7 @@ version = "0.0.0"
 description = "olite agent brain (client-only Galaxy co-scientist)"
 dependencies = ["numpy", "pandas", "pydantic", "PyYAML", "jsonschema"]
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [{ name = "Galaxy Team" }]
 classifiers = [
@@ -21,15 +21,16 @@ dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio", "aiohttp"]
 
 [tool.black]
 line-length = 120
-target-version = ["py37"]
+target-version = ["py312"]
 
 [tool.ruff]
-select = ["E","F","I"]
-ignore = []
 line-length = 120
 
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.12"
 strict = false
 
 [tool.setuptools.packages.find]

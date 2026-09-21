@@ -97,22 +97,6 @@ export class PyodideManager {
         }
     }
 
-    async fsFetch(url: string, dest: string, maxRows: number = 10000): Promise<string> {
-        const res = await fetch(url);
-        if (res.ok) {
-            const content = await res.text();
-            await this.fsWrite(content, dest);
-            return content.split("\n").filter(Boolean).slice(0, maxRows).join("\n");
-        } else {
-            throw new Error(`Failed to fetch ${url}`);
-        }
-    }
-
-    async fsWrite(content: string, dest: string): Promise<void> {
-        await this.ready;
-        await this.call("fsWrite", { content, dest });
-    }
-
     async initialize(): Promise<void> {
         if (!this.destroyed) {
             await this.ready;
