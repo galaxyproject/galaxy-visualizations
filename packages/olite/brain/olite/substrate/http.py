@@ -194,7 +194,7 @@ def _js_headers(response):
 
 class BrowserHttpClient(HttpClient):
     def __init__(self):
-        from js import fetch
+        from js import oliteFetch as fetch
         from pyodide.ffi import to_js
 
         self._fetch = fetch

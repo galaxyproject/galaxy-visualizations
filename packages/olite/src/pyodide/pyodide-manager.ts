@@ -1,8 +1,15 @@
 import PYODIDE_REQUIREMENTS from "../../pyodide.requirements.txt?raw";
 
+export interface LlmAuth {
+    baseUrl: string;
+    apiKey?: string;
+}
+
 export interface PyodideManagerOptions {
     indexURL: string;
     extraPackages?: string[];
+    /** Held by the worker, which signs the brain's requests to this endpoint. */
+    llm?: LlmAuth;
 }
 
 export class PyodideManager {
@@ -59,7 +66,12 @@ export class PyodideManager {
         });
         this.worker.postMessage({
             type: "initialize",
-            payload: { indexURL: options.indexURL, extraPackages: options.extraPackages, packages: this.packages },
+            payload: {
+                indexURL: options.indexURL,
+                extraPackages: options.extraPackages,
+                packages: this.packages,
+                llm: options.llm,
+            },
         });
     }
 

@@ -40,8 +40,6 @@ class OpenAICompletions:
         headers = {"Content-Type": "application/json"}
         if target.api_key is not None:
             headers["Authorization"] = f"Bearer {target.api_key}"
-            if target.compat("x_api_key", False):
-                headers["x-api-key"] = target.api_key
         return headers
 
     def build_request(self, target, messages, tools=None, tool_choice=None, parallel_tools=True):

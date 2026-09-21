@@ -19,9 +19,6 @@ export function buildConfig(incoming: ReturnType<typeof parseIncoming>, creds?: 
         // with neither, the Galaxy chat proxy answers.
         ai_base_url:
             (process.env.llm_base_url as string) || picked?.base_url || `${incoming.root}api/plugins/${PLUGIN_NAME}`,
-        // Client-held, from sessionStorage. Never written to the plugin specs, which
-        // Galaxy persists server-side.
-        ai_api_key: creds?.apiKey,
         ai_provider: creds?.provider || (process.env.llm_provider as string) || "galaxy",
         ai_model: creds?.model || (process.env.llm_model as string) || undefined,
         ai_context_window: Number(process.env.llm_context_window) || undefined,

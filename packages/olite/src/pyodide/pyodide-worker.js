@@ -1,3 +1,5 @@
+import { authorizedFetch } from "./llm-fetch.js";
+
 let loadPyodide = null;
 let pyodide = null;
 let running = false;
@@ -40,6 +42,8 @@ self.onmessage = async (e) => {
                 loadPyodide = mod.loadPyodide;
             }
             pyodide = await loadPyodide({ indexURL: payload.indexURL });
+            // The brain fetches through this; the key stays here, out of the interpreter.
+            globalThis.oliteFetch = authorizedFetch(fetch, payload.llm);
             const pyodidePackages = payload.packages;
             if (pyodidePackages) {
                 console.debug("[pyodide-worker] Installing packages:", pyodidePackages);
