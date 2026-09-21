@@ -75,6 +75,39 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
             "batches": bool(datatype), "datatype_already_set": len(already) if datatype else 0}
 
 
+NAME_SAMPLE = 10
+
+
+def summarize_state(state):
+    """Counts and a sample of names. The payload itself must never reach the model."""
+    grouping = state.get("grouping")
+    if not isinstance(grouping, dict):
+        return None
+
+    def sample(names):
+        names = names or []
+        out = {"count": len(names), "names": names[:NAME_SAMPLE]}
+        if len(names) > NAME_SAMPLE:
+            out["truncated"] = True
+        return out
+
+    collection = state.get("collection") or {}
+    leftovers = state.get("leftovers") or {}
+    return {
+        "ok": True,
+        "collection": {"id": collection.get("id"), "name": collection.get("name"),
+                       "type": grouping.get("structure"),
+                       "elements": len(grouping.get("elements") or [])},
+        "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
+        "out_of_scope": sample(grouping.get("out_of_scope")),
+        "datatype": {
+            "queued": len(grouping.get("items") or []),
+            "state": "Galaxy applies these in the background; they are not converted yet",
+        } if state.get("batches") else None,
+    }
+
+
+organize_datasets.summarize = summarize_state
 organize_datasets.capabilities = ["read", "write"]
 organize_datasets.inputs_help = {
     "sample_regex": (

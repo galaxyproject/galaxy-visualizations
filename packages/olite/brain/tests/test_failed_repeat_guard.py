@@ -5,6 +5,8 @@ from olite.drivers.loop.tools import ToolSurface
 
 class Runner(ToolSurface):
     def __init__(self, fails=True):
+        # No substrate: `_dispatch` is overridden, so nothing reaches Galaxy.
+        super().__init__(substrate=None)
         self.calls, self.fails = 0, fails
 
     def _missing_required(self, name, args):

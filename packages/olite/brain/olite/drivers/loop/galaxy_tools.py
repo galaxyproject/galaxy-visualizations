@@ -1,20 +1,21 @@
 """Orbit-compatible named Galaxy tools, cloned from galaxy-mcp."""
 
 import json
-
-from olite import vendor
-
-from . import page_edit
-from .paging import ROW_CAP, page
-from .tool_inputs import build_input_template, summarize_tool_inputs
 import os
 import sys
 import tempfile
 from urllib.parse import urlencode
 
+from olite import vendor
+from olite.substrate.http import http
+
+from . import page_edit
 from .galaxy_tool_docs import DOCS
+from .paging import ROW_CAP, page
+from .tool_inputs import build_input_template, summarize_tool_inputs
 
 TOOLS = []
+HANDLERS = {}
 
 # Pyodide's MEMFS is olite's equivalent of the filesystem Orbit has on disk.
 DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.gettempdir(), "olite-data")
@@ -36,6 +37,7 @@ def _q(params):
 
 def _tool(name, capability, description, properties, required, handler):
     # galaxy-mcp's verbatim docstring is the model-facing description.
+    HANDLERS[name] = handler
     TOOLS.append(
         {
             "name": name,
@@ -87,11 +89,12 @@ CONTENTS_NOTE = ("This is just a count. To get actual datasets, use "
 
 
 async def _get_history_details(g, a):
-    history = await g.get(f"api/histories/{a['history_id']}")
-    contents = await g.get(f"api/histories/{a['history_id']}/contents{_q({'v': 'dev', 'keys': 'id'})}")
-    total = len(contents) if isinstance(contents, list) else 0
+    # Galaxy counts the history's items itself; listing every id to length it made the
+    # cost of this call grow with the history.
+    history = await g.get(f"api/histories/{a['history_id']}") or {}
+    total = history.get("count") if isinstance(history, dict) else None
     return {"history": history,
-            "contents_summary": {"total_items": total, "note": CONTENTS_NOTE}}
+            "contents_summary": {"total_items": total or 0, "note": CONTENTS_NOTE}}
 
 
 # Galaxy returns the underlying Dataset id beside the HDA id. Both encode the same way, so
@@ -165,8 +168,15 @@ class ToolParameterError(Exception):
         )
 
 
+# Galaxy says this in prose on the paths that answer 500 instead of rejecting the request.
+PARAMETER_ERROR_PHRASES = ("invalid key structure", "has no attribute")
+
+
 def _is_parameter_error(exc):
-    return "invalid key structure" in str(exc) or "has no attribute" in str(exc)
+    """Whether the tool rejected the inputs, which is when its template is worth attaching."""
+    if getattr(exc, "status_code", None) == 400:
+        return True
+    return any(phrase in str(exc) for phrase in PARAMETER_ERROR_PHRASES)
 
 
 async def _input_template_for(g, tool_id):
@@ -588,6 +598,8 @@ async def _get_invocations(g, a):
 
 
 NUMERIC_COLUMNS = frozenset({"int", "float"})
+# A stored value can be a whole entry, so only the ones actually searched for are returned.
+MATCH_CAP = 5
 
 
 def _column_parameters(plugin):
@@ -770,6 +782,16 @@ def _find_declared(params, wanted, when=None):
     return found
 
 
+def _by_id(entries):
+    """One entry per id, ordered by id, as galaxy-charts' dataTableStore offers them."""
+    unique = {}
+    for entry in entries:
+        key = entry.get("id") or ""
+        if key and key not in unique:
+            unique[key] = entry
+    return [unique[key] for key in sorted(unique)]
+
+
 def _match(entry, search):
     if not search:
         return False
@@ -820,12 +842,12 @@ async def _get_visualization_options(g, a):
         url = declared.get("url")
         if not url:
             return {"error": f"{wanted!r} names no url to read its options from."}
-        from olite.substrate.http import http
-
         fetched = await http.request("GET", url)
         entries = fetched if isinstance(fetched, list) else []
     elif kind == "data_table":
-        # Column choice follows galaxy-charts' dataTableStore, which owns this shape.
+        # Follows galaxy-charts' dataTableStore, which owns this shape: the name and value
+        # columns when the row is whole and the first column when it is not, then one entry
+        # per id, ordered by id, which is the order the plugin's own form offers.
         for table in declared.get("tables") or []:
             data = await g.get(f"api/tool_data/{table}") or {}
             columns = data.get("columns") or []
@@ -836,6 +858,7 @@ async def _get_visualization_options(g, a):
                 entries.append({"id": row[value_col] if whole else (row[0] if row else None),
                                 "name": row[name_col] if whole else (row[0] if row else None),
                                 "columns": columns, "row": row, "table": table})
+        entries = _by_id(entries)
     else:
         return {"parameter": wanted, "source": kind or declared.get("type"),
                 "hint": "This parameter's options are not a list to browse; "
@@ -847,7 +870,7 @@ async def _get_visualization_options(g, a):
     result = {"parameter": wanted, "source": kind, "total": len(entries),
               "options": listed[:ROW_CAP]}
     if search:
-        result["matches"] = [e for e in entries if _match(e, search)][:5]
+        result["matches"] = [e for e in entries if _match(e, search)][:MATCH_CAP]
         result["hint"] = ("`matches` holds the values to store as given; pass one through "
                           "unchanged rather than rebuilding it.")
     else:
@@ -1233,8 +1256,6 @@ _iwc_cache = {}
 
 
 async def _iwc_manifest(g):
-    from olite.substrate.http import http
-
     g.manifest.require("read")
     if "workflows" not in _iwc_cache:
         # The manifest is a list of collections; flatten to their workflows.
@@ -1330,7 +1351,4 @@ def tool_schemas(manifest):
 
 
 def get_handler(name):
-    for t in TOOLS:
-        if t["name"] == name:
-            return t["handler"]
-    return None
+    return HANDLERS.get(name)

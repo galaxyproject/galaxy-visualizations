@@ -30,6 +30,9 @@ MALFORMED_ARGS_ERROR = (
 )
 # pi's wording for a call dropped because the run was aborted.
 ABORTED_ERROR = "Operation aborted"
+# How a turn ended. One of these is assigned at every exit, so no branch can leave the
+# outcome half-described; the initial value is what a spent step budget looks like.
+EXHAUSTED, ABORTED, REPLIED, FINISHED = "exhausted", "aborted", "replied", "finished"
 MAX_TOOL_RESULT_BYTES = 64 * 1024
 OVERSIZED_RESULT_ERROR = (
     'Tool call "{name}" returned {size} KB, over the {cap} KB limit for a single result, so '
@@ -55,9 +58,7 @@ class LoopDriver:
         # This run's output, kept apart from the transcript that compaction rewrites.
         produced = []
         logs = []
-        done = False
-        exhausted = True  # cleared by whichever branch ends the loop deliberately
-        aborted = False
+        ended = EXHAUSTED
         reported_overflow = False
         usage = {"input": 0, "output": 0, "cost": None}
         # The provider's own token count and where it was measured.
@@ -68,7 +69,7 @@ class LoopDriver:
         for _ in range(self.max_steps):
             steps += 1
             if cancellation.aborted:
-                aborted, exhausted = True, False
+                ended = ABORTED
                 break
 
             # Top of a step is the only point where every tool call has its result.
@@ -97,7 +98,7 @@ class LoopDriver:
                 # The flag decides whether this was the abort, never the error text.
                 if not cancellation.aborted:
                     raise
-                aborted, exhausted = True, False
+                ended = ABORTED
                 break
 
             # Providers disagree on the key names, and some report only a total.
@@ -140,7 +141,7 @@ class LoopDriver:
             if not tool_calls:
                 if reply.content:
                     logs.append(f"assistant: {reply.content}")
-                exhausted = False
+                ended = REPLIED
                 break
 
             terminating = []
@@ -201,21 +202,20 @@ class LoopDriver:
 
             # pi ends a turn only when every call in the batch asked to.
             if terminating and all(terminating):
-                done = True
-                exhausted = False
+                ended = FINISHED
                 break
 
             if cancellation.aborted:
-                aborted, exhausted = True, False
+                ended = ABORTED
                 break
 
         return {
             "logs": logs,
             "messages": messages,
             "new_messages": produced,
-            "done": done,
-            "aborted": aborted,
-            "exhausted": exhausted,
+            "done": ended == FINISHED,
+            "aborted": ended == ABORTED,
+            "exhausted": ended == EXHAUSTED,
             "artifacts": self.tools.artifacts,
             "usage": usage,
             "steps": steps,

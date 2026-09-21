@@ -22,7 +22,7 @@ _TYPES = {str: "string", int: "integer", float: "number", bool: "boolean", list:
 
 class Process:
     def __init__(self, name, graph=None, fn=None, description="", when_to_use="",
-                 capabilities=None):
+                 capabilities=None, summarize=None):
         self.name = name
         self.graph = graph
         self.fn = fn
@@ -30,6 +30,8 @@ class Process:
         self.when_to_use = when_to_use
         # What this process needs, intersected with the session's grant when it runs.
         self.capabilities = capabilities
+        # How this process reduces its own state for the model, when a raw state is too large.
+        self.summarize = summarize
 
     @property
     def inputs(self):
@@ -75,7 +77,8 @@ class ProcessRegistry:
         doc = (fn.__doc__ or "").strip().split("\n")[0]
         self._processes[name] = Process(name, fn=fn, description=doc,
                                         when_to_use=getattr(fn, "when_to_use", ""),
-                                        capabilities=getattr(fn, "capabilities", None))
+                                        capabilities=getattr(fn, "capabilities", None),
+                                        summarize=getattr(fn, "summarize", None))
         return fn
 
     def register_yaml(self, text):
