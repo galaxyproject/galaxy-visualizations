@@ -1,4 +1,4 @@
-"""The graph driver's registry: the interface the handlers expect, composed over"""
+"""What the handlers reach the substrate through: the catalog and the model."""
 
 import json
 import logging
@@ -7,7 +7,6 @@ from .agents import Agents
 from olite.exceptions import NodeExecutionError
 
 logger = logging.getLogger(__name__)
-
 
 
 class Registry:

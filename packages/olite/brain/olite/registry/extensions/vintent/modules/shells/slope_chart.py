@@ -68,37 +68,3 @@ class SlopeChartShell(BaseShell):
             ],
         }
 
-    def validate(
-        self,
-        profile: DatasetProfile,
-        params: ShellParamsType,
-    ) -> ValidationResult:
-        category = params.get("category")
-        period = params.get("period")
-        value = params.get("value")
-
-        if not category or not period or not value:
-            return {
-                "errors": [{"code": "missing_required_encoding"}],
-                "ok": False,
-                "warnings": [],
-            }
-
-        fields = profile.get("fields", {})
-
-        for field_name, expected_type in [(category, "nominal"), (period, "nominal"), (value, "quantitative")]:
-            meta = fields.get(field_name)
-            if not meta:
-                return {
-                    "errors": [{"code": "unknown_field", "details": {"field": field_name}}],
-                    "ok": False,
-                    "warnings": [],
-                }
-            if meta.get("type") != expected_type:
-                return {
-                    "errors": [{"code": "invalid_field_type", "details": {"field": field_name}}],
-                    "ok": False,
-                    "warnings": [],
-                }
-
-        return {"errors": [], "ok": True, "warnings": []}

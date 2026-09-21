@@ -45,7 +45,6 @@ def get_handler(node_type: str) -> NodeHandler | None:
 
 
 # For backward compatibility
-HANDLERS = _HANDLER_CLASSES  # type: ignore[assignment]
 
 
 __all__ = [
@@ -65,6 +64,5 @@ __all__ = [
     "TerminalHandler",
     "TraverseHandler",
     # Registry
-    "HANDLERS",
     "get_handler",
 ]

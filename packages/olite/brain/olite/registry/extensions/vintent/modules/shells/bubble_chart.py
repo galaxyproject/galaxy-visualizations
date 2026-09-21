@@ -63,37 +63,3 @@ class BubbleChartShell(BaseShell):
             "encoding": encoding,
         }
 
-    def validate(
-        self,
-        profile: DatasetProfile,
-        params: ShellParamsType,
-    ) -> ValidationResult:
-        x_field = params.get("x")
-        y_field = params.get("y")
-        size_field = params.get("size")
-
-        if not x_field or not y_field or not size_field:
-            return {
-                "errors": [{"code": "missing_required_encoding"}],
-                "ok": False,
-                "warnings": [],
-            }
-
-        fields = profile.get("fields", {})
-
-        for field_name in [x_field, y_field, size_field]:
-            meta = fields.get(field_name)
-            if not meta:
-                return {
-                    "errors": [{"code": "unknown_field", "details": {"field": field_name}}],
-                    "ok": False,
-                    "warnings": [],
-                }
-            if meta.get("type") != "quantitative":
-                return {
-                    "errors": [{"code": "invalid_field_type", "details": {"field": field_name}}],
-                    "ok": False,
-                    "warnings": [],
-                }
-
-        return {"errors": [], "ok": True, "warnings": []}

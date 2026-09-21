@@ -1,10 +1,26 @@
 import type { Artifact } from "./artifacts";
 import type { PyodideManager } from "./pyodide/pyodide-manager";
 
+export interface ToolCall {
+    id: string;
+    function?: { name?: string; arguments?: string };
+}
+
 export interface Message {
     role: string;
-    content: string;
+    content: string | null;
+    tool_calls?: ToolCall[];
+    tool_call_id?: string;
+    name?: string;
 }
+
+/** What the loop reports while a turn runs. */
+export type LoopEvent =
+    | { type: "tool_start"; id: string; name: string }
+    | { type: "tool_end"; id: string; name: string; content: string; is_error: boolean; refused: boolean }
+    | { type: "llm_retry"; status: number; wait: number; attempt: number; of: number }
+    | { type: "compacted" }
+    | { type: "context_overflow" };
 
 /** What the brain returns for one turn; `error` is a failed turn, never a thrown one. */
 export interface TurnResult {
@@ -30,7 +46,7 @@ export async function runOlite(
     pyodide: PyodideManager,
     config: Record<string, unknown>,
     transcripts: Message[],
-    onEvent?: (event: any) => void,
+    onEvent?: (event: LoopEvent) => void,
 ): Promise<TurnResult> {
     pyodide.onEvent = onEvent;
     try {

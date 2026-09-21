@@ -3,6 +3,7 @@
 import json
 import logging
 from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 from olite.substrate.http import http
 
@@ -169,9 +170,9 @@ async def _gtn_fetch(args):
     if not url:
         return {"error": "A tutorial url is required."}
 
-    # Hostname check, not a substring check: "training.galaxyproject.org.evil.com"
-    host = url.split("//", 1)[-1].split("/", 1)[0].split("@")[-1].split(":")[0].lower()
-    if not url.lower().startswith(("http://", "https://")) or host != GTN_HOST:
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    if parts.scheme not in ("http", "https") or host != GTN_HOST:
         return {"error": f"Only URLs on {GTN_HOST} are allowed. Got: {host or url}"}
 
     try:

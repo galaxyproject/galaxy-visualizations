@@ -1,8 +1,9 @@
 /** Turning the brain's messages and errors into what the chat panel shows. */
 import { ChatPanel } from "./orbit/chat/chat-panel";
+import type { Message } from "./pyodide-runner";
 
 /** Render the turn's messages; returns whether any assistant prose was shown. */
-export function renderMessages(chat: ChatPanel, messages: any[], streamed: Set<string> = new Set()): boolean {
+export function renderMessages(chat: ChatPanel, messages: Message[], streamed: Set<string> = new Set()): boolean {
     let spoke = false;
     for (const m of messages) {
         // `finish` puts the model's closing words in a tool argument, not in content.
@@ -21,9 +22,9 @@ export function renderMessages(chat: ChatPanel, messages: any[], streamed: Set<s
                     chat.addToolCard(tc.id, tc.function?.name || "tool");
                 }
             }
-        } else if (m.role === "tool") {
+        } else if (m.role === "tool" && m.tool_call_id) {
             if (!streamed.has(m.tool_call_id)) {
-                chat.updateToolCard(m.tool_call_id, toolStatus(m.content), m.content);
+                chat.updateToolCard(m.tool_call_id, toolStatus(m.content || ""), m.content || "");
             }
         }
     }
@@ -31,7 +32,7 @@ export function renderMessages(chat: ChatPanel, messages: any[], streamed: Set<s
 }
 
 /** Repaint a stored transcript into the panel; loom: session-replay.js on `--continue`. */
-export function replayMessages(chat: ChatPanel, messages: any[]) {
+export function replayMessages(chat: ChatPanel, messages: Message[]) {
     for (const m of messages) {
         if (m.role === "user") {
             chat.addUserMessage(m.content || "");
