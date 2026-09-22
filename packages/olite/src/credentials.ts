@@ -9,12 +9,16 @@ export interface ProviderInfo {
     base_url: string | null;
     models: Array<{ id: string; context_window: number | null }>;
     free_model: boolean;
+    takes_model: boolean;
+    headers: Record<string, string>;
 }
 
 export interface Credentials {
     provider: string;
     model?: string;
     apiKey?: string;
+    /** Overrides the provider's own endpoint; the only way to reach a self-hosted server. */
+    baseUrl?: string;
 }
 
 // sessionStorage, so the key survives a reload but dies with the tab. It is
@@ -64,8 +68,12 @@ export function credentialProblem(creds: Credentials | null): string | null {
     const p = providerById(creds.provider);
     if (!p) return `Unknown provider "${creds.provider}".`;
     if (p.needs_key && !creds.apiKey?.trim()) return `${p.name} requires an API key.`;
-    if (!p.free_model && p.models.length > 0 && !creds.model?.trim()) {
-        return `Choose a model for ${p.name}.`;
+    // A server that takes no key ignores the model name too, so only hosted providers need one.
+    if (p.takes_model && p.needs_key && !creds.model?.trim()) {
+        return `Name a model for ${p.name}.`;
+    }
+    if (creds.baseUrl?.trim() && !/^https?:\/\//i.test(creds.baseUrl.trim())) {
+        return "The endpoint must start with http:// or https://.";
     }
     return null;
 }

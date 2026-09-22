@@ -1,6 +1,8 @@
 /** Provider/model/key picker. Mirrors Orbit's BYO-key overlay behaviour. */
 
+import { discoverModels } from "./model-discovery";
 import {
+    clearCredentials,
     credentialProblem,
     loadCredentials,
     providerById,
@@ -20,8 +22,18 @@ const MARKUP = `
       </div>
       <div class="cred-field" id="cred-model-field">
         <label for="cred-model">Model</label>
-        <select id="cred-model"></select>
-        <input id="cred-model-text" type="text" placeholder="Model name" class="hidden" />
+        <div class="cred-row">
+          <input id="cred-model" type="text" list="cred-model-options" autocomplete="off"
+                 spellcheck="false" placeholder="Model name" />
+          <button id="cred-discover" class="plan-btn" type="button">List models</button>
+        </div>
+        <datalist id="cred-model-options"></datalist>
+      </div>
+      <div class="cred-field" id="cred-endpoint-field">
+        <label for="cred-endpoint">Endpoint <span class="cred-optional">optional</span></label>
+        <input id="cred-endpoint" type="text" autocomplete="off" spellcheck="false"
+               placeholder="" />
+        <p class="cred-note">Point this at your own OpenAI-compatible server to use it instead.</p>
       </div>
       <div class="cred-field" id="cred-key-field">
         <label for="cred-key">API key</label>
@@ -32,7 +44,10 @@ const MARKUP = `
       <div id="cred-error" class="cred-error"></div>
     </div>
     <div class="modal-footer">
-      <div class="modal-actions"><button id="cred-save" class="plan-btn primary">Connect</button></div>
+      <div class="modal-actions">
+        <button id="cred-forget" class="plan-btn hidden">Disconnect</button>
+        <button id="cred-save" class="plan-btn primary">Connect</button>
+      </div>
     </div>
   </div>
 </div>`;
@@ -53,9 +68,13 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
     container.insertAdjacentHTML("beforeend", MARKUP);
     const overlay = container.querySelector<HTMLElement>("#cred-overlay")!;
     const providerSel = container.querySelector<HTMLSelectElement>("#cred-provider")!;
-    const modelSel = container.querySelector<HTMLSelectElement>("#cred-model")!;
-    const modelText = container.querySelector<HTMLInputElement>("#cred-model-text")!;
+    const modelInput = container.querySelector<HTMLInputElement>("#cred-model")!;
+    const modelOptions = container.querySelector<HTMLDataListElement>("#cred-model-options")!;
     const modelField = container.querySelector<HTMLElement>("#cred-model-field")!;
+    const endpointField = container.querySelector<HTMLElement>("#cred-endpoint-field")!;
+    const endpointInput = container.querySelector<HTMLInputElement>("#cred-endpoint")!;
+    const forgetBtn = container.querySelector<HTMLButtonElement>("#cred-forget")!;
+    const discoverBtn = container.querySelector<HTMLButtonElement>("#cred-discover")!;
     const keyField = container.querySelector<HTMLElement>("#cred-key-field")!;
     const keyInput = container.querySelector<HTMLInputElement>("#cred-key")!;
     const errorEl = container.querySelector<HTMLElement>("#cred-error")!;
@@ -72,18 +91,24 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
         const p = providerById(providerSel.value);
         if (!p) return;
         keyField.classList.toggle("hidden", !p.needs_key);
-        const freeform = p.free_model || p.models.length === 0;
-        modelField.classList.toggle("hidden", p.models.length === 0 && !p.free_model);
-        modelSel.classList.toggle("hidden", freeform);
-        modelText.classList.toggle("hidden", !freeform);
-        modelSel.innerHTML = "";
-        for (const m of p.models) modelSel.add(new Option(m.id, m.id));
-        if (stored?.model && p.models.some((m) => m.id === stored.model)) {
-            modelSel.value = stored.model;
-        }
+        // The Galaxy proxy picks its own model; everyone else names one, from the
+        // suggestions where we bundle any and freely where the catalog is theirs.
+        modelField.classList.toggle("hidden", !p.takes_model);
+        modelOptions.innerHTML = "";
+        for (const m of p.models) modelOptions.appendChild(new Option(m.id, m.id));
+        // What this provider was last used with, else its first suggestion: picking a
+        // provider is enough to connect, and the suggestions are a starting point to edit.
+        const remembered = stored?.provider === p.id ? stored.model : undefined;
+        modelInput.value = remembered || p.models[0]?.id || "";
+        endpointField.classList.toggle("hidden", !p.takes_model);
+        endpointInput.placeholder = p.base_url || "";
+        if (stored?.provider === p.id && stored.baseUrl) endpointInput.value = stored.baseUrl;
     }
     providerSel.addEventListener("change", syncFields);
     syncFields();
+
+    // Only offered when something is stored: a session with no key has nothing to forget.
+    forgetBtn.classList.toggle("hidden", !stored);
 
     overlay.classList.remove("hidden");
     keyInput.focus();
@@ -111,12 +136,11 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
             });
         }
         const submit = () => {
-            const p = providerById(providerSel.value);
-            const freeform = !!p && (p.free_model || p.models.length === 0);
             const creds: Credentials = {
                 provider: providerSel.value,
-                model: (freeform ? modelText.value : modelSel.value).trim() || undefined,
+                model: modelInput.value.trim() || undefined,
                 apiKey: keyInput.value.trim() || undefined,
+                baseUrl: endpointInput.value.trim() || undefined,
             };
             const problem = credentialProblem(creds);
             if (problem) {
@@ -126,6 +150,33 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
             saveCredentials(creds);
             close(creds);
         };
+        // Orbit clears a credential by saving an empty key from Preferences. OLite has no
+        // Preferences screen and the key lives in this browser, so it gets its own control.
+        // The endpoint's own catalog beats anything bundled here, which is how a provider
+        // whose models we never listed becomes usable without typing an id from memory.
+        discoverBtn.addEventListener("click", async () => {
+            const p = providerById(providerSel.value);
+            const endpoint = endpointInput.value.trim() || p?.base_url;
+            if (!p || !endpoint) return;
+            discoverBtn.disabled = true;
+            discoverBtn.textContent = "Listing...";
+            const found = await discoverModels(fetch, p, endpoint, keyInput.value.trim() || undefined);
+            discoverBtn.disabled = false;
+            discoverBtn.textContent = "List models";
+            errorEl.textContent = found.error || "";
+            if (!found.models.length) return;
+            modelOptions.innerHTML = "";
+            for (const id of found.models) modelOptions.appendChild(new Option(id, id));
+            if (!found.models.includes(modelInput.value.trim())) modelInput.value = found.models[0]!;
+        });
+        forgetBtn.addEventListener("click", () => {
+            clearCredentials();
+            keyInput.value = "";
+            modelInput.value = "";
+            endpointInput.value = "";
+            forgetBtn.classList.add("hidden");
+            errorEl.textContent = "Disconnected. Choose a provider to connect again.";
+        });
         saveBtn.addEventListener("click", submit);
         overlay.addEventListener("keydown", (e) => {
             if ((e as KeyboardEvent).key === "Enter") {
