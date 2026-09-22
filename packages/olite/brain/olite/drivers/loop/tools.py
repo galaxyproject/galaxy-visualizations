@@ -237,6 +237,19 @@ class ToolSurface:
             self._note_outcome(name, args, True)
             return ToolOutcome(f"Tool '{name}' raised: {e}", is_error=True)
 
+    # Shorter than this is too weak a signal to read as a name.
+    NAME_QUERY_MIN = 4
+
+    def _olite_tool_named(self, args):
+        """The OLite tool these arguments are reaching for, by id or by searching its name."""
+        names = (self.processes.names() or []) if self.processes else []
+        if args.get("tool_id") in names:
+            return args["tool_id"]
+        query = (args.get("query") or "").strip().lower()
+        if len(query) < self.NAME_QUERY_MIN:
+            return None
+        return next((n for n in names if n == query or n.startswith(query)), None)
+
     def _place_artifacts(self, args):
         """Swap every {{artifact}} token in the arguments for the markdown it names."""
         placed = dict(args)
@@ -295,10 +308,10 @@ class ToolSurface:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
-        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found". Every tool
-        # taking a tool_id is a way to ask, and a bare 404 sent one agent hunting the catalog.
-        wanted = args.get("tool_id")
-        if self.processes and wanted in (self.processes.names() or []):
+        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found" or nothing at
+        # all. A tool_id asks for one directly and a query hunts the catalog for it by name.
+        wanted = self._olite_tool_named(args)
+        if wanted:
             return ToolOutcome(
                 f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
                 is_error=True)

@@ -226,8 +226,31 @@ def _no_tool_matched(query):
     }
 
 
+# This agent, and a standalone plugin that defers its chart to its own LLM at view time.
+NOT_OFFERED = {"olite", "vintent"}
+
+
+async def _a_visualization_named(g, query):
+    """The installed visualization this query names, if the tool catalog is the wrong one."""
+    wanted = (query or "").strip().lower()
+    installed = await g.get("api/plugins") or []
+    names = [p.get("name") for p in installed if p.get("name") not in NOT_OFFERED]
+    return next((n for n in names if n and n.lower() == wanted), None)
+
+
 async def _search_tools_by_name(g, a):
-    return await g.get(f"api/tools{_q({'q': a['query']})}") or _no_tool_matched(a["query"])
+    found = await g.get(f"api/tools{_q({'q': a['query']})}")
+    if found:
+        return found
+    plugin = await _a_visualization_named(g, a["query"])
+    if plugin:
+        return {
+            "query": a["query"],
+            "tools": [],
+            "hint": f"{plugin!r} is a visualization, which the tool catalog does not hold. "
+                    f"list_visualizations names the ones that can render a given dataset.",
+        }
+    return _no_tool_matched(a["query"])
 
 
 async def _get_tool_details(g, a):
@@ -653,10 +676,6 @@ async def _preferred_visualizations(g, extension):
 
 # Extensions holding delimited text, which vintent_dataset reads directly.
 DELIMITED_TEXT = {"csv", "tabular", "tsv", "txt"}
-
-# This agent, and a standalone plugin that defers its chart to its own LLM at view time.
-NOT_OFFERED = {"olite", "vintent"}
-
 
 async def _list_visualizations(g, a):
     dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
