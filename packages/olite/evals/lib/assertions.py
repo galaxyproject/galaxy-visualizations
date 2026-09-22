@@ -766,6 +766,10 @@ def _record(spec, run, failures, exercised):
         if needle.lower() not in content.lower():
             failures.append(Failure("record.mustMention",
                                     f"the record never mentions {needle!r}", "record"))
+    for needle in spec.get("mustNotMention") or []:
+        if needle.lower() in content.lower():
+            failures.append(Failure("record.mustNotMention",
+                                    f"the record holds {needle!r}", "record"))
     if spec.get("idsResolve"):
         _record_ids_resolve(spec, run, failures, galaxy, content)
 

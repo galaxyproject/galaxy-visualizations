@@ -10,7 +10,7 @@
     "I have a clinical table in this history. What columns does it have, and how many rows?",
     "Column 10 is Outcome, 1 means diabetic. Group the rows by Outcome and give me the mean of Glucose (column 3) and mean of BMI (column 7) for each group.",
     "Chart that comparison with vintent as a bar chart.",
-    "Write what we found into the record page, including the actual numbers."
+    "Write what we found into the record page, including the actual numbers and the chart."
   ],
   "timeoutMs": 900000,
   "assertions": {
@@ -34,7 +34,11 @@
       "notEmpty": true,
       "mustMention": [
         "Glucose",
-        "BMI"
+        "BMI",
+        "```vega"
+      ],
+      "mustNotMention": [
+        "{{artifact}}"
       ]
     },
     "budget": {
