@@ -42,11 +42,18 @@ function toDict(payload: unknown) {
     return `json.loads(${JSON.stringify(JSON.stringify(payload))})`;
 }
 
+/** One turn's inputs. Named rather than positional: the list grew past what order survives. */
+export interface TurnRequest {
+    config: Record<string, unknown>;
+    transcripts: Message[];
+    /** What earlier turns produced, held by the shell because the brain is rebuilt on a config change. */
+    artifacts: Artifact[];
+    onEvent?: (event: LoopEvent) => void;
+}
+
 export async function runOlite(
     pyodide: PyodideManager,
-    config: Record<string, unknown>,
-    transcripts: Message[],
-    onEvent?: (event: LoopEvent) => void,
+    { config, transcripts, artifacts, onEvent }: TurnRequest,
 ): Promise<TurnResult> {
     pyodide.onEvent = onEvent;
     try {
@@ -55,7 +62,7 @@ export async function runOlite(
             "from js import oliteEmit",
             "from olite import run",
             `config = ${toDict(config)}`,
-            `inputs = ${toDict({ transcripts })}`,
+            `inputs = ${toDict({ transcripts, artifacts })}`,
             "def _on_event(ev):",
             "    oliteEmit(json.dumps(ev))",
             "result = await run(config, inputs, _on_event)",

@@ -16,7 +16,7 @@ import { writeSessionSummary } from "./session-summary";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
 import { runOlite, type LoopEvent, type Message } from "./pyodide-runner";
-import { renderArtifact } from "./artifacts";
+import { renderArtifact, type Artifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
 import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
@@ -89,6 +89,11 @@ async function main() {
     const startedAt = new Date().toISOString();
     const seed = { role: "system", content: incoming.specs.ai_prompt || PROMPT_DEFAULT };
     const convo: Message[] = [seed];
+    // The shell owns what a turn produced, the way it owns the transcript: the brain is
+    // rebuilt whenever the config changes, so anything it held would not survive a model switch.
+    const produced: Artifact[] = [];
+    // A vega spec carries its rows, so a long session keeps only its most recent artifacts.
+    const ARTIFACT_LIMIT = 20;
 
     // One conversation per user and history, as pi keys a session by home plus directory.
     const credentials = (process.env.credentials as RequestCredentials) || "include";
@@ -117,6 +122,9 @@ async function main() {
 
     // Replay before the boot notice, so the restored turns sit above it as history.
     let resumed = false;
+    // Switching provider reloads, so what earlier turns produced comes back from storage
+    // rather than from memory: without this a chart cannot be placed after a model switch.
+    produced.push(...(session.enabled ? await session.loadArtifacts() : []));
     const restored = session.enabled ? await session.load() : null;
     if (restored) {
         convo.length = 0;
@@ -124,6 +132,11 @@ async function main() {
         replayMessages(chat, restored);
         resumed = true;
         el.reset.classList.remove("hidden");
+    }
+    // Replayed like the transcript: a resumed session that can still place a chart but shows
+    // an empty pane is telling the user it lost something it did not.
+    for (const artifact of produced) {
+        await renderArtifact(el.artifactContent, artifact);
     }
 
     // Boot Pyodide (brain lives inside it).
@@ -228,7 +241,12 @@ async function main() {
             galaxy_root: config.galaxy_root,
             text,
         });
-        const reply = await runOlite(pyodide, config, convo, liveEvents(streamed));
+        const reply = await runOlite(pyodide, {
+            config,
+            transcripts: convo,
+            artifacts: produced,
+            onEvent: liveEvents(streamed),
+        });
         console.log("diagnostics", reply.diagnostics);
         console.log("trace", reply.logs);
         console.log("messages", reply.messages);
@@ -281,12 +299,16 @@ async function main() {
 
         const artifacts = reply.artifacts || [];
         if (artifacts.length) {
+            produced.push(...artifacts);
+            produced.splice(0, produced.length - ARTIFACT_LIMIT);
             el.artifactContent.innerHTML = "";
             for (const a of artifacts) {
                 await renderArtifact(el.artifactContent, a);
             }
             // After filling, so the pane opens on something rather than on an empty frame.
             artifactPane.reveal();
+            // Persisted once this turn's are in, or a switch would lose the newest chart.
+            void session.saveArtifacts(produced);
         }
     }
 
@@ -343,6 +365,7 @@ async function main() {
         convo.push(seed);
         el.messages.innerHTML = "";
         // The previous conversation's chart belongs to it, not to the new one.
+        produced.length = 0;
         el.artifactContent.innerHTML = "";
         el.reset.classList.add("hidden");
         chat.addInfoMessage("Started a new conversation. The record on Galaxy is untouched.");

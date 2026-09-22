@@ -7,7 +7,6 @@ from olite import compaction
 from olite.substrate import Cancellation
 from olite.substrate.llm.json_parse import loads_with_repair
 
-from . import artifacts
 from .brief import brief
 
 from .secret_redaction import collect_secret_values, redact_secrets
@@ -47,8 +46,6 @@ class LoopDriver:
         self.substrate = substrate
         self.processes = processes
         self.skills = skills
-        # Every artifact this session has produced, so a later turn can place one in a page.
-        self.artifacts = []
         self.compaction = compaction.Settings(
             getattr(substrate, "config", None), getattr(substrate.llm, "target", None)
         )
@@ -57,10 +54,11 @@ class LoopDriver:
         config = getattr(substrate, "config", None) or {}
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
 
-    async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None):
-        # One surface per turn: its repeat guard and approval bridge are the turn's. Artifacts
-        # outlive it, so a chart made now can be placed in a page several turns later.
-        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, self.artifacts)
+    async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None,
+                  artifacts=None):
+        # One surface per turn. Earlier turns' artifacts are handed in by the caller, which
+        # holds them: this driver is rebuilt whenever the session's config changes.
+        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts)
         messages = [dict(m) for m in transcripts]
         # This run's output, kept apart from the transcript that compaction rewrites.
         produced = []
@@ -216,8 +214,6 @@ class LoopDriver:
                 ended = ABORTED
                 break
 
-        self.artifacts.extend(tools.artifacts)
-        del self.artifacts[:-artifacts.SESSION_CAP]
         return {
             "logs": logs,
             "messages": messages,
