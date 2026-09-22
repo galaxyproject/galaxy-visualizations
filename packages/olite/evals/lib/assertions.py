@@ -62,7 +62,47 @@ def evaluate(scenario, run):
     _record(a.get("record"), run, failures, exercised)
     _budget(a.get("budget"), run, failures, exercised)
     _history(a.get("history"), run, failures, exercised)
+    _any_of(a.get("anyOf"), run, failures, exercised)
     return failures, exercised
+
+
+# Dimensions a branch may assert; the rest grade the turn as a whole and never belong here.
+_BRANCH_DIMENSIONS = {
+    "artifacts": lambda spec, run, f, e: _artifacts(spec, run, f, e),
+    "visualization": lambda spec, run, f, e: _visualization(spec, run, f, e),
+    "toolCalls": lambda spec, run, f, e: _tool_calls(spec, run, f, e),
+    "collection": lambda spec, run, f, e: _collection(spec, run, f, e),
+    "record": lambda spec, run, f, e: _record(spec, run, f, e),
+}
+
+
+def _any_of(branches, run, failures, exercised):
+    """Several acceptable outcomes, where the product accepts whichever one happened.
+
+    Each branch is graded by the same checkers a scenario would use on its own, so a
+    branch passes only on observable state. The run fails when every branch fails, and
+    the report names what each one wanted.
+    """
+    if not branches:
+        return
+    reasons = []
+    for branch in branches:
+        attempted = [key for key in branch if key in _BRANCH_DIMENSIONS]
+        unknown = [key for key in branch if key not in _BRANCH_DIMENSIONS]
+        if unknown:
+            failures.append(Failure("anyOf.unknownDimension",
+                                    f"{', '.join(sorted(unknown))} cannot be graded inside anyOf",
+                                    "other"))
+            return
+        got, seen = [], set()
+        for key in attempted:
+            _BRANCH_DIMENSIONS[key](branch[key], run, got, seen)
+        if not got:
+            exercised.update(seen)
+            return
+        reasons.append("; ".join(f.detail for f in got))
+    exercised.add("behavior")
+    failures.append(Failure("anyOf", "no acceptable outcome: " + " | ".join(reasons), "behavior"))
 
 
 def _events(spec, run, failures, exercised):
