@@ -12,7 +12,8 @@ Galaxy can display a dataset in two different ways, and they are not interchange
 
 **`vintent_dataset`** profiles a tabular dataset, picks a chart and its encodings, and renders it
 inline as an artifact. It reads the file contents, so it works even when Galaxy has not detected
-the columns. It is tabular-only and the chart is not saved to Galaxy.
+the columns. It is tabular-only. The chart becomes no Galaxy object, and it can be written into a
+page or notebook as `{{artifact}}`, which is how it is kept.
 
 **`show_visualization`** displays the dataset with an installed visualization and saves nothing.
 It works for any datatype the server has a visualization for, not only tabular. It renders with
@@ -31,15 +32,29 @@ Choose by what the user asked for:
   **`show_visualization`** with that name. Never substitute a different one silently. If it
   cannot be used, say which one was asked for and why it cannot.
 - A non-tabular datatype: **`show_visualization`**, since `vintent_dataset` cannot read it.
-- The user asks to keep, save, share or come back to the chart: **`save_visualization`**.
+- The user asks to keep, save, share or come back to the chart, and named no visualization:
+  **`vintent_dataset`**, then `update_page` with `{{artifact}}` where the chart belongs.
+  Naming a visualization settles the route first; keeping it is **`save_visualization`**.
 - A named visualization that has to bind particular columns, settings or tracks:
   **`get_visualization_details`** for its schema, then **`save_visualization`**. Galaxy renders a
   displayed visualization from the dataset alone, so settings only survive in a saved config. To change them afterwards, call it again with the
   `visualization_id` it returned; that revises the one visualization instead of adding another.
 
-Showing is the default. Seeing a visualization is not a reason to add one to the user's saved
-visualizations, so reach for `save_visualization` only when the user asks to keep it, or when a
-plugin they named needs settings that only a saved config can carry.
+## Where a result is kept
+
+The page is where work is kept. A chart in the record sits with the question that prompted it and
+the numbers behind it, and it is what a later session reads back. A saved visualization is a
+separate object with its own URL, outside the record and outside the narrative.
+
+So a result worth keeping goes into the page: `{{artifact}}` where it belongs in the content. Both
+routes place their result that way, and the chart spec is not in your context, so the token is the
+only way to place one.
+
+This settles where a result goes, after the choice above has settled which route made it. A
+visualization the user named keeps that plugin: `save_visualization` holds the settings, tracks and
+column bindings that survive only in a saved config, and the page can hold it as well.
+
+Showing is still the default. Seeing a visualization is not a reason to keep it anywhere.
 
 ## Finding out what is available
 

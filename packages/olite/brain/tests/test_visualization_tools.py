@@ -2,6 +2,7 @@
 import asyncio
 from urllib.parse import parse_qs, urlparse
 
+from olite.drivers.loop import artifacts
 from olite.drivers.loop.galaxy_tools import _save_visualization, _show_visualization
 
 INSTALLED = [{"name": "atlas"}, {"name": "aladin"}]
@@ -248,20 +249,20 @@ def test_a_case_parameter_is_only_valid_for_the_chosen_case():
     assert "genome" in out["error"]
 
 
-def test_both_visualization_tools_hand_back_the_directive_that_embeds_them():
+def test_both_visualization_tools_hand_back_an_artifact_that_embeds_them():
     """The page directive takes the plugin name and the dataset; the saved id renders nothing.
 
     The agent wrote `visualization(visualization_id=<saved id>)` into a record and Galaxy
     answered "Missing history_dataset_id for visualization".
     """
     g = Galaxy()
-    expected = "visualization(visualization_id=atlas, history_dataset_id=d1)"
+    expected = "```galaxy\nvisualization(visualization_id=atlas, history_dataset_id=d1)\n```"
 
-    assert show(g, visualization="atlas")["embed"] == expected
+    assert artifacts.render(show(g, visualization="atlas")["artifact"]) == expected
     saved = save(g, visualization="atlas")
-    assert saved["embed"] == expected
+    assert artifacts.render(saved["artifact"]) == expected
     # The saved object's own id is not what the directive takes.
-    assert saved["visualization_id"] not in saved["embed"]
+    assert saved["visualization_id"] not in artifacts.render(saved["artifact"])
 
 
 def test_a_scalar_parameter_refuses_the_entry_it_was_chosen_from():

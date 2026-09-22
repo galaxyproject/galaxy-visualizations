@@ -703,15 +703,6 @@ async def _list_visualizations(g, a):
 _EMBED = {"hide_panels": "true", "hide_masthead": "true"}
 
 
-def _embed_directive(name, dataset_id):
-    """The page directive that renders this visualization.
-
-    Galaxy's argument is called visualization_id but holds the plugin name, and the
-    directive needs the dataset too, so a saved visualization's own id does not embed.
-    """
-    return f"visualization(visualization_id={name}, history_dataset_id={dataset_id})"
-
-
 async def _resolve_visualization(g, a):
     """The plugin and dataset, or a refusal naming what the server will actually render."""
     name, dataset_id = a["visualization"], a["dataset_id"]
@@ -965,11 +956,10 @@ async def _show_visualization(g, a):
         "artifact": {"kind": "visualization", "title": title,
                      "visualization": name, "dataset_id": a["dataset_id"],
                      "url": f"/visualizations/display{_q(query)}"},
-        "embed": _embed_directive(name, a["dataset_id"]),
         "hint": "The visualization is displayed to the user. Nothing was added to Galaxy, so "
                 "call save_visualization if they ask to keep it. Writing it into the record "
-                "means copying `embed` verbatim into a ```galaxy block. Say what it shows "
-                "and finish.",
+                "means putting {{artifact}} where it belongs in the page content. Say what it "
+                "shows and finish.",
     }
 
 
@@ -1120,11 +1110,10 @@ async def _save_visualization(g, a):
         "visualization_id": visualization_id,
         "title": title,
         "artifact": artifact,
-        "embed": _embed_directive(name, a["dataset_id"]),
         "hint": "Saved to the user's visualizations and displayed. It is not a history dataset. "
-                "Writing it into the record means copying `embed` verbatim into a ```galaxy "
-                "block; visualization_id above identifies the saved object and renders nothing "
-                "in a page. Say what it shows and finish.",
+                "Writing it into the record means putting {{artifact}} where it belongs in the "
+                "page content; visualization_id above identifies the saved object and renders "
+                "nothing in a page. Say what it shows and finish.",
     }
 
 

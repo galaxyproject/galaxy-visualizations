@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from olite.registry import load_primitives
 from olite.substrate import Confirmation, LocalExecutionError
 
-from . import confusables, galaxy_destructive, galaxy_tools, gtn, notebook
+from . import artifacts, confusables, galaxy_destructive, galaxy_tools, gtn, notebook
 from .brief import brief
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,9 @@ def _skills_fetch_schema(skills):
 
 
 ARTIFACT_HINT = ("This artifact is already displayed to the user and is not a history dataset, "
-                 "so do not look for it there. Describe what it shows and finish.")
+                 "so do not look for it there. Keeping it means writing {{artifact}} into a page "
+                 "where it belongs; that token is the only way to place it, since its content is "
+                 "held outside your context. Describe what it shows and finish.")
 
 
 @dataclass
@@ -140,7 +142,7 @@ class ToolOutcome:
 
 
 class ToolSurface:
-    def __init__(self, substrate, processes=None, skills=None, confirmation=None):
+    def __init__(self, substrate, processes=None, skills=None, confirmation=None, prior=None):
         self.substrate = substrate
         self.processes = processes
         self.skills = skills
@@ -148,6 +150,8 @@ class ToolSurface:
         self.confirmation = confirmation or Confirmation()
         # Renderable artifacts, routed to the shell so no large payload hits the LLM.
         self.artifacts = []
+        # Earlier turns' artifacts, placeable in a page long after the turn that made them.
+        self.prior = list(prior or [])
         # The last call that failed and how often it has repeated, for the loop guard.
         self._last_failure = None
         self._schemas = None
@@ -233,6 +237,16 @@ class ToolSurface:
             self._note_outcome(name, args, True)
             return ToolOutcome(f"Tool '{name}' raised: {e}", is_error=True)
 
+    def _place_artifacts(self, args):
+        """Swap every {{artifact}} token in the arguments for the markdown it names."""
+        placed = dict(args)
+        for key, value in args.items():
+            text, refusal = artifacts.resolve(value, self.prior + self.artifacts)
+            if refusal:
+                return args, refusal
+            placed[key] = text
+        return placed, None
+
     def _claim_artifact(self, result, hint=None):
         """Route a renderable artifact to the shell, leaving a reference in the tool result."""
         if not isinstance(result, dict) or not isinstance(result.get("artifact"), dict):
@@ -294,6 +308,9 @@ class ToolSurface:
             return args.get("summary", "done")
         handler = galaxy_tools.get_handler(name) or notebook.get_handler(name)
         if handler:
+            args, refusal = self._place_artifacts(args)
+            if refusal:
+                return ToolOutcome(f"Refused: {refusal}", is_error=True)
             result = self._claim_artifact(await handler(self.substrate.galaxy, args))
             return json.dumps(result, default=str)
         gtn_handler = gtn.get_handler(name)
