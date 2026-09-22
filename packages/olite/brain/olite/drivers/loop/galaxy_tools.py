@@ -15,6 +15,7 @@ from . import page_edit
 from .galaxy_tool_docs import DOCS
 from .paging import ROW_CAP, page
 from .tool_inputs import build_input_template, summarize_tool_inputs
+from .visualization_inputs import build_visualization_template, template_cases
 
 TOOLS = []
 HANDLERS = {}
@@ -777,9 +778,14 @@ async def _get_visualization_details(g, a):
                 "hint": "Call list_visualizations for a dataset to see what this server offers."}
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+    template = build_visualization_template(plugin, types)
+    other_cases = template_cases(plugin)
     return {
         "name": plugin.get("name"),
         "description": plugin.get("description"),
+        # The shape to fill, as get_tool_input_template gives one for a Galaxy tool.
+        "config_template": template,
+        **({"other_cases": other_cases} if other_cases else {}),
         "settings": [_describe_parameter(p, types) for p in (plugin.get("settings") or [])],
         "tracks": [_describe_parameter(p, types) for p in (plugin.get("tracks") or [])],
         "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
