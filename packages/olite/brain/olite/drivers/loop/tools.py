@@ -12,6 +12,27 @@ from .brief import brief
 
 logger = logging.getLogger(__name__)
 
+# Start of a harmony control token, which no tool name and no result of ours contains.
+HARMONY_MARKER = "<|"
+
+
+def plain_tool_name(name):
+    """`name` up to the first control token: the part that is actually the tool's name."""
+    return (name or "").split(HARMONY_MARKER, 1)[0].strip() if isinstance(name, str) else name
+
+
+def without_control_tokens(text):
+    """`text` with any harmony control token dropped, so replaying it cannot re-parse.
+
+    A name the model mangled comes back in our own error text and in the tool message's
+    `name`, and the endpoint reads the marker as a message boundary on the next turn:
+    one contaminated call left every later turn answering `Unknown role: final`.
+    """
+    if not isinstance(text, str) or HARMONY_MARKER not in text:
+        return text
+    return "".join(part.split("|>", 1)[-1] if i else part
+                   for i, part in enumerate(text.split(HARMONY_MARKER)))
+
 RUN_PYTHON = {
     "type": "function",
     "function": {
@@ -278,9 +299,6 @@ class ToolSurface:
             payload["hint"] = hint
         return payload
 
-    # Start of a harmony control token, which no tool name contains.
-    HARMONY_MARKER = "<|"
-
     # An identical call that just failed will fail again; three is enough to establish it.
     FAILED_REPEAT_LIMIT = 3
     # A settled question keeps its answer, so a third asking is already two too many.
@@ -364,7 +382,7 @@ class ToolSurface:
         if folded:
             logger.info("tool name %r resolved to %r", name, folded)
             return await self._dispatch(folded, args)
-        return ToolOutcome(f"Unknown tool: {name}", is_error=True)
+        return ToolOutcome(f"Unknown tool: {plain_tool_name(name)}", is_error=True)
 
     async def _gate_destructive(self, name, op):
         """Why this must not run, or None if the user approved; never cached."""
@@ -386,7 +404,7 @@ class ToolSurface:
         advertised = [t["function"]["name"] for t in self.schemas()]
         # gpt-oss speaks harmony; an endpoint that leaves its control tokens in place welds
         # the channel marker to the name, and `get_page<|channel|>commentary` matches nothing.
-        trimmed = (name or "").split(self.HARMONY_MARKER, 1)[0].strip()
+        trimmed = plain_tool_name(name)
         if trimmed != name and trimmed in advertised:
             return trimmed
         if not confusables.has_confusables(name or ""):

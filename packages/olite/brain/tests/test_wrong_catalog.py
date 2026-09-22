@@ -160,3 +160,32 @@ def test_a_trimmed_name_that_matches_nothing_is_left_unknown():
 def test_an_ordinary_unknown_name_is_untouched():
     surface = _surface()
     assert surface._fold_tool_name("totally_made_up") is None
+
+
+def test_an_unknown_tool_is_named_without_its_control_token():
+    """Echoing the raw name wrote `<|channel|>` into the transcript, and replaying that
+    made the endpoint read a message boundary: every later turn answered `Unknown role`.
+    """
+    outcome = asyncio.run(_surface().dispatch("not_a_tool<|channel|>commentary", {}))
+    assert outcome.is_error
+    assert "<|" not in outcome.text
+    assert "not_a_tool" in outcome.text
+
+
+def test_a_body_keeps_its_words_while_losing_the_token():
+    from olite.drivers.loop.tools import without_control_tokens
+
+    assert without_control_tokens("before<|channel|>final<|message|>after") == "beforefinalafter"
+    assert without_control_tokens("nothing to strip") == "nothing to strip"
+    assert without_control_tokens(None) is None
+
+
+def test_the_tool_message_carries_neither_a_contaminated_name_nor_body():
+    """The name field poisons the transcript as surely as the content does."""
+    from olite.drivers.loop.tools import plain_tool_name, without_control_tokens
+
+    name, body = "get_page<|channel|>commentary", "Unknown tool: get_page<|channel|>commentary"
+    message = {"role": "tool", "name": plain_tool_name(name),
+               "content": without_control_tokens(body)}
+    assert "<|" not in message["name"] and "<|" not in message["content"]
+    assert message["name"] == "get_page"

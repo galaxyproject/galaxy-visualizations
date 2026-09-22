@@ -11,7 +11,7 @@ from . import artifacts
 from .brief import brief
 
 from .secret_redaction import collect_secret_values, redact_secrets
-from .tools import ToolSurface
+from .tools import ToolSurface, plain_tool_name, without_control_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -192,8 +192,8 @@ class LoopDriver:
                 tool_message = {
                     "role": "tool",
                     "tool_call_id": call_id,
-                    "name": name,
-                    "content": redact_secrets(content, self.secrets),
+                    "name": plain_tool_name(name),
+                    "content": without_control_tokens(redact_secrets(content, self.secrets)),
                 }
                 messages.append(tool_message)
                 produced.append(tool_message)
