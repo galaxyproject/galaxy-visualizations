@@ -48,15 +48,16 @@ def test_a_dataset_without_numeric_columns_is_told_why_and_what_else_to_try():
     assert "vintent_dataset" in out["hint"]
 
 
-def test_a_chartable_datatype_names_the_route_rather_than_leaving_it_to_the_menu():
-    """The listing is where the route is chosen, so it says which one.
+def test_the_listing_answers_what_can_render_this_and_proposes_no_route():
+    """Naming a route here contradicted a request that had already named a plugin.
 
-    Five runs called this, read the plugin menu, and used show/save_visualization for a
-    tabular chart that vintent_dataset answers directly.
+    The listing sees only a dataset_id, so it cannot tell "chart this" from "chart this
+    with plotly"; proposing vintent_dataset against a named plugin misrouted one run in
+    five. Ninety of 112 passing chart runs never read this answer at all.
     """
     out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]})
-    assert out["charting"] == "vintent_dataset"
-    assert "vintent_dataset" in out["hint"]
+    assert "charting" not in out
+    assert "hint" not in out
 
 
 def test_a_datatype_nothing_can_render_says_so_rather_than_returning_nothing():

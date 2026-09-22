@@ -687,9 +687,6 @@ async def _preferred_visualizations(g, extension):
     return {m.get("visualization") for m in mappings if isinstance(m, dict)}
 
 
-# Extensions holding delimited text, which vintent_dataset reads directly.
-DELIMITED_TEXT = {"csv", "tabular", "tsv", "txt"}
-
 async def _list_visualizations(g, a):
     dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     extension = dataset.get("extension")
@@ -709,8 +706,6 @@ async def _list_visualizations(g, a):
         "extension": extension,
         "visualizations": [_describe_plugin(p, preferred) for p in matching],
     }
-    if extension in DELIMITED_TEXT:
-        result["charting"] = "vintent_dataset"
     if not matching:
         result["hint"] = (
             f"No installed visualization accepts the datatype {extension!r}. "
@@ -722,11 +717,6 @@ async def _list_visualizations(g, a):
             "column cannot be filled. Either re-detect the dataset's metadata so the columns are "
             "recognised, or use vintent_dataset, which reads the file contents directly and works "
             "on tabular data."
-        )
-    elif result.get("charting"):
-        result["hint"] = (
-            "Charting this dataset is vintent_dataset: it reads the file, picks the chart and "
-            "binds the columns. The visualizations listed are for a request that names one."
         )
     return result
 
