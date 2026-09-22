@@ -20,6 +20,26 @@ from olite.registry.extensions.vintent.modules.tools import (
 # --- Materializers (deterministic transforms) -------------------------------
 
 
+# Galaxy states a dataset is readable only in this state; the rest are pending or broken.
+READABLE = "ok"
+
+
+@register_materializer("vintent.require_readable")
+def _require_readable(dataset=None):
+    """Refuse a dataset whose content is not final, naming the state rather than the columns."""
+    state = (dataset or {}).get("state")
+    if state == READABLE:
+        return {"state": state}
+    name = (dataset or {}).get("name") or "the dataset"
+    if state in (None, ""):
+        raise ValueError(f"{name} reports no state, so its content cannot be read yet")
+    raise ValueError(
+        f"{name} is in state {state!r}, so it holds no readable content yet. "
+        f"A dataset reaches 'ok' when the job producing it finishes; wait for it and chart it "
+        f"again rather than converting it or changing its datatype."
+    )
+
+
 @register_materializer("vintent.profile")
 def _profile(text=None):
     """Parse tabular text, profile its columns, and record how Vega could read it directly."""
