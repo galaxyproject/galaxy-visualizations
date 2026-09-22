@@ -138,3 +138,25 @@ def test_writing_a_page_repeatedly_is_never_refused():
     surface = _surface()
     for _ in range(12):
         assert surface._asking_a_settled_question("update_page", {"page_id": "p1"}) is None
+
+
+def test_a_name_carrying_a_harmony_control_token_still_reaches_its_tool():
+    """Observed live: `search_tools_by_keywords<|channel|>commentary` answered "Unknown tool".
+
+    gpt-oss speaks harmony, and an endpoint that does not strip its control tokens leaves
+    the channel marker welded to the name. Three of 995 recorded runs lost a step this way.
+    """
+    surface = _surface()
+    assert surface._fold_tool_name("get_page<|channel|>commentary") == "get_page"
+    assert surface._fold_tool_name("search_tools_by_name<|channel|>commentary") == "search_tools_by_name"
+
+
+def test_a_trimmed_name_that_matches_nothing_is_left_unknown():
+    """The fold only ever resolves to a tool that is actually advertised."""
+    surface = _surface()
+    assert surface._fold_tool_name("not_a_tool<|channel|>commentary") is None
+
+
+def test_an_ordinary_unknown_name_is_untouched():
+    surface = _surface()
+    assert surface._fold_tool_name("totally_made_up") is None

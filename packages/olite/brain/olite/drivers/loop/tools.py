@@ -278,6 +278,9 @@ class ToolSurface:
             payload["hint"] = hint
         return payload
 
+    # Start of a harmony control token, which no tool name contains.
+    HARMONY_MARKER = "<|"
+
     # An identical call that just failed will fail again; three is enough to establish it.
     FAILED_REPEAT_LIMIT = 3
     # A settled question keeps its answer, so a third asking is already two too many.
@@ -359,7 +362,7 @@ class ToolSurface:
         # Last resort: the name may be spelled with Cyrillic/Greek lookalikes.
         folded = self._fold_tool_name(name)
         if folded:
-            logger.info("tool name %r folded to %r (unicode confusables)", name, folded)
+            logger.info("tool name %r resolved to %r", name, folded)
             return await self._dispatch(folded, args)
         return ToolOutcome(f"Unknown tool: {name}", is_error=True)
 
@@ -380,9 +383,14 @@ class ToolSurface:
 
     def _fold_tool_name(self, name):
         """The advertised tool `name` meant, or None; folds only what is advertised."""
+        advertised = [t["function"]["name"] for t in self.schemas()]
+        # gpt-oss speaks harmony; an endpoint that leaves its control tokens in place welds
+        # the channel marker to the name, and `get_page<|channel|>commentary` matches nothing.
+        trimmed = (name or "").split(self.HARMONY_MARKER, 1)[0].strip()
+        if trimmed != name and trimmed in advertised:
+            return trimmed
         if not confusables.has_confusables(name or ""):
             return None
-        advertised = [t["function"]["name"] for t in self.schemas()]
         return confusables.find_match(name, advertised)
 
     def _skills_fetch(self, args):
