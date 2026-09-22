@@ -47,8 +47,21 @@ def _search(query, tools=None, plugins=None):
     return asyncio.run(_search_tools_by_name(g, {"query": query})), g
 
 
-def test_searching_for_an_olite_tool_by_name_is_refused():
+def test_searching_for_an_olite_tool_says_where_it_lives_without_directing_a_call():
+    """The directive form sent one run to vintent when the user had asked for plotly.
+
+    A search is the model orienting itself, so naming the tool is the answer; telling it to
+    call the tool overrides whatever visualization the request actually named.
+    """
     outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "vintent_dataset"}))
+    assert outcome.is_error
+    assert "is an OLite tool" in outcome.text
+    assert "Call vintent_dataset directly" not in outcome.text
+
+
+def test_asking_to_run_an_olite_tool_by_id_still_names_the_route():
+    """A tool_id is the model trying to run that exact tool, so the directive belongs there."""
+    outcome = asyncio.run(_surface().dispatch("get_tool_details", {"tool_id": "vintent_dataset"}))
     assert outcome.is_error
     assert "Call vintent_dataset directly" in outcome.text
 
@@ -57,17 +70,18 @@ def test_a_partial_name_still_reaches_the_olite_tool():
     """The run searched 'vintent' before it searched 'vintent_dataset'."""
     outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "vintent"}))
     assert outcome.is_error and "vintent_dataset" in outcome.text
+    assert "directly" not in outcome.text
 
 
 def test_a_short_query_is_left_to_the_catalog():
     """'lin' must not be read as a reach for lineage_report."""
     surface = _surface()
-    assert surface._olite_tool_named({"query": "lin"}) is None
+    assert surface._olite_tool_named({"query": "lin"})[0] is None
 
 
 def test_an_ordinary_tool_search_is_untouched():
     surface = _surface()
-    assert surface._olite_tool_named({"query": "bowtie2"}) is None
+    assert surface._olite_tool_named({"query": "bowtie2"})[0] is None
 
 
 def test_a_visualization_name_is_answered_with_where_it_lives():

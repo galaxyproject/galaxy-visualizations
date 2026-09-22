@@ -247,14 +247,14 @@ class ToolSurface:
     NAME_QUERY_MIN = 4
 
     def _olite_tool_named(self, args):
-        """The OLite tool these arguments are reaching for, by id or by searching its name."""
+        """The OLite tool these arguments name, and whether they ask to run it or to find it."""
         names = (self.processes.names() or []) if self.processes else []
         if args.get("tool_id") in names:
-            return args["tool_id"]
+            return args["tool_id"], True
         query = (args.get("query") or "").strip().lower()
         if len(query) < self.NAME_QUERY_MIN:
-            return None
-        return next((n for n in names if n == query or n.startswith(query)), None)
+            return None, False
+        return next((n for n in names if n == query or n.startswith(query)), None), False
 
     def _place_artifacts(self, args):
         """Swap every {{artifact}} token in the arguments for the markdown it names."""
@@ -330,10 +330,17 @@ class ToolSurface:
             return await self._run_process({"name": name, "inputs": args})
         # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found" or nothing at
         # all. A tool_id asks for one directly and a query hunts the catalog for it by name.
-        wanted = self._olite_tool_named(args)
-        if wanted:
+        wanted, running_it = self._olite_tool_named(args)
+        if wanted and running_it:
             return ToolOutcome(
                 f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
+                is_error=True)
+        if wanted:
+            # A search is the model orienting itself; say where the tool lives and leave the
+            # choice of route to the request, which may have named a different one.
+            return ToolOutcome(
+                f"'{wanted}' is an OLite tool rather than a Galaxy tool, so the tool catalog "
+                f"does not hold it. It is already in your tool list if you need it.",
                 is_error=True)
         if name == "skills_fetch":
             return self._skills_fetch(args)

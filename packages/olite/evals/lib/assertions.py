@@ -151,6 +151,10 @@ def _tool_calls(spec, run, failures, exercised):
             if contains:
                 detail += f" with {contains}"
             failures.append(Failure("toolCalls.mustInclude", detail, "behavior"))
+    for name in spec.get("mustNotInclude") or []:
+        if any(called == name for called, _ in issued):
+            failures.append(Failure("toolCalls.mustNotInclude",
+                                    f"called {name}, which this scenario forbids", "behavior"))
 
 
 _SEPARATORS = (",", " ", "\u00a0", "\u202f", "_", ".")
