@@ -8,7 +8,7 @@ from .types import Context
 logger = logging.getLogger(__name__)
 
 # Valid root namespaces for $ref paths
-VALID_NAMESPACES = frozenset({"state", "inputs", "run", "result", "loop"})
+VALID_NAMESPACES = frozenset({"state", "inputs", "run", "result"})
 
 
 def get_path(path: str, ctx: Context, state: dict[str, Any]) -> Any:
@@ -27,8 +27,6 @@ def get_path(path: str, ctx: Context, state: dict[str, Any]) -> Any:
         cur = ctx.get("run")
     elif root == "result":
         cur = ctx.get("result")
-    elif root == "loop":
-        cur = ctx.get("loop")
     else:
         # Warn about invalid namespace to help debug silent failures
         logger.warning(
