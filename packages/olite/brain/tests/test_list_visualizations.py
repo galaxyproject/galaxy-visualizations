@@ -48,9 +48,15 @@ def test_a_dataset_without_numeric_columns_is_told_why_and_what_else_to_try():
     assert "vintent_dataset" in out["hint"]
 
 
-def test_numeric_columns_need_no_hint():
+def test_a_chartable_datatype_names_the_route_rather_than_leaving_it_to_the_menu():
+    """The listing is where the route is chosen, so it says which one.
+
+    Five runs called this, read the plugin menu, and used show/save_visualization for a
+    tabular chart that vintent_dataset answers directly.
+    """
     out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]})
-    assert "hint" not in out
+    assert out["charting"] == "vintent_dataset"
+    assert "vintent_dataset" in out["hint"]
 
 
 def test_a_datatype_nothing_can_render_says_so_rather_than_returning_nothing():
@@ -75,4 +81,18 @@ def test_it_answers_only_what_can_render_the_dataset():
                "metadata_column_types": ["int", "float", "str"]})
     assert "columns" not in out
     assert "column_types" not in out
-    assert set(out) <= {"dataset_id", "extension", "visualizations", "hint"}
+    assert set(out) <= {"dataset_id", "extension", "visualizations", "hint", "charting"}
+
+
+def test_neither_olite_nor_the_standalone_vintent_plugin_is_offered():
+    """Offering either routes a chart request away from the built-in.
+
+    `olite` is this agent. The `vintent` plugin is a frozen standalone duplicate of
+    vintent_dataset sharing its name, so an agent reaching for vintent found the plugin.
+    """
+    out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]},
+              compatible=[{"name": n, "description": n, "tags": []}
+                          for n in ("plotly", "olite", "vintent", "tabulator")])
+    offered = [v["name"] for v in out["visualizations"]]
+    assert "olite" not in offered and "vintent" not in offered
+    assert offered == ["plotly", "tabulator"]
