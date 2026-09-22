@@ -57,6 +57,7 @@ def evaluate(scenario, run):
     _artifacts(a.get("artifacts"), run, failures, exercised)
     _tool_output(a.get("toolOutput"), run, failures, exercised)
     _invocation(a.get("invocation"), run, failures, exercised)
+    _collection(a.get("collection"), run, failures, exercised)
     _visualization(a.get("visualization"), run, failures, exercised)
     _record(a.get("record"), run, failures, exercised)
     _budget(a.get("budget"), run, failures, exercised)
@@ -790,6 +791,34 @@ def _track_dataset(track):
     return value
 
 
+# galaxy-charts stores these as a bare value; only data/data_table/data_json take an entry.
+SCALAR_INPUT_TYPES = {"boolean", "color", "text", "textarea", "integer", "float", "select",
+                      "data_column"}
+
+
+def _object_valued_scalars(galaxy, detail):
+    """Parameters the plugin declares as scalars but whose stored value is an entry.
+
+    Read from the plugin declaration rather than olite's own contract, so a hole in the
+    tool's validation cannot hide behind the same hole here.
+    """
+    config = (detail.get("latest_revision") or {}).get("config") or {}
+    plugin = galaxy.call(f"api/plugins/{detail.get('type')}") or {}
+    declared = {}
+    for group in ("settings", "tracks"):
+        for param in plugin.get(group) or []:
+            if isinstance(param, dict) and param.get("name"):
+                declared[param["name"]] = param.get("type")
+
+    entries = [config.get("settings") or {}, *(config.get("tracks") or [])]
+    return [
+        f"{key}={value!r}"
+        for entry in entries if isinstance(entry, dict)
+        for key, value in entry.items()
+        if declared.get(key) in SCALAR_INPUT_TYPES and isinstance(value, (dict, list))
+    ]
+
+
 def _visualization(spec, run, failures, exercised):
     """Did a saved visualization land in Galaxy, pointing at the intended dataset.
 
@@ -857,6 +886,17 @@ def _visualization(spec, run, failures, exercised):
                 f"no saved visualization has settings.{path} containing {wanted!r}; "
                 f"found {sorted(seen) or 'nothing'}", "behavior"))
 
+    # A plugin reads a bare value; an entry stored in its place renders an empty chart while
+    # the agent reports success, so the chat and the pane both look right.
+    if spec.get("scalarValues"):
+        for v in matching:
+            wrong = _object_valued_scalars(galaxy, v)
+            if wrong:
+                failures.append(Failure(
+                    "visualization.scalarValues",
+                    f"saved config stores an entry where the plugin declares a scalar: "
+                    f"{', '.join(wrong)}", "behavior"))
+
     # Adding a track means the saved config gained a dataset, which no assertion about the
     # chat or the pane can see: the agent reports success either way.
     for want in spec.get("tracksDataset") or []:
@@ -871,6 +911,68 @@ def _visualization(spec, run, failures, exercised):
                 "visualization.tracksDataset",
                 f"no saved visualization tracks {want}; tracks reference {sorted(tracked - {None})}",
                 "behavior"))
+
+
+def _collection(spec, run, failures, exercised):
+    """The collection the agent built, as Galaxy holds it.
+
+    `organize_datasets` reports what it did; only the history says whether a tagged
+    collection of the right structure, element count and datatype actually landed.
+    """
+    if not spec:
+        return
+    exercised.add("behavior")
+    staged = getattr(run, "staged", None)
+    if not staged:
+        failures.append(Failure("collection", "scenario staged no history", "behavior"))
+        return
+
+    galaxy, history_id = staged["galaxy"], staged["history_id"]
+    contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+    built = [c for c in contents
+             if c.get("history_content_type") == "dataset_collection" and not c.get("deleted")]
+    if not built:
+        failures.append(Failure("collection.exists",
+                                "no dataset collection in the staged history", "behavior"))
+        return
+
+    details = [galaxy.call(f"api/dataset_collections/{c['id']}?instance_type=history") or c
+               for c in built]
+
+    wanted_type = spec.get("type")
+    if wanted_type:
+        seen = [d.get("collection_type") for d in details]
+        if wanted_type not in seen:
+            failures.append(Failure("collection.type",
+                                    f"collection(s) of type {seen}, wanted {wanted_type!r}",
+                                    "behavior"))
+            return
+        details = [d for d in details if d.get("collection_type") == wanted_type]
+
+    wanted_elements = spec.get("elements")
+    if wanted_elements is not None:
+        counts = [d.get("element_count") for d in details]
+        if wanted_elements not in counts:
+            failures.append(Failure("collection.elements",
+                                    f"element counts {counts}, wanted {wanted_elements}",
+                                    "behavior"))
+
+    if spec.get("tagged"):
+        tagged = [d for d in details if d.get("tags")]
+        if not tagged:
+            failures.append(Failure("collection.tagged",
+                                    "the collection carries no tags", "behavior"))
+
+    wanted_datatype = spec.get("elementDatatype")
+    if wanted_datatype:
+        # Galaxy computes this over the leaves; walking `elements` by hand reaches a nested
+        # `object` whose `extension` is absent, which passed the check while proving nothing.
+        seen = {t for d in details for t in (d.get("elements_datatypes") or [])}
+        if seen != {wanted_datatype}:
+            failures.append(Failure(
+                "collection.elementDatatype",
+                f"elements have datatype {sorted(seen) or 'none reported'}, "
+                f"wanted {wanted_datatype!r}", "behavior"))
 
 
 def _invocation(spec, run, failures, exercised):

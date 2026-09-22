@@ -210,3 +210,42 @@ def test_a_mixed_history_retypes_only_what_needs_it():
     catalog, _ = _run(half, datatype="fastqsanger.gz")
     body = next(i for _, i in catalog.calls if i.get("operation") == "change_datatype")
     assert len(body["items"]) == len(SRA) - 2
+
+
+def test_an_uncompressed_datatype_is_refused_for_gzipped_reads():
+    """`fastqsanger` over .gz reads mislabels them; the datatype is `fastqsanger.gz`.
+
+    An agent planning this work wrote `fastqsanger` three times and hedged with
+    "or fastq depending on the server's default". Nothing checked the argument.
+    """
+    from olite.registry.python.organize_datasets import summarize_state
+
+    catalog, result = _run(SRA, datatype="fastqsanger")
+    summary = summarize_state(result["state"])
+
+    assert summary["ok"] is False
+    assert summary["use"] == "fastqsanger.gz"
+    assert summary["datasets"][0].endswith(".fastq.gz")
+    # Refused before anything was written.
+    assert "galaxy.dataset_collections.post" not in catalog.targets()
+    assert not any(i.get("operation") == "change_datatype" for _, i in catalog.calls)
+
+
+def test_the_compressed_datatype_itself_is_accepted():
+    catalog, _ = _run(SRA, datatype="fastqsanger.gz")
+    assert "galaxy.dataset_collections.post" in catalog.targets()
+
+
+def test_an_uncompressed_datatype_is_fine_for_uncompressed_files():
+    catalog, _ = _run(ZIPPED, datatype="tabular")
+    assert "galaxy.dataset_collections.post" in catalog.targets()
+
+
+def test_galaxys_own_detected_extension_counts_as_compressed():
+    """The name may not end in .gz when Galaxy already typed it that way."""
+    from olite.registry.python.organize_datasets import compression_lost
+
+    detected = [{"id": "d1", "name": "reads_1", "extension": "fastqsanger.gz"}]
+    assert compression_lost("fastqsanger", detected) == ["reads_1"]
+    assert compression_lost("fastqsanger.gz", detected) == []
+    assert compression_lost(None, detected) == []

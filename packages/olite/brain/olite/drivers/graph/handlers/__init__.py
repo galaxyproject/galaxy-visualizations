@@ -6,24 +6,20 @@ from .base import NodeHandler
 from .compute import ComputeHandler
 from .control import ControlHandler
 from .executor import ExecutorHandler
-from .loop import LoopHandler
 from .materializer import MaterializerHandler
 from .planner import PlannerHandler
 from .reasoning import ReasoningHandler
 from .terminal import TerminalHandler
-from .traverse import TraverseHandler
 
 # Handler classes (not instances) - instantiated lazily
 _HANDLER_CLASSES: dict[str, type[NodeHandler]] = {
     NodeType.COMPUTE: ComputeHandler,
     NodeType.CONTROL: ControlHandler,
     NodeType.EXECUTOR: ExecutorHandler,
-    NodeType.LOOP: LoopHandler,
     NodeType.MATERIALIZER: MaterializerHandler,
     NodeType.PLANNER: PlannerHandler,
     NodeType.REASONING: ReasoningHandler,
     NodeType.TERMINAL: TerminalHandler,
-    NodeType.TRAVERSE: TraverseHandler,
 }
 
 # Cached handler instances
@@ -57,12 +53,10 @@ __all__ = [
     "ComputeHandler",
     "ControlHandler",
     "ExecutorHandler",
-    "LoopHandler",
     "MaterializerHandler",
     "PlannerHandler",
     "ReasoningHandler",
     "TerminalHandler",
-    "TraverseHandler",
     # Registry
     "get_handler",
 ]

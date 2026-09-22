@@ -1,0 +1,27 @@
+{
+  "name": "visualizations: a named plugin is bound by value, not by the entry it was chosen from",
+  "description": "The user names plotly and two columns, so the saved config must bind them the way the plugin reads them: a select stores its value, a data_column stores its column. get_visualization_options returns whole entries for the inputs that take one, and handing those back for a scalar input produces a config Galaxy stores and the plugin cannot read. Graded on what Galaxy holds, because the chart renders empty while the agent reports success, so neither the chat nor the artifact pane shows the defect.",
+  "tier": 3,
+  "substrate": "live",
+  "dataset": { "file": "prices.csv", "history": "plotly columns $run", "datatype": "csv" },
+  "inputs": [
+    "In my history \"plotly columns $run\", use plotly to chart Price against Country from the CSV, and save it so I can come back to it."
+  ],
+  "timeoutMs": 300000,
+  "assertions": {
+    "events": { "mustInclude": ["turn_start"] },
+    "messages": { "repliesInChat": true },
+    "toolCalls": {
+      "mustInclude": [
+        { "name": "save_visualization", "argsContains": { "dataset_id": "$staged:prices.csv" } }
+      ]
+    },
+    "artifacts": { "mustInclude": [{ "kind": "visualization" }] },
+    "visualization": {
+      "referencesDataset": "$staged:prices.csv",
+      "type": ["plotly"],
+      "scalarValues": true
+    },
+    "budget": { "maxSteps": 20, "maxRepeatedCall": 3 }
+  }
+}

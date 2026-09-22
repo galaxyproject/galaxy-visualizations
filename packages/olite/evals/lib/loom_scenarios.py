@@ -21,6 +21,20 @@ NOT_PORTABLE = {
     ),
 }
 
+# loom grades against a stub, so a scenario may name data nothing creates. On a live Galaxy
+# `execution-after-approval`'s dataset id and history do not resolve, the agent is right to
+# refuse the call, and the run grades as "never called run_tool" — measuring the fixture
+# rather than the approval gate. Stage the data and name it by position instead.
+LIVE_DATA = {
+    "execution-after-approval": {
+        "dataset": {"file": "prices.csv", "datatype": "csv", "history": "execution gate $run"},
+        "first_input": (
+            "Run the Add column tool (tool id `addValue`) on the dataset in my history, "
+            "adding the value 7 as a new column. Draft a plan first and wait for my approval."
+        ),
+    },
+}
+
 # pi's lifecycle events mapped to the smaller set this harness emits; unmapped names drop.
 EVENT_NAMES = {
     "agent_start": "turn_start",
@@ -136,6 +150,10 @@ def load(root, only=None):
             continue
         with open(path) as f:
             scenario = adapt(json.load(f))
+        live = LIVE_DATA.get(entry)
+        if live:
+            scenario["dataset"] = live["dataset"]
+            scenario["inputs"] = [live["first_input"], *scenario["inputs"][1:]]
         scenario["id"] = entry
         scenario["shared"] = True
         out.append(scenario)

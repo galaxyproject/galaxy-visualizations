@@ -132,6 +132,13 @@ gate (`execution-after-approval`, `gate-holds-before-approval`), which asserts a
 loom expresses differently; `dataset-analysis-sum`; and `smoke-answers`. Anything added
 here that loom could also run belongs upstream instead.
 
+**A few scenarios are model-knowledge probes, and their description says so in its first
+line.** They grade what the agent knows rather than whether a feature works, so a red verdict
+is a score for the model under test, not a defect to chase. `plan-collections-tags-datatype`
+is one: it forbids execution and asks whether the agent knows gzipped reads take
+`fastqsanger.gz`. The feature it describes is graded separately, against Galaxy state, by
+`collection-from-paired-reads`. Keep the pair apart when reading a snapshot.
+
 ## What this is not
 
 **Not a single-run verdict.** Behaviour varies run to run, and n=1 hides it — a scenario

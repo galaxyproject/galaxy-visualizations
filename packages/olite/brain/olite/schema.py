@@ -89,28 +89,6 @@ class RelationSpec(BaseModel):
     extract: str
 
 
-class TraverseTypeSpec(BaseModel):
-    """Type definition for traverse nodes."""
-
-    id_field: str = "id"
-    fetch: FetchSpec | None = None
-    relations: dict[str, RelationSpec] = Field(default_factory=dict)
-
-
-# --- Loop execute specification ---
-
-
-class LoopExecuteSpec(BaseModel):
-    """Execute specification for loop iterations."""
-
-    op: Literal["api.call", "system.wait"]
-    target: str | None = None
-    input: DynamicValue = None
-
-
-# --- Control condition specification ---
-
-
 class ControlCondition(BaseModel):
     """Control flow condition specification."""
 
@@ -142,17 +120,6 @@ class ExecutorNode(BaseNode):
     run: RunSpec
 
 
-class TraverseNode(BaseNode):
-    """Traverse node - BFS graph traversal with targeted API calls."""
-
-    type: Literal["traverse"]
-    seed: DynamicValue
-    seed_type: str
-    types: dict[str, TraverseTypeSpec]
-    max_depth: DynamicValue = None
-    max_per_level: DynamicValue = None
-
-
 class ReasoningNode(BaseNode):
     """Reasoning node - AI-powered analysis and generation."""
 
@@ -177,19 +144,6 @@ class ControlNode(BaseModel):
     condition: ControlCondition | dict[str, Any]
 
     model_config = {"extra": "forbid"}
-
-
-class LoopNode(BaseNode):
-    """Loop node - iterate over arrays with sequential or concurrent execution."""
-
-    type: Literal["loop"]
-    over: DynamicValue
-    as_: str = Field("item", alias="as")
-    delay: float = 0
-    concurrency: int = 1
-    on_error: Literal["continue", "stop"] = "continue"
-    when: DynamicValue | None = None
-    execute: LoopExecuteSpec | None = None
 
 
 class ComputeNode(BaseNode):
@@ -265,7 +219,7 @@ class MaterializerNode(BaseNode):
 
 # Union of all node types
 NodeDefinition = Annotated[
-    ExecutorNode | TraverseNode | ReasoningNode | TerminalNode | ControlNode | LoopNode | ComputeNode | PlannerNode | MaterializerNode,
+    ExecutorNode | ReasoningNode | TerminalNode | ControlNode | ComputeNode | PlannerNode | MaterializerNode,
     Field(discriminator="type"),
 ]
 

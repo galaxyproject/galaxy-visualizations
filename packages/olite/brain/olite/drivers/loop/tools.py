@@ -281,13 +281,13 @@ class ToolSurface:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
-        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found".
-        if name == "run_tool" and self.processes:
-            wanted = args.get("tool_id")
-            if wanted in (self.processes.names() or []):
-                return ToolOutcome(
-                    f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
-                    is_error=True)
+        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found". Every tool
+        # taking a tool_id is a way to ask, and a bare 404 sent one agent hunting the catalog.
+        wanted = args.get("tool_id")
+        if self.processes and wanted in (self.processes.names() or []):
+            return ToolOutcome(
+                f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
+                is_error=True)
         if name == "skills_fetch":
             return self._skills_fetch(args)
         if name == "finish":
@@ -361,6 +361,10 @@ class ToolSurface:
         result = await proc.run(substrate, args.get("inputs") or {})
         last = result.get("last") or {}
         summary = proc.summarize(result.get("state") or {}) if proc.summarize else None
+        # A Python process always reports last.ok, so refusing is something only its summary
+        # can say. Without this a refusal read as a successful result.
+        if isinstance(summary, dict) and summary.get("ok") is False:
+            return ToolOutcome(json.dumps(summary), is_error=True, refused=True)
         if summary and last.get("ok") is not False:
             return json.dumps(summary)
         # Surface a failed graph rather than returning a bare null.

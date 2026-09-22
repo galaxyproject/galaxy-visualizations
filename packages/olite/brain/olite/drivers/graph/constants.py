@@ -9,12 +9,10 @@ class NodeType(str, Enum):
     COMPUTE = "compute"
     CONTROL = "control"
     EXECUTOR = "executor"
-    LOOP = "loop"
     MATERIALIZER = "materializer"
     PLANNER = "planner"
     REASONING = "reasoning"
     TERMINAL = "terminal"
-    TRAVERSE = "traverse"
 
 
 class Operation(str, Enum):

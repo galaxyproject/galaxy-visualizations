@@ -246,3 +246,47 @@ def test_a_case_parameter_is_only_valid_for_the_chosen_case():
                settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}})
     assert out["saved"] is False
     assert "genome" in out["error"]
+
+
+def test_both_visualization_tools_hand_back_the_directive_that_embeds_them():
+    """The page directive takes the plugin name and the dataset; the saved id renders nothing.
+
+    The agent wrote `visualization(visualization_id=<saved id>)` into a record and Galaxy
+    answered "Missing history_dataset_id for visualization".
+    """
+    g = Galaxy()
+    expected = "visualization(visualization_id=atlas, history_dataset_id=d1)"
+
+    assert show(g, visualization="atlas")["embed"] == expected
+    saved = save(g, visualization="atlas")
+    assert saved["embed"] == expected
+    # The saved object's own id is not what the directive takes.
+    assert saved["visualization_id"] not in saved["embed"]
+
+
+def test_a_scalar_parameter_refuses_the_entry_it_was_chosen_from():
+    """The inverse of the check above, and the one that shipped a broken plotly config.
+
+    A saved plotly track held {"value": "scatter"} for a select and {"column": "col2", ...}
+    for a data_column. Galaxy type-checks neither, so the plugin read none of them.
+    """
+    plugin = {"name": "igv", "tracks": [
+        {"name": "type", "type": "select"},
+        {"name": "x", "type": "data_column"},
+    ]}
+
+    class G(DeclaringGalaxy):
+        async def get(self, path, **kwargs):
+            if path == "api/plugins/igv":
+                return plugin
+            return await super().get(path, **kwargs)
+
+    g = G()
+    out = save(g, visualization="igv", tracks=[{"type": {"value": "scatter"}}])
+    assert out["saved"] is False and g.posted is None
+    assert "stores string" in out["error"] and "not the entry" in out["error"]
+
+    assert save(g, visualization="igv", tracks=[{"x": {"column": "col2", "src": "hda"}}])["saved"] is False
+
+    # The value itself still saves.
+    assert save(g, visualization="igv", tracks=[{"type": "scatter", "x": "2"}])["saved"] is True

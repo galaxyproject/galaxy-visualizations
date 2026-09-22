@@ -6,6 +6,8 @@ import sys
 import tempfile
 from urllib.parse import urlencode
 
+import jsonschema
+
 from olite import vendor
 from olite.substrate.http import http
 
@@ -13,6 +15,7 @@ from . import page_edit
 from .galaxy_tool_docs import DOCS
 from .paging import ROW_CAP, page
 from .tool_inputs import build_input_template, summarize_tool_inputs
+from .visualization_inputs import build_visualization_template, template_cases
 
 TOOLS = []
 HANDLERS = {}
@@ -685,6 +688,15 @@ async def _list_visualizations(g, a):
 _EMBED = {"hide_panels": "true", "hide_masthead": "true"}
 
 
+def _embed_directive(name, dataset_id):
+    """The page directive that renders this visualization.
+
+    Galaxy's argument is called visualization_id but holds the plugin name, and the
+    directive needs the dataset too, so a saved visualization's own id does not embed.
+    """
+    return f"visualization(visualization_id={name}, history_dataset_id={dataset_id})"
+
+
 async def _resolve_visualization(g, a):
     """The plugin and dataset, or a refusal naming what the server will actually render."""
     name, dataset_id = a["visualization"], a["dataset_id"]
@@ -766,9 +778,14 @@ async def _get_visualization_details(g, a):
                 "hint": "Call list_visualizations for a dataset to see what this server offers."}
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+    template = build_visualization_template(plugin, types)
+    other_cases = template_cases(plugin)
     return {
         "name": plugin.get("name"),
         "description": plugin.get("description"),
+        # The shape to fill, as get_tool_input_template gives one for a Galaxy tool.
+        "config_template": template,
+        **({"other_cases": other_cases} if other_cases else {}),
         "settings": [_describe_parameter(p, types) for p in (plugin.get("settings") or [])],
         "tracks": [_describe_parameter(p, types) for p in (plugin.get("tracks") or [])],
         "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
@@ -933,8 +950,11 @@ async def _show_visualization(g, a):
         "artifact": {"kind": "visualization", "title": title,
                      "visualization": name, "dataset_id": a["dataset_id"],
                      "url": f"/visualizations/display{_q(query)}"},
+        "embed": _embed_directive(name, a["dataset_id"]),
         "hint": "The visualization is displayed to the user. Nothing was added to Galaxy, so "
-                "call save_visualization if they ask to keep it. Say what it shows and finish.",
+                "call save_visualization if they ask to keep it. Writing it into the record "
+                "means copying `embed` verbatim into a ```galaxy block. Say what it shows "
+                "and finish.",
     }
 
 
@@ -979,14 +999,37 @@ def _check_level(entry, declared, types, where):
             if nested:
                 return nested
             continue
-        spec = (types.get(param.get("type")) or {}).get("stores") or {}
-        if spec.get("type") == "object" and value is not None and not isinstance(value, dict):
-            return {"error": f"Refused: {param['name']!r} takes the whole entry it was chosen "
-                             f"from, not {value!r}.",
-                    "expected": spec,
-                    "hint": "Call get_visualization_options with `search` and pass the value it "
-                            "returns through unchanged."}
+        bad = _wrong_shape(param["name"], value, (types.get(param.get("type")) or {}).get("stores"))
+        if bad:
+            return bad
     return None
+
+
+def _wrong_shape(name, value, spec):
+    """The value against the schema galaxy-charts publishes for the input's type.
+
+    Checked both ways: an id where the entry belongs, and an entry where the value does.
+    Galaxy type-checks neither, so the plugin is left reading a shape it cannot use.
+    """
+    if not spec or value is None:
+        return None
+    try:
+        jsonschema.validate(value, spec)
+        return None
+    except jsonschema.ValidationError as exc:
+        wanted = spec.get("type")
+        if wanted == "object":
+            error = f"Refused: {name!r} takes the whole entry it was chosen from, not {value!r}."
+        elif isinstance(value, (dict, list)):
+            error = f"Refused: {name!r} stores {wanted}, not the entry it was chosen from."
+        else:
+            error = f"Refused: {name!r} stores {wanted}: {exc.message}"
+    return {
+        "error": error,
+        "expected": spec,
+        "hint": "Call get_visualization_options with `search`: it returns the value to store, "
+                "whole for an input that takes an entry and bare for one that takes a string.",
+    }
 
 
 def _reject_undeclared(plugin, a):
@@ -1062,8 +1105,11 @@ async def _save_visualization(g, a):
         "visualization_id": visualization_id,
         "title": title,
         "artifact": artifact,
+        "embed": _embed_directive(name, a["dataset_id"]),
         "hint": "Saved to the user's visualizations and displayed. It is not a history dataset. "
-                "Say what it shows and finish.",
+                "Writing it into the record means copying `embed` verbatim into a ```galaxy "
+                "block; visualization_id above identifies the saved object and renders nothing "
+                "in a page. Say what it shows and finish.",
     }
 
 

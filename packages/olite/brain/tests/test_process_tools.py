@@ -150,3 +150,48 @@ def test_a_process_the_manifest_hides_is_refused_rather_than_run():
 
     outcome = asyncio.run(surface.dispatch("organize_datasets", {}))
     assert outcome.refused and "'write' capability" in outcome.text
+
+
+def test_an_olite_tool_is_named_as_one_at_every_galaxy_tool_lookup():
+    """`run_tool` said so; the read-only lookups handed back Galaxy's bare 404.
+
+    An agent searched the catalog nine times for `vintent_dataset`, called
+    get_tool_details twice, and settled for a different route.
+    """
+    surface = _surface()
+    for name in ("run_tool", "get_tool_details", "get_tool_input_template",
+                 "get_tool_run_examples", "get_tool_citations"):
+        outcome = asyncio.run(surface.dispatch(name, {"tool_id": "vintent_dataset",
+                                                      "history_id": "h1", "inputs": {}}))
+        assert "is an OLite tool" in outcome.text, name
+        assert "Call vintent_dataset directly" in outcome.text, name
+
+
+def test_a_python_process_can_refuse_and_the_loop_hears_it():
+    """`last.ok` is hard-coded True for a function, so only its summary can refuse."""
+    import asyncio as _asyncio
+
+    class Refusing:
+        capabilities = ["read"]
+        inputs = {}
+        description = "refuses"
+        when_to_use = ""
+        graph = None
+
+        async def run(self, substrate, inputs):
+            return {"state": {"bad": True}, "last": {"ok": True, "result": {"bad": True}}}
+
+        def summarize(self, state):
+            return {"ok": False, "error": "Refused: nope."}
+
+    class Registry:
+        def names(self):
+            return ["refuser"]
+
+        def get(self, name):
+            return Refusing() if name == "refuser" else None
+
+    surface = ToolSurface(FakeSubstrate({"llm", "local", "read"}), Registry())
+    outcome = _asyncio.run(surface.dispatch("refuser", {}))
+    assert outcome.is_error and outcome.refused
+    assert "Refused: nope." in outcome.text
