@@ -281,11 +281,12 @@ async function main() {
 
         const artifacts = reply.artifacts || [];
         if (artifacts.length) {
-            artifactPane.reveal();
             el.artifactContent.innerHTML = "";
             for (const a of artifacts) {
                 await renderArtifact(el.artifactContent, a);
             }
+            // After filling, so the pane opens on something rather than on an empty frame.
+            artifactPane.reveal();
         }
     }
 
@@ -341,6 +342,8 @@ async function main() {
         convo.length = 0;
         convo.push(seed);
         el.messages.innerHTML = "";
+        // The previous conversation's chart belongs to it, not to the new one.
+        el.artifactContent.innerHTML = "";
         el.reset.classList.add("hidden");
         chat.addInfoMessage("Started a new conversation. The record on Galaxy is untouched.");
     });

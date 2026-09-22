@@ -33,13 +33,18 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
     const divider = container.querySelector<HTMLElement>("#divider")!;
     const appMain = container.querySelector<HTMLElement>("#app-main")!;
     const button = container.querySelector<HTMLButtonElement>("#artifact-btn")!;
+    const content = container.querySelector<HTMLElement>("#artifact-content")!;
 
     // What the user last chose, which a narrow window overrides without overwriting.
     let preferred = readPreference();
 
+    /** An empty pane has nothing to show, whatever the remembered preference says. */
+    const empty = () => content.childElementCount === 0;
+
     const show = (collapsed: boolean) => {
-        document.body.classList.toggle("artifact-collapsed", collapsed);
-        if (collapsed) {
+        document.body.classList.toggle("artifact-collapsed", collapsed || empty());
+        button.classList.toggle("hidden", empty());
+        if (collapsed || empty()) {
             chatPane.style.flex = "";
         }
     };
@@ -53,6 +58,10 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
     let narrow = window.innerWidth < BREAKPOINT;
     show(narrow || preferred);
 
+    // The pane reads its own contents rather than trusting a caller to announce them:
+    // the reset path emptied it without saying so, leaving a stale artifact on screen.
+    new MutationObserver(() => show(narrow || preferred)).observe(content, { childList: true });
+
     window.addEventListener("resize", () => {
         const isNarrow = window.innerWidth < BREAKPOINT;
         if (isNarrow === narrow) {
@@ -65,7 +74,8 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
     button.addEventListener("click", () => set(!collapsed()));
     container.addEventListener("keydown", (e) => {
         const ev = e as KeyboardEvent;
-        if ((ev.ctrlKey || ev.metaKey) && ev.key === "\\") {
+        // Guarded: the button is hidden with nothing to show, so the shortcut must not open it.
+        if ((ev.ctrlKey || ev.metaKey) && ev.key === "\\" && !empty()) {
             ev.preventDefault();
             set(!collapsed());
         }
