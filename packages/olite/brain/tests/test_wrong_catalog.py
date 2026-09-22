@@ -91,3 +91,36 @@ def test_a_search_that_matches_a_real_tool_never_asks_about_plugins():
 def test_an_empty_search_that_names_nothing_keeps_the_exhausted_answer():
     result, _ = _search("nonesuch", tools=[], plugins=[{"name": "plotly"}])
     assert "No installed Galaxy tool matches this text" in result["hint"]
+
+
+def test_a_settled_lookup_is_refused_on_the_third_asking():
+    """One run searched 'set datatype' nine times, each answer identical.
+
+    The failure guard cannot see this: every call succeeded, so `_last_failure` was
+    cleared each time and the count never built.
+    """
+    surface = _surface()
+    args = {"query": "set datatype"}
+    assert surface._asking_a_settled_question("search_tools_by_name", args) is None
+    assert surface._asking_a_settled_question("search_tools_by_name", args) is None
+    refusal = surface._asking_a_settled_question("search_tools_by_name", args)
+    assert "already answered" in refusal and "fixed for this session" in refusal
+
+
+def test_a_different_query_is_its_own_question():
+    surface = _surface()
+    for q in ("alpha", "beta", "gamma"):
+        assert surface._asking_a_settled_question("search_tools_by_name", {"query": q}) is None
+
+
+def test_polling_a_job_is_never_refused():
+    """get_job_details repeats up to ten times in passing runs; its answer does change."""
+    surface = _surface()
+    for _ in range(12):
+        assert surface._asking_a_settled_question("get_job_details", {"dataset_id": "d1"}) is None
+
+
+def test_writing_a_page_repeatedly_is_never_refused():
+    surface = _surface()
+    for _ in range(12):
+        assert surface._asking_a_settled_question("update_page", {"page_id": "p1"}) is None

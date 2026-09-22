@@ -216,6 +216,19 @@ async def _run_tool(g, a):
         raise ToolParameterError(str(exc), template) from exc
 
 
+# Lookups over data Galaxy holds still for a session: the same question returns the same answer.
+SETTLED = frozenset({
+    "search_tools_by_name",
+    "search_tools_by_keywords",
+    "get_visualization_details",
+})
+
+
+def settled(name):
+    """Whether repeating this call with the same arguments can produce anything new."""
+    return name in SETTLED
+
+
 def _no_tool_matched(query):
     # An empty list reads as an answer, so the same search comes back; say it is exhausted.
     return {

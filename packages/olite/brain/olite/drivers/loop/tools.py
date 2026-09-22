@@ -154,6 +154,8 @@ class ToolSurface:
         self.prior = list(prior or [])
         # The last call that failed and how often it has repeated, for the loop guard.
         self._last_failure = None
+        # How often each settled lookup has been asked, by name and arguments.
+        self._settled = {}
         self._schemas = None
 
     def schemas(self):
@@ -207,6 +209,10 @@ class ToolSurface:
             logger.info("  -> breaking a loop of identical failing calls")
             self._last_failure = None  # a speed bump, not a ban
             return ToolOutcome(repeated, is_error=True, refused=True)
+        settled = self._asking_a_settled_question(name, args)
+        if settled:
+            logger.info("  -> %s was already answered with these arguments", name)
+            return ToolOutcome(settled, is_error=True, refused=True)
         schema, capabilities = self._declaration(name)
         ungranted = next((c for c in capabilities if not self.substrate.manifest.allows(c)), None)
         if ungranted:
@@ -274,6 +280,20 @@ class ToolSurface:
 
     # An identical call that just failed will fail again; three is enough to establish it.
     FAILED_REPEAT_LIMIT = 3
+    # A settled question keeps its answer, so a third asking is already two too many.
+    SETTLED_REPEAT_LIMIT = 3
+
+    def _asking_a_settled_question(self, name, args):
+        """Why re-asking this is pointless, or None if the answer could still change."""
+        if not galaxy_tools.settled(name):
+            return None
+        key = (name, brief(args))
+        self._settled[key] = self._settled.get(key, 0) + 1
+        if self._settled[key] < self.SETTLED_REPEAT_LIMIT:
+            return None
+        return (f"Refused: '{name}' was already answered {self._settled[key] - 1} times with these "
+                f"exact arguments, and its answer is fixed for this session. Use the answer you "
+                f"have, or take a different route.")
 
     def _repeating_a_failure(self, name, args):
         last = self._last_failure
