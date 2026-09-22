@@ -17,7 +17,7 @@ def test_galaxy_is_the_default():
 
 
 def test_a_named_provider_supplies_its_own_endpoint():
-    target = resolve({"ai_provider": "gemini", "ai_model": "gemini-3.7-flash"})
+    target = resolve({"ai_provider": "google", "ai_model": "gemini-3.7-flash"})
     assert target.base_url.endswith("/v1beta/openai")
     assert target.context_window == 1_000_000
 
@@ -32,11 +32,11 @@ def test_a_base_url_alone_means_a_custom_provider():
 def test_an_unknown_provider_is_refused_by_name():
     with pytest.raises(ValueError) as e:
         resolve({"ai_provider": "nope"})
-    assert "nope" in str(e.value) and "gemini" in str(e.value)
+    assert "nope" in str(e.value) and "google" in str(e.value)
 
 
 def test_an_explicit_base_url_overrides_the_provider_default():
-    target = resolve({"ai_provider": "gemini", "ai_base_url": "http://proxy.invalid/v1"})
+    target = resolve({"ai_provider": "google", "ai_base_url": "http://proxy.invalid/v1"})
     assert target.base_url == "http://proxy.invalid/v1"
 
 
@@ -50,23 +50,23 @@ def test_galaxys_token_cap_reaches_the_request():
 
 
 def test_a_model_supplies_its_own_window_so_nothing_has_to_be_configured():
-    assert resolve({"ai_provider": "gemini", "ai_model": "gemini-3.7-flash"}).context_window == 1_000_000
+    assert resolve({"ai_provider": "google", "ai_model": "gemini-3.7-flash"}).context_window == 1_000_000
 
 
 def test_a_server_whose_window_is_its_own_asks_rather_than_assumes():
     """llama.cpp ignores the model name, so the window belongs to the running server."""
-    target = resolve({"ai_provider": "local", "ai_model": "whatever.gguf"})
+    target = resolve({"ai_provider": "ollama", "ai_model": "whatever.gguf"})
     assert target.provider.probe_window is True
     assert target.context_window == DEFAULT_CONTEXT_WINDOW
 
 
 def test_only_a_provider_that_opts_in_is_probed():
-    assert REGISTRY["gemini"].probe_window is False
+    assert REGISTRY["google"].probe_window is False
     assert REGISTRY["galaxy"].probe_window is False
 
 
 def test_config_still_wins_over_everything():
-    target = resolve({"ai_provider": "local", "ai_context_window": 8000})
+    target = resolve({"ai_provider": "ollama", "ai_context_window": 8000})
     assert target.context_window == 8000
 
 
@@ -78,9 +78,9 @@ def test_an_unknown_everything_falls_back_to_the_defaults():
 
 def test_the_rate_limit_comes_from_the_endpoint():
     """Measured: Gemini's free tier is 5/minute, which is a property of the endpoint."""
-    assert resolve({"ai_provider": "gemini"}).rate_limit == 5
+    assert resolve({"ai_provider": "google"}).rate_limit == 5
     assert resolve({"ai_provider": "deepseek"}).rate_limit == 30
-    assert resolve({"ai_provider": "gemini", "ai_rate_limit": 60}).rate_limit == 60
+    assert resolve({"ai_provider": "google", "ai_rate_limit": 60}).rate_limit == 60
 
 
 # --- the dialect seam ------------------------------------------------------------
@@ -99,14 +99,14 @@ def test_an_unknown_dialect_is_refused_by_name():
 
 def test_the_key_goes_only_in_the_authorization_header_by_default():
     """Browsers preflight every header, and Gemini rejects x-api-key outright."""
-    target = resolve({"ai_provider": "gemini", "ai_model": "gemini-3.7-flash", "ai_api_key": "k"})
+    target = resolve({"ai_provider": "google", "ai_model": "gemini-3.7-flash", "ai_api_key": "k"})
     headers = get_adapter(target.api).headers(target)
     assert headers["Authorization"] == "Bearer k"
     assert "x-api-key" not in headers
 
 
 def test_the_adapter_builds_and_parses_one_round_trip():
-    target = resolve({"ai_provider": "gemini", "ai_model": "gemini-3.7-flash", "ai_api_key": "k"})
+    target = resolve({"ai_provider": "google", "ai_model": "gemini-3.7-flash", "ai_api_key": "k"})
     adapter = get_adapter(target.api)
 
     body = adapter.build_request(target, [{"role": "user", "content": "hi"}], tools=None)
@@ -216,7 +216,7 @@ def test_a_configured_window_is_not_overridden_by_a_probe():
     from olite.substrate.llm import Llm
     from olite.substrate.manifest import CapabilityManifest
 
-    llm = Llm({"ai_provider": "local", "ai_context_window": 8000}, CapabilityManifest())
+    llm = Llm({"ai_provider": "ollama", "ai_context_window": 8000}, CapabilityManifest())
     asyncio.run(llm.init())
     assert llm.target.context_window == 8000
 
@@ -345,3 +345,19 @@ def test_jetstream2_resolves_to_the_open_webui_proxy():
     assert target.base_url == "https://llm.jetstream-cloud.org/api"
     assert get_adapter(target.api).url(target).endswith("/api/chat/completions")
     assert target.context_window == 328_000
+
+
+def test_anthropic_opts_into_browser_access_or_a_browser_cannot_reach_it():
+    """api.anthropic.com sends no Access-Control-Allow-Origin until a request opts in.
+
+    Verified against the live endpoint: without this header the browser blocks the
+    response, so the provider would be listed in the picker and fail on first use.
+    """
+    target = resolve({"ai_provider": "anthropic", "ai_api_key": "k", "ai_model": "m"})
+    headers = get_adapter(target.api).headers(target)
+    assert headers["anthropic-dangerous-direct-browser-access"] == "true"
+
+
+def test_a_provider_without_extra_headers_sends_none():
+    target = resolve({"ai_provider": "openai", "ai_api_key": "k", "ai_model": "m"})
+    assert set(get_adapter(target.api).headers(target)) == {"Content-Type", "Authorization"}
