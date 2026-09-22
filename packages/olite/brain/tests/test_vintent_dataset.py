@@ -36,15 +36,18 @@ def _csv_from_rows(rows):
 
 
 class FakeCatalog:
-    """Scoped catalog: returns the dataset content for the display op."""
+    """Scoped catalog: the dataset's details, then its content for the display op."""
 
-    def __init__(self, csv_text):
+    def __init__(self, csv_text, state="ok"):
         self.csv_text = csv_text
+        self.state = state
         self.calls = []
 
     async def call(self, target, input=None):
         self.calls.append((target, input))
-        return {"ok": True, "result": self.csv_text}
+        if target.endswith(".display.get"):
+            return {"ok": True, "result": self.csv_text}
+        return {"ok": True, "result": {"id": "d1", "name": "table.csv", "state": self.state}}
 
 
 class FakeLlm:
@@ -211,7 +214,9 @@ def test_fetch_uses_scoped_catalog_display_op():
     substrate = FakeSubstrate(csv_text, DECISIONS["scatter"])
     asyncio.run(GraphDriver(substrate).run(proc.graph, {"dataset_id": "f2db41e1fa331b3e", "request": "x"}))
     assert substrate.catalog.calls == [
-        ("galaxy.datasets.show.display.get", {"history_content_id": "f2db41e1fa331b3e"})
+        # The dataset's state is read before its bytes, so a job still running is named as such.
+        ("galaxy.datasets.show.get", {"dataset_id": "f2db41e1fa331b3e"}),
+        ("galaxy.datasets.show.display.get", {"history_content_id": "f2db41e1fa331b3e"}),
     ]
 
 
@@ -383,5 +388,37 @@ def test_the_vintent_tool_reads_the_dataset_it_was_given():
     surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
     asyncio.run(surface.dispatch("vintent_dataset", {"dataset_id": "abc123", "request": "x vs y"}))
     assert substrate.catalog.calls == [
-        ("galaxy.datasets.show.display.get", {"history_content_id": "abc123"})
+        ("galaxy.datasets.show.get", {"dataset_id": "abc123"}),
+        ("galaxy.datasets.show.display.get", {"history_content_id": "abc123"}),
     ]
+
+
+def test_a_dataset_whose_job_is_still_running_is_named_as_such():
+    """The refusal named the columns, and the agent went hunting for a datatype tool.
+
+    A summary uploaded and charted in the same turn is not ready yet, so its content is
+    empty and the profile finds no columns. Reporting that as "no columns to plot" sent
+    one run into nine identical searches for a tool to set the datatype.
+    """
+    from olite.drivers.loop.tools import ToolSurface
+
+    csv_text = _csv_from_rows(_scatter_fixture()["data"]["values"])
+    substrate = FakeSubstrate(csv_text, DECISIONS["scatter"])
+    substrate.catalog.state = "running"
+    surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
+    out = asyncio.run(surface.dispatch("vintent_dataset", {"dataset_id": "d1", "request": "x vs y"})).text
+
+    assert "running" in out
+    assert "no columns" not in out
+    # The bytes are never requested, so an unready dataset costs one call rather than a download.
+    assert not any(t.endswith(".display.get") for t, _ in substrate.catalog.calls)
+
+
+def test_a_ready_dataset_still_charts():
+    from olite.drivers.loop.tools import ToolSurface
+
+    csv_text = _csv_from_rows(_scatter_fixture()["data"]["values"])
+    substrate = FakeSubstrate(csv_text, DECISIONS["scatter"])
+    surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
+    out = asyncio.run(surface.dispatch("vintent_dataset", {"dataset_id": "d1", "request": "x vs y"})).text
+    assert '"ok": true' in out.lower()

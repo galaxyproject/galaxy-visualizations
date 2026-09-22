@@ -3,7 +3,7 @@
   "description": "Tier 2. Scatter encodes columns straight from the file, so the spec must carry a URL and no rows: the case a Galaxy page benefits from.",
   "tier": 2,
   "inputs": [
-    "Plot Glucose against BMI in this history as a scatter plot."
+    "Plot Glucose against BMI in this history as a scatter plot, using vintent."
   ],
   "timeoutMs": 180000,
   "assertions": {

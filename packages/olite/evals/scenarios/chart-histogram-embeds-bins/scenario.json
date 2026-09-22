@@ -3,7 +3,7 @@
   "description": "Tier 2. Histogram bins in Python, so rows behind a URL would no longer match the encoding. Guards the rule that only untransformed rows may be referenced.",
   "tier": 2,
   "inputs": [
-    "Show me the distribution of Glucose in this history as a histogram."
+    "Show me the distribution of Glucose in this history as a histogram, using vintent."
   ],
   "timeoutMs": 180000,
   "assertions": {

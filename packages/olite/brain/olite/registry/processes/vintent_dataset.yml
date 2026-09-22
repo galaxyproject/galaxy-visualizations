@@ -2,14 +2,14 @@ version: 1
 id: vintent_dataset
 kind: agent_pipeline
 description: Turn a natural-language request plus a tabular dataset into a chart (Vega-Lite).
-when_to_use: when the user asks to visualize, chart, plot, or graph a tabular dataset (histogram, scatter, bar chart, distribution, correlation, trend, and so on)
+when_to_use: when the user asks to visualize, chart, plot, or graph a tabular dataset (histogram, scatter, bar chart, distribution, correlation, trend, and so on) without naming a visualization; when they name one, list_visualizations and save_visualization render it instead
 
 # Least privilege: reads one dataset and reasons about it. No writes, no Pyodide —
 # the transforms are materializers in the graph, not local code. Intersected with the
 # session grant at invocation, so a write-enabled session cannot leak write in here.
 capabilities: ["llm", "read"]
 
-start: fetch
+start: inspect
 
 inputs:
   dataset_id:
@@ -20,6 +20,8 @@ inputs:
     required: true
 
 state:
+  dataset:
+    type: object
   raw:
     type: string
   values:
@@ -45,6 +47,26 @@ state:
 
 nodes:
   # 1. Fetch the dataset content (read) through the scoped catalog and profile it.
+  inspect:
+    type: executor
+    run:
+      op: api.call
+      target: galaxy.datasets.show.get
+      input:
+        dataset_id:
+          $ref: inputs.dataset_id
+    emit:
+      state.dataset: result
+    next: require_readable
+
+  require_readable:
+    type: materializer
+    target: vintent.require_readable
+    args:
+      dataset:
+        $ref: state.dataset
+    next: fetch
+
   fetch:
     type: executor
     run:

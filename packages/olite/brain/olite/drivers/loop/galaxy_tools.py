@@ -216,6 +216,19 @@ async def _run_tool(g, a):
         raise ToolParameterError(str(exc), template) from exc
 
 
+# Lookups over data Galaxy holds still for a session: the same question returns the same answer.
+SETTLED = frozenset({
+    "search_tools_by_name",
+    "search_tools_by_keywords",
+    "get_visualization_details",
+})
+
+
+def settled(name):
+    """Whether repeating this call with the same arguments can produce anything new."""
+    return name in SETTLED
+
+
 def _no_tool_matched(query):
     # An empty list reads as an answer, so the same search comes back; say it is exhausted.
     return {
@@ -226,8 +239,31 @@ def _no_tool_matched(query):
     }
 
 
+# This agent, and a standalone plugin that defers its chart to its own LLM at view time.
+NOT_OFFERED = {"olite", "vintent"}
+
+
+async def _a_visualization_named(g, query):
+    """The installed visualization this query names, if the tool catalog is the wrong one."""
+    wanted = (query or "").strip().lower()
+    installed = await g.get("api/plugins") or []
+    names = [p.get("name") for p in installed if p.get("name") not in NOT_OFFERED]
+    return next((n for n in names if n and n.lower() == wanted), None)
+
+
 async def _search_tools_by_name(g, a):
-    return await g.get(f"api/tools{_q({'q': a['query']})}") or _no_tool_matched(a["query"])
+    found = await g.get(f"api/tools{_q({'q': a['query']})}")
+    if found:
+        return found
+    plugin = await _a_visualization_named(g, a["query"])
+    if plugin:
+        return {
+            "query": a["query"],
+            "tools": [],
+            "hint": f"{plugin!r} is a visualization, which the tool catalog does not hold. "
+                    f"list_visualizations names the ones that can render a given dataset.",
+        }
+    return _no_tool_matched(a["query"])
 
 
 async def _get_tool_details(g, a):
@@ -658,6 +694,7 @@ async def _list_visualizations(g, a):
     numeric = [t for t in column_types if t in NUMERIC_COLUMNS]
 
     matching = await g.get(f"api/plugins{_q({'dataset_id': a['dataset_id']})}") or []
+    matching = [p for p in matching if p.get("name") not in NOT_OFFERED]
     preferred = await _preferred_visualizations(g, extension)
     matching.sort(key=lambda p: p.get("name") not in preferred)
 
@@ -686,15 +723,6 @@ async def _list_visualizations(g, a):
 
 # Chrome-free: Galaxy drops the masthead inside any iframe, hide_panels drops the rest.
 _EMBED = {"hide_panels": "true", "hide_masthead": "true"}
-
-
-def _embed_directive(name, dataset_id):
-    """The page directive that renders this visualization.
-
-    Galaxy's argument is called visualization_id but holds the plugin name, and the
-    directive needs the dataset too, so a saved visualization's own id does not embed.
-    """
-    return f"visualization(visualization_id={name}, history_dataset_id={dataset_id})"
 
 
 async def _resolve_visualization(g, a):
@@ -950,11 +978,10 @@ async def _show_visualization(g, a):
         "artifact": {"kind": "visualization", "title": title,
                      "visualization": name, "dataset_id": a["dataset_id"],
                      "url": f"/visualizations/display{_q(query)}"},
-        "embed": _embed_directive(name, a["dataset_id"]),
         "hint": "The visualization is displayed to the user. Nothing was added to Galaxy, so "
                 "call save_visualization if they ask to keep it. Writing it into the record "
-                "means copying `embed` verbatim into a ```galaxy block. Say what it shows "
-                "and finish.",
+                "means putting {{artifact}} where it belongs in the page content. Say what it "
+                "shows and finish.",
     }
 
 
@@ -1105,11 +1132,10 @@ async def _save_visualization(g, a):
         "visualization_id": visualization_id,
         "title": title,
         "artifact": artifact,
-        "embed": _embed_directive(name, a["dataset_id"]),
         "hint": "Saved to the user's visualizations and displayed. It is not a history dataset. "
-                "Writing it into the record means copying `embed` verbatim into a ```galaxy "
-                "block; visualization_id above identifies the saved object and renders nothing "
-                "in a page. Say what it shows and finish.",
+                "Writing it into the record means putting {{artifact}} where it belongs in the "
+                "page content; visualization_id above identifies the saved object and renders "
+                "nothing in a page. Say what it shows and finish.",
     }
 
 

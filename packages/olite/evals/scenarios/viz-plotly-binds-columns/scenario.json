@@ -14,7 +14,8 @@
     "toolCalls": {
       "mustInclude": [
         { "name": "save_visualization", "argsContains": { "dataset_id": "$staged:prices.csv" } }
-      ]
+      ],
+      "mustNotInclude": ["vintent_dataset"]
     },
     "artifacts": { "mustInclude": [{ "kind": "visualization" }] },
     "visualization": {

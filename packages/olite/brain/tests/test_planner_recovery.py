@@ -38,7 +38,9 @@ class FakeCatalog:
         self.csv_text = csv_text
 
     async def call(self, target, input=None):
-        return {"ok": True, "result": self.csv_text}
+        if target.endswith(".display.get"):
+            return {"ok": True, "result": self.csv_text}
+        return {"ok": True, "result": {"id": "d1", "name": "table.csv", "state": "ok"}}
 
 
 class ScriptedLlm:

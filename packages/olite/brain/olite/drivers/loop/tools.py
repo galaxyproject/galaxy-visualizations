@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from olite.registry import load_primitives
 from olite.substrate import Confirmation, LocalExecutionError
 
-from . import confusables, galaxy_destructive, galaxy_tools, gtn, notebook
+from . import artifacts, confusables, galaxy_destructive, galaxy_tools, gtn, notebook
 from .brief import brief
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,9 @@ def _skills_fetch_schema(skills):
 
 
 ARTIFACT_HINT = ("This artifact is already displayed to the user and is not a history dataset, "
-                 "so do not look for it there. Describe what it shows and finish.")
+                 "so do not look for it there. Keeping it means writing {{artifact}} into a page "
+                 "where it belongs; that token is the only way to place it, since its content is "
+                 "held outside your context. Describe what it shows and finish.")
 
 
 @dataclass
@@ -140,7 +142,7 @@ class ToolOutcome:
 
 
 class ToolSurface:
-    def __init__(self, substrate, processes=None, skills=None, confirmation=None):
+    def __init__(self, substrate, processes=None, skills=None, confirmation=None, prior=None):
         self.substrate = substrate
         self.processes = processes
         self.skills = skills
@@ -148,8 +150,12 @@ class ToolSurface:
         self.confirmation = confirmation or Confirmation()
         # Renderable artifacts, routed to the shell so no large payload hits the LLM.
         self.artifacts = []
+        # Earlier turns' artifacts, placeable in a page long after the turn that made them.
+        self.prior = list(prior or [])
         # The last call that failed and how often it has repeated, for the loop guard.
         self._last_failure = None
+        # How often each settled lookup has been asked, by name and arguments.
+        self._settled = {}
         self._schemas = None
 
     def schemas(self):
@@ -203,6 +209,10 @@ class ToolSurface:
             logger.info("  -> breaking a loop of identical failing calls")
             self._last_failure = None  # a speed bump, not a ban
             return ToolOutcome(repeated, is_error=True, refused=True)
+        settled = self._asking_a_settled_question(name, args)
+        if settled:
+            logger.info("  -> %s was already answered with these arguments", name)
+            return ToolOutcome(settled, is_error=True, refused=True)
         schema, capabilities = self._declaration(name)
         ungranted = next((c for c in capabilities if not self.substrate.manifest.allows(c)), None)
         if ungranted:
@@ -233,6 +243,29 @@ class ToolSurface:
             self._note_outcome(name, args, True)
             return ToolOutcome(f"Tool '{name}' raised: {e}", is_error=True)
 
+    # Shorter than this is too weak a signal to read as a name.
+    NAME_QUERY_MIN = 4
+
+    def _olite_tool_named(self, args):
+        """The OLite tool these arguments name, and whether they ask to run it or to find it."""
+        names = (self.processes.names() or []) if self.processes else []
+        if args.get("tool_id") in names:
+            return args["tool_id"], True
+        query = (args.get("query") or "").strip().lower()
+        if len(query) < self.NAME_QUERY_MIN:
+            return None, False
+        return next((n for n in names if n == query or n.startswith(query)), None), False
+
+    def _place_artifacts(self, args):
+        """Swap every {{artifact}} token in the arguments for the markdown it names."""
+        placed = dict(args)
+        for key, value in args.items():
+            text, refusal = artifacts.resolve(value, self.prior + self.artifacts)
+            if refusal:
+                return args, refusal
+            placed[key] = text
+        return placed, None
+
     def _claim_artifact(self, result, hint=None):
         """Route a renderable artifact to the shell, leaving a reference in the tool result."""
         if not isinstance(result, dict) or not isinstance(result.get("artifact"), dict):
@@ -247,6 +280,20 @@ class ToolSurface:
 
     # An identical call that just failed will fail again; three is enough to establish it.
     FAILED_REPEAT_LIMIT = 3
+    # A settled question keeps its answer, so a third asking is already two too many.
+    SETTLED_REPEAT_LIMIT = 3
+
+    def _asking_a_settled_question(self, name, args):
+        """Why re-asking this is pointless, or None if the answer could still change."""
+        if not galaxy_tools.settled(name):
+            return None
+        key = (name, brief(args))
+        self._settled[key] = self._settled.get(key, 0) + 1
+        if self._settled[key] < self.SETTLED_REPEAT_LIMIT:
+            return None
+        return (f"Refused: '{name}' was already answered {self._settled[key] - 1} times with these "
+                f"exact arguments, and its answer is fixed for this session. Use the answer you "
+                f"have, or take a different route.")
 
     def _repeating_a_failure(self, name, args):
         last = self._last_failure
@@ -281,12 +328,19 @@ class ToolSurface:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
             return await self._run_process({"name": name, "inputs": args})
-        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found". Every tool
-        # taking a tool_id is a way to ask, and a bare 404 sent one agent hunting the catalog.
-        wanted = args.get("tool_id")
-        if self.processes and wanted in (self.processes.names() or []):
+        # An OLite process is not a Galaxy tool; Galaxy answers "Tool not found" or nothing at
+        # all. A tool_id asks for one directly and a query hunts the catalog for it by name.
+        wanted, running_it = self._olite_tool_named(args)
+        if wanted and running_it:
             return ToolOutcome(
                 f"'{wanted}' is an OLite tool, not a Galaxy tool. Call {wanted} directly.",
+                is_error=True)
+        if wanted:
+            # A search is the model orienting itself; say where the tool lives and leave the
+            # choice of route to the request, which may have named a different one.
+            return ToolOutcome(
+                f"'{wanted}' is an OLite tool rather than a Galaxy tool, so the tool catalog "
+                f"does not hold it. It is already in your tool list if you need it.",
                 is_error=True)
         if name == "skills_fetch":
             return self._skills_fetch(args)
@@ -294,6 +348,9 @@ class ToolSurface:
             return args.get("summary", "done")
         handler = galaxy_tools.get_handler(name) or notebook.get_handler(name)
         if handler:
+            args, refusal = self._place_artifacts(args)
+            if refusal:
+                return ToolOutcome(f"Refused: {refusal}", is_error=True)
             result = self._claim_artifact(await handler(self.substrate.galaxy, args))
             return json.dumps(result, default=str)
         gtn_handler = gtn.get_handler(name)

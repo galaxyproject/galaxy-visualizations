@@ -48,8 +48,15 @@ def test_a_dataset_without_numeric_columns_is_told_why_and_what_else_to_try():
     assert "vintent_dataset" in out["hint"]
 
 
-def test_numeric_columns_need_no_hint():
+def test_the_listing_answers_what_can_render_this_and_proposes_no_route():
+    """Naming a route here contradicted a request that had already named a plugin.
+
+    The listing sees only a dataset_id, so it cannot tell "chart this" from "chart this
+    with plotly"; proposing vintent_dataset against a named plugin misrouted one run in
+    five. Ninety of 112 passing chart runs never read this answer at all.
+    """
     out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]})
+    assert "charting" not in out
     assert "hint" not in out
 
 
@@ -75,4 +82,18 @@ def test_it_answers_only_what_can_render_the_dataset():
                "metadata_column_types": ["int", "float", "str"]})
     assert "columns" not in out
     assert "column_types" not in out
-    assert set(out) <= {"dataset_id", "extension", "visualizations", "hint"}
+    assert set(out) <= {"dataset_id", "extension", "visualizations", "hint", "charting"}
+
+
+def test_neither_olite_nor_the_standalone_vintent_plugin_is_offered():
+    """Offering either routes a chart request away from the built-in.
+
+    `olite` is this agent. The `vintent` plugin is a frozen standalone duplicate of
+    vintent_dataset sharing its name, so an agent reaching for vintent found the plugin.
+    """
+    out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]},
+              compatible=[{"name": n, "description": n, "tags": []}
+                          for n in ("plotly", "olite", "vintent", "tabulator")])
+    offered = [v["name"] for v in out["visualizations"]]
+    assert "olite" not in offered and "vintent" not in offered
+    assert offered == ["plotly", "tabulator"]

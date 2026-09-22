@@ -62,8 +62,14 @@ Directives take **encoded ids**, which you get from `get_history_contents` or
 `get_dataset_details`.
 
 Do **not** wrap content in ```txt, ```text, or any other fence: Galaxy renders those
-as raw monospace instead of formatted content. The only meaningful fenced block on a
-Page is ```galaxy.
+as raw monospace instead of formatted content.
+
+A chart, diagram or visualization produced in this session goes in as `{{artifact}}`,
+written where it belongs in the content. That token becomes the block Galaxy renders,
+so never build the block yourself and never retype a chart spec: the spec is not in
+your context and what you invent will not be the chart the user saw. `{{artifact}}`
+takes the most recent one; `{{artifact: <title>}}` takes the one with that title, as
+the tool result reported it.
 
 ### Reading it back
 
