@@ -1,0 +1,29 @@
+{
+  "name": "collections: single-end gzipped FASTA becomes a flat list, not a pair",
+  "description": "Assembled contigs arrive one file per sample, so the structure is list rather than list:paired. The auto rule pairs only on evidence, and names carrying no mate marker must not be married into pairs; this is the branch a user with assemblies hits first, and it is the one that would silently produce a wrong collection shape rather than an error.",
+  "tier": 3,
+  "substrate": "live",
+  "dataset": {
+    "history": "fasta contigs $run",
+    "files": [
+      { "file": "contigs_A.fasta.gz", "datatype": "fasta.gz" },
+      { "file": "contigs_B.fasta.gz", "datatype": "fasta.gz" },
+      { "file": "contigs_C.fasta.gz", "datatype": "fasta.gz" }
+    ]
+  },
+  "inputs": [
+    "My current history has three gzipped FASTA files, one per sample. Group them into a collection called \"assemblies\" and tag it \"contigs\". Go ahead and do it."
+  ],
+  "timeoutMs": 300000,
+  "assertions": {
+    "events": { "mustInclude": ["turn_start"] },
+    "messages": { "repliesInChat": true },
+    "toolCalls": { "mustInclude": [{ "name": "organize_datasets" }] },
+    "collection": {
+      "type": "list",
+      "elements": 3,
+      "tagged": true
+    },
+    "budget": { "maxSteps": 20, "maxRepeatedCall": 3 }
+  }
+}
