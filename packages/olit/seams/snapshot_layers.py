@@ -25,6 +25,7 @@ ALLOWED_TOOL_DIVERGENCE = {
     "upload_file": "no access to the user's disk",
     "get_workflow_input_template": "drops the optional `verbose` parameter",
     "invoke_workflow": "drops the optional `parameters_normalized` parameter",
+    "get_job_details": "DIVERGES: galaxy-mcp fetches api/jobs/{id}; olit adds full=true so a failed job's stderr is readable, which is what invocation_outcome tells the model to reach for. That flag also carries tool_stdout/tool_stderr/job_stdout/job_stderr/stdout/stderr, hundreds of KB for a chatty tool, so each log field is trimmed to its last 4 KB on a line boundary with a notice naming the full size.",
 }
 
 

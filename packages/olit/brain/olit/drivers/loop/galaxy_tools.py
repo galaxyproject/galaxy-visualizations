@@ -28,6 +28,9 @@ DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.ge
 PREVIEW_LINES = 50
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 PREVIEW_BYTES = 256 * 1024
+# The log fields Galaxy adds to a job under `full=true`.
+JOB_LOG_FIELDS = ("tool_stdout", "tool_stderr", "job_stdout", "job_stderr", "stdout", "stderr")
+JOB_LOG_BYTES = 4 * 1024
 
 
 def _q(params):
@@ -277,7 +280,25 @@ async def _get_job_details(g, a):
     job_id = dataset.get("creating_job")
     if not job_id:
         return {"error": "no creating job for dataset", "dataset_id": a["dataset_id"]}
-    return await g.get(f"api/jobs/{job_id}{_q({'full': True})}")
+    job = await g.get(f"api/jobs/{job_id}{_q({'full': True})}")
+    if not isinstance(job, dict):
+        return job
+    # `full=true` is fetched for the stderr of a failed job and carries the whole log with it.
+    job = dict(job)
+    for field in JOB_LOG_FIELDS:
+        if isinstance(job.get(field), str):
+            job[field] = _tail(job[field], JOB_LOG_BYTES)
+    return job
+
+
+def _tail(text, cap):
+    """Keep the end of a log, where a traceback is, and say how much was dropped."""
+    data = text.encode("utf-8", "replace")
+    if len(data) <= cap:
+        return text
+    # Cut on a line boundary, as pi's truncate does, so the first line shown is a whole one.
+    kept = data[-cap:].split(b"\n", 1)[-1]
+    return f"[Showing the last {len(kept)} of {len(data)} bytes.]\n{kept.decode('utf-8', 'replace')}"
 
 
 async def _get_dataset_details(g, a):
