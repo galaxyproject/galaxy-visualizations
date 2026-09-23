@@ -5,11 +5,6 @@ from dataclasses import dataclass, field
 
 from olit.exceptions import ProviderError
 
-TEMPERATURE = 0.3
-TOP_P = 0.8
-# The ranges the chat-completions API accepts.
-TEMPERATURE_RANGE = (0.0, 2.0)
-TOP_P_RANGE = (0.0, 1.0)
 # The spellings providers use for chain of thought, in the order they are preferred.
 REASONING_KEYS = ("reasoning_content", "reasoning")
 
@@ -44,15 +39,15 @@ class OpenAICompletions:
         return headers
 
     def build_request(self, target, messages, tools=None, tool_choice=None, parallel_tools=True):
-        body = {
-            "model": target.model.id,
-            "messages": messages,
-            "max_tokens": target.max_tokens,
-        }
-        # Some models reject temperature and top_p together; a provider can opt out.
-        if target.compat("sampling", True):
-            body["temperature"] = _clamp(target.compat("temperature", TEMPERATURE), *TEMPERATURE_RANGE)
-            body["top_p"] = _clamp(target.compat("top_p", TOP_P), *TOP_P_RANGE)
+        body = {"model": target.model.id, "messages": messages}
+        # pi sends a sampling field only when one is configured, so an unconfigured run gets
+        # the provider's own defaults. `sampling_params` is pi's `samplingParams` bag.
+        if target.max_tokens:
+            body["max_tokens"] = target.max_tokens
+        temperature = target.compat("temperature")
+        if temperature is not None:
+            body["temperature"] = temperature
+        body.update(target.compat("sampling_params", {}) or {})
         if tools:
             body["tools"] = tools
         if tool_choice:
@@ -91,10 +86,6 @@ class OpenAICompletions:
             if size > cap:
                 too_big.append((tool.get("function", {}).get("name", "?"), size))
         return too_big
-
-
-def _clamp(value, low, high):
-    return max(low, min(value, high))
 
 
 def _force_first(tools):

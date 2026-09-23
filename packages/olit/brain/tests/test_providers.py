@@ -3,7 +3,7 @@
 import pytest
 
 from olit.substrate.llm import REGISTRY, Limits, Model, Provider, get_adapter, resolve
-from olit.substrate.llm.providers import DEFAULT_CONTEXT_WINDOW, DEFAULT_MAX_TOKENS
+from olit.substrate.llm.providers import DEFAULT_CONTEXT_WINDOW
 
 
 # --- resolution ----------------------------------------------------------------
@@ -73,7 +73,11 @@ def test_config_still_wins_over_everything():
 def test_an_unknown_everything_falls_back_to_the_defaults():
     target = resolve({"ai_base_url": "http://x.invalid", "ai_model": "mystery"})
     assert target.context_window == DEFAULT_CONTEXT_WINDOW
-    assert target.max_tokens == DEFAULT_MAX_TOKENS
+
+
+def test_an_endpoint_that_states_no_cap_leaves_the_output_length_to_the_model():
+    """pi omits max_tokens unless one is configured; an imposed cap truncates a long answer."""
+    assert resolve({"ai_base_url": "http://x.invalid", "ai_model": "mystery"}).max_tokens is None
 
 
 def test_the_rate_limit_comes_from_the_endpoint():
@@ -111,7 +115,7 @@ def test_the_adapter_builds_and_parses_one_round_trip():
 
     body = adapter.build_request(target, [{"role": "user", "content": "hi"}], tools=None)
     assert body["model"] == "gemini-3.7-flash"
-    assert body["max_tokens"] == DEFAULT_MAX_TOKENS
+    assert "max_tokens" not in body
     assert adapter.url(target).endswith("/chat/completions")
     assert adapter.headers(target)["Authorization"] == "Bearer k"
 
@@ -126,27 +130,28 @@ def test_the_adapter_builds_and_parses_one_round_trip():
     assert reply.usage["total_tokens"] == 12
 
 
-def test_a_provider_can_opt_out_of_sampling_parameters():
-    """Some models reject temperature and top_p; that is a provider fact."""
-    plain = Provider(id="p", base_url="http://x.invalid")
-    picky = Provider(id="q", base_url="http://x.invalid", compat={"sampling": False})
-    adapter = get_adapter("openai-completions")
-
+def _target(provider, model=None):
     from olit.substrate.llm.providers import Target
 
-    def target_for(provider):
-        return Target(provider, Model("m"), "http://x.invalid", None, 1000, 100, 30)
+    return Target(provider, model or Model("m"), "http://x.invalid", None, 1000, None, 30)
 
-    assert "temperature" in adapter.build_request(target_for(plain), [], None)
-    assert "temperature" not in adapter.build_request(target_for(picky), [], None)
+
+def test_no_sampling_field_is_sent_unless_one_is_configured():
+    """Orbit sends none, so a comparison run measures the runtime rather than our defaults."""
+    body = get_adapter("openai-completions").build_request(_target(Provider(id="p")), [], None)
+    assert "temperature" not in body and "top_p" not in body
+
+
+def test_a_provider_that_needs_a_sampling_setting_can_state_one():
+    provider = Provider(id="q", compat={"temperature": 0.2, "sampling_params": {"top_p": 0.8}})
+    body = get_adapter("openai-completions").build_request(_target(provider), [], None)
+    assert body["temperature"] == 0.2 and body["top_p"] == 0.8
 
 
 def test_a_model_setting_beats_a_provider_setting():
-    provider = Provider(id="p", compat={"sampling": True})
-    model = Model("m", compat={"sampling": False})
-    from olit.substrate.llm.providers import Target
-
-    assert Target(provider, model, None, None, 1000, 100, 30).compat("sampling") is False
+    provider = Provider(id="p", compat={"temperature": 0.2})
+    model = Model("m", compat={"temperature": 0.9})
+    assert _target(provider, model).compat("temperature") == 0.9
 
 
 # --- endpoint limits the brain can act on ----------------------------------------
