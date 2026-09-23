@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from olite.registry import load_primitives
 from olite.substrate import Confirmation, LocalExecutionError
 
-from . import artifacts, confusables, galaxy_destructive, galaxy_tools, gtn, notebook
+from . import artifacts, confusables, galaxy_destructive, galaxy_tools, gtn, notebook, sra_import_gate
 from .brief import brief
 
 logger = logging.getLogger(__name__)
@@ -173,6 +173,8 @@ class ToolSurface:
         self.artifacts = []
         # Earlier turns' artifacts, placeable in a page long after the turn that made them.
         self.prior = list(prior or [])
+        # Fan-out intent for this turn; the surface is rebuilt per turn, as loom clears per turn.
+        self.sra = sra_import_gate.SraImportGate()
         # The last call that failed and how often it has repeated, for the loop guard.
         self._last_failure = None
         # How often each settled lookup has been asked, by name and arguments.
@@ -222,7 +224,11 @@ class ToolSurface:
         required = schema["function"].get("parameters", {}).get("required") or []
         return [key for key in required if key not in args]
 
-    async def dispatch(self, name, args):
+    def observe(self, tool_calls):
+        """Take in a whole reply's calls, before any of them runs."""
+        self.sra.observe(tool_calls)
+
+    async def dispatch(self, name, args, call_id=None):
         """Run one tool call. Always a ToolOutcome — never a raised exception."""
         logger.info("tool %s(%s)", name, brief(args))
         repeated = self._repeating_a_failure(name, args)
@@ -234,6 +240,10 @@ class ToolSurface:
         if settled:
             logger.info("  -> %s was already answered with these arguments", name)
             return ToolOutcome(settled, is_error=True, refused=True)
+        fanned_out = self.sra.check(call_id, name, args)
+        if fanned_out:
+            logger.info("  -> blocking an SRA import that would fan out")
+            return ToolOutcome(fanned_out, is_error=True, refused=True)
         schema, capabilities = self._declaration(name)
         ungranted = next((c for c in capabilities if not self.substrate.manifest.allows(c)), None)
         if ungranted:

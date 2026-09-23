@@ -34,7 +34,7 @@ ALLOWED_TOOL_DIVERGENCE = {
 MODULE_CLASSIFICATION = {
     "context": "PORTED: the system prompt, tracked block by block in `seams`",
     "galaxy-page-markdown-guidance": "PORTED: tracked in `seams`",
-    "sra-import-gate": "PARTIAL: guidance ported; the sibling-call gate is not built",
+    "sra-import-gate": "PORTED: brain/olite/drivers/loop/sra_import_gate.py",
     "confusables": "PORTED: brain/olite/drivers/loop/confusables.py",
     "secret-redaction": "PORTED: brain/olite/drivers/loop/secret_redaction.py",
     "skills-discovery": "PORTED: the skills registry",
