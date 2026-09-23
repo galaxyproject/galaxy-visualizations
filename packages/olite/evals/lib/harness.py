@@ -349,7 +349,9 @@ def _await_invocation(galaxy, invocation_id, timeout=600):
         if invocation.get("state") in INVOCATION_TERMINAL:
             jobs = galaxy.call(f"api/invocations/{invocation_id}/jobs_summary")
             states = (jobs or {}).get("states") or {}
-            if not any(states.get(s) for s in RUNNING_STATES):
+            # An invocation reads `scheduled` before its jobs exist, so an empty summary
+            # is "not started yet", not "nothing left running".
+            if states and not any(states.get(s) for s in RUNNING_STATES):
                 return invocation, states
         time.sleep(2)
     return galaxy.call(f"api/invocations/{invocation_id}"), {}

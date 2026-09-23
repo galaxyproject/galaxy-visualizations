@@ -11,6 +11,8 @@ import jsonschema
 from olite import vendor
 from olite.substrate.http import http
 
+from . import invocation_outcome
+
 from . import page_edit
 from .galaxy_tool_docs import DOCS
 from .paging import ROW_CAP, page
@@ -639,9 +641,18 @@ async def _cancel_workflow_invocation(g, a):
     return {"cancelled": True, "invocation": result}
 
 
+async def _job_states(g, invocation_id):
+    try:
+        summary = await g.get(f"api/invocations/{invocation_id}/jobs_summary")
+    except Exception:
+        return {}
+    return (summary or {}).get("states") or {}
+
+
 async def _get_invocations(g, a):
     if a.get("invocation_id"):
-        return await g.get(f"api/invocations/{a['invocation_id']}{_q({'step_details': a.get('step_details', False)})}")
+        one = await g.get(f"api/invocations/{a['invocation_id']}{_q({'step_details': a.get('step_details', False)})}")
+        return invocation_outcome.described(one, await _job_states(g, a["invocation_id"]))
     params = {
         "workflow_id": a.get("workflow_id"),
         "history_id": a.get("history_id"),
@@ -649,7 +660,17 @@ async def _get_invocations(g, a):
         "view": a.get("view", "collection"),
         "step_details": a.get("step_details", False),
     }
-    return await g.get(f"api/invocations{_q(params)}")
+    listed = await g.get(f"api/invocations{_q(params)}")
+    if not isinstance(listed, list):
+        return listed
+    described = []
+    for index, invocation in enumerate(listed):
+        identifier = invocation.get("id") if isinstance(invocation, dict) else None
+        if identifier and index < invocation_outcome.ROLLUP_LIMIT:
+            described.append(invocation_outcome.described(invocation, await _job_states(g, identifier)))
+        else:
+            described.append(invocation)
+    return described
 
 
 NUMERIC_COLUMNS = frozenset({"int", "float"})
@@ -1291,7 +1312,9 @@ _tool("invoke_workflow", "write", "Run a workflow. inputs maps input steps to da
        "parameters_normalized": _BOOL}, ["workflow_id"], _invoke_workflow)
 _tool("cancel_workflow_invocation", "write", "Cancel a running workflow invocation.",
       {"invocation_id": _STR}, ["invocation_id"], _cancel_workflow_invocation)
-_tool("get_invocations", "read", "List workflow invocations, or one by id.",
+_tool("get_invocations", "read", "List workflow invocations, or one by id. Each carries an "
+      "`outcome` rolled up from its jobs: Galaxy's own `state` describes scheduling, so a run "
+      "whose jobs failed still reads `completed` there. Judge a run by `outcome`.",
       {"invocation_id": _STR, "workflow_id": _STR, "history_id": _STR, "limit": _INT, "view": _STR, "step_details": _BOOL},
       [], _get_invocations)
 _tool("list_user_tools", "read", "List the user's dynamic (user-defined) tools.", {"active": _BOOL}, [], _list_user_tools)
