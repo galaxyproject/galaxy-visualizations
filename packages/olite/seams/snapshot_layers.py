@@ -28,6 +28,70 @@ ALLOWED_TOOL_DIVERGENCE = {
 }
 
 
+# Every loom extension module, classified. NA is a decision, not an absence; INVESTIGATE
+# means a capability olite could hold and has not yet judged. An unlisted module fails the
+# check, which is the point: an addition upstream must be classified before it is ignored.
+MODULE_CLASSIFICATION = {
+    "context": "PORTED: the system prompt, tracked block by block in `seams`",
+    "galaxy-page-markdown-guidance": "PORTED: tracked in `seams`",
+    "sra-import-gate": "PARTIAL: guidance ported; the sibling-call gate is not built",
+    "confusables": "PORTED: brain/olite/drivers/loop/confusables.py",
+    "secret-redaction": "PORTED: brain/olite/drivers/loop/secret_redaction.py",
+    "skills-discovery": "PORTED: the skills registry",
+    "skills": "PORTED: the skills registry",
+    "vendor-skills": "PORTED: skills are vendored at build time",
+    "notebook-writer": "PORTED: the record",
+    "notebook-anchors": "PORTED: record anchors",
+    "galaxy-page-binding": "PORTED: one record per history",
+    "galaxy-page-sync": "PORTED: record writes",
+    "galaxy-pages-api": "PORTED: the page tools",
+    "galaxy-pages-sync": "PORTED: record writes",
+    "galaxy-markdown-adapter": "PORTED: artifact markdown",
+    "galaxy-api": "PORTED: the scoped catalog",
+    "galaxy-poller": "PORTED: the job watcher",
+    "galaxy-job-block": "PORTED: job state in the record",
+    "galaxy-upload": "PORTED: upload_file",
+    "tools": "PORTED: the tool surface",
+    "tools-sync": "PORTED: the tool surface is built at load",
+    "evidence-gate": "NA: loom's model owns the checkbox and its poller owns a separate "
+                     "status block, so the two can contradict. olite's watcher writes the "
+                     "checkbox itself (applyJobOutcome), and no recorded run has the model "
+                     "flipping a step that carries an id. Revisit if the flip ever moves to "
+                     "the model.",
+    "auto-resume": "NA: loom's poller wakes the agent, so it needed a cap. olite's onSettled "
+                   "posts a message and edits the record; it starts no turn, so there is no "
+                   "automatic continuation to bound.",
+    "invocation-failure-hint": "INVESTIGATE: lower priority, no concrete gap found yet",
+    "galaxy-cred-drift": "NA: the browser session is the credential; nothing to reconnect",
+    "confusables-hint": "NA: upstream calls it a stopgap; olite folds names at dispatch",
+    "user-instructions": "NA: no project directory in a browser, so no LOOM.md channel",
+    "init-gate": "NA: asserts no turn starts; this harness always emits turn_start",
+    "evidence-override-command": "NA: slash commands are a desktop shell affordance",
+    "execution-commands": "NA: slash commands",
+    "feedback-command": "NA: slash commands",
+    "instructions-command": "NA: slash commands",
+    "skills-command": "NA: slash commands",
+    "sync-command": "NA: slash commands",
+    "tester-id-command": "NA: slash commands",
+    "activity": "NA: activity.jsonl is a desktop pane",
+    "activity-hooks": "NA: activity.jsonl is a desktop pane",
+    "agent-dir": "NA: no ~/.loom on disk",
+    "config": "NA: config arrives from the Charts host",
+    "profiles": "NA: no on-disk profiles",
+    "state": "NA: no on-disk state",
+    "git": "NA: no working copy",
+    "local-exec": "NA: Pyodide, no local shell",
+    "session-lifecycle": "NA: one worker session per tab",
+    "ui-bridge": "NA: Electron IPC",
+    "feedback": "NA: desktop feedback flow",
+    "galaxy-launcher-error": "NA: no launcher",
+    "galaxy-transport-error": "NA: transport is the browser's fetch",
+    "galaxy-upload-tus": "NA: tus resumable upload is a desktop concern",
+    "index": "NA: extension entry point",
+    "types": "NA: type declarations",
+}
+
+
 def main():
     mcp_path = None
     if "--mcp" in sys.argv:
@@ -40,6 +104,19 @@ def main():
         "eval_scenarios": {
             "source": "loom evals/scenarios",
             "fingerprints": layers.loom_scenarios(LOOM),
+        },
+        "eval_lib": {
+            "source": "loom evals/lib",
+            "note": "grading and normalization; a change here is eval parity even when it "
+                    "does not move a recorded run",
+            "fingerprints": layers.loom_eval_lib(LOOM),
+        },
+        "loom_modules": {
+            "source": "loom extensions/loom",
+            "note": "inventory, not a parity list: an added or changed module must be "
+                    "classified as relevant, NA, or needing investigation",
+            "classified": MODULE_CLASSIFICATION,
+            "fingerprints": layers.loom_modules(LOOM),
         },
         "identity_prompt": layers.identity_prompt() or (existing.get("identity_prompt") or {}),
         "skills": layers.skills_manifest(),

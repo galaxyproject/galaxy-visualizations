@@ -46,6 +46,32 @@ def loom_scenarios(loom_root):
     return out
 
 
+def loom_modules(loom_root):
+    """Fingerprint every loom extension module, so a new one is visible before it is needed.
+
+    Not a parity list: most of these are Electron-shaped. The point is that an addition
+    gets classified deliberately instead of going unnoticed.
+    """
+    out = {}
+    base = pathlib.Path(loom_root) / "extensions/loom"
+    for f in sorted(base.glob("*.ts")):
+        if f.name.endswith(".test.ts"):
+            continue
+        out[f.stem] = _fp(f.read_text())
+    return out
+
+
+def loom_eval_lib(loom_root):
+    """Fingerprint loom's grading and normalization, which is eval parity of its own."""
+    out = {}
+    base = pathlib.Path(loom_root) / "evals/lib"
+    if not base.is_dir():
+        return out
+    for f in sorted(base.glob("*.ts")):
+        out[f.stem] = _fp(f.read_text())
+    return out
+
+
 def mcp_tool_table(server_py):
     """name -> fingerprint of (description, parameter names) for each @mcp.tool."""
     tree = ast.parse(pathlib.Path(server_py).read_text())

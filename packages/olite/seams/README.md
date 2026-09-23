@@ -78,3 +78,16 @@ the loop everything runs on had a single one-off audit (`pi-loop-audit.md`) with
 tell whether it still applied. The layer pins the version and fingerprints `agent-loop.js`,
 `agent.js` and `harness/agent-harness.js`, so a pi bump surfaces as **DRIFT — re-audit the
 loop** instead of going unnoticed.
+
+
+## Why the eval harness is tracked but `stripThinking` is not ported
+
+loom strips `<think>` blocks from chat text before grading, with a second pass for a run
+killed mid-thought whose unclosed tag would otherwise let the whole chain-of-thought be
+graded as the answer. olite has no equivalent and does not need one: the adapter reads
+`reasoning_content`/`reasoning` into `Reply.reasoning`, so reasoning never reaches message
+content, and none of 1,248 recorded runs carries thinking markup in graded text.
+
+That is inert, not absent by oversight, and it stops being inert the moment a provider
+inlines `<think>` in content -- which a local endpoint may. `layer.eval-lib` exists so the
+change is visible when it matters, rather than ported for parity now.
