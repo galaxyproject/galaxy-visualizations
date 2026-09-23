@@ -50,7 +50,21 @@ def test_a_complete_page_is_not_marked_truncated():
 def test_get_histories_asks_galaxy_for_a_bounded_page():
     g = FakeGalaxy([])
     asyncio.run(_get_histories(g, {}))
-    assert f"limit={ROW_CAP}" in g.paths[0]
+    # One past the cap: the extra row is how a bounded page reports that more exist.
+    assert f"limit={ROW_CAP + 1}" in g.paths[0]
+
+
+def test_a_bounded_page_of_histories_says_that_more_exist():
+    g = FakeGalaxy([{"id": f"h{i}"} for i in range(ROW_CAP + 1)])
+    got = asyncio.run(_get_histories(g, {}))
+    assert got["shown"] == ROW_CAP
+    assert got["truncated"] is True and got["next_offset"] == ROW_CAP
+
+
+def test_the_last_page_of_histories_is_not_marked_truncated():
+    g = FakeGalaxy([{"id": "h1"}, {"id": "h2"}])
+    got = asyncio.run(_get_histories(g, {}))
+    assert got["shown"] == 2 and "truncated" not in got
 
 
 def test_the_tool_panel_can_be_narrowed_to_one_section():

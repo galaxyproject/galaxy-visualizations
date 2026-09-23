@@ -15,7 +15,7 @@ from . import invocation_outcome
 
 from . import page_edit
 from .galaxy_tool_docs import DOCS
-from .paging import ROW_CAP, page
+from .paging import ROW_CAP, page, server_page
 from .tool_inputs import build_input_template, summarize_tool_inputs
 from .visualization_inputs import build_visualization_template, template_cases
 
@@ -79,11 +79,16 @@ async def _get_user(g, a):
 
 
 async def _get_histories(g, a):
-    params = {"limit": a.get("limit", ROW_CAP), "offset": a.get("offset", 0)}
+    # galaxy-mcp returns every history by default; a browser transcript cannot hold that, so
+    # the page is bounded. One row past the limit is fetched to report that there are more.
+    limit = int(a.get("limit") or ROW_CAP)
+    offset = max(0, int(a.get("offset") or 0))
+    params = {"limit": limit + 1, "offset": offset}
     if a.get("name"):
         params["q"] = "name-contains"
         params["qv"] = a["name"]
-    return await g.get(f"api/histories{_q(params)}")
+    rows = await g.get(f"api/histories{_q(params)}")
+    return server_page(rows, offset, limit) if isinstance(rows, list) else rows
 
 
 async def _list_history_ids(g, a):
@@ -329,7 +334,10 @@ _tool("get_user", "read", "Get the current authenticated Galaxy user.", {}, [], 
 _tool(
     "get_histories", "read",
     "List the user's histories. Optional name filter; supports limit/offset paging.",
-    {"limit": _INT, "offset": _INT, "name": _STR}, [], _get_histories,
+    {"limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
+     "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
+     "name": _STR},
+    [], _get_histories,
 )
 _tool("list_history_ids", "read", "List just the id and name of each of the user's histories.", {}, [], _list_history_ids)
 _tool("get_history_details", "read", "Get full details of one history by id.", {"history_id": _STR}, ["history_id"], _get_history_details)
