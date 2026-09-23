@@ -44,6 +44,15 @@ def py_symbol(text, symbol):
         quote = m.group(1)
         end = text.index(quote, m.end())
         return text[m.start() : end + len(quote)]
+    m = re.search(rf"^{re.escape(symbol)} = {{$", text, re.M)
+    if m:
+        lines = text[m.start():].splitlines()
+        body = [lines[0]]
+        for line in lines[1:]:
+            body.append(line)
+            if line == "}":
+                break
+        return "\n".join(body)
     m = re.search(rf"^def {re.escape(symbol)}\b", text, re.M)
     if not m:
         return None

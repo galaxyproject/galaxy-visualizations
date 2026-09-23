@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from olite.registry import load_primitives
 from olite.substrate import Confirmation, LocalExecutionError
 
-from . import artifacts, confusables, galaxy_destructive, galaxy_tools, gtn, notebook, sra_import_gate
+from . import (artifacts, confusables, ena, galaxy_destructive, galaxy_tools, gtn, notebook,
+               sra_import_gate)
 from .brief import brief
 
 logger = logging.getLogger(__name__)
@@ -193,6 +194,7 @@ class ToolSurface:
         tools.extend(notebook.tool_schemas(self.substrate.manifest))
         # Not manifest-gated: the hostname allowlist is the boundary, as in loom.
         tools.extend(gtn.tool_schemas())
+        tools.extend(ena.tool_schemas())
         tools.append(FINISH)
         if self.skills and self.skills.names():
             tools.append(_skills_fetch_schema(self.skills))
@@ -384,9 +386,9 @@ class ToolSurface:
                 return ToolOutcome(f"Refused: {refusal}", is_error=True)
             result = self._claim_artifact(await handler(self.substrate.galaxy, args))
             return json.dumps(result, default=str)
-        gtn_handler = gtn.get_handler(name)
-        if gtn_handler:
-            return json.dumps(await gtn_handler(args), default=str)
+        reference_handler = gtn.get_handler(name) or ena.get_handler(name)
+        if reference_handler:
+            return json.dumps(await reference_handler(args), default=str)
         # Last resort: the name may be spelled with Cyrillic/Greek lookalikes.
         folded = self._fold_tool_name(name)
         if folded:

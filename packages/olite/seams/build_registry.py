@@ -104,6 +104,14 @@ EXTRA = [
      "what makes a bare \"plot it\" resolvable: the referent is otherwise only in the shell's "
      "chat, which never reaches the model. Emitted only when a dataset was supplied, so a bare "
      "start produces byte-identical system text."),
+    ("tool.ena_runs", "tool", None,
+     ("brain/olite/drivers/loop/ena.py", "ENA_RUNS"), "ADDED",
+     "loom has no equivalent because Orbit reaches ENA through a general shell. ENA's FASTQ "
+     "paths are not derivable from an accession -- the shard directory is its first six "
+     "characters and the numbered subdirectory depends on its length -- and whether a run is "
+     "paired is a property of the run, not its name. A live session guessed four URLs and all "
+     "four 404'd, one of them for a run that has no second mate at all. Read-only and "
+     "host-scoped to www.ebi.ac.uk, the same shape as gtn_search/gtn_fetch."),
 ]
 
 
