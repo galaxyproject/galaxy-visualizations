@@ -40,9 +40,10 @@ export function visualizationConfig({ port = DEFAULT_PORT, timeout = DEFAULT_TIM
     };
 }
 
-export async function embedVisualization(page, { src, id = "viz", width = 1200, height = 800 } = {}) {
+export async function embedVisualization(page, { src, id = "viz" } = {}) {
     await page.setContent(
-        `<iframe id="${id}" style="width:${width}px;height:${height}px;border:0" src="${src}"></iframe>`,
+        `<style>html,body{height:100%;margin:0}</style>` +
+            `<iframe id="${id}" style="width:100%;height:100%;border:0" src="${src}"></iframe>`,
     );
     await page.evaluate((frameId) => {
         window.galaxyHostMessages = [];
