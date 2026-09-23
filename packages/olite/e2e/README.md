@@ -22,6 +22,7 @@ node e2e/catalog-refusal-drive.cjs
 node e2e/ratelimit-drive.cjs
 node e2e/visualization-artifact-drive.cjs
 node e2e/artifact-survives-switch-drive.cjs
+node e2e/run-python-drive.cjs
 ```
 
 `bash e2e/run-all.sh` runs both tiers. `live-workflow-drive.cjs` and
@@ -35,6 +36,10 @@ the brain through vite's `/llm` proxy.
 tier for anything that has to hold in a deployment.** The dev tier bakes `LLM_PROVIDER` in
 and so never shows the credentials modal; the built tier shows it and reaches the brain
 through the same paths Galaxy uses.
+
+`run-python` is the only check that runs submitted Python in real Pyodide: the brain's own
+suite runs in CPython, where neither `eval_code_async` nor `pyfetch` exists. It asserts
+top-level `await` and a cross-origin `pyfetch` against the stub, so the CORS path is real.
 
 **Anything about persistence needs `?history_id=`.** `SessionMemory` keys on a history and
 stays disabled without one, so the dev page persists neither the transcript nor the
@@ -72,7 +77,8 @@ Drivers that name a real provider call `offline.cjs` first, which aborts every r
 
 ## The stub
 
-`/__script?name=…` selects a scripted response (`confirm`, `slow`, `compact`, `ratelimit`).
+`/__script?name=…` selects a scripted response (`confirm`, `slow`, `compact`, `ratelimit`,
+`plan`, `visualization`, `python`).
 `/__seen` returns every Galaxy request received, which is what makes "declining sends nothing
 to Galaxy" an assertion about the network rather than the UI.
 

@@ -423,6 +423,28 @@
       },
       "label": "ADDED",
       "note": "loom has no equivalent because nothing opens it on a dataset. Galaxy mounts olite as a visualization plugin, so the user can arrive with one already selected, and naming it is what makes a bare \"plot it\" resolvable: the referent is otherwise only in the shell's chat, which never reaches the model. Emitted only when a dataset was supplied, so a bare start produces byte-identical system text."
+    },
+    {
+      "id": "tool.ena_runs",
+      "kind": "tool",
+      "loom": null,
+      "olite": {
+        "file": "brain/olite/drivers/loop/ena.py",
+        "symbol": "ENA_RUNS"
+      },
+      "label": "ADDED",
+      "note": "loom has no equivalent because Orbit reaches ENA through a general shell. ENA's FASTQ paths are not derivable from an accession -- the shard directory is its first six characters and the numbered subdirectory depends on its length -- and whether a run is paired is a property of the run, not its name. A live session guessed four URLs and all four 404'd, one of them for a run that has no second mate at all. Read-only and host-scoped to www.ebi.ac.uk, the same shape as gtn_search/gtn_fetch."
+    },
+    {
+      "id": "hint.fetch-failure",
+      "kind": "tool-result-hint",
+      "loom": null,
+      "olite": {
+        "file": "brain/olite/drivers/loop/fetch_failure_hint.py",
+        "symbol": "ARCHIVE_HINT"
+      },
+      "label": "ADDED",
+      "note": "loom has no equivalent: its only tool-result hint covers failed workflow invocations, a different trigger that stays unported. The shape is borrowed from it -- append the imperative to a result that already reports the failure, rather than refusing the call that caused it. Galaxy names the url and the status but cannot say that writing another url from memory is the wrong next move, which is what a measured session did eight times. Pairs with tool.ena_runs, which is the answer the hint names."
     }
   ],
   "layers": {
@@ -469,7 +491,7 @@
       "classified": {
         "context": "PORTED: the system prompt, tracked block by block in `seams`",
         "galaxy-page-markdown-guidance": "PORTED: tracked in `seams`",
-        "sra-import-gate": "PARTIAL: guidance ported; the sibling-call gate is not built",
+        "sra-import-gate": "PORTED: brain/olite/drivers/loop/sra_import_gate.py",
         "confusables": "PORTED: brain/olite/drivers/loop/confusables.py",
         "secret-redaction": "PORTED: brain/olite/drivers/loop/secret_redaction.py",
         "skills-discovery": "PORTED: the skills registry",

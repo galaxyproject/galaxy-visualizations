@@ -149,6 +149,9 @@ class LoopDriver:
                 ended = REPLIED
                 break
 
+            # The whole batch, before any of it runs: a gate on sibling calls needs it.
+            tools.observe(tool_calls)
+
             terminating = []
             for call in tool_calls:
                 fn = call.get("function", {})
@@ -177,7 +180,7 @@ class LoopDriver:
                     content, is_error = refusal, True
                 else:
                     logs.append(f"call {name}({brief(args)})")
-                    outcome = await tools.dispatch(name, args)
+                    outcome = await tools.dispatch(name, args, call_id)
                     logs.append(f"  -> {brief(outcome.content)}")
                     content, is_error = outcome.text, outcome.is_error
                     gated = outcome.refused

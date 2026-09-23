@@ -125,7 +125,12 @@ async def _gtn_search(args):
             "hint": "Use gtn_search with a topic name to list its tutorials.",
         }
 
-    data = await http.request("GET", f"{GTN_API}/topics/{topic}.json")
+    # A missing topic is a 404, which the http layer raises; without this the whole
+    # GTN error page lands in the transcript instead of the name of the next step.
+    try:
+        data = await http.request("GET", f"{GTN_API}/topics/{topic}.json")
+    except Exception:
+        data = None
     if not isinstance(data, dict):
         return {
             "error": f'Topic "{topic}" not found. '

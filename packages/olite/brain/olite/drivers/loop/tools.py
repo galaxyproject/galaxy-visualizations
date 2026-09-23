@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from olite.registry import load_primitives
 from olite.substrate import Confirmation, LocalExecutionError
 
-from . import artifacts, confusables, galaxy_destructive, galaxy_tools, gtn, notebook
+from . import (artifacts, confusables, ena, fetch_failure_hint, galaxy_destructive,
+               galaxy_tools, gtn, notebook, sra_import_gate)
 from .brief import brief
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,10 @@ RUN_PYTHON = {
         "description": (
             "Run Python locally in the browser (Pyodide). numpy and pandas are available; "
             "state persists across calls. Returns the last expression value and stdout. "
-            "This runs in the browser, NOT on Galaxy - it cannot import galaxy."
+            "Top-level `await` works, and `pyfetch(url)` performs a browser fetch, so an "
+            "HTTP API can be read directly - but only from hosts that send CORS headers, "
+            "which many do not. This runs in the browser, NOT on Galaxy - it cannot import "
+            "galaxy, and real compute belongs in a Galaxy job."
         ),
         "parameters": {
             "type": "object",
@@ -173,6 +177,8 @@ class ToolSurface:
         self.artifacts = []
         # Earlier turns' artifacts, placeable in a page long after the turn that made them.
         self.prior = list(prior or [])
+        # Fan-out intent for this turn; the surface is rebuilt per turn, as loom clears per turn.
+        self.sra = sra_import_gate.SraImportGate()
         # The last call that failed and how often it has repeated, for the loop guard.
         self._last_failure = None
         # How often each settled lookup has been asked, by name and arguments.
@@ -191,6 +197,7 @@ class ToolSurface:
         tools.extend(notebook.tool_schemas(self.substrate.manifest))
         # Not manifest-gated: the hostname allowlist is the boundary, as in loom.
         tools.extend(gtn.tool_schemas())
+        tools.extend(ena.tool_schemas())
         tools.append(FINISH)
         if self.skills and self.skills.names():
             tools.append(_skills_fetch_schema(self.skills))
@@ -222,7 +229,11 @@ class ToolSurface:
         required = schema["function"].get("parameters", {}).get("required") or []
         return [key for key in required if key not in args]
 
-    async def dispatch(self, name, args):
+    def observe(self, tool_calls):
+        """Take in a whole reply's calls, before any of them runs."""
+        self.sra.observe(tool_calls)
+
+    async def dispatch(self, name, args, call_id=None):
         """Run one tool call. Always a ToolOutcome — never a raised exception."""
         logger.info("tool %s(%s)", name, brief(args))
         repeated = self._repeating_a_failure(name, args)
@@ -234,6 +245,10 @@ class ToolSurface:
         if settled:
             logger.info("  -> %s was already answered with these arguments", name)
             return ToolOutcome(settled, is_error=True, refused=True)
+        fanned_out = self.sra.check(call_id, name, args)
+        if fanned_out:
+            logger.info("  -> blocking an SRA import that would fan out")
+            return ToolOutcome(fanned_out, is_error=True, refused=True)
         schema, capabilities = self._declaration(name)
         ungranted = next((c for c in capabilities if not self.substrate.manifest.allows(c)), None)
         if ungranted:
@@ -344,7 +359,7 @@ class ToolSurface:
 
         if name == "run_python":
             try:
-                return self.substrate.local.run(args.get("code", ""))
+                return await self.substrate.local.run(args.get("code", ""))
             except LocalExecutionError as exc:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
@@ -373,10 +388,13 @@ class ToolSurface:
             if refusal:
                 return ToolOutcome(f"Refused: {refusal}", is_error=True)
             result = self._claim_artifact(await handler(self.substrate.galaxy, args))
-            return json.dumps(result, default=str)
-        gtn_handler = gtn.get_handler(name)
-        if gtn_handler:
-            return json.dumps(await gtn_handler(args), default=str)
+            payload = json.dumps(result, default=str)
+            # Galaxy names the url and the status; it cannot say that guessing another is wrong.
+            hint = fetch_failure_hint.for_result(result)
+            return f"{payload}\n\n{hint}" if hint else payload
+        reference_handler = gtn.get_handler(name) or ena.get_handler(name)
+        if reference_handler:
+            return json.dumps(await reference_handler(args), default=str)
         # Last resort: the name may be spelled with Cyrillic/Greek lookalikes.
         folded = self._fold_tool_name(name)
         if folded:

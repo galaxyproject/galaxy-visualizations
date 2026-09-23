@@ -26,7 +26,7 @@ class FakeLocal:
     def __init__(self):
         self.ran = []
 
-    def run(self, code):
+    async def run(self, code):
         self.ran.append(code)
         return "42"
 

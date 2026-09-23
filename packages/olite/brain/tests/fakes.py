@@ -26,7 +26,7 @@ class Local:
         self.output = output
         self.ran = []
 
-    def run(self, code):
+    async def run(self, code):
         self.ran.append(code)
         return self.output
 

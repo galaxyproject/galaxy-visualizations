@@ -116,6 +116,22 @@ def test_an_unknown_topic_says_how_to_find_a_real_one(net):
     assert "list available topics" in out["error"]
 
 
+def test_a_404_topic_does_not_put_the_error_page_in_the_transcript(monkeypatch):
+    """GTN answers an unknown topic with 404, which the http layer raises."""
+
+    class Raising:
+        async def request(self, method, url, headers=None, body=None):
+            if url.endswith("topics.json"):
+                return TOPICS
+            raise RuntimeError("HTTP 404: <!DOCTYPE html><html>...404 Page Not Found...</html>")
+
+    monkeypatch.setattr(gtn, "http", Raising())
+    out = run(gtn._gtn_search({"topic": "nope"}))
+
+    assert "not found" in out["error"]
+    assert "DOCTYPE" not in out["error"]
+
+
 # --- The allowlist ------------------------------------------------------------
 
 
