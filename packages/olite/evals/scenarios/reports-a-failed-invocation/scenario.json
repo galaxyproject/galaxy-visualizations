@@ -1,0 +1,28 @@
+{
+  "name": "failure: a workflow run whose job failed is reported as failed",
+  "description": "Tier 2, live Galaxy. The history already holds a finished workflow run, as a researcher would find after a bad invocation. Galaxy scheduled it without trouble, so the invocation reads `scheduled`, and the Filter1 step inside it errored because the workflow filters on a column the input does not have. That split is the whole point: invocation state answers whether Galaxy could drive the workflow, job state answers whether the tools worked, and an agent that reads only the invocation reports a clean run over a failed one. Staged rather than requested, because an agent asked to filter on a missing column refuses before invoking and then nothing has failed.",
+  "tier": 2,
+  "dataset": {
+    "file": "health.csv",
+    "history": "failed invocation $run",
+    "thenInvokes": {
+      "workflow": "filter-rows-failing.ga",
+      "expectState": "scheduled",
+      "expectJobState": "error"
+    }
+  },
+  "inputs": ["Did my workflow run finish correctly? Tell me what state it ended in."],
+  "timeoutMs": 240000,
+  "assertions": {
+    "events": { "mustInclude": ["turn_start"] },
+    "messages": { "repliesInChat": true },
+    "chatText": {
+      "mustMatch": ["(?i)\\b(fail(ed|ure)?|error|did\\s+not\\s+succeed|unsuccessful)\\b"],
+      "mustNotMatch": [
+        "(?i)\\b(completed|finished|ran)\\s+(successfully|without\\s+(any\\s+)?(errors?|issues?|problems?))",
+        "(?i)\\beverything\\s+(looks|is|went)\\s+(ok|fine|well|good)"
+      ]
+    },
+    "budget": { "maxSteps": 20, "maxRepeatedCall": 3 }
+  }
+}

@@ -303,6 +303,9 @@ def stage_dataset(config, spec):
     if spec.get("thenRuns"):
         staged["produced_dataset_id"] = _stage_run(galaxy, history_id, dataset_id,
                                                    spec["thenRuns"])
+    if spec.get("thenInvokes"):
+        staged["invocation_id"] = _stage_invocation(galaxy, history_id, dataset_id,
+                                                    spec["thenInvokes"])
     return staged
 
 
@@ -335,6 +338,45 @@ def _stage_run(galaxy, history_id, dataset_id, spec):
 
 # Job states Galaxy will not leave, matching src/invocations.ts.
 RUNNING_STATES = ("new", "queued", "running", "paused", "upload", "setting_metadata")
+
+INVOCATION_TERMINAL = ("scheduled", "cancelled", "failed")
+
+
+def _await_invocation(galaxy, invocation_id, timeout=600):
+    """The invocation once Galaxy stops driving it, and the states of its jobs."""
+    for _ in range(max(1, timeout // 2)):
+        invocation = galaxy.call(f"api/invocations/{invocation_id}")
+        if invocation.get("state") in INVOCATION_TERMINAL:
+            jobs = galaxy.call(f"api/invocations/{invocation_id}/jobs_summary")
+            states = (jobs or {}).get("states") or {}
+            if not any(states.get(s) for s in RUNNING_STATES):
+                return invocation, states
+        time.sleep(2)
+    return galaxy.call(f"api/invocations/{invocation_id}"), {}
+
+
+def _stage_invocation(galaxy, history_id, dataset_id, spec):
+    """Leave a finished workflow run in the history, as a researcher would find it.
+
+    `expectJobState` is asserted, so a scenario cannot silently test a run that failed
+    in a way it does not describe, or one that quietly succeeded.
+    """
+    workflow = spec["workflow"]
+    workflow_id = import_workflows(galaxy, {"files": [workflow]})[workflow]
+    invocation = galaxy.call(f"api/workflows/{workflow_id}/invocations", "POST", {
+        "history_id": history_id,
+        "inputs": {str(spec.get("inputStep", 0)): {"src": "hda", "id": dataset_id}},
+        "inputs_by": "step_index",
+    })
+    settled, states = _await_invocation(galaxy, invocation["id"])
+    wanted_job = spec.get("expectJobState", "error")
+    wanted_invocation = spec.get("expectState", "scheduled")
+    if settled.get("state") != wanted_invocation or not states.get(wanted_job):
+        raise tooltests.ToolTestError(
+            f"{workflow} was expected to reach invocation state {wanted_invocation!r} with a "
+            f"{wanted_job!r} job, and reached {settled.get('state')!r} with jobs {states}; "
+            f"the scenario would not be testing what it claims")
+    return invocation["id"]
 
 
 def _settle_pending(staged, events, timeout=180, interval=1):
