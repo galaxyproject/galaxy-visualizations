@@ -1,7 +1,6 @@
 /** Session persistence: pi keeps session.jsonl per analysis directory; the browser gets IndexedDB. */
 
-import type { Artifact } from "./artifacts";
-import type { Message } from "./pyodide-runner";
+import { isSessionDocument, type SessionDocument } from "./session-document";
 
 const DB_NAME = "olit";
 const STORE_NAME = "sessions";
@@ -65,105 +64,79 @@ export async function galaxyUserId(
     }
 }
 
-/** One stored conversation per user and history, as pi keys a session by home plus directory. */
-export class SessionMemory {
+/** Documents by session id, plus a per-history pointer to the one last worked on.
+ *
+ * A history is a workspace, not a conversation: several sessions can run against one, so
+ * identity is the session's own id. The pointer is what makes "open Olit on this history"
+ * continue where you were rather than start over.
+ */
+export class SessionStore {
     constructor(
         private store: Store | null,
-        private historyId?: string,
         private userId?: string,
     ) {}
 
-    /** No history means no session to key on: the eval harness and the dev page keep none. */
     get enabled(): boolean {
-        return Boolean(this.store && this.historyId);
+        return Boolean(this.store);
     }
 
-    // An anonymous Galaxy session has no id to scope by, so those still share a browser profile.
-    private get key(): string {
-        return `session:${this.userId || "anon"}:${this.historyId}`;
+    // An anonymous Galaxy session has no id to scope by, so those share a browser profile.
+    private get scope(): string {
+        return this.userId || "anon";
     }
 
-    /** Kept under its own key so a stored conversation from before this stays readable. */
-    private get artifactKey(): string {
-        return `artifacts:${this.userId || "anon"}:${this.historyId}`;
-    }
-
-    async load(): Promise<Message[] | null> {
-        if (!this.enabled) {
+    async load(sessionId: string): Promise<SessionDocument | null> {
+        if (!this.store) {
             return null;
         }
         try {
-            const stored = await this.store!.get(this.key);
-            return Array.isArray(stored) && stored.every(isMessage) && stored.length ? stored : null;
+            const stored = await this.store.get(`session:${this.scope}:${sessionId}`);
+            return isSessionDocument(stored) ? stored : null;
         } catch {
             return null;
-        }
-    }
-
-    /**
-     * What earlier turns produced, so `{{artifact}}` still resolves after a reload.
-     *
-     * Switching provider applies the new choice by reloading, so anything held only in
-     * memory is gone by the time the next turn asks for it -- which is the whole reason
-     * the transcript is persisted too.
-     */
-    async loadArtifacts(): Promise<Artifact[]> {
-        if (!this.enabled) {
-            return [];
-        }
-        try {
-            const stored = await this.store!.get(this.artifactKey);
-            return Array.isArray(stored) && stored.every(isArtifact) ? (stored as Artifact[]) : [];
-        } catch {
-            return [];
-        }
-    }
-
-    async saveArtifacts(artifacts: Artifact[]): Promise<void> {
-        if (!this.enabled) {
-            return;
-        }
-        try {
-            await this.store!.put(this.artifactKey, artifacts);
-        } catch (e) {
-            console.warn("[olit] could not persist the artifacts", e);
         }
     }
 
     /** Persisting must never break a turn, so a failed write is dropped rather than raised. */
-    async save(messages: Message[]): Promise<void> {
-        if (!this.enabled || !hasConversation(messages)) {
+    async save(document: SessionDocument): Promise<void> {
+        if (!this.store) {
             return;
         }
         try {
-            await this.store!.put(this.key, messages);
+            await this.store.put(`session:${this.scope}:${document.session.id}`, document);
+            if (document.history_id) {
+                await this.store.put(`current:${this.scope}:${document.history_id}`, document.session.id);
+            }
         } catch (e) {
             console.warn("[olit] could not persist the session", e);
         }
     }
 
-    async clear(): Promise<void> {
-        if (!this.enabled) {
+    /** The session last worked on in this history, if this browser knows of one. */
+    async current(historyId?: string): Promise<string | undefined> {
+        if (!this.store || !historyId) {
+            return undefined;
+        }
+        try {
+            const stored = await this.store.get(`current:${this.scope}:${historyId}`);
+            return typeof stored === "string" ? stored : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /** Forget the local copy. The saved Visualization, if any, is left alone. */
+    async forget(document: SessionDocument): Promise<void> {
+        if (!this.store) {
             return;
         }
         try {
-            await this.store!.remove(this.key);
-            await this.store!.remove(this.artifactKey);
+            await this.store.remove(`session:${this.scope}:${document.session.id}`);
+            if (document.history_id) {
+                await this.store.remove(`current:${this.scope}:${document.history_id}`);
+            }
         } catch (e) {
             console.warn("[olit] could not clear the session", e);
         }
     }
-}
-
-function isArtifact(a: unknown): a is Artifact {
-    return Boolean(a && typeof a === "object" && typeof (a as Artifact).kind === "string");
-}
-
-function isMessage(m: unknown): m is Message {
-    return Boolean(m && typeof m === "object" && typeof (m as Message).role === "string");
-}
-
-/** A seeded system prompt on its own is not a conversation worth resuming. */
-function hasConversation(messages: Message[]): boolean {
-    return Array.isArray(messages) && messages.some((m) => isMessage(m) && m.role !== "system");
 }

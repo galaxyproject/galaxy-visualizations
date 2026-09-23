@@ -11,7 +11,9 @@ import { catalogRefusalMessage, galaxyCanRun } from "./catalog-gate";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
-import { SessionMemory, galaxyUserId, indexedDbStore } from "./session";
+import { SessionStore, galaxyUserId, indexedDbStore } from "./session";
+import { advance, newDocument, noteModel, restoreMessages, type SessionDocument } from "./session-document";
+import { savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
@@ -84,9 +86,8 @@ async function main() {
         openapi_url: `${config.galaxy_root}openapi.json`,
     });
 
-    // One id per tab, so the summary block upserts rather than accumulating.
-    const sessionId = globalThis.crypto?.randomUUID?.() || `session-${Date.now()}`;
-    const startedAt = new Date().toISOString();
+    // Regenerated from the plugin XML every load, so a prompt correction reaches a resumed
+    // conversation instead of being pinned to the text of the day it started.
     const seed = { role: "system", content: incoming.specs.ai_prompt || PROMPT_DEFAULT };
     const convo: Message[] = [seed];
     // The shell owns what a turn produced, the way it owns the transcript: the brain is
@@ -95,13 +96,23 @@ async function main() {
     // A vega spec carries its rows, so a long session keeps only its most recent artifacts.
     const ARTIFACT_LIMIT = 20;
 
-    // One conversation per user and history, as pi keys a session by home plus directory.
     const credentials = (process.env.credentials as RequestCredentials) || "include";
-    const session = new SessionMemory(
+    const session = new SessionStore(
         indexedDbStore(),
-        config.history_id,
         await galaxyUserId(config.galaxy_root, credentials),
     );
+    const saved = savedSessions(config.galaxy_root, credentials);
+    // Opening a saved visualization opens that session. Otherwise IndexedDB continues the
+    // last conversation in this history, which is reload convenience, not a second authority.
+    let savedId = incoming.visualizationId;
+    const fromGalaxy = savedId ? await saved.load(savedId).catch(() => null) : null;
+    const localId = await session.current(config.history_id);
+    const fromBrowser = !fromGalaxy && localId ? await session.load(localId) : null;
+    // A history is a workspace, not a conversation: several sessions can run against one.
+    let sessionDoc: SessionDocument =
+        fromGalaxy ||
+        fromBrowser ||
+        newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
 
     const usage = mountUsageBar(container);
     mountBuildStamp(container, {
@@ -120,18 +131,44 @@ async function main() {
     el.model.textContent = creds.model ? `${creds.provider} · ${creds.model}` : creds.provider;
     el.model.addEventListener("click", () => void switchProvider(container));
 
+    // Saving is deliberate, as for any other Galaxy visualization: a revision then marks a
+    // save the user asked for rather than a conversation turn.
+    el.save.addEventListener("click", async () => {
+        if (busy || sessionDoc.session.turn === 0) {
+            return;
+        }
+        el.save.disabled = true;
+        el.save.textContent = "Saving...";
+        try {
+            savedId = await saved.save(sessionDoc, savedId);
+            el.save.textContent = "Saved";
+            chat.addInfoMessage(
+                "Saved this conversation. Open it again from Galaxy's visualizations to continue it anywhere.",
+            );
+        } catch (e) {
+            // The conversation itself is untouched; only the save failed.
+            console.error("[olit] could not save the session", e);
+            el.save.textContent = "Save";
+            chat.addErrorMessage(`Could not save this conversation: ${lastLine(String(e))}`);
+        } finally {
+            el.save.disabled = false;
+        }
+    });
+
     // Replay before the boot notice, so the restored turns sit above it as history.
-    let resumed = false;
     // Switching provider reloads, so what earlier turns produced comes back from storage
     // rather than from memory: without this a chart cannot be placed after a model switch.
-    produced.push(...(session.enabled ? await session.loadArtifacts() : []));
-    const restored = session.enabled ? await session.load() : null;
-    if (restored) {
+    produced.push(...sessionDoc.artifacts);
+    const restored = restoreMessages(sessionDoc, seed);
+    const resumed = restored.length > 1;
+    if (resumed) {
         convo.length = 0;
         convo.push(...restored);
         replayMessages(chat, restored);
-        resumed = true;
         el.reset.classList.remove("hidden");
+    }
+    if (fromGalaxy) {
+        chat.addInfoMessage("Opened a saved Olit session.");
     }
     // Replayed like the transcript: a resumed session that can still place a chart but shows
     // an empty pane is telling the user it lost something it did not.
@@ -286,16 +323,6 @@ async function main() {
 
         convo.length = 0;
         convo.push(...(reply.messages || []));
-        void session.save(convo);
-        // loom writes a session block into the notebook itself.
-        void writeSessionSummary(config.galaxy_root, credentials, config.history_id, {
-            id: sessionId,
-            startedAt,
-            endedAt: new Date().toISOString(),
-            orphanedActiveSteps: 0,
-        });
-        el.reset.classList.toggle("hidden", !session.enabled);
-        usage.add(reply.usage);
 
         const artifacts = reply.artifacts || [];
         if (artifacts.length) {
@@ -307,9 +334,24 @@ async function main() {
             }
             // After filling, so the pane opens on something rather than on an empty frame.
             artifactPane.reveal();
-            // Persisted once this turn's are in, or a switch would lose the newest chart.
-            void session.saveArtifacts(produced);
         }
+
+        // One document, two stores: local now because it is cheap, Galaxy on a debounce
+        // because every config change there inserts a whole new revision.
+        sessionDoc = advance(sessionDoc, { messages: convo, artifacts: produced, usage: reply.usage });
+        noteModel(sessionDoc, { provider: config.ai_provider, model: config.ai_model });
+        void session.save(sessionDoc);
+        el.save.textContent = "Save";
+        // loom writes a session block into the notebook itself. The id is the persisted
+        // session's, so a reload updates its block instead of appending another.
+        void writeSessionSummary(config.galaxy_root, credentials, config.history_id, {
+            id: sessionDoc.session.id,
+            startedAt: sessionDoc.session.createdAt,
+            endedAt: new Date().toISOString(),
+            orphanedActiveSteps: 0,
+        });
+        el.reset.classList.toggle("hidden", !session.enabled);
+        usage.add(reply.usage);
     }
 
     async function submit() {
@@ -360,7 +402,12 @@ async function main() {
         if (busy) {
             return;
         }
-        await session.clear();
+        // Reset starts a new conversation; it does not delete the old one. A session that was
+        // saved stays saved, which is the point of a session having an identity of its own
+        // rather than being whatever happens to be attached to the history.
+        sessionDoc = newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
+        savedId = undefined;
+        await session.save(sessionDoc);
         convo.length = 0;
         convo.push(seed);
         el.messages.innerHTML = "";
@@ -368,7 +415,9 @@ async function main() {
         produced.length = 0;
         el.artifactContent.innerHTML = "";
         el.reset.classList.add("hidden");
-        chat.addInfoMessage("Started a new conversation. The record on Galaxy is untouched.");
+        chat.addInfoMessage(
+            "Started a new conversation. The previous one is saved, and the record on Galaxy is untouched.",
+        );
     });
     el.input.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {

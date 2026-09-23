@@ -17,18 +17,18 @@ function check(name, ok, detail) {
 }
 
 const paneFrames = (p) => p.evaluate(() => document.querySelectorAll("#artifact-content iframe").length);
+/** The stored session documents, so the check is about content rather than key names. */
 const stored = (p) =>
     p.evaluate(async () => {
         const open = indexedDB.open("olit", 1);
         const db = await new Promise((r) => (open.onsuccess = () => r(open.result)));
         const names = [...db.objectStoreNames];
         if (!names.length) return [];
-        const tx = db.transaction(names[0], "readonly");
-        const keys = await new Promise((r) => {
-            const q = tx.objectStore(names[0]).getAllKeys();
-            q.onsuccess = () => r(q.result || []);
-        });
-        return keys.map(String);
+        const store = db.transaction(names[0], "readonly").objectStore(names[0]);
+        const read = (q) => new Promise((r) => (q.onsuccess = () => r(q.result || [])));
+        const keys = (await read(store.getAllKeys())).map(String);
+        const values = await read(store.getAll());
+        return keys.map((key, i) => ({ key, value: values[i] }));
     });
 
 (async () => {
@@ -63,9 +63,15 @@ const stored = (p) =>
         process.exit(1);
     }
 
-    const keys = await stored(page);
+    const entries = await stored(page);
+    // The artifact has to be inside the stored session document, not merely in some key.
+    const documents = entries.filter((e) => e.key.startsWith("session:"));
     check("what the turn produced is persisted, not merely held in memory",
-        keys.some((k) => k.startsWith("artifacts:")), keys.join(", ") || "(no keys)");
+        documents.some((d) => (d.value?.artifacts || []).length > 0),
+        entries.map((e) => e.key).join(", ") || "(no keys)");
+    check("the history points at the session, so a reload continues it",
+        entries.some((e) => e.key.startsWith("current:") && typeof e.value === "string"),
+        entries.map((e) => e.key).join(", ") || "(no keys)");
 
     // What a config change does: the page reloads, so the brain and every in-memory array
     // in the shell are replaced. Anything that survives survived because it was persisted.
