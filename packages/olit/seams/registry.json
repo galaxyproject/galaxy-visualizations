@@ -1,0 +1,827 @@
+{
+  "seams": [
+    {
+      "id": "prompt.buildActiveModelBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildActiveModelBlock",
+        "condition": "emitted when an active LLM provider is configured (`if (!active) return \"\"`)",
+        "fingerprint": "1723121f233e6676"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "active_model_block"
+      },
+      "label": "PORTED",
+      "note": "olit gates on the resolved target instead of config."
+    },
+    {
+      "id": "prompt.buildTesterIdBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildTesterIdBlock",
+        "condition": "emitted when a tester id is configured",
+        "fingerprint": "f6f88cbc89c08130"
+      },
+      "olit": null,
+      "label": "NA",
+      "note": "Orbit beta-tester code; no counterpart."
+    },
+    {
+      "id": "prompt.buildCurrentDateBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildCurrentDateBlock",
+        "condition": "unconditional",
+        "fingerprint": "7d95acbcbd06a490"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "current_date_block"
+      },
+      "label": "PORTED",
+      "note": ""
+    },
+    {
+      "id": "prompt.buildOperatingDisciplineBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildOperatingDisciplineBlock",
+        "condition": "unconditional",
+        "fingerprint": "0f7a2fec6e42cc6d"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "OPERATING_DISCIPLINE"
+      },
+      "label": "PORTED",
+      "note": "Secrets section adapted: olit needs no credentials."
+    },
+    {
+      "id": "prompt.buildVerificationDisciplineBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildVerificationDisciplineBlock",
+        "condition": "unconditional",
+        "fingerprint": "6dd5ffac1e78e9b6"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "VERIFICATION"
+      },
+      "label": "PORTED",
+      "note": ""
+    },
+    {
+      "id": "prompt.buildPlanConventionBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildPlanConventionBlock",
+        "condition": "unconditional; `omitAnchors` varies by model family",
+        "fingerprint": "d28bb2dbbda78f97"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "PLAN_CONVENTION"
+      },
+      "label": "PORTED",
+      "note": "olit emits no anchors at all, so it matches the omit path."
+    },
+    {
+      "id": "prompt.buildParameterReviewBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildParameterReviewBlock",
+        "condition": "unconditional",
+        "fingerprint": "118227c08a40851f"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "PARAMETER_REVIEW"
+      },
+      "label": "PORTED",
+      "note": ""
+    },
+    {
+      "id": "prompt.buildChatFormattingBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildChatFormattingBlock",
+        "condition": "unconditional",
+        "fingerprint": "07b687a7767dc8fe"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "CHAT_FORMATTING"
+      },
+      "label": "PORTED",
+      "note": ""
+    },
+    {
+      "id": "prompt.buildNotebookWriteBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildNotebookWriteBlock",
+        "condition": "unconditional",
+        "fingerprint": "b4fd24d4b5abe3b3"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "RECORD_WRITES"
+      },
+      "label": "REPLACED",
+      "note": "Retargeted from notebook.md edits to update_page."
+    },
+    {
+      "id": "prompt.buildExecutionModeBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildExecutionModeBlock",
+        "condition": "emitted only when a local shell exists AND executionMode is local",
+        "fingerprint": "5bc7572c24e75e70"
+      },
+      "olit": null,
+      "label": "NA",
+      "note": "Both preconditions are false in olit by construction."
+    },
+    {
+      "id": "prompt.buildGalaxyContextBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "condition": "suppressed in local mode; otherwise emits a CONNECTED or a NOT CONNECTED variant",
+        "fingerprint": "3d16438b6a4f5d93"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "GALAXY_TERMINOLOGY"
+      },
+      "label": "PORTED",
+      "note": "Condition not yet ported: olit has no NOT-CONNECTED variant. See catalog gap."
+    },
+    {
+      "id": "prompt.buildSkillsContext",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildSkillsContext",
+        "condition": "emitted when at least one skill is configured",
+        "fingerprint": "7313095a0cb2f79f"
+      },
+      "olit": null,
+      "label": "PORTED",
+      "note": "olit's skills router is assembled in registry/skills.py, not prompt.py."
+    },
+    {
+      "id": "prompt.buildLocalEnvContext",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildLocalEnvContext",
+        "condition": "emitted only when a local shell exists",
+        "fingerprint": "75e8491615fb36a2"
+      },
+      "olit": null,
+      "label": "NA",
+      "note": "No local shell."
+    },
+    {
+      "id": "prompt.buildNoLocalShellBlock",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildNoLocalShellBlock",
+        "condition": "emitted only when the local shell is disabled",
+        "fingerprint": "b3406c5947bfa7f0"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "NO_LOCAL_SHELL"
+      },
+      "label": "PORTED",
+      "note": "Condition is permanently true in olit; block is unconditional here."
+    },
+    {
+      "id": "prompt.buildTeamDispatchContext",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildTeamDispatchContext",
+        "condition": "emitted when team dispatch is enabled",
+        "fingerprint": "72063099a7dd605c"
+      },
+      "olit": null,
+      "label": "NA",
+      "note": "No team dispatch."
+    },
+    {
+      "id": "prompt.buildSessionIndexContext",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildSessionIndexContext",
+        "condition": "emitted when the session index is enabled",
+        "fingerprint": "6f5a9662c7b6fec1"
+      },
+      "olit": null,
+      "label": "NA",
+      "note": "Post-MVP; feature-gated in loom too."
+    },
+    {
+      "id": "prompt.galaxy-context.getting",
+      "kind": "prompt-section",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "section": "Getting data into a Galaxy history",
+        "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
+        "fingerprint": "02c67ea0a2f74b51"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "GETTING_DATA_IN"
+      },
+      "label": "REPLACED",
+      "note": "Local upload replaced by URL fetch; olit cannot reach the user's disk."
+    },
+    {
+      "id": "prompt.galaxy-context.invoking",
+      "kind": "prompt-section",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "section": "Invoking a Galaxy workflow",
+        "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
+        "fingerprint": "99060782a6586f4c"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "INVOKING_WORKFLOW"
+      },
+      "label": "PORTED",
+      "note": ""
+    },
+    {
+      "id": "prompt.galaxy-context.executing",
+      "kind": "prompt-section",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "section": "Executing a Galaxy step",
+        "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
+        "fingerprint": "061bd0efab046abe"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "EXECUTING_A_STEP"
+      },
+      "label": "PORTED",
+      "note": ""
+    },
+    {
+      "id": "prompt.galaxy-context.drafting",
+      "kind": "prompt-section",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "section": "Drafting a new plan",
+        "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
+        "fingerprint": "b1bf9fe62b11658f"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "DRAFTING_A_PLAN"
+      },
+      "label": "PORTED",
+      "note": "Own block since 2026-08-20, gated on the tool catalog exactly as loom gates it on a live connection. Previously DIVERGED: carried inside PLAN_CONVENTION and ungated, which fired it in contexts loom never does. The local-routing branch stays dropped."
+    },
+    {
+      "id": "prompt.galaxy-context.resuming",
+      "kind": "prompt-section",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "section": "Resuming existing Galaxy work",
+        "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
+        "fingerprint": "b74b301e50a8fc6d"
+      },
+      "olit": null,
+      "label": "REPLACED",
+      "note": "Page selection is inapplicable -- olit binds one record per history by construction. Only the read-the-history step is ported, kept resume-conditional as loom has it."
+    },
+    {
+      "id": "prompt.galaxy-context.uploading",
+      "kind": "prompt-section",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "section": "Uploading local data",
+        "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
+        "fingerprint": "c260958cadcd8b38"
+      },
+      "olit": null,
+      "label": "NA",
+      "note": "No access to the user's filesystem."
+    },
+    {
+      "id": "prompt.galaxy-context.if",
+      "kind": "prompt-section",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "section": "If a Galaxy tool reports it's not connected",
+        "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
+        "fingerprint": "b3f88ab49d7ea983"
+      },
+      "olit": null,
+      "label": "MISSING",
+      "note": "olit has no not-connected variant; the analogous state is a failed OpenAPI catalog load."
+    },
+    {
+      "id": "prompt.buildGalaxyContextBlock.not-connected",
+      "kind": "prompt-branch",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "buildGalaxyContextBlock",
+        "branch": "NOT CONNECTED (shell-disabled branch)",
+        "condition": "emitted instead of the Galaxy guidance when credentials are absent",
+        "fingerprint": "3d16438b6a4f5d93"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "GALAXY_UNAVAILABLE"
+      },
+      "label": "PORTED",
+      "note": "loom keys on missing GALAXY_URL/GALAXY_API_KEY; olit is served by Galaxy, so the equivalent condition is the OpenAPI tool catalog failing to load."
+    },
+    {
+      "id": "prompt.GALAXY_PAGE_MARKDOWN_GUIDANCE",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/galaxy-page-markdown-guidance.ts",
+        "symbol": "GALAXY_PAGE_MARKDOWN_GUIDANCE",
+        "condition": "unconditional, injected with the page tools",
+        "fingerprint": "7b499a0f78e0fe1b"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "GALAXY_PAGE_MARKDOWN"
+      },
+      "label": "PORTED",
+      "note": ""
+    },
+    {
+      "id": "prompt.SRA_IMPORT_GUIDANCE",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/sra-import-gate.ts",
+        "symbol": "SRA_IMPORT_GUIDANCE",
+        "condition": "unconditional when Galaxy is reachable",
+        "fingerprint": "7b54fc3c992287f6"
+      },
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "IMPORTING_SRA"
+      },
+      "label": "PORTED",
+      "note": "loom also enforces this with a tool-call gate that groups sibling SRA submissions; olit carries the guidance only."
+    },
+    {
+      "id": "context.project-data-placement",
+      "kind": "prompt-branch",
+      "loom": {
+        "file": "extensions/loom/context.ts",
+        "symbol": "setupContextInjection",
+        "condition": "every turn that injects notebook or workspace context",
+        "fingerprint": "3ca7669264cdb799"
+      },
+      "olit": {
+        "file": "brain/olit/runtime.py",
+        "symbol": "_inject_record"
+      },
+      "label": "PORTED",
+      "note": "olit has one project-data channel (the record); loom has two."
+    },
+    {
+      "id": "prompt.seedDatasetBlock",
+      "kind": "prompt-block",
+      "loom": null,
+      "olit": {
+        "file": "brain/olit/prompt.py",
+        "symbol": "seed_dataset_block"
+      },
+      "label": "ADDED",
+      "note": "loom has no equivalent because nothing opens it on a dataset. Galaxy mounts olit as a visualization plugin, so the user can arrive with one already selected, and naming it is what makes a bare \"plot it\" resolvable: the referent is otherwise only in the shell's chat, which never reaches the model. Emitted only when a dataset was supplied, so a bare start produces byte-identical system text."
+    },
+    {
+      "id": "tool.ena_runs",
+      "kind": "tool",
+      "loom": null,
+      "olit": {
+        "file": "brain/olit/drivers/loop/ena.py",
+        "symbol": "ENA_RUNS"
+      },
+      "label": "ADDED",
+      "note": "loom has no equivalent because Orbit reaches ENA through a general shell. ENA's FASTQ paths are not derivable from an accession -- the shard directory is its first six characters and the numbered subdirectory depends on its length -- and whether a run is paired is a property of the run, not its name. A live session guessed four URLs and all four 404'd, one of them for a run that has no second mate at all. Read-only and host-scoped to www.ebi.ac.uk, the same shape as gtn_search/gtn_fetch."
+    },
+    {
+      "id": "hint.fetch-failure",
+      "kind": "tool-result-hint",
+      "loom": null,
+      "olit": {
+        "file": "brain/olit/drivers/loop/fetch_failure_hint.py",
+        "symbol": "ARCHIVE_HINT"
+      },
+      "label": "ADDED",
+      "note": "loom has no equivalent: its only tool-result hint covers failed workflow invocations, a different trigger that stays unported. The shape is borrowed from it -- append the imperative to a result that already reports the failure, rather than refusing the call that caused it. Galaxy names the url and the status but cannot say that writing another url from memory is the wrong next move, which is what a measured session did eight times. Pairs with tool.ena_runs, which is the answer the hint names."
+    },
+    {
+      "id": "tool.get_invocations.outcome",
+      "kind": "tool-result-projection",
+      "loom": {
+        "file": "extensions/loom/tools.ts",
+        "symbol": "checkInvocations",
+        "condition": "a poll of an in-flight invocation recorded in the notebook",
+        "fingerprint": "4d956ede42efd765"
+      },
+      "olit": {
+        "file": "brain/olit/drivers/loop/invocation_outcome.py",
+        "symbol": "settle"
+      },
+      "label": "PORTED",
+      "note": "loom's transition rules, applied to what the agent reads instead of to a notebook block: FAILED_JOB_STATES, and the two questions of whether Galaxy has stopped scheduling and whether any job is still moving. Galaxy's invocation state describes scheduling, so a run whose jobs errored still reads `completed` there, and a measured session reported it as clean. One divergence: loom folds a cancelled run into `failed` because its record has no third word, and a tool result has room to say `cancelled`. Mirrors src/invocations.ts:settleInvocation, which applies the same rule for the user."
+    }
+  ],
+  "layers": {
+    "eval_scenarios": {
+      "source": "loom evals/scenarios",
+      "fingerprints": {
+        "behavior-underspecified-ask": "464ffdbc1b2a40fa",
+        "evidence-gate-in-progress-contradiction": "bd85feee53dbfe9f",
+        "execution-after-approval": "3d8f4014d1a232ec",
+        "init-gate-galaxy-no-connection": "9b59f2b7a8a639dc",
+        "plan-consults-iwc": "a9f9fae8b9c21cd0",
+        "plan-creation-metagenomics": "74c626e60de3e52f",
+        "plan-creation-pharmacogenomics": "7c1b7c31c877b8fd",
+        "plan-creation-rnaseq": "d32dcf03f13b1114",
+        "plan-creation-scrna-celltypes": "dd7476611fd40e06",
+        "plan-creation-somatic-variants": "6564a1fbe13319fc",
+        "routing-clear-galaxy": "21b6b4d5afe67ff7",
+        "routing-clear-local": "9d4dd5a98f7cda73",
+        "smoke-echo": "0ef9b672b9c90b2b",
+        "standing-instructions-tool-preference": "6ab245106ec2dab8",
+        "udt-authoring-container": "ed21826b2bf647b4",
+        "udt-authoring-select-params": "33252c01161252a5",
+        "udt-authoring-threads": "15e165c9ca7dfcaa"
+      }
+    },
+    "eval_lib": {
+      "source": "loom evals/lib",
+      "note": "grading and normalization; a change here is eval parity even when it does not move a recorded run",
+      "fingerprints": {
+        "aggregate": "c28ab73e6c052881",
+        "assertions": "223e060329b5138e",
+        "env": "5780dbbfbd213694",
+        "matrix": "bf178ce94ae711d3",
+        "notebook-parser": "2554ecbb22d61128",
+        "persist": "03031f75a322cf6a",
+        "report": "e6c2179eac12d3a6",
+        "runner": "35e581629b5b2f09",
+        "types": "c65805ade67dd2a4"
+      }
+    },
+    "loom_modules": {
+      "source": "loom extensions/loom",
+      "note": "inventory, not a parity list: an added or changed module must be classified as relevant, NA, or needing investigation",
+      "classified": {
+        "context": "PORTED: the system prompt, tracked block by block in `seams`",
+        "galaxy-page-markdown-guidance": "PORTED: tracked in `seams`",
+        "sra-import-gate": "PORTED: brain/olit/drivers/loop/sra_import_gate.py",
+        "confusables": "PORTED: brain/olit/drivers/loop/confusables.py",
+        "secret-redaction": "PORTED: brain/olit/drivers/loop/secret_redaction.py",
+        "skills-discovery": "PORTED: the skills registry",
+        "skills": "PORTED: the skills registry",
+        "vendor-skills": "PORTED: skills are vendored at build time",
+        "notebook-writer": "PORTED: the record",
+        "notebook-anchors": "PORTED: record anchors",
+        "galaxy-page-binding": "PORTED: one record per history",
+        "galaxy-page-sync": "PORTED: record writes",
+        "galaxy-pages-api": "PORTED: the page tools",
+        "galaxy-pages-sync": "PORTED: record writes",
+        "galaxy-markdown-adapter": "PORTED: artifact markdown",
+        "galaxy-api": "PORTED: the scoped catalog",
+        "galaxy-poller": "PORTED: the job watcher",
+        "galaxy-job-block": "PORTED: job state in the record",
+        "galaxy-upload": "PORTED: upload_file",
+        "tools": "PORTED: the tool surface",
+        "tools-sync": "PORTED: the tool surface is built at load",
+        "evidence-gate": "NA: loom's model owns the checkbox and its poller owns a separate status block, so the two can contradict. olit's watcher writes the checkbox itself (applyJobOutcome), and no recorded run has the model flipping a step that carries an id. Revisit if the flip ever moves to the model.",
+        "auto-resume": "NA: loom's poller wakes the agent, so it needed a cap. olit's onSettled posts a message and edits the record; it starts no turn, so there is no automatic continuation to bound.",
+        "invocation-failure-hint": "PARTIAL: the imperative rides the result as `outcome_note` (see the tool.get_invocations.outcome seam); the pointer to loom's two vendored failure references is not ported, because they live in its foundry bundle rather than in the shared galaxy-skills repo",
+        "galaxy-cred-drift": "NA: the browser session is the credential; nothing to reconnect",
+        "confusables-hint": "NA: upstream calls it a stopgap; olit folds names at dispatch",
+        "user-instructions": "NA: no project directory in a browser, so no LOOM.md channel",
+        "init-gate": "NA: asserts no turn starts; this harness always emits turn_start",
+        "evidence-override-command": "NA: slash commands are a desktop shell affordance",
+        "execution-commands": "NA: slash commands",
+        "feedback-command": "NA: slash commands",
+        "instructions-command": "NA: slash commands",
+        "skills-command": "NA: slash commands",
+        "sync-command": "NA: slash commands",
+        "tester-id-command": "NA: slash commands",
+        "activity": "NA: activity.jsonl is a desktop pane",
+        "activity-hooks": "NA: activity.jsonl is a desktop pane",
+        "agent-dir": "NA: no ~/.loom on disk",
+        "config": "NA: config arrives from the Charts host",
+        "profiles": "NA: no on-disk profiles",
+        "state": "NA: no on-disk state",
+        "git": "NA: no working copy",
+        "local-exec": "NA: Pyodide, no local shell",
+        "session-lifecycle": "NA: one worker session per tab",
+        "ui-bridge": "NA: Electron IPC",
+        "feedback": "NA: desktop feedback flow",
+        "galaxy-launcher-error": "NA: no launcher",
+        "galaxy-transport-error": "NA: transport is the browser's fetch",
+        "galaxy-upload-tus": "NA: tus resumable upload is a desktop concern",
+        "index": "NA: extension entry point",
+        "types": "NA: type declarations"
+      },
+      "fingerprints": {
+        "activity-hooks": "49e2e292be3b6a2f",
+        "activity": "98ea71250babd65c",
+        "agent-dir": "056f2e66c245f789",
+        "auto-resume": "ba12205b2be2eb66",
+        "config": "d2e7b24e04ed9d95",
+        "confusables-hint": "915965563b9b8ac5",
+        "confusables": "aed953bee212722a",
+        "context": "7a305e3d6ecd5acf",
+        "evidence-gate": "5c8bb72ff55eee9a",
+        "evidence-override-command": "6f775ed5fb95b514",
+        "execution-commands": "9859d9b33331d651",
+        "feedback-command": "ea091cbed31913fd",
+        "feedback": "3be503294921b60b",
+        "galaxy-api": "fb2fb1ae0821e7df",
+        "galaxy-cred-drift": "0ad773b882e88a17",
+        "galaxy-job-block": "7240c5bb18b38c8a",
+        "galaxy-launcher-error": "fa69b108331099aa",
+        "galaxy-markdown-adapter": "4b17c0125e7b76a3",
+        "galaxy-page-binding": "a09e1c50887cab14",
+        "galaxy-page-markdown-guidance": "480b42d6dfd5fd23",
+        "galaxy-page-sync": "dc691a3079b55188",
+        "galaxy-pages-api": "51e22b2e7fe22ed4",
+        "galaxy-pages-sync": "300edfe915627cf7",
+        "galaxy-poller": "f11d6dc7b4aa0fc0",
+        "galaxy-transport-error": "93a1910932d439d0",
+        "galaxy-upload-tus": "516ea7513054dd3c",
+        "galaxy-upload": "231298e5eda2dab2",
+        "git": "5e131b1e4008b725",
+        "index": "9056f4e01cefcceb",
+        "init-gate": "bc6719c3fafc83f7",
+        "instructions-command": "fe37b4c1eae49a1c",
+        "invocation-failure-hint": "e332a65f401dec44",
+        "local-exec": "6b0cd8a36961f4b2",
+        "notebook-anchors": "473d671a9db63832",
+        "notebook-writer": "39578acdc75ec629",
+        "profiles": "b3b806886c32cf4e",
+        "secret-redaction": "bb94db0417bc5876",
+        "session-lifecycle": "b80886bb936319cc",
+        "skills-command": "8d498f213e140303",
+        "skills-discovery": "d0274e61083e9e65",
+        "skills": "6012f04c0b9d55b3",
+        "sra-import-gate": "ba7ece65098c09f3",
+        "state": "10429a1c3693d350",
+        "sync-command": "11e51f9133ccdb35",
+        "tester-id-command": "631ce46370687917",
+        "tools-sync": "b557ca0c2aaa8942",
+        "tools": "2eabe7ea00c618f8",
+        "types": "2f846401e07768b1",
+        "ui-bridge": "32d67384f9618020",
+        "user-instructions": "10b8e9731b7899c9",
+        "vendor-skills": "be0d4d9b12ee0aba"
+      }
+    },
+    "identity_prompt": {
+      "fingerprint": "9dee599001fd78f7"
+    },
+    "skills": {
+      "repo": "galaxyproject/galaxy-skills",
+      "ref": "main",
+      "sha": "3f69f4cb2ba45627b763c5f5fbc3a84b018177ea",
+      "vendored": true,
+      "files": {
+        "AGENTS.md": "49993ebdf047b67e",
+        "CONTRIBUTING.md": "714bc23dfd93a1a5",
+        "README.md": "8a42d0bb86915e2a",
+        "collection-manipulation/README.md": "c6692e83e96a06ed",
+        "collection-manipulation/SKILL.md": "8003dbf0d9be5bda",
+        "collection-manipulation/references/api-patterns.md": "31a9935bf2b41f76",
+        "collection-manipulation/references/apply-rules.md": "2885904b44e22a2e",
+        "collection-manipulation/references/test-patterns.md": "a2c1b6d633b8f2e0",
+        "collection-manipulation/references/tools.md": "577ba1706b2faf0b",
+        "galaxy-integration/README.md": "bbb9249ec78705ac",
+        "galaxy-integration/SKILL.md": "b8aebad829fa8caa",
+        "galaxy-integration/examples/README.md": "fb88be1b42aa3e40",
+        "galaxy-integration/examples/tool-checking.md": "33568f34d58ebf22",
+        "galaxy-integration/examples/workflow-testing.md": "dae005aa9dc7ccbb",
+        "galaxy-integration/galaxy-integration.md": "c42ae0abe4c9a468",
+        "galaxy-integration/jupyterlite/SKILL.md": "740a1a7a40764d8d",
+        "galaxy-integration/mcp-reference/SKILL.md": "54f638ff71303886",
+        "galaxy-integration/mcp-reference/gotchas.md": "25db04a196296c46",
+        "galaxy-integration/mcp-reference/history-access.md": "3919a70cd465fbc2",
+        "galaxy-integration/scripts/README.md": "0f39efa09962e451",
+        "hub-news-posts/README.md": "3c272add57212f75",
+        "hub-news-posts/SKILL.md": "532b1187dc8b3af9",
+        "hub-news-posts/examples/sample-post.md": "63adf8446be681b2",
+        "hub-news-posts/references/formatting.md": "f8cbf2849e3b51fd",
+        "nf-to-galaxy/README.md": "6c1af4a5419b064d",
+        "nf-to-galaxy/SKILL.md": "4c2c9bc35808f127",
+        "nf-to-galaxy/check-tool-availability.md": "22cf8c7c2620ee4b",
+        "nf-to-galaxy/container-mapping.md": "efcacaef944696f6",
+        "nf-to-galaxy/datatype-mapping.md": "2cf9a4de8287e87f",
+        "nf-to-galaxy/examples/README.md": "d92e2ec5776b1999",
+        "nf-to-galaxy/examples/capheine-mapping.md": "80d10886ff8ea43e",
+        "nf-to-galaxy/examples/tool-checking-example.md": "a6598b7b4e3be496",
+        "nf-to-galaxy/examples/workflow-testing-example.md": "74286e8db98c79ca",
+        "nf-to-galaxy/nextflow-galaxy-terminology.md": "c7a2e34fd632532c",
+        "nf-to-galaxy/nf-pipeline-to-galaxy-workflow/SKILL.md": "2f038c73752a58e7",
+        "nf-to-galaxy/nf-process-to-galaxy-tool/SKILL.md": "b7779bb06cdd45a5",
+        "nf-to-galaxy/nf-subworkflow-to-galaxy-workflow/SKILL.md": "440015a11ebdb431",
+        "nf-to-galaxy/process-to-tool.md": "dca1333a54b3255d",
+        "nf-to-galaxy/testing-and-validation.md": "a93bf89c180dbf97",
+        "nf-to-galaxy/tool-sources.md": "8c7e7d20d046ab5f",
+        "nf-to-galaxy/workflow-to-ga.md": "6b2e7a061e438844",
+        "reproduciblify/SKILL.md": "bdeffb73b4dbc925",
+        "tool-dev/SKILL.md": "12b1468046cea8ef",
+        "tool-dev/references/testing.md": "6b433ba3ce426495",
+        "tool-dev/references/tool-help-diagrams.md": "e3bd82748bc0d8dd",
+        "tool-dev/references/tool-placement.md": "37e5f15e43a34244",
+        "tool-dev/tool-selection-diagram/SKILL.md": "f485b0a842f51088",
+        "trackhubs/README.md": "c77a08359e39d565",
+        "trackhubs/SKILL.md": "ffb65a9ac5a52d6e",
+        "trackhubs/references/chain-to-bigchain.md": "cc4de4256dd06d82",
+        "trackhubs/references/composite-tracks.md": "8634f136e7076682",
+        "trackhubs/references/genomes-txt-fields.md": "cf26eae9e5fffede",
+        "trackhubs/references/hubcheck-debugging.md": "b884350820715725",
+        "udt-authoring/SKILL.md": "621d443ecf32e675",
+        "udt-authoring/references/common-mistakes.md": "2a465102dec2322d",
+        "udt-authoring/references/schema-reference.md": "45d7664f640600ad",
+        "udt-authoring/references/templating.md": "ac505750d72bc754",
+        "update-usegalaxy-tool/README.md": "2d6917f9b8b2c9e1",
+        "update-usegalaxy-tool/SKILL.md": "35880eb49f043eb1",
+        "update-usegalaxy-tool/references/file-formats.md": "280830c6d1547812",
+        "workflow-reports/README.md": "a5c08389451180fd",
+        "workflow-reports/SKILL.md": "f14eace198e8a701",
+        "workflow-reports/examples/histology-staining.md": "78ceb56b7f3af737",
+        "workflow-reports/examples/tissue-microarray-analysis.md": "f32a6827d890b774",
+        "workflow-reports/references/directives.md": "1b2fe9814c3c10be"
+      }
+    },
+    "pi": {
+      "package": "@earendil-works/pi-agent-core",
+      "version": "0.85.1",
+      "files": {
+        "dist/agent-loop.js": "5077a2e5b845cc55",
+        "dist/agent.js": "8baf1f05f827fd1b",
+        "dist/harness/agent-harness.js": "cd3ad83815819c7e"
+      }
+    },
+    "tool_surface": {
+      "source": "galaxy_mcp",
+      "allowed_divergence": {
+        "connect": "no connection step: olit is served by Galaxy",
+        "download_dataset": "no local filesystem; returns content instead",
+        "upload_file": "no access to the user's disk",
+        "get_workflow_input_template": "drops the optional `verbose` parameter",
+        "update_page": "ADDED: takes `section_heading`/`section_content` to replace one section, and `expect_hash` to refuse a write when the page changed since it was read. Uses Galaxy's own djb2 hash and section semantics (sectionDiffUtils.ts, page_assistant.py) so Olit and Galaxy's page assistant agree. Also sends `edit_source: agent`.",
+        "get_history_contents": "ADDED: omits `dataset_id`, the underlying Dataset id Galaxy returns beside the HDA `id`. Both encode into the same id space, so a tool given the wrong one resolves to an unrelated object instead of failing. Nothing in Olit or the scenarios consumes it. Instance of the agent-safe projection principle: a field the model cannot act on, or that is dangerously confusable with one it must, may be omitted from a tool result.",
+        "get_tool_panel": "ADDED: galaxy-mcp returns the raw panel, ~25k tokens on a 170-tool server and unbounded on a public one. olit returns section, id, name and description, and takes a `section` filter. Returns the paging envelope {items, shown, total, truncated, next_offset} instead of a bare list, and takes limit/offset.",
+        "list_workflows": "DIVERGES: galaxy-mcp filters `name` as a lowercase substring of the workflow name. olit compares alphanumerics only and also matches tags, so \"rna seq\" finds \"RNA-seq quantification\" and anything tagged rna-seq. Delegating to Galaxy's own ?search is not the fix: it drops raw terms under four characters, so \"rna seq\" there matches every workflow. Returns the paging envelope {items, shown, total, truncated, next_offset} instead of a bare list, and takes limit/offset.",
+        "list_visualizations": "ADDED: galaxy-mcp has no visualization surface at all. Asks Galaxy which installed plugins accept a dataset (api/plugins?dataset_id=) rather than matching extensions client-side, which gets subclassing right, and marks the visualization the datatype itself declares. Answers only what can render the dataset: the columns it used to return made a column lookup double as a plugin advertisement, and tabular charting drifted off vintent_dataset because of it. Columns come from get_dataset_details.",
+        "show_visualization": "ADDED: renders a dataset with an installed plugin and saves nothing, the common case. galaxy-mcp has no equivalent; Galaxy's own UI reaches this through /visualizations/display, which needs the plugin name as well as the id.",
+        "save_visualization": "ADDED: stores a durable Galaxy visualization the user keeps and can share. Split from show_visualization so that displaying a chart does not add a row to the user's visualization list, and because only a saved config can carry settings and tracks.",
+        "get_visualization_details": "ADDED: galaxy-mcp has no visualization surface. Returns one plugin's inputs joined with what galaxy-charts stores for each input type, so settings and tracks are written to a stated shape instead of inferred from parameter names, and a caller can tell a genome input from a track input. The shapes come from galaxy-charts' published contract, vendored under brain/olit/vendor and pinned; Galaxy declares which inputs exist, galaxy-charts owns what they store. Per plugin rather than on the listing: the caller needs exactly one.",
+        "get_visualization": "ADDED: galaxy-mcp has no visualization surface. Returns a saved visualization's current settings and tracks so a revision changes them rather than rebuilding them: save_visualization replaces the config wholesale, and reconstructing it blind drops whatever the plugin itself wrote there. Same read-before-write shape as get_page before update_page.",
+        "get_visualization_options": "ADDED: galaxy-mcp has no visualization surface. Resolves a parameter's options from wherever the declaration says they live -- a remote json list, a Galaxy data table, or the declared options -- which is the same lookup galaxy-charts performs to build the input form, using the browser fetch olit already has. Without it the agent invents an option, and where the stored value is an object copied verbatim it cannot invent a usable one. Returns labels to browse and the full value only for a `search`, since these lists are large and only the chosen entry is ever written."
+      },
+      "upstream": {
+        "connect": "caf57caed25afac8",
+        "search_tools_by_name": "6b80b4de4df074cc",
+        "get_tool_details": "6846e3a1c30c7d95",
+        "get_tool_run_examples": "2ae02c9ab2c78b0d",
+        "get_tool_input_template": "2443c45b5eff3b79",
+        "get_tool_citations": "4a5c3d08e33b8a02",
+        "run_tool": "fe119643fefccd29",
+        "get_tool_panel": "cb517b6d6f893df9",
+        "create_history": "67e33303d7485cd2",
+        "update_history": "ad7d520ddb1c4777",
+        "search_tools_by_keywords": "2d6cd8063f747ee7",
+        "get_server_info": "afbffe3d741e225e",
+        "get_user": "6996f3e5f40d611a",
+        "get_histories": "627fdfbb146b75f2",
+        "list_history_ids": "5aa4ff201ce5ab65",
+        "get_history_details": "5b80d90be39a738d",
+        "get_history_contents": "31582c0e7aeb4f00",
+        "get_job_details": "8aac681c76b9b6fb",
+        "get_dataset_details": "337fc4c40c976166",
+        "get_collection_details": "e92c9556ff548fd1",
+        "download_dataset": "b046881ab6c281aa",
+        "upload_file": "f6b4d869df115d8f",
+        "upload_file_from_url": "eaedf7345bac0d21",
+        "get_invocations": "d4c7ac4b6ab54d56",
+        "get_iwc_workflows": "07c3f29bfc73ff0d",
+        "search_iwc_workflows": "094f988779a4218a",
+        "get_iwc_workflow_details": "f3c8d8af0a274569",
+        "recommend_iwc_workflows": "d5eba58d3fe31166",
+        "import_workflow_from_iwc": "0fae397060b47481",
+        "list_workflows": "859b5b097ea9b614",
+        "get_workflow_details": "8502dbd7be19ecc9",
+        "get_workflow_input_template": "97ba7f0211aa0aef",
+        "invoke_workflow": "ecbda6f63f82237f",
+        "cancel_workflow_invocation": "6c60a78373a73316",
+        "create_user_tool": "96ab6120821f7a87",
+        "list_user_tools": "092219a4157e108c",
+        "delete_user_tool": "b445d0902812a4de",
+        "run_user_tool": "143a7c62d3d2e0c8",
+        "list_pages": "297d171394bfd8df",
+        "get_page": "48fffc9db01a327f",
+        "create_page": "31337c59e1cedce0",
+        "update_page": "6ef655cd843180e7",
+        "list_page_revisions": "903f5fdb2f40b0e4",
+        "get_page_revision": "6a3f2dbc2b96f3ac",
+        "revert_page_revision": "54f85fea93e8d28f"
+      },
+      "shaped_returns": {
+        "connect": [
+          "auth",
+          "connected",
+          "url",
+          "user"
+        ],
+        "get_tool_run_examples": [
+          "requested_version",
+          "test_cases",
+          "tool_id"
+        ],
+        "get_tool_input_template": [
+          "inputs_template",
+          "parameters",
+          "tool_id"
+        ],
+        "get_tool_citations": [
+          "citations",
+          "tool_name",
+          "tool_version"
+        ],
+        "get_history_details": [
+          "contents_summary",
+          "history"
+        ],
+        "get_history_contents": [
+          "contents",
+          "history_id"
+        ],
+        "get_job_details": [
+          "dataset_id",
+          "job",
+          "job_id"
+        ],
+        "get_collection_details": [
+          "collection",
+          "collection_id",
+          "elements",
+          "elements_truncated",
+          "history_content_type",
+          "note"
+        ],
+        "download_dataset": [
+          "content_available",
+          "dataset_id",
+          "dataset_info",
+          "file_path",
+          "file_size",
+          "note",
+          "suggested_filename"
+        ],
+        "cancel_workflow_invocation": [
+          "cancelled",
+          "invocation"
+        ],
+        "delete_user_tool": [
+          "deactivated",
+          "uuid"
+        ]
+      }
+    }
+  }
+}

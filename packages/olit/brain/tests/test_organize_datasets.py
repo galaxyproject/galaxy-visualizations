@@ -1,0 +1,251 @@
+"""The organize_datasets process: history contents -> collection -> tags."""
+
+import asyncio
+
+from olit.drivers.graph import GraphDriver
+from olit.registry import ProcessRegistry, load_primitives
+
+load_primitives()
+
+SRA = [
+    {"id": f"ds{i}", "name": f"SRR100{n}_{m}.fastq.gz", "history_content_type": "dataset"}
+    for i, (n, m) in enumerate([(n, m) for n in (1, 2) for m in (1, 2)])
+]
+# Files as they arrive from an unzipped archive: no mate markers.
+ZIPPED = [
+    {"id": f"z{i}", "name": f"run_{i}.txt", "history_content_type": "dataset"} for i in range(3, 7)
+]
+
+
+class FakeCatalog:
+    """Answers the three ops the process calls and records what it was asked."""
+
+    def __init__(self, contents):
+        self.contents = contents
+        self.calls = []
+
+    async def call(self, target, input=None):
+        self.calls.append((target, input or {}))
+        if target.endswith("contents.get"):
+            return {"ok": True, "result": self.contents}
+        if target == "galaxy.dataset_collections.post":
+            return {"ok": True, "result": {"id": "hdca1", "name": (input or {}).get("name")}}
+        if target == "galaxy.histories.show.contents.bulk.put":
+            return {"ok": True, "result": {"success_count": len(self.contents), "errors": []}}
+        raise AssertionError(f"unexpected op: {target}")
+
+    def targets(self):
+        return [t for t, _ in self.calls]
+
+    def input_for(self, suffix):
+        return next(i for t, i in self.calls if t.endswith(suffix))
+
+
+class FakeManifest:
+    def allows(self, capability):
+        return True
+
+
+class FakeSubstrate:
+    def __init__(self, contents):
+        self.catalog = FakeCatalog(contents)
+        self.manifest = FakeManifest()
+
+    def scoped(self, capabilities):
+        return self
+
+
+def _run(contents, **inputs):
+    proc = ProcessRegistry().load_packaged().get("organize_datasets")
+    assert proc is not None, "organize_datasets not registered"
+    substrate = FakeSubstrate(contents)
+    args = {"history_id": "h1", "collection_name": "reads", "structure": "auto", "tags": []}
+    args.update(inputs)
+    result = asyncio.run(proc.run(substrate, args))
+    assert (result.get("last") or {}).get("ok"), f"process did not complete: {result.get('last')}"
+    return substrate.catalog, result
+
+
+def test_paired_reads_become_a_list_paired_collection():
+    catalog, _ = _run(SRA)
+    body = catalog.input_for("dataset_collections.post")
+    assert body["collection_type"] == "list:paired"
+    assert [e["name"] for e in body["element_identifiers"]] == ["SRR1001", "SRR1002"]
+
+
+def test_unzipped_files_become_a_flat_list():
+    catalog, _ = _run(ZIPPED)
+    body = catalog.input_for("dataset_collections.post")
+    assert body["collection_type"] == "list"
+    assert len(body["element_identifiers"]) == 4
+
+
+def test_tags_are_applied_to_the_new_collection():
+    catalog, _ = _run(SRA, tags=["sra", "paired"])
+    body = next(i for t, i in catalog.calls if i.get("operation") == "add_tags")
+    assert body["items"] == [{"id": "hdca1", "history_content_type": "dataset_collection"}]
+    assert body["params"] == {"type": "add_tags", "tags": ["sra", "paired"]}
+
+
+def test_no_tags_means_no_tag_call():
+    catalog, _ = _run(SRA)
+    assert not [i for _, i in catalog.calls if i.get("operation") == "add_tags"]
+
+
+def test_it_only_reads_and_writes_what_the_process_declares():
+    catalog, _ = _run(SRA, tags=["sra"], datatype="fastqsanger.gz")
+    assert set(catalog.targets()) <= {
+        "galaxy.histories.show.contents.get",
+        "galaxy.histories.show.contents.bulk.put",
+        "galaxy.dataset_collections.post",
+    }
+
+
+def test_a_requested_datatype_retypes_every_dataset_in_one_call():
+    catalog, _ = _run(SRA, datatype="fastqsanger.gz")
+    body = next(i for t, i in catalog.calls if i.get("operation") == "change_datatype")
+    assert body["params"] == {"type": "change_datatype", "datatype": "fastqsanger.gz"}
+    assert [i["id"] for i in body["items"]] == [d["id"] for d in SRA]
+
+
+def test_no_datatype_means_no_write():
+    catalog, _ = _run(SRA)
+    assert "galaxy.histories.show.contents.bulk.put" not in catalog.targets()
+
+
+def test_the_datatype_is_set_before_the_collection_is_built():
+    catalog, _ = _run(SRA, datatype="fastqsanger.gz")
+    order = catalog.targets()
+    assert order.index("galaxy.histories.show.contents.bulk.put") < order.index(
+        "galaxy.dataset_collections.post"
+    )
+
+
+def test_a_caller_who_names_neither_structure_nor_collection_still_gets_pairs():
+    proc = ProcessRegistry().load_packaged().get("organize_datasets")
+    substrate = FakeSubstrate(SRA)
+    asyncio.run(proc.run(substrate, {"history_id": "h1"}))
+    body = substrate.catalog.input_for("dataset_collections.post")
+    assert body["collection_type"] == "list:paired"
+    assert body["name"] == "Collection"
+
+
+def test_a_call_without_a_history_is_refused_before_galaxy_is_touched():
+    """The guard is the generated schema, checked in dispatch, whichever kind the process is."""
+    from olit.drivers.loop.tools import ToolSurface
+
+    substrate = FakeSubstrate(SRA)
+    surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
+    outcome = asyncio.run(surface.dispatch("organize_datasets", {}))
+    assert outcome.is_error and "history_id" in outcome.text
+    assert substrate.catalog.calls == []
+
+
+MESSY = SRA + [
+    {"id": "half", "name": "SRR200099_1.fastq.gz", "history_content_type": "dataset"},
+    {"id": "notes", "name": "README.txt", "history_content_type": "dataset"},
+]
+
+
+def test_leftovers_get_their_own_collection_instead_of_vanishing():
+    catalog, _ = _run(MESSY)
+    built = [i for t, i in catalog.calls if t == "galaxy.dataset_collections.post"]
+    assert [b["collection_type"] for b in built] == ["list:paired", "list"]
+    assert [e["name"] for e in built[1]["element_identifiers"]] == [
+        "README.txt",
+        "SRR200099_1.fastq.gz",
+    ]
+
+
+def test_include_keeps_a_non_read_file_out_of_the_datatype_write():
+    catalog, _ = _run(MESSY, include="*.fastq.gz", datatype="fastqsanger.gz")
+    body = next(i for _, i in catalog.calls if i.get("operation") == "change_datatype")
+    assert "notes" not in [i["id"] for i in body["items"]]
+    assert len(body["items"]) == 5
+
+
+def test_an_empty_history_writes_nothing():
+    catalog, _ = _run([], datatype="fastqsanger.gz", tags=["sra"])
+    assert catalog.targets() == ["galaxy.histories.show.contents.get"]
+
+
+def test_the_datatype_write_is_batched():
+    many = [
+        {"id": f"d{i}", "name": f"S{i // 2:05d}_{i % 2 + 1}.fastq.gz", "history_content_type": "dataset"}
+        for i in range(2500)
+    ]
+    catalog, _ = _run(many, datatype="fastqsanger.gz")
+    writes = [i for _, i in catalog.calls if i.get("operation") == "change_datatype"]
+    assert [len(w["items"]) for w in writes] == [1000, 1000, 500]
+
+
+WITH_COLLECTION = [
+    {"id": "c1", "name": "reads", "history_content_type": "dataset_collection",
+     "collection_type": "list", "element_count": 4},
+    *SRA,
+]
+
+
+def test_a_collection_already_in_the_history_is_not_treated_as_a_file():
+    """Galaxy's own zip fetch leaves a collection in the history alongside its members."""
+    catalog, _ = _run(WITH_COLLECTION, datatype="fastqsanger.gz")
+    body = next(i for _, i in catalog.calls if i.get("operation") == "change_datatype")
+    assert "c1" not in [i["id"] for i in body["items"]]
+    built = [i for t, i in catalog.calls if t == "galaxy.dataset_collections.post"]
+    for element in built[0]["element_identifiers"]:
+        for inner in element.get("element_identifiers", [element]):
+            assert inner["id"] != "c1"
+
+
+def test_datasets_already_at_the_datatype_are_not_retyped():
+    """Galaxy detects the datatype on upload; retyping queues a task per dataset for nothing."""
+    typed = [{**d, "extension": "fastqsanger.gz"} for d in SRA]
+    catalog, result = _run(typed, datatype="fastqsanger.gz")
+    assert not [i for _, i in catalog.calls if i.get("operation") == "change_datatype"]
+    assert result["state"]["datatype_already_set"] == len(typed)
+
+
+def test_a_mixed_history_retypes_only_what_needs_it():
+    half = [{**d, "extension": "fastqsanger.gz"} if n < 2 else d for n, d in enumerate(SRA)]
+    catalog, _ = _run(half, datatype="fastqsanger.gz")
+    body = next(i for _, i in catalog.calls if i.get("operation") == "change_datatype")
+    assert len(body["items"]) == len(SRA) - 2
+
+
+def test_an_uncompressed_datatype_is_refused_for_gzipped_reads():
+    """`fastqsanger` over .gz reads mislabels them; the datatype is `fastqsanger.gz`.
+
+    An agent planning this work wrote `fastqsanger` three times and hedged with
+    "or fastq depending on the server's default". Nothing checked the argument.
+    """
+    from olit.registry.python.organize_datasets import summarize_state
+
+    catalog, result = _run(SRA, datatype="fastqsanger")
+    summary = summarize_state(result["state"])
+
+    assert summary["ok"] is False
+    assert summary["use"] == "fastqsanger.gz"
+    assert summary["datasets"][0].endswith(".fastq.gz")
+    # Refused before anything was written.
+    assert "galaxy.dataset_collections.post" not in catalog.targets()
+    assert not any(i.get("operation") == "change_datatype" for _, i in catalog.calls)
+
+
+def test_the_compressed_datatype_itself_is_accepted():
+    catalog, _ = _run(SRA, datatype="fastqsanger.gz")
+    assert "galaxy.dataset_collections.post" in catalog.targets()
+
+
+def test_an_uncompressed_datatype_is_fine_for_uncompressed_files():
+    catalog, _ = _run(ZIPPED, datatype="tabular")
+    assert "galaxy.dataset_collections.post" in catalog.targets()
+
+
+def test_galaxys_own_detected_extension_counts_as_compressed():
+    """The name may not end in .gz when Galaxy already typed it that way."""
+    from olit.registry.python.organize_datasets import compression_lost
+
+    detected = [{"id": "d1", "name": "reads_1", "extension": "fastqsanger.gz"}]
+    assert compression_lost("fastqsanger", detected) == ["reads_1"]
+    assert compression_lost("fastqsanger.gz", detected) == []
+    assert compression_lost(None, detected) == []

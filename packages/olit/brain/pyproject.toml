@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=62.3"]  # `**` recursive globs in package-data
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "olit"
+version = "0.0.0"
+description = "olit agent brain (client-only Galaxy co-scientist)"
+dependencies = ["numpy", "pandas", "pydantic", "PyYAML", "jsonschema"]
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "Galaxy Team" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+
+[project.optional-dependencies]
+dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio", "aiohttp"]
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+
+[tool.setuptools.packages.find]
+include = ["olit*"]
+
+[tool.setuptools.package-data]
+# Skills are nested corpora (skills/<repo>/<skill>/SKILL.md plus the reference and
+# example files a SKILL.md points at), so the glob has to recurse.
+"olit.registry" = ["processes/*.yml", "skills/**/*"]
+"olit.vendor" = ["*.json"]

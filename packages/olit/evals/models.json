@@ -1,0 +1,102 @@
+{
+  "_comment": "Model matrix for the eval suite. Endpoint facts (base URL, key env var, rate limit, context window) come from the brain's provider registry in brain/olit/substrate/llm/providers.py, so the evals resolve an endpoint exactly the way the app does. A model whose envRequires are unset is skipped, not failed, so a local run works without every credential (loom's rule). To use an endpoint the registry does not know, give baseUrl instead of provider. The openrouter entries reach several vendors on one key, which is what makes a cross-model leaderboard a config change; requests transit a third party, so use an institutional endpoint for live runs on real Galaxy data. The or-free-* entries run on OpenRouter's :free variants, which need no credits but carry a low daily request cap; the other openrouter entries need a credit balance and will 402 without one. The js2-* entry uses Jetstream2's inference service: free for ACCESS accounts, no credits, and processing stays inside the IU Bloomington data centre \u2014 the right endpoint for runs touching real Galaxy data, where OpenRouter's proxy hop is not.",
+  "models": [
+    {
+      "id": "gemini-3.7-flash",
+      "provider": "gemini",
+      "model": "gemini-3.7-flash",
+      "envRequires": [
+        "GEMINI_KEY"
+      ]
+    },
+    {
+      "id": "gemini-3.1-flash-lite",
+      "provider": "gemini",
+      "model": "gemini-3.1-flash-lite",
+      "envRequires": [
+        "GEMINI_KEY"
+      ]
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "model": "deepseek-v4-flash",
+      "envRequires": [
+        "DEEPSEEK_KEY"
+      ]
+    },
+    {
+      "id": "local-llama",
+      "provider": "ollama",
+      "model": "local",
+      "envRequires": [
+        "LOCAL_LLM_URL"
+      ],
+      "baseUrl": "${LOCAL_LLM_URL}"
+    },
+    {
+      "id": "or-claude-sonnet-5",
+      "provider": "openrouter",
+      "model": "anthropic/claude-sonnet-5",
+      "envRequires": [
+        "OPENROUTER_KEY"
+      ]
+    },
+    {
+      "id": "or-gpt-5.6-terra",
+      "provider": "openrouter",
+      "model": "openai/gpt-5.6-terra",
+      "envRequires": [
+        "OPENROUTER_KEY"
+      ]
+    },
+    {
+      "id": "or-deepseek-v4-flash",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "envRequires": [
+        "OPENROUTER_KEY"
+      ]
+    },
+    {
+      "id": "or-gemini-3.1-flash-lite",
+      "provider": "openrouter",
+      "model": "google/gemini-3.1-flash-lite",
+      "envRequires": [
+        "OPENROUTER_KEY"
+      ]
+    },
+    {
+      "id": "or-free-nemotron-ultra",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "envRequires": [
+        "OPENROUTER_KEY"
+      ]
+    },
+    {
+      "id": "or-free-gpt-oss-20b",
+      "provider": "openrouter",
+      "model": "openai/gpt-oss-20b:free",
+      "envRequires": [
+        "OPENROUTER_KEY"
+      ]
+    },
+    {
+      "id": "js2-gpt-oss-120b",
+      "provider": "jetstream2",
+      "model": "gpt-oss-120b",
+      "envRequires": [
+        "JETSTREAM2_KEY"
+      ]
+    },
+    {
+      "id": "or-ox-alpha",
+      "provider": "openrouter",
+      "model": "stealth/ox-alpha",
+      "envRequires": [
+        "OPENROUTER_KEY"
+      ]
+    }
+  ]
+}
