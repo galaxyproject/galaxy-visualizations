@@ -160,6 +160,8 @@ class ToolOutcome:
     content: object
     is_error: bool = False
     refused: bool = False
+    # Which Olit guard refused this call, so an eval can see one in a trajectory.
+    guard: str | None = None
 
     @property
     def text(self):
@@ -240,15 +242,15 @@ class ToolSurface:
         if repeated:
             logger.info("  -> breaking a loop of identical failing calls")
             self._last_failure = None  # a speed bump, not a ban
-            return ToolOutcome(repeated, is_error=True, refused=True)
+            return ToolOutcome(repeated, is_error=True, refused=True, guard="repeated-failure")
         settled = self._asking_a_settled_question(name, args)
         if settled:
             logger.info("  -> %s was already answered with these arguments", name)
-            return ToolOutcome(settled, is_error=True, refused=True)
+            return ToolOutcome(settled, is_error=True, refused=True, guard="settled-question")
         fanned_out = self.sra.check(call_id, name, args)
         if fanned_out:
             logger.info("  -> blocking an SRA import that would fan out")
-            return ToolOutcome(fanned_out, is_error=True, refused=True)
+            return ToolOutcome(fanned_out, is_error=True, refused=True, guard="sra-fan-out")
         schema, capabilities = self._declaration(name)
         ungranted = next((c for c in capabilities if not self.substrate.manifest.allows(c)), None)
         if ungranted:
@@ -258,7 +260,7 @@ class ToolSurface:
             return ToolOutcome(
                 f"Refused: '{name}' needs the '{ungranted}' capability, which is not granted in "
                 f"this session. Tell the user, and stay within the tools you are offered.",
-                is_error=True, refused=True,
+                is_error=True, refused=True, guard="capability",
             )
         missing = self._missing_required(schema, args)
         if missing:
@@ -355,7 +357,7 @@ class ToolSurface:
         if destructive is not None:
             refusal = await self._gate_destructive(name, destructive)
             if refusal is not None:
-                return ToolOutcome(refusal, is_error=True, refused=True)
+                return ToolOutcome(refusal, is_error=True, refused=True, guard="destructive-declined")
 
         if name == "run_python":
             try:
@@ -465,7 +467,7 @@ class ToolSurface:
         # A Python process always reports last.ok, so refusing is something only its summary
         # can say. Without this a refusal read as a successful result.
         if isinstance(summary, dict) and summary.get("ok") is False:
-            return ToolOutcome(json.dumps(summary), is_error=True, refused=True)
+            return ToolOutcome(json.dumps(summary), is_error=True, refused=True, guard="process-refusal")
         if summary and last.get("ok") is not False:
             return json.dumps(summary)
         # Surface a failed graph rather than returning a bare null.
