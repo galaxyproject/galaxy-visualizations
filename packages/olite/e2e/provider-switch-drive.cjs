@@ -1,7 +1,8 @@
 // Switching provider after boot must not require clearing browser storage by hand,
 // and must not discard the conversation (session memory lives in IndexedDB).
 const { chromium } = require("playwright");
-const APP = process.env.APP_URL || "http://localhost:4173/";
+const offline = require("./offline.cjs");
+const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olite";
 
 const results = [];
 function check(name, ok, detail) {
@@ -12,6 +13,7 @@ function check(name, ok, detail) {
 (async () => {
     const browser = await chromium.launch();
     const page = await browser.newPage();
+    await offline(page);
     await page.goto(APP);
 
     await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 20000 });

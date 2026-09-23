@@ -1,7 +1,8 @@
 // Drives the provider/key overlay on the real page. No stub needed: the picker
 // resolves before the worker boots, which is the point of the ordering.
 const { chromium } = require("playwright");
-const APP = process.env.APP_URL || "http://localhost:4173/";
+const offline = require("./offline.cjs");
+const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olite";
 
 const results = [];
 function check(name, ok, detail) {
@@ -31,6 +32,7 @@ async function waitFor(page, fn, ms) {
 (async () => {
     const browser = await chromium.launch();
     const page = await browser.newPage();
+    await offline(page);
     await page.goto(APP);
 
     check("overlay appears when no key is stored", await waitFor(page, credOpen, 15000));

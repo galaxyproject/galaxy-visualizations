@@ -1,7 +1,8 @@
 // The chat/artifact split must be adjustable: drag, toggle, shortcut, and a narrow
 // window must collapse the pane without overwriting the stored preference.
 const { chromium } = require("playwright");
-const APP = process.env.APP_URL || "http://localhost:4173/";
+const offline = require("./offline.cjs");
+const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olite";
 
 const results = [];
 function check(name, ok, detail) {
@@ -14,6 +15,7 @@ const stored = (p) => p.evaluate(() => localStorage.getItem("olite.artifactColla
 (async () => {
     const browser = await chromium.launch();
     const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+    await offline(page);
     await page.goto(APP);
     await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 20000 });
     await page.selectOption("#cred-provider", "openrouter");

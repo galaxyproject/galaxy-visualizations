@@ -4,7 +4,7 @@ Drives the real page against a stub that serves both the provider and Galaxy. Co
 worker-boundary wiring the Python and vitest suites cannot reach: the destructive-op gate,
 Stop, and compaction.
 
-Two tiers, two ports.
+Two tiers. The dev tier runs vite; the built tier runs the bundle Galaxy would ship.
 
 ## Dev tier — port 5173
 
@@ -31,12 +31,10 @@ it needs at the top.
 `LLM_PROVIDER` skips the credentials modal, which would otherwise block startup, and routes
 the brain through vite's `/llm` proxy.
 
-**Which tier a new driver belongs to follows from one question: does it need the brain, or
-does it need the credentials modal?** It cannot have both. The dev tier runs the brain and
-has no modal; the preview tier has the modal and cannot run the brain, because a non-dev
-build loads Pyodide from the Galaxy deployment path (`static/plugins/visualizations/olite/`)
-and `vite preview` does not serve it. Nothing in the preview tier boots the brain, so a
-built app whose brain fails to start would pass every check there.
+**Which tier a new driver belongs to: the dev tier for fast iteration on `src/`, the built
+tier for anything that has to hold in a deployment.** The dev tier bakes `LLM_PROVIDER` in
+and so never shows the credentials modal; the built tier shows it and reaches the brain
+through the same paths Galaxy uses.
 
 **Anything about persistence needs `?history_id=`.** `SessionMemory` keys on a history and
 stays disabled without one, so the dev page persists neither the transcript nor the
@@ -47,20 +45,30 @@ older than the kept tail; at 500 the brain correctly reports "nothing older to s
 and the compaction checks fail. Compaction checks are skipped entirely unless
 `LLM_CONTEXT_WINDOW` is set.
 
-## Preview tier — port 4173
+## Built tier — port 8099
 
-`credentials`, `artifact-pane` and `provider-switch` need a build **without** the dev env,
-or `LLM_PROVIDER` is baked in and suppresses the modal they test. They stop at the footer
-controls for the reason above: the brain does not start here.
+The stub also serves the built bundle the way a deployment does: `/api/plugins/olite`,
+the host page carrying `data-incoming`, and the plugin static path
+`/static/plugins/visualizations/olite/static/`. So `root`, the plugin `href`, the Pyodide
+URL and the system prompt are the deployment's, and the credentials modal appears because
+the build carries no dev env.
 
 ```bash
 env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build
-GALAXY_ROOT=http://127.0.0.1:8099 npx vite preview &
+node e2e/stub.cjs &
 
 node e2e/credentials-drive.cjs
 node e2e/artifact-pane-drive.cjs
 node e2e/provider-switch-drive.cjs
+node e2e/galaxy-boot-drive.cjs
 ```
+
+`galaxy-boot` connects a self-hosted endpoint through the modal and drives a full turn, so
+a built app whose brain fails to start, whose Pyodide path 404s, or whose prompt does not
+come from the plugin XML fails here.
+
+Drivers that name a real provider call `offline.cjs` first, which aborts every request off
+127.0.0.1: the brain boots on this tier and would otherwise reach the provider for real.
 
 ## The stub
 
