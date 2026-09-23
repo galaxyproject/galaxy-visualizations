@@ -83,7 +83,45 @@ BRANCHES = [
 CONSTS = [
     ("extensions/loom/galaxy-page-markdown-guidance.ts", "GALAXY_PAGE_MARKDOWN_GUIDANCE",
      "unconditional, injected with the page tools", "GALAXY_PAGE_MARKDOWN", "PORTED", ""),
+    ("extensions/loom/sra-import-gate.ts", "SRA_IMPORT_GUIDANCE",
+     "unconditional when Galaxy is reachable", "IMPORTING_SRA", "PORTED",
+     "loom also enforces this with a tool-call gate that groups sibling SRA submissions; "
+     "olite carries the guidance only."),
 ]
+
+
+# Rows with no loom symbol to fingerprint, or whose loom anchor is not a block in CTX.
+EXTRA = [
+    ("context.project-data-placement", "prompt-branch",
+     ("extensions/loom/context.ts", "setupContextInjection",
+      "every turn that injects notebook or workspace context"),
+     ("brain/olite/runtime.py", "_inject_record"), "PORTED",
+     "olite has one project-data channel (the record); loom has two."),
+    ("prompt.seedDatasetBlock", "prompt-block", None,
+     ("brain/olite/prompt.py", "seed_dataset_block"), "ADDED",
+     "loom has no equivalent because nothing opens it on a dataset. Galaxy mounts olite as a "
+     "visualization plugin, so the user can arrive with one already selected, and naming it is "
+     "what makes a bare \"plot it\" resolvable: the referent is otherwise only in the shell's "
+     "chat, which never reaches the model. Emitted only when a dataset was supplied, so a bare "
+     "start produces byte-identical system text."),
+]
+
+
+def _extra_rows():
+    rows = []
+    for row_id, kind, loom, olite, label, note in EXTRA:
+        anchor = None
+        if loom:
+            file, symbol, condition = loom
+            src = extract.ts_symbol((LOOM / file).read_text(), symbol)
+            if src is None:
+                raise SystemExit(f"loom symbol not found: {symbol}")
+            anchor = {"file": file, "symbol": symbol, "condition": condition,
+                      "fingerprint": extract.fingerprint(src)}
+        rows.append({"id": row_id, "kind": kind, "loom": anchor,
+                     "olite": {"file": olite[0], "symbol": olite[1]},
+                     "label": label, "note": note})
+    return rows
 
 
 def main():
@@ -156,6 +194,8 @@ def main():
             "label": label,
             "note": note,
         })
+
+    rows.extend(_extra_rows())
 
     out = ROOT / "seams/registry.json"
     registry = json.loads(out.read_text()) if out.exists() else {}

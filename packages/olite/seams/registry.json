@@ -52,21 +52,14 @@
         "file": "extensions/loom/context.ts",
         "symbol": "buildOperatingDisciplineBlock",
         "condition": "unconditional",
-        "fingerprint": "fd67890189dcc3a4"
+        "fingerprint": "0f7a2fec6e42cc6d"
       },
       "olite": {
         "file": "brain/olite/prompt.py",
         "symbol": "OPERATING_DISCIPLINE"
       },
       "label": "PORTED",
-      "note": "Secrets section adapted: loom points at ~/.loom/config.json and Orbit Preferences, which olite has no equivalent of.",
-      "premise": {
-        "claim": "olite holds a provider key, so the block must not tell the model it has none",
-        "present": [
-          "src/credentials.ts",
-          "brain/olite/drivers/loop/secret_redaction.py"
-        ]
-      }
+      "note": "Secrets section adapted: olite needs no credentials."
     },
     {
       "id": "prompt.buildVerificationDisciplineBlock",
@@ -75,7 +68,7 @@
         "file": "extensions/loom/context.ts",
         "symbol": "buildVerificationDisciplineBlock",
         "condition": "unconditional",
-        "fingerprint": "9b8a2c37232ee508"
+        "fingerprint": "6dd5ffac1e78e9b6"
       },
       "olite": {
         "file": "brain/olite/prompt.py",
@@ -98,13 +91,7 @@
         "symbol": "PLAN_CONVENTION"
       },
       "label": "PORTED",
-      "note": "olite emits no anchors at all, so it matches the omit path.",
-      "premise": {
-        "claim": "olite emits no plan anchors, so it takes loom's omit path",
-        "absent": [
-          "brain/olite/drivers/loop/anchors.py"
-        ]
-      }
+      "note": "olite emits no anchors at all, so it matches the omit path."
     },
     {
       "id": "prompt.buildParameterReviewBlock",
@@ -174,7 +161,7 @@
         "file": "extensions/loom/context.ts",
         "symbol": "buildGalaxyContextBlock",
         "condition": "suppressed in local mode; otherwise emits a CONNECTED or a NOT CONNECTED variant",
-        "fingerprint": "af790aa68418bf89"
+        "fingerprint": "3d16438b6a4f5d93"
       },
       "olite": {
         "file": "brain/olite/prompt.py",
@@ -236,13 +223,7 @@
       },
       "olite": null,
       "label": "NA",
-      "note": "No team dispatch.",
-      "premise": {
-        "claim": "team dispatch is vendored for rendering only, never dispatched",
-        "absent": [
-          "brain/olite/drivers/loop/team_dispatch.py"
-        ]
-      }
+      "note": "No team dispatch."
     },
     {
       "id": "prompt.buildSessionIndexContext",
@@ -265,7 +246,7 @@
         "symbol": "buildGalaxyContextBlock",
         "section": "Getting data into a Galaxy history",
         "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
-        "fingerprint": "7ec178bc4e79ef1f"
+        "fingerprint": "02c67ea0a2f74b51"
       },
       "olite": {
         "file": "brain/olite/prompt.py",
@@ -299,7 +280,7 @@
         "symbol": "buildGalaxyContextBlock",
         "section": "Executing a Galaxy step",
         "condition": "inherits buildGalaxyContextBlock: live connection, not local mode",
-        "fingerprint": "5ab3053a57a90601"
+        "fingerprint": "061bd0efab046abe"
       },
       "olite": {
         "file": "brain/olite/prompt.py",
@@ -375,7 +356,7 @@
         "symbol": "buildGalaxyContextBlock",
         "branch": "NOT CONNECTED (shell-disabled branch)",
         "condition": "emitted instead of the Galaxy guidance when credentials are absent",
-        "fingerprint": "af790aa68418bf89"
+        "fingerprint": "3d16438b6a4f5d93"
       },
       "olite": {
         "file": "brain/olite/prompt.py",
@@ -399,6 +380,22 @@
       },
       "label": "PORTED",
       "note": ""
+    },
+    {
+      "id": "prompt.SRA_IMPORT_GUIDANCE",
+      "kind": "prompt-block",
+      "loom": {
+        "file": "extensions/loom/sra-import-gate.ts",
+        "symbol": "SRA_IMPORT_GUIDANCE",
+        "condition": "unconditional when Galaxy is reachable",
+        "fingerprint": "7b54fc3c992287f6"
+      },
+      "olite": {
+        "file": "brain/olite/prompt.py",
+        "symbol": "IMPORTING_SRA"
+      },
+      "label": "PORTED",
+      "note": "loom also enforces this with a tool-call gate that groups sibling SRA submissions; olite carries the guidance only."
     },
     {
       "id": "context.project-data-placement",
@@ -434,7 +431,7 @@
       "fingerprints": {
         "behavior-underspecified-ask": "464ffdbc1b2a40fa",
         "evidence-gate-in-progress-contradiction": "bd85feee53dbfe9f",
-        "execution-after-approval": "4f91756812c68e7b",
+        "execution-after-approval": "3d8f4014d1a232ec",
         "init-gate-galaxy-no-connection": "9b59f2b7a8a639dc",
         "plan-consults-iwc": "a9f9fae8b9c21cd0",
         "plan-creation-metagenomics": "74c626e60de3e52f",
@@ -529,11 +526,11 @@
     },
     "pi": {
       "package": "@earendil-works/pi-agent-core",
-      "version": "0.84.1",
+      "version": "0.85.1",
       "files": {
-        "dist/agent-loop.js": "3716c081aeadc2c7",
+        "dist/agent-loop.js": "5077a2e5b845cc55",
         "dist/agent.js": "8baf1f05f827fd1b",
-        "dist/harness/agent-harness.js": "8ef43b802652dea3"
+        "dist/harness/agent-harness.js": "cd3ad83815819c7e"
       }
     },
     "tool_surface": {
