@@ -123,17 +123,22 @@ def _one_identifier(item):
 
 
 async def _get_history_contents(g, a):
+    # galaxy-mcp fetches the whole history and pages it here, so it always knows the total.
+    # Galaxy pages this one, which an 8,000-dataset history needs; one row past the limit is
+    # what tells the caller there are more.
+    limit = int(a.get("limit") or 100)
+    offset = max(0, int(a.get("offset") or 0))
     params = {
-        "limit": a.get("limit", 100),
-        "offset": a.get("offset", 0),
+        "limit": limit + 1,
+        "offset": offset,
         "deleted": a.get("deleted", False),
         "visible": a.get("visible", True),
         "order": a.get("order", "hid-asc"),
     }
     items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
-    if isinstance(items, list):
-        return [_one_identifier(i) for i in items]
-    return items
+    if not isinstance(items, list):
+        return items
+    return server_page([_one_identifier(i) for i in items], offset, limit)
 
 
 async def _create_history(g, a):
@@ -345,7 +350,9 @@ _tool(
     "get_history_contents", "read",
     "List datasets and collections in a history (hid-ordered; paged).",
     {
-        "history_id": _STR, "limit": _INT, "offset": _INT,
+        "history_id": _STR,
+        "limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
+        "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
         "deleted": _BOOL, "visible": _BOOL, "order": _STR,
     },
     ["history_id"], _get_history_contents,

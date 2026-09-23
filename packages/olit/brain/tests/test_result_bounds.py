@@ -10,7 +10,7 @@ import asyncio
 import json
 
 from olit.drivers.loop.agent import MAX_TOOL_RESULT_BYTES, LoopDriver
-from olit.drivers.loop.galaxy_tools import _get_histories, _get_tool_panel
+from olit.drivers.loop.galaxy_tools import _get_histories, _get_history_contents, _get_tool_panel
 from olit.drivers.loop.paging import ROW_BYTES_CAP, ROW_CAP, page
 from olit.substrate.llm import Reply
 from .fakes import FakeSubstrate, Local, ScriptedLlm
@@ -59,6 +59,13 @@ def test_a_bounded_page_of_histories_says_that_more_exist():
     got = asyncio.run(_get_histories(g, {}))
     assert got["shown"] == ROW_CAP
     assert got["truncated"] is True and got["next_offset"] == ROW_CAP
+
+
+def test_a_bounded_page_of_history_contents_says_that_more_exist():
+    g = FakeGalaxy([{"id": f"d{i}", "hid": i} for i in range(101)])
+    got = asyncio.run(_get_history_contents(g, {"history_id": "h1"}))
+    assert "limit=101" in g.paths[0]
+    assert got["shown"] == 100 and got["truncated"] is True and got["next_offset"] == 100
 
 
 def test_the_last_page_of_histories_is_not_marked_truncated():
