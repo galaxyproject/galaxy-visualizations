@@ -51,6 +51,21 @@ const deleteHistory = [{
     function: { name: "update_history", arguments: JSON.stringify({ history_id: "h1", deleted: true }) },
 }];
 
+// Top-level await plus a cross-origin pyfetch: the two things a sync exec could not do.
+const RUN_PYTHON_CODE = [
+    "import asyncio",
+    "await asyncio.sleep(0)",
+    "r = await pyfetch('http://127.0.0.1:8099/__seen')",
+    "body = await r.string()",
+    "f\"awaited:{r.status}:{'calls' in body}\"",
+].join("\n");
+
+const runPython = [{
+    id: "call_1",
+    type: "function",
+    function: { name: "run_python", arguments: JSON.stringify({ code: RUN_PYTHON_CODE }) },
+}];
+
 const createVisualization = [{
     id: "call_1",
     type: "function",
@@ -204,6 +219,13 @@ const server = http.createServer(async (req, res) => {
         }
         if (script === "compact") {
             return json(res, 200, message("ok"));
+        }
+        if (script === "python") {
+            const msgs = body.messages || [];
+            const tail = msgs[msgs.length - 1] || {};
+            return json(res, 200, tail.role === "tool"
+                ? message(`python returned ${tail.content}`)
+                : message("", runPython));
         }
         // Keyed on the last message; by turn two the transcript always has a tool result.
         const messages = body.messages || [];

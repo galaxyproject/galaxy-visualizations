@@ -41,7 +41,10 @@ RUN_PYTHON = {
         "description": (
             "Run Python locally in the browser (Pyodide). numpy and pandas are available; "
             "state persists across calls. Returns the last expression value and stdout. "
-            "This runs in the browser, NOT on Galaxy - it cannot import galaxy."
+            "Top-level `await` works, and `pyfetch(url)` performs a browser fetch, so an "
+            "HTTP API can be read directly - but only from hosts that send CORS headers, "
+            "which many do not. This runs in the browser, NOT on Galaxy - it cannot import "
+            "galaxy, and real compute belongs in a Galaxy job."
         ),
         "parameters": {
             "type": "object",
@@ -356,7 +359,7 @@ class ToolSurface:
 
         if name == "run_python":
             try:
-                return self.substrate.local.run(args.get("code", ""))
+                return await self.substrate.local.run(args.get("code", ""))
             except LocalExecutionError as exc:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):

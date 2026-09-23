@@ -48,5 +48,7 @@ is held by the worker and never enters the brain.
 
 ## Scope
 
-No local shell or filesystem: Galaxy is the OS, and `run_python` is Pyodide only. Choose
-Orbit when you need a shell or a per-user container.
+No local shell or filesystem: Galaxy is the OS, and `run_python` is Pyodide only. It runs
+async, so submitted code can use top-level `await` and `pyfetch`, which makes network reach
+the browser's: a CORS-open API is readable, anything else is not. Choose Orbit when you
+need a shell or a per-user container.

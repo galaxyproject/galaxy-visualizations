@@ -84,12 +84,12 @@ def test_a_scoped_write_is_refused_at_the_call():
 def test_a_view_shares_state_rather_than_resetting_it():
     """Rebuilding services would wipe the namespace and hand out a fresh rate budget."""
     substrate = Substrate(CONFIG)
-    substrate.local.run("x = 41")
+    asyncio.run(substrate.local.run("x = 41"))
 
     view = substrate.scoped(["llm", "local", "read"])
 
     # Same interpreter namespace, not a fresh one.
-    assert view.local.run("x + 1") == "42"
+    assert asyncio.run(view.local.run("x + 1")) == "42"
     # One rate limiter per session, shared by every scoped view.
     assert view.llm._limiter is substrate.llm._limiter
     # Same loaded spec, so scoping costs no network round trip.
