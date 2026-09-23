@@ -33,6 +33,7 @@ export const LAYOUT = `
         </div>
       </div>
       <div id="app-footer">
+        <button id="save-btn" class="footer-control is-interactive" title="Save this conversation as a Galaxy visualization">Save</button>
         <button id="model-btn" class="footer-control is-interactive" title="Change the model provider">Model</button>
         <button id="artifact-btn" class="footer-control is-interactive" title="Show or hide the artifact pane (Ctrl/Cmd+\\)">Artifact</button>
         <div id="usage-bar" class="footer-control hidden" title="Session token usage">
@@ -62,6 +63,7 @@ export interface Elements {
     send: HTMLButtonElement;
     abort: HTMLButtonElement;
     reset: HTMLButtonElement;
+    save: HTMLButtonElement;
     model: HTMLButtonElement;
     artifactContent: HTMLElement;
 }
@@ -77,6 +79,7 @@ export function mountLayout(container: HTMLElement): Elements {
         send: find<HTMLButtonElement>("#send-btn"),
         abort: find<HTMLButtonElement>("#abort-btn"),
         reset: find<HTMLButtonElement>("#reset-btn"),
+        save: find<HTMLButtonElement>("#save-btn"),
         model: find<HTMLButtonElement>("#model-btn"),
         artifactContent: find("#artifact-content"),
     };
