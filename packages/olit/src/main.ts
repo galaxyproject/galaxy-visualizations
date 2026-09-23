@@ -13,7 +13,7 @@ import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
 import { SessionStore, galaxyUserId, indexedDbStore } from "./session";
 import { advance, newDocument, noteModel, restoreMessages, type SessionDocument } from "./session-document";
-import { savedSessions } from "./saved-session";
+import { reportSavedState, savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
@@ -142,6 +142,7 @@ async function main() {
         try {
             savedId = await saved.save(sessionDoc, savedId);
             el.save.textContent = "Saved";
+            reportSavedState(true);
             chat.addInfoMessage(
                 "Saved this conversation. Open it again from Galaxy's visualizations to continue it anywhere.",
             );
@@ -342,6 +343,7 @@ async function main() {
         noteModel(sessionDoc, { provider: config.ai_provider, model: config.ai_model });
         void session.save(sessionDoc);
         el.save.textContent = "Save";
+        reportSavedState(false);
         // loom writes a session block into the notebook itself. The id is the persisted
         // session's, so a reload updates its block instead of appending another.
         void writeSessionSummary(config.galaxy_root, credentials, config.history_id, {
@@ -407,6 +409,7 @@ async function main() {
         // rather than being whatever happens to be attached to the history.
         sessionDoc = newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
         savedId = undefined;
+        reportSavedState(true);
         await session.save(sessionDoc);
         convo.length = 0;
         convo.push(seed);

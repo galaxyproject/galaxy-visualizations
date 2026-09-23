@@ -50,6 +50,11 @@ export function savedSessions(root: string, credentials: RequestCredentials): Sa
     };
 }
 
+/** Tells the Galaxy host whether this session is stored on the server. */
+export function reportSavedState(saved: boolean) {
+    window.parent?.postMessage({ from: "galaxy-visualization", visualization_saved: saved }, "*");
+}
+
 /** Galaxy requires at least three characters and shows this in the user's visualization list. */
 export function title(document: SessionDocument): string {
     const given = (document.session.title || "").trim();
