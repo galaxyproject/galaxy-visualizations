@@ -3,6 +3,8 @@
 import io
 import zipfile
 
+import pytest
+
 from olite.registry.extensions.collections.bridge import group_datasets
 
 
@@ -244,3 +246,22 @@ def test_a_broken_pattern_says_so():
 
     with pytest.raises(ValueError, match="not a valid regular expression"):
         group_datasets(datasets=names(["a.fq"]), sample_regex="(?P<sample>")
+
+
+def test_galaxys_own_name_for_a_paired_list_is_accepted():
+    """A caller asked for `list:paired` and got a flat list, reported as success.
+
+    Galaxy names the result `list:paired`, so that is what a request for one says; the
+    parameter took `paired`, and an unknown value fell through to the unpaired path.
+    """
+    datasets = [
+        {"name": f"S{s}_{m}.fasta.gz", "id": f"{s}{m}", "extension": "fasta.gz",
+         "history_content_type": "dataset"}
+        for s in (1, 2) for m in (1, 2)
+    ]
+    assert group_datasets(datasets=datasets, structure="list:paired")["structure"] == "list:paired"
+
+
+def test_an_unknown_structure_is_refused_rather_than_quietly_flattened():
+    with pytest.raises(ValueError, match="structure must be"):
+        group_datasets(datasets=[], structure="nonsense")

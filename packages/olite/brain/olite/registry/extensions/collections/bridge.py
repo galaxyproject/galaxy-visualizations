@@ -129,7 +129,10 @@ def group_datasets(datasets=None, structure=None, name_field="name", include=Non
     same convention. Pass structure="paired" to force it.
     """
     datasets = datasets or []
-    structure = structure or "auto"
+    # Galaxy calls the result list:paired, so a caller asking for one names it that way.
+    structure = {"list:paired": "paired", None: "auto", "": "auto"}.get(structure, structure)
+    if structure not in ("auto", "paired", "list"):
+        raise ValueError(f"structure must be 'auto', 'paired' or 'list', not {structure!r}")
     rows = _identify(datasets, name_field, _compile(sample_regex))
 
     # A history holding a collection lists the collection too.
