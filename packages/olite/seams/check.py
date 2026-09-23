@@ -61,6 +61,36 @@ def check_layers(data):
                     out.append(("DRIFT", f"layer.eval-scenarios/{name}",
                                 "loom changed this scenario -- re-read it, then re-certify"))
 
+    lib = (data.get("eval_lib") or {}).get("fingerprints") or {}
+    if lib and LOOM.exists():
+        now = layers.loom_eval_lib(LOOM)
+        for name in sorted(set(now) - set(lib)):
+            out.append(("DRIFT", f"layer.eval-lib/{name}", "loom added grading olite has not seen"))
+        for name in sorted(set(lib) - set(now)):
+            out.append(("DRIFT", f"layer.eval-lib/{name}", "loom removed this grading module"))
+        for name in sorted(set(lib) & set(now)):
+            if lib[name] != now[name]:
+                out.append(("DRIFT", f"layer.eval-lib/{name}",
+                            "loom changed how it grades -- read it, then re-certify"))
+
+    modules = data.get("loom_modules") or {}
+    known = modules.get("fingerprints") or {}
+    classified = modules.get("classified") or {}
+    if known and LOOM.exists():
+        now = layers.loom_modules(LOOM)
+        for name in sorted(set(now) - set(known)):
+            out.append(("DRIFT", f"layer.loom-modules/{name}",
+                        "loom added a module -- classify it relevant, NA, or investigate"))
+        for name in sorted(set(known) - set(now)):
+            out.append(("DRIFT", f"layer.loom-modules/{name}", "loom removed this module"))
+        for name in sorted(set(known) & set(now)):
+            if known[name] != now[name]:
+                out.append(("DRIFT", f"layer.loom-modules/{name}",
+                            f"changed upstream ({classified.get(name, 'unclassified')}) -- "
+                            "re-read it, then re-certify"))
+        for name in sorted(set(now) - set(classified)):
+            out.append(("ORPHAN", f"layer.loom-modules/{name}", "fingerprinted but not classified"))
+
     identity = data.get("identity_prompt") or {}
     if identity.get("fingerprint"):
         now = layers.identity_prompt().get("fingerprint")
@@ -200,6 +230,8 @@ def main():
         + len((data.get("skills") or {}).get("files") or {})
         + len((data.get("tool_surface") or {}).get("upstream") or {})
         + len((data.get("pi") or {}).get("files") or {})
+        + len((data.get("eval_lib") or {}).get("fingerprints") or {})
+        + len((data.get("loom_modules") or {}).get("fingerprints") or {})
         + (1 if (data.get("identity_prompt") or {}).get("fingerprint") else 0)
     )
     print(f"\n{len(registry)} seams + {counted} layer entries checked, "

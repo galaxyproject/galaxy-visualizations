@@ -27,7 +27,7 @@
     },
     {
       "id": "local-llama",
-      "provider": "local",
+      "provider": "ollama",
       "model": "local",
       "envRequires": [
         "LOCAL_LLM_URL"

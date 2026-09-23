@@ -134,7 +134,9 @@ def test_a_chart_from_an_earlier_turn_is_still_placeable():
     """One surface per turn, but the artifact pane spans the session and so must placement.
 
     "Chart this" and "now put that in my record" are two turns; resolving only against the
-    current turn's artifacts refuses the second.
+    current turn's artifacts refuses the second. The earlier turn's artifacts are handed in
+    by the caller, because the driver is rebuilt whenever the session's config changes and
+    anything it held would not survive a model switch.
     """
     import asyncio
 
@@ -151,6 +153,21 @@ def test_a_chart_from_an_earlier_turn_is_still_placeable():
     assert '"mark": "point"' in seen[0]["content"]
     # The turn reports only what it produced, so the pane does not show the chart twice.
     assert later.artifacts == []
+
+
+def test_the_driver_keeps_nothing_between_turns():
+    """A model or history switch rebuilds the session; state kept here would vanish with it."""
+    from olite.drivers.loop.agent import LoopDriver
+
+    class _Llm:
+        target = None
+
+    class _Sub:
+        llm = _Llm()
+        config = {}
+
+    driver = LoopDriver(_Sub())
+    assert not hasattr(driver, "artifacts"), "artifacts belong to the caller, not to the driver"
 
 
 def test_the_hint_at_production_names_the_token():

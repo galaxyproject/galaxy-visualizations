@@ -24,8 +24,12 @@ for p in REGISTRY.values():
             {"id": m.id, "context_window": m.context_window}
             for m in p.models.values()
         ],
-        # Ollama/llama.cpp ignore the model name, so the picker lets it be typed.
-        "free_model": p.probe_window,
+        # No bundled catalog: the endpoint's models are the user's to name.
+        "free_model": p.free_model,
+        # Galaxy's proxy picks its own model, so the picker offers no model field at all.
+        "takes_model": p.id != "galaxy",
+        # Whatever this endpoint needs beyond a bearer token, so discovery reaches it too.
+        "headers": p.compat.get("headers", {}),
     })
 
 target = pathlib.Path(__file__).resolve().parents[2] / "src" / "providers.generated.json"

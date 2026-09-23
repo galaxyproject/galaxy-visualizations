@@ -36,12 +36,12 @@ def test_a_realistic_config_passes():
         {
             "galaxy_root": "http://127.0.0.1:8080/",
             "galaxy_key": "k",
-            "ai_provider": "gemini",
+            "ai_provider": "google",
             "ai_model": "gemini-3.7-flash",
             "capabilities": ["llm", "local", "read", "write"],
         }
     )
-    assert config.ai_provider == "gemini"
+    assert config.ai_provider == "google"
     assert config.ai_compaction is True
 
 

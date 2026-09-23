@@ -5,10 +5,12 @@
     "needs_key": false,
     "base_url": null,
     "models": [],
-    "free_model": false
+    "free_model": false,
+    "takes_model": false,
+    "headers": {}
   },
   {
-    "id": "gemini",
+    "id": "google",
     "name": "Google Gemini",
     "needs_key": true,
     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -22,7 +24,9 @@
         "context_window": 1000000
       }
     ],
-    "free_model": false
+    "free_model": false,
+    "takes_model": true,
+    "headers": {}
   },
   {
     "id": "deepseek",
@@ -35,7 +39,9 @@
         "context_window": 1000000
       }
     ],
-    "free_model": false
+    "free_model": false,
+    "takes_model": true,
+    "headers": {}
   },
   {
     "id": "openrouter",
@@ -64,7 +70,9 @@
         "context_window": 1048576
       }
     ],
-    "free_model": false
+    "free_model": false,
+    "takes_model": true,
+    "headers": {}
   },
   {
     "id": "jetstream2",
@@ -81,14 +89,70 @@
         "context_window": 131072
       }
     ],
-    "free_model": false
+    "free_model": false,
+    "takes_model": true,
+    "headers": {}
   },
   {
-    "id": "local",
-    "name": "Local OpenAI-compatible server",
+    "id": "ollama",
+    "name": "Ollama or a local server",
     "needs_key": false,
     "base_url": "http://127.0.0.1:11434/v1",
     "models": [],
-    "free_model": true
+    "free_model": true,
+    "takes_model": true,
+    "headers": {}
+  },
+  {
+    "id": "openai",
+    "name": "OpenAI",
+    "needs_key": true,
+    "base_url": "https://api.openai.com/v1",
+    "models": [],
+    "free_model": true,
+    "takes_model": true,
+    "headers": {}
+  },
+  {
+    "id": "anthropic",
+    "name": "Anthropic",
+    "needs_key": true,
+    "base_url": "https://api.anthropic.com/v1",
+    "models": [],
+    "free_model": true,
+    "takes_model": true,
+    "headers": {
+      "anthropic-dangerous-direct-browser-access": "true"
+    }
+  },
+  {
+    "id": "groq",
+    "name": "Groq",
+    "needs_key": true,
+    "base_url": "https://api.groq.com/openai/v1",
+    "models": [],
+    "free_model": true,
+    "takes_model": true,
+    "headers": {}
+  },
+  {
+    "id": "mistral",
+    "name": "Mistral",
+    "needs_key": true,
+    "base_url": "https://api.mistral.ai/v1",
+    "models": [],
+    "free_model": true,
+    "takes_model": true,
+    "headers": {}
+  },
+  {
+    "id": "xai",
+    "name": "xAI",
+    "needs_key": true,
+    "base_url": "https://api.x.ai/v1",
+    "models": [],
+    "free_model": true,
+    "takes_model": true,
+    "headers": {}
   }
 ]

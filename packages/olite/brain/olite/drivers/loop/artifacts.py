@@ -11,9 +11,6 @@ argument carrying the token is resolved before the handler runs.
 import json
 import re
 
-# A vega spec carries its rows, so a long session holds only its most recent artifacts.
-SESSION_CAP = 20
-
 TOKEN = re.compile(r"\{\{\s*artifact\s*(?::\s*(?P<title>[^{}]*?)\s*)?\}\}")
 
 

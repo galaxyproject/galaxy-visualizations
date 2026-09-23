@@ -1,5 +1,6 @@
 /** Session persistence: pi keeps session.jsonl per analysis directory; the browser gets IndexedDB. */
 
+import type { Artifact } from "./artifacts";
 import type { Message } from "./pyodide-runner";
 
 const DB_NAME = "olite";
@@ -82,6 +83,11 @@ export class SessionMemory {
         return `session:${this.userId || "anon"}:${this.historyId}`;
     }
 
+    /** Kept under its own key so a stored conversation from before this stays readable. */
+    private get artifactKey(): string {
+        return `artifacts:${this.userId || "anon"}:${this.historyId}`;
+    }
+
     async load(): Promise<Message[] | null> {
         if (!this.enabled) {
             return null;
@@ -91,6 +97,36 @@ export class SessionMemory {
             return Array.isArray(stored) && stored.every(isMessage) && stored.length ? stored : null;
         } catch {
             return null;
+        }
+    }
+
+    /**
+     * What earlier turns produced, so `{{artifact}}` still resolves after a reload.
+     *
+     * Switching provider applies the new choice by reloading, so anything held only in
+     * memory is gone by the time the next turn asks for it -- which is the whole reason
+     * the transcript is persisted too.
+     */
+    async loadArtifacts(): Promise<Artifact[]> {
+        if (!this.enabled) {
+            return [];
+        }
+        try {
+            const stored = await this.store!.get(this.artifactKey);
+            return Array.isArray(stored) && stored.every(isArtifact) ? (stored as Artifact[]) : [];
+        } catch {
+            return [];
+        }
+    }
+
+    async saveArtifacts(artifacts: Artifact[]): Promise<void> {
+        if (!this.enabled) {
+            return;
+        }
+        try {
+            await this.store!.put(this.artifactKey, artifacts);
+        } catch (e) {
+            console.warn("[olite] could not persist the artifacts", e);
         }
     }
 
@@ -112,10 +148,15 @@ export class SessionMemory {
         }
         try {
             await this.store!.remove(this.key);
+            await this.store!.remove(this.artifactKey);
         } catch (e) {
             console.warn("[olite] could not clear the session", e);
         }
     }
+}
+
+function isArtifact(a: unknown): a is Artifact {
+    return Boolean(a && typeof a === "object" && typeof (a as Artifact).kind === "string");
 }
 
 function isMessage(m: unknown): m is Message {

@@ -26,13 +26,13 @@ trap cleanup EXIT
 node e2e/stub.cjs > /tmp/olite-e2e-stub.log 2>&1 & pids+=($!)
 for _ in $(seq 20); do curl -sf -o /dev/null http://127.0.0.1:8099/__seen && break; sleep 0.5; done
 
-GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=local LLM_ROOT=http://127.0.0.1:8099 \
+GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=ollama LLM_ROOT=http://127.0.0.1:8099 \
   LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
   LLM_CONTEXT_WINDOW=40000 LLM_KEEP_RECENT_TOKENS=50 \
   npm run dev > /tmp/olite-e2e-dev.log 2>&1 & pids+=($!)
 for _ in $(seq 40); do curl -sf -o /dev/null http://localhost:5173/ && break; sleep 1; done
 
-for d in confirm session catalog-refusal ratelimit visualization-artifact; do
+for d in confirm session catalog-refusal ratelimit visualization-artifact artifact-survives-switch; do
     if LLM_CONTEXT_WINDOW=40000 node "e2e/$d-drive.cjs" > "/tmp/olite-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else

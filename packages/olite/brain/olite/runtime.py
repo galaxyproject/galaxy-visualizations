@@ -47,8 +47,9 @@ class Session:
         excerpt = await notebook.excerpt(self.substrate.galaxy, history_id)
         return _inject_record(transcripts, excerpt)
 
-    async def turn(self, transcripts, on_event=None, cancellation=None, confirmation=None):
-        return await self.driver.run(transcripts, on_event, cancellation, confirmation)
+    async def turn(self, transcripts, on_event=None, cancellation=None, confirmation=None,
+                   artifacts=None):
+        return await self.driver.run(transcripts, on_event, cancellation, confirmation, artifacts)
 
     def diagnostics(self):
         return {
@@ -72,7 +73,8 @@ async def run(config, inputs, on_event=None):
     session = await _session_for(config_module.parse(config))
     transcripts = await session.prepare(inputs["transcripts"], session.config.get("history_id"))
     try:
-        result = await session.turn(transcripts, on_event, cancellation.from_js(), confirm.from_js())
+        result = await session.turn(transcripts, on_event, cancellation.from_js(),
+                                    confirm.from_js(), inputs.get("artifacts"))
     except Exception as e:
         # A failed turn is a result, not a crash.
         logger.exception("turn failed")

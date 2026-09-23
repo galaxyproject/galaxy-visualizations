@@ -41,6 +41,8 @@ class Provider:
     compat: dict = field(default_factory=dict)
     # llama.cpp reports its own n_ctx; ask rather than assume.
     probe_window: bool = False
+    # The model is typed rather than picked, because this endpoint's catalog is the user's.
+    free_model: bool = False
 
     def __post_init__(self):
         if self.name is None:
@@ -58,8 +60,8 @@ GALAXY = Provider(
     limits=Limits(max_tokens=8192, max_tool_bytes=16384, max_tools=128),
 )
 
-GEMINI = Provider(
-    id="gemini",
+GOOGLE = Provider(
+    id="google",
     name="Google Gemini",
     base_url="https://generativelanguage.googleapis.com/v1beta/openai",
     auth_env="GEMINI_KEY",
@@ -107,14 +109,61 @@ JETSTREAM2 = Provider(
 )
 
 # llama.cpp and Ollama ignore the model name, so the window belongs to the server.
-LOCAL = Provider(
-    id="local",
-    name="Local OpenAI-compatible server",
+OLLAMA = Provider(
+    id="ollama",
+    name="Ollama or a local server",
     base_url="http://127.0.0.1:11434/v1",
     probe_window=True,
+    free_model=True,
 )
 
-REGISTRY = {p.id: p for p in (GALAXY, GEMINI, DEEPSEEK, OPENROUTER, JETSTREAM2, LOCAL)}
+# The rest of what Orbit offers. Each speaks the OpenAI wire format at the URL below, and
+# each publishes its own model catalog, so the model is typed rather than bundled here.
+OPENAI = Provider(
+    id="openai",
+    name="OpenAI",
+    base_url="https://api.openai.com/v1",
+    auth_env="OPENAI_KEY",
+    free_model=True,
+)
+
+ANTHROPIC = Provider(
+    id="anthropic",
+    name="Anthropic",
+    # Anthropic's OpenAI-compatible surface; the native Messages wire format is not built yet.
+    base_url="https://api.anthropic.com/v1",
+    auth_env="ANTHROPIC_KEY",
+    free_model=True,
+    # Anthropic sends no CORS headers until a request opts in, so a browser cannot reach it.
+    compat={"headers": {"anthropic-dangerous-direct-browser-access": "true"}},
+)
+
+GROQ = Provider(
+    id="groq",
+    name="Groq",
+    base_url="https://api.groq.com/openai/v1",
+    auth_env="GROQ_KEY",
+    free_model=True,
+)
+
+MISTRAL = Provider(
+    id="mistral",
+    name="Mistral",
+    base_url="https://api.mistral.ai/v1",
+    auth_env="MISTRAL_KEY",
+    free_model=True,
+)
+
+XAI = Provider(
+    id="xai",
+    name="xAI",
+    base_url="https://api.x.ai/v1",
+    auth_env="XAI_KEY",
+    free_model=True,
+)
+
+REGISTRY = {p.id: p for p in (GALAXY, GOOGLE, DEEPSEEK, OPENROUTER, JETSTREAM2, OLLAMA,
+                              OPENAI, ANTHROPIC, GROQ, MISTRAL, XAI)}
 
 
 @dataclass(frozen=True)

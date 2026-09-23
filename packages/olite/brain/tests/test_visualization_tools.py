@@ -3,7 +3,11 @@ import asyncio
 from urllib.parse import parse_qs, urlparse
 
 from olite.drivers.loop import artifacts
-from olite.drivers.loop.galaxy_tools import _save_visualization, _show_visualization
+from olite.drivers.loop.galaxy_tools import (
+    _get_visualization_options,
+    _save_visualization,
+    _show_visualization,
+)
 
 INSTALLED = [{"name": "atlas"}, {"name": "aladin"}]
 
@@ -291,3 +295,63 @@ def test_a_scalar_parameter_refuses_the_entry_it_was_chosen_from():
 
     # The value itself still saves.
     assert save(g, visualization="igv", tracks=[{"type": "scatter", "x": "2"}])["saved"] is True
+
+
+def test_an_empty_case_names_the_siblings_that_might_not_be():
+    """IGV declares builtin genomes as a data table an admin may never have filled.
+
+    Five of 33 recorded runs picked that case, found nothing, and stopped: the answer was
+    accurate and useless. The other cases are in the declaration already, so saying them
+    costs no request and turns a dead end into a second try.
+    """
+    plugin = {
+        "name": "igv",
+        "settings": [{
+            "name": "source", "type": "conditional",
+            "test_param": {"name": "origin"},
+            "cases": [
+                {"value": "builtin", "inputs": [{"name": "genome", "type": "data_table",
+                                                 "tables": ["empty_table"]}]},
+                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json",
+                                             "url": "https://example.invalid/genomes.json"}]},
+            ],
+        }],
+    }
+
+    class Galaxy:
+        async def get(self, path, **kwargs):
+            if path.startswith("api/plugins/"):
+                return plugin
+            return {"columns": [], "fields": []}
+
+    out = asyncio.run(_get_visualization_options(
+        Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"}))
+    assert out["total"] == 0
+    assert out["other_cases"] == ["igv"]
+    assert "try one of those" in out["hint"]
+
+
+def test_a_case_that_has_options_says_nothing_about_its_siblings():
+    plugin = {
+        "name": "igv",
+        "settings": [{
+            "name": "source", "type": "conditional",
+            "test_param": {"name": "origin"},
+            "cases": [
+                {"value": "builtin", "inputs": [{"name": "genome", "type": "data_table",
+                                                 "tables": ["t"]}]},
+                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json", "url": "u"}]},
+            ],
+        }],
+    }
+
+    class Galaxy:
+        async def get(self, path, **kwargs):
+            if path.startswith("api/plugins/"):
+                return plugin
+            return {"columns": ["value", "name"], "fields": [["hg38", "Human"]]}
+
+    out = asyncio.run(_get_visualization_options(
+        Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"}))
+    assert out["total"] == 1
+    assert "other_cases" not in out

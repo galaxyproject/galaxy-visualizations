@@ -125,6 +125,10 @@ def summarize_state(state):
 organize_datasets.summarize = summarize_state
 organize_datasets.capabilities = ["read", "write"]
 organize_datasets.inputs_help = {
+    "structure": (
+        "'auto' pairs on evidence, 'paired' (or Galaxy's own 'list:paired') forces pairing, "
+        "'list' forces a flat list."
+    ),
     "datatype": (
         "Galaxy's datatype for these files, e.g. 'fastqsanger.gz'. A compressed file keeps "
         "the compression in its datatype, so gzipped reads are 'fastqsanger.gz' and never "

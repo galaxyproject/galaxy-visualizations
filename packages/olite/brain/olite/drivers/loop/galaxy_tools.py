@@ -878,6 +878,7 @@ async def _get_visualization_options(g, a):
         return {"error": f"Refused: {name!r} declares no parameter {wanted!r}.",
                 "hint": f"Call get_visualization_details for {name!r} to see what it declares."}
 
+    declared_cases = sorted({w for w, _ in found if w is not None})
     when = a.get("when")
     if when is not None:
         found = [(w, p) for w, p in found if w == when]
@@ -930,6 +931,15 @@ async def _get_visualization_options(g, a):
     listed = [{"id": e.get("id"), "name": e.get("name") or e.get("label")} for e in entries]
     result = {"parameter": wanted, "source": kind, "total": len(entries),
               "options": listed[:ROW_CAP]}
+    # A case can be declared and still hold nothing on this server: IGV's builtin genomes
+    # are a data table an admin may never have filled. Naming its siblings is the difference
+    # between a dead end and a second try.
+    siblings = [c for c in declared_cases if c != when]
+    if not entries and siblings:
+        result["other_cases"] = siblings
+        result["hint"] = (f"This server lists no {wanted!r} for {when!r}. The same parameter is "
+                          f"declared for {', '.join(repr(c) for c in siblings)}; try one of those.")
+        return result
     if search:
         result["matches"] = [e for e in entries if _match(e, search)][:MATCH_CAP]
         result["hint"] = ("`matches` holds the values to store as given; pass one through "
