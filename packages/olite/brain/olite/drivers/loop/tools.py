@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from olite.registry import load_primitives
 from olite.substrate import Confirmation, LocalExecutionError
 
-from . import (artifacts, confusables, ena, galaxy_destructive, galaxy_tools, gtn, notebook,
-               sra_import_gate)
+from . import (artifacts, confusables, ena, fetch_failure_hint, galaxy_destructive,
+               galaxy_tools, gtn, notebook, sra_import_gate)
 from .brief import brief
 
 logger = logging.getLogger(__name__)
@@ -385,7 +385,10 @@ class ToolSurface:
             if refusal:
                 return ToolOutcome(f"Refused: {refusal}", is_error=True)
             result = self._claim_artifact(await handler(self.substrate.galaxy, args))
-            return json.dumps(result, default=str)
+            payload = json.dumps(result, default=str)
+            # Galaxy names the url and the status; it cannot say that guessing another is wrong.
+            hint = fetch_failure_hint.for_result(result)
+            return f"{payload}\n\n{hint}" if hint else payload
         reference_handler = gtn.get_handler(name) or ena.get_handler(name)
         if reference_handler:
             return json.dumps(await reference_handler(args), default=str)

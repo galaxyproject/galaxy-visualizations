@@ -38,19 +38,21 @@ def ts_symbol(text, symbol):
 
 
 def py_symbol(text, symbol):
-    """A module-level `SYMBOL = \"\"\"...\"\"\"` constant, or a `def symbol(...)` body."""
+    """A module-level constant (triple-quoted, braced or parenthesised), or a `def` body."""
     m = re.search(rf'^{re.escape(symbol)} = ("""|\'\'\')', text, re.M)
     if m:
         quote = m.group(1)
         end = text.index(quote, m.end())
         return text[m.start() : end + len(quote)]
-    m = re.search(rf"^{re.escape(symbol)} = {{$", text, re.M)
-    if m:
+    for opener, closer in (("{", "}"), ("(", ")")):
+        m = re.search(rf"^{re.escape(symbol)} = \{opener}$", text, re.M)
+        if not m:
+            continue
         lines = text[m.start():].splitlines()
         body = [lines[0]]
         for line in lines[1:]:
             body.append(line)
-            if line == "}":
+            if line == closer:
                 break
         return "\n".join(body)
     m = re.search(rf"^def {re.escape(symbol)}\b", text, re.M)
