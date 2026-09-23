@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { embedVisualization, galaxyMessages } from "../../playwright.shared.mjs";
+
 const DATASET_0 = {
     id: "dataset_0",
     extension: "txt",
@@ -40,8 +42,7 @@ async function selectKernel(page) {
     await page.click(".jp-InputArea-editor");
 }
 
-async function startService(page, testTitle = "Hello World!") {
-    // mock api
+async function mockGalaxy(page, testTitle = "Hello World!") {
     await page.route("**/root/api/datasets/dataset_0/display", async (route) => {
         await route.fulfill({
             status: 200,
@@ -133,6 +134,10 @@ async function startService(page, testTitle = "Hello World!") {
     await page.route("**/root/api/tools/fetch", async (route) => {
         await route.fulfill({ status: 200, body: JSON.stringify({ status: "ok" }) });
     });
+}
+
+async function startService(page, testTitle = "Hello World!") {
+    await mockGalaxy(page, testTitle);
 
     // goto landing page
     await page.goto(LANDING);
@@ -417,4 +422,50 @@ test("no dataset identifier loads the default notebook", async ({ page }) => {
     const cells = page.locator(".jp-Notebook .jp-Cell");
     await expect(cells.first()).toBeVisible({ timeout: 30000 });
     expect(await cells.count()).toBeGreaterThan(0);
+});
+
+test("reports unsaved state to the host window, not to its own", async ({ page }, testInfo) => {
+    await mockGalaxy(page, testInfo.title);
+
+    await page.goto("/lab/index.html");
+    const frame = await embedVisualization(page, { src: LANDING });
+    await frame.locator(".jp-Dialog").waitFor({ timeout: 120000 });
+    await frame.locator('.jp-Dialog button:has-text("Select")').click();
+    await frame.locator(".jp-NotebookPanel").waitFor();
+
+    await frame.locator(".jp-Cell:last-child .jp-InputArea-editor").click();
+    await page.keyboard.type("print('dirty')");
+
+    await expect.poll(() => galaxyMessages(page).then((m) => m.length), { timeout: 30000 }).toBeGreaterThan(0);
+
+    const [unsaved] = await galaxyMessages(page);
+    expect(unsaved.visualization_saved).toBe(false);
+    expect(unsaved.fromEmbeddedFrame).toBe(true);
+});
+
+test("reports saved once the notebook reaches the history", async ({ page }, testInfo) => {
+    await mockGalaxy(page, testInfo.title);
+
+    await page.goto("/lab/index.html");
+    const frame = await embedVisualization(page, { src: LANDING });
+    await frame.locator(".jp-Dialog").waitFor({ timeout: 120000 });
+    await frame.locator('.jp-Dialog button:has-text("Select")').click();
+    await frame.locator(".jp-NotebookPanel").waitFor();
+
+    await frame.locator(".jp-Cell:last-child .jp-InputArea-editor").click();
+    await page.keyboard.type("print('save me')");
+
+    await frame.locator(".jp-NotebookPanel").click();
+    await page.keyboard.press("ControlOrMeta+s");
+
+    const dialog = frame.locator(".jp-Dialog");
+    await dialog.waitFor({ timeout: 10000 });
+    await dialog.locator("input").fill("reported-notebook");
+    await dialog.locator('button:has-text("OK")').click();
+
+    await expect
+        .poll(() => galaxyMessages(page).then((m) => m.some((x) => x.visualization_saved === true)), {
+            timeout: 30000,
+        })
+        .toBe(true);
 });

@@ -28,6 +28,10 @@ function getPayload(name: string, history_id: string, content: string, ext: stri
     };
 }
 
+function postSaved(saved: boolean) {
+    window.parent?.postMessage({ from: "galaxy-visualization", visualization_saved: saved }, "*");
+}
+
 function getTimestamp() {
     const now = new Date();
     const pad = (n: number) => n.toString().padStart(2, "0");
@@ -83,25 +87,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
             // hide file browser
             await app.commands.execute("filebrowser:hide-main");
 
-            // open notebook
             try {
-                await app.serviceManager.contents.save(notebookName, {
-                    type: "notebook",
-                    format: "json",
-                    content: nbContent,
-                });
-                await app.commands.execute("docmanager:open", {
-                    path: notebookName,
-                    factory: "Notebook",
-                });
-                console.log("✅ Notebook opened:", notebookName);
-            } catch (err) {
-                console.error("❌ Could not load dataset notebook:", err);
-            }
-
-            // open and save notebooks
-            try {
-                // attach commands
                 app.commands.commandExecuted.connect(async (_: any, args: any) => {
                     if (args.id === "docmanager:open") {
                         args.result.then(async (widget: any) => {
@@ -112,6 +98,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                     await context.rename(name);
                                     console.log(`✅ Renamed new notebook to: ${name}`);
                                 }
+                                context.model?.stateChanged?.connect((_m: any, change: any) => {
+                                    if (change.name === "dirty" && change.newValue) {
+                                        postSaved(false);
+                                    }
+                                });
                             }
                         });
                     } else if (args.id === "docmanager:save") {
@@ -145,6 +136,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
                                             if (!res.ok) {
                                                 throw new Error(`HTTP ${res.status}: ${res.statusText}`);
                                             }
+                                            postSaved(true);
                                             console.log(`✅ Notebook "${name}" saved to history`);
                                         } catch (err: any) {
                                             console.error(`❌ Could not save "${name}" to history:`, err);
@@ -169,6 +161,22 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 });
             } catch (err) {
                 console.error("❌ Failed to attach commands:", err);
+            }
+
+            // open notebook
+            try {
+                await app.serviceManager.contents.save(notebookName, {
+                    type: "notebook",
+                    format: "json",
+                    content: nbContent,
+                });
+                await app.commands.execute("docmanager:open", {
+                    path: notebookName,
+                    factory: "Notebook",
+                });
+                console.log("✅ Notebook opened:", notebookName);
+            } catch (err) {
+                console.error("❌ Could not load dataset notebook:", err);
             }
         });
     },
