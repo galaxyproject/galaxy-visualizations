@@ -39,3 +39,27 @@ export function visualizationConfig({ port = DEFAULT_PORT, timeout = DEFAULT_TIM
         },
     };
 }
+
+export async function embedVisualization(page, { src, id = "viz", width = 1200, height = 800 } = {}) {
+    await page.setContent(
+        `<iframe id="${id}" style="width:${width}px;height:${height}px;border:0" src="${src}"></iframe>`,
+    );
+    await page.evaluate((frameId) => {
+        window.galaxyHostMessages = [];
+        window.addEventListener("message", (event) => {
+            if (event.data?.from !== "galaxy-visualization") {
+                return;
+            }
+            const frame = document.getElementById(frameId);
+            window.galaxyHostMessages.push({
+                ...event.data,
+                fromEmbeddedFrame: event.source === frame?.contentWindow,
+            });
+        });
+    }, id);
+    return page.frameLocator(`#${id}`);
+}
+
+export function galaxyMessages(page) {
+    return page.evaluate(() => window.galaxyHostMessages || []);
+}
