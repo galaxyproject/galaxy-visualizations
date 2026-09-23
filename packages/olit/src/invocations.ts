@@ -11,7 +11,9 @@ export interface Watched {
 }
 
 /** Galaxy job states that will never change again. */
-const JOB_TERMINAL = new Set(["ok", "error", "deleted", "discarded"]);
+// loom's FAILED_JOB_STATES: ended some way other than working.
+const JOB_FAILED = new Set(["error", "failed", "deleted"]);
+const JOB_TERMINAL = new Set(["ok", "discarded", "skipped", "stopped", ...JOB_FAILED]);
 /** Terminal invocation states. `scheduled` only means every step was scheduled. */
 const INVOCATION_TERMINAL = new Set(["cancelled", "failed", "completed"]);
 
@@ -126,14 +128,17 @@ export class InvocationWatcher {
 }
 
 /**
- * What a scheduled or completed invocation amounts to, from its jobs: an errored job fails
- * it, and every job settled with some ok completes it. Galaxy 26 reports `completed`
- * itself; before that a scheduled invocation stays `scheduled` after its jobs finish.
+ * What a scheduled or completed invocation amounts to, from its jobs: a failed job fails it
+ * once nothing is still moving, and every job settled with some ok completes it. Galaxy 26
+ * reports `completed` itself; before that a scheduled invocation stays `scheduled` after its
+ * jobs finish. Mirrors `brain/olit/drivers/loop/invocation_outcome.py`.
  */
 export function settleInvocation(state: string, jobStates: Record<string, number> = {}): string {
-    if ((jobStates.error || 0) > 0) return "failed";
+    const failed = Object.entries(jobStates).some(([s, n]) => n > 0 && JOB_FAILED.has(s));
     const active = Object.entries(jobStates).some(([s, n]) => n > 0 && !JOB_TERMINAL.has(s));
-    if (state === "completed" || (!active && (jobStates.ok || 0) > 0)) return "completed";
+    if (active) return failed ? "failing" : state;
+    if (failed) return "failed";
+    if (state === "completed" || (jobStates.ok || 0) > 0) return "completed";
     return state;
 }
 

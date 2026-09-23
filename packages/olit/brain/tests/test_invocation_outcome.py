@@ -26,8 +26,35 @@ def test_a_run_still_working_keeps_galaxy_s_state():
     assert invocation_outcome.settle("new", {}) == "new"
 
 
+def test_a_run_still_scheduling_is_not_judged_yet():
+    """loom's second question: has Galaxy stopped handing out steps?"""
+    assert invocation_outcome.settle("new", {"ok": 1}) == "new"
+    assert invocation_outcome.settle("cancelling", {"ok": 1}) == "cancelling"
+
+
+def test_an_error_beside_a_running_job_is_failing_rather_than_failed():
+    """A run whose other steps are still going is not over, so it cannot be reported as over."""
+    assert invocation_outcome.settle("scheduled", {"error": 1, "running": 1}) == "failing"
+    assert invocation_outcome.settle("scheduled", {"error": 1, "paused": 1}) == "failing"
+
+
+def test_every_state_loom_counts_as_a_failure_counts_here():
+    for state in ("error", "failed", "deleted"):
+        assert invocation_outcome.settle("completed", {state: 1}) == "failed", state
+
+
+def test_a_state_that_merely_ended_is_not_a_failure():
+    assert invocation_outcome.settle("scheduled", {"ok": 1, "skipped": 1}) == "completed"
+
+
 def test_a_cancelled_run_is_reported_as_cancelled():
+    """loom folds this into `failed`; a tool result has room to say what happened."""
     assert invocation_outcome.settle("cancelled", {}) == "cancelled"
+    assert invocation_outcome.settle("cancelled", {"ok": 1}) == "cancelled"
+
+
+def test_galaxy_failing_to_schedule_is_a_failure_with_no_failed_job():
+    assert invocation_outcome.settle("failed", {}) == "failed"
 
 
 def test_a_failed_outcome_says_what_to_do_next():
@@ -38,6 +65,13 @@ def test_a_failed_outcome_says_what_to_do_next():
     assert "get_job_details" in out["outcome_note"]
     # Galaxy's own answer is kept: it is the truth about scheduling.
     assert out["state"] == "completed"
+
+
+def test_a_failing_run_is_told_not_to_repair_it_yet():
+    out = invocation_outcome.described(dict(SCHEDULED, state="scheduled"), {"error": 1, "running": 1})
+
+    assert out["outcome"] == "failing"
+    assert "not over" in out["outcome_note"]
 
 
 def test_a_healthy_run_carries_no_note():

@@ -339,7 +339,9 @@ def _stage_run(galaxy, history_id, dataset_id, spec):
 # Job states Galaxy will not leave, matching src/invocations.ts.
 RUNNING_STATES = ("new", "queued", "running", "paused", "upload", "setting_metadata")
 
-INVOCATION_TERMINAL = ("scheduled", "cancelled", "failed")
+# Galaxy 26 moves a settled invocation from `scheduled` to `completed`, so pinning either
+# word races the scheduler. What the staging asserts is the job outcome below.
+INVOCATION_TERMINAL = ("scheduled", "completed", "cancelled", "failed")
 
 
 def _await_invocation(galaxy, invocation_id, timeout=600):
@@ -372,12 +374,11 @@ def _stage_invocation(galaxy, history_id, dataset_id, spec):
     })
     settled, states = _await_invocation(galaxy, invocation["id"])
     wanted_job = spec.get("expectJobState", "error")
-    wanted_invocation = spec.get("expectState", "scheduled")
-    if settled.get("state") != wanted_invocation or not states.get(wanted_job):
+    if settled.get("state") not in INVOCATION_TERMINAL or not states.get(wanted_job):
         raise tooltests.ToolTestError(
-            f"{workflow} was expected to reach invocation state {wanted_invocation!r} with a "
-            f"{wanted_job!r} job, and reached {settled.get('state')!r} with jobs {states}; "
-            f"the scenario would not be testing what it claims")
+            f"{workflow} was expected to settle with a {wanted_job!r} job, and reached "
+            f"{settled.get('state')!r} with jobs {states}; the scenario would not be testing "
+            f"what it claims")
     return invocation["id"]
 
 

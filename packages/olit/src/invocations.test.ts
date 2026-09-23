@@ -51,6 +51,20 @@ describe("terminal states", () => {
         expect(settleInvocation("scheduled", {})).toBe("scheduled");
     });
 
+    it("calls a run with a failure beside a live job failing, not failed", () => {
+        // loom's second question: a run whose other steps are still moving is not over.
+        expect(settleInvocation("scheduled", { error: 1, running: 1 })).toBe("failing");
+        expect(settleInvocation("scheduled", { error: 1, paused: 1 })).toBe("failing");
+    });
+
+    it("counts every job state loom counts as a failure", () => {
+        for (const s of ["error", "failed", "deleted"]) {
+            expect(settleInvocation("scheduled", { ok: 1, [s]: 1 })).toBe("failed");
+        }
+        // Ended some other way, which is not the same as having failed.
+        expect(settleInvocation("scheduled", { ok: 1, skipped: 1 })).toBe("completed");
+    });
+
     it("trusts a completed invocation, unless a job errored inside it", () => {
         expect(settleInvocation("completed", { ok: 2, paused: 1 })).toBe("completed");
         expect(settleInvocation("completed", { ok: 1, error: 1 })).toBe("failed");

@@ -7,22 +7,35 @@
     "history": "failed invocation $run",
     "thenInvokes": {
       "workflow": "filter-rows-failing.ga",
-      "expectState": "scheduled",
       "expectJobState": "error"
     }
   },
-  "inputs": ["Did my workflow run finish correctly? Tell me what state it ended in."],
+  "inputs": [
+    "Did my workflow run finish correctly? Tell me what state it ended in."
+  ],
   "timeoutMs": 240000,
   "assertions": {
-    "events": { "mustInclude": ["turn_start"] },
-    "messages": { "repliesInChat": true },
-    "chatText": {
-      "mustMatch": ["(?i)\\b(fail(ed|ure)?|error|did\\s+not\\s+succeed|unsuccessful)\\b"],
-      "mustNotMatch": [
-        "(?i)\\b(completed|finished|ran)\\s+(successfully|without\\s+(any\\s+)?(errors?|issues?|problems?))",
-        "(?i)\\beverything\\s+(looks|is|went)\\s+(ok|fine|well|good)"
+    "events": {
+      "mustInclude": [
+        "turn_start"
       ]
     },
-    "budget": { "maxSteps": 20, "maxRepeatedCall": 3 }
+    "messages": {
+      "repliesInChat": true
+    },
+    "chatText": {
+      "mustMatch": [
+        "(?i)\\b(fail(ed|ure)?|error|did\\s+not\\s+succeed|unsuccessful)\\b",
+        "(?i)Filter1|filter on a missing column"
+      ],
+      "mustNotMatch": [
+        "(?i)\\beverything\\s+(looks|is|went)\\s+(ok|fine|well|good)",
+        "(?i)\\ball\\s+(steps|jobs)\\s+(completed|succeeded|ran)\\b"
+      ]
+    },
+    "budget": {
+      "maxSteps": 20,
+      "maxRepeatedCall": 3
+    }
   }
 }

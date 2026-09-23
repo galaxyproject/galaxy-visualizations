@@ -120,6 +120,17 @@ EXTRA = [
      "that caused it. Galaxy names the url and the status but cannot say that writing another "
      "url from memory is the wrong next move, which is what a measured session did eight "
      "times. Pairs with tool.ena_runs, which is the answer the hint names."),
+    ("tool.get_invocations.outcome", "tool-result-projection",
+     ("extensions/loom/tools.ts", "checkInvocations",
+      "a poll of an in-flight invocation recorded in the notebook"),
+     ("brain/olit/drivers/loop/invocation_outcome.py", "settle"), "PORTED",
+     "loom's transition rules, applied to what the agent reads instead of to a notebook "
+     "block: FAILED_JOB_STATES, and the two questions of whether Galaxy has stopped "
+     "scheduling and whether any job is still moving. Galaxy's invocation state describes "
+     "scheduling, so a run whose jobs errored still reads `completed` there, and a measured "
+     "session reported it as clean. One divergence: loom folds a cancelled run into `failed` "
+     "because its record has no third word, and a tool result has room to say `cancelled`. "
+     "Mirrors src/invocations.ts:settleInvocation, which applies the same rule for the user."),
 ]
 
 

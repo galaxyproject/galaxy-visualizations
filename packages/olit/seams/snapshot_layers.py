@@ -61,7 +61,7 @@ MODULE_CLASSIFICATION = {
     "auto-resume": "NA: loom's poller wakes the agent, so it needed a cap. olit's onSettled "
                    "posts a message and edits the record; it starts no turn, so there is no "
                    "automatic continuation to bound.",
-    "invocation-failure-hint": "INVESTIGATE: lower priority, no concrete gap found yet",
+    "invocation-failure-hint": "PARTIAL: the imperative rides the result as `outcome_note` (see the tool.get_invocations.outcome seam); the pointer to loom's two vendored failure references is not ported, because they live in its foundry bundle rather than in the shared galaxy-skills repo",
     "galaxy-cred-drift": "NA: the browser session is the credential; nothing to reconnect",
     "confusables-hint": "NA: upstream calls it a stopgap; olit folds names at dispatch",
     "user-instructions": "NA: no project directory in a browser, so no LOOM.md channel",
