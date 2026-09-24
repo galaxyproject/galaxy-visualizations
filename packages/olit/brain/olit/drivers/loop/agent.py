@@ -7,7 +7,7 @@ from olit import compaction
 from olit.substrate import Cancellation
 from olit.substrate.llm.json_parse import loads_with_repair
 
-from .brief import brief
+from .brief import around, brief
 
 from .secret_redaction import collect_secret_values, redact_secrets
 from .tools import ToolSurface, plain_tool_name, without_control_tokens
@@ -180,7 +180,8 @@ class LoopDriver:
                         args = loads_with_repair(fn.get("arguments") or "{}")
                     except json.JSONDecodeError as e:
                         refusal = MALFORMED_ARGS_ERROR.format(name=name, detail=e)
-                        malformed = fn.get("arguments") or ""
+                        raw = fn.get("arguments") or ""
+                        malformed = f"{len(raw)} chars, broke at {e.pos}: {around(raw, e.pos)}"
 
                 # Live tool progress; a refused call emits the pair too.
                 _emit(on_event, {"type": "tool_start", "id": call_id, "name": name})
@@ -188,7 +189,7 @@ class LoopDriver:
                     logs.append(f"refuse {name}: {refusal}")
                     if malformed is not None:
                         # What the model actually sent; the refusal alone cannot be diagnosed.
-                        logs.append(f"  sent: {brief(malformed)}")
+                        logs.append(f"  sent {malformed}")
                     content, is_error = refusal, True
                 else:
                     logs.append(f"call {name}({brief(args)})")

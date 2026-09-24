@@ -74,20 +74,26 @@ def test_what_the_model_sent_is_logged_beside_the_refusal():
     )
     _, result = _run(llm)
 
-    sent = [line for line in result["logs"] if line.strip().startswith("sent:")]
+    sent = [line for line in result["logs"] if line.strip().startswith("sent ")]
     assert sent, result["logs"]
     assert "import pandas as pd, json, os" in sent[0]
+    assert "broke at 0" in sent[0]
 
 
-def test_a_long_malformed_argument_is_logged_within_bounds():
+def test_a_break_late_in_a_long_argument_is_still_visible():
+    """A head-only excerpt hides the break; most real failures break past the first 300 chars."""
+    # An unescaped quote, the shape repair cannot fix, two thousand characters in.
+    arguments = '{"code": "' + "x" * 2000 + ' the "preview" text"}'
     llm = ScriptedLlm(
-        choice([call("run_python", "import os\n" + "x = 1\n" * 500)]),
+        choice([call("run_python", arguments)]),
         choice([], content="ok"),
     )
     _, result = _run(llm)
 
-    (sent,) = [line for line in result["logs"] if line.strip().startswith("sent:")]
-    assert len(sent) < 400 and sent.endswith("…")
+    (sent,) = [line for line in result["logs"] if line.strip().startswith("sent ")]
+    assert "⟨here⟩" in sent, sent
+    assert "xxxx" in sent.split("⟨here⟩")[0], "the text before the break must be shown"
+    assert len(sent) < 400, "and it must still be bounded"
 
 
 def test_finish_alongside_real_work_does_not_end_the_turn():
