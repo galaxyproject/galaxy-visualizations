@@ -1,6 +1,8 @@
 """Scenario assertions, graded on loom's four decision-correctness dimensions."""
 
 import re
+import urllib.error
+
 from olit.drivers.loop import galaxy_tools, notebook
 
 from .plan import count_plans, parse_latest_plan, step_has_description
@@ -889,7 +891,14 @@ def _visualization(spec, run, failures, exercised):
 
     matching = []
     for entry in saved:
-        detail = galaxy.call(f"api/visualizations/{entry.get('id')}") or {}
+        try:
+            detail = galaxy.call(f"api/visualizations/{entry.get('id')}") or {}
+        except urllib.error.HTTPError as exc:
+            # A visualization whose plugin is no longer installed still lists but cannot be
+            # shown. It predates this run, so it is not evidence either way; anything else raises.
+            if exc.code != 404:
+                raise
+            continue
         config = (detail.get("latest_revision") or {}).get("config") or {}
         if wanted_dataset and config.get("dataset_id") != wanted_dataset:
             continue
