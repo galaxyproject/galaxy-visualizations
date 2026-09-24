@@ -297,18 +297,27 @@ async def _get_job_details(g, a):
     job = dict(job)
     for field in JOB_LOG_FIELDS:
         if isinstance(job.get(field), str):
-            job[field] = _tail(job[field], JOB_LOG_BYTES)
+            job[field] = _ends(job[field], JOB_LOG_BYTES)
     return job
 
 
-def _tail(text, cap):
-    """Keep the end of a log, where a traceback is, and say how much was dropped."""
+def _ends(text, cap):
+    """Keep both ends of a log: a traceback is at the end, what was being read is at the start.
+
+    Tail-only cost a real run. RSeQC names the file it wants on its first line and then repeats
+    one warning for 30 KB, so the end of the log says a great deal about nothing.
+    """
     data = text.encode("utf-8", "replace")
     if len(data) <= cap:
         return text
-    # Cut on a line boundary, as pi's truncate does, so the first line shown is a whole one.
-    kept = data[-cap:].split(b"\n", 1)[-1]
-    return f"[Showing the last {len(kept)} of {len(data)} bytes.]\n{kept.decode('utf-8', 'replace')}"
+    half = cap // 2
+    # Whole lines at both cuts, as pi's truncate does.
+    head = data[:half].rsplit(b"\n", 1)[0]
+    tail = data[-half:].split(b"\n", 1)[-1]
+    dropped = len(data) - len(head) - len(tail)
+    return (f"{head.decode('utf-8', 'replace')}\n"
+            f"[... {dropped} of {len(data)} bytes omitted ...]\n"
+            f"{tail.decode('utf-8', 'replace')}")
 
 
 async def _get_dataset_details(g, a):
