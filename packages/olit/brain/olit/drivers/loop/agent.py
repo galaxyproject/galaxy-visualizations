@@ -165,6 +165,7 @@ class LoopDriver:
                 call_id = call.get("id")
 
                 refusal = None
+                malformed = None
                 gated = False
                 guard = None
                 args = {}
@@ -179,11 +180,15 @@ class LoopDriver:
                         args = loads_with_repair(fn.get("arguments") or "{}")
                     except json.JSONDecodeError as e:
                         refusal = MALFORMED_ARGS_ERROR.format(name=name, detail=e)
+                        malformed = fn.get("arguments") or ""
 
                 # Live tool progress; a refused call emits the pair too.
                 _emit(on_event, {"type": "tool_start", "id": call_id, "name": name})
                 if refusal is not None:
                     logs.append(f"refuse {name}: {refusal}")
+                    if malformed is not None:
+                        # What the model actually sent; the refusal alone cannot be diagnosed.
+                        logs.append(f"  sent: {brief(malformed)}")
                     content, is_error = refusal, True
                 else:
                     logs.append(f"call {name}({brief(args)})")

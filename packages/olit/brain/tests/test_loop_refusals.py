@@ -66,6 +66,30 @@ def test_malformed_arguments_are_reported_not_defaulted():
     assert "Re-issue the tool call" in tool_message["content"]
 
 
+def test_what_the_model_sent_is_logged_beside_the_refusal():
+    """A refusal that does not carry the arguments cannot be diagnosed after the fact."""
+    llm = ScriptedLlm(
+        choice([call("run_python", "import pandas as pd, json, os")]),
+        choice([], content="ok"),
+    )
+    _, result = _run(llm)
+
+    sent = [line for line in result["logs"] if line.strip().startswith("sent:")]
+    assert sent, result["logs"]
+    assert "import pandas as pd, json, os" in sent[0]
+
+
+def test_a_long_malformed_argument_is_logged_within_bounds():
+    llm = ScriptedLlm(
+        choice([call("run_python", "import os\n" + "x = 1\n" * 500)]),
+        choice([], content="ok"),
+    )
+    _, result = _run(llm)
+
+    (sent,) = [line for line in result["logs"] if line.strip().startswith("sent:")]
+    assert len(sent) < 400 and sent.endswith("…")
+
+
 def test_finish_alongside_real_work_does_not_end_the_turn():
     """pi's `shouldTerminateToolBatch`: every call in the batch must ask to stop."""
     llm = ScriptedLlm(
