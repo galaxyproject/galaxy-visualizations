@@ -7,10 +7,7 @@ import {
   type SelectionSignature,
 } from "./copy-button.js";
 import { copyToClipboard } from "../update-banner.js";
-import {
-  TEAM_DISPATCH_KIND,
-  type TeamDispatchDetails,
-} from "../shared/team-dispatch-contract.js";
+import { TEAM_DISPATCH_KIND, type TeamDispatchDetails } from "../shared/team-dispatch-contract.js";
 import type {
   ParameterFormPayload,
   ParameterGroup,

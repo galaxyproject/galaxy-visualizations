@@ -7,21 +7,21 @@
  * load. Same refusal, expressed in the controls this build actually has.
  */
 export interface CatalogStatus {
-    loaded?: boolean;
-    op_count?: number;
-    error?: string | null;
+  loaded?: boolean;
+  op_count?: number;
+  error?: string | null;
 }
 
 export function galaxyCanRun(catalog: CatalogStatus | null | undefined): boolean {
-    // Unknown means the brain has not reported yet: do not block on missing evidence.
-    if (!catalog) return true;
-    return Boolean(catalog.loaded) && (catalog.op_count ?? 0) > 0;
+  // Unknown means the brain has not reported yet: do not block on missing evidence.
+  if (!catalog) return true;
+  return Boolean(catalog.loaded) && (catalog.op_count ?? 0) > 0;
 }
 
 export function catalogRefusalMessage(catalog: CatalogStatus | null | undefined): string {
-    const reason = catalog && catalog.error ? `: ${catalog.error}` : ".";
-    return (
-        `Galaxy is not available${reason} The tool catalog did not load, so nothing in this ` +
-        `plan can run. Reload the page once Galaxy is reachable — the plan is kept.`
-    );
+  const reason = catalog && catalog.error ? `: ${catalog.error}` : ".";
+  return (
+    `Galaxy is not available${reason} The tool catalog did not load, so nothing in this ` +
+    `plan can run. Reload the page once Galaxy is reachable — the plan is kept.`
+  );
 }

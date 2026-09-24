@@ -1,5 +1,9 @@
+// Orbit's own settings, so the UI vendored from it stays byte-identical.
 export default {
-    tabWidth: 4,
-    printWidth: 120,
-    bracketSameLine: true,
+  endOfLine: "lf",
+  printWidth: 100,
+  proseWrap: "preserve",
+  semi: true,
+  singleQuote: false,
+  trailingComma: "all",
 };
