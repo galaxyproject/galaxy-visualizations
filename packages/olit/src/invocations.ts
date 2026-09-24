@@ -16,8 +16,7 @@ const JOB_FAILED = new Set(["error", "failed", "deleted"]);
 const JOB_TERMINAL = new Set(["ok", "discarded", "skipped", "stopped", ...JOB_FAILED]);
 /** Terminal invocation states. `scheduled` only means every step was scheduled. */
 const INVOCATION_TERMINAL = new Set(["cancelled", "failed", "completed"]);
-/** A fetch can leave its `__DATA_FETCH__` job `ok` and its dataset `error`, so the dataset is
- *  the thing worth watching: an upload that 403s is only visible here. */
+/** Dataset states that will never change again. */
 const DATASET_FAILED = new Set(["error", "discarded", "deleted"]);
 const DATASET_TERMINAL = new Set(["ok", "paused", ...DATASET_FAILED]);
 
@@ -54,8 +53,7 @@ export function extractWatched(toolName: string, content: string): Watched[] {
             }
         }
     } else if (toolName === "upload_file_from_url" || toolName === "upload_file") {
-        // The fetch answers with the datasets it created, not with a landed state: a receipt
-        // reads as success. Watch the datasets, because the job can be `ok` over an `error` one.
+        // Watch the datasets themselves, because the fetch job can be ok over a failed one.
         for (const output of payload.outputs || []) {
             if (output && typeof output.id === "string") {
                 out.push({ kind: "dataset", id: output.id, label: toolName, state: output.state });

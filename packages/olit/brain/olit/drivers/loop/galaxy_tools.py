@@ -302,16 +302,12 @@ async def _get_job_details(g, a):
 
 
 def _ends(text, cap):
-    """Keep both ends of a log: a traceback is at the end, what was being read is at the start.
-
-    Tail-only cost a real run. RSeQC names the file it wants on its first line and then repeats
-    one warning for 30 KB, so the end of the log says a great deal about nothing.
-    """
+    """Keep both ends of a log: the cause is usually at the end, the context at the start."""
     data = text.encode("utf-8", "replace")
     if len(data) <= cap:
         return text
     half = cap // 2
-    # Whole lines at both cuts, as pi's truncate does.
+    # Cut on line boundaries at both ends.
     head = data[:half].rsplit(b"\n", 1)[0]
     tail = data[-half:].split(b"\n", 1)[-1]
     dropped = len(data) - len(head) - len(tail)
@@ -555,8 +551,7 @@ async def _download_dataset(g, a):
 
 
 async def _upload_file_from_url(g, a):
-    # Galaxy's own uploader decompresses by default (uploadOptionModel.ts); the API does not, so a
-    # `.gz` URL declared as its uncompressed type lands as gzip bytes wearing the wrong label.
+    # Decompress on the way in, as Galaxy's uploader does.
     element = {"src": "url", "url": a["url"], "ext": a.get("file_type", "auto"), "dbkey": a.get("dbkey", "?"),
                "auto_decompress": True}
     if a.get("file_name"):

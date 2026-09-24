@@ -101,8 +101,7 @@ def test_an_oversized_result_is_discarded_and_says_how_to_recover():
     message = _run("x" * (MAX_TOOL_RESULT_BYTES + 1))
     assert "x" * 100 not in message["content"]
     assert "run_python" in message["content"]
-    # The recovery names no parameter: `get_tool_details` has no limit, offset or filter, and
-    # the old wording sent the model looking for them.
+    # The recovery names no parameter, because not every tool has one.
     assert "narrow" in message["content"]
     assert "offset" not in message["content"] and "limit and page" not in message["content"]
 

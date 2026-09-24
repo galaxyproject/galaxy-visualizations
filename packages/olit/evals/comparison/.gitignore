@@ -1,4 +1,2 @@
-# Runtime state for the loom arm: a persistent cwd and fake HOME so the session can be
-# resumed with --continue. Holds the staged input, pi's session.jsonl, the skills cache and
-# mcp.json -- which carries the Galaxy API key in its env block. Never committed.
+# Session state for the loom arm, including a config file that carries the Galaxy API key.
 loom-session-state/

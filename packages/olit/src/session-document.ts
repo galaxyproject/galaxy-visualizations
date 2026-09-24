@@ -43,8 +43,7 @@ export interface SessionDocument {
     session: SessionMeta;
     messages: Message[];
     artifacts: Artifact[];
-    /** tool_call_ids that failed. The provider transcript has no field for it, and the text is
-     *  not reliable evidence: a refusal or a discarded result is plain prose, not `ok: false`. */
+    /** tool_call_ids that failed; the transcript carries no field for it. */
     toolErrors?: string[];
 }
 

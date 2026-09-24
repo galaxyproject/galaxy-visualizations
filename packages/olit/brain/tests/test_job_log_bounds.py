@@ -30,7 +30,7 @@ def test_a_chatty_job_stays_under_the_dispatcher_cap():
 
 
 def test_the_first_line_survives_a_flood_of_warnings():
-    """RSeQC names the file it wants once, then repeats one warning for 30 KB."""
+    """A log can name what it is reading once and then warn about it thousands of times."""
     noise = "\n".join("Invalid bed line (skipped): @SQ SN:chr1 LN:248956422" for _ in range(600))
     out, _ = call({"id": "j1", "tool_stderr": "Reading reference bed file: ref.dat\n" + noise})
     assert out["tool_stderr"].startswith("Reading reference bed file: ref.dat")

@@ -147,8 +147,6 @@ async def _run(scenario, model):
         cap = int(result.get("max_steps") or 0) or cap
         # Only after run() returns: a turn that dies mid-flight must not look complete.
         events.append("turn_end")
-        # The shell continues by itself when work lands, bounded to MAX_AUTO_FOLLOW_UPS turns
-        # (src/auto-resume.ts). Waiting without acting is what the shell does not do.
         if staged:
             wait = scenario.get("settleTimeoutMs", 180_000) / 1000
             landed = _settle_pending(staged, events, timeout=wait)
@@ -367,10 +365,9 @@ def _stage_run(galaxy, history_id, dataset_id, spec):
 
 # Job states Galaxy will not leave, matching src/invocations.ts.
 RUNNING_STATES = ("new", "queued", "running", "paused", "upload", "setting_metadata")
-# What Galaxy advances on its own. `paused` is not terminal -- loom says so too -- but it waits
-# on an input that failed or on the user, so nothing is gained by watching it tick.
+# What Galaxy advances on its own; `paused` waits on a failed input or on the user.
 ADVANCING_STATES = ("new", "queued", "running", "upload", "setting_metadata")
-# The shell continues by itself when work lands, up to this many turns: src/auto-resume.ts.
+# How many turns the shell will continue by itself once work lands.
 MAX_AUTO_FOLLOW_UPS = 3
 
 # Galaxy 26 moves a settled invocation from `scheduled` to `completed`, so pinning either
@@ -417,13 +414,7 @@ def _stage_invocation(galaxy, history_id, dataset_id, spec):
 
 
 def _settle_pending(staged, events, timeout=180, interval=10):
-    """Wait for work Galaxy is advancing, as the shell's watcher does.
-
-    Ticks at the shell watcher's own rate (src/invocations.ts: 10s; loom's poller is 15s).
-    Only states that progress on their own are waited on. A `paused` dataset is waiting on an
-    input that failed or on the user, so watching it until a deadline freezes the agent for the
-    whole window -- which is the opposite of what the shell does when work lands.
-    """
+    """Wait for work Galaxy is advancing, as the shell's watcher does."""
     galaxy, history_id = staged["galaxy"], staged["history_id"]
     deadline = time.time() + timeout
     watched = {}
@@ -431,7 +422,7 @@ def _settle_pending(staged, events, timeout=180, interval=10):
         try:
             contents = galaxy.call(f"api/histories/{history_id}/contents") or []
         except Exception as exc:
-            # One truncated read must not end a run that has been going for half an hour.
+            # A dropped read must not end a long run.
             logging.getLogger(__name__).info("settle poll failed, retrying: %s", exc)
             time.sleep(interval)
             continue

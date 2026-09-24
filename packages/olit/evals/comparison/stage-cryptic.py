@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Stage the cryptic-exon-q1 history for the loom arm, and bind it in the scenario fixture.
 
-The olit arm stages through `evals/lib/harness.py`; loom's runner has no staging hook, but it
-copies `<scenario>/cwd/` into the spawn's working directory and reads a history binding out of
-`notebook.md`. So the equivalent starting state is: same pinned input, same clean history, same
-Galaxy Page, written into that fixture before the run.
+The runner copies the scenario's cwd into the spawn and reads the history binding from the
+notebook, so the starting state is written there before the run.
 
     GALAXY_URL=https://usegalaxy.eu GALAXY_API_KEY=$GALAXY_EU_KEY python3 stage-cryptic.py
 """
@@ -59,7 +57,7 @@ def main():
     if landed.get("state") != "ok":
         sys.exit(f"{spec['name']} landed in state {landed.get('state')}")
 
-    # loom binds a history through a Galaxy Page, as olit's `_resume_record` does.
+    # A history is bound through a Galaxy Page.
     page = call(base, key, "api/pages", {
         "title": "Record", "slug": f"cryptic-exon-q1-{int(time.time())}",
         "content_format": "markdown", "content": "## Record\n",

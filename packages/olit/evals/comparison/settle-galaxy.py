@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Wait for Galaxy work that is advancing on its own, as Olit's harness does between turns.
 
-`paused` is not terminal -- loom says so too -- but it waits on a failed input or on the user,
-so watching it until a deadline would freeze the arm for the whole window.
+`paused` waits on a failed input or on the user, so it is not worth watching to a deadline.
 
     GALAXY_URL=... GALAXY_API_KEY=... python3 settle-galaxy.py <history_id> [timeout_s]
 """

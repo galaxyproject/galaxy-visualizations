@@ -161,8 +161,7 @@ async function main() {
     // Switching provider reloads, so what earlier turns produced comes back from storage
     // rather than from memory: without this a chart cannot be placed after a model switch.
     produced.push(...sessionDoc.artifacts);
-    // Which steps failed, recorded rather than re-derived: a restored session must render them
-    // exactly as the live one did.
+    // A restored session renders a failed step the way the live one did.
     const toolErrors = new Set<string>(sessionDoc.toolErrors || []);
     const restored = restoreMessages(sessionDoc, seed);
     const resumed = restored.length > 1;
@@ -232,7 +231,7 @@ async function main() {
             } else {
                 chat.addInfoMessage(`${what} ${w.id} finished (${state}).`);
             }
-            // loom continues on its own rather than asking the user to relay the notification.
+            // Continue without asking the user to relay the notification.
             if (isResumableOutcome(state, failed)) {
                 followUp.deliver(buildResumePrompt([{
                     kind: w.kind, id: w.id, label: `${what} ${w.id}`,

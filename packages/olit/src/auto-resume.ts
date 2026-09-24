@@ -1,8 +1,4 @@
-/** Automatic Galaxy follow-up, ported from loom's `extensions/loom/auto-resume.ts`.
- *
- * Verifying finished work and investigating failures is part of normal execution, so the
- * agent continues on its own rather than asking the researcher to relay a notification.
- */
+/** Automatic Galaxy follow-up: checking finished work is part of normal execution. */
 
 export interface GalaxyFollowUp {
     kind: "job" | "invocation" | "dataset";

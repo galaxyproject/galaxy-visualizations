@@ -37,9 +37,7 @@ ABORTED_ERROR = "Operation aborted"
 # outcome half-described; the initial value is what a spent step budget looks like.
 EXHAUSTED, ABORTED, REPLIED, FINISHED = "exhausted", "aborted", "replied", "finished"
 MAX_TOOL_RESULT_BYTES = 256 * 1024
-# A safety valve, not a query hint: the old text prescribed `limit`/`offset`/filters that most
-# tools do not have, so on `get_tool_details` it advised parameters that do not exist. State the
-# size and leave the narrowing to the caller, which can read its own schema.
+# Names the size and leaves the narrowing to the caller, which can read its own schema.
 OVERSIZED_RESULT_ERROR = (
     'Tool call "{name}" returned {size} KB, over the {cap} KB limit for a single result, so it '
     "was discarded. Ask for less of it: check this tool's parameters for a way to narrow the "

@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
-"""Drive loom the way Orbit is actually driven: one persistent session, resumed per turn.
+"""Drive loom the way Orbit is driven: one persistent session, resumed per turn.
 
-loom's eval runner is a single spawn into a temp cwd with `LOOM_FRESH_SESSION=1` and no
-`--continue`, which disables every mechanism Orbit uses for long-running Galaxy work -- the
-notebook does not survive, the session is never resumed, and the poller's timer is `unref`'d so
-`--mode json` exits before it can tick (galaxy-poller.ts). This drives the native path instead:
-
-  * a persistent cwd, so `notebook.md` and its job blocks survive between turns;
-  * a persistent agent dir, so pi's session.jsonl is there for `--continue`;
-  * one turn per invocation, resumed, so `session_start` fires its immediate poll and
-    auto-resume delivers follow-ups for work that landed while we were away.
-
-Grading stays identical to the Olit arm: the final HGNC symbol in the assistant text.
+A persistent cwd keeps the notebook and its job blocks; a persistent agent dir keeps the
+session file `--continue` reads; one turn per invocation lets the poller tick on resume and
+deliver follow-ups for work that landed in between. Grading matches the Olit arm.
 """
 
 import json
@@ -28,7 +20,7 @@ LOOM = pathlib.Path(os.environ.get("LOOM_DIR", pathlib.Path.home() / "loom"))
 
 
 def pi_models_config(agent_dir: pathlib.Path) -> None:
-    """The same shape loom's runner synthesizes (evals/lib/matrix.ts:writePiModelsConfig)."""
+    """The model config the runner expects."""
     agent_dir.mkdir(parents=True, exist_ok=True)
     (agent_dir / "models.json").write_text(json.dumps({"providers": {"tacc-sambanova": {
         "baseUrl": os.environ["PROXY_URL"], "api": "openai-completions",
@@ -40,13 +32,7 @@ def pi_models_config(agent_dir: pathlib.Path) -> None:
 
 
 def assistant_text(stdout: str) -> str:
-    """What the agent said, and only that.
-
-    `turn_end` carries the assistant message; `message_end` carries the *user* turn, and
-    `message_update` is a streaming delta. Within the assistant content, `thinking` items are
-    chain of thought, not chat -- grading on them would pass a run that reasoned its way to the
-    symbol and never reported it.
-    """
+    """The assistant's chat text, excluding thinking: reasoning is not a reported answer."""
     out = []
     for line in stdout.splitlines():
         try:
@@ -66,20 +52,18 @@ def assistant_text(stdout: str) -> str:
 
 def main() -> int:
     scenario = json.loads((HERE / "loom-scenarios/cryptic-exon-q1/scenario.json").read_text())
-    # The pinned input spec lives with the Olit scenario; both arms stage from that one source.
+    # Both arms stage from the pinned input spec in the Olit scenario.
     dataset = json.loads((HERE.parent / "scenarios/cryptic-exon-q1/scenario.json").read_text())["dataset"]
     state = pathlib.Path(os.environ.get("LOOM_STATE", HERE / "loom-session-state"))
     cwd, home = state / "cwd", state / "home"
     agent = home / ".pi" / "agent"
     cwd.mkdir(parents=True, exist_ok=True)
     pi_models_config(agent)
-    # The binding block is the starting state: same page and history as the Olit arm.
+    # The binding block is the starting state: same page and history as the other arm.
     fixture = HERE / "loom-scenarios/cryptic-exon-q1/cwd/notebook.md"
     if not (cwd / "notebook.md").exists():
         (cwd / "notebook.md").write_text(fixture.read_text())
-    # The input, where a desktop agent looks for it. Olit gets it in the bound history because
-    # that is its only substrate; loom has a filesystem and reads "I have a file" as a local
-    # one. Same file, same pinned revision, each arm reached through its native substrate.
+    # The same input, placed where a desktop agent looks for it.
     local = cwd / dataset["name"]
     if not local.exists():
         print(f"    staging {local.name} into the working directory", flush=True)
@@ -89,8 +73,7 @@ def main() -> int:
            "PI_CODING_AGENT_DIR": str(agent),
            "PI_SKIP_VERSION_CHECK": "1", "PI_TELEMETRY": "0",
            "HOME": str(home),
-           # Without this uvx re-resolves galaxy-mcp per spawn and the MCP handshake
-           # loses the race, leaving the agent with no galaxy_* tools at all.
+           # Without the shared cache every spawn re-resolves the server and loses the handshake race.
            "UV_CACHE_DIR": os.environ.get("UV_CACHE_DIR", str(pathlib.Path.home() / ".cache/uv"))}
     env.pop("LOOM_FRESH_SESSION", None)
 
@@ -100,9 +83,7 @@ def main() -> int:
                 "--provider", "tacc-sambanova", "--model", "gpt-oss-120b"]
         turn_env = dict(env)
         if index == 1:
-            # The opening turn IS a fresh session, and saying so suppresses the startup
-            # greeting. Without it loom greets, that greeting occupies the agent, and our
-            # prompt is rejected with "Agent is already processing".
+            # The opening turn is a fresh session; saying so suppresses the startup greeting.
             turn_env["LOOM_FRESH_SESSION"] = "1"
         else:
             args.append("--continue")            # loom branches on this: a real resume
@@ -110,8 +91,7 @@ def main() -> int:
         print(f"--- turn {index}/{len(scenario['inputs'])}: {turn[:60]}...", flush=True)
         done = subprocess.run(args, cwd=cwd, env=turn_env, capture_output=True, text=True,
                               timeout=int(os.environ.get("LOOM_TURN_TIMEOUT", "3600")))
-        # Keep the raw stream: it is the trajectory, and when extraction is wrong it is the
-        # only way to tell a real result from a parsing bug.
+        # Keep the raw stream: it is the trajectory, and the check on our own extraction.
         (state / f"turn{index}.jsonl").write_text(done.stdout)
         text = assistant_text(done.stdout)
         transcript.append(text)
