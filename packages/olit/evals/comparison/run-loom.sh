@@ -63,6 +63,13 @@ else
         < <(find "$LOOM_DIR/evals/scenarios" -mindepth 1 -maxdepth 1 -type d | sort)
 fi
 
+# 4. loom's runner fakes HOME to isolate ~/.loom/config.json, which also hides the uv cache.
+# uvx then re-resolves galaxy-mcp from PyPI on every spawn -- 23s against 7s warm -- and the MCP
+# handshake loses that race often enough that most runs get no galaxy_* tools and the agent can
+# only talk. It reads as loom declining to act. loom's own Dockerfile pre-warms this same cache.
+export UV_CACHE_DIR="${UV_CACHE_DIR:-$HOME/.cache/uv}"
+[ -d "$UV_CACHE_DIR" ] || fail "UV_CACHE_DIR $UV_CACHE_DIR does not exist; galaxy-mcp would be re-resolved per spawn"
+
 mkdir -p "$OUT"
 echo "galaxy   ${GALAXY_URL}"
 echo "model    ${MODEL}"
