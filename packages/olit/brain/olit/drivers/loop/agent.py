@@ -15,7 +15,7 @@ from .tools import ToolSurface, plain_tool_name, without_control_tokens
 logger = logging.getLogger(__name__)
 
 # A backstop for an unattended tab; pi and loom cap nothing. Exhaustion is reported.
-MAX_STEPS = 40
+MAX_STEPS = 100
 # pi runs a batch through executeToolCallsParallel unless a tool asks for sequential. Olit
 # dispatches in call order because its gates and the Pyodide namespace are shared state.
 TOOL_EXECUTION = "sequential"

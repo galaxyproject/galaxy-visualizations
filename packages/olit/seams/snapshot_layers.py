@@ -54,8 +54,7 @@ POLICY_UPSTREAM = {
             "tool_result_max_chars": "PORTED",
         },
         "notes": {
-            "max_steps": "A backstop for an unattended tab; pi's loop is `while (true)`. Configurable, and "
-                         "a spent budget appends a `max-steps` entry to the run's `guards`.",
+            "max_steps": "A backstop for an unattended tab; pi's loop is `while (true)`. Raised 40 -> 100 on 2026-09-24: cryptic-exon-q1 spent 40 steps on a real RNA-seq analysis and was still working. Configurable, and a spent budget appends a `max-steps` entry to the run's `guards`.",
             "max_tool_result_bytes": "pi caps bash and read only and never truncates an MCP result. Olit "
                                      "discards a single oversized result rather than losing the turn.",
             "row_cap": "With row_bytes_cap, the two limits pi's truncate uses, applied to Galaxy list reads.",
