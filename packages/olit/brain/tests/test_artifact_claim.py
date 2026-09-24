@@ -46,8 +46,7 @@ class Substrate:
 
 def _create():
     surface = ToolSurface(Substrate())
-    outcome = asyncio.run(surface.dispatch(
-        "show_visualization", {"dataset_id": DATASET, "visualization": "ngl"}))
+    outcome = asyncio.run(surface.dispatch("show_visualization", {"dataset_id": DATASET, "visualization": "ngl"}))
     return surface, json.loads(outcome.text)
 
 

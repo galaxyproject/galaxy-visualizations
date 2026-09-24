@@ -2,14 +2,23 @@
 
 import json
 import logging
-from dataclasses import dataclass
 
 from olit.registry import load_primitives
 from olit.substrate import Confirmation, LocalExecutionError
 
-from . import (artifacts, confusables, ena, fetch_failure_hint, galaxy_destructive,
-               galaxy_tools, gtn, notebook, sra_import_gate)
+from . import (
+    artifacts,
+    confusables,
+    ena,
+    fetch_failure_hint,
+    galaxy_destructive,
+    galaxy_tools,
+    gtn,
+    notebook,
+    sra_import_gate,
+)
 from .brief import brief
+from .outcome import ToolOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +40,8 @@ def without_control_tokens(text):
     """
     if not isinstance(text, str) or HARMONY_MARKER not in text:
         return text
-    return "".join(part.split("|>", 1)[-1] if i else part
-                   for i, part in enumerate(text.split(HARMONY_MARKER)))
+    return "".join(part.split("|>", 1)[-1] if i else part for i, part in enumerate(text.split(HARMONY_MARKER)))
+
 
 RUN_PYTHON = {
     "type": "function",
@@ -73,8 +82,14 @@ def _runnable(process, manifest):
     return all(manifest.allows(c) for c in (process.capabilities or []))
 
 
-_JSON_TYPES = {"string": "string", "array": "array", "object": "object",
-               "integer": "integer", "number": "number", "boolean": "boolean"}
+_JSON_TYPES = {
+    "string": "string",
+    "array": "array",
+    "object": "object",
+    "integer": "integer",
+    "number": "number",
+    "boolean": "boolean",
+}
 
 
 def _process_tool_schemas(processes, manifest=None):
@@ -104,12 +119,16 @@ def _process_tool_schemas(processes, manifest=None):
         description = proc.description
         if proc.when_to_use:
             description = f"{description} Use {proc.when_to_use}."
-        schemas.append({
-            "type": "function",
-            "function": {"name": name, "description": description,
-                         "parameters": {"type": "object", "properties": properties,
-                                        "required": required}},
-        })
+        schemas.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": description,
+                    "parameters": {"type": "object", "properties": properties, "required": required},
+                },
+            }
+        )
     return schemas
 
 
@@ -147,25 +166,12 @@ def _skills_fetch_schema(skills):
     }
 
 
-ARTIFACT_HINT = ("This artifact is already displayed to the user and is not a history dataset, "
-                 "so do not look for it there. Keeping it means writing {{artifact}} into a page "
-                 "where it belongs; that token is the only way to place it, since its content is "
-                 "held outside your context. Describe what it shows and finish.")
-
-
-@dataclass
-class ToolOutcome:
-    """What a tool call produced, and whether it counts as a failure."""
-
-    content: object
-    is_error: bool = False
-    refused: bool = False
-    # Which Olit guard refused this call, so an eval can see one in a trajectory.
-    guard: str | None = None
-
-    @property
-    def text(self):
-        return self.content if isinstance(self.content, str) else json.dumps(self.content)
+ARTIFACT_HINT = (
+    "This artifact is already displayed to the user and is not a history dataset, "
+    "so do not look for it there. Keeping it means writing {{artifact}} into a page "
+    "where it belongs; that token is the only way to place it, since its content is "
+    "held outside your context. Describe what it shows and finish."
+)
 
 
 class ToolSurface:
@@ -219,8 +225,7 @@ class ToolSurface:
         if notebook.get_handler(name):
             return notebook.NOTEBOOK_RESUME, [notebook.CAPABILITY]
         if self.processes and name in (self.processes.names() or []):
-            schema = next((s for s in _process_tool_schemas(self.processes)
-                           if s["function"]["name"] == name), None)
+            schema = next((s for s in _process_tool_schemas(self.processes) if s["function"]["name"] == name), None)
             return schema, list(self.processes.get(name).capabilities or [])
         return next((t for t in self.schemas() if t["function"]["name"] == name), None), []
 
@@ -260,7 +265,9 @@ class ToolSurface:
             return ToolOutcome(
                 f"Refused: '{name}' needs the '{ungranted}' capability, which is not granted in "
                 f"this session. Tell the user, and stay within the tools you are offered.",
-                is_error=True, refused=True, guard="capability",
+                is_error=True,
+                refused=True,
+                guard="capability",
             )
         missing = self._missing_required(schema, args)
         if missing:
@@ -329,17 +336,40 @@ class ToolSurface:
         self._settled[key] = self._settled.get(key, 0) + 1
         if self._settled[key] < self.SETTLED_REPEAT_LIMIT:
             return None
-        return (f"Refused: '{name}' was already answered {self._settled[key] - 1} times with these "
-                f"exact arguments, and its answer is fixed for this session. Use the answer you "
-                f"have, or take a different route.")
+        return (
+            f"Refused: '{name}' was already answered {self._settled[key] - 1} times with these "
+            f"exact arguments, and its answer is fixed for this session. Use the answer you "
+            f"have, or take a different route."
+        )
+
+    # A call refused before dispatch, keyed so repeats count however the bytes differ.
+    UNPARSABLE = {"arguments": "would not parse"}
+
+    def repeating_unparsable(self, name):
+        """Whether this tool's arguments have failed to parse often enough to stop trying."""
+        if self._repeating_a_failure(name, self.UNPARSABLE) is None:
+            return None
+        self._last_failure = None  # a speed bump, not a ban
+        return (
+            f"Refused: the arguments for '{name}' have failed to parse "
+            f"{self.FAILED_REPEAT_LIMIT} times in a row. The shape is the problem rather "
+            f"than the content: send one JSON object containing only the parameters this "
+            f"tool declares, and keep large text out of it."
+        )
+
+    def note_unparsable(self, name):
+        """Count a refusal the loop made before dispatch, which the guard cannot otherwise see."""
+        self._note_outcome(name, self.UNPARSABLE, True)
 
     def _repeating_a_failure(self, name, args):
         last = self._last_failure
         if not last or last["key"] != (name, brief(args)) or last["count"] < self.FAILED_REPEAT_LIMIT:
             return None
-        return (f"Refused: '{name}' was already called with these exact arguments "
-                f"{last['count']} times and failed each time. Change the arguments or the "
-                f"approach; resending the same call cannot succeed.")
+        return (
+            f"Refused: '{name}' was already called with these exact arguments "
+            f"{last['count']} times and failed each time. Change the arguments or the "
+            f"approach; resending the same call cannot succeed."
+        )
 
     def _note_outcome(self, name, args, is_error):
         key = (name, brief(args))
@@ -370,16 +400,15 @@ class ToolSurface:
         # all. A tool_id asks for one directly and a query hunts the catalog for it by name.
         wanted, running_it = self._olit_tool_named(args)
         if wanted and running_it:
-            return ToolOutcome(
-                f"'{wanted}' is an Olit tool, not a Galaxy tool. Call {wanted} directly.",
-                is_error=True)
+            return ToolOutcome(f"'{wanted}' is an Olit tool, not a Galaxy tool. Call {wanted} directly.", is_error=True)
         if wanted:
             # A search is the model orienting itself; say where the tool lives and leave the
             # choice of route to the request, which may have named a different one.
             return ToolOutcome(
                 f"'{wanted}' is an Olit tool rather than a Galaxy tool, so the tool catalog "
                 f"does not hold it. It is already in your tool list if you need it.",
-                is_error=True)
+                is_error=True,
+            )
         if name == "skills_fetch":
             return self._skills_fetch(args)
         if name == "finish":
@@ -440,8 +469,7 @@ class ToolSurface:
         repo = self.skills.find(repo_name)
         if repo is None:
             return ToolOutcome(
-                f"Error: Skills repo \"{repo_name}\" is not configured. "
-                f"Available: {', '.join(self.skills.names())}.",
+                f'Error: Skills repo "{repo_name}" is not configured. ' f"Available: {', '.join(self.skills.names())}.",
                 is_error=True,
             )
         text = repo.read(path)

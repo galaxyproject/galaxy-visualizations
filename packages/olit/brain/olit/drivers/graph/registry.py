@@ -3,8 +3,9 @@
 import json
 import logging
 
-from .agents import Agents
 from olit.exceptions import NodeExecutionError
+
+from .agents import Agents
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ def _unfence(content):
     if not text.startswith("```"):
         return text
     newline = text.find("\n")
-    text = text[newline + 1:] if newline != -1 else text[3:]
+    text = text[newline + 1 :] if newline != -1 else text[3:]
     fence = text.rfind("```")
     if fence != -1:
         text = text[:fence]

@@ -24,9 +24,7 @@ Use Galaxy's native tools; never build collections ad hoc.
 """
 
 VENDORED = Path(__file__).resolve().parents[1] / "olit" / "registry" / "skills" / "galaxy-skills"
-needs_corpus = pytest.mark.skipif(
-    not VENDORED.is_dir(), reason="galaxy-skills not vendored (run npm run build:skills)"
-)
+needs_corpus = pytest.mark.skipif(not VENDORED.is_dir(), reason="galaxy-skills not vendored (run npm run build:skills)")
 
 
 class FakeManifest:

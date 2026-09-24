@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.shells.diverging_bar import DivergingBarShell
 
 
@@ -10,10 +9,12 @@ class TestDivergingBarValidate:
     def test_validate_ok_with_nominal_and_quantitative(self):
         shell = DivergingBarShell()
         params = {"category": "name", "value": "change"}
-        profile = _profile({
-            "name": {"type": "nominal"},
-            "change": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "name": {"type": "nominal"},
+                "change": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
         assert result["errors"] == []
@@ -53,10 +54,12 @@ class TestDivergingBarValidate:
     def test_validate_category_wrong_type(self):
         shell = DivergingBarShell()
         params = {"category": "value", "value": "change"}
-        profile = _profile({
-            "value": {"type": "quantitative"},
-            "change": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "value": {"type": "quantitative"},
+                "change": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -65,10 +68,12 @@ class TestDivergingBarValidate:
     def test_validate_value_wrong_type(self):
         shell = DivergingBarShell()
         params = {"category": "name", "value": "type"}
-        profile = _profile({
-            "name": {"type": "nominal"},
-            "type": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "name": {"type": "nominal"},
+                "type": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -78,10 +83,12 @@ class TestDivergingBarValidate:
 class TestDivergingBarIsApplicable:
     def test_applicable_with_nominal_and_quantitative(self):
         shell = DivergingBarShell()
-        profile = _profile({
-            "category": {"type": "nominal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "category": {"type": "nominal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is True
 
     def test_not_applicable_without_nominal(self):

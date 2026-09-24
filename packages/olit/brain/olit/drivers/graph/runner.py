@@ -32,20 +32,20 @@ class Runner:
     def emit_progress(self, node_id: str, status: str, node_type: str = "", detail: str = "") -> None:
         """Emit progress event if callback is registered."""
         if self.on_progress:
-            self.on_progress({
-                "node_id": node_id,
-                "node_type": node_type,
-                "status": status,
-                "detail": detail,
-            })
+            self.on_progress(
+                {
+                    "node_id": node_id,
+                    "node_type": node_type,
+                    "status": status,
+                    "detail": detail,
+                }
+            )
 
     def _with_defaults(self, inputs: dict[str, Any] | None) -> dict[str, Any]:
         """Declared defaults fill in for inputs a caller left out or passed as null."""
         declared = self.graph.get("inputs") or {}
         merged = {
-            name: spec["default"]
-            for name, spec in declared.items()
-            if isinstance(spec, dict) and "default" in spec
+            name: spec["default"] for name, spec in declared.items() if isinstance(spec, dict) and "default" in spec
         }
         merged.update({k: v for k, v in (inputs or {}).items() if v is not None})
         return merged
@@ -70,10 +70,16 @@ class Runner:
         missing = self._missing_required()
         if missing:
             logger.error("Graph %s called without: %s", graph_id, ", ".join(missing))
-            return {"state": self.state, "last": {"ok": False, "error": {
-                "code": ErrorCode.MISSING_INPUTS,
-                "message": f"{graph_id} requires: {', '.join(missing)}",
-            }}}
+            return {
+                "state": self.state,
+                "last": {
+                    "ok": False,
+                    "error": {
+                        "code": ErrorCode.MISSING_INPUTS,
+                        "message": f"{graph_id} requires: {', '.join(missing)}",
+                    },
+                },
+            }
 
         node_id = self.graph.get("start")
         safety = 0

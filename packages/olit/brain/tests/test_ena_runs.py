@@ -3,11 +3,10 @@
 import asyncio
 import json
 
-import pytest
-
 from olit.drivers.loop import ena
 from olit.drivers.loop.tools import ToolSurface
-from .fakes import FakeSubstrate
+
+from .fakes import FakeSubstrate, refused
 
 # A paired run, its real sharding: first six characters, then no numbered subdirectory.
 PAIRED = (
@@ -26,15 +25,12 @@ SINGLE = (
     "ccc\t770792599\t12000000\tMus musculus\n"
 )
 
-STUDY = (
-    "run_accession\tlibrary_layout\tfastq_ftp\tfastq_md5\tfastq_bytes\tread_count\tscientific_name\n"
-    + "".join(
-        f"SRR1168499{i}\tPAIRED\t"
-        f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_1.fastq.gz;"
-        f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_2.fastq.gz\t"
-        f"m{i};n{i}\t100;200\t21521133\tMus musculus\n"
-        for i in range(4)
-    )
+STUDY = "run_accession\tlibrary_layout\tfastq_ftp\tfastq_md5\tfastq_bytes\tread_count\tscientific_name\n" + "".join(
+    f"SRR1168499{i}\tPAIRED\t"
+    f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_1.fastq.gz;"
+    f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_2.fastq.gz\t"
+    f"m{i};n{i}\t100;200\t21521133\tMus musculus\n"
+    for i in range(4)
 )
 
 EMPTY = "run_accession\tlibrary_layout\tfastq_ftp\n"
@@ -123,7 +119,7 @@ def test_an_accession_cannot_rewrite_the_query(monkeypatch):
 
 def test_a_rejected_accession_reports_what_ena_said(monkeypatch):
     net(monkeypatch, RuntimeError("HTTP 400: Accession(s) NOPE not valid for search requests"))
-    out = run(ena._ena_runs({"accession": "NOPE"}))
+    out = refused(run(ena._ena_runs({"accession": "NOPE"})))
 
     assert "not valid" in out["error"]
     assert "runs" not in out
@@ -131,7 +127,7 @@ def test_a_rejected_accession_reports_what_ena_said(monkeypatch):
 
 def test_a_long_error_is_trimmed(monkeypatch):
     net(monkeypatch, RuntimeError("HTTP 400: " + "x" * 5000))
-    out = run(ena._ena_runs({"accession": "NOPE"}))
+    out = refused(run(ena._ena_runs({"accession": "NOPE"})))
 
     assert len(out["error"]) <= ena.ERROR_MAX_CHARS + 4
 
@@ -147,7 +143,7 @@ def test_an_accession_with_no_runs_says_so_rather_than_failing(monkeypatch):
 
 def test_a_missing_accession_is_refused_before_any_fetch(monkeypatch):
     client = net(monkeypatch, PAIRED)
-    out = run(ena._ena_runs({}))
+    out = refused(run(ena._ena_runs({})))
 
     assert "required" in out["error"]
     assert client.calls == []

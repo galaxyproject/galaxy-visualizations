@@ -5,6 +5,8 @@ import asyncio
 from olit.drivers.loop import notebook
 from olit.drivers.loop.tools import ToolSurface
 
+from .fakes import refused
+
 HISTORY = "f2db41e1fa331b3e"
 
 
@@ -48,7 +50,6 @@ def test_the_record_is_found_by_history_association():
     assert any("history_id=" in path for path in g.gets), "must ask Galaxy to scope by history"
 
 
-
 def test_creation_does_not_invent_a_slug():
     g = FakeGalaxy()
     run(notebook._notebook_resume(g, {"history_id": HISTORY}))
@@ -56,7 +57,6 @@ def test_creation_does_not_invent_a_slug():
     _, payload = g.posted[0]
     assert payload["history_id"] == HISTORY
     assert "slug" not in payload
-
 
 
 def test_a_first_call_creates_the_record_once():
@@ -86,9 +86,17 @@ def test_a_second_call_reattaches_instead_of_creating_a_second_record():
 
 
 def test_resuming_returns_the_existing_body_so_prior_work_is_readable():
-    g = FakeGalaxy([
-        {"id": "p1", "history_id": HISTORY, "slug": f"olit-{HISTORY}", "title": "olit record", "content": "## Record\n\nStep 1 done."}
-    ])
+    g = FakeGalaxy(
+        [
+            {
+                "id": "p1",
+                "history_id": HISTORY,
+                "slug": f"olit-{HISTORY}",
+                "title": "olit record",
+                "content": "## Record\n\nStep 1 done.",
+            }
+        ]
+    )
     out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
 
     assert out["created"] is False
@@ -97,9 +105,7 @@ def test_resuming_returns_the_existing_body_so_prior_work_is_readable():
 
 def test_a_page_that_merely_mentions_the_slug_is_not_the_record():
     """Galaxy's page search is free text over title and content; only slug identifies."""
-    g = FakeGalaxy([
-        {"id": "decoy", "slug": "someone-elses-page", "content": f"see olit-{HISTORY} for details"}
-    ])
+    g = FakeGalaxy([{"id": "decoy", "slug": "someone-elses-page", "content": f"see olit-{HISTORY} for details"}])
     out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
 
     assert out["created"] is True
@@ -116,7 +122,7 @@ def test_a_record_for_another_history_is_not_reused():
 
 def test_a_missing_history_id_is_refused_rather_than_guessed():
     g = FakeGalaxy()
-    out = run(notebook._notebook_resume(g, {}))
+    out = refused(run(notebook._notebook_resume(g, {})))
 
     assert "error" in out
     assert g.posted == [], "must not create an unattached record"
@@ -219,12 +225,28 @@ def test_the_binding_block_lists_the_history_datasets():
                 return [{"id": "p1", "history_id": "h1"}]
             if "contents" in path:
                 return [
-                    {"id": "aaaa000000000001", "name": "reads.fastq", "extension": "fastq",
-                     "state": "ok", "visible": True},
-                    {"id": "aaaa000000000002", "name": "deleted", "extension": "tabular",
-                     "state": "ok", "deleted": True, "visible": True},
-                    {"id": "aaaa000000000003", "name": "hidden", "extension": "tabular",
-                     "state": "ok", "visible": False},
+                    {
+                        "id": "aaaa000000000001",
+                        "name": "reads.fastq",
+                        "extension": "fastq",
+                        "state": "ok",
+                        "visible": True,
+                    },
+                    {
+                        "id": "aaaa000000000002",
+                        "name": "deleted",
+                        "extension": "tabular",
+                        "state": "ok",
+                        "deleted": True,
+                        "visible": True,
+                    },
+                    {
+                        "id": "aaaa000000000003",
+                        "name": "hidden",
+                        "extension": "tabular",
+                        "state": "ok",
+                        "visible": False,
+                    },
                 ]
             return {}
 

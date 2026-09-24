@@ -7,6 +7,7 @@ import pytest
 
 from olit.drivers.loop import fetch_failure_hint as hint
 from olit.drivers.loop.tools import ToolSurface
+
 from .fakes import FakeSubstrate
 
 # The shape Galaxy returned in the session this exists for.

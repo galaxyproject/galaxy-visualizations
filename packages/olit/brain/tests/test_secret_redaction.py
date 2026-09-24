@@ -7,8 +7,12 @@ from olit.drivers.loop.secret_redaction import (
     redact_secrets,
 )
 
-CONFIG = {"ai_api_key": "sk-or-v1-9f3a2b7c4d1e", "galaxy_key": "fea4130124bb18ef",
-          "ai_model": "gpt-oss-120b", "galaxy_root": "http://galaxy/"}
+CONFIG = {
+    "ai_api_key": "sk-or-v1-9f3a2b7c4d1e",
+    "galaxy_key": "fea4130124bb18ef",
+    "ai_model": "gpt-oss-120b",
+    "galaxy_root": "http://galaxy/",
+}
 
 
 def test_only_credential_values_are_collected():

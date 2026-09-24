@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.shells.lollipop import LollipopShell
 
 
@@ -18,10 +17,12 @@ class TestLollipopValidate:
     def test_validate_ok_with_sum_op_and_value(self):
         shell = LollipopShell()
         params = {"category": "type", "op": "sum", "value": "amount"}
-        profile = _profile({
-            "type": {"type": "nominal"},
-            "amount": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "type": {"type": "nominal"},
+                "amount": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
         assert result["errors"] == []
@@ -61,10 +62,12 @@ class TestLollipopValidate:
     def test_validate_value_wrong_type(self):
         shell = LollipopShell()
         params = {"category": "type", "op": "sum", "value": "other"}
-        profile = _profile({
-            "type": {"type": "nominal"},
-            "other": {"type": "nominal"},  # Should be quantitative
-        })
+        profile = _profile(
+            {
+                "type": {"type": "nominal"},
+                "other": {"type": "nominal"},  # Should be quantitative
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -73,10 +76,12 @@ class TestLollipopValidate:
 class TestLollipopIsApplicable:
     def test_applicable_with_nominal_and_quantitative(self):
         shell = LollipopShell()
-        profile = _profile({
-            "category": {"type": "nominal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "category": {"type": "nominal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is True
 
     def test_not_applicable_without_nominal(self):
@@ -93,10 +98,12 @@ class TestLollipopIsApplicable:
 class TestLollipopProcesses:
     def test_processes_returns_group_aggregate(self):
         shell = LollipopShell()
-        profile = _profile({
-            "category": {"type": "nominal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "category": {"type": "nominal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         params = {"category": "category", "op": "sum", "value": "value"}
         processes = shell.processes(profile, params)
         assert len(processes) == 1

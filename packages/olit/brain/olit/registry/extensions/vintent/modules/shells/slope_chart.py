@@ -67,4 +67,3 @@ class SlopeChartShell(BaseShell):
                 },
             ],
         }
-

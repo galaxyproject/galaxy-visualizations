@@ -62,4 +62,3 @@ class BubbleChartShell(BaseShell):
             "mark": {"type": "circle", "opacity": 0.7},
             "encoding": encoding,
         }
-

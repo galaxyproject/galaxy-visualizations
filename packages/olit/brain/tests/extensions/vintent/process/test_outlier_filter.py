@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.analyze.outlier_filter import run, log
+from olit.registry.extensions.vintent.modules.process.analyze.outlier_filter import log, run
 
 
 def test_run_empty_rows_returns_empty():
@@ -56,11 +55,17 @@ def test_run_handles_zero_variance():
 
 
 def test_log_message_iqr():
-    assert log({"field": "value", "method": "iqr", "threshold": 1.5}) == "Removed outliers from value using IQR (threshold=1.5)."
+    assert (
+        log({"field": "value", "method": "iqr", "threshold": 1.5})
+        == "Removed outliers from value using IQR (threshold=1.5)."
+    )
 
 
 def test_log_message_zscore():
-    assert log({"field": "value", "method": "zscore", "threshold": 3.0}) == "Removed outliers from value using Z-score (threshold=3.0)."
+    assert (
+        log({"field": "value", "method": "zscore", "threshold": 3.0})
+        == "Removed outliers from value using Z-score (threshold=3.0)."
+    )
 
 
 def test_log_message_defaults():

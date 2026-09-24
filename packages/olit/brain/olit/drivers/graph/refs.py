@@ -30,8 +30,7 @@ def get_path(path: str, ctx: Context, state: dict[str, Any]) -> Any:
     else:
         # Warn about invalid namespace to help debug silent failures
         logger.warning(
-            "Invalid $ref namespace '%s' in path '%s'. "
-            "Valid namespaces: %s. Returning None.",
+            "Invalid $ref namespace '%s' in path '%s'. " "Valid namespaces: %s. Returning None.",
             root,
             path,
             ", ".join(sorted(VALID_NAMESPACES)),

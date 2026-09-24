@@ -52,4 +52,3 @@ class BoxPlotShell(BaseShell):
             "encoding": encoding,
             "mark": {"type": "boxplot"},
         }
-

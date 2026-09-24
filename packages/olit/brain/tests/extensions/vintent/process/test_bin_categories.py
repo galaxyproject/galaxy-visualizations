@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.analyze.bin_categories import run, log
+from olit.registry.extensions.vintent.modules.process.analyze.bin_categories import log, run
 
 
 def test_run_empty_rows_returns_empty():
@@ -78,4 +77,7 @@ def test_log_message():
 
 
 def test_log_message_custom_label():
-    assert log({"field": "type", "top_n": 3, "other_label": "Misc"}) == "Kept top 3 categories in type, grouped others as 'Misc'."
+    assert (
+        log({"field": "type", "top_n": 3, "other_label": "Misc"})
+        == "Kept top 3 categories in type, grouped others as 'Misc'."
+    )

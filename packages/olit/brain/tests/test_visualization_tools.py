@@ -1,4 +1,5 @@
 """Showing a visualization renders it; saving is what puts an object in Galaxy."""
+
 import asyncio
 from urllib.parse import parse_qs, urlparse
 
@@ -8,6 +9,8 @@ from olit.drivers.loop.galaxy_tools import (
     _save_visualization,
     _show_visualization,
 )
+
+from .fakes import refused
 
 INSTALLED = [{"name": "atlas"}, {"name": "aladin"}]
 
@@ -123,8 +126,7 @@ def test_nothing_optional_is_sent_when_not_given():
 def test_a_saved_visualization_is_revised_rather_than_duplicated():
     """Settings can only ride in a saved config, so changing them must not add a row."""
     g = Galaxy()
-    out = save(g, visualization="atlas", visualization_id="v9",
-               settings={"x_axis_label": "Time"})
+    out = save(g, visualization="atlas", visualization_id="v9", settings={"x_axis_label": "Time"})
 
     assert g.posted is None, "revising must not create a second visualization"
     path, body = g.put_to
@@ -160,7 +162,7 @@ class DeclaringGalaxy(Galaxy):
 def test_a_track_key_the_plugin_does_not_declare_is_refused():
     """The shape is published; inventing a key produces a track no plugin reads."""
     g = DeclaringGalaxy()
-    out = save(g, visualization="igv", tracks=[{"dataset_id": "d1"}])
+    out = refused(save(g, visualization="igv", tracks=[{"dataset_id": "d1"}]))
 
     assert out["saved"] is False and g.posted is None
     assert "dataset_id" in out["error"]
@@ -182,7 +184,7 @@ def test_a_plugin_declaring_nothing_is_not_treated_as_allowing_nothing():
 def test_settings_sent_as_a_list_is_refused():
     """A list of one-key objects is not what the form writes, and Galaxy stores it anyway."""
     g = DeclaringGalaxy()
-    out = save(g, visualization="igv", settings=[{"locus": "chr1:1-100"}])
+    out = refused(save(g, visualization="igv", settings=[{"locus": "chr1:1-100"}]))
     assert out["saved"] is False and g.posted is None
     assert "one object keyed by parameter name" in out["error"]
 
@@ -198,7 +200,7 @@ def test_an_object_valued_parameter_refuses_a_bare_id():
             return await super().get(path, **kwargs)
 
     g = G()
-    out = save(g, visualization="igv", settings={"genome": "hg38"})
+    out = refused(save(g, visualization="igv", settings={"genome": "hg38"}))
     assert out["saved"] is False and g.posted is None
     assert "whole entry" in out["error"]
     assert out["expected"]["required"] == ["id"]
@@ -209,9 +211,12 @@ CONDITIONAL_PLUGIN = {
     "name": "igv",
     "settings": [
         {"name": "locus", "type": "text"},
-        {"name": "source", "type": "conditional",
-         "test_param": {"name": "origin", "type": "select"},
-         "cases": [{"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]}]},
+        {
+            "name": "source",
+            "type": "conditional",
+            "test_param": {"name": "origin", "type": "select"},
+            "cases": [{"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]}],
+        },
     ],
     "tracks": [{"name": "urlDataset", "type": "data"}],
 }
@@ -229,8 +234,9 @@ class ConditionalGalaxy(Galaxy):
 def test_a_conditionals_parameters_may_not_be_flattened_beside_it():
     """galaxy-charts nests them under the conditional; flat is a shape it never writes."""
     g = ConditionalGalaxy()
-    out = save(g, visualization="igv",
-               settings={"locus": "chr1:1-2", "origin": "igv", "genome": {"id": "hg38"}})
+    out = refused(
+        save(g, visualization="igv", settings={"locus": "chr1:1-2", "origin": "igv", "genome": {"id": "hg38"}})
+    )
     assert out["saved"] is False and g.posted is None
     assert "declares no parameter" in out["error"]
     assert sorted(out["declared"]) == ["locus", "source"]
@@ -238,17 +244,16 @@ def test_a_conditionals_parameters_may_not_be_flattened_beside_it():
 
 def test_the_nested_form_is_accepted():
     g = ConditionalGalaxy()
-    out = save(g, visualization="igv",
-               settings={"locus": "chr1:1-2",
-                         "source": {"origin": "igv", "genome": {"id": "hg38"}}})
+    out = save(
+        g, visualization="igv", settings={"locus": "chr1:1-2", "source": {"origin": "igv", "genome": {"id": "hg38"}}}
+    )
     assert out["saved"] is True
     assert g.posted[1]["config"]["settings"]["source"]["genome"] == {"id": "hg38"}
 
 
 def test_a_case_parameter_is_only_valid_for_the_chosen_case():
     g = ConditionalGalaxy()
-    out = save(g, visualization="igv",
-               settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}})
+    out = refused(save(g, visualization="igv", settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}}))
     assert out["saved"] is False
     assert "genome" in out["error"]
 
@@ -275,10 +280,13 @@ def test_a_scalar_parameter_refuses_the_entry_it_was_chosen_from():
     A saved plotly track held {"value": "scatter"} for a select and {"column": "col2", ...}
     for a data_column. Galaxy type-checks neither, so the plugin read none of them.
     """
-    plugin = {"name": "igv", "tracks": [
-        {"name": "type", "type": "select"},
-        {"name": "x", "type": "data_column"},
-    ]}
+    plugin = {
+        "name": "igv",
+        "tracks": [
+            {"name": "type", "type": "select"},
+            {"name": "x", "type": "data_column"},
+        ],
+    }
 
     class G(DeclaringGalaxy):
         async def get(self, path, **kwargs):
@@ -287,11 +295,11 @@ def test_a_scalar_parameter_refuses_the_entry_it_was_chosen_from():
             return await super().get(path, **kwargs)
 
     g = G()
-    out = save(g, visualization="igv", tracks=[{"type": {"value": "scatter"}}])
+    out = refused(save(g, visualization="igv", tracks=[{"type": {"value": "scatter"}}]))
     assert out["saved"] is False and g.posted is None
     assert "stores string" in out["error"] and "not the entry" in out["error"]
 
-    assert save(g, visualization="igv", tracks=[{"x": {"column": "col2", "src": "hda"}}])["saved"] is False
+    assert refused(save(g, visualization="igv", tracks=[{"x": {"column": "col2", "src": "hda"}}]))["saved"] is False
 
     # The value itself still saves.
     assert save(g, visualization="igv", tracks=[{"type": "scatter", "x": "2"}])["saved"] is True
@@ -306,16 +314,25 @@ def test_an_empty_case_names_the_siblings_that_might_not_be():
     """
     plugin = {
         "name": "igv",
-        "settings": [{
-            "name": "source", "type": "conditional",
-            "test_param": {"name": "origin"},
-            "cases": [
-                {"value": "builtin", "inputs": [{"name": "genome", "type": "data_table",
-                                                 "tables": ["empty_table"]}]},
-                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json",
-                                             "url": "https://example.invalid/genomes.json"}]},
-            ],
-        }],
+        "settings": [
+            {
+                "name": "source",
+                "type": "conditional",
+                "test_param": {"name": "origin"},
+                "cases": [
+                    {
+                        "value": "builtin",
+                        "inputs": [{"name": "genome", "type": "data_table", "tables": ["empty_table"]}],
+                    },
+                    {
+                        "value": "igv",
+                        "inputs": [
+                            {"name": "genome", "type": "data_json", "url": "https://example.invalid/genomes.json"}
+                        ],
+                    },
+                ],
+            }
+        ],
     }
 
     class Galaxy:
@@ -324,8 +341,9 @@ def test_an_empty_case_names_the_siblings_that_might_not_be():
                 return plugin
             return {"columns": [], "fields": []}
 
-    out = asyncio.run(_get_visualization_options(
-        Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"}))
+    out = asyncio.run(
+        _get_visualization_options(Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
+    )
     assert out["total"] == 0
     assert out["other_cases"] == ["igv"]
     assert "try one of those" in out["hint"]
@@ -334,15 +352,17 @@ def test_an_empty_case_names_the_siblings_that_might_not_be():
 def test_a_case_that_has_options_says_nothing_about_its_siblings():
     plugin = {
         "name": "igv",
-        "settings": [{
-            "name": "source", "type": "conditional",
-            "test_param": {"name": "origin"},
-            "cases": [
-                {"value": "builtin", "inputs": [{"name": "genome", "type": "data_table",
-                                                 "tables": ["t"]}]},
-                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json", "url": "u"}]},
-            ],
-        }],
+        "settings": [
+            {
+                "name": "source",
+                "type": "conditional",
+                "test_param": {"name": "origin"},
+                "cases": [
+                    {"value": "builtin", "inputs": [{"name": "genome", "type": "data_table", "tables": ["t"]}]},
+                    {"value": "igv", "inputs": [{"name": "genome", "type": "data_json", "url": "u"}]},
+                ],
+            }
+        ],
     }
 
     class Galaxy:
@@ -351,7 +371,8 @@ def test_a_case_that_has_options_says_nothing_about_its_siblings():
                 return plugin
             return {"columns": ["value", "name"], "fields": [["hg38", "Human"]]}
 
-    out = asyncio.run(_get_visualization_options(
-        Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"}))
+    out = asyncio.run(
+        _get_visualization_options(Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
+    )
     assert out["total"] == 1
     assert "other_cases" not in out

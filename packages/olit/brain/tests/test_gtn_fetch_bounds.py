@@ -2,9 +2,9 @@
 
 import asyncio
 
-import pytest
-
 from olit.drivers.loop import gtn
+
+from .fakes import refused
 
 
 def fetch(monkeypatch, body):
@@ -40,12 +40,12 @@ def test_the_result_stays_under_the_dispatcher_budget(monkeypatch):
 
 
 def test_an_error_body_is_trimmed_and_carries_a_hint(monkeypatch):
-    out = fetch(monkeypatch, RuntimeError("HTTP 404: " + "<html>" * 5000))
+    out = refused(fetch(monkeypatch, RuntimeError("HTTP 404: " + "<html>" * 5000)))
     assert len(out["error"]) <= gtn.ERROR_MAX_CHARS + 4
     assert "404" in out["error"]
     assert "gtn_search" in out["hint"]
 
 
 def test_a_non_gtn_host_is_still_refused(monkeypatch):
-    out = asyncio.run(gtn._gtn_fetch({"url": "https://raw.githubusercontent.com/x/y"}))
+    out = refused(asyncio.run(gtn._gtn_fetch({"url": "https://raw.githubusercontent.com/x/y"})))
     assert "Only URLs on" in out["error"]

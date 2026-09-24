@@ -108,8 +108,9 @@ def _retryable(status, retry_errors):
 class HttpClient:
     """The retry policy. A transport implements `_attempt` and inherits it."""
 
-    async def request(self, method, url, headers=None, body=None, signal=None, on_retry=None,
-                      binary=False, retry_errors=None):
+    async def request(
+        self, method, url, headers=None, body=None, signal=None, on_retry=None, binary=False, retry_errors=None
+    ):
         """Send the request, resending it only while that is safe and the server allows it.
 
         `retry_errors` says whether a server error may be resent; by default only an
@@ -125,8 +126,7 @@ class HttpClient:
                 return result
 
             status, text, response_headers = failure
-            error = HttpError(f"HTTP {status}: {text}", status_code=status,
-                              details={"url": url, "method": method})
+            error = HttpError(f"HTTP {status}: {text}", status_code=status, details={"url": url, "method": method})
             if not _retryable(status, retry_errors) or attempt == MAX_RETRIES - 1:
                 raise error
 

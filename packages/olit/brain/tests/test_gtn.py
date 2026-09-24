@@ -8,6 +8,8 @@ import pytest
 from olit.drivers.loop import gtn
 from olit.drivers.loop.tools import ToolSurface
 
+from .fakes import refused
+
 TOPICS = {
     "transcriptomics": {"name": "transcriptomics", "title": "Transcriptomics", "summary": "RNA-seq"},
     "admin": {"name": "admin", "title": "Server administration", "summary": "admin things"},
@@ -111,7 +113,7 @@ def test_query_filters_on_title_and_objectives(net):
 
 
 def test_an_unknown_topic_says_how_to_find_a_real_one(net):
-    out = run(gtn._gtn_search({"topic": "nope"}))
+    out = refused(run(gtn._gtn_search({"topic": "nope"})))
     assert "not found" in out["error"]
     assert "list available topics" in out["error"]
 
@@ -126,7 +128,7 @@ def test_a_404_topic_does_not_put_the_error_page_in_the_transcript(monkeypatch):
             raise RuntimeError("HTTP 404: <!DOCTYPE html><html>...404 Page Not Found...</html>")
 
     monkeypatch.setattr(gtn, "http", Raising())
-    out = run(gtn._gtn_search({"topic": "nope"}))
+    out = refused(run(gtn._gtn_search({"topic": "nope"})))
 
     assert "not found" in out["error"]
     assert "DOCTYPE" not in out["error"]
@@ -149,7 +151,7 @@ def test_a_404_topic_does_not_put_the_error_page_in_the_transcript(monkeypatch):
     ],
 )
 def test_only_the_gtn_host_is_fetchable(net, url):
-    out = run(gtn._gtn_fetch({"url": url}))
+    out = refused(run(gtn._gtn_fetch({"url": url})))
 
     assert "error" in out, f"should have been refused: {url}"
     assert net.calls == [], "a refused url must not reach the network"
@@ -157,7 +159,7 @@ def test_only_the_gtn_host_is_fetchable(net, url):
 
 def test_the_userinfo_trick_does_not_smuggle_a_host(net):
     """`https://training.galaxyproject.org@evil.com/` fetches evil.com in a browser."""
-    out = run(gtn._gtn_fetch({"url": "https://training.galaxyproject.org@evil.com/x"}))
+    out = refused(run(gtn._gtn_fetch({"url": "https://training.galaxyproject.org@evil.com/x"})))
 
     assert "error" in out
     assert net.calls == []

@@ -1,6 +1,4 @@
-import pytest
-from datetime import datetime, timedelta
-from olit.registry.extensions.vintent.modules.process.extract.date_filter import schema, run, log
+from olit.registry.extensions.vintent.modules.process.extract.date_filter import log, run, schema
 
 
 def test_schema_returns_none_without_temporal_columns():
@@ -88,7 +86,10 @@ def test_log_message_last_n_days():
 
 
 def test_log_message_range():
-    assert log({"field": "date", "start": "2024-01-01", "end": "2024-12-31"}) == "Filtered date between 2024-01-01 and 2024-12-31."
+    assert (
+        log({"field": "date", "start": "2024-01-01", "end": "2024-12-31"})
+        == "Filtered date between 2024-01-01 and 2024-12-31."
+    )
 
 
 def test_log_message_start_only():

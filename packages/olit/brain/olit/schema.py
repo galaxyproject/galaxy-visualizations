@@ -4,7 +4,6 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-
 # Value types that can include template references
 TemplateValue = str | int | float | bool | dict[str, Any] | list[Any] | None
 
@@ -190,8 +189,7 @@ class PlannerNode(BaseModel):
                 raise ValueError("Route planners require at least one route")
             if self.next is not None:
                 raise ValueError(
-                    "Route planners cannot have static 'next' - "
-                    "next node is determined by route selection"
+                    "Route planners cannot have static 'next' - " "next node is determined by route selection"
                 )
             if self.output_schema is not None:
                 raise ValueError("Route planners cannot have 'output_schema'")
@@ -255,17 +253,13 @@ class AgentDefinition(BaseModel):
         for node_id, node in self.nodes.items():
             next_node = getattr(node, "next", None)
             if next_node is not None and next_node not in self.nodes:
-                raise ValueError(
-                    f"Node '{node_id}' references non-existent next node '{next_node}'"
-                )
+                raise ValueError(f"Node '{node_id}' references non-existent next node '{next_node}'")
         return self
 
     @model_validator(mode="after")
     def validate_has_terminal(self) -> "AgentDefinition":
         """Validate that at least one terminal node exists."""
-        has_terminal = any(
-            isinstance(node, TerminalNode) for node in self.nodes.values()
-        )
+        has_terminal = any(isinstance(node, TerminalNode) for node in self.nodes.values())
         if not has_terminal:
             raise ValueError("Agent must have at least one terminal node")
         return self
@@ -316,4 +310,3 @@ class AgentDefinition(BaseModel):
                     )
 
         return self
-

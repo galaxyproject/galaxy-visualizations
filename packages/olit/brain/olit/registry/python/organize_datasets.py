@@ -15,37 +15,65 @@ def compression_lost(datatype, datasets):
     if not datatype or datatype.endswith((".gz", ".bz2", ".zip")):
         return []
     return sorted(
-        {str(d.get("name") or d.get("id")) for d in datasets
-         if str(d.get("extension") or "").endswith(".gz")
-         or str(d.get("name") or "").endswith(".gz")}
+        {
+            str(d.get("name") or d.get("id"))
+            for d in datasets
+            if str(d.get("extension") or "").endswith(".gz") or str(d.get("name") or "").endswith(".gz")
+        }
     )
 
 
 async def _bulk(substrate, history_id, operation, items, params):
-    return await _call(substrate, "galaxy.histories.show.contents.bulk.put", {
-        "history_id": history_id, "operation": operation, "items": items, "params": params,
-    })
+    return await _call(
+        substrate,
+        "galaxy.histories.show.contents.bulk.put",
+        {
+            "history_id": history_id,
+            "operation": operation,
+            "items": items,
+            "params": params,
+        },
+    )
 
 
 async def _collection(substrate, history_id, name, collection_type, elements):
-    return await _call(substrate, "galaxy.dataset_collections.post", {
-        "history_id": history_id, "name": name, "type": "dataset_collection",
-        "collection_type": collection_type, "element_identifiers": elements,
-    })
+    return await _call(
+        substrate,
+        "galaxy.dataset_collections.post",
+        {
+            "history_id": history_id,
+            "name": name,
+            "type": "dataset_collection",
+            "collection_type": collection_type,
+            "element_identifiers": elements,
+        },
+    )
 
 
-async def organize_datasets(substrate, history_id: str, collection_name: str = "Collection",
-                            include: str = "*", structure: str = "auto",
-                            datatype: str = None, tags: list = None,
-                            sample_regex: str = None):
+async def organize_datasets(
+    substrate,
+    history_id: str,
+    collection_name: str = "Collection",
+    include: str = "*",
+    structure: str = "auto",
+    datatype: str = None,
+    tags: list = None,
+    sample_regex: str = None,
+):
     """Group loose datasets in a history into a collection, tag it, and set their datatype."""
     already = set()
-    contents = await _call(substrate, "galaxy.histories.show.contents.get", {
-        "history_id": history_id, "v": "dev", "deleted": False, "visible": True,
-    })
+    contents = await _call(
+        substrate,
+        "galaxy.histories.show.contents.get",
+        {
+            "history_id": history_id,
+            "v": "dev",
+            "deleted": False,
+            "visible": True,
+        },
+    )
 
-    grouping = group_datasets(datasets=contents, structure=structure, include=include,
-                              sample_regex=sample_regex)
+    grouping = group_datasets(datasets=contents, structure=structure, include=include, sample_regex=sample_regex)
     if grouping["empty"]:
         return {"grouping": grouping}
 
@@ -59,26 +87,34 @@ async def organize_datasets(substrate, history_id: str, collection_name: str = "
         already = {d.get("id") for d in contents if d.get("extension") == datatype}
         pending = [i for i in grouping["items"] if i["id"] not in already]
         for batch in chunk_items(items=pending, size=BATCH)["batches"]:
-            await _bulk(substrate, history_id, "change_datatype", batch,
-                        {"type": "change_datatype", "datatype": datatype})
+            await _bulk(
+                substrate, history_id, "change_datatype", batch, {"type": "change_datatype", "datatype": datatype}
+            )
 
-    collection = await _collection(substrate, history_id, collection_name,
-                                   grouping["structure"], grouping["elements"])
+    collection = await _collection(substrate, history_id, collection_name, grouping["structure"], grouping["elements"])
 
     # Files that did not pair get their own collection rather than being dropped.
     leftovers = None
     if grouping["has_leftovers"]:
-        leftovers = await _collection(substrate, history_id, "Unpaired", "list",
-                                      grouping["leftovers"])
+        leftovers = await _collection(substrate, history_id, "Unpaired", "list", grouping["leftovers"])
 
     # Bulk again: tags belong to the collection, which the per-dataset route cannot address.
     if tags:
-        await _bulk(substrate, history_id, "add_tags",
-                    [{"id": collection["id"], "history_content_type": "dataset_collection"}],
-                    {"type": "add_tags", "tags": list(tags)})
+        await _bulk(
+            substrate,
+            history_id,
+            "add_tags",
+            [{"id": collection["id"], "history_content_type": "dataset_collection"}],
+            {"type": "add_tags", "tags": list(tags)},
+        )
 
-    return {"grouping": grouping, "collection": collection, "leftovers": leftovers,
-            "batches": bool(datatype), "datatype_already_set": len(already) if datatype else 0}
+    return {
+        "grouping": grouping,
+        "collection": collection,
+        "leftovers": leftovers,
+        "batches": bool(datatype),
+        "datatype_already_set": len(already) if datatype else 0,
+    }
 
 
 NAME_SAMPLE = 10
@@ -91,7 +127,7 @@ def summarize_state(state):
         return {
             "ok": False,
             "error": f"Refused: {lost['datatype']!r} would relabel "
-                     f"{len(lost['names'])} compressed dataset(s) as uncompressed.",
+            f"{len(lost['names'])} compressed dataset(s) as uncompressed.",
             "use": f"{lost['datatype']}.gz",
             "datasets": lost["names"][:NAME_SAMPLE],
         }
@@ -110,15 +146,22 @@ def summarize_state(state):
     leftovers = state.get("leftovers") or {}
     return {
         "ok": True,
-        "collection": {"id": collection.get("id"), "name": collection.get("name"),
-                       "type": grouping.get("structure"),
-                       "elements": len(grouping.get("elements") or [])},
+        "collection": {
+            "id": collection.get("id"),
+            "name": collection.get("name"),
+            "type": grouping.get("structure"),
+            "elements": len(grouping.get("elements") or []),
+        },
         "unpaired": {"id": leftovers.get("id") or None, **sample(grouping.get("unmatched"))},
         "out_of_scope": sample(grouping.get("out_of_scope")),
-        "datatype": {
-            "queued": len(grouping.get("items") or []),
-            "state": "Galaxy applies these in the background; they are not converted yet",
-        } if state.get("batches") else None,
+        "datatype": (
+            {
+                "queued": len(grouping.get("items") or []),
+                "state": "Galaxy applies these in the background; they are not converted yet",
+            }
+            if state.get("batches")
+            else None
+        ),
     }
 
 

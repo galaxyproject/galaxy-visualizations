@@ -1,5 +1,5 @@
-from typing import Any, Literal, Optional, TypedDict
 from collections.abc import Callable
+from typing import Any, Literal, Optional, TypedDict
 
 from olit.registry.extensions.vintent.modules.exceptions import ProcessError
 

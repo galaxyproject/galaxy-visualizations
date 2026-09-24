@@ -15,6 +15,7 @@ import { SessionStore, galaxyUserId, indexedDbStore } from "./session";
 import { advance, newDocument, noteModel, restoreMessages, type SessionDocument } from "./session-document";
 import { reportSavedState, savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
+import { historyFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
 import { runOlit, type LoopEvent, type Message } from "./pyodide-runner";
@@ -114,6 +115,8 @@ async function main() {
         fromGalaxy ||
         fromBrowser ||
         newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
+    // A restored session names the history it operated in; the url need not repeat it.
+    config.history_id = config.history_id || sessionDoc.history_id;
 
     const usage = mountUsageBar(container);
     mountBuildStamp(container, {
@@ -135,9 +138,6 @@ async function main() {
     // Saving is deliberate, as for any other Galaxy visualization: a revision then marks a
     // save the user asked for rather than a conversation turn.
     el.save.addEventListener("click", async () => {
-        if (busy || sessionDoc.session.turn === 0) {
-            return;
-        }
         el.save.disabled = true;
         el.save.textContent = "Saving...";
         try {
@@ -153,7 +153,7 @@ async function main() {
             el.save.textContent = "Save";
             chat.addErrorMessage(`Could not save this conversation: ${lastLine(String(e))}`);
         } finally {
-            el.save.disabled = false;
+            refreshSave();
         }
     });
 
@@ -249,6 +249,13 @@ async function main() {
     });
 
     let busy = false;
+
+    /** Saving mid-turn would store a half-finished turn, and an empty session has none. */
+    function refreshSave() {
+        el.save.disabled = busy || sessionDoc.session.turn === 0;
+    }
+
+    refreshSave();
     // Bounded automatic continuation, so an unattended tab cannot keep itself busy.
     const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
         onPaused: (text) => chat.addInfoMessage(text),
@@ -284,6 +291,12 @@ async function main() {
                 chat.updateToolCard(ev.id, status, ev.content);
                 // Galaxy returns the ids, so the model never has to register them.
                 watcher.ingest(ev.name, ev.content);
+                // A session opened without a history still ends up in one the agent chose.
+                const worked = historyFromResult(ev.name, ev.content);
+                if (worked) {
+                    sessionDoc.history_id = worked;
+                    config.history_id = worked;
+                }
             }
         };
     }
@@ -382,6 +395,7 @@ async function main() {
         }
         followUp.userInput();
         busy = true;
+        refreshSave();
         el.input.value = "";
         el.input.style.height = "auto";
         // Stop replaces Send for the duration of the turn, as in Orbit.
@@ -403,6 +417,7 @@ async function main() {
             el.abort.classList.add("hidden");
             el.send.classList.remove("hidden");
             busy = false;
+            refreshSave();
             followUp.agentSettled();
         }
     }
@@ -413,6 +428,7 @@ async function main() {
             return;
         }
         busy = true;
+        refreshSave();
         followUp.agentStarted();
         el.send.classList.add("hidden");
         el.abort.classList.remove("hidden");
@@ -430,6 +446,7 @@ async function main() {
             el.abort.classList.add("hidden");
             el.send.classList.remove("hidden");
             busy = false;
+            refreshSave();
             followUp.agentSettled();
         }
     }

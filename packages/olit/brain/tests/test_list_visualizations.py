@@ -1,10 +1,17 @@
 """Matching a dataset to the visualizations Galaxy can render it with."""
+
 import asyncio
+
 from olit.drivers.loop.galaxy_tools import _list_visualizations
 
 COMPATIBLE = [
-    {"name": "plotly", "description": "based on Plotly", "tags": ["Plotly"],
-     "tracks": [{"name": "x", "type": "data_column"}], "settings": []},
+    {
+        "name": "plotly",
+        "description": "based on Plotly",
+        "tags": ["Plotly"],
+        "tracks": [{"name": "x", "type": "data_column"}],
+        "settings": [],
+    },
     {"name": "atlas", "description": "table browser", "tags": []},
 ]
 
@@ -35,8 +42,9 @@ def test_the_server_decides_what_is_compatible():
 
 
 def test_the_datatype_preference_is_marked_and_ranked_first():
-    out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "int"]},
-              preferred=("atlas",))
+    out = run(
+        {"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "int"]}, preferred=("atlas",)
+    )
     assert out["visualizations"][0]["name"] == "atlas"
     assert out["visualizations"][0]["preferred_for_datatype"] is True
     assert "preferred_for_datatype" not in out["visualizations"][1]
@@ -78,8 +86,7 @@ def test_it_answers_only_what_can_render_the_dataset():
     Carrying them here made a column lookup double as a plugin advertisement, and tabular
     charting drifted off vintent_dataset toward whichever plugin the listing surfaced.
     """
-    out = run({"extension": "tabular", "metadata_columns": 3,
-               "metadata_column_types": ["int", "float", "str"]})
+    out = run({"extension": "tabular", "metadata_columns": 3, "metadata_column_types": ["int", "float", "str"]})
     assert "columns" not in out
     assert "column_types" not in out
     assert set(out) <= {"dataset_id", "extension", "visualizations", "hint", "charting"}
@@ -91,9 +98,10 @@ def test_neither_olit_nor_the_standalone_vintent_plugin_is_offered():
     `olit` is this agent. The `vintent` plugin is a frozen standalone duplicate of
     vintent_dataset sharing its name, so an agent reaching for vintent found the plugin.
     """
-    out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]},
-              compatible=[{"name": n, "description": n, "tags": []}
-                          for n in ("plotly", "olit", "vintent", "tabulator")])
+    out = run(
+        {"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]},
+        compatible=[{"name": n, "description": n, "tags": []} for n in ("plotly", "olit", "vintent", "tabulator")],
+    )
     offered = [v["name"] for v in out["visualizations"]]
     assert "olit" not in offered and "vintent" not in offered
     assert offered == ["plotly", "tabulator"]

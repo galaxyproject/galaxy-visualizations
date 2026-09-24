@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.shells.bubble_chart import BubbleChartShell
 
 
@@ -10,11 +9,13 @@ class TestBubbleChartValidate:
     def test_validate_ok_with_three_quantitative_fields(self):
         shell = BubbleChartShell()
         params = {"x": "a", "y": "b", "size": "c"}
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
         assert result["errors"] == []
@@ -22,10 +23,12 @@ class TestBubbleChartValidate:
     def test_validate_missing_x(self):
         shell = BubbleChartShell()
         params = {"y": "b", "size": "c"}
-        profile = _profile({
-            "b": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "b": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -33,10 +36,12 @@ class TestBubbleChartValidate:
     def test_validate_missing_y(self):
         shell = BubbleChartShell()
         params = {"x": "a", "size": "c"}
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -44,10 +49,12 @@ class TestBubbleChartValidate:
     def test_validate_missing_size(self):
         shell = BubbleChartShell()
         params = {"x": "a", "y": "b"}
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -55,10 +62,12 @@ class TestBubbleChartValidate:
     def test_validate_unknown_field(self):
         shell = BubbleChartShell()
         params = {"x": "a", "y": "b", "size": "missing"}
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "unknown_field"
@@ -67,11 +76,13 @@ class TestBubbleChartValidate:
     def test_validate_wrong_field_type(self):
         shell = BubbleChartShell()
         params = {"x": "a", "y": "b", "size": "c"}
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "nominal"},  # Wrong type
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "nominal"},  # Wrong type
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -81,20 +92,24 @@ class TestBubbleChartValidate:
 class TestBubbleChartIsApplicable:
     def test_applicable_with_three_quantitative(self):
         shell = BubbleChartShell()
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is True
 
     def test_not_applicable_with_only_two_quantitative(self):
         shell = BubbleChartShell()
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "nominal"},
+            }
+        )
         assert shell.is_applicable(profile) is False
 
 

@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.analyze.cumulative_sum import run, log
+from olit.registry.extensions.vintent.modules.process.analyze.cumulative_sum import log, run
 
 
 def test_run_empty_rows_returns_empty():

@@ -4,6 +4,7 @@ import asyncio
 import json
 
 from olit.drivers.loop.agent import LoopDriver
+
 from .fakes import FakeSubstrate, ScriptedLlm, call, choice, tool_messages
 
 
@@ -66,6 +67,36 @@ def test_malformed_arguments_are_reported_not_defaulted():
     assert "Re-issue the tool call" in tool_message["content"]
 
 
+def test_what_the_model_sent_is_logged_beside_the_refusal():
+    """A refusal that does not carry the arguments cannot be diagnosed after the fact."""
+    llm = ScriptedLlm(
+        choice([call("run_python", "import pandas as pd, json, os")]),
+        choice([], content="ok"),
+    )
+    _, result = _run(llm)
+
+    sent = [line for line in result["logs"] if line.strip().startswith("sent ")]
+    assert sent, result["logs"]
+    assert "import pandas as pd, json, os" in sent[0]
+    assert "broke at 0" in sent[0]
+
+
+def test_a_break_late_in_a_long_argument_is_still_visible():
+    """A head-only excerpt hides the break; most real failures break past the first 300 chars."""
+    # An unescaped quote, the shape repair cannot fix, two thousand characters in.
+    arguments = '{"code": "' + "x" * 2000 + ' the "preview" text"}'
+    llm = ScriptedLlm(
+        choice([call("run_python", arguments)]),
+        choice([], content="ok"),
+    )
+    _, result = _run(llm)
+
+    (sent,) = [line for line in result["logs"] if line.strip().startswith("sent ")]
+    assert "⟨here⟩" in sent, sent
+    assert "xxxx" in sent.split("⟨here⟩")[0], "the text before the break must be shown"
+    assert len(sent) < 400, "and it must still be bounded"
+
+
 def test_finish_alongside_real_work_does_not_end_the_turn():
     """pi's `shouldTerminateToolBatch`: every call in the batch must ask to stop."""
     llm = ScriptedLlm(
@@ -115,3 +146,31 @@ def test_well_formed_calls_still_execute():
     assert driver.substrate.local.ran == ["print(1)"]
     (tool_message,) = tool_messages(result)
     assert tool_message["content"] == "ran"
+
+
+def unparsable(n):
+    """n calls whose arguments differ byte for byte but never parse."""
+    return [choice([call("run_python", "import os" + "x" * i)]) for i in range(n)]
+
+
+def test_arguments_that_keep_failing_to_parse_stop_being_asked_for():
+    """The guard lives in dispatch, which a malformed call never reaches."""
+    llm = ScriptedLlm(*unparsable(5), choice([], content="ok"))
+    _, result = _run(llm)
+
+    refusals = [m["content"] for m in tool_messages(result)]
+    assert any("failed to parse" in r for r in refusals), refusals
+    assert any("shape is the problem" in r for r in refusals)
+
+
+def test_a_parsable_call_in_between_clears_the_count():
+    """Three failures either side of a working call are not one run of failures."""
+    llm = ScriptedLlm(
+        *unparsable(2),
+        choice([call("run_python", '{"code": "1"}')]),
+        *unparsable(2),
+        choice([], content="ok"),
+    )
+    _, result = _run(llm)
+
+    assert not [m for m in tool_messages(result) if "failed to parse" in m["content"]]

@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Optional
-from collections.abc import Callable
 
 from olit.exceptions import ConfigurationError, ProviderError
 
@@ -32,6 +32,7 @@ class ApiTarget:
         if self.headers:
             return self.headers()
         return {}
+
 
 ALLOWED_METHODS = (GET, POST, PUT)
 

@@ -6,6 +6,7 @@ import pytest
 
 from olit.drivers.loop import sra_import_gate
 from olit.drivers.loop.tools import ToolSurface
+
 from .fakes import FakeSubstrate
 
 TOOL = "toolshed.g2.bx.psu.edu/repos/iuc/sra_tools/fasterq_dump/3.1.1+galaxy1"
@@ -136,11 +137,14 @@ def test_imports_with_a_different_destination_or_settings_stay_separate(g, diffe
 
 def test_nested_and_flat_input_encodings_are_the_same_settings(g):
     a = call("a", "SRR1")
-    b = call("b", "SRR2", inputs={
-        "input": {"input_select": "accession_number", "accession": "SRR2", "__current_case__": 0},
-        "adv": {"seq_defline": "@$ac.$si/$ri", "minlen": 0, "split": "--split-3",
-                "skip_technical": True},
-    })
+    b = call(
+        "b",
+        "SRR2",
+        inputs={
+            "input": {"input_select": "accession_number", "accession": "SRR2", "__current_case__": 0},
+            "adv": {"seq_defline": "@$ac.$si/$ri", "minlen": 0, "split": "--split-3", "skip_technical": True},
+        },
+    )
     g.assistant([a, b])
     assert g.check(a)
     assert g.check(b)
@@ -172,14 +176,16 @@ def test_one_list_file_hda_corrects_a_rejected_batch(g):
     assert g.check(corrected) is None
 
 
-@pytest.mark.parametrize("value", [
-    {"__class__": "Batch", "values": ["SRR1", "SRR2"]},
-    {"batch": True, "values": ["SRR1", "SRR2"]},
-    {"src": "hdca", "id": "mapped-manifests"},
-])
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"__class__": "Batch", "values": ["SRR1", "SRR2"]},
+        {"batch": True, "values": ["SRR1", "SRR2"]},
+        {"src": "hdca", "id": "mapped-manifests"},
+    ],
+)
 def test_galaxy_mapping_is_refused(g, value):
-    mapped = call("mapped", "unused", inputs={
-        "input|input_select": "file_list", "input|file_list": value})
+    mapped = call("mapped", "unused", inputs={"input|input_select": "file_list", "input|file_list": value})
     g.assistant([mapped])
     assert g.check(mapped)
 
@@ -203,8 +209,9 @@ def test_other_tools_custom_wrappers_and_malformed_inputs_are_left_alone(g):
         call("b", "SRR2", tool_id="fastp"),
         call("c", "SRR1", tool_id=custom),
         call("d", "SRR2", tool_id=custom),
-        call("e", "SRR1", inputs={"input|input_select": "sra_file",
-                                  "input|sra_file": {"src": "hdca", "id": "archives"}}),
+        call(
+            "e", "SRR1", inputs={"input|input_select": "sra_file", "input|sra_file": {"src": "hdca", "id": "archives"}}
+        ),
         call("f", "SRR1", inputs="not JSON"),
     ]
     g.assistant(calls)
@@ -224,8 +231,7 @@ class RecordingGalaxy:
 
 
 def test_the_dispatcher_refuses_a_fan_out_without_reaching_galaxy():
-    substrate = FakeSubstrate(galaxy=RecordingGalaxy(),
-                              capabilities=("llm", "local", "read", "write"))
+    substrate = FakeSubstrate(galaxy=RecordingGalaxy(), capabilities=("llm", "local", "read", "write"))
     surface = ToolSurface(substrate)
     calls = [call("a", "SRR1"), call("b", "SRR2")]
     surface.observe(calls)

@@ -91,7 +91,7 @@ class MaterializerHandler:
 
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error('Materializer %s failed: %s\n%s', target, e, tb)
+            logger.error("Materializer %s failed: %s\n%s", target, e, tb)
             return {
                 "ok": False,
                 "error": {

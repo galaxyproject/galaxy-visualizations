@@ -32,8 +32,14 @@ GUARD_MODULES = ("drivers/loop/tools.py", "drivers/loop/agent.py")
 
 _QUERY_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^&?{}\"']*)")
 
-_JSON_TYPES = {"string": "string", "integer": "integer", "number": "number",
-               "boolean": "boolean", "object": "object", "array": "array"}
+_JSON_TYPES = {
+    "string": "string",
+    "integer": "integer",
+    "number": "number",
+    "boolean": "boolean",
+    "object": "object",
+    "array": "array",
+}
 
 
 def fingerprint(text):
@@ -51,12 +57,12 @@ def py_symbol(text, symbol):
     if m:
         quote = m.group(1)
         end = text.index(quote, m.end())
-        return text[m.start():end + len(quote)]
+        return text[m.start() : end + len(quote)]
     for opener, closer in (("{", "}"), ("(", ")")):
         m = re.search(rf"^{re.escape(symbol)} = \{opener}$", text, re.M)
         if not m:
             continue
-        lines = text[m.start():].splitlines()
+        lines = text[m.start() :].splitlines()
         body = [lines[0]]
         for line in lines[1:]:
             body.append(line)
@@ -66,7 +72,7 @@ def py_symbol(text, symbol):
     m = re.search(rf"^def {re.escape(symbol)}\b", text, re.M)
     if not m:
         return None
-    rest = text[m.start():].splitlines()
+    rest = text[m.start() :].splitlines()
     out = [rest[0]]
     for line in rest[1:]:
         if line and not line[0].isspace():
@@ -121,8 +127,11 @@ def _passthrough_handlers():
     for node in ast.walk(tree):
         if not isinstance(node, ast.AsyncFunctionDef) or not node.name.startswith("_"):
             continue
-        body = [n for n in node.body if not isinstance(n, ast.Expr)
-                or not isinstance(getattr(n, "value", None), ast.Constant)]
+        body = [
+            n
+            for n in node.body
+            if not isinstance(n, ast.Expr) or not isinstance(getattr(n, "value", None), ast.Constant)
+        ]
         if len(body) != 1 or not isinstance(body[0], ast.Return):
             continue
         value = body[0].value
@@ -151,10 +160,14 @@ def _handler_query(node):
             target, value = inner.targets[0], inner.value
             if isinstance(target, ast.Name) and isinstance(value, ast.Dict):
                 built.setdefault(target.id, {}).update(_literals(value))
-            elif (isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name)
-                    and isinstance(target.slice, ast.Constant)):
+            elif (
+                isinstance(target, ast.Subscript)
+                and isinstance(target.value, ast.Name)
+                and isinstance(target.slice, ast.Constant)
+            ):
                 built.setdefault(target.value.id, {})[target.slice.value] = (
-                    value.value if isinstance(value, ast.Constant) else None)
+                    value.value if isinstance(value, ast.Constant) else None
+                )
     for inner in ast.walk(node):
         if isinstance(inner, ast.Call) and getattr(inner.func, "id", None) == "_q":
             argument = inner.args[0] if inner.args else None
@@ -163,8 +176,9 @@ def _handler_query(node):
             elif isinstance(argument, ast.Name):
                 sent.update(built.get(argument.id, {}))
         # `api/plugins?dataset_id=` and friends: the constant halves of the path itself.
-        parts = [inner] if isinstance(inner, ast.Constant) else (
-            inner.values if isinstance(inner, ast.JoinedStr) else [])
+        parts = (
+            [inner] if isinstance(inner, ast.Constant) else (inner.values if isinstance(inner, ast.JoinedStr) else [])
+        )
         for part in parts:
             if isinstance(part, ast.Constant) and isinstance(part.value, str) and "=" in part.value:
                 for name, raw in _QUERY_PAIR.findall(part.value.split("?", 1)[-1]):
@@ -175,8 +189,9 @@ def _handler_query(node):
 def tools():
     """Per tool: what the model is shown, the query it builds, and how it answers."""
     source = ast.parse((package_root() / "drivers/loop/galaxy_tools.py").read_text())
-    by_name = {node.name: node for node in ast.walk(source)
-               if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    by_name = {
+        node.name: node for node in ast.walk(source) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
     passthrough = _passthrough_handlers()
     out = {}
     for tool in galaxy_tools.TOOLS:
@@ -271,8 +286,11 @@ def shell(root):
 def skills(root):
     """The vendored skills pin, plus a hash per file when the corpus has been built."""
     base = package_root() / "registry/skills/galaxy-skills"
-    files = {str(f.relative_to(base)): hashlib.sha256(f.read_bytes()).hexdigest()[:16]
-             for f in sorted(base.rglob("*.md"))} if base.is_dir() else {}
+    files = (
+        {str(f.relative_to(base)): hashlib.sha256(f.read_bytes()).hexdigest()[:16] for f in sorted(base.rglob("*.md"))}
+        if base.is_dir()
+        else {}
+    )
     out = {"vendored": bool(files), "files": files}
     if root is not None:
         try:

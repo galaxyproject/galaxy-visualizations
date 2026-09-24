@@ -113,8 +113,7 @@ def _identify(datasets, name_field, pattern=None):
 
 
 @register_materializer("collections.group")
-def group_datasets(datasets=None, structure=None, name_field="name", include=None,
-                   sample_regex=None):
+def group_datasets(datasets=None, structure=None, name_field="name", include=None, sample_regex=None):
     """Partition datasets into collection elements plus whatever did not fit.
 
     `include` is a filename glob scoping which datasets are in play at all. `structure` is
@@ -192,10 +191,7 @@ def _flat_elements(entries):
 
 def _items(entries):
     """Dataset references the bulk history-contents operations accept."""
-    return [
-        {"id": d.get("id"), "history_content_type": d.get("history_content_type", "dataset")}
-        for _, d in entries
-    ]
+    return [{"id": d.get("id"), "history_content_type": d.get("history_content_type", "dataset")} for _, d in entries]
 
 
 def _placed(elements):

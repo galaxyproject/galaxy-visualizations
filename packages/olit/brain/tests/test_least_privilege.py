@@ -6,8 +6,8 @@ import json
 import pytest
 
 from olit.drivers.loop.tools import ToolSurface
-from olit.registry import ProcessRegistry
 from olit.exceptions import CapabilityError
+from olit.registry import ProcessRegistry
 from olit.substrate.manifest import DEFAULT_CAPABILITIES, CapabilityManifest
 from olit.substrate.substrate import Substrate
 

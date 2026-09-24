@@ -12,12 +12,13 @@ from urllib.parse import quote
 
 from olit.substrate.http import http
 
+from .outcome import ToolOutcome
+
 logger = logging.getLogger(__name__)
 
 ENA_HOST = "www.ebi.ac.uk"
 ENA_API = f"https://{ENA_HOST}/ena/portal/api/filereport"
-FIELDS = ("run_accession,library_layout,fastq_ftp,fastq_md5,fastq_bytes,"
-          "read_count,scientific_name")
+FIELDS = "run_accession,library_layout,fastq_ftp,fastq_md5,fastq_bytes," "read_count,scientific_name"
 # A study can hold thousands of runs; enough to plan with, and `limit` raises it.
 RUNS_DEFAULT = 25
 RUNS_MAX = 500
@@ -41,51 +42,66 @@ def _rows(table):
 async def _ena_runs(args):
     accession = ((args or {}).get("accession") or "").strip()
     if not accession:
-        return {"error": "An ENA or SRA accession is required."}
+        return ToolOutcome({"error": "An ENA or SRA accession is required."}, is_error=True)
     limit = (args or {}).get("limit") or RUNS_DEFAULT
     try:
         limit = max(1, min(int(limit), RUNS_MAX))
     except (TypeError, ValueError):
         limit = RUNS_DEFAULT
 
-    url = (f"{ENA_API}?accession={quote(accession, safe='')}&result=read_run&fields={FIELDS}"
-           f"&format=tsv&limit={limit + 1}")
+    url = (
+        f"{ENA_API}?accession={quote(accession, safe='')}&result=read_run&fields={FIELDS}"
+        f"&format=tsv&limit={limit + 1}"
+    )
     try:
         table = await http.request("GET", url)
     except Exception as exc:
         # ENA answers a bad accession with 400 and names the accession types it takes,
         # which is the most useful thing we could say here anyway.
         detail = str(exc)
-        return {"accession": accession,
-                "error": detail[:ERROR_MAX_CHARS] + (" ..." if len(detail) > ERROR_MAX_CHARS else "")}
+        return ToolOutcome(
+            {
+                "accession": accession,
+                "error": detail[:ERROR_MAX_CHARS] + (" ..." if len(detail) > ERROR_MAX_CHARS else ""),
+            },
+            is_error=True,
+        )
 
     rows = _rows(table if isinstance(table, str) else str(table))
     if not rows:
-        return {"accession": accession, "count": 0, "runs": [],
-                "hint": "ENA holds no sequencing runs under this accession."}
+        return {
+            "accession": accession,
+            "count": 0,
+            "runs": [],
+            "hint": "ENA holds no sequencing runs under this accession.",
+        }
 
     truncated = len(rows) > limit
     runs = []
     for row in rows[:limit]:
         urls = _urls(row.get("fastq_ftp"))
-        runs.append({
-            "run": row.get("run_accession"),
-            "layout": row.get("library_layout"),
-            "paired": len(urls) >= 2,
-            "urls": urls,
-            "md5": [m for m in (row.get("fastq_md5") or "").split(";") if m],
-            "bytes": [int(b) for b in (row.get("fastq_bytes") or "").split(";") if b.isdigit()],
-            "read_count": row.get("read_count"),
-            "organism": row.get("scientific_name"),
-        })
+        runs.append(
+            {
+                "run": row.get("run_accession"),
+                "layout": row.get("library_layout"),
+                "paired": len(urls) >= 2,
+                "urls": urls,
+                "md5": [m for m in (row.get("fastq_md5") or "").split(";") if m],
+                "bytes": [int(b) for b in (row.get("fastq_bytes") or "").split(";") if b.isdigit()],
+                "read_count": row.get("read_count"),
+                "organism": row.get("scientific_name"),
+            }
+        )
 
     out = {"accession": accession, "count": len(runs), "runs": runs}
     if truncated:
         out["truncated"] = True
         out["note"] = f"Showing {limit} runs; raise `limit` for more."
-    out["hint"] = ("Submit these run accessions to fastq_dump/fasterq_dump in one call. "
-                   "The urls are exact and are for the cases that need a direct fetch; "
-                   "never edit or construct one.")
+    out["hint"] = (
+        "Submit these run accessions to fastq_dump/fasterq_dump in one call. "
+        "The urls are exact and are for the cases that need a direct fetch; "
+        "never edit or construct one."
+    )
     return out
 
 

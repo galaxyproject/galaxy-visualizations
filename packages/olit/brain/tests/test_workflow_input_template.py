@@ -10,16 +10,32 @@ RUN_MODEL = {
     "has_upgrade_messages": False,
     "step_version_changes": ["using 1.3.3 instead of 1.3.5"],
     "steps": [
-        {"step_index": 0, "step_type": "data_collection_input", "step_label": "Raw reads",
-         "step_name": "Input dataset collection", "annotation": "paired-end",
-         "inputs": [{"name": "input", "label": "Raw reads", "optional": False,
-                     "acceptable_extensions": [f"ext{i}" for i in range(793)],
-                     "type": "data_collection", "value": None}]},
-        {"step_index": 1, "step_type": "parameter_input", "step_label": "Quality",
-         "step_name": "Input parameter", "annotation": None,
-         "inputs": [{"name": "input", "label": "Quality", "optional": True, "type": "integer"}]},
-        {"step_index": 2, "step_type": "tool", "step_label": "fastp",
-         "inputs": [{"cases": ["x" * 50000]}]},
+        {
+            "step_index": 0,
+            "step_type": "data_collection_input",
+            "step_label": "Raw reads",
+            "step_name": "Input dataset collection",
+            "annotation": "paired-end",
+            "inputs": [
+                {
+                    "name": "input",
+                    "label": "Raw reads",
+                    "optional": False,
+                    "acceptable_extensions": [f"ext{i}" for i in range(793)],
+                    "type": "data_collection",
+                    "value": None,
+                }
+            ],
+        },
+        {
+            "step_index": 1,
+            "step_type": "parameter_input",
+            "step_label": "Quality",
+            "step_name": "Input parameter",
+            "annotation": None,
+            "inputs": [{"name": "input", "label": "Quality", "optional": True, "type": "integer"}],
+        },
+        {"step_index": 2, "step_type": "tool", "step_label": "fastp", "inputs": [{"cases": ["x" * 50000]}]},
     ],
 }
 
@@ -51,9 +67,17 @@ def test_a_long_extension_list_becomes_a_count():
 
 
 def test_a_short_extension_list_is_kept_verbatim():
-    model = {"name": "w", "steps": [
-        {"step_index": 0, "step_type": "data_input", "step_label": "reads",
-         "inputs": [{"name": "input", "acceptable_extensions": ["fastqsanger", "fastq"]}]}]}
+    model = {
+        "name": "w",
+        "steps": [
+            {
+                "step_index": 0,
+                "step_type": "data_input",
+                "step_label": "reads",
+                "inputs": [{"name": "input", "acceptable_extensions": ["fastqsanger", "fastq"]}],
+            }
+        ],
+    }
     assert run(model)["inputs"][0]["inputs"][0]["acceptable_extensions"] == ["fastqsanger", "fastq"]
 
 
@@ -70,6 +94,4 @@ def test_the_result_names_how_inputs_are_keyed():
 
 def test_an_error_body_passes_through():
     """A missing tool comes back as an error dict; it must not be mistaken for a template."""
-    assert run({"err_msg": "Following tools missing: falco"}) == {
-        "err_msg": "Following tools missing: falco"
-    }
+    assert run({"err_msg": "Following tools missing: falco"}) == {"err_msg": "Following tools missing: falco"}

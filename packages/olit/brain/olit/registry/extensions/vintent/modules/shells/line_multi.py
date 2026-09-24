@@ -71,4 +71,3 @@ class LineMultiShell(BaseShell):
             "mark": {"type": "line", "point": True},
             "encoding": encoding,
         }
-

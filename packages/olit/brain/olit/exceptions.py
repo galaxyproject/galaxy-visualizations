@@ -61,6 +61,7 @@ class CapabilityError(AppError):
 
     code = "CAPABILITY_DENIED"
 
+
 class AgentError(AppError):
     """Error related to agent definition or resolution."""
 

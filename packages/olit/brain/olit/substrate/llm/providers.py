@@ -160,8 +160,9 @@ XAI = Provider(
     free_model=True,
 )
 
-REGISTRY = {p.id: p for p in (GALAXY, GOOGLE, DEEPSEEK, OPENROUTER, JETSTREAM2, OLLAMA,
-                              OPENAI, ANTHROPIC, GROQ, MISTRAL, XAI)}
+REGISTRY = {
+    p.id: p for p in (GALAXY, GOOGLE, DEEPSEEK, OPENROUTER, JETSTREAM2, OLLAMA, OPENAI, ANTHROPIC, GROQ, MISTRAL, XAI)
+}
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,6 @@
 """Planner behaviour when the model's reply does not match the built schema."""
 
 import asyncio
-from olit.substrate.llm import Reply
 import csv
 import io
 import json
@@ -9,9 +8,8 @@ import os
 
 from olit.drivers.graph import GraphDriver
 from olit.drivers.graph.constants import PLANNER_MAX_ATTEMPTS, ErrorCode
-from olit.registry import ProcessRegistry
-
-from olit.registry import load_primitives
+from olit.registry import ProcessRegistry, load_primitives
+from olit.substrate.llm import Reply
 
 load_primitives()
 

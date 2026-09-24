@@ -73,4 +73,3 @@ class PieChartShell(BaseShell):
                 "color": {"field": category, "type": "nominal"},
             },
         }
-

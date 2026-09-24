@@ -2,8 +2,8 @@
 
 import importlib.metadata
 import logging
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

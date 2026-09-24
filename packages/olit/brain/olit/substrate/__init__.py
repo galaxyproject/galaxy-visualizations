@@ -4,5 +4,4 @@ from .local import LocalExecutionError
 from .manifest import CapabilityManifest
 from .substrate import Substrate
 
-__all__ = ["Substrate", "CapabilityManifest", "Cancellation", "Confirmation",
-           "LocalExecutionError"]
+__all__ = ["Substrate", "CapabilityManifest", "Cancellation", "Confirmation", "LocalExecutionError"]

@@ -53,4 +53,3 @@ class ScatterShell(BaseShell):
             "encoding": encoding,
             "mark": {"type": "point"},
         }
-

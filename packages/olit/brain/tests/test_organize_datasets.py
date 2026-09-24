@@ -2,7 +2,6 @@
 
 import asyncio
 
-from olit.drivers.graph import GraphDriver
 from olit.registry import ProcessRegistry, load_primitives
 
 load_primitives()
@@ -12,9 +11,7 @@ SRA = [
     for i, (n, m) in enumerate([(n, m) for n in (1, 2) for m in (1, 2)])
 ]
 # Files as they arrive from an unzipped archive: no mate markers.
-ZIPPED = [
-    {"id": f"z{i}", "name": f"run_{i}.txt", "history_content_type": "dataset"} for i in range(3, 7)
-]
+ZIPPED = [{"id": f"z{i}", "name": f"run_{i}.txt", "history_content_type": "dataset"} for i in range(3, 7)]
 
 
 class FakeCatalog:
@@ -116,9 +113,7 @@ def test_no_datatype_means_no_write():
 def test_the_datatype_is_set_before_the_collection_is_built():
     catalog, _ = _run(SRA, datatype="fastqsanger.gz")
     order = catalog.targets()
-    assert order.index("galaxy.histories.show.contents.bulk.put") < order.index(
-        "galaxy.dataset_collections.post"
-    )
+    assert order.index("galaxy.histories.show.contents.bulk.put") < order.index("galaxy.dataset_collections.post")
 
 
 def test_a_caller_who_names_neither_structure_nor_collection_still_gets_pairs():
@@ -180,8 +175,13 @@ def test_the_datatype_write_is_batched():
 
 
 WITH_COLLECTION = [
-    {"id": "c1", "name": "reads", "history_content_type": "dataset_collection",
-     "collection_type": "list", "element_count": 4},
+    {
+        "id": "c1",
+        "name": "reads",
+        "history_content_type": "dataset_collection",
+        "collection_type": "list",
+        "element_count": 4,
+    },
     *SRA,
 ]
 

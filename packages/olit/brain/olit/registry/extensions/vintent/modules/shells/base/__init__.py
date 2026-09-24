@@ -92,10 +92,17 @@ class BaseShell:
                 continue
             expected = spec.get("type", "any")
             if expected != "any" and meta.get("type") != expected:
-                errors.append({
-                    "code": "invalid_field_type",
-                    "details": {"encoding": encoding, "field": field, "expected": expected, "actual": meta.get("type")},
-                })
+                errors.append(
+                    {
+                        "code": "invalid_field_type",
+                        "details": {
+                            "encoding": encoding,
+                            "field": field,
+                            "expected": expected,
+                            "actual": meta.get("type"),
+                        },
+                    }
+                )
         return {"ok": not errors, "errors": errors, "warnings": []}
 
     def validate_or_raise(self, profile: DatasetProfile, params: ShellParamsType) -> None:

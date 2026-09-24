@@ -47,8 +47,7 @@ class Session:
         excerpt = await notebook.excerpt(self.substrate.galaxy, history_id)
         return _inject_record(transcripts, excerpt)
 
-    async def turn(self, transcripts, on_event=None, cancellation=None, confirmation=None,
-                   artifacts=None):
+    async def turn(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
         return await self.driver.run(transcripts, on_event, cancellation, confirmation, artifacts)
 
     def diagnostics(self):
@@ -73,8 +72,9 @@ async def run(config, inputs, on_event=None):
     session = await _session_for(config_module.parse(config))
     transcripts = await session.prepare(inputs["transcripts"], session.config.get("history_id"))
     try:
-        result = await session.turn(transcripts, on_event, cancellation.from_js(),
-                                    confirm.from_js(), inputs.get("artifacts"))
+        result = await session.turn(
+            transcripts, on_event, cancellation.from_js(), confirm.from_js(), inputs.get("artifacts")
+        )
     except Exception as e:
         # A failed turn is a result, not a crash.
         logger.exception("turn failed")
@@ -104,9 +104,7 @@ def _inject_record(transcripts, text):
     if not text:
         return kept
     message = {"role": "system", "content": f"{RECORD_MARKER}\n{text}"}
-    last_user = next(
-        (i for i in range(len(kept) - 1, -1, -1) if kept[i].get("role") == "user"), None
-    )
+    last_user = next((i for i in range(len(kept) - 1, -1, -1) if kept[i].get("role") == "user"), None)
     if last_user is None:
         return [*kept, message]
     return [*kept[:last_user], message, *kept[last_user:]]
@@ -124,7 +122,7 @@ def _inject_context(transcripts, text):
     content = first.get("content") or ""
     start, stop = content.find(BEGIN), content.find(END)
     if start != -1 and stop > start:
-        content = content[:start] + block + content[stop + len(END):]
+        content = content[:start] + block + content[stop + len(END) :]
     else:
         content = f"{content}\n\n{block}"
     merged = dict(first)

@@ -5,7 +5,6 @@ import pytest
 from olit.substrate.llm import REGISTRY, Limits, Model, Provider, get_adapter, resolve
 from olit.substrate.llm.providers import DEFAULT_CONTEXT_WINDOW
 
-
 # --- resolution ----------------------------------------------------------------
 
 
@@ -244,7 +243,9 @@ def test_openrouter_states_no_rate_limit_because_it_has_no_fixed_one():
     from olit.substrate.llm.providers import DEFAULT_RATE_LIMIT, OPENROUTER
 
     assert OPENROUTER.rate_limit is None
-    assert resolve({"ai_provider": "openrouter", "ai_model": "anthropic/claude-sonnet-5"}).rate_limit == DEFAULT_RATE_LIMIT
+    assert (
+        resolve({"ai_provider": "openrouter", "ai_model": "anthropic/claude-sonnet-5"}).rate_limit == DEFAULT_RATE_LIMIT
+    )
 
 
 def test_an_unlisted_openrouter_model_still_resolves():
@@ -284,13 +285,21 @@ class _Adapter:
         self.empties = empties
         self.sent = 0
 
-    def url(self, target): return "http://x/v1/chat/completions"
-    def headers(self, target): return {}
-    def oversized_tools(self, target, tools): return []
-    def build_request(self, *a, **k): return {}
+    def url(self, target):
+        return "http://x/v1/chat/completions"
+
+    def headers(self, target):
+        return {}
+
+    def oversized_tools(self, target, tools):
+        return []
+
+    def build_request(self, *a, **k):
+        return {}
 
     def parse_reply(self, payload):
         from olit.exceptions import ProviderError
+
         self.sent += 1
         if self.sent <= self.empties:
             raise ProviderError("The model provider returned an empty response.")
@@ -301,7 +310,9 @@ def _llm_with(adapter, monkeypatch):
     import olit.substrate.llm.client as client_mod
     from olit.substrate.llm.client import Llm
 
-    async def fake_request(**kwargs): return {}
+    async def fake_request(**kwargs):
+        return {}
+
     monkeypatch.setattr(client_mod.http, "request", fake_request)
     monkeypatch.setattr(client_mod.asyncio, "sleep", lambda s: _done())
 
@@ -313,7 +324,8 @@ def _llm_with(adapter, monkeypatch):
     return llm
 
 
-async def _done(): return None
+async def _done():
+    return None
 
 
 def test_one_empty_reply_is_resent_rather_than_raised(monkeypatch):

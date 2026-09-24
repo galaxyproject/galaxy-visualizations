@@ -29,6 +29,14 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 
+# Text the model reads verbatim: prompts, ported tool descriptions and hint strings. Reflowing
+# them would rewrite what is sent rather than how it is laid out.
+[tool.ruff.lint.per-file-ignores]
+"olit/compaction.py" = ["E501"]
+"olit/drivers/graph/expressions.py" = ["E501"]
+"olit/drivers/loop/galaxy_tool_docs.py" = ["E501"]
+"olit/registry/extensions/vintent/modules/tools.py" = ["E501"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = false

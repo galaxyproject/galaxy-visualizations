@@ -485,8 +485,6 @@ You are **{model}**{via}. That is your identity for this session: state it
 accurately when asked, and do not claim to be a different model or provider."""
 
 
-
-
 def _no_local_shell(ctx):
     # loom: emitted only when the local shell is disabled. Permanently true here.
     return NO_LOCAL_SHELL
@@ -604,6 +602,5 @@ BLOCKS = [
 
 def system_text(today=None, model=None, provider=None, galaxy_ok=True, seed_dataset=None):
     """The block text appended to the shell-seeded identity prompt."""
-    ctx = {"today": today, "model": model, "provider": provider, "galaxy_ok": galaxy_ok,
-           "seed_dataset": seed_dataset}
+    ctx = {"today": today, "model": model, "provider": provider, "galaxy_ok": galaxy_ok, "seed_dataset": seed_dataset}
     return "\n\n".join(b for b in (block(ctx) for block in BLOCKS) if b)

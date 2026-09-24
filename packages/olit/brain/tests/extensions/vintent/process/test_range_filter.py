@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.extract.range_filter import schema, run, log
+from olit.registry.extensions.vintent.modules.process.extract.range_filter import log, run, schema
 
 
 def test_schema_returns_none_without_quantitative_columns():
@@ -30,6 +29,7 @@ def test_schema_valid_with_quantitative_columns():
     enum = s["params"]["properties"]["field"]["enum"]
     assert set(enum) == {"a", "c"}
 
+
 def test_run_filters_with_min_only():
     rows = [
         {"x": 1},
@@ -39,6 +39,7 @@ def test_run_filters_with_min_only():
     params = {"field": "x", "min": 5}
     out = run(rows, params)
     assert out == [{"x": 5}, {"x": 10}]
+
 
 def test_run_filters_with_max_only():
     rows = [
@@ -50,6 +51,7 @@ def test_run_filters_with_max_only():
     out = run(rows, params)
     assert out == [{"x": 1}, {"x": 5}]
 
+
 def test_run_filters_with_min_and_max():
     rows = [
         {"x": 1},
@@ -59,6 +61,7 @@ def test_run_filters_with_min_and_max():
     params = {"field": "x", "min": 2, "max": 8}
     out = run(rows, params)
     assert out == [{"x": 5}]
+
 
 def test_run_ignores_non_numeric_values():
     rows = [
@@ -70,6 +73,7 @@ def test_run_ignores_non_numeric_values():
     out = run(rows, params)
     assert out == [{"x": 3}]
 
+
 def test_run_returns_all_rows_if_field_missing():
     rows = [
         {"a": 1},
@@ -79,9 +83,11 @@ def test_run_returns_all_rows_if_field_missing():
     out = run(rows, params)
     assert out == rows
 
+
 def test_run_empty_rows_returns_empty():
     params = {"field": "x", "min": 1}
     assert run([], params) == []
+
 
 def test_log_messages():
     assert log({"field": "x", "min": 1, "max": 5}) == "Filter rows where x is between 1 and 5."

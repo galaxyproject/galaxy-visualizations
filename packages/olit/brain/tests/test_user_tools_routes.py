@@ -1,13 +1,24 @@
 """The three user-tool calls must address the unprivileged routes, with a wrapped body."""
+
 import asyncio
+
 from olit.drivers.loop.galaxy_tools import _create_user_tool, _delete_user_tool, _list_user_tools
 
 
 class Galaxy:
-    def __init__(self): self.calls = []
-    async def get(self, path, **k): self.calls.append(("GET", path, None)); return []
-    async def post(self, path, body): self.calls.append(("POST", path, body)); return {"uuid": "u1"}
-    async def delete(self, path): self.calls.append(("DELETE", path, None))
+    def __init__(self):
+        self.calls = []
+
+    async def get(self, path, **k):
+        self.calls.append(("GET", path, None))
+        return []
+
+    async def post(self, path, body):
+        self.calls.append(("POST", path, body))
+        return {"uuid": "u1"}
+
+    async def delete(self, path):
+        self.calls.append(("DELETE", path, None))
 
 
 def test_create_wraps_the_representation_for_the_user_route():

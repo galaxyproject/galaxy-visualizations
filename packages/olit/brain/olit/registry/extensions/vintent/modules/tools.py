@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 ANALYTICAL_GOALS = [
     "distribution",  # How values are spread (histogram, density, box plot, violin)
     "relationship",  # How variables relate to each other (scatter, regression, correlation)
-    "comparison",    # Compare values across categories (bar, grouped bar, box plot)
-    "composition",   # Parts of a whole (pie, donut, treemap, stacked bar)
-    "trend",         # Change over time or sequence (line, area)
-    "ranking",       # Ordered/ranked values (sorted bar, lollipop, top-N)
-    "summary",       # Aggregate statistics and reports
-    "outliers",      # Identify unusual or extreme values
+    "comparison",  # Compare values across categories (bar, grouped bar, box plot)
+    "composition",  # Parts of a whole (pie, donut, treemap, stacked bar)
+    "trend",  # Change over time or sequence (line, area)
+    "ranking",  # Ordered/ranked values (sorted bar, lollipop, top-N)
+    "summary",  # Aggregate statistics and reports
+    "outliers",  # Identify unusual or extreme values
 ]
 
 GOAL_DESCRIPTIONS = {
@@ -112,15 +112,14 @@ def get_chosen_process(reply: dict[str, Any]) -> Optional[dict[str, Any]]:
     tool was called. ``params`` is empty for ``id == "none"``.
     """
     import json
-    tool_calls = (
-        reply.get("choices", [{}])[0].get("message", {}).get("tool_calls") or []
-    )
+
+    tool_calls = reply.get("choices", [{}])[0].get("message", {}).get("tool_calls") or []
     for call in tool_calls:
         fn = call.get("function") or {}
         name = fn.get("name", "")
         if not name.startswith(CHOOSE_PROCESS_PREFIX):
             continue
-        process_id = name[len(CHOOSE_PROCESS_PREFIX):]
+        process_id = name[len(CHOOSE_PROCESS_PREFIX) :]
         args_raw = fn.get("arguments")
         if isinstance(args_raw, str):
             try:
@@ -315,9 +314,7 @@ def build_parse_intent_tool(profile: DatasetProfile) -> Optional[dict[str, Any]]
         return None
 
     # Build goal descriptions for the enum
-    goal_descriptions = "\n".join(
-        f"- {goal}: {GOAL_DESCRIPTIONS[goal]}" for goal in ANALYTICAL_GOALS
-    )
+    goal_descriptions = "\n".join(f"- {goal}: {GOAL_DESCRIPTIONS[goal]}" for goal in ANALYTICAL_GOALS)
 
     return {
         "type": "function",
@@ -345,8 +342,7 @@ def build_parse_intent_tool(profile: DatasetProfile) -> Optional[dict[str, Any]]
                         "type": "string",
                         "enum": ANALYTICAL_GOALS,
                         "description": (
-                            "The analytical goal - what kind of insight does the user want?\n\n"
-                            f"{goal_descriptions}"
+                            "The analytical goal - what kind of insight does the user want?\n\n" f"{goal_descriptions}"
                         ),
                     },
                     "shell_fields": {

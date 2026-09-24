@@ -46,8 +46,7 @@ def test_a_titled_token_takes_the_one_it_names():
 
 
 def test_several_tokens_each_resolve_in_one_write():
-    text, refusal = artifacts.resolve("{{artifact: Dataset lineage}}\n{{artifact: Glucose by BMI}}",
-                                      [VEGA, LINEAGE])
+    text, refusal = artifacts.resolve("{{artifact: Dataset lineage}}\n{{artifact: Glucose by BMI}}", [VEGA, LINEAGE])
     assert refusal is None
     assert text.index("```mermaid") < text.index("```vega")
 

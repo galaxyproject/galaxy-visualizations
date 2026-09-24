@@ -60,4 +60,3 @@ class AreaChartShell(BaseShell):
             "mark": {"type": "area", "line": True, "opacity": 0.7},
             "encoding": encoding,
         }
-

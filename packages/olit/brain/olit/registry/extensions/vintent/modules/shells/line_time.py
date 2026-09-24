@@ -52,4 +52,3 @@ class LineTimeShell(BaseShell):
             "encoding": encoding,
             "mark": {"type": "line"},
         }
-

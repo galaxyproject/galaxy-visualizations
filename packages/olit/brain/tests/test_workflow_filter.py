@@ -49,8 +49,7 @@ def test_the_last_page_is_not_marked_truncated():
 
 
 def test_a_spaced_query_matches_a_hyphenated_name():
-    assert names(name="rna seq") == [
-        "RNA-seq quantification (paired-end)", "RNAseq differential expression"]
+    assert names(name="rna seq") == ["RNA-seq quantification (paired-end)", "RNAseq differential expression"]
 
 
 def test_separator_variants_agree():

@@ -15,8 +15,7 @@ import json
 import re
 
 _RUN_TOOL = re.compile(r"^(?:galaxy_)?run_tool$")
-_SRA_TOOL = re.compile(
-    r"^(?:(?:[^/]+/repos/iuc/sra_tools/)?(?:fastq_dump|fasterq_dump))(?:/[^/]+)?$")
+_SRA_TOOL = re.compile(r"^(?:(?:[^/]+/repos/iuc/sra_tools/)?(?:fastq_dump|fasterq_dump))(?:/[^/]+)?$")
 _ACCESSION = re.compile(r"^(?:SRR|ERR|DRR)\d+$")
 _SEPARATORS = re.compile(r"[\s,;]+")
 
@@ -98,8 +97,7 @@ def sra_call(name, args):
     ref = _obj(value) or {}
     mapped = ref.get("__class__") == "Batch" or ref.get("batch") is True or ref.get("src") == "hdca"
     file_list = mode == "file_list" and ref.get("src") == "hda" and isinstance(ref.get("id"), str)
-    settings = {k: v for k, v in flat.items()
-                if k not in ("input|input_select", "input|accession", "input|file_list")}
+    settings = {k: v for k, v in flat.items() if k not in ("input|input_select", "input|accession", "input|file_list")}
     return SraCall(
         key=_stable({**args, "inputs": settings}),
         history_id=history_id,
@@ -121,7 +119,7 @@ def remediation(runs):
         + candidates
         + "Exclude verified or running imports first. For the remaining accessions, use a "
         "comma-separated input|accession string with input|input_select=accession_number, or one "
-        'text HDA (one accession per line) with input|input_select=file_list and '
+        "text HDA (one accession per line) with input|input_select=file_list and "
         'input|file_list={src:"hda",id:<real dataset ID>}. '
         "Inspect the installed tool template; retain the extraction settings and use its "
         "list:paired output for paired reads. Check the history and notebook first so verified or "

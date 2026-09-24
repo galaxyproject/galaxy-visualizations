@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.shells.treemap import TreemapShell
 
 
@@ -64,10 +63,12 @@ class TestTreemapProcesses:
 
     def test_processes_with_custom_op_and_value(self):
         shell = TreemapShell()
-        profile = _profile({
-            "category": {"type": "nominal"},
-            "amount": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "category": {"type": "nominal"},
+                "amount": {"type": "quantitative"},
+            }
+        )
         params = {"category": "category", "value": "amount", "op": "sum"}
         processes = shell.processes(profile, params)
         assert processes[0]["params"]["op"] == "sum"

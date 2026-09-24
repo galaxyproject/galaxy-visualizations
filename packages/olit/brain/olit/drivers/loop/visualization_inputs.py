@@ -25,8 +25,7 @@ def _declared_values(param, spec):
     if source.get("kind") != "declared":
         return []
     field = source.get("from") or ""
-    return [v.get("value") for v in (param.get(field) or [])
-            if isinstance(v, dict) and v.get("value") is not None]
+    return [v.get("value") for v in (param.get(field) or []) if isinstance(v, dict) and v.get("value") is not None]
 
 
 def _placeholder(param, types):

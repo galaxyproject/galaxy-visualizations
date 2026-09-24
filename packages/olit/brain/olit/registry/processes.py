@@ -15,14 +15,12 @@ from pydantic import ValidationError
 from olit.exceptions import ConfigurationError
 from olit.schema import AgentDefinition
 
-
 _EMPTY = inspect.Parameter.empty
 _TYPES = {str: "string", int: "integer", float: "number", bool: "boolean", list: "array"}
 
 
 class Process:
-    def __init__(self, name, graph=None, fn=None, description="", when_to_use="",
-                 capabilities=None, summarize=None):
+    def __init__(self, name, graph=None, fn=None, description="", when_to_use="", capabilities=None, summarize=None):
         self.name = name
         self.graph = graph
         self.fn = fn
@@ -68,17 +66,22 @@ class ProcessRegistry:
         self._processes = {}
 
     def register(self, name, graph, description="", when_to_use="", capabilities=None):
-        self._processes[name] = Process(name, graph=graph, description=description,
-                                        when_to_use=when_to_use, capabilities=capabilities)
+        self._processes[name] = Process(
+            name, graph=graph, description=description, when_to_use=when_to_use, capabilities=capabilities
+        )
 
     def register_python(self, fn):
         """Register an async function carrying `capabilities` and `when_to_use` attributes."""
         name = fn.__name__
         doc = (fn.__doc__ or "").strip().split("\n")[0]
-        self._processes[name] = Process(name, fn=fn, description=doc,
-                                        when_to_use=getattr(fn, "when_to_use", ""),
-                                        capabilities=getattr(fn, "capabilities", None),
-                                        summarize=getattr(fn, "summarize", None))
+        self._processes[name] = Process(
+            name,
+            fn=fn,
+            description=doc,
+            when_to_use=getattr(fn, "when_to_use", ""),
+            capabilities=getattr(fn, "capabilities", None),
+            summarize=getattr(fn, "summarize", None),
+        )
         return fn
 
     def register_yaml(self, text):

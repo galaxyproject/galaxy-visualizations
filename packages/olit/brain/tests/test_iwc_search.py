@@ -12,21 +12,33 @@ class FakeGalaxy:
 MANIFEST = [
     {
         "workflows": [
-            {"trsID": "#workflow/rnaseq", "categories": ["Transcriptomics"],
-             "readme": "# RNAseq\n\nCounts reads per gene.",
-             "authors": [{"name": "IWC", "orcid": "0000"}],
-             "definition": {"name": "RNAseq counts", "annotation": "Align reads and count",
-                            "tags": ["rna", "star"],
-                            "steps": {
-                                "0": {"type": "data_input"},
-                                "1": {"type": "tool",
-                                      "tool_id": "toolshed.g2.bx.psu.edu/repos/iuc/hisat2/hisat2/2.2.1"},
-                                "2": {"type": "tool", "tool_id": "Cut1"},
-                            }}},
-            {"trsID": "#workflow/varcall", "categories": ["Variant Calling"],
-             "readme": "Calls variants.",
-             "definition": {"name": "Variant calling", "annotation": "Call variants from BAM",
-                            "tags": ["dna"], "steps": {"0": {"type": "data_input"}}}},
+            {
+                "trsID": "#workflow/rnaseq",
+                "categories": ["Transcriptomics"],
+                "readme": "# RNAseq\n\nCounts reads per gene.",
+                "authors": [{"name": "IWC", "orcid": "0000"}],
+                "definition": {
+                    "name": "RNAseq counts",
+                    "annotation": "Align reads and count",
+                    "tags": ["rna", "star"],
+                    "steps": {
+                        "0": {"type": "data_input"},
+                        "1": {"type": "tool", "tool_id": "toolshed.g2.bx.psu.edu/repos/iuc/hisat2/hisat2/2.2.1"},
+                        "2": {"type": "tool", "tool_id": "Cut1"},
+                    },
+                },
+            },
+            {
+                "trsID": "#workflow/varcall",
+                "categories": ["Variant Calling"],
+                "readme": "Calls variants.",
+                "definition": {
+                    "name": "Variant calling",
+                    "annotation": "Call variants from BAM",
+                    "tags": ["dna"],
+                    "steps": {"0": {"type": "data_input"}},
+                },
+            },
         ]
     }
 ]

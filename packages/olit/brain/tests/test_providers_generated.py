@@ -15,15 +15,11 @@ GENERATED = BRAIN.parent / "src" / "providers.generated.json"
 
 def test_the_generated_provider_list_matches_the_registry():
     before = GENERATED.read_text()
-    subprocess.run(
-        [sys.executable, "scripts/dump_providers.py"], cwd=BRAIN, check=True, capture_output=True
-    )
+    subprocess.run([sys.executable, "scripts/dump_providers.py"], cwd=BRAIN, check=True, capture_output=True)
     after = GENERATED.read_text()
     if before != after:
         GENERATED.write_text(before)  # leave the tree as we found it
-        raise AssertionError(
-            "src/providers.generated.json is stale -- run `npm run build:providers` and commit it"
-        )
+        raise AssertionError("src/providers.generated.json is stale -- run `npm run build:providers` and commit it")
 
 
 def test_every_generated_provider_states_whether_it_needs_a_key():
