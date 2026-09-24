@@ -54,6 +54,10 @@ function check(name, ok, detail) {
 
     check("booted inside the frame", await wait(() => /olit ready/i.test(document.body.innerText), 60000));
     check("a conversation with nothing in it reports nothing", (await reports()).length === 0);
+    check(
+        "an empty conversation offers nothing to save",
+        await frame.locator("#save-btn").isDisabled(),
+    );
 
     await frame.fill("#input", "list my histories please");
     await frame.click("#send-btn");
@@ -61,8 +65,16 @@ function check(name, ok, detail) {
     check("the report reaches the host from the frame", (await reports()).at(-1)?.fromEmbeddedFrame === true);
 
     check("the turn finished", await idle());
+    check("saving is available once it has", await frame.locator("#save-btn").isEnabled());
     await frame.click("#save-btn");
     check("saving reports the session saved", await reported(true, 20000));
+
+    // A second turn is what isolates the busy case: the first already made a turn to save.
+    await frame.fill("#input", "and again please");
+    await frame.click("#send-btn");
+    check("saving is unavailable while a turn runs", await frame.locator("#save-btn").isDisabled());
+    check("the second turn finished", await idle());
+    check("saving is available again once it has", await frame.locator("#save-btn").isEnabled());
 
     console.log(failed ? `\n${failed} check(s) failed` : "\nall checks passed");
     await browser.close();

@@ -138,9 +138,6 @@ async function main() {
     // Saving is deliberate, as for any other Galaxy visualization: a revision then marks a
     // save the user asked for rather than a conversation turn.
     el.save.addEventListener("click", async () => {
-        if (busy || sessionDoc.session.turn === 0) {
-            return;
-        }
         el.save.disabled = true;
         el.save.textContent = "Saving...";
         try {
@@ -156,7 +153,7 @@ async function main() {
             el.save.textContent = "Save";
             chat.addErrorMessage(`Could not save this conversation: ${lastLine(String(e))}`);
         } finally {
-            el.save.disabled = false;
+            refreshSave();
         }
     });
 
@@ -252,6 +249,13 @@ async function main() {
     });
 
     let busy = false;
+
+    /** Saving mid-turn would store a half-finished turn, and an empty session has none. */
+    function refreshSave() {
+        el.save.disabled = busy || sessionDoc.session.turn === 0;
+    }
+
+    refreshSave();
     // Bounded automatic continuation, so an unattended tab cannot keep itself busy.
     const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
         onPaused: (text) => chat.addInfoMessage(text),
@@ -391,6 +395,7 @@ async function main() {
         }
         followUp.userInput();
         busy = true;
+        refreshSave();
         el.input.value = "";
         el.input.style.height = "auto";
         // Stop replaces Send for the duration of the turn, as in Orbit.
@@ -412,6 +417,7 @@ async function main() {
             el.abort.classList.add("hidden");
             el.send.classList.remove("hidden");
             busy = false;
+            refreshSave();
             followUp.agentSettled();
         }
     }
@@ -422,6 +428,7 @@ async function main() {
             return;
         }
         busy = true;
+        refreshSave();
         followUp.agentStarted();
         el.send.classList.add("hidden");
         el.abort.classList.remove("hidden");
@@ -439,6 +446,7 @@ async function main() {
             el.abort.classList.add("hidden");
             el.send.classList.remove("hidden");
             busy = false;
+            refreshSave();
             followUp.agentSettled();
         }
     }
