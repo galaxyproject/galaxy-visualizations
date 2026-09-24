@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from olit.registry.extensions.vintent.modules.process.analyze.linear_regression import PROCESS_ID as linear_regression_id
+from olit.registry.extensions.vintent.modules.process.analyze.linear_regression import (
+    PROCESS_ID as linear_regression_id,
+)
 from olit.registry.extensions.vintent.modules.schemas import DatasetProfile, FieldType, ValidationResult
 
 from .base import VEGA_LITE_SCHEMA, BaseShell, RendererType, ShellParamsType

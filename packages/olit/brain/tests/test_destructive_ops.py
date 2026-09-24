@@ -157,9 +157,7 @@ def test_a_broken_confirmation_bridge_reads_as_no():
     async def gone(payload):
         raise RuntimeError("worker torn down")
 
-    result, galaxy = _dispatch(
-        "update_history", {"history_id": "h1", "deleted": True}, Confirmation(ask=gone)
-    )
+    result, galaxy = _dispatch("update_history", {"history_id": "h1", "deleted": True}, Confirmation(ask=gone))
 
     assert galaxy.calls == []
     assert result.startswith("Refused:")

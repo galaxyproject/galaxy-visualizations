@@ -38,7 +38,7 @@ def expr_concat(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> str:
             operator="concat",
             parameter="args",
             expected="list of values",
-            hint="Usage: {op: concat, args: [value1, value2, ...]}"
+            hint="Usage: {op: concat, args: [value1, value2, ...]}",
         )
     if not isinstance(args, list):
         raise ExpressionError(
@@ -61,7 +61,7 @@ def expr_coalesce(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
             operator="coalesce",
             parameter="args",
             expected="list of values",
-            hint="Usage: {op: coalesce, args: [value1, value2, ...]}"
+            hint="Usage: {op: coalesce, args: [value1, value2, ...]}",
         )
     if not isinstance(args, list):
         raise ExpressionError(
@@ -90,7 +90,7 @@ def expr_get(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
             operator="get",
             parameter="key",
             expected="string key name",
-            hint="Usage: {op: get, obj: ..., key: 'fieldName', default: ...}"
+            hint="Usage: {op: get, obj: ..., key: 'fieldName', default: ...}",
         )
 
     if obj is None:
@@ -113,7 +113,7 @@ def expr_len(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> int:
             operator="len",
             parameter="arg",
             expected="list or string",
-            hint="Usage: {op: len, arg: {$ref: state.items}}"
+            hint="Usage: {op: len, arg: {$ref: state.items}}",
         )
 
     arg = expr.get("arg") if "arg" in expr else expr.get("from")
@@ -139,14 +139,14 @@ def expr_eq(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> bool:
             "Missing required parameter",
             operator="eq",
             parameter="left",
-            hint="Usage: {op: eq, left: value1, right: value2}"
+            hint="Usage: {op: eq, left: value1, right: value2}",
         )
     if "right" not in expr:
         raise ExpressionError(
             "Missing required parameter",
             operator="eq",
             parameter="right",
-            hint="Usage: {op: eq, left: value1, right: value2}"
+            hint="Usage: {op: eq, left: value1, right: value2}",
         )
     left = resolve(expr.get("left"), ctx)
     right = resolve(expr.get("right"), ctx)
@@ -157,10 +157,7 @@ def expr_not(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> bool:
     """Negate a boolean value."""
     if "arg" not in expr:
         raise ExpressionError(
-            "Missing required parameter",
-            operator="not",
-            parameter="arg",
-            hint="Usage: {op: not, arg: booleanValue}"
+            "Missing required parameter", operator="not", parameter="arg", hint="Usage: {op: not, arg: booleanValue}"
         )
     arg = resolve(expr.get("arg"), ctx)
     return not bool(arg)
@@ -176,7 +173,7 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
             operator="lookup",
             parameter="from",
             expected="non-null array",
-            hint="The 'from' parameter resolved to null. Check the reference path."
+            hint="The 'from' parameter resolved to null. Check the reference path.",
         )
 
     if not isinstance(source, list):
@@ -186,7 +183,7 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
             parameter="from",
             expected="list",
             received=_type_name(source),
-            hint="The 'from' parameter must be a list/array to search through."
+            hint="The 'from' parameter must be a list/array to search through.",
         )
 
     match = expr.get("match", {})
@@ -196,7 +193,7 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
             operator="lookup",
             parameter="match",
             expected="{field: string, equals: value}",
-            hint="Usage: {op: lookup, from: [...], match: {field: 'id', equals: value}, select: 'fieldName'}"
+            hint="Usage: {op: lookup, from: [...], match: {field: 'id', equals: value}, select: 'fieldName'}",
         )
 
     field = match.get("field")
@@ -206,7 +203,7 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
             operator="lookup",
             parameter="match.field",
             expected="string field name",
-            hint="Specify which field to match on: match: {field: 'id', equals: ...}"
+            hint="Specify which field to match on: match: {field: 'id', equals: ...}",
         )
 
     equals = resolve(match.get("equals"), ctx)
@@ -218,7 +215,7 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
             operator="lookup",
             parameter="select",
             expected="string field name to return",
-            hint="Specify which field to return: select: 'fieldName'"
+            hint="Specify which field to return: select: 'fieldName'",
         )
 
     for i, item in enumerate(source):
@@ -230,14 +227,14 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
                     f"lookup select field not found: '{select}'",
                     operator="lookup",
                     parameter="select",
-                    hint=f"Item at index {i} matched but doesn't have field '{select}'. Available fields: {list(item.keys())}"
+                    hint=f"Item at index {i} matched but doesn't have field '{select}'. Available fields: {list(item.keys())}",
                 )
             return item[select]
 
     raise ExpressionError(
         f"lookup found no match for {field}={_truncate(equals)}",
         operator="lookup",
-        hint=f"Searched {len(source)} items but none had {field}={_truncate(equals)}"
+        hint=f"Searched {len(source)} items but none had {field}={_truncate(equals)}",
     )
 
 
@@ -261,7 +258,7 @@ def expr_count_where(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> int:
             operator="count_where",
             parameter="field",
             expected="string field name",
-            hint="Usage: {op: count_where, from: [...], field: 'status', equals: 'active'}"
+            hint="Usage: {op: count_where, from: [...], field: 'status', equals: 'active'}",
         )
 
     return sum(1 for item in items if isinstance(item, dict) and item.get(field) == equals)
@@ -282,7 +279,7 @@ def expr_any(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> bool:
             operator="any",
             parameter="field",
             expected="string field name",
-            hint="Usage: {op: any, from: [...], field: 'status', equals: 'active'}"
+            hint="Usage: {op: any, from: [...], field: 'status', equals: 'active'}",
         )
 
     return any(isinstance(item, dict) and item.get(field) == equals for item in items)
@@ -340,7 +337,7 @@ def expr_select(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
             parameter="from",
             expected="list",
             received=_type_name(items),
-            hint="The 'from' parameter must be a list of objects to project fields from."
+            hint="The 'from' parameter must be a list of objects to project fields from.",
         )
 
     if not fields:
@@ -354,7 +351,7 @@ def expr_select(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
             parameter="fields",
             expected="list of field names",
             received=_type_name(fields),
-            hint="Usage: {op: select, from: [...], fields: ['id', 'name']}"
+            hint="Usage: {op: select, from: [...], fields: ['id', 'name']}",
         )
 
     result = []
@@ -390,7 +387,7 @@ def expr_filter(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
             operator="filter",
             parameter="where.field",
             expected="string field name",
-            hint="Usage: {op: filter, from: [...], where: {field: 'status', eq: 'active'}}"
+            hint="Usage: {op: filter, from: [...], where: {field: 'status', eq: 'active'}}",
         )
 
     result = []
@@ -439,7 +436,7 @@ def expr_filter(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
             parameter="where",
             expected="one of: eq, ne, starts_with, not_starts_with, contains, not_null, in",
             received=str(list(where.keys())),
-            hint="Add a comparison: {field: 'name', eq: 'value'} or {field: 'name', starts_with: 'prefix'}"
+            hint="Add a comparison: {field: 'name', eq: 'value'} or {field: 'name', starts_with: 'prefix'}",
         )
 
     return result

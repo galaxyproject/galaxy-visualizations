@@ -46,9 +46,7 @@ class Resolver:
             except Exception as e:
                 logger.exception("Unexpected error in expression evaluation")
                 raise ExpressionError(
-                    f"Unexpected error: {e}",
-                    operator=op,
-                    hint="This may be a bug in the expression implementation."
+                    f"Unexpected error: {e}", operator=op, hint="This may be a bug in the expression implementation."
                 ) from e
         else:
             available = get_available_operators()
@@ -56,7 +54,7 @@ class Resolver:
                 f"Unknown expression operator: '{op}'",
                 operator=op,
                 expected=f"one of: {', '.join(available)}",
-                hint="Check spelling and available operators."
+                hint="Check spelling and available operators.",
             )
 
     def eval_branch(self, condition: dict[str, Any] | None, ctx: Context) -> dict[str, str | None]:

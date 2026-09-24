@@ -144,23 +144,27 @@ def _layout_row(
 
         if vertical:
             item_height = height * fraction
-            result.append({
-                **item,
-                "x": x,
-                "y": y + offset,
-                "x2": x + width,
-                "y2": y + offset + item_height,
-            })
+            result.append(
+                {
+                    **item,
+                    "x": x,
+                    "y": y + offset,
+                    "x2": x + width,
+                    "y2": y + offset + item_height,
+                }
+            )
             offset += item_height
         else:
             item_width = width * fraction
-            result.append({
-                **item,
-                "x": x + offset,
-                "y": y,
-                "x2": x + offset + item_width,
-                "y2": y + height,
-            })
+            result.append(
+                {
+                    **item,
+                    "x": x + offset,
+                    "y": y,
+                    "x2": x + offset + item_width,
+                    "y2": y + height,
+                }
+            )
             offset += item_width
 
 
@@ -241,4 +245,3 @@ class TreemapShell(BaseShell):
             "width": "container",
             "height": "container",
         }
-

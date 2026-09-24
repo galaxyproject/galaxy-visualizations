@@ -1,8 +1,10 @@
 import pytest
 from olit.registry.extensions.vintent.modules.shells.box_plot import BoxPlotShell
 
+
 def _profile(fields):
     return {"fields": fields}
+
 
 def test_validate_ok_with_correct_types():
     shell = BoxPlotShell()
@@ -17,6 +19,7 @@ def test_validate_ok_with_correct_types():
     assert result["ok"] is True
     assert result["errors"] == []
 
+
 def test_validate_missing_required_encodings():
     shell = BoxPlotShell()
     profile = _profile(
@@ -29,6 +32,7 @@ def test_validate_missing_required_encodings():
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "missing_required_encoding"
 
+
 def test_validate_unknown_field():
     shell = BoxPlotShell()
     params = {"x": "missing", "y": "value"}
@@ -40,6 +44,7 @@ def test_validate_unknown_field():
     result = shell.validate(profile, params)
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "unknown_field"
+
 
 def test_validate_invalid_x_type():
     shell = BoxPlotShell()
@@ -56,6 +61,7 @@ def test_validate_invalid_x_type():
     assert err["code"] == "invalid_field_type"
     assert err["details"]["encoding"] == "x"
 
+
 def test_validate_invalid_y_type():
     shell = BoxPlotShell()
     params = {"x": "category", "y": "group"}
@@ -71,6 +77,7 @@ def test_validate_invalid_y_type():
     assert err["code"] == "invalid_field_type"
     assert err["details"]["encoding"] == "y"
 
+
 def test_compile_vega_lite_basic():
     shell = BoxPlotShell()
     params = {"x": "category", "y": "value"}
@@ -84,6 +91,7 @@ def test_compile_vega_lite_basic():
     assert spec["encoding"]["y"]["field"] == "value"
     assert spec["data"]["values"] == values
 
+
 def test_compile_includes_optional_encodings():
     shell = BoxPlotShell()
     params = {
@@ -96,6 +104,7 @@ def test_compile_includes_optional_encodings():
     spec = shell.compile(params, values, renderer="vega-lite")
     assert "color" in spec["encoding"]
     assert "tooltip" in spec["encoding"]
+
 
 def test_compile_non_vega_renderer_returns_empty():
     shell = BoxPlotShell()

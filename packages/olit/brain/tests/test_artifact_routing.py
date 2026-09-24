@@ -34,8 +34,13 @@ def _surface(graph):
 
 
 def _terminal_graph(output):
-    return {"version": 1, "id": "p", "kind": "agent_pipeline", "start": "done",
-            "nodes": {"done": {"type": "terminal", "output": output}}}
+    return {
+        "version": 1,
+        "id": "p",
+        "kind": "agent_pipeline",
+        "start": "done",
+        "nodes": {"done": {"type": "terminal", "output": output}},
+    }
 
 
 def _run(surface):
@@ -43,9 +48,13 @@ def _run(surface):
 
 
 def test_artifact_is_routed_out_of_band_and_reduced_to_a_reference():
-    surface = _surface(_terminal_graph({
-        "artifact": {"kind": "mermaid", "title": "Dataset lineage", "diagram": "graph TD; A-->B"},
-    }))
+    surface = _surface(
+        _terminal_graph(
+            {
+                "artifact": {"kind": "mermaid", "title": "Dataset lineage", "diagram": "graph TD; A-->B"},
+            }
+        )
+    )
     payload = _run(surface)
 
     # The model gets kind + title only.
@@ -58,11 +67,15 @@ def test_artifact_is_routed_out_of_band_and_reduced_to_a_reference():
 
 def test_sibling_output_fields_travel_with_the_artifact_reference():
     """The lineage_report shape: a narrative the model needs, plus a diagram it does not."""
-    surface = _surface(_terminal_graph({
-        "summary": "Produced by bwa_mem then samtools_sort.",
-        "truncated": False,
-        "artifact": {"kind": "mermaid", "title": "Dataset lineage", "diagram": "graph TD; A-->B"},
-    }))
+    surface = _surface(
+        _terminal_graph(
+            {
+                "summary": "Produced by bwa_mem then samtools_sort.",
+                "truncated": False,
+                "artifact": {"kind": "mermaid", "title": "Dataset lineage", "diagram": "graph TD; A-->B"},
+            }
+        )
+    )
     payload = _run(surface)
 
     assert payload["summary"] == "Produced by bwa_mem then samtools_sort."
@@ -114,10 +127,8 @@ GRAPH = {
         {"src": "hda", "id": "d2", "name": "aligned.bam"},
     ],
     "edges": [
-        {"source": {"src": "hda", "id": "d1"}, "target": {"src": "job", "id": "j1"},
-         "type": "dataset_input"},
-        {"source": {"src": "job", "id": "j1"}, "target": {"src": "hda", "id": "d2"},
-         "type": "dataset_output"},
+        {"source": {"src": "hda", "id": "d1"}, "target": {"src": "job", "id": "j1"}, "type": "dataset_input"},
+        {"source": {"src": "job", "id": "j1"}, "target": {"src": "hda", "id": "d2"}, "type": "dataset_output"},
     ],
     "truncated": {"item_count_capped": False},
 }

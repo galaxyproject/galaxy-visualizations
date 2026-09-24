@@ -26,15 +26,12 @@ SINGLE = (
     "ccc\t770792599\t12000000\tMus musculus\n"
 )
 
-STUDY = (
-    "run_accession\tlibrary_layout\tfastq_ftp\tfastq_md5\tfastq_bytes\tread_count\tscientific_name\n"
-    + "".join(
-        f"SRR1168499{i}\tPAIRED\t"
-        f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_1.fastq.gz;"
-        f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_2.fastq.gz\t"
-        f"m{i};n{i}\t100;200\t21521133\tMus musculus\n"
-        for i in range(4)
-    )
+STUDY = "run_accession\tlibrary_layout\tfastq_ftp\tfastq_md5\tfastq_bytes\tread_count\tscientific_name\n" + "".join(
+    f"SRR1168499{i}\tPAIRED\t"
+    f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_1.fastq.gz;"
+    f"ftp.sra.ebi.ac.uk/vol1/fastq/SRR116/09{i}/SRR1168499{i}/SRR1168499{i}_2.fastq.gz\t"
+    f"m{i};n{i}\t100;200\t21521133\tMus musculus\n"
+    for i in range(4)
 )
 
 EMPTY = "run_accession\tlibrary_layout\tfastq_ftp\n"

@@ -69,4 +69,3 @@ class DivergingBarShell(BaseShell):
             "mark": "bar",
             "encoding": encoding,
         }
-

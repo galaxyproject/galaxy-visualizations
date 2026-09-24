@@ -10,10 +10,12 @@ class TestAreaChartValidate:
     def test_validate_ok_with_temporal_and_quantitative(self):
         shell = AreaChartShell()
         params = {"x": "date", "y": "value"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
         assert result["errors"] == []
@@ -21,10 +23,12 @@ class TestAreaChartValidate:
     def test_validate_ok_with_quantitative_x(self):
         shell = AreaChartShell()
         params = {"x": "index", "y": "value"}
-        profile = _profile({
-            "index": {"type": "quantitative"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "index": {"type": "quantitative"},
+                "value": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
 
@@ -55,10 +59,12 @@ class TestAreaChartValidate:
     def test_validate_y_wrong_type(self):
         shell = AreaChartShell()
         params = {"x": "date", "y": "category"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "category": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "category": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"

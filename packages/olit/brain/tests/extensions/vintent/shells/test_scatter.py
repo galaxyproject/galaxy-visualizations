@@ -6,6 +6,7 @@ from olit.registry.extensions.vintent.modules.shells.scatter import ScatterShell
 def _profile(fields):
     return {"fields": fields}
 
+
 def test_validate_ok_with_two_quantitative_fields():
     shell = ScatterShell()
     params = {"x": "a", "y": "b"}
@@ -19,6 +20,7 @@ def test_validate_ok_with_two_quantitative_fields():
     assert result["ok"] is True
     assert result["errors"] == []
 
+
 def test_validate_missing_required_encodings():
     shell = ScatterShell()
     profile = _profile(
@@ -30,6 +32,7 @@ def test_validate_missing_required_encodings():
     result = shell.validate({"x": "a"}, profile)
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "missing_required_encoding"
+
 
 def test_validate_unknown_field():
     shell = ScatterShell()
@@ -43,6 +46,7 @@ def test_validate_unknown_field():
     result = shell.validate(profile, params)
     assert result["ok"] is False
     assert result["errors"][0]["code"] == "unknown_field"
+
 
 def test_validate_invalid_field_types():
     shell = ScatterShell()
@@ -59,6 +63,7 @@ def test_validate_invalid_field_types():
     assert err["code"] == "invalid_field_type"
     assert err["details"] == {"encoding": "x", "field": "a", "expected": "quantitative", "actual": "nominal"}
 
+
 def test_compile_basic_scatter():
     shell = ScatterShell()
     params = {"x": "a", "y": "b"}
@@ -72,6 +77,7 @@ def test_compile_basic_scatter():
     assert spec["encoding"]["y"]["field"] == "b"
     assert spec["data"]["values"] == values
 
+
 def test_compile_includes_optional_encodings():
     shell = ScatterShell()
     params = {
@@ -84,6 +90,7 @@ def test_compile_includes_optional_encodings():
     spec = shell.compile(params, values, renderer="vega-lite")
     assert "color" in spec["encoding"]
     assert "tooltip" in spec["encoding"]
+
 
 def test_compile_non_vega_renderer_returns_empty():
     shell = ScatterShell()

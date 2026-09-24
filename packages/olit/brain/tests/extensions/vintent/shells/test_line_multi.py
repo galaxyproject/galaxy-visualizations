@@ -10,11 +10,13 @@ class TestLineMultiValidate:
     def test_validate_ok_with_all_required_fields(self):
         shell = LineMultiShell()
         params = {"x": "date", "y": "value", "color": "series"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "value": {"type": "quantitative"},
-            "series": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "value": {"type": "quantitative"},
+                "series": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
         assert result["errors"] == []
@@ -22,10 +24,12 @@ class TestLineMultiValidate:
     def test_validate_missing_x(self):
         shell = LineMultiShell()
         params = {"y": "value", "color": "series"}
-        profile = _profile({
-            "value": {"type": "quantitative"},
-            "series": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "value": {"type": "quantitative"},
+                "series": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -33,10 +37,12 @@ class TestLineMultiValidate:
     def test_validate_missing_y(self):
         shell = LineMultiShell()
         params = {"x": "date", "color": "series"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "series": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "series": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -44,10 +50,12 @@ class TestLineMultiValidate:
     def test_validate_missing_color(self):
         shell = LineMultiShell()
         params = {"x": "date", "y": "value"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -55,10 +63,12 @@ class TestLineMultiValidate:
     def test_validate_unknown_y_field(self):
         shell = LineMultiShell()
         params = {"x": "date", "y": "missing", "color": "series"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "series": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "series": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "unknown_field"
@@ -66,11 +76,13 @@ class TestLineMultiValidate:
     def test_validate_y_wrong_type(self):
         shell = LineMultiShell()
         params = {"x": "date", "y": "category", "color": "series"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "category": {"type": "nominal"},
-            "series": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "category": {"type": "nominal"},
+                "series": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -79,11 +91,13 @@ class TestLineMultiValidate:
     def test_validate_color_wrong_type(self):
         shell = LineMultiShell()
         params = {"x": "date", "y": "value", "color": "amount"}
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "value": {"type": "quantitative"},
-            "amount": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "value": {"type": "quantitative"},
+                "amount": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -93,29 +107,35 @@ class TestLineMultiValidate:
 class TestLineMultiIsApplicable:
     def test_applicable_with_nominal_and_quantitative(self):
         shell = LineMultiShell()
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "category": {"type": "nominal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "category": {"type": "nominal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is True
 
     def test_not_applicable_without_nominal(self):
         shell = LineMultiShell()
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "value": {"type": "quantitative"},
-            "other": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "value": {"type": "quantitative"},
+                "other": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is False
 
     def test_not_applicable_without_quantitative(self):
         shell = LineMultiShell()
-        profile = _profile({
-            "date": {"type": "temporal"},
-            "category": {"type": "nominal"},
-            "other": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "date": {"type": "temporal"},
+                "category": {"type": "nominal"},
+                "other": {"type": "nominal"},
+            }
+        )
         assert shell.is_applicable(profile) is False
 
 

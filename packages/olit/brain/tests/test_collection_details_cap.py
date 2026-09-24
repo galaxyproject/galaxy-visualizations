@@ -10,8 +10,11 @@ class FakeGalaxy:
         self.n = n
 
     async def get(self, path, binary=False):
-        return {"id": "c1", "element_count": self.n,
-                "elements": [{"element_identifier": f"e{i}"} for i in range(self.n)]}
+        return {
+            "id": "c1",
+            "element_count": self.n,
+            "elements": [{"element_identifier": f"e{i}"} for i in range(self.n)],
+        }
 
 
 def call(n, **args):

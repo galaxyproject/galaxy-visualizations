@@ -58,8 +58,7 @@ class LoopDriver:
         config = getattr(substrate, "config", None) or {}
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
 
-    async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None,
-                  artifacts=None):
+    async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
         # One surface per turn. Earlier turns' artifacts are handed in by the caller, which
         # holds them: this driver is rebuilt whenever the session's config changes.
         tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts)
@@ -180,8 +179,7 @@ class LoopDriver:
                         args = loads_with_repair(fn.get("arguments") or "{}")
                     except json.JSONDecodeError as e:
                         # Counted here because dispatch, which owns the guard, is never reached.
-                        refusal = tools.repeating_unparsable(name) or MALFORMED_ARGS_ERROR.format(
-                            name=name, detail=e)
+                        refusal = tools.repeating_unparsable(name) or MALFORMED_ARGS_ERROR.format(name=name, detail=e)
                         tools.note_unparsable(name)
                         raw = fn.get("arguments") or ""
                         malformed = f"{len(raw)} chars, broke at {e.pos}: {around(raw, e.pos)}"
@@ -207,9 +205,12 @@ class LoopDriver:
                     size = len(content.encode("utf-8"))
                     if size > MAX_TOOL_RESULT_BYTES:
                         logs.append(f"  -> discarded {size} bytes, over the result limit")
-                        content, is_error = OVERSIZED_RESULT_ERROR.format(
-                            name=name, size=size // 1024,
-                            cap=MAX_TOOL_RESULT_BYTES // 1024), True
+                        content, is_error = (
+                            OVERSIZED_RESULT_ERROR.format(
+                                name=name, size=size // 1024, cap=MAX_TOOL_RESULT_BYTES // 1024
+                            ),
+                            True,
+                        )
                 tool_message = {
                     "role": "tool",
                     "tool_call_id": call_id,
@@ -221,9 +222,15 @@ class LoopDriver:
                 # `is_error` rides the event so the shell states the outcome.
                 _emit(
                     on_event,
-                    {"type": "tool_end", "id": call_id, "name": name, "content": content,
-                     "is_error": is_error, "refused": refusal is not None or gated,
-                     "guard": guard},
+                    {
+                        "type": "tool_end",
+                        "id": call_id,
+                        "name": name,
+                        "content": content,
+                        "is_error": is_error,
+                        "refused": refusal is not None or gated,
+                        "guard": guard,
+                    },
                 )
 
                 # Only an executed `finish` counts; a refused one was never dispatched.
@@ -265,5 +272,3 @@ def _emit(on_event, event):
         on_event(event)
     except Exception:
         logger.debug("on_event listener raised", exc_info=True)
-
-

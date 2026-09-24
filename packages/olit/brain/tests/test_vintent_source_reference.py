@@ -55,8 +55,9 @@ def _fields_produced_by(spec):
 
 
 def _compiled(shell_id, values, params, source, dataset_id="d1"):
-    return _compile(shell_id=shell_id, values=values, params=params,
-                    dataset_id=dataset_id, source=source, transformed=False)
+    return _compile(
+        shell_id=shell_id, values=values, params=params, dataset_id=dataset_id, source=source, transformed=False
+    )
 
 
 def test_a_referenced_spec_only_encodes_columns_the_file_provides():
@@ -77,8 +78,7 @@ def test_a_referenced_spec_only_encodes_columns_the_file_provides():
         checked += 1
         unresolvable = _fields_in(spec) - available - _fields_produced_by(spec)
         assert not unresolvable, (
-            f"{shell_id} references the dataset but encodes {sorted(unresolvable)}, "
-            f"which the file does not contain"
+            f"{shell_id} references the dataset but encodes {sorted(unresolvable)}, " f"which the file does not contain"
         )
     assert checked, "no shell referenced the dataset; the guard tested nothing"
 
@@ -105,7 +105,13 @@ def test_csv_is_referenced_without_a_header_because_the_file_names_its_own():
 
 def test_without_a_dataset_id_the_rows_still_travel():
     values = rows_from_tabular(TAB)
-    out = _compile(shell_id="scatter", values=values, params={"x": "col:3", "y": "col:7"},
-                   dataset_id=None, source=source_format(TAB), transformed=False)
+    out = _compile(
+        shell_id="scatter",
+        values=values,
+        params={"x": "col:3", "y": "col:7"},
+        dataset_id=None,
+        source=source_format(TAB),
+        transformed=False,
+    )
     assert out["embedded"]
     assert out["spec"]["data"]["values"] == values

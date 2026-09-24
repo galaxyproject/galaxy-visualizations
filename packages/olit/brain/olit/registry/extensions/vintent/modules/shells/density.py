@@ -57,4 +57,3 @@ class DensityShell(BaseShell):
             "encoding": encoding,
             "mark": {"type": "area"},
         }
-

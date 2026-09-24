@@ -16,7 +16,6 @@ from olit.registry.extensions.vintent.modules.tools import (
     build_parse_intent_tool,
 )
 
-
 # --- Materializers (deterministic transforms) -------------------------------
 
 
@@ -95,8 +94,7 @@ def _reference_source(spec, dataset_id, source):
 
 
 @register_materializer("vintent.compile")
-def _compile(shell_id=None, values=None, params=None, profile=None,
-             dataset_id=None, source=None, transformed=False):
+def _compile(shell_id=None, values=None, params=None, profile=None, dataset_id=None, source=None, transformed=False):
     """Validate shell params against the profile, then compile the Vega-Lite spec."""
     shell = SHELLS.get(shell_id)
     if shell is None:

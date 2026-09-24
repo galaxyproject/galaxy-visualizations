@@ -21,8 +21,20 @@ ERROR_MAX_CHARS = 400
 DROP_TAGS = {"script", "style", "nav", "header", "footer", "aside", "noscript"}
 # Elements with no end tag, so depth accounting does not drift.
 VOID_TAGS = {
-    "area", "base", "br", "col", "embed", "hr", "img", "input",
-    "link", "meta", "param", "source", "track", "wbr",
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
 }
 # Most specific first: the first one present wins.
 CONTENT_REGIONS = ("main", "article", "tutorial-content")
@@ -134,10 +146,10 @@ async def _gtn_search(args):
     except Exception:
         data = None
     if not isinstance(data, dict):
-        return ToolOutcome({
-            "error": f'Topic "{topic}" not found. '
-            "Use gtn_search with no arguments to list available topics."
-        }, is_error=True)
+        return ToolOutcome(
+            {"error": f'Topic "{topic}" not found. ' "Use gtn_search with no arguments to list available topics."},
+            is_error=True,
+        )
 
     tutorials = []
     for m in data.get("materials") or []:
@@ -160,8 +172,7 @@ async def _gtn_search(args):
         tutorials = [
             t
             for t in tutorials
-            if needle in (t["title"] or "").lower()
-            or any(needle in (o or "").lower() for o in t["objectives"])
+            if needle in (t["title"] or "").lower() or any(needle in (o or "").lower() for o in t["objectives"])
         ]
 
     out = {"topic": data.get("title"), "count": len(tutorials)}
@@ -188,18 +199,28 @@ async def _gtn_fetch(args):
         detail = str(exc)
         if len(detail) > ERROR_MAX_CHARS:
             detail = detail[:ERROR_MAX_CHARS] + " ..."
-        return ToolOutcome({"url": url, "error": detail,
+        return ToolOutcome(
+            {
+                "url": url,
+                "error": detail,
                 "hint": "Check the url with gtn_search; tutorial paths include the topic, "
-                        "and a topic listed in one place may live under another."}, is_error=True)
+                "and a topic listed in one place may live under another.",
+            },
+            is_error=True,
+        )
     if not isinstance(page, str):
         page = json.dumps(page)
     text = _strip_html(page)
     if len(text) > FETCH_MAX_CHARS:
-        return {"url": url, "content": text[:FETCH_MAX_CHARS], "truncated": True,
-                "chars_total": len(text),
-                "note": f"Showing the first {FETCH_MAX_CHARS} of {len(text)} characters. "
-                        "Objectives and the first hands-on sections are here; open the url "
-                        "for the rest."}
+        return {
+            "url": url,
+            "content": text[:FETCH_MAX_CHARS],
+            "truncated": True,
+            "chars_total": len(text),
+            "note": f"Showing the first {FETCH_MAX_CHARS} of {len(text)} characters. "
+            "Objectives and the first hands-on sections are here; open the url "
+            "for the rest.",
+        }
     return {"url": url, "content": text}
 
 

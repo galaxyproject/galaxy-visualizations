@@ -98,9 +98,11 @@ async def _list_history_ids(g, a):
     return [{"id": h.get("id"), "name": h.get("name")} for h in histories]
 
 
-CONTENTS_NOTE = ("This is just a count. To get actual datasets, use "
-                 "get_history_contents(history_id, limit=25, order='create_time-dsc') "
-                 "for newest datasets first.")
+CONTENTS_NOTE = (
+    "This is just a count. To get actual datasets, use "
+    "get_history_contents(history_id, limit=25, order='create_time-dsc') "
+    "for newest datasets first."
+)
 
 
 async def _get_history_details(g, a):
@@ -108,8 +110,7 @@ async def _get_history_details(g, a):
     # cost of this call grow with the history.
     history = await g.get(f"api/histories/{a['history_id']}") or {}
     total = history.get("count") if isinstance(history, dict) else None
-    return {"history": history,
-            "contents_summary": {"total_items": total or 0, "note": CONTENTS_NOTE}}
+    return {"history": history, "contents_summary": {"total_items": total or 0, "note": CONTENTS_NOTE}}
 
 
 # Galaxy returns the underlying Dataset id beside the HDA id. Both encode the same way, so
@@ -173,8 +174,14 @@ async def _foreign_inputs(g, inputs, history_id):
         detail = await g.get(f"api/datasets/{dataset_id}") or {}
         where = detail.get("history_id") if isinstance(detail, dict) else None
         if where and where != history_id:
-            foreign.append({"input": name, "supplied_id": dataset_id,
-                            "resolves_to_history_id": where, "resolves_to_name": detail.get("name")})
+            foreign.append(
+                {
+                    "input": name,
+                    "supplied_id": dataset_id,
+                    "resolves_to_history_id": where,
+                    "resolves_to_name": detail.get("name"),
+                }
+            )
     return foreign
 
 
@@ -212,14 +219,17 @@ async def _run_tool(g, a):
     inputs = a.get("inputs") or {}
     foreign = await _foreign_inputs(g, inputs, history_id)
     if foreign:
-        return ToolOutcome({
-            "submitted": False,
-            "error": "Refused: an input id does not identify a dataset in the target history.",
-            "target_history_id": history_id,
-            "rejected_inputs": foreign,
-            "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
-                    "history. To use data from elsewhere, copy it into this history first.",
-        }, is_error=True)
+        return ToolOutcome(
+            {
+                "submitted": False,
+                "error": "Refused: an input id does not identify a dataset in the target history.",
+                "target_history_id": history_id,
+                "rejected_inputs": foreign,
+                "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
+                "history. To use data from elsewhere, copy it into this history first.",
+            },
+            is_error=True,
+        )
     try:
         return await g.post(
             "api/tools",
@@ -234,11 +244,13 @@ async def _run_tool(g, a):
 
 
 # Lookups over data Galaxy holds still for a session: the same question returns the same answer.
-SETTLED = frozenset({
-    "search_tools_by_name",
-    "search_tools_by_keywords",
-    "get_visualization_details",
-})
+SETTLED = frozenset(
+    {
+        "search_tools_by_name",
+        "search_tools_by_keywords",
+        "get_visualization_details",
+    }
+)
 
 
 def settled(name):
@@ -252,7 +264,7 @@ def _no_tool_matched(query):
         "query": query,
         "tools": [],
         "hint": "No installed Galaxy tool matches this text. A near-identical query returns the "
-                "same empty answer, so change the term or the route rather than searching again.",
+        "same empty answer, so change the term or the route rather than searching again.",
     }
 
 
@@ -278,7 +290,7 @@ async def _search_tools_by_name(g, a):
             "query": a["query"],
             "tools": [],
             "hint": f"{plugin!r} is a visualization, which the tool catalog does not hold. "
-                    f"list_visualizations names the ones that can render a given dataset.",
+            f"list_visualizations names the ones that can render a given dataset.",
         }
     return _no_tool_matched(a["query"])
 
@@ -313,9 +325,11 @@ def _ends(text, cap):
     head = data[:half].rsplit(b"\n", 1)[0]
     tail = data[-half:].split(b"\n", 1)[-1]
     dropped = len(data) - len(head) - len(tail)
-    return (f"{head.decode('utf-8', 'replace')}\n"
-            f"[... {dropped} of {len(data)} bytes omitted ...]\n"
-            f"{tail.decode('utf-8', 'replace')}")
+    return (
+        f"{head.decode('utf-8', 'replace')}\n"
+        f"[... {dropped} of {len(data)} bytes omitted ...]\n"
+        f"{tail.decode('utf-8', 'replace')}"
+    )
 
 
 async def _get_dataset_details(g, a):
@@ -341,57 +355,89 @@ _STR = {"type": "string"}
 _INT = {"type": "integer"}
 _BOOL = {"type": "boolean"}
 
-_tool("get_server_info", "read", "Get the connected Galaxy server's version and configuration.", {}, [], _get_server_info)
+_tool(
+    "get_server_info", "read", "Get the connected Galaxy server's version and configuration.", {}, [], _get_server_info
+)
 _tool("get_user", "read", "Get the current authenticated Galaxy user.", {}, [], _get_user)
 _tool(
-    "get_histories", "read",
+    "get_histories",
+    "read",
     "List the user's histories. Optional name filter; supports limit/offset paging.",
-    {"limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
-     "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
-     "name": _STR},
-    [], _get_histories,
+    {
+        "limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
+        "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
+        "name": _STR,
+    },
+    [],
+    _get_histories,
 )
-_tool("list_history_ids", "read", "List just the id and name of each of the user's histories.", {}, [], _list_history_ids)
-_tool("get_history_details", "read", "Get full details of one history by id.", {"history_id": _STR}, ["history_id"], _get_history_details)
 _tool(
-    "get_history_contents", "read",
+    "list_history_ids", "read", "List just the id and name of each of the user's histories.", {}, [], _list_history_ids
+)
+_tool(
+    "get_history_details",
+    "read",
+    "Get full details of one history by id.",
+    {"history_id": _STR},
+    ["history_id"],
+    _get_history_details,
+)
+_tool(
+    "get_history_contents",
+    "read",
     "List datasets and collections in a history (hid-ordered; paged).",
     {
         "history_id": _STR,
         "limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
         "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
-        "deleted": _BOOL, "visible": _BOOL, "order": _STR,
+        "deleted": _BOOL,
+        "visible": _BOOL,
+        "order": _STR,
     },
-    ["history_id"], _get_history_contents,
+    ["history_id"],
+    _get_history_contents,
 )
 _tool("create_history", "write", "Create a new history.", {"history_name": _STR}, ["history_name"], _create_history)
 _tool(
-    "run_tool", "write",
+    "run_tool",
+    "write",
     "Run a Galaxy tool in a history. inputs maps the tool's parameter names to values "
     "({id, src:'hda'|'hdca'} for datasets). Returns the created job and output ids.",
     {"history_id": _STR, "tool_id": _STR, "inputs": {"type": "object"}},
-    ["history_id", "tool_id", "inputs"], _run_tool,
+    ["history_id", "tool_id", "inputs"],
+    _run_tool,
 )
 _tool(
-    "search_tools_by_name", "read",
+    "search_tools_by_name",
+    "read",
     "Search the connected Galaxy's tool catalog by name/text. Returns matching Galaxy tools.",
-    {"query": _STR}, ["query"], _search_tools_by_name,
+    {"query": _STR},
+    ["query"],
+    _search_tools_by_name,
 )
 _tool(
-    "get_tool_details", "read",
+    "get_tool_details",
+    "read",
     "Get a Galaxy tool's details by tool_id; set io_details for its input/output schema.",
-    {"tool_id": _STR, "io_details": _BOOL}, ["tool_id"], _get_tool_details,
+    {"tool_id": _STR, "io_details": _BOOL},
+    ["tool_id"],
+    _get_tool_details,
 )
 _tool(
-    "get_job_details", "read",
+    "get_job_details",
+    "read",
     "Get the job that produced a dataset (by dataset_id), including its state and parameters.",
-    {"dataset_id": _STR, "history_id": _STR}, ["dataset_id"], _get_job_details,
+    {"dataset_id": _STR, "history_id": _STR},
+    ["dataset_id"],
+    _get_job_details,
 )
 _tool(
-    "get_dataset_details", "read",
+    "get_dataset_details",
+    "read",
     "Get a dataset's metadata; include a short content preview by default.",
     {"dataset_id": _STR, "include_preview": _BOOL, "preview_lines": _INT},
-    ["dataset_id"], _get_dataset_details,
+    ["dataset_id"],
+    _get_dataset_details,
 )
 
 
@@ -441,11 +487,16 @@ async def _get_tool_panel(g, a):
     out = []
     for entry in panel:
         if entry.get("model_class") == "ToolSection":
-            out.append({
-                "section": entry.get("name"),
-                "tools": [_panel_entry(e) for e in entry.get("elems") or []
-                          if e.get("model_class") not in PANEL_STRUCTURAL],
-            })
+            out.append(
+                {
+                    "section": entry.get("name"),
+                    "tools": [
+                        _panel_entry(e)
+                        for e in entry.get("elems") or []
+                        if e.get("model_class") not in PANEL_STRUCTURAL
+                    ],
+                }
+            )
         elif entry.get("model_class") not in PANEL_STRUCTURAL:
             out.append(_panel_entry(entry))
     if a.get("section"):
@@ -460,9 +511,11 @@ async def _get_tool_panel(g, a):
 async def _get_tool_citations(g, a):
     info = await g.get(f"api/tools/{a['tool_id']}") or {}
     citations = info.get("citations") or []
-    return {"tool_name": info.get("name", a["tool_id"]),
-            "tool_version": info.get("version", "unknown"),
-            "citations": citations}
+    return {
+        "tool_name": info.get("name", a["tool_id"]),
+        "tool_version": info.get("version", "unknown"),
+        "citations": citations,
+    }
 
 
 async def _get_tool_input_template(g, a):
@@ -492,8 +545,13 @@ async def _get_collection_details(g, a):
     limit = int(a.get("max_elements") or COLLECTION_ELEMENT_CAP)
     elements = got.get("elements")
     if isinstance(elements, list) and len(elements) > limit:
-        return {**got, "elements": elements[:limit], "elements_truncated": True,
-                "elements_shown": limit, "element_count": got.get("element_count", len(elements))}
+        return {
+            **got,
+            "elements": elements[:limit],
+            "elements_truncated": True,
+            "elements_shown": limit,
+            "element_count": got.get("element_count", len(elements)),
+        }
     return got
 
 
@@ -515,14 +573,17 @@ async def _download_dataset(g, a):
         # Galaxy's chunked display: line-aligned, and it refuses binary itself.
         chunk = await _chunk(g, a["dataset_id"], MAX_DOWNLOAD_BYTES)
         if chunk is None:
-            return ToolOutcome({
-                "error": (
-                    f"Dataset is {stated / 1e6:.1f} MB and cannot be read in chunks. "
-                    "Run a Galaxy tool on it instead."
-                ),
-                "dataset_id": a["dataset_id"],
-                "bytes": stated,
-            }, is_error=True)
+            return ToolOutcome(
+                {
+                    "error": (
+                        f"Dataset is {stated / 1e6:.1f} MB and cannot be read in chunks. "
+                        "Run a Galaxy tool on it instead."
+                    ),
+                    "dataset_id": a["dataset_id"],
+                    "bytes": stated,
+                },
+                is_error=True,
+            )
         data, partial = chunk.encode("utf-8"), True
     else:
         data = await g.get(f"api/datasets/{a['dataset_id']}/display", binary=True)
@@ -554,8 +615,13 @@ async def _download_dataset(g, a):
 
 async def _upload_file_from_url(g, a):
     # Decompress on the way in, as Galaxy's uploader does.
-    element = {"src": "url", "url": a["url"], "ext": a.get("file_type", "auto"), "dbkey": a.get("dbkey", "?"),
-               "auto_decompress": True}
+    element = {
+        "src": "url",
+        "url": a["url"],
+        "ext": a.get("file_type", "auto"),
+        "dbkey": a.get("dbkey", "?"),
+        "auto_decompress": True,
+    }
     if a.get("file_name"):
         element["name"] = a["file_name"]
     payload = {"targets": [{"destination": {"type": "hdas"}, "elements": [element]}]}
@@ -575,12 +641,15 @@ async def _upload_file(g, a):
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         # Pasted content goes up as text, so binary is refused.
-        return ToolOutcome({
-            "error": "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
-            "Use upload_file_from_url for binary data.",
-            "path": path,
-            "bytes": len(raw),
-        }, is_error=True)
+        return ToolOutcome(
+            {
+                "error": "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
+                "Use upload_file_from_url for binary data.",
+                "path": path,
+                "bytes": len(raw),
+            },
+            is_error=True,
+        )
     element = {
         "src": "pasted",
         "paste_content": text,
@@ -605,9 +674,9 @@ async def _list_workflows(g, a):
         # Galaxy's ?search drops short terms, so match name and tags here instead.
         needle = _alnum(a["name"])
         workflows = [
-            w for w in workflows
-            if needle in _alnum(w.get("name"))
-            or any(needle in _alnum(t) for t in w.get("tags") or [])
+            w
+            for w in workflows
+            if needle in _alnum(w.get("name")) or any(needle in _alnum(t) for t in w.get("tags") or [])
         ]
     if a.get("workflow_id"):
         workflows = [w for w in workflows if w.get("id") == a["workflow_id"]]
@@ -634,10 +703,13 @@ def _input_step(step):
     for item in step.get("inputs") or []:
         if not isinstance(item, dict):
             continue
-        inputs.append({k: (_trim_extensions(v) if k == "acceptable_extensions" else v)
-                       for k, v in item.items()
-                       if k in ("name", "label", "optional", "acceptable_extensions",
-                                "collection_type", "value", "type")})
+        inputs.append(
+            {
+                k: (_trim_extensions(v) if k == "acceptable_extensions" else v)
+                for k, v in item.items()
+                if k in ("name", "label", "optional", "acceptable_extensions", "collection_type", "value", "type")
+            }
+        )
     return {
         "step_index": step.get("step_index"),
         "label": step.get("step_label"),
@@ -655,8 +727,7 @@ async def _get_workflow_input_template(g, a):
     model = await g.get(f"api/workflows/{a['workflow_id']}/download{_q(params)}")
     if not isinstance(model, dict) or "steps" not in model:
         return model
-    steps = [s for s in model["steps"] if isinstance(s, dict)
-             and s.get("step_type") in WORKFLOW_INPUT_STEPS]
+    steps = [s for s in model["steps"] if isinstance(s, dict) and s.get("step_type") in WORKFLOW_INPUT_STEPS]
     return {
         "workflow_id": a["workflow_id"],
         "name": model.get("name"),
@@ -805,8 +876,7 @@ async def _resolve_visualization(g, a):
     compatible = await g.get(f"api/plugins{_q({'dataset_id': dataset_id})}") or []
     if not any(p.get("name") == name for p in compatible):
         return None, {
-            "error": f"Refused: {name!r} cannot render the datatype "
-                     f"{dataset.get('extension')!r}.",
+            "error": f"Refused: {name!r} cannot render the datatype " f"{dataset.get('extension')!r}.",
             "can_render_it": sorted(p.get("name") for p in compatible),
             "hint": "Call list_visualizations for this dataset for the full picture.",
         }
@@ -851,8 +921,7 @@ def _describe_parameter(param, types):
     if test:
         described["chosen_by"] = _describe_parameter(test, types)
         described["cases"] = [
-            {"when": c.get("value"),
-             "inputs": [_describe_parameter(i, types) for i in (c.get("inputs") or [])]}
+            {"when": c.get("value"), "inputs": [_describe_parameter(i, types) for i in (c.get("inputs") or [])]}
             for c in (param.get("cases") or [])
         ]
     return described
@@ -868,8 +937,13 @@ async def _get_visualization_details(g, a):
     name = a["visualization"]
     plugin = await g.get(f"api/plugins/{name}") or {}
     if not plugin.get("name"):
-        return ToolOutcome({"error": f"Refused: {name!r} is not an installed visualization.",
-                "hint": "Call list_visualizations for a dataset to see what this server offers."}, is_error=True)
+        return ToolOutcome(
+            {
+                "error": f"Refused: {name!r} is not an installed visualization.",
+                "hint": "Call list_visualizations for a dataset to see what this server offers.",
+            },
+            is_error=True,
+        )
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
     template = build_visualization_template(plugin, types)
@@ -883,8 +957,8 @@ async def _get_visualization_details(g, a):
         "settings": [_describe_parameter(p, types) for p in (plugin.get("settings") or [])],
         "tracks": [_describe_parameter(p, types) for p in (plugin.get("tracks") or [])],
         "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
-                "them and pass them to save_visualization: settings cannot ride in a displayed "
-                "visualization, only in a saved one.",
+        "them and pass them to save_visualization: settings cannot ride in a displayed "
+        "visualization, only in a saved one.",
     }
 
 
@@ -938,11 +1012,15 @@ async def _get_visualization_options(g, a):
     if not isinstance(plugin, dict) or not plugin.get("name"):
         return ToolOutcome({"error": f"Refused: {name!r} is not an installed visualization."}, is_error=True)
 
-    found = (_find_declared(plugin.get("settings"), wanted)
-             + _find_declared(plugin.get("tracks"), wanted))
+    found = _find_declared(plugin.get("settings"), wanted) + _find_declared(plugin.get("tracks"), wanted)
     if not found:
-        return ToolOutcome({"error": f"Refused: {name!r} declares no parameter {wanted!r}.",
-                "hint": f"Call get_visualization_details for {name!r} to see what it declares."}, is_error=True)
+        return ToolOutcome(
+            {
+                "error": f"Refused: {name!r} declares no parameter {wanted!r}.",
+                "hint": f"Call get_visualization_details for {name!r} to see what it declares.",
+            },
+            is_error=True,
+        )
 
     declared_cases = sorted({w for w, _ in found if w is not None})
     when = a.get("when")
@@ -952,10 +1030,15 @@ async def _get_visualization_options(g, a):
             return ToolOutcome({"error": f"Refused: {wanted!r} is not declared when {when!r}."}, is_error=True)
     if len(found) > 1:
         cases = sorted({w for w, _ in found if w is not None})
-        return ToolOutcome({"error": f"Refused: {name!r} declares {wanted!r} in more than one case, and "
-                         "they do not share a source.",
+        return ToolOutcome(
+            {
+                "error": f"Refused: {name!r} declares {wanted!r} in more than one case, and "
+                "they do not share a source.",
                 "cases": cases,
-                "hint": "Pass `when` with the case you mean."}, is_error=True)
+                "hint": "Pass `when` with the case you mean.",
+            },
+            is_error=True,
+        )
     declared = found[0][1]
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
@@ -983,36 +1066,49 @@ async def _get_visualization_options(g, a):
             value_col = columns.index("value") if "value" in columns else 0
             for row in data.get("fields") or []:
                 whole = len(row) == len(columns)
-                entries.append({"id": row[value_col] if whole else (row[0] if row else None),
-                                "name": row[name_col] if whole else (row[0] if row else None),
-                                "columns": columns, "row": row, "table": table})
+                entries.append(
+                    {
+                        "id": row[value_col] if whole else (row[0] if row else None),
+                        "name": row[name_col] if whole else (row[0] if row else None),
+                        "columns": columns,
+                        "row": row,
+                        "table": table,
+                    }
+                )
         entries = _by_id(entries)
     else:
-        return {"parameter": wanted, "source": kind or declared.get("type"),
-                "hint": "This parameter's options are not a list to browse; "
-                        "get_visualization_details says what it accepts."}
+        return {
+            "parameter": wanted,
+            "source": kind or declared.get("type"),
+            "hint": "This parameter's options are not a list to browse; "
+            "get_visualization_details says what it accepts.",
+        }
 
     # Labels are cheap to scan; the stored value is only returned for what was asked for,
     # because these can be large and only the chosen one is ever written.
     listed = [{"id": e.get("id"), "name": e.get("name") or e.get("label")} for e in entries]
-    result = {"parameter": wanted, "source": kind, "total": len(entries),
-              "options": listed[:ROW_CAP]}
+    result = {"parameter": wanted, "source": kind, "total": len(entries), "options": listed[:ROW_CAP]}
     # A case can be declared and still hold nothing on this server: IGV's builtin genomes
     # are a data table an admin may never have filled. Naming its siblings is the difference
     # between a dead end and a second try.
     siblings = [c for c in declared_cases if c != when]
     if not entries and siblings:
         result["other_cases"] = siblings
-        result["hint"] = (f"This server lists no {wanted!r} for {when!r}. The same parameter is "
-                          f"declared for {', '.join(repr(c) for c in siblings)}; try one of those.")
+        result["hint"] = (
+            f"This server lists no {wanted!r} for {when!r}. The same parameter is "
+            f"declared for {', '.join(repr(c) for c in siblings)}; try one of those."
+        )
         return result
     if search:
         result["matches"] = [e for e in entries if _match(e, search)][:MATCH_CAP]
-        result["hint"] = ("`matches` holds the values to store as given; pass one through "
-                          "unchanged rather than rebuilding it.")
+        result["hint"] = (
+            "`matches` holds the values to store as given; pass one through " "unchanged rather than rebuilding it."
+        )
     else:
-        result["hint"] = ("Call again with `search` to get the value to store for one of these; "
-                          "the stored value is the whole entry, not its id.")
+        result["hint"] = (
+            "Call again with `search` to get the value to store for one of these; "
+            "the stored value is the whole entry, not its id."
+        )
     return result
 
 
@@ -1024,8 +1120,13 @@ async def _get_visualization(g, a):
     """
     saved = await g.get(f"api/visualizations/{a['visualization_id']}") or {}
     if not saved.get("id"):
-        return ToolOutcome({"error": f"No saved visualization {a['visualization_id']!r}.",
-                "hint": "Pass the visualization_id that save_visualization returned."}, is_error=True)
+        return ToolOutcome(
+            {
+                "error": f"No saved visualization {a['visualization_id']!r}.",
+                "hint": "Pass the visualization_id that save_visualization returned.",
+            },
+            is_error=True,
+        )
     config = (saved.get("latest_revision") or {}).get("config") or {}
     return {
         "visualization_id": saved.get("id"),
@@ -1035,8 +1136,8 @@ async def _get_visualization(g, a):
         "settings": config.get("settings") or {},
         "tracks": config.get("tracks") or [],
         "hint": "Change what needs changing and pass it all back to save_visualization with this "
-                "visualization_id. Anything left out is dropped, so send the settings and tracks "
-                "you want to keep, not only the new ones.",
+        "visualization_id. Anything left out is dropped, so send the settings and tracks "
+        "you want to keep, not only the new ones.",
     }
 
 
@@ -1051,13 +1152,17 @@ async def _show_visualization(g, a):
     return {
         "shown": True,
         "title": title,
-        "artifact": {"kind": "visualization", "title": title,
-                     "visualization": name, "dataset_id": a["dataset_id"],
-                     "url": f"/visualizations/display{_q(query)}"},
+        "artifact": {
+            "kind": "visualization",
+            "title": title,
+            "visualization": name,
+            "dataset_id": a["dataset_id"],
+            "url": f"/visualizations/display{_q(query)}",
+        },
         "hint": "The visualization is displayed to the user. Nothing was added to Galaxy, so "
-                "call save_visualization if they ask to keep it. Writing it into the record "
-                "means putting {{artifact}} where it belongs in the page content. Say what it "
-                "shows and finish.",
+        "call save_visualization if they ask to keep it. Writing it into the record "
+        "means putting {{artifact}} where it belongs in the page content. Say what it "
+        "shows and finish.",
     }
 
 
@@ -1077,16 +1182,19 @@ def _check_level(entry, declared, types, where):
     if not allowed:
         return None
     if not isinstance(entry, dict):
-        return {"error": f"Refused: {where} is an object keyed by parameter name; "
-                         f"got {type(entry).__name__}.",
-                "declared": sorted(allowed)}
+        return {
+            "error": f"Refused: {where} is an object keyed by parameter name; " f"got {type(entry).__name__}.",
+            "declared": sorted(allowed),
+        }
 
     unknown = sorted(set(entry) - allowed)
     if unknown:
-        return {"error": f"Refused: {where} declares no parameter {unknown[0]!r}.",
-                "declared": sorted(allowed),
-                "hint": "Parameters inside a conditional belong in that conditional's object, "
-                        "not beside it. get_visualization_details shows the nesting."}
+        return {
+            "error": f"Refused: {where} declares no parameter {unknown[0]!r}.",
+            "declared": sorted(allowed),
+            "hint": "Parameters inside a conditional belong in that conditional's object, "
+            "not beside it. get_visualization_details shows the nesting.",
+        }
 
     for param in declared or []:
         if not isinstance(param, dict) or param.get("name") not in entry:
@@ -1095,10 +1203,8 @@ def _check_level(entry, declared, types, where):
         if param.get("type") == "conditional":
             test = (param.get("test_param") or {}).get("name")
             chosen = value.get(test) if isinstance(value, dict) else None
-            inputs = next((c.get("inputs") or [] for c in param.get("cases") or []
-                           if c.get("value") == chosen), [])
-            nested = _check_level(value, [param.get("test_param")] + list(inputs), types,
-                                  f"{param['name']}")
+            inputs = next((c.get("inputs") or [] for c in param.get("cases") or [] if c.get("value") == chosen), [])
+            nested = _check_level(value, [param.get("test_param")] + list(inputs), types, f"{param['name']}")
             if nested:
                 return nested
             continue
@@ -1131,7 +1237,7 @@ def _wrong_shape(name, value, spec):
         "error": error,
         "expected": spec,
         "hint": "Call get_visualization_options with `search`: it returns the value to store, "
-                "whole for an input that takes an entry and bare for one that takes a string.",
+        "whole for an input that takes an entry and bare for one that takes a string.",
     }
 
 
@@ -1148,13 +1254,17 @@ def _reject_undeclared(plugin, a):
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
 
     if a.get("settings") is not None and not isinstance(a["settings"], dict):
-        return {"saved": False,
-                "error": "Refused: settings is one object keyed by parameter name.",
-                "hint": 'Send {"locus": "chr1:1-100"}, not a list.'}
+        return {
+            "saved": False,
+            "error": "Refused: settings is one object keyed by parameter name.",
+            "hint": 'Send {"locus": "chr1:1-100"}, not a list.',
+        }
     if a.get("tracks") is not None and not isinstance(a["tracks"], list):
-        return {"saved": False,
-                "error": "Refused: tracks is a list, one object per track.",
-                "hint": "Send [{...}], one entry for each track."}
+        return {
+            "saved": False,
+            "error": "Refused: tracks is a list, one object per track.",
+            "hint": "Send [{...}], one entry for each track.",
+        }
 
     if a.get("settings") is not None:
         bad = _check_level(a["settings"], plugin.get("settings"), types, "settings")
@@ -1189,19 +1299,27 @@ async def _save_visualization(g, a):
         # Galaxy answers with the new revision, or with nothing when the config is unchanged.
         await g.put(f"api/visualizations/{visualization_id}", {"title": title, "config": config})
     else:
-        created = await g.post("api/visualizations",
-                               {"type": name, "title": title, "config": config})
+        created = await g.post("api/visualizations", {"type": name, "title": title, "config": config})
         visualization_id = (created or {}).get("id")
         if not visualization_id:
-            return ToolOutcome({"saved": False,
+            return ToolOutcome(
+                {
+                    "saved": False,
                     "error": "Galaxy accepted the visualization but returned no id, so there "
-                             "is nothing to display or revise.",
-                    "response": created}, is_error=True)
+                    "is nothing to display or revise.",
+                    "response": created,
+                },
+                is_error=True,
+            )
     # Galaxy reads the plugin name from the query, never from the saved object.
     query = {"visualization": name, "visualization_id": visualization_id, **_EMBED}
-    artifact = {"kind": "visualization", "title": title,
-                "visualization": name, "dataset_id": a["dataset_id"],
-                "url": f"/visualizations/display{_q(query)}"}
+    artifact = {
+        "kind": "visualization",
+        "title": title,
+        "visualization": name,
+        "dataset_id": a["dataset_id"],
+        "url": f"/visualizations/display{_q(query)}",
+    }
     artifact.update({k: a[k] for k in ("settings", "tracks") if a.get(k)})
     return {
         "saved": True,
@@ -1209,9 +1327,9 @@ async def _save_visualization(g, a):
         "title": title,
         "artifact": artifact,
         "hint": "Saved to the user's visualizations and displayed. It is not a history dataset. "
-                "Writing it into the record means putting {{artifact}} where it belongs in the "
-                "page content; visualization_id above identifies the saved object and renders "
-                "nothing in a page. Say what it shows and finish.",
+        "Writing it into the record means putting {{artifact}} where it belongs in the "
+        "page content; visualization_id above identifies the saved object and renders "
+        "nothing in a page. Say what it shows and finish.",
     }
 
 
@@ -1254,8 +1372,7 @@ async def _get_page(g, a):
     result = await g.get(f"api/pages/{a['page_id']}") or {}
     if isinstance(result, dict):
         result = dict(result)
-        result["content_hash"] = page_edit.djb2_hash(
-            result.get("content_editor") or result.get("content") or "")
+        result["content_hash"] = page_edit.djb2_hash(result.get("content_editor") or result.get("content") or "")
         if not a.get("include_rendered"):
             result.pop("content", None)
     return result
@@ -1313,112 +1430,318 @@ async def _revert_page_revision(g, a):
     return await g.post(f"api/pages/{a['page_id']}/revisions/{a['revision_id']}/revert", {})
 
 
-_tool("update_history", "write", "Update a history's name, annotation, tags, or deleted/published flags.",
-      {"history_id": _STR, "name": _STR, "annotation": _STR, "tags": {"type": "array", "items": _STR},
-       "deleted": _BOOL, "published": _BOOL}, ["history_id"], _update_history)
-_tool("search_tools_by_keywords", "read", "Search the Galaxy tool catalog by a list of keywords.",
-      {"keywords": {"type": "array", "items": _STR}}, ["keywords"], _search_tools_by_keywords)
-_tool("get_tool_panel", "read", "Get the Galaxy tool panel (sections and tools); optional section filter, limit/offset paging.",
-      {"section": _STR, "limit": _INT, "offset": _INT}, [], _get_tool_panel)
-_tool("get_tool_citations", "read", "Get a tool's citations (bibtex).", {"tool_id": _STR}, ["tool_id"], _get_tool_citations)
-_tool("get_tool_input_template", "read", "Get a tool's input parameter schema (a fillable template).",
-      {"tool_id": _STR}, ["tool_id"], _get_tool_input_template)
-_tool("get_tool_run_examples", "read", "Get structural example inputs for a tool.",
-      {"tool_id": _STR, "tool_version": _STR}, ["tool_id"], _get_tool_run_examples)
-_tool("get_collection_details", "read", "Get a dataset collection's details and elements.",
-      {"collection_id": _STR, "max_elements": _INT}, ["collection_id"], _get_collection_details)
-_tool("download_dataset", "read",
-      "Save a dataset to the local filesystem and return its path plus a short preview. "
-      "A dataset over 20 MB comes back as a line-aligned prefix with partial=true and "
-      "bytes_total set; never compute totals or counts from a partial read. "
-      "Read the file with run_python (e.g. pandas.read_csv(path, sep='\\t')); do not paste "
-      "the preview into code.",
-      {"dataset_id": _STR}, ["dataset_id"], _download_dataset)
-_tool("upload_file_from_url", "write", "Upload a dataset into a history from a URL.",
-      {"url": _STR, "history_id": _STR, "file_type": _STR, "dbkey": _STR, "file_name": _STR}, ["url"], _upload_file_from_url)
-_tool("upload_file", "write",
-      "Upload a file from the local filesystem to a history -- e.g. one written by run_python.",
-      {"path": _STR, "history_id": _STR, "file_name": _STR, "file_type": _STR, "dbkey": _STR},
-      ["path"], _upload_file)
-_tool("list_workflows", "read", "List stored workflows; optional name/tag/id filter, published flag, "
-      "limit/offset paging.",
-      {"workflow_id": _STR, "name": _STR, "published": _BOOL,
-       "limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
-       "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."}},
-      [], _list_workflows)
-_tool("get_workflow_details", "read", "Get a stored workflow's details.",
-      {"workflow_id": _STR, "version": _INT}, ["workflow_id"], _get_workflow_details)
-_tool("get_workflow_input_template", "read", "Get a workflow's run-form input template (fill and pass to invoke_workflow).",
-      {"workflow_id": _STR, "history_id": _STR}, ["workflow_id"], _get_workflow_input_template)
-_tool("invoke_workflow", "write", "Run a workflow. inputs maps input steps to datasets ({id, src}); "
-      "give history_id or history_name for the output history.",
-      {"workflow_id": _STR, "inputs": {"type": "object"}, "params": {"type": "object"},
-       "history_id": _STR, "history_name": _STR, "inputs_by": _STR,
-       "parameters_normalized": _BOOL}, ["workflow_id"], _invoke_workflow)
-_tool("cancel_workflow_invocation", "write", "Cancel a running workflow invocation.",
-      {"invocation_id": _STR}, ["invocation_id"], _cancel_workflow_invocation)
-_tool("get_invocations", "read", "List workflow invocations, or one by id. Each carries an "
-      "`outcome` rolled up from its jobs: Galaxy's own `state` describes scheduling, so a run "
-      "whose jobs failed still reads `completed` there. Judge a run by `outcome`.",
-      {"invocation_id": _STR, "workflow_id": _STR, "history_id": _STR, "limit": _INT, "view": _STR, "step_details": _BOOL},
-      [], _get_invocations)
-_tool("list_user_tools", "read", "List the user's dynamic (user-defined) tools.", {"active": _BOOL}, [], _list_user_tools)
-_tool("create_user_tool", "write", "Create a dynamic (user-defined) tool from a representation.",
-      {"representation": {"type": "object"}}, ["representation"], _create_user_tool)
+_tool(
+    "update_history",
+    "write",
+    "Update a history's name, annotation, tags, or deleted/published flags.",
+    {
+        "history_id": _STR,
+        "name": _STR,
+        "annotation": _STR,
+        "tags": {"type": "array", "items": _STR},
+        "deleted": _BOOL,
+        "published": _BOOL,
+    },
+    ["history_id"],
+    _update_history,
+)
+_tool(
+    "search_tools_by_keywords",
+    "read",
+    "Search the Galaxy tool catalog by a list of keywords.",
+    {"keywords": {"type": "array", "items": _STR}},
+    ["keywords"],
+    _search_tools_by_keywords,
+)
+_tool(
+    "get_tool_panel",
+    "read",
+    "Get the Galaxy tool panel (sections and tools); optional section filter, limit/offset paging.",
+    {"section": _STR, "limit": _INT, "offset": _INT},
+    [],
+    _get_tool_panel,
+)
+_tool(
+    "get_tool_citations",
+    "read",
+    "Get a tool's citations (bibtex).",
+    {"tool_id": _STR},
+    ["tool_id"],
+    _get_tool_citations,
+)
+_tool(
+    "get_tool_input_template",
+    "read",
+    "Get a tool's input parameter schema (a fillable template).",
+    {"tool_id": _STR},
+    ["tool_id"],
+    _get_tool_input_template,
+)
+_tool(
+    "get_tool_run_examples",
+    "read",
+    "Get structural example inputs for a tool.",
+    {"tool_id": _STR, "tool_version": _STR},
+    ["tool_id"],
+    _get_tool_run_examples,
+)
+_tool(
+    "get_collection_details",
+    "read",
+    "Get a dataset collection's details and elements.",
+    {"collection_id": _STR, "max_elements": _INT},
+    ["collection_id"],
+    _get_collection_details,
+)
+_tool(
+    "download_dataset",
+    "read",
+    "Save a dataset to the local filesystem and return its path plus a short preview. "
+    "A dataset over 20 MB comes back as a line-aligned prefix with partial=true and "
+    "bytes_total set; never compute totals or counts from a partial read. "
+    "Read the file with run_python (e.g. pandas.read_csv(path, sep='\\t')); do not paste "
+    "the preview into code.",
+    {"dataset_id": _STR},
+    ["dataset_id"],
+    _download_dataset,
+)
+_tool(
+    "upload_file_from_url",
+    "write",
+    "Upload a dataset into a history from a URL.",
+    {"url": _STR, "history_id": _STR, "file_type": _STR, "dbkey": _STR, "file_name": _STR},
+    ["url"],
+    _upload_file_from_url,
+)
+_tool(
+    "upload_file",
+    "write",
+    "Upload a file from the local filesystem to a history -- e.g. one written by run_python.",
+    {"path": _STR, "history_id": _STR, "file_name": _STR, "file_type": _STR, "dbkey": _STR},
+    ["path"],
+    _upload_file,
+)
+_tool(
+    "list_workflows",
+    "read",
+    "List stored workflows; optional name/tag/id filter, published flag, " "limit/offset paging.",
+    {
+        "workflow_id": _STR,
+        "name": _STR,
+        "published": _BOOL,
+        "limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
+        "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
+    },
+    [],
+    _list_workflows,
+)
+_tool(
+    "get_workflow_details",
+    "read",
+    "Get a stored workflow's details.",
+    {"workflow_id": _STR, "version": _INT},
+    ["workflow_id"],
+    _get_workflow_details,
+)
+_tool(
+    "get_workflow_input_template",
+    "read",
+    "Get a workflow's run-form input template (fill and pass to invoke_workflow).",
+    {"workflow_id": _STR, "history_id": _STR},
+    ["workflow_id"],
+    _get_workflow_input_template,
+)
+_tool(
+    "invoke_workflow",
+    "write",
+    "Run a workflow. inputs maps input steps to datasets ({id, src}); "
+    "give history_id or history_name for the output history.",
+    {
+        "workflow_id": _STR,
+        "inputs": {"type": "object"},
+        "params": {"type": "object"},
+        "history_id": _STR,
+        "history_name": _STR,
+        "inputs_by": _STR,
+        "parameters_normalized": _BOOL,
+    },
+    ["workflow_id"],
+    _invoke_workflow,
+)
+_tool(
+    "cancel_workflow_invocation",
+    "write",
+    "Cancel a running workflow invocation.",
+    {"invocation_id": _STR},
+    ["invocation_id"],
+    _cancel_workflow_invocation,
+)
+_tool(
+    "get_invocations",
+    "read",
+    "List workflow invocations, or one by id. Each carries an "
+    "`outcome` rolled up from its jobs: Galaxy's own `state` describes scheduling, so a run "
+    "whose jobs failed still reads `completed` there. Judge a run by `outcome`.",
+    {
+        "invocation_id": _STR,
+        "workflow_id": _STR,
+        "history_id": _STR,
+        "limit": _INT,
+        "view": _STR,
+        "step_details": _BOOL,
+    },
+    [],
+    _get_invocations,
+)
+_tool(
+    "list_user_tools", "read", "List the user's dynamic (user-defined) tools.", {"active": _BOOL}, [], _list_user_tools
+)
+_tool(
+    "create_user_tool",
+    "write",
+    "Create a dynamic (user-defined) tool from a representation.",
+    {"representation": {"type": "object"}},
+    ["representation"],
+    _create_user_tool,
+)
 _tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _STR}, ["uuid"], _delete_user_tool)
-_tool("run_user_tool", "write", "Run a dynamic (user-defined) tool by uuid in a history.",
-      {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
-      ["history_id", "tool_uuid", "inputs"], _run_user_tool)
-_tool("get_visualization_options", "read",
-      "Resolve a visualization parameter's selectable options from wherever the plugin says "
-      "they live. Use `search` to get the value to store.",
-      {"visualization": _STR, "parameter": _STR, "search": _STR, "when": _STR},
-      ["visualization", "parameter"], _get_visualization_options)
-_tool("get_visualization", "read",
-      "Get a saved visualization's current settings and tracks. Read before revising it: "
-      "save_visualization replaces the config rather than merging into it.",
-      {"visualization_id": _STR}, ["visualization_id"], _get_visualization)
-_tool("get_visualization_details", "read",
-      "Get one visualization's parameters, including the schema its settings and tracks must "
-      "match. Call before binding settings or tracks.",
-      {"visualization": _STR}, ["visualization"], _get_visualization_details)
-_tool("show_visualization", "read",
-      "Display a dataset with an installed visualization. Renders only; saves nothing. Takes the "
-      "plugin's defaults -- use save_visualization to bind settings or tracks.",
-      {"dataset_id": _STR, "visualization": _STR, "title": _STR},
-      ["dataset_id", "visualization"], _show_visualization)
-_tool("save_visualization", "write",
-      "Save a Galaxy visualization of a dataset, the durable kind the user keeps. Needed to "
-      "bind settings or tracks, which a displayed visualization cannot carry. Pass "
-      "visualization_id to revise one already saved instead of adding another.",
-      {"dataset_id": _STR, "visualization": _STR, "title": _STR, "visualization_id": _STR,
-       "settings": {"type": "object"}, "tracks": {"type": "array", "items": {"type": "object"}}},
-      ["dataset_id", "visualization"], _save_visualization)
-_tool("list_visualizations", "read",
-      "List the Galaxy visualizations that can display a dataset.",
-      {"dataset_id": _STR}, ["dataset_id"], _list_visualizations)
-_tool("list_pages", "read", "List pages (Galaxy markdown documents; a history-attached page is a Notebook).",
-      {"history_id": _STR, "search": _STR, "limit": _INT, "offset": _INT, "show_published": _BOOL, "show_shared": _BOOL},
-      [], _list_pages)
-_tool("get_page", "read", "Get a page's editable content and metadata.",
-      {"page_id": _STR, "include_rendered": _BOOL}, ["page_id"], _get_page)
-_tool("create_page", "write", "Create a page (Notebook if history_id given, else a standalone Report).",
-      {"history_id": _STR, "title": _STR, "content": _STR, "annotation": _STR, "slug": _STR}, [], _create_page)
-_tool("update_page", "write",
-      "Update a page. Give `section_heading` and `section_content` to replace one section, "
-      "or `content` to replace the body. Pass `expect_hash` from when you read the page and "
-      "the write is refused if someone edited it since.",
-      {"page_id": _STR, "content": _STR, "title": _STR,
-       "section_heading": {"type": "string", "description": "The exact heading line of the section to replace."},
-       "section_content": {"type": "string", "description": "The section's new text, heading line included."},
-       "expect_hash": {"type": "string", "description": "content_hash from when the page was read; the write is refused if it changed."}},
-      ["page_id"], _update_page)
-_tool("list_page_revisions", "read", "List a page's edit revisions.",
-      {"page_id": _STR, "sort_desc": _BOOL}, ["page_id"], _list_page_revisions)
-_tool("get_page_revision", "read", "Get one page revision.",
-      {"page_id": _STR, "revision_id": _STR}, ["page_id", "revision_id"], _get_page_revision)
-_tool("revert_page_revision", "write", "Revert a page to an earlier revision.",
-      {"page_id": _STR, "revision_id": _STR}, ["page_id", "revision_id"], _revert_page_revision)
+_tool(
+    "run_user_tool",
+    "write",
+    "Run a dynamic (user-defined) tool by uuid in a history.",
+    {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
+    ["history_id", "tool_uuid", "inputs"],
+    _run_user_tool,
+)
+_tool(
+    "get_visualization_options",
+    "read",
+    "Resolve a visualization parameter's selectable options from wherever the plugin says "
+    "they live. Use `search` to get the value to store.",
+    {"visualization": _STR, "parameter": _STR, "search": _STR, "when": _STR},
+    ["visualization", "parameter"],
+    _get_visualization_options,
+)
+_tool(
+    "get_visualization",
+    "read",
+    "Get a saved visualization's current settings and tracks. Read before revising it: "
+    "save_visualization replaces the config rather than merging into it.",
+    {"visualization_id": _STR},
+    ["visualization_id"],
+    _get_visualization,
+)
+_tool(
+    "get_visualization_details",
+    "read",
+    "Get one visualization's parameters, including the schema its settings and tracks must "
+    "match. Call before binding settings or tracks.",
+    {"visualization": _STR},
+    ["visualization"],
+    _get_visualization_details,
+)
+_tool(
+    "show_visualization",
+    "read",
+    "Display a dataset with an installed visualization. Renders only; saves nothing. Takes the "
+    "plugin's defaults -- use save_visualization to bind settings or tracks.",
+    {"dataset_id": _STR, "visualization": _STR, "title": _STR},
+    ["dataset_id", "visualization"],
+    _show_visualization,
+)
+_tool(
+    "save_visualization",
+    "write",
+    "Save a Galaxy visualization of a dataset, the durable kind the user keeps. Needed to "
+    "bind settings or tracks, which a displayed visualization cannot carry. Pass "
+    "visualization_id to revise one already saved instead of adding another.",
+    {
+        "dataset_id": _STR,
+        "visualization": _STR,
+        "title": _STR,
+        "visualization_id": _STR,
+        "settings": {"type": "object"},
+        "tracks": {"type": "array", "items": {"type": "object"}},
+    },
+    ["dataset_id", "visualization"],
+    _save_visualization,
+)
+_tool(
+    "list_visualizations",
+    "read",
+    "List the Galaxy visualizations that can display a dataset.",
+    {"dataset_id": _STR},
+    ["dataset_id"],
+    _list_visualizations,
+)
+_tool(
+    "list_pages",
+    "read",
+    "List pages (Galaxy markdown documents; a history-attached page is a Notebook).",
+    {"history_id": _STR, "search": _STR, "limit": _INT, "offset": _INT, "show_published": _BOOL, "show_shared": _BOOL},
+    [],
+    _list_pages,
+)
+_tool(
+    "get_page",
+    "read",
+    "Get a page's editable content and metadata.",
+    {"page_id": _STR, "include_rendered": _BOOL},
+    ["page_id"],
+    _get_page,
+)
+_tool(
+    "create_page",
+    "write",
+    "Create a page (Notebook if history_id given, else a standalone Report).",
+    {"history_id": _STR, "title": _STR, "content": _STR, "annotation": _STR, "slug": _STR},
+    [],
+    _create_page,
+)
+_tool(
+    "update_page",
+    "write",
+    "Update a page. Give `section_heading` and `section_content` to replace one section, "
+    "or `content` to replace the body. Pass `expect_hash` from when you read the page and "
+    "the write is refused if someone edited it since.",
+    {
+        "page_id": _STR,
+        "content": _STR,
+        "title": _STR,
+        "section_heading": {"type": "string", "description": "The exact heading line of the section to replace."},
+        "section_content": {"type": "string", "description": "The section's new text, heading line included."},
+        "expect_hash": {
+            "type": "string",
+            "description": "content_hash from when the page was read; the write is refused if it changed.",
+        },
+    },
+    ["page_id"],
+    _update_page,
+)
+_tool(
+    "list_page_revisions",
+    "read",
+    "List a page's edit revisions.",
+    {"page_id": _STR, "sort_desc": _BOOL},
+    ["page_id"],
+    _list_page_revisions,
+)
+_tool(
+    "get_page_revision",
+    "read",
+    "Get one page revision.",
+    {"page_id": _STR, "revision_id": _STR},
+    ["page_id", "revision_id"],
+    _get_page_revision,
+)
+_tool(
+    "revert_page_revision",
+    "write",
+    "Revert a page to an earlier revision.",
+    {"page_id": _STR, "revision_id": _STR},
+    ["page_id", "revision_id"],
+    _revert_page_revision,
+)
 
 
 # --- niche tier: IWC (external GitHub manifest, not the Galaxy API) -----------
@@ -1509,12 +1832,41 @@ async def _import_workflow_from_iwc(g, a):
     return await g.post("api/workflows", {"workflow": details.get("definition")})
 
 
-_tool("get_iwc_workflows", "read", "List curated Interactive Workflow Composer (IWC) workflows.", {}, [], _get_iwc_workflows)
-_tool("search_iwc_workflows", "read", "Search IWC workflows by text.", {"query": _STR}, ["query"], _search_iwc_workflows)
-_tool("recommend_iwc_workflows", "read", "Recommend IWC workflows for a described intent.",
-      {"intent": _STR, "limit": _INT}, ["intent"], _recommend_iwc_workflows)
-_tool("get_iwc_workflow_details", "read", "Get a single IWC workflow by TRS id.", {"trs_id": _STR}, ["trs_id"], _get_iwc_workflow_details)
-_tool("import_workflow_from_iwc", "write", "Import an IWC workflow into Galaxy by TRS id.", {"trs_id": _STR}, ["trs_id"], _import_workflow_from_iwc)
+_tool(
+    "get_iwc_workflows",
+    "read",
+    "List curated Interactive Workflow Composer (IWC) workflows.",
+    {},
+    [],
+    _get_iwc_workflows,
+)
+_tool(
+    "search_iwc_workflows", "read", "Search IWC workflows by text.", {"query": _STR}, ["query"], _search_iwc_workflows
+)
+_tool(
+    "recommend_iwc_workflows",
+    "read",
+    "Recommend IWC workflows for a described intent.",
+    {"intent": _STR, "limit": _INT},
+    ["intent"],
+    _recommend_iwc_workflows,
+)
+_tool(
+    "get_iwc_workflow_details",
+    "read",
+    "Get a single IWC workflow by TRS id.",
+    {"trs_id": _STR},
+    ["trs_id"],
+    _get_iwc_workflow_details,
+)
+_tool(
+    "import_workflow_from_iwc",
+    "write",
+    "Import an IWC workflow into Galaxy by TRS id.",
+    {"trs_id": _STR},
+    ["trs_id"],
+    _import_workflow_from_iwc,
+)
 
 
 def tool_schemas(manifest):

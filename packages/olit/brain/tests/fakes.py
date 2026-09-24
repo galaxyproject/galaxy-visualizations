@@ -32,8 +32,7 @@ class Local:
 
 
 class FakeSubstrate:
-    def __init__(self, llm=None, *, galaxy=None, local=None, config=None,
-                 capabilities=("llm", "local", "read")):
+    def __init__(self, llm=None, *, galaxy=None, local=None, config=None, capabilities=("llm", "local", "read")):
         self.llm = llm
         self.galaxy = galaxy
         self.local = Local() if local is None else local

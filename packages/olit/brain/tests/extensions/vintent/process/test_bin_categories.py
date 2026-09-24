@@ -78,4 +78,7 @@ def test_log_message():
 
 
 def test_log_message_custom_label():
-    assert log({"field": "type", "top_n": 3, "other_label": "Misc"}) == "Kept top 3 categories in type, grouped others as 'Misc'."
+    assert (
+        log({"field": "type", "top_n": 3, "other_label": "Misc"})
+        == "Kept top 3 categories in type, grouped others as 'Misc'."
+    )

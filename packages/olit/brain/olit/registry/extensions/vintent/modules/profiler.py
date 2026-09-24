@@ -25,15 +25,15 @@ def skip_comment_lines(text: str) -> str:
 
     Comment lines start with '#' or '//'.
     """
-    lines = text.split('\n')
+    lines = text.split("\n")
     start_index = 0
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith('#') or stripped.startswith('//'):
+        if stripped.startswith("#") or stripped.startswith("//"):
             start_index = i + 1
         else:
             break
-    return '\n'.join(lines[start_index:])
+    return "\n".join(lines[start_index:])
 
 
 def detect_delimiter(text: str) -> str:
@@ -44,11 +44,11 @@ def detect_delimiter(text: str) -> str:
     """
     # Skip comment lines before detecting delimiter
     clean_text = skip_comment_lines(text)
-    first_line = clean_text.split('\n')[0] if clean_text else ''
+    first_line = clean_text.split("\n")[0] if clean_text else ""
     # If tabs present, treat as tab-delimited
-    if '\t' in first_line:
-        return '\t'
-    return ','
+    if "\t" in first_line:
+        return "\t"
+    return ","
 
 
 def rows_from_tabular(text: str) -> list[dict[str, Any]]:
@@ -60,7 +60,7 @@ def rows_from_tabular(text: str) -> list[dict[str, Any]]:
     """
     clean_text = skip_comment_lines(text)
     delimiter = detect_delimiter(clean_text)
-    if delimiter == '\t':
+    if delimiter == "\t":
         return rows_from_tab(clean_text)
     return rows_from_csv(clean_text)
 
@@ -69,10 +69,10 @@ def source_format(text: str) -> dict[str, Any]:
     """Vega `format` for reading this file directly; tabular needs the col:N names."""
     clean_text = skip_comment_lines(text)
     delimiter = detect_delimiter(clean_text)
-    if delimiter != '\t':
+    if delimiter != "\t":
         return {"type": "csv"}
-    first_line = clean_text.split('\n')[0] if clean_text else ''
-    width = len(first_line.split('\t')) if first_line else 0
+    first_line = clean_text.split("\n")[0] if clean_text else ""
+    width = len(first_line.split("\t")) if first_line else 0
     return {
         "type": "dsv",
         "delimiter": "\t",
@@ -85,7 +85,7 @@ def rows_from_tab(tab_text: str) -> list[dict[str, Any]]:
 
     Column names are generated as col:1, col:2, etc. (1-indexed).
     """
-    reader = csv.reader(io.StringIO(tab_text), delimiter='\t')
+    reader = csv.reader(io.StringIO(tab_text), delimiter="\t")
     rows: list[dict[str, Any]] = []
     fieldnames: list[str] = []
 

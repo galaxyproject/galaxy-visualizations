@@ -10,11 +10,13 @@ class TestParallelCoordinatesValidate:
     def test_validate_ok_with_three_quantitative(self):
         shell = ParallelCoordinatesShell()
         params = {}
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
         assert result["errors"] == []
@@ -22,11 +24,13 @@ class TestParallelCoordinatesValidate:
     def test_validate_not_enough_quantitative_fields(self):
         shell = ParallelCoordinatesShell()
         params = {}
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "not_enough_quantitative_fields"
@@ -35,40 +39,48 @@ class TestParallelCoordinatesValidate:
 class TestParallelCoordinatesIsApplicable:
     def test_applicable_with_three_quantitative(self):
         shell = ParallelCoordinatesShell()
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is True
 
     def test_applicable_with_more_than_three_quantitative(self):
         shell = ParallelCoordinatesShell()
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-            "d": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+                "d": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is True
 
     def test_not_applicable_with_only_two_quantitative(self):
         shell = ParallelCoordinatesShell()
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is False
 
 
 class TestParallelCoordinatesProcesses:
     def test_processes_returns_normalize_minmax(self):
         shell = ParallelCoordinatesShell()
-        profile = _profile({
-            "a": {"type": "quantitative"},
-            "b": {"type": "quantitative"},
-            "c": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "a": {"type": "quantitative"},
+                "b": {"type": "quantitative"},
+                "c": {"type": "quantitative"},
+            }
+        )
         params = {}
         processes = shell.processes(profile, params)
         assert len(processes) == 1

@@ -33,6 +33,7 @@ class ApiTarget:
             return self.headers()
         return {}
 
+
 ALLOWED_METHODS = (GET, POST, PUT)
 
 # The only write ops the agent may reach, by catalog op name.

@@ -38,8 +38,7 @@ async def _eval_top_level_await(code, namespace):
         await pending
     if last is None:
         return None
-    value = eval(compile(ast.Expression(last.value), "<olit>", "eval", flags=TOP_LEVEL_AWAIT),
-                 namespace)
+    value = eval(compile(ast.Expression(last.value), "<olit>", "eval", flags=TOP_LEVEL_AWAIT), namespace)
     return await value if inspect.isawaitable(value) else value
 
 

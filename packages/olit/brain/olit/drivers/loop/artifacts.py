@@ -23,8 +23,11 @@ def _vega(artifact):
 
 
 def _visualization(artifact):
-    return _fenced("galaxy", f"visualization(visualization_id={artifact.get('visualization')}, "
-                             f"history_dataset_id={artifact.get('dataset_id')})")
+    return _fenced(
+        "galaxy",
+        f"visualization(visualization_id={artifact.get('visualization')}, "
+        f"history_dataset_id={artifact.get('dataset_id')})",
+    )
 
 
 def _mermaid(artifact):
@@ -69,7 +72,8 @@ def resolve(text, artifacts):
         artifact = _pick(title, artifacts)
         if artifact is None:
             refusal = refusal or (
-                f"No artifact titled {title!r} in this session." if title
+                f"No artifact titled {title!r} in this session."
+                if title
                 else "No artifact has been produced in this session yet."
             )
             if _titles(artifacts):

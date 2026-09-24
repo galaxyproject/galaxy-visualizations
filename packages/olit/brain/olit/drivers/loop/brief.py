@@ -18,5 +18,6 @@ def around(text, position, window=WINDOW):
     """The text either side of an offset, marking it. A head-only excerpt hides a late break."""
     text = text or ""
     start, end = max(0, position - window), min(len(text), position + window)
-    return (("…" if start else "") + text[start:position] + "⟨here⟩" + text[position:end]
-            + ("…" if end < len(text) else ""))
+    return (
+        ("…" if start else "") + text[start:position] + "⟨here⟩" + text[position:end] + ("…" if end < len(text) else "")
+    )

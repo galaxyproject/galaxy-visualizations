@@ -11,7 +11,6 @@ import pytest
 
 from olit.drivers.loop import galaxy_tools
 from olit.drivers.loop.galaxy_tools import (
-
     MAX_DOWNLOAD_BYTES,
     PREVIEW_LINES,
     _download_dataset,
@@ -26,6 +25,7 @@ def data_dir(tmp_path, monkeypatch):
     """Verified separately that Pyodide can create /data; the host cannot."""
     monkeypatch.setattr(galaxy_tools, "DATA_DIR", str(tmp_path))
     return str(tmp_path)
+
 
 TABLE = "Latitude\tLongitude\n" + "\n".join(f"{i}.5\t-{i}.25" for i in range(1, 120))
 
@@ -53,7 +53,7 @@ class FakeGalaxy:
             size = int(path.split("ck_size=")[1])
             text = self.content if isinstance(self.content, str) else ""
             cut = text[:size]
-            cut = cut[: cut.rfind("\n") + 1] or cut       # line-aligned, as Galaxy does
+            cut = cut[: cut.rfind("\n") + 1] or cut  # line-aligned, as Galaxy does
             return {"ck_data": cut, "offset": len(cut)}
         if not path.endswith("/display") and "ck_size=" not in path:
             return {"file_size": self.stated_size} if self.stated_size is not None else {"id": "d"}

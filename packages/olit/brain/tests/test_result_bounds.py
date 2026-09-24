@@ -76,10 +76,16 @@ def test_the_last_page_of_histories_is_not_marked_truncated():
 
 def test_the_tool_panel_can_be_narrowed_to_one_section():
     panel = [
-        {"model_class": "ToolSection", "name": "Get Data",
-         "elems": [{"model_class": "Tool", "id": "upload1", "name": "Upload"}]},
-        {"model_class": "ToolSection", "name": "Text Manipulation",
-         "elems": [{"model_class": "Tool", "id": "cat1", "name": "Concatenate"}]},
+        {
+            "model_class": "ToolSection",
+            "name": "Get Data",
+            "elems": [{"model_class": "Tool", "id": "upload1", "name": "Upload"}],
+        },
+        {
+            "model_class": "ToolSection",
+            "name": "Text Manipulation",
+            "elems": [{"model_class": "Tool", "id": "cat1", "name": "Concatenate"}],
+        },
     ]
     got = asyncio.run(_get_tool_panel(FakeGalaxy(panel), {"section": "text manipulation"}))
     assert [s["section"] for s in got["items"]] == ["Text Manipulation"]
@@ -87,13 +93,14 @@ def test_the_tool_panel_can_be_narrowed_to_one_section():
 
 def _run(output):
     llm = ScriptedLlm(
-        Reply(content="", tool_calls=[{"id": "c1", "function": {
-            "name": "run_python", "arguments": '{"code": "print(1)"}'}}],
-            finish_reason="tool_calls"),
+        Reply(
+            content="",
+            tool_calls=[{"id": "c1", "function": {"name": "run_python", "arguments": '{"code": "print(1)"}'}}],
+            finish_reason="tool_calls",
+        ),
         Reply(content="done", tool_calls=[], finish_reason="stop"),
     )
-    result = asyncio.run(LoopDriver(FakeSubstrate(llm, local=Local(output))).run(
-        [{"role": "user", "content": "go"}]))
+    result = asyncio.run(LoopDriver(FakeSubstrate(llm, local=Local(output))).run([{"role": "user", "content": "go"}]))
     return [m for m in result["messages"] if m.get("role") == "tool"][0]
 
 

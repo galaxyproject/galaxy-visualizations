@@ -1,4 +1,5 @@
 """A plugin's inputs, joined with what galaxy-charts stores for each type."""
+
 import asyncio
 
 from olit.drivers.loop.galaxy_tools import _get_visualization_details
@@ -13,14 +14,14 @@ IGV = {
         {
             "name": "source",
             "type": "conditional",
-            "test_param": {"name": "origin", "type": "select",
-                           "data": [{"label": "IGV", "value": "igv"},
-                                    {"label": "History", "value": "history"}]},
+            "test_param": {
+                "name": "origin",
+                "type": "select",
+                "data": [{"label": "IGV", "value": "igv"}, {"label": "History", "value": "history"}],
+            },
             "cases": [
-                {"value": "igv",
-                 "inputs": [{"name": "genome", "type": "data_json", "url": "https://x/g.json"}]},
-                {"value": "history",
-                 "inputs": [{"name": "genome", "type": "data", "extension": "fasta,twobit"}]},
+                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json", "url": "https://x/g.json"}]},
+                {"value": "history", "inputs": [{"name": "genome", "type": "data", "extension": "fasta,twobit"}]},
             ],
         },
     ],
@@ -69,8 +70,7 @@ def test_a_remote_option_source_names_where_to_fetch_it():
 
 def test_a_plain_text_input_stores_a_string_and_claims_nothing_else():
     locus = details()["settings"][0]
-    assert locus["stores"] == {"$schema": "https://json-schema.org/draft/2020-12/schema",
-                               "type": "string"}
+    assert locus["stores"] == {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string"}
     assert "options" not in locus
 
 

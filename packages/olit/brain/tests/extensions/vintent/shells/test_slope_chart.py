@@ -10,11 +10,13 @@ class TestSlopeChartValidate:
     def test_validate_ok_with_all_required_fields(self):
         shell = SlopeChartShell()
         params = {"category": "name", "period": "year", "value": "amount"}
-        profile = _profile({
-            "name": {"type": "nominal"},
-            "year": {"type": "nominal"},
-            "amount": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "name": {"type": "nominal"},
+                "year": {"type": "nominal"},
+                "amount": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is True
         assert result["errors"] == []
@@ -22,10 +24,12 @@ class TestSlopeChartValidate:
     def test_validate_missing_category(self):
         shell = SlopeChartShell()
         params = {"period": "year", "value": "amount"}
-        profile = _profile({
-            "year": {"type": "nominal"},
-            "amount": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "year": {"type": "nominal"},
+                "amount": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -33,10 +37,12 @@ class TestSlopeChartValidate:
     def test_validate_missing_period(self):
         shell = SlopeChartShell()
         params = {"category": "name", "value": "amount"}
-        profile = _profile({
-            "name": {"type": "nominal"},
-            "amount": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "name": {"type": "nominal"},
+                "amount": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -44,10 +50,12 @@ class TestSlopeChartValidate:
     def test_validate_missing_value(self):
         shell = SlopeChartShell()
         params = {"category": "name", "period": "year"}
-        profile = _profile({
-            "name": {"type": "nominal"},
-            "year": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "name": {"type": "nominal"},
+                "year": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "missing_required_encoding"
@@ -55,10 +63,12 @@ class TestSlopeChartValidate:
     def test_validate_unknown_field(self):
         shell = SlopeChartShell()
         params = {"category": "missing", "period": "year", "value": "amount"}
-        profile = _profile({
-            "year": {"type": "nominal"},
-            "amount": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "year": {"type": "nominal"},
+                "amount": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "unknown_field"
@@ -67,11 +77,13 @@ class TestSlopeChartValidate:
     def test_validate_category_wrong_type(self):
         shell = SlopeChartShell()
         params = {"category": "amount", "period": "year", "value": "other"}
-        profile = _profile({
-            "amount": {"type": "quantitative"},
-            "year": {"type": "nominal"},
-            "other": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "amount": {"type": "quantitative"},
+                "year": {"type": "nominal"},
+                "other": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -80,11 +92,13 @@ class TestSlopeChartValidate:
     def test_validate_period_wrong_type(self):
         shell = SlopeChartShell()
         params = {"category": "name", "period": "amount", "value": "other"}
-        profile = _profile({
-            "name": {"type": "nominal"},
-            "amount": {"type": "quantitative"},
-            "other": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "name": {"type": "nominal"},
+                "amount": {"type": "quantitative"},
+                "other": {"type": "quantitative"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -93,11 +107,13 @@ class TestSlopeChartValidate:
     def test_validate_value_wrong_type(self):
         shell = SlopeChartShell()
         params = {"category": "name", "period": "year", "value": "type"}
-        profile = _profile({
-            "name": {"type": "nominal"},
-            "year": {"type": "nominal"},
-            "type": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "name": {"type": "nominal"},
+                "year": {"type": "nominal"},
+                "type": {"type": "nominal"},
+            }
+        )
         result = shell.validate(profile, params)
         assert result["ok"] is False
         assert result["errors"][0]["code"] == "invalid_field_type"
@@ -107,27 +123,33 @@ class TestSlopeChartValidate:
 class TestSlopeChartIsApplicable:
     def test_applicable_with_two_nominal_and_quantitative(self):
         shell = SlopeChartShell()
-        profile = _profile({
-            "category": {"type": "nominal"},
-            "period": {"type": "nominal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "category": {"type": "nominal"},
+                "period": {"type": "nominal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is True
 
     def test_not_applicable_with_only_one_nominal(self):
         shell = SlopeChartShell()
-        profile = _profile({
-            "category": {"type": "nominal"},
-            "value": {"type": "quantitative"},
-        })
+        profile = _profile(
+            {
+                "category": {"type": "nominal"},
+                "value": {"type": "quantitative"},
+            }
+        )
         assert shell.is_applicable(profile) is False
 
     def test_not_applicable_without_quantitative(self):
         shell = SlopeChartShell()
-        profile = _profile({
-            "category": {"type": "nominal"},
-            "period": {"type": "nominal"},
-        })
+        profile = _profile(
+            {
+                "category": {"type": "nominal"},
+                "period": {"type": "nominal"},
+            }
+        )
         assert shell.is_applicable(profile) is False
 
 

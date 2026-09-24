@@ -73,4 +73,3 @@ class DonutChartShell(BaseShell):
                 "color": {"field": category, "type": "nominal"},
             },
         }
-

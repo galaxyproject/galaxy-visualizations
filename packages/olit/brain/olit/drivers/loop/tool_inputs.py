@@ -10,8 +10,7 @@ MAX_OPTIONS = 25
 def _option_values(p):
     # Galaxy options are [label, value, selected] triples; cap to keep summaries compact.
     options = p.get("options") or []
-    return [o[1] if isinstance(o, (list, tuple)) and len(o) > 1 else o
-            for o in options[:MAX_OPTIONS]]
+    return [o[1] if isinstance(o, (list, tuple)) and len(o) > 1 else o for o in options[:MAX_OPTIONS]]
 
 
 def _options_truncated(p):
@@ -95,8 +94,7 @@ def _summarize_param(p):
         if _options_truncated(tp):
             out["selector"]["choices_truncated"] = True
         out["cases"] = [
-            {"when": case.get("value"),
-             "params": [_summarize_param(c) for c in case.get("inputs", [])]}
+            {"when": case.get("value"), "params": [_summarize_param(c) for c in case.get("inputs", [])]}
             for case in p.get("cases", [])
         ]
     elif ptype == "select":

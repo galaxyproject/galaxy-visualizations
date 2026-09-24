@@ -101,7 +101,9 @@ class PlannerHandler:
                 break
 
             error = result["error"]
-            logger.warning("Planner validation failed (attempt %s/%s): %s", attempt, PLANNER_MAX_ATTEMPTS, error['message'])
+            logger.warning(
+                "Planner validation failed (attempt %s/%s): %s", attempt, PLANNER_MAX_ATTEMPTS, error["message"]
+            )
             if attempt < PLANNER_MAX_ATTEMPTS:
                 attempt_prompt = self._repair_prompt(prompt, raw_response, error)
 
@@ -120,7 +122,7 @@ class PlannerHandler:
         if emit:
             runner.resolver.apply_emit(emit, {"result": result["result"]}, ctx)
 
-        logger.debug("Planner completed: %s", result['result'])
+        logger.debug("Planner completed: %s", result["result"])
         return result
 
     def _repair_prompt(
@@ -174,10 +176,7 @@ allowed options — do not invent field names or values outside an enum."""
 
         if output_mode == "route":
             routes = node["routes"]
-            options = "\n".join(
-                f'- "{name}": {spec["description"]}'
-                for name, spec in routes.items()
-            )
+            options = "\n".join(f'- "{name}": {spec["description"]}' for name, spec in routes.items())
             prompt = f"""{base_prompt}
 
 Select exactly one route from the following options:

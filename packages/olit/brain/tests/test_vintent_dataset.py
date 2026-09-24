@@ -162,10 +162,11 @@ def test_headerless_tabular_is_referenced_with_explicit_column_names():
     rows = _scatter_fixture()["data"]["values"][:6]
     keys = list(rows[0])
     tab_text = "\n".join("\t".join(str(r[k]) for k in keys) for r in rows) + "\n"
-    decisions = {**DECISIONS["scatter"],
-                 "intent": {"goal": "relationship", "shell_fields": ["col:1", "col:2"],
-                            "extract_fields": []},
-                 "fill": {"x": "col:1", "y": "col:2"}}
+    decisions = {
+        **DECISIONS["scatter"],
+        "intent": {"goal": "relationship", "shell_fields": ["col:1", "col:2"], "extract_fields": []},
+        "fill": {"x": "col:1", "y": "col:2"},
+    }
     out = _run_graph(tab_text, decisions)
     data = out["artifact"]["spec"]["data"]
     assert data["url"] == "/api/datasets/d1/display"
@@ -293,9 +294,7 @@ class LoopLlm:
                 "type": "function",
                 "function": {
                     "name": "vintent_dataset",
-                    "arguments": json.dumps(
-                        {"dataset_id": "d1", "request": "scatter BMI vs Glucose"}
-                    ),
+                    "arguments": json.dumps({"dataset_id": "d1", "request": "scatter BMI vs Glucose"}),
                 },
             }
             return Reply(tool_calls=[call])
@@ -368,9 +367,7 @@ def test_the_vintent_tool_produces_a_chart_and_routes_it_out_of_band():
     substrate = FakeSubstrate(csv_text, DECISIONS["scatter"])
     surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
 
-    outcome = asyncio.run(surface.dispatch(
-        "vintent_dataset", {"dataset_id": "d1", "request": "BMI against Glucose"}
-    ))
+    outcome = asyncio.run(surface.dispatch("vintent_dataset", {"dataset_id": "d1", "request": "BMI against Glucose"}))
     payload = json.loads(outcome.text)
 
     # The spec goes to the shell; the model sees only a reference to it.

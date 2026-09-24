@@ -95,8 +95,14 @@ def test_run_skips_unparseable_dates():
 
 
 def test_log_message_count():
-    assert log({"date_field": "created", "period": "month", "op": "count"}) == "Aggregated by month from created, counted rows."
+    assert (
+        log({"date_field": "created", "period": "month", "op": "count"})
+        == "Aggregated by month from created, counted rows."
+    )
 
 
 def test_log_message_with_metric():
-    assert log({"date_field": "date", "period": "year", "metric": "sales", "op": "sum"}) == "Aggregated by year from date, computed sum of sales."
+    assert (
+        log({"date_field": "date", "period": "year", "metric": "sales", "op": "sum"})
+        == "Aggregated by year from date, computed sum of sales."
+    )

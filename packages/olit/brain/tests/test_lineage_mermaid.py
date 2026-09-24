@@ -11,10 +11,15 @@ def test_a_quote_in_a_name_does_not_end_the_label():
 
 
 def test_jobs_and_datasets_get_their_shapes_and_edges():
-    nodes = [{"src": "hda", "id": "a", "name": "in"}, {"src": "job", "id": "j", "tool_name": "cat"},
-             {"src": "hda", "id": "b", "name": "out"}]
-    edges = [{"source": {"src": "hda", "id": "a"}, "target": {"src": "job", "id": "j"}},
-             {"source": {"src": "job", "id": "j"}, "target": {"src": "hda", "id": "b"}}]
+    nodes = [
+        {"src": "hda", "id": "a", "name": "in"},
+        {"src": "job", "id": "j", "tool_name": "cat"},
+        {"src": "hda", "id": "b", "name": "out"},
+    ]
+    edges = [
+        {"source": {"src": "hda", "id": "a"}, "target": {"src": "job", "id": "j"}},
+        {"source": {"src": "job", "id": "j"}, "target": {"src": "hda", "id": "b"}},
+    ]
     diagram = generate_mermaid(nodes=nodes, edges=edges, seed_id="b")
     assert 'job_j(["cat"])' in diagram
     assert "hda_a --> job_j" in diagram and "job_j --> hda_b" in diagram

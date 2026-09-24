@@ -164,9 +164,7 @@ def test_a_conversation_with_nowhere_lawful_to_cut_is_left_alone():
 
 def test_the_conversation_is_serialized_as_text_not_replayed_as_messages():
     """Serialized so the model summarizes the conversation rather than continuing it."""
-    text = compaction.serialize(
-        [_user("hello"), _assistant("hi", [_call("run_tool", '{"a":1}')]), _tool("result")]
-    )
+    text = compaction.serialize([_user("hello"), _assistant("hi", [_call("run_tool", '{"a":1}')]), _tool("result")])
     assert "[User]: hello" in text
     assert "[Assistant]: hi" in text
     assert "[Assistant tool calls]: run_tool" in text

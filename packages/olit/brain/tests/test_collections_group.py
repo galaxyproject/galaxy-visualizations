@@ -124,9 +124,7 @@ def test_an_archive_holding_both_shapes_keeps_the_odd_member():
 
 
 def test_include_puts_a_non_read_file_beyond_reach():
-    out = group_datasets(
-        datasets=names(["a_R1.fastq.gz", "a_R2.fastq.gz", "notes.txt"]), include="*.fastq.gz"
-    )
+    out = group_datasets(datasets=names(["a_R1.fastq.gz", "a_R2.fastq.gz", "notes.txt"]), include="*.fastq.gz")
     assert out["out_of_scope"] == ["notes.txt"]
     assert out["unmatched"] == [] and out["has_leftovers"] is False
     assert len(out["items"]) == 2
@@ -255,9 +253,9 @@ def test_galaxys_own_name_for_a_paired_list_is_accepted():
     parameter took `paired`, and an unknown value fell through to the unpaired path.
     """
     datasets = [
-        {"name": f"S{s}_{m}.fasta.gz", "id": f"{s}{m}", "extension": "fasta.gz",
-         "history_content_type": "dataset"}
-        for s in (1, 2) for m in (1, 2)
+        {"name": f"S{s}_{m}.fasta.gz", "id": f"{s}{m}", "extension": "fasta.gz", "history_content_type": "dataset"}
+        for s in (1, 2)
+        for m in (1, 2)
     ]
     assert group_datasets(datasets=datasets, structure="list:paired")["structure"] == "list:paired"
 

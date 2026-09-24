@@ -32,8 +32,11 @@ def undeclared_failures():
     for name in MODULES:
         path = LOOP / name
         tree = ast.parse(path.read_text())
-        owners = [(n.lineno, n.end_lineno, n.name) for n in ast.walk(tree)
-                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        owners = [
+            (n.lineno, n.end_lineno, n.name)
+            for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
         for node in ast.walk(tree):
             if not isinstance(node, ast.Return) or not isinstance(node.value, ast.Dict):
                 continue

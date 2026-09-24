@@ -54,11 +54,7 @@ def test_top_level_await_returns_the_awaited_value():
 
 
 def test_an_awaited_expression_is_the_result():
-    code = (
-        "async def double(n):\n"
-        "    return n * 2\n"
-        "await double(21)"
-    )
+    code = "async def double(n):\n" "    return n * 2\n" "await double(21)"
     assert run(local(), code) == "42"
 
 
@@ -153,11 +149,7 @@ def test_failure_points_at_the_line_in_the_submitted_code():
 
 
 def test_a_failure_inside_an_awaited_call_still_points_at_the_code():
-    code = (
-        "async def boom():\n"
-        "    raise ValueError('no rows')\n"
-        "await boom()"
-    )
+    code = "async def boom():\n" "    raise ValueError('no rows')\n" "await boom()"
     with pytest.raises(LocalExecutionError) as caught:
         run(local(), code)
     text = str(caught.value)

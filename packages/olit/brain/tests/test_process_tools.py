@@ -159,10 +159,14 @@ def test_an_olit_tool_is_named_as_one_at_every_galaxy_tool_lookup():
     get_tool_details twice, and settled for a different route.
     """
     surface = _surface()
-    for name in ("run_tool", "get_tool_details", "get_tool_input_template",
-                 "get_tool_run_examples", "get_tool_citations"):
-        outcome = asyncio.run(surface.dispatch(name, {"tool_id": "vintent_dataset",
-                                                      "history_id": "h1", "inputs": {}}))
+    for name in (
+        "run_tool",
+        "get_tool_details",
+        "get_tool_input_template",
+        "get_tool_run_examples",
+        "get_tool_citations",
+    ):
+        outcome = asyncio.run(surface.dispatch(name, {"tool_id": "vintent_dataset", "history_id": "h1", "inputs": {}}))
         assert "is an Olit tool" in outcome.text, name
         assert "Call vintent_dataset directly" in outcome.text, name
 

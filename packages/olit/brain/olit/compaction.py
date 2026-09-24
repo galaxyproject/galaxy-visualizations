@@ -100,14 +100,10 @@ class Settings:
         config = config or {}
         self.enabled = config.get("ai_compaction", True)
         self.context_window = (
-            config.get("ai_context_window")
-            or (target.context_window if target else None)
-            or DEFAULT_CONTEXT_WINDOW
+            config.get("ai_context_window") or (target.context_window if target else None) or DEFAULT_CONTEXT_WINDOW
         )
         self.reserve_tokens = (
-            config.get("ai_reserve_tokens")
-            or (target.max_tokens if target else None)
-            or RESERVE_TOKENS
+            config.get("ai_reserve_tokens") or (target.max_tokens if target else None) or RESERVE_TOKENS
         )
         keep = config.get("ai_keep_recent_tokens") or KEEP_RECENT_TOKENS
         # Keeping more than the window holds would decline compaction forever.
@@ -144,7 +140,7 @@ def usage_tokens(usage):
 def context_tokens(messages, measured=None):
     """How much context the next request carries; measured usage beats the estimate."""
     if measured:
-        after = messages[measured["index"] + 1:]
+        after = messages[measured["index"] + 1 :]
         return measured["tokens"] + sum(estimate_tokens(m) for m in after)
     return sum(estimate_tokens(m) for m in messages)
 
@@ -217,7 +213,7 @@ def previous_summary(messages):
     for message in messages:
         content = message.get("content") or ""
         if message.get("role") == "user" and content.startswith(COMPACTION_SUMMARY_PREFIX):
-            body = content[len(COMPACTION_SUMMARY_PREFIX):]
+            body = content[len(COMPACTION_SUMMARY_PREFIX) :]
             if body.endswith(COMPACTION_SUMMARY_SUFFIX):
                 body = body[: -len(COMPACTION_SUMMARY_SUFFIX)]
             return body
@@ -264,8 +260,7 @@ async def compact(messages, llm, settings, cancellation=None, measured=None):
     if parts is None:
         # Over the threshold with nothing older to summarize; the caller reports it.
         logger.warning(
-            "over the compaction threshold with nothing older to summarize "
-            "(window %d, reserve %d, keep_recent %d)",
+            "over the compaction threshold with nothing older to summarize " "(window %d, reserve %d, keep_recent %d)",
             settings.context_window,
             settings.reserve_tokens,
             settings.keep_recent_tokens,

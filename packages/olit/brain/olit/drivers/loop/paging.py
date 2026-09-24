@@ -16,7 +16,7 @@ def page(rows, offset=0, limit=None):
     limit = int(limit or ROW_CAP)
     offset = max(0, int(offset or 0))
     window, size = [], 0
-    for row in rows[offset:offset + limit]:
+    for row in rows[offset : offset + limit]:
         size += len(json.dumps(row, default=str))
         if window and size > ROW_BYTES_CAP:
             break

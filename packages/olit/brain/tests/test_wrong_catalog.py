@@ -185,7 +185,6 @@ def test_the_tool_message_carries_neither_a_contaminated_name_nor_body():
     from olit.drivers.loop.tools import plain_tool_name, without_control_tokens
 
     name, body = "get_page<|channel|>commentary", "Unknown tool: get_page<|channel|>commentary"
-    message = {"role": "tool", "name": plain_tool_name(name),
-               "content": without_control_tokens(body)}
+    message = {"role": "tool", "name": plain_tool_name(name), "content": without_control_tokens(body)}
     assert "<|" not in message["name"] and "<|" not in message["content"]
     assert message["name"] == "get_page"

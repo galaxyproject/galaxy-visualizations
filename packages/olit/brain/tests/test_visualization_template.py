@@ -14,11 +14,13 @@ TYPES = {
 }
 
 PLOTLY = {
-    "settings": [{"name": "stack_bar", "type": "boolean"},
-                 {"name": "x_axis_label", "type": "text"}],
+    "settings": [{"name": "stack_bar", "type": "boolean"}, {"name": "x_axis_label", "type": "text"}],
     "tracks": [
-        {"name": "type", "type": "select",
-         "options": [{"label": "Bar", "value": "bar"}, {"label": "Lines", "value": "lines"}]},
+        {
+            "name": "type",
+            "type": "select",
+            "options": [{"label": "Bar", "value": "bar"}, {"label": "Lines", "value": "lines"}],
+        },
         {"name": "x", "type": "data_column"},
     ],
 }
@@ -26,12 +28,15 @@ PLOTLY = {
 IGV = {
     "settings": [
         {"name": "locus", "type": "text"},
-        {"name": "source", "type": "conditional",
-         "test_param": {"name": "origin", "type": "select"},
-         "cases": [
-             {"value": "builtin", "inputs": [{"name": "genome", "type": "data"}]},
-             {"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]},
-         ]},
+        {
+            "name": "source",
+            "type": "conditional",
+            "test_param": {"name": "origin", "type": "select"},
+            "cases": [
+                {"value": "builtin", "inputs": [{"name": "genome", "type": "data"}]},
+                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]},
+            ],
+        },
     ],
     "tracks": [{"name": "urlDataset", "type": "data"}],
 }
@@ -41,8 +46,8 @@ def test_a_scalar_input_gets_a_bare_placeholder_not_an_entry():
     """The agent stored {'value': 'scatter'} for a select and {'column': ...} for a column."""
     template = build_visualization_template(PLOTLY, TYPES)
     track = template["tracks"][0]
-    assert track["type"] == "bar"          # the first declared choice, not an object
-    assert track["x"] == "<value>"         # data_column stores a string
+    assert track["type"] == "bar"  # the first declared choice, not an object
+    assert track["x"] == "<value>"  # data_column stores a string
     assert template["settings"] == {"stack_bar": False, "x_axis_label": "<value>"}
 
 
