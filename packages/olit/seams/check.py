@@ -135,6 +135,12 @@ def check_layers(data):
                     out.append(("DRIFT", f"layer.pi/{f.split('/')[-1]}",
                                 "the loop olit ports has changed upstream"))
 
+    out.extend(_policy_rows(data.get("policy") or {}))
+    out.extend(_map_rows("tool-request", data.get("tool_request") or {}, layers.tool_requests(),
+                         "the Galaxy query this tool builds has changed"))
+    out.extend(_map_rows("tool-contract", data.get("tool_contract") or {}, layers.tool_contracts(),
+                         "the parameter contract the model is shown has changed"))
+
     surface = data.get("tool_surface") or {}
     if surface.get("upstream"):
         allowed = surface.get("allowed_divergence") or {}
@@ -166,6 +172,54 @@ def check_layers(data):
                 out.append(("SHAPE", f"layer.tool-return/{name}",
                             f"galaxy-mcp returns {{{keys}}}; olit passes the response through"))
     return out
+
+
+def _describe(stored, live):
+    """Name what moved, so a reader does not have to diff two blobs."""
+    if not isinstance(stored, dict) or not isinstance(live, dict):
+        return f"{stored!r} -> {live!r}"
+    moved = [f"{k}: {stored.get(k)!r} -> {live.get(k)!r}"
+             for k in sorted(set(stored) | set(live)) if stored.get(k) != live.get(k)]
+    return "; ".join(moved)
+
+
+def _map_rows(kind, stored, live, message):
+    """Per-entry drift between what the registry declares and what the code does now."""
+    rows = []
+    for name in sorted(set(stored) | set(live)):
+        if name not in live:
+            rows.append(("MISSING", f"layer.{kind}/{name}", "declared here but gone from the code"))
+        elif name not in stored:
+            rows.append(("ORPHAN", f"layer.{kind}/{name}", "not declared -- re-snapshot to record it"))
+        elif stored[name] != live[name]:
+            rows.append(("DRIFT", f"layer.{kind}/{name}",
+                         f"{message}: {_describe(stored[name], live[name])}"))
+    return rows
+
+
+def _policy_rows(policy):
+    """Declared behaviour against live behaviour, and a PORTED value against pi's."""
+    rows = []
+    live_by_name = {"llm_request": layers.llm_request_policy, "loop": layers.loop_policy,
+                    "guards": layers.guard_names}
+    for name, declared in sorted(policy.items()):
+        live = live_by_name[name]()
+        stored = declared.get("olit")
+        if stored != live:
+            rows.append(("DRIFT", f"policy.{name}",
+                         f"the code no longer matches what is declared: {_describe(stored, live)}"))
+        upstream = (declared.get("upstream") or {})
+        labels = declared.get("labels") or {}
+        if declared.get("label") == "PORTED":
+            for key, value in upstream.items():
+                if isinstance(stored, dict) and stored.get(key) != value:
+                    rows.append(("DRIFT", f"policy.{name}/{key}",
+                                 f"declared PORTED but pi has {value!r} and olit has {stored.get(key)!r}"))
+        for key, label in sorted(labels.items()):
+            if label == "PORTED" and isinstance(stored, dict) and stored.get(key) != upstream.get(key):
+                rows.append(("DRIFT", f"policy.{name}/{key}",
+                             f"declared PORTED but pi has {upstream.get(key)!r} and olit has {stored.get(key)!r}"))
+    return rows
 
 
 def main():
@@ -233,6 +287,9 @@ def main():
         + len((data.get("eval_lib") or {}).get("fingerprints") or {})
         + len((data.get("loom_modules") or {}).get("fingerprints") or {})
         + (1 if (data.get("identity_prompt") or {}).get("fingerprint") else 0)
+        + len(data.get("policy") or {})
+        + len(data.get("tool_request") or {})
+        + len(data.get("tool_contract") or {})
     )
     print(f"\n{len(registry)} seams + {counted} layer entries checked, "
           f"{len(problems)} need attention")

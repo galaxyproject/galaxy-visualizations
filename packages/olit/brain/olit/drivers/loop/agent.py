@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 # A backstop for an unattended tab; pi and loom cap nothing. Exhaustion is reported.
 MAX_STEPS = 40
+# pi runs a batch through executeToolCallsParallel unless a tool asks for sequential. Olit
+# dispatches in call order because its gates and the Pyodide namespace are shared state.
+TOOL_EXECUTION = "sequential"
 # Output hit the token limit, so its tool calls may be silently incomplete.
 TRUNCATED = "length"
 TRUNCATED_ERROR = (
