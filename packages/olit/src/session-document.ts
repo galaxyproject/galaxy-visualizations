@@ -43,6 +43,8 @@ export interface SessionDocument {
     session: SessionMeta;
     messages: Message[];
     artifacts: Artifact[];
+    /** tool_call_ids that failed; the transcript carries no field for it. */
+    toolErrors?: string[];
 }
 
 const uuid = () => globalThis.crypto?.randomUUID?.() || `s-${Date.now()}-${Math.random()}`;
@@ -92,11 +94,17 @@ export function restoreMessages(document: SessionDocument, seed: Message): Messa
 /** The document after one completed turn. */
 export function advance(
     document: SessionDocument,
-    changes: { messages: Message[]; artifacts: Artifact[]; usage?: Partial<SessionMeta["usage"]> },
+    changes: {
+        messages: Message[];
+        artifacts: Artifact[];
+        usage?: Partial<SessionMeta["usage"]>;
+        toolErrors?: Iterable<string>;
+    },
 ): SessionDocument {
     const previous = document.session;
     return {
         ...document,
+        toolErrors: changes.toolErrors ? [...changes.toolErrors] : document.toolErrors,
         session: {
             ...previous,
             turn: previous.turn + 1,

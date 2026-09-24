@@ -15,7 +15,7 @@ from .tools import ToolSurface, plain_tool_name, without_control_tokens
 logger = logging.getLogger(__name__)
 
 # A backstop for an unattended tab; pi and loom cap nothing. Exhaustion is reported.
-MAX_STEPS = 40
+MAX_STEPS = 100
 # pi runs a batch through executeToolCallsParallel unless a tool asks for sequential. Olit
 # dispatches in call order because its gates and the Pyodide namespace are shared state.
 TOOL_EXECUTION = "sequential"
@@ -36,11 +36,12 @@ ABORTED_ERROR = "Operation aborted"
 # How a turn ended. One of these is assigned at every exit, so no branch can leave the
 # outcome half-described; the initial value is what a spent step budget looks like.
 EXHAUSTED, ABORTED, REPLIED, FINISHED = "exhausted", "aborted", "replied", "finished"
-MAX_TOOL_RESULT_BYTES = 64 * 1024
+MAX_TOOL_RESULT_BYTES = 256 * 1024
+# Names the size and leaves the narrowing to the caller, which can read its own schema.
 OVERSIZED_RESULT_ERROR = (
-    'Tool call "{name}" returned {size} KB, over the {cap} KB limit for a single result, so '
-    "it was discarded. Re-issue it with a narrower query: add a filter, or set a smaller "
-    "limit and page with offset."
+    'Tool call "{name}" returned {size} KB, over the {cap} KB limit for a single result, so it '
+    "was discarded. Ask for less of it: check this tool's parameters for a way to narrow the "
+    "request, or use a more specific tool."
 )
 
 

@@ -1,6 +1,6 @@
 /** Background watcher for submitted Galaxy work; the analogue of loom's galaxy-poller. */
 
-export type WatchKind = "job" | "invocation";
+export type WatchKind = "job" | "invocation" | "dataset";
 
 export interface Watched {
     kind: WatchKind;
@@ -16,15 +16,22 @@ const JOB_FAILED = new Set(["error", "failed", "deleted"]);
 const JOB_TERMINAL = new Set(["ok", "discarded", "skipped", "stopped", ...JOB_FAILED]);
 /** Terminal invocation states. `scheduled` only means every step was scheduled. */
 const INVOCATION_TERMINAL = new Set(["cancelled", "failed", "completed"]);
+/** Dataset states that will never change again. */
+const DATASET_FAILED = new Set(["error", "discarded", "deleted"]);
+const DATASET_TERMINAL = new Set(["ok", "paused", ...DATASET_FAILED]);
 
 export function isTerminal(kind: WatchKind, state: string | undefined): boolean {
     if (!state) return false;
-    return kind === "job" ? JOB_TERMINAL.has(state) : INVOCATION_TERMINAL.has(state);
+    if (kind === "job") return JOB_TERMINAL.has(state);
+    if (kind === "dataset") return DATASET_TERMINAL.has(state);
+    return INVOCATION_TERMINAL.has(state);
 }
 
 export function isFailure(kind: WatchKind, state: string | undefined): boolean {
     if (!state) return false;
-    return kind === "job" ? state === "error" : state === "failed" || state === "cancelled";
+    if (kind === "job") return state === "error";
+    if (kind === "dataset") return DATASET_FAILED.has(state);
+    return state === "failed" || state === "cancelled";
 }
 
 /** Ids worth watching in a tool result, or none; an unknown shape yields nothing. */
@@ -43,6 +50,13 @@ export function extractWatched(toolName: string, content: string): Watched[] {
         for (const job of payload.jobs || []) {
             if (job && typeof job.id === "string") {
                 out.push({ kind: "job", id: job.id, label: "run_tool", state: job.state });
+            }
+        }
+    } else if (toolName === "upload_file_from_url" || toolName === "upload_file") {
+        // Watch the datasets themselves, because the fetch job can be ok over a failed one.
+        for (const output of payload.outputs || []) {
+            if (output && typeof output.id === "string") {
+                out.push({ kind: "dataset", id: output.id, label: toolName, state: output.state });
             }
         }
     } else if (toolName === "invoke_workflow") {
@@ -152,6 +166,9 @@ export function galaxyStateReader(galaxyRoot: string, credentials: RequestCreden
     return async (w: Watched): Promise<string | undefined> => {
         if (w.kind === "job") {
             return stateOf(await read(`api/jobs/${w.id}`));
+        }
+        if (w.kind === "dataset") {
+            return stateOf(await read(`api/datasets/${w.id}`));
         }
         const state = stateOf(await read(`api/invocations/${w.id}`));
         if (state !== "scheduled" && state !== "completed") return state;

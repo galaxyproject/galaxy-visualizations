@@ -6,7 +6,7 @@ model through a user-supplied key, runs local Python, and orchestrates Galaxy th
 user's own session. There is no per-user server container.
 
 Its agent behaviour and interaction model follow [Orbit](https://github.com/galaxyproject/loom),
-the Galaxy AI co-scientist, whose skills, prompts and evals apply here; every deliberate
+the Galaxy AI co-scientist, whose skills and prompts apply here; every deliberate
 difference is recorded in `seams/`. `LAYOUT.md` maps the code.
 
 ## Running it
@@ -25,7 +25,7 @@ GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=local LLM_ROOT=http://127.0.0.1:8
   LLM_PATH=/v1 LLM_MODEL=stub-model LLM_CONTEXT_WINDOW=40000 npm run dev
 ```
 
-**Real model, no browser** (`evals/README.md`): `python3 evals/run.py smoke`.
+**Real model, no browser**: scenarios live in the `agents` repo; point `OLIT_ROOT` here.
 
 **Real Galaxy and a real model:**
 
@@ -44,7 +44,7 @@ is held by the worker and never enters the brain.
 ## Tests
 
 `npm test` runs, in order: vitest, pytest, `tsc`, the seam checks, and the e2e drives.
-`npm run seams` compares Olit against an Orbit checkout at `LOOM_ROOT` (`seams/README.md`).
+`npm run vendored` holds the copied Orbit UI byte-identical (`vendored/README.md`). Orbit provenance is checked from the `agents` repo.
 
 ## Scope
 

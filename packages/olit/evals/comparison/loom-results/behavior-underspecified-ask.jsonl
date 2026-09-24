@@ -1,3 +1,0 @@
-{"scenario":"behavior: an underspecified request should prompt a clarifying question","modelId":"tacc:gpt-oss-120b","runIndex":0,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":5573}
-{"scenario":"behavior: an underspecified request should prompt a clarifying question","modelId":"tacc:gpt-oss-120b","runIndex":1,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":6205}
-{"scenario":"behavior: an underspecified request should prompt a clarifying question","modelId":"tacc:gpt-oss-120b","runIndex":2,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":6373}

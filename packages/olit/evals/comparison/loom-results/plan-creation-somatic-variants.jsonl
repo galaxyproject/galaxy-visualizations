@@ -1,3 +1,0 @@
-{"scenario":"plan creation: somatic variant calling from tumor/normal WES","modelId":"tacc:gpt-oss-120b","runIndex":0,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":17765}
-{"scenario":"plan creation: somatic variant calling from tumor/normal WES","modelId":"tacc:gpt-oss-120b","runIndex":1,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":16659}
-{"scenario":"plan creation: somatic variant calling from tumor/normal WES","modelId":"tacc:gpt-oss-120b","runIndex":2,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":20511}

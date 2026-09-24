@@ -3,7 +3,7 @@ import "./orbit/styles.css";
 import "./olit.css";
 import { editRecord } from "./record-write";
 import { describeSeedDataset, summarize } from "./seed-dataset";
-import { applyJobOutcome, noteSubmitted } from "./record-jobs";
+import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
@@ -20,6 +20,7 @@ import { PyodideManager } from "./pyodide/pyodide-manager";
 import { runOlit, type LoopEvent, type Message } from "./pyodide-runner";
 import { renderArtifact, type Artifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
+import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
 import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
 import { mountUsageBar } from "./usage-bar";
@@ -160,12 +161,14 @@ async function main() {
     // Switching provider reloads, so what earlier turns produced comes back from storage
     // rather than from memory: without this a chart cannot be placed after a model switch.
     produced.push(...sessionDoc.artifacts);
+    // A restored session renders a failed step the way the live one did.
+    const toolErrors = new Set<string>(sessionDoc.toolErrors || []);
     const restored = restoreMessages(sessionDoc, seed);
     const resumed = restored.length > 1;
     if (resumed) {
         convo.length = 0;
         convo.push(...restored);
-        replayMessages(chat, restored);
+        replayMessages(chat, restored, toolErrors);
         el.reset.classList.remove("hidden");
     }
     if (fromGalaxy) {
@@ -221,12 +224,19 @@ async function main() {
             );
         },
         onSettled: (w, state) => {
-            const what = w.kind === "invocation" ? "Workflow invocation" : "Galaxy job";
+            const what = WHAT[w.kind];
             const failed = isFailure(w.kind, state);
             if (failed) {
                 chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
             } else {
-                chat.addInfoMessage(`${what} ${w.id} finished (${state}). Ask me to check the results.`);
+                chat.addInfoMessage(`${what} ${w.id} finished (${state}).`);
+            }
+            // Continue without asking the user to relay the notification.
+            if (isResumableOutcome(state, failed)) {
+                followUp.deliver(buildResumePrompt([{
+                    kind: w.kind, id: w.id, label: `${what} ${w.id}`,
+                    outcome: failed ? "failed" : "completed",
+                }]));
             }
             // loom's poller advances the notebook itself.
             if (config.history_id) {
@@ -239,6 +249,10 @@ async function main() {
     });
 
     let busy = false;
+    // Bounded automatic continuation, so an unattended tab cannot keep itself busy.
+    const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
+        onPaused: (text) => chat.addInfoMessage(text),
+    });
     // Last catalog status the brain reported; undefined until the first turn returns.
     let latestCatalog: import("./catalog-gate").CatalogStatus | undefined;
 
@@ -264,6 +278,9 @@ async function main() {
             } else if (ev.type === "tool_end") {
                 // The brain states the outcome; toolStatus only guesses at it.
                 const status = ev.is_error ? "error" : toolStatus(ev.content);
+                if (ev.is_error) {
+                    toolErrors.add(ev.id);
+                }
                 chat.updateToolCard(ev.id, status, ev.content);
                 // Galaxy returns the ids, so the model never has to register them.
                 watcher.ingest(ev.name, ev.content);
@@ -339,7 +356,9 @@ async function main() {
 
         // One document, two stores: local now because it is cheap, Galaxy on a debounce
         // because every config change there inserts a whole new revision.
-        sessionDoc = advance(sessionDoc, { messages: convo, artifacts: produced, usage: reply.usage });
+        sessionDoc = advance(sessionDoc, {
+            messages: convo, artifacts: produced, usage: reply.usage, toolErrors,
+        });
         noteModel(sessionDoc, { provider: config.ai_provider, model: config.ai_model });
         void session.save(sessionDoc);
         el.save.textContent = "Save";
@@ -361,12 +380,14 @@ async function main() {
         if (!text || busy || !ready) {
             return;
         }
+        followUp.userInput();
         busy = true;
         el.input.value = "";
         el.input.style.height = "auto";
         // Stop replaces Send for the duration of the turn, as in Orbit.
         el.send.classList.add("hidden");
         el.abort.classList.remove("hidden");
+        followUp.agentStarted();
         chat.addUserMessage(text);
         chat.showThinking();
         convo.push({ role: "user", content: text });
@@ -382,10 +403,40 @@ async function main() {
             el.abort.classList.add("hidden");
             el.send.classList.remove("hidden");
             busy = false;
+            followUp.agentSettled();
+        }
+    }
+
+    /** A turn the poller started. The prompt reaches the model; the chat shows a line. */
+    async function runAutomaticTurn(text: string) {
+        if (busy || !ready) {
+            return;
+        }
+        busy = true;
+        followUp.agentStarted();
+        el.send.classList.add("hidden");
+        el.abort.classList.remove("hidden");
+        chat.addInfoMessage("Checking the Galaxy results that just landed.");
+        chat.showThinking();
+        convo.push({ role: "user", content: text });
+        try {
+            await runTurn(text);
+        } catch (e) {
+            console.error("[olit] automatic follow-up failed", e);
+            chat.hideThinking();
+            retryNotice.stop();
+            chat.addErrorMessage(lastLine(String(e)));
+        } finally {
+            el.abort.classList.add("hidden");
+            el.send.classList.remove("hidden");
+            busy = false;
+            followUp.agentSettled();
         }
     }
 
     function abortCurrentTurn() {
+        // Stop pauses automatic continuation until the user speaks again.
+        followUp.aborted();
         if (busy) {
             pyodide.abort();
         }

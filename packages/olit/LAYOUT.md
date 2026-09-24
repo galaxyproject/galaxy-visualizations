@@ -25,9 +25,8 @@ brain/olit/              the agent (Python, runs in Pyodide)
     python/*.py               plain async processes (lineage_report, organize_datasets)
     extensions/               materializers a process can call, each behind a bridge.py
   vendor/                   contracts owned elsewhere, pinned (galaxy-charts input types)
-evals/                    behavioural scenarios against a real model and Galaxy
 e2e/                      Playwright drives against a stub, plus opt-in live drives
-seams/                    the Orbit parity registry and its checks
+vendored/                 integrity of the files copied in from elsewhere
 ```
 
 Two Galaxy surfaces, one gate. The loop uses named tools over direct REST
