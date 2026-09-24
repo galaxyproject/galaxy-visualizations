@@ -66,7 +66,7 @@ def main(argv: list[str]) -> int:
 
     pinned = manifest.get("files") or {}
     if not pinned:
-        print("no pins recorded; run: python3 seams/check_vendored.py --update")
+        print("no pins recorded; run: python3 vendored/check.py --update")
         return 1
 
     changed = [r for r in TRACKED if r in pinned and now.get(r) != pinned[r]]
@@ -80,7 +80,7 @@ def main(argv: list[str]) -> int:
             "\nVendored files are synced from loom by copy and must stay identical.\n"
             "Put olit-specific changes in olit-owned files (e.g. src/credentials.css).\n"
             "If this is a deliberate re-sync from upstream, re-pin with:\n"
-            "  python3 seams/check_vendored.py --update"
+            "  python3 vendored/check.py --update"
         )
         return 1
 
@@ -91,7 +91,7 @@ def main(argv: list[str]) -> int:
         print(
             f"\n{contracts['upstream']} owns these; olit reads them and does not author them.\n"
             "Re-copy from a build of that repo and re-pin with:\n"
-            "  python3 seams/check_vendored.py --update"
+            "  python3 vendored/check.py --update"
         )
         return 1
 

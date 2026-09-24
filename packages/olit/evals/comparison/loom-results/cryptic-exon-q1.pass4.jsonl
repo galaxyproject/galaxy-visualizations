@@ -1,1 +1,0 @@
-{"scenario":"cryptic-exon-q1: name the gene carrying the cryptic exon","modelId":"tacc:gpt-oss-120b","runIndex":0,"exitCode":0,"passed":false,"failedDimensions":["other"],"failures":[{"assertion":"chatText.mustMatch","detail":"chat text did not match /\\bGNG10\\b/"}],"usage":null,"durationMs":46254}

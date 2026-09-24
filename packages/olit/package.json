@@ -16,14 +16,14 @@
         "dev": "npm run build && vite",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
         "preview": "vite preview",
-        "seams": "python3 seams/check.py && python3 seams/check_vendored.py",
-        "test": "npm run test:unit && npm run test:python && npm run typecheck && npm run seams && npm run test:e2e",
+        "test": "npm run test:unit && npm run test:python && npm run typecheck && npm run vendored && npm run test:e2e",
         "test:e2e": "bash e2e/run-all.sh",
         "test:python": "cd brain && python -m pytest tests/ -v --import-mode=importlib",
         "test:ui": "vitest --ui",
         "test:unit": "vitest run",
         "test:watch": "vitest --watch",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "vendored": "python3 vendored/check.py"
     },
     "dependencies": {
         "mermaid": "^11.16.1",

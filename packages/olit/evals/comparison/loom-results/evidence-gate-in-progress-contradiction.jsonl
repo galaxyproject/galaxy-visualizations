@@ -1,1 +1,0 @@
-{"scenario":"the evidence gate treats a completion flipped over an in_progress invocation as a contradiction","modelId":null,"runIndex":0,"exitCode":0,"passed":true,"failedDimensions":[],"failures":[],"usage":null,"durationMs":2735}
