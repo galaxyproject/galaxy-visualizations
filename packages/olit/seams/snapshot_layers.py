@@ -1,7 +1,7 @@
 """Re-certify the whole-layer seams: write today's upstream state into registry.json.
 
 Running this is the deliberate act of saying "I have looked at what changed upstream and
-olit is correct against it". `check.py` then holds us to that until it is run again.
+the agent is correct against it". `check.py` then holds us to that until it is run again.
 
   python3 seams/snapshot_layers.py [--mcp path/to/galaxy_mcp/server.py]
 """
@@ -12,9 +12,10 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
+import description  # noqa: E402
 import layers  # noqa: E402
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+REGISTRY = pathlib.Path(__file__).resolve().parent / "registry.json"
 LOOM = os.environ.get("LOOM_ROOT", str(pathlib.Path.home() / "loom"))
 
 # Differences that are forced by the browser architecture, not drift. Each must stay
@@ -157,7 +158,8 @@ def main():
     if "--mcp" in sys.argv:
         mcp_path = sys.argv[sys.argv.index("--mcp") + 1]
 
-    registry = json.loads((ROOT / "seams/registry.json").read_text())
+    agent = description.load()
+    registry = json.loads(REGISTRY.read_text())
     existing = registry.get("layers") or {}
 
     layer_data = {
@@ -178,8 +180,8 @@ def main():
             "classified": MODULE_CLASSIFICATION,
             "fingerprints": layers.loom_modules(LOOM),
         },
-        "identity_prompt": layers.identity_prompt() or (existing.get("identity_prompt") or {}),
-        "skills": layers.skills_manifest(),
+        "identity_prompt": agent.get("identity_prompt") or (existing.get("identity_prompt") or {}),
+        "skills": agent["skills"],
         "pi": layers.pi_manifest(LOOM) or (existing.get("pi") or {}),
         "tool_surface": existing.get("tool_surface") or {},
     }
@@ -193,14 +195,12 @@ def main():
         }
     policy = {}
     for name, declared in POLICY_UPSTREAM.items():
-        live = {"llm_request": layers.llm_request_policy, "loop": layers.loop_policy,
-                "guards": layers.guard_names}[name]()
-        policy[name] = {**declared, "olit": live}
+        policy[name] = {**declared, "olit": description.policy(agent, name)}
     layer_data["policy"] = policy
-    layer_data["tool_request"] = layers.tool_requests()
-    layer_data["tool_contract"] = layers.tool_contracts()
+    layer_data["tool_request"] = description.tool_requests(agent)
+    layer_data["tool_contract"] = description.tool_contracts(agent)
     registry["layers"] = layer_data
-    (ROOT / "seams/registry.json").write_text(json.dumps(registry, indent=2) + "\n")
+    REGISTRY.write_text(json.dumps(registry, indent=2) + "\n")
     n = layer_data["tool_surface"].get("upstream") or {}
     print(
         f"certified: {len(layer_data['eval_scenarios']['fingerprints'])} loom scenarios, "

@@ -62,3 +62,9 @@ def test_the_identity_prompt_is_read_from_the_plugin_manifest():
 
 def test_describing_twice_gives_the_same_answer():
     assert described() == described()
+
+
+def test_the_shell_contract_a_harness_stands_in_for_is_published():
+    shell = described()["shell"]
+    assert shell["max_auto_follow_ups"] == 3
+    assert shell["resume_prompt"].startswith("[Olit automatic Galaxy follow-up]")

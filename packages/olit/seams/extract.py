@@ -1,4 +1,4 @@
-"""Pull a named symbol's source out of loom (TypeScript) or olit (Python).
+"""Pull a named symbol's source out of loom.
 
 The seam registry hashes these extracts, so drift upstream shows up as a changed
 hash rather than as something nobody noticed.
@@ -35,36 +35,6 @@ def ts_symbol(text, symbol):
                 return text[m.start() : j + 1]
         j += 1
     return None
-
-
-def py_symbol(text, symbol):
-    """A module-level constant (triple-quoted, braced or parenthesised), or a `def` body."""
-    m = re.search(rf'^{re.escape(symbol)} = ("""|\'\'\')', text, re.M)
-    if m:
-        quote = m.group(1)
-        end = text.index(quote, m.end())
-        return text[m.start() : end + len(quote)]
-    for opener, closer in (("{", "}"), ("(", ")")):
-        m = re.search(rf"^{re.escape(symbol)} = \{opener}$", text, re.M)
-        if not m:
-            continue
-        lines = text[m.start():].splitlines()
-        body = [lines[0]]
-        for line in lines[1:]:
-            body.append(line)
-            if line == closer:
-                break
-        return "\n".join(body)
-    m = re.search(rf"^def {re.escape(symbol)}\b", text, re.M)
-    if not m:
-        return None
-    rest = text[m.start() :].splitlines()
-    out = [rest[0]]
-    for line in rest[1:]:
-        if line and not line[0].isspace():
-            break
-        out.append(line)
-    return "\n".join(out).rstrip()
 
 
 def fingerprint(source):

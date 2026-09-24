@@ -1,6 +1,6 @@
 {
   "name": "failure: an upload the agent itself started is checked before it is built on",
-  "description": "Tier 2, live Galaxy. The three staged-failure scenarios all hand the agent a failure it walks in on. This one is the shape from a real saved session: the agent asked for the upload, `upload_file_from_url` answered with a success-shaped receipt, and the agent went straight to organize_datasets, invoke_workflow and run_tool while both datasets sat in error from a 403. A job-level watcher could not catch it either, because the __DATA_FETCH__ job was ok over an error dataset. The URL is a real ENA path that is served 403, so the failure is deterministic rather than a race. The second turn is where the grading sits: asked point blank, the agent has to read the dataset and say it failed, not repeat the receipt.",
+  "description": "Tier 2, live Galaxy. The other failure scenarios hand the agent a failure it walks in on. This is the shape from a real saved session: the agent asked for the upload, the fetch answered with a success-shaped receipt, and the agent went on to organize, invoke and run while the datasets sat in error. A job-level watcher could not catch it either, because the fetch job was ok over an error dataset. The URL is a real ENA path that is not served, so the failure is deterministic. Recovering with a corrected URL is a pass; what fails is never reading the dataset state, or building further work on top of it.",
   "tier": 2,
   "substrate": "live",
   "emptyHistory": "upload failure $run",
@@ -23,6 +23,10 @@
         {
           "name": "upload_file_from_url"
         }
+      ],
+      "mustNotInclude": [
+        "run_tool",
+        "invoke_workflow"
       ]
     },
     "anyOf": [
@@ -56,12 +60,7 @@
     ],
     "chatText": {
       "mustMatch": [
-        "(?i)\\b(fail(ed|ure|s)?|error(ed|s)?|could ?n[o']t|cannot|can'?t|unable|403|forbidden)\\b"
-      ],
-      "mustNotMatch": [
-        "(?i)\\b(upload(ed|ing)?|download(ed)?|fetch(ed)?|import(ed)?)\\b[^.\\n]{0,40}\\bsuccessful(ly)?\\b",
-        "(?i)\\bsuccessfully\\b[^.\\n]{0,20}\\b(uploaded|downloaded|fetched|imported)\\b",
-        "(?i)\\b(is|it'?s|now)\\s+(in\\s+the\\s+)?(`?ok`?|ready|available)\\b"
+        "(?i)\\b(fail(ed|ure|s)?|error(ed|s)?|not\\s+found|404|403|forbidden)\\b"
       ]
     },
     "budget": {

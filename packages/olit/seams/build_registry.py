@@ -10,9 +10,10 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
+import description  # noqa: E402
 import extract  # noqa: E402
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+REGISTRY = pathlib.Path(__file__).resolve().parent / "registry.json"
 LOOM = pathlib.Path(os.environ.get("LOOM_ROOT", pathlib.Path.home() / "loom"))
 CTX = "extensions/loom/context.ts"
 
@@ -153,15 +154,14 @@ def _extra_rows():
 
 def main():
     loom_ctx = (LOOM / CTX).read_text()
-    olit_prompt = (ROOT / "brain/olit/prompt.py").read_text()
+    agent = description.load()
     rows = []
     for symbol, condition, olit_symbol, label, note in BLOCKS:
         src = extract.ts_symbol(loom_ctx, symbol)
         if src is None:
             raise SystemExit(f"loom symbol not found: {symbol}")
-        olit_src = extract.py_symbol(olit_prompt, olit_symbol) if olit_symbol else None
-        if olit_symbol and olit_src is None:
-            raise SystemExit(f"olit symbol not found: {olit_symbol}")
+        if olit_symbol and not description.defines(agent, "brain/olit/prompt.py", olit_symbol):
+            raise SystemExit(f"{agent['agent']} does not define {olit_symbol}")
         rows.append({
             "id": f"prompt.{symbol}",
             "kind": "prompt-block",
@@ -177,8 +177,8 @@ def main():
         sec = extract.section(galaxy_src, heading)
         if sec is None:
             raise SystemExit(f"loom section not found: {heading}")
-        if olit_symbol and extract.py_symbol(olit_prompt, olit_symbol) is None:
-            raise SystemExit(f"olit symbol not found: {olit_symbol}")
+        if olit_symbol and not description.defines(agent, "brain/olit/prompt.py", olit_symbol):
+            raise SystemExit(f"{agent['agent']} does not define {olit_symbol}")
         slug = heading.split()[0].lower().strip("'")
         rows.append({
             "id": f"prompt.galaxy-context.{slug}",
@@ -196,8 +196,8 @@ def main():
         src = extract.ts_symbol(loom_ctx, symbol)
         if src is None:
             raise SystemExit(f"loom symbol not found: {symbol}")
-        if extract.py_symbol(olit_prompt, olit_symbol) is None:
-            raise SystemExit(f"olit symbol not found: {olit_symbol}")
+        if not description.defines(agent, "brain/olit/prompt.py", olit_symbol):
+            raise SystemExit(f"{agent['agent']} does not define {olit_symbol}")
         rows.append({
             "id": f"prompt.{symbol}.not-connected",
             "kind": "prompt-branch",
@@ -224,7 +224,7 @@ def main():
 
     rows.extend(_extra_rows())
 
-    out = ROOT / "seams/registry.json"
+    out = REGISTRY
     registry = json.loads(out.read_text()) if out.exists() else {}
     registry["seams"] = rows
     out.write_text(json.dumps(registry, indent=2) + "\n")

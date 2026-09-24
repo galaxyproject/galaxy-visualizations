@@ -251,6 +251,23 @@ def loop():
     }
 
 
+def shell(root):
+    """What the shell around the brain does between turns, for a harness that stands in for it."""
+    if root is None:
+        return {}
+    try:
+        source = (pathlib.Path(root) / "src/auto-resume.ts").read_text()
+    except OSError:
+        return {}
+    found = re.search(r"DEFAULT_MAX_AUTO_FOLLOW_UPS = (\d+)", source)
+    body = source.split("export function buildResumePrompt", 1)[-1].split("return (", 1)[-1]
+    parts = re.findall(r'"((?:[^"\\]|\\.)*)"', body.split("\n    );", 1)[0])
+    return {
+        "max_auto_follow_ups": int(found.group(1)) if found else None,
+        "resume_prompt": "".join(p.encode().decode("unicode_escape") for p in parts) or None,
+    }
+
+
 def skills(root):
     """The vendored skills pin, plus a hash per file when the corpus has been built."""
     base = package_root() / "registry/skills/galaxy-skills"
@@ -276,6 +293,7 @@ def describe(root=None):
         "prompt_blocks": prompt_blocks(),
         "tools": tools(),
         "policy": {"llm_request": llm_request(), "loop": loop(), "guards": guards()},
+        "shell": shell(root),
         "skills": skills(root),
     }
 
