@@ -37,9 +37,9 @@ first-turn behaviour across the eval matrix before anything caught it.
 
 ## Whole-layer seams
 
-Four layers are compared as a *set* rather than symbol by symbol, because that is how they
-drift: loom's **eval scenarios**, the Galaxy **tool surface** (vs `galaxy-mcp`), and the
-vendored **skills corpus**, and **pi** — the agent loop olit's driver is a port of (`@earendil-works/pi-agent-core`, reached through loom's `node_modules`). Their certified upstream state lives in `registry.json` under
+Several layers are compared as a *set* rather than symbol by symbol, because that is how they
+drift: loom's **eval scenarios**, the Galaxy **tool surface** (vs `galaxy-mcp`), the
+**policy** layer, the vendored **skills corpus**, and **pi** — the agent loop olit's driver is a port of (`@earendil-works/pi-agent-core`, reached through loom's `node_modules`). Their certified upstream state lives in `registry.json` under
 `layers`, so `check.py` runs offline and in CI.
 
 Re-certifying is deliberate, never automatic:
@@ -91,3 +91,36 @@ content, and none of 1,248 recorded runs carries thinking markup in graded text.
 That is inert, not absent by oversight, and it stops being inert the moment a provider
 inlines `<think>` in content -- which a local endpoint may. `layer.eval-lib` exists so the
 change is visible when it matters, rather than ported for parity now.
+
+### The policy layer: behaviour, declared as values
+
+The layers above answer "has upstream moved". The policy layer answers a question a
+fingerprint cannot: **is olit quietly imposing something Orbit does not?** It was added after
+a sampling default (`temperature=0.3`, `top_p=0.8`) and a query parameter (`full=true`) both
+sat in the code for months behind a green check.
+
+It stores *values*, not hashes, so a diff reads as a decision:
+
+- **`policy.llm_request`** — what an unconfigured request body carries. `sampling` holds
+  `temperature`, `top_p`, `max_tokens` and `tool_choice`; `body_keys` catches any new
+  unconditional field. Labelled `PORTED`, so each value must equal pi's.
+- **`policy.loop`** — `max_steps`, `tool_execution`, `max_tool_result_bytes`, `row_cap`,
+  `row_bytes_cap`, `reserve_tokens`, `keep_recent_tokens`, `tool_result_max_chars`, each with
+  its own label. The four `PORTED` ones are held equal to pi's; the `ADDED` and `DIVERGES`
+  ones carry a note saying why olit has them.
+- **`policy.guards`** — every refusal olit can issue, read from the `guard=` names in the
+  code. A guard added without re-snapshotting is reported.
+- **`layer.tool_request`** — per tool, the Galaxy query its handler builds: parameter names
+  with their value where it is a literal. `get_job_details -> {"full": true}` is the entry
+  that would have made the 350 KB job log visible on day one.
+- **`layer.tool_contract`** — per tool, each parameter as `type[(enum)][=default][!]`, plus
+  one fingerprint over the tool description and every parameter description. The tool-surface
+  fingerprint compares olit against galaxy-mcp on description and parameter *names* only; this
+  one holds olit to its own declared contract, so a type, a default or a description cannot
+  change silently.
+
+Two checks run against each policy entry. The first compares the declared value with what the
+code does now: a change is caught until it is re-snapshotted, which is the act of declaring
+it. The second applies only where the label is `PORTED`: the declared value must still equal
+pi's, so re-snapshotting cannot quietly launder a divergence into the ledger.
+

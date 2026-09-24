@@ -3,8 +3,6 @@
 import os
 from dataclasses import dataclass, field
 
-# Requested per reply when nothing narrower applies.
-DEFAULT_MAX_TOKENS = 16384
 # Assumed when neither the model nor the provider states one.
 DEFAULT_CONTEXT_WINDOW = 128000
 DEFAULT_RATE_LIMIT = 30
@@ -175,7 +173,7 @@ class Target:
     base_url: str | None
     api_key: str | None
     context_window: int
-    max_tokens: int
+    max_tokens: int | None
     rate_limit: int
 
     @property
@@ -217,10 +215,10 @@ def resolve(config):
         provider = GALAXY
 
     model = provider.model(config.get("ai_model"))
-    max_tokens = min(
-        _first(config.get("ai_max_tokens"), model.max_tokens, DEFAULT_MAX_TOKENS),
-        provider.limits.max_tokens or DEFAULT_MAX_TOKENS,
-    )
+    # Unset means the model's own default, as in pi; an endpoint that refuses more still caps.
+    asked = _first(config.get("ai_max_tokens"), model.max_tokens)
+    ceiling = provider.limits.max_tokens
+    max_tokens = min(asked, ceiling) if asked and ceiling else (asked or ceiling)
     return Target(
         provider=provider,
         model=model,

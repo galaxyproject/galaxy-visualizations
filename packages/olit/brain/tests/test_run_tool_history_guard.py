@@ -96,7 +96,7 @@ def test_history_contents_offers_one_identifier():
         async def get(self, path, **kwargs):
             return [{"id": "hda1", "dataset_id": "underlying1", "name": "x.tabular", "hid": 1}]
 
-    items = asyncio.run(_get_history_contents(G(), {"history_id": HERE}))
+    items = asyncio.run(_get_history_contents(G(), {"history_id": HERE}))["items"]
     assert items[0]["id"] == "hda1"
     assert "dataset_id" not in items[0]
     assert items[0]["hid"] == 1 and items[0]["name"] == "x.tabular"

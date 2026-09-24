@@ -194,3 +194,146 @@ def pi_manifest(loom_root):
         if f.exists():
             files[rel] = _fp(f.read_text(errors="replace"))
     return {"package": "@earendil-works/pi-agent-core", "version": version, "files": files}
+
+
+def _brain():
+    sys.path.insert(0, str(ROOT / "brain"))
+
+
+def llm_request_policy():
+    """What an unconfigured request carries. Orbit parity lives here, not in a fingerprint."""
+    _brain()
+    from olit.substrate.llm import get_adapter
+    from olit.substrate.llm.providers import Model, Provider, Target
+
+    bare = Target(Provider(id="p", base_url="http://x"), Model("m"), "http://x", None, 128000, None, 30)
+    body = get_adapter("openai-completions").build_request(bare, [], None)
+    return {
+        # Every field an unconfigured request carries, so a new unconditional one shows up.
+        "body_keys": sorted(k for k in body if k != "messages"),
+        "sampling": {k: body.get(k) for k in ("max_tokens", "temperature", "tool_choice", "top_p")},
+    }
+
+
+def loop_policy():
+    """The numbers that decide how far a turn runs and how much of it survives."""
+    _brain()
+    from olit import compaction
+    from olit.drivers.loop import agent, paging
+
+    return {
+        "keep_recent_tokens": compaction.KEEP_RECENT_TOKENS,
+        "max_steps": agent.MAX_STEPS,
+        "max_tool_result_bytes": agent.MAX_TOOL_RESULT_BYTES,
+        "reserve_tokens": compaction.RESERVE_TOKENS,
+        "row_bytes_cap": paging.ROW_BYTES_CAP,
+        "row_cap": paging.ROW_CAP,
+        "tool_execution": agent.TOOL_EXECUTION,
+        "tool_result_max_chars": compaction.TOOL_RESULT_MAX_CHARS,
+    }
+
+
+def guard_names():
+    """Every Olit guard that can refuse a call, read from the code that names them."""
+    found = set()
+    for name in ("drivers/loop/tools.py", "drivers/loop/agent.py"):
+        tree = ast.parse((ROOT / "brain/olit" / name).read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.keyword) and node.arg == "guard":
+                if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                    found.add(node.value.value)
+            if isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value == "guard":
+                        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                            found.add(value.value)
+    return sorted(found)
+
+
+_QUERY_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^&?{}\"']*)")
+
+
+def _literals(node):
+    """A dict literal's constant entries; a computed value reads as None, meaning dynamic."""
+    out = {}
+    for key, value in zip(node.keys, node.values):
+        if isinstance(key, ast.Constant):
+            out[key.value] = value.value if isinstance(value, ast.Constant) else None
+    return out
+
+
+def _handler_query(node):
+    """Query parameters a handler sends, by name, with the value when it is a literal."""
+    sent, built = {}, {}
+    for inner in ast.walk(node):
+        # `params = {...}` then `params["q"] = ...`, the shape most handlers use.
+        if isinstance(inner, ast.Assign) and len(inner.targets) == 1:
+            target, value = inner.targets[0], inner.value
+            if isinstance(target, ast.Name) and isinstance(value, ast.Dict):
+                built.setdefault(target.id, {}).update(_literals(value))
+            elif (isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name)
+                    and isinstance(target.slice, ast.Constant)):
+                built.setdefault(target.value.id, {})[target.slice.value] = (
+                    value.value if isinstance(value, ast.Constant) else None)
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.Call) and getattr(inner.func, "id", None) == "_q":
+            argument = inner.args[0] if inner.args else None
+            if isinstance(argument, ast.Dict):
+                sent.update(_literals(argument))
+            elif isinstance(argument, ast.Name):
+                sent.update(built.get(argument.id, {}))
+        # `api/plugins?dataset_id=` and friends: the constant halves of the path itself.
+        parts = [inner] if isinstance(inner, ast.Constant) else (
+            inner.values if isinstance(inner, ast.JoinedStr) else [])
+        for part in parts:
+            if isinstance(part, ast.Constant) and isinstance(part.value, str) and "=" in part.value:
+                for name, raw in _QUERY_PAIR.findall(part.value.split("?", 1)[-1]):
+                    sent.setdefault(name, raw or None)
+    return sent
+
+
+def tool_requests():
+    """Tool name -> the Galaxy query it builds. This is where `full=true` was invisible."""
+    _brain()
+    from olit.drivers.loop import galaxy_tools as gt
+
+    source = ast.parse((ROOT / "brain/olit/drivers/loop/galaxy_tools.py").read_text())
+    by_name = {
+        node.name: node
+        for node in ast.walk(source)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    out = {}
+    for tool in gt.TOOLS:
+        node = by_name.get(tool["handler"].__name__)
+        query = _handler_query(node) if node else {}
+        if query:
+            out[tool["name"]] = dict(sorted(query.items()))
+    return out
+
+
+_JSON_TYPES = {"string": "string", "integer": "integer", "number": "number",
+               "boolean": "boolean", "object": "object", "array": "array"}
+
+
+def tool_contracts():
+    """Per tool, the parameter contract in the open plus one fingerprint over all prose."""
+    _brain()
+    from olit.drivers.loop import galaxy_tools as gt
+
+    out = {}
+    for tool in gt.TOOLS:
+        fn = tool["schema"].get("function", tool["schema"])
+        params = (fn.get("parameters") or {})
+        required = set(params.get("required") or [])
+        shown, prose = {}, [fn.get("description", "")]
+        for name, spec in sorted((params.get("properties") or {}).items()):
+            kind = _JSON_TYPES.get(spec.get("type"), spec.get("type") or "any")
+            if spec.get("enum"):
+                kind += "(" + "|".join(str(e) for e in spec["enum"]) + ")"
+            if "default" in spec:
+                kind += f"={spec['default']}"
+            shown[name] = kind + ("!" if name in required else "")
+            prose.append(f"{name}:{spec.get('description', '')}")
+        out[tool["name"]] = {"params": shown, "prose": _fp("\n".join(prose))}
+    return out

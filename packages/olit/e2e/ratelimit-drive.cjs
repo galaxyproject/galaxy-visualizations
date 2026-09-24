@@ -1,11 +1,21 @@
 // Watch what the user sees while the provider is rate limiting us.
 const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
+const APP = process.env.APP_URL || "http://localhost:5173/";
+const STUB = process.env.STUB_URL || "http://127.0.0.1:8099";
+
+let failed = 0;
+function check(name, ok, detail) {
+    if (!ok) failed += 1;
+    console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  — " + detail : ""}`);
+}
 
 (async () => {
+    // The stub answers the first call with a 429 only under this scenario.
+    await fetch(`${STUB}/__script?name=ratelimit`);
     const b = await chromium.launch();
     const p = await b.newPage({ viewport: { width: 1100, height: 700 } });
-    await p.goto("http://localhost:5173/", { waitUntil: "domcontentloaded" });
+    await p.goto(APP, { waitUntil: "domcontentloaded" });
 
     const wait = async (fn, ms) => {
         const end = Date.now() + ms;
@@ -16,7 +26,7 @@ const OUT = process.env.OUT || "/tmp";
         return false;
     };
     if (!(await wait(() => /olit ready/i.test(document.body.innerText), 300000))) {
-        console.log("FAIL  never booted");
+        check("booted", false);
         await b.close();
         process.exit(1);
     }
@@ -24,8 +34,8 @@ const OUT = process.env.OUT || "/tmp";
     await p.fill("#input", "do something");
     await p.click("#send-btn");
 
-    const shown = await wait(() => /Rate limited/i.test(document.body.innerText), 30000);
-    console.log(shown ? "PASS  rate limit is announced" : "FAIL  nothing shown while waiting");
+    check("the rate limit is announced",
+          await wait(() => /Rate limited/i.test(document.body.innerText), 30000));
 
     const seen = new Set();
     for (let i = 0; i < 10; i++) {
@@ -33,16 +43,19 @@ const OUT = process.env.OUT || "/tmp";
         if (m) seen.add(m[1]);
         await p.waitForTimeout(1000);
     }
-    console.log(`PASS  countdown ticked through ${seen.size} values: ${[...seen].join(", ")}`);
+    check("the countdown ticks down", seen.size > 1, [...seen].join(", "));
     await p.screenshot({ path: `${OUT}/ratelimit.png` });
 
     const done = await wait(
         () => !document.querySelector("#send-btn").classList.contains("hidden"),
         120000,
     );
-    console.log(done ? "PASS  turn recovered after the wait" : "FAIL  turn never finished");
+    check("the turn recovers after the wait", done);
     const text = await p.evaluate(() => document.body.innerText);
-    console.log("PASS  no traceback shown:", !/Traceback|PythonError/.test(text));
-    console.log("\n--- transcript ---\n" + text.slice(0, 700));
+    check("the retry reaches the model", /recovered after the wait/.test(text));
+    check("no traceback", !/Traceback|PythonError/.test(text));
+
+    console.log(failed ? `\n${failed} check(s) failed` : "\nall checks passed");
     await b.close();
+    process.exit(failed ? 1 : 0);
 })();

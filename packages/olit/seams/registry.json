@@ -704,7 +704,7 @@
         "upload_file": "no access to the user's disk",
         "get_workflow_input_template": "drops the optional `verbose` parameter",
         "update_page": "ADDED: takes `section_heading`/`section_content` to replace one section, and `expect_hash` to refuse a write when the page changed since it was read. Uses Galaxy's own djb2 hash and section semantics (sectionDiffUtils.ts, page_assistant.py) so Olit and Galaxy's page assistant agree. Also sends `edit_source: agent`.",
-        "get_history_contents": "ADDED: omits `dataset_id`, the underlying Dataset id Galaxy returns beside the HDA `id`. Both encode into the same id space, so a tool given the wrong one resolves to an unrelated object instead of failing. Nothing in Olit or the scenarios consumes it. Instance of the agent-safe projection principle: a field the model cannot act on, or that is dangerously confusable with one it must, may be omitted from a tool result.",
+        "get_history_contents": "DIVERGES: galaxy-mcp fetches every item in the history and pages client-side, so it can report `total_items`; an 8,000-dataset history makes that untenable. olit lets Galaxy page, asks for one row past the limit, and returns the {items, shown, truncated, next_offset} envelope. Also omits `dataset_id` from each item (see the agent-safe projection principle).",
         "get_tool_panel": "ADDED: galaxy-mcp returns the raw panel, ~25k tokens on a 170-tool server and unbounded on a public one. olit returns section, id, name and description, and takes a `section` filter. Returns the paging envelope {items, shown, total, truncated, next_offset} instead of a bare list, and takes limit/offset.",
         "list_workflows": "DIVERGES: galaxy-mcp filters `name` as a lowercase substring of the workflow name. olit compares alphanumerics only and also matches tags, so \"rna seq\" finds \"RNA-seq quantification\" and anything tagged rna-seq. Delegating to Galaxy's own ?search is not the fix: it drops raw terms under four characters, so \"rna seq\" there matches every workflow. Returns the paging envelope {items, shown, total, truncated, next_offset} instead of a bare list, and takes limit/offset.",
         "list_visualizations": "ADDED: galaxy-mcp has no visualization surface at all. Asks Galaxy which installed plugins accept a dataset (api/plugins?dataset_id=) rather than matching extensions client-side, which gets subclassing right, and marks the visualization the datatype itself declares. Answers only what can render the dataset: the columns it used to return made a column lookup double as a plugin advertisement, and tabular charting drifted off vintent_dataset because of it. Columns come from get_dataset_details.",
@@ -712,7 +712,9 @@
         "save_visualization": "ADDED: stores a durable Galaxy visualization the user keeps and can share. Split from show_visualization so that displaying a chart does not add a row to the user's visualization list, and because only a saved config can carry settings and tracks.",
         "get_visualization_details": "ADDED: galaxy-mcp has no visualization surface. Returns one plugin's inputs joined with what galaxy-charts stores for each input type, so settings and tracks are written to a stated shape instead of inferred from parameter names, and a caller can tell a genome input from a track input. The shapes come from galaxy-charts' published contract, vendored under brain/olit/vendor and pinned; Galaxy declares which inputs exist, galaxy-charts owns what they store. Per plugin rather than on the listing: the caller needs exactly one.",
         "get_visualization": "ADDED: galaxy-mcp has no visualization surface. Returns a saved visualization's current settings and tracks so a revision changes them rather than rebuilding them: save_visualization replaces the config wholesale, and reconstructing it blind drops whatever the plugin itself wrote there. Same read-before-write shape as get_page before update_page.",
-        "get_visualization_options": "ADDED: galaxy-mcp has no visualization surface. Resolves a parameter's options from wherever the declaration says they live -- a remote json list, a Galaxy data table, or the declared options -- which is the same lookup galaxy-charts performs to build the input form, using the browser fetch olit already has. Without it the agent invents an option, and where the stored value is an object copied verbatim it cannot invent a usable one. Returns labels to browse and the full value only for a `search`, since these lists are large and only the chosen entry is ever written."
+        "get_visualization_options": "ADDED: galaxy-mcp has no visualization surface. Resolves a parameter's options from wherever the declaration says they live -- a remote json list, a Galaxy data table, or the declared options -- which is the same lookup galaxy-charts performs to build the input form, using the browser fetch olit already has. Without it the agent invents an option, and where the stored value is an object copied verbatim it cannot invent a usable one. Returns labels to browse and the full value only for a `search`, since these lists are large and only the chosen entry is ever written.",
+        "get_job_details": "DIVERGES: galaxy-mcp fetches api/jobs/{id}; olit adds full=true so a failed job's stderr is readable, which is what invocation_outcome tells the model to reach for. That flag also carries tool_stdout/tool_stderr/job_stdout/job_stderr/stdout/stderr, hundreds of KB for a chatty tool, so each log field is trimmed to its last 4 KB on a line boundary with a notice naming the full size.",
+        "get_histories": "DIVERGES: galaxy-mcp returns every history by default and adds a `pagination` block with `total_items` only when a limit is given, paying for a second unbounded fetch to count. olit always bounds the page at ROW_CAP, asks Galaxy for one row past the limit, and returns the {items, shown, truncated, next_offset} envelope it already uses for list_workflows and get_tool_panel. No `total`: the server was never asked for one."
       },
       "upstream": {
         "connect": "caf57caed25afac8",
@@ -821,6 +823,536 @@
           "deactivated",
           "uuid"
         ]
+      }
+    },
+    "policy": {
+      "llm_request": {
+        "source": "brain/olit/substrate/llm/api/openai_completions.py",
+        "label": "PORTED",
+        "upstream": {
+          "sampling": {
+            "max_tokens": null,
+            "temperature": null,
+            "tool_choice": null,
+            "top_p": null
+          }
+        },
+        "note": "pi-ai emits temperature and max_tokens only when set (api/openai-completions.js:589,595) and reaches top_p only through the samplingParams bag; loom sets none of them, so an Orbit request runs at the provider's own defaults. Olit must not impose its own or a benchmark measures the defaults rather than the runtime.",
+        "olit": {
+          "body_keys": [
+            "model"
+          ],
+          "sampling": {
+            "max_tokens": null,
+            "temperature": null,
+            "tool_choice": null,
+            "top_p": null
+          }
+        }
+      },
+      "loop": {
+        "source": "brain/olit/drivers/loop/agent.py, brain/olit/compaction.py, brain/olit/drivers/loop/paging.py",
+        "upstream": {
+          "keep_recent_tokens": 20000,
+          "max_steps": null,
+          "max_tool_result_bytes": null,
+          "reserve_tokens": 16384,
+          "row_bytes_cap": null,
+          "row_cap": null,
+          "tool_execution": "parallel",
+          "tool_result_max_chars": 2000
+        },
+        "labels": {
+          "keep_recent_tokens": "PORTED",
+          "max_steps": "ADDED",
+          "max_tool_result_bytes": "ADDED",
+          "reserve_tokens": "PORTED",
+          "row_bytes_cap": "ADDED",
+          "row_cap": "ADDED",
+          "tool_execution": "DIVERGES",
+          "tool_result_max_chars": "PORTED"
+        },
+        "notes": {
+          "max_steps": "A backstop for an unattended tab; pi's loop is `while (true)`. Configurable, and a spent budget appends a `max-steps` entry to the run's `guards`.",
+          "max_tool_result_bytes": "pi caps bash and read only and never truncates an MCP result. Olit discards a single oversized result rather than losing the turn.",
+          "row_cap": "With row_bytes_cap, the two limits pi's truncate uses, applied to Galaxy list reads.",
+          "row_bytes_cap": "A row count alone does not bound cost when the rows are fat.",
+          "tool_execution": "KNOWN LIMITATION. pi runs a batch through executeToolCallsParallel unless a tool declares executionMode sequential. Olit dispatches in call order, so a batch of five reads costs five round-trips. Closing it means splitting `dispatch` into pi's sequential prepare and concurrent execute phases; the gates, the destructive-op modal and the single Pyodide namespace all sit in the prepare half. Tracked separately, not forced for parity."
+        },
+        "olit": {
+          "keep_recent_tokens": 20000,
+          "max_steps": 40,
+          "max_tool_result_bytes": 65536,
+          "reserve_tokens": 16384,
+          "row_bytes_cap": 32768,
+          "row_cap": 100,
+          "tool_execution": "sequential",
+          "tool_result_max_chars": 2000
+        }
+      },
+      "guards": {
+        "source": "brain/olit/drivers/loop/tools.py, brain/olit/drivers/loop/agent.py",
+        "label": "ADDED",
+        "note": "Olit's own refusals. pi has none of them. Each names itself in the run's `guards` list so an eval can tell a trajectory a guard shaped from one the model chose.",
+        "olit": [
+          "capability",
+          "destructive-declined",
+          "max-steps",
+          "process-refusal",
+          "repeated-failure",
+          "settled-question",
+          "sra-fan-out"
+        ]
+      }
+    },
+    "tool_request": {
+      "get_histories": {
+        "limit": null,
+        "offset": null,
+        "q": "name-contains",
+        "qv": null
+      },
+      "list_history_ids": {
+        "keys": "id,name"
+      },
+      "get_history_contents": {
+        "deleted": null,
+        "limit": null,
+        "offset": null,
+        "order": null,
+        "visible": null
+      },
+      "search_tools_by_name": {
+        "q": null
+      },
+      "get_tool_details": {
+        "io_details": null
+      },
+      "get_job_details": {
+        "full": true
+      },
+      "search_tools_by_keywords": {
+        "q": null
+      },
+      "get_tool_panel": {
+        "in_panel": "true"
+      },
+      "get_tool_input_template": {
+        "io_details": true
+      },
+      "get_collection_details": {
+        "instance_type": "history"
+      },
+      "list_workflows": {
+        "show_published": null
+      },
+      "get_workflow_details": {
+        "version": null
+      },
+      "get_workflow_input_template": {
+        "history_id": null,
+        "instance": "false",
+        "style": "run"
+      },
+      "get_invocations": {
+        "history_id": null,
+        "limit": null,
+        "step_details": null,
+        "view": null,
+        "workflow_id": null
+      },
+      "list_user_tools": {
+        "active": null
+      },
+      "show_visualization": {
+        "dataset_id": null,
+        "visualization": null
+      },
+      "save_visualization": {
+        "visualization": null,
+        "visualization_id": null
+      },
+      "list_visualizations": {
+        "dataset_id": null
+      },
+      "list_pages": {
+        "limit": null,
+        "offset": null,
+        "search": null,
+        "show_published": null,
+        "show_shared": null
+      }
+    },
+    "tool_contract": {
+      "get_server_info": {
+        "params": {},
+        "prose": "a8e42e92e0cadff1"
+      },
+      "get_user": {
+        "params": {},
+        "prose": "a9123d74d4391468"
+      },
+      "get_histories": {
+        "params": {
+          "limit": "integer",
+          "name": "string",
+          "offset": "integer"
+        },
+        "prose": "aad7c210cf841da1"
+      },
+      "list_history_ids": {
+        "params": {},
+        "prose": "c661154113e900ad"
+      },
+      "get_history_details": {
+        "params": {
+          "history_id": "string!"
+        },
+        "prose": "746bc68576d38633"
+      },
+      "get_history_contents": {
+        "params": {
+          "deleted": "boolean",
+          "history_id": "string!",
+          "limit": "integer",
+          "offset": "integer",
+          "order": "string",
+          "visible": "boolean"
+        },
+        "prose": "a6574cb21146129d"
+      },
+      "create_history": {
+        "params": {
+          "history_name": "string!"
+        },
+        "prose": "5e20d31de5a00eff"
+      },
+      "run_tool": {
+        "params": {
+          "history_id": "string!",
+          "inputs": "object!",
+          "tool_id": "string!"
+        },
+        "prose": "7734a83f62e133e9"
+      },
+      "search_tools_by_name": {
+        "params": {
+          "query": "string!"
+        },
+        "prose": "9b74d022953b88e1"
+      },
+      "get_tool_details": {
+        "params": {
+          "io_details": "boolean",
+          "tool_id": "string!"
+        },
+        "prose": "b537bfcbf13a6e34"
+      },
+      "get_job_details": {
+        "params": {
+          "dataset_id": "string!",
+          "history_id": "string"
+        },
+        "prose": "5e5f1f8da446e83b"
+      },
+      "get_dataset_details": {
+        "params": {
+          "dataset_id": "string!",
+          "include_preview": "boolean",
+          "preview_lines": "integer"
+        },
+        "prose": "bf61844ed286530a"
+      },
+      "update_history": {
+        "params": {
+          "annotation": "string",
+          "deleted": "boolean",
+          "history_id": "string!",
+          "name": "string",
+          "published": "boolean",
+          "tags": "array"
+        },
+        "prose": "60469e0baa2260c4"
+      },
+      "search_tools_by_keywords": {
+        "params": {
+          "keywords": "array!"
+        },
+        "prose": "af5f6cc91448d05a"
+      },
+      "get_tool_panel": {
+        "params": {
+          "limit": "integer",
+          "offset": "integer",
+          "section": "string"
+        },
+        "prose": "9d8420ed9db297f0"
+      },
+      "get_tool_citations": {
+        "params": {
+          "tool_id": "string!"
+        },
+        "prose": "24aa6c36ddb2f967"
+      },
+      "get_tool_input_template": {
+        "params": {
+          "tool_id": "string!"
+        },
+        "prose": "25f5dfd1dbd63385"
+      },
+      "get_tool_run_examples": {
+        "params": {
+          "tool_id": "string!",
+          "tool_version": "string"
+        },
+        "prose": "2a5e4c77e852cf3e"
+      },
+      "get_collection_details": {
+        "params": {
+          "collection_id": "string!",
+          "max_elements": "integer"
+        },
+        "prose": "8650da896e8567f2"
+      },
+      "download_dataset": {
+        "params": {
+          "dataset_id": "string!"
+        },
+        "prose": "4cd5ef39fc894022"
+      },
+      "upload_file_from_url": {
+        "params": {
+          "dbkey": "string",
+          "file_name": "string",
+          "file_type": "string",
+          "history_id": "string",
+          "url": "string!"
+        },
+        "prose": "22de7128882f6be6"
+      },
+      "upload_file": {
+        "params": {
+          "dbkey": "string",
+          "file_name": "string",
+          "file_type": "string",
+          "history_id": "string",
+          "path": "string!"
+        },
+        "prose": "427366d526712b89"
+      },
+      "list_workflows": {
+        "params": {
+          "limit": "integer",
+          "name": "string",
+          "offset": "integer",
+          "published": "boolean",
+          "workflow_id": "string"
+        },
+        "prose": "baf0d5c67f37ad8e"
+      },
+      "get_workflow_details": {
+        "params": {
+          "version": "integer",
+          "workflow_id": "string!"
+        },
+        "prose": "a13258e456a2d31d"
+      },
+      "get_workflow_input_template": {
+        "params": {
+          "history_id": "string",
+          "workflow_id": "string!"
+        },
+        "prose": "642b2d005edaf2ab"
+      },
+      "invoke_workflow": {
+        "params": {
+          "history_id": "string",
+          "history_name": "string",
+          "inputs": "object",
+          "inputs_by": "string",
+          "parameters_normalized": "boolean",
+          "params": "object",
+          "workflow_id": "string!"
+        },
+        "prose": "2b4796a9b07d24d6"
+      },
+      "cancel_workflow_invocation": {
+        "params": {
+          "invocation_id": "string!"
+        },
+        "prose": "9eb061fe7167467b"
+      },
+      "get_invocations": {
+        "params": {
+          "history_id": "string",
+          "invocation_id": "string",
+          "limit": "integer",
+          "step_details": "boolean",
+          "view": "string",
+          "workflow_id": "string"
+        },
+        "prose": "91a65fbecbfa3afa"
+      },
+      "list_user_tools": {
+        "params": {
+          "active": "boolean"
+        },
+        "prose": "f57d85d324cf991c"
+      },
+      "create_user_tool": {
+        "params": {
+          "representation": "object!"
+        },
+        "prose": "5bf376653538d36c"
+      },
+      "delete_user_tool": {
+        "params": {
+          "uuid": "string!"
+        },
+        "prose": "f2d28564622276bc"
+      },
+      "run_user_tool": {
+        "params": {
+          "history_id": "string!",
+          "inputs": "object!",
+          "tool_uuid": "string!"
+        },
+        "prose": "b8bb547b8020a24b"
+      },
+      "get_visualization_options": {
+        "params": {
+          "parameter": "string!",
+          "search": "string",
+          "visualization": "string!",
+          "when": "string"
+        },
+        "prose": "472cadced816df89"
+      },
+      "get_visualization": {
+        "params": {
+          "visualization_id": "string!"
+        },
+        "prose": "f2fc3a402c4dfca7"
+      },
+      "get_visualization_details": {
+        "params": {
+          "visualization": "string!"
+        },
+        "prose": "732ddbb5ca2b6f4b"
+      },
+      "show_visualization": {
+        "params": {
+          "dataset_id": "string!",
+          "title": "string",
+          "visualization": "string!"
+        },
+        "prose": "258784451d3926ba"
+      },
+      "save_visualization": {
+        "params": {
+          "dataset_id": "string!",
+          "settings": "object",
+          "title": "string",
+          "tracks": "array",
+          "visualization": "string!",
+          "visualization_id": "string"
+        },
+        "prose": "c1570da1e6e43e36"
+      },
+      "list_visualizations": {
+        "params": {
+          "dataset_id": "string!"
+        },
+        "prose": "3bd887546fea27c2"
+      },
+      "list_pages": {
+        "params": {
+          "history_id": "string",
+          "limit": "integer",
+          "offset": "integer",
+          "search": "string",
+          "show_published": "boolean",
+          "show_shared": "boolean"
+        },
+        "prose": "0aebc4cebe061430"
+      },
+      "get_page": {
+        "params": {
+          "include_rendered": "boolean",
+          "page_id": "string!"
+        },
+        "prose": "3d1a179c5bea780d"
+      },
+      "create_page": {
+        "params": {
+          "annotation": "string",
+          "content": "string",
+          "history_id": "string",
+          "slug": "string",
+          "title": "string"
+        },
+        "prose": "ec88c917d8f3c361"
+      },
+      "update_page": {
+        "params": {
+          "content": "string",
+          "expect_hash": "string",
+          "page_id": "string!",
+          "section_content": "string",
+          "section_heading": "string",
+          "title": "string"
+        },
+        "prose": "b93061521c3bcf0c"
+      },
+      "list_page_revisions": {
+        "params": {
+          "page_id": "string!",
+          "sort_desc": "boolean"
+        },
+        "prose": "821a28de27b5f4c7"
+      },
+      "get_page_revision": {
+        "params": {
+          "page_id": "string!",
+          "revision_id": "string!"
+        },
+        "prose": "214dcd74a01b20c9"
+      },
+      "revert_page_revision": {
+        "params": {
+          "page_id": "string!",
+          "revision_id": "string!"
+        },
+        "prose": "5b69ebcd78e4ff8b"
+      },
+      "get_iwc_workflows": {
+        "params": {},
+        "prose": "9b07929fc6cc5af9"
+      },
+      "search_iwc_workflows": {
+        "params": {
+          "query": "string!"
+        },
+        "prose": "4da63a9464d598b4"
+      },
+      "recommend_iwc_workflows": {
+        "params": {
+          "intent": "string!",
+          "limit": "integer"
+        },
+        "prose": "9cd5fb501be76470"
+      },
+      "get_iwc_workflow_details": {
+        "params": {
+          "trs_id": "string!"
+        },
+        "prose": "9b88d48bb0e4db0b"
+      },
+      "import_workflow_from_iwc": {
+        "params": {
+          "trs_id": "string!"
+        },
+        "prose": "fdaaa15edf5e0979"
       }
     }
   }

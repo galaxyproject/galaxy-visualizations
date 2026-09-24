@@ -64,7 +64,7 @@ def test_get_histories_hits_the_right_endpoint():
     asyncio.run(ToolSurface(sub).dispatch("get_histories", {"limit": 5}))
     assert sub.galaxy.calls[0][0] == "GET"
     assert sub.galaxy.calls[0][1].startswith("api/histories")
-    assert "limit=5" in sub.galaxy.calls[0][1]
+    assert "limit=6" in sub.galaxy.calls[0][1]
 
 
 def test_run_tool_posts_to_api_tools_and_needs_write():

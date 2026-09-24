@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 # A backstop for an unattended tab; pi and loom cap nothing. Exhaustion is reported.
 MAX_STEPS = 40
+# pi runs a batch through executeToolCallsParallel unless a tool asks for sequential. Olit
+# dispatches in call order because its gates and the Pyodide namespace are shared state.
+TOOL_EXECUTION = "sequential"
 # Output hit the token limit, so its tool calls may be silently incomplete.
 TRUNCATED = "length"
 TRUNCATED_ERROR = (
@@ -63,6 +66,8 @@ class LoopDriver:
         # This run's output, kept apart from the transcript that compaction rewrites.
         produced = []
         logs = []
+        # Every time an Olit-specific cap or guard changed the trajectory.
+        guards = []
         ended = EXHAUSTED
         reported_overflow = False
         usage = {"input": 0, "output": 0, "cost": None}
@@ -160,6 +165,7 @@ class LoopDriver:
 
                 refusal = None
                 gated = False
+                guard = None
                 args = {}
                 if cancellation.aborted:
                     # Every remaining call still needs a result, or the next request is
@@ -184,6 +190,10 @@ class LoopDriver:
                     logs.append(f"  -> {brief(outcome.content)}")
                     content, is_error = outcome.text, outcome.is_error
                     gated = outcome.refused
+                    guard = outcome.guard
+                    if guard:
+                        guards.append({"guard": guard, "tool": plain_tool_name(name)})
+                        logs.append(f"  -> refused by the {guard} guard")
                     size = len(content.encode("utf-8"))
                     if size > MAX_TOOL_RESULT_BYTES:
                         logs.append(f"  -> discarded {size} bytes, over the result limit")
@@ -202,7 +212,8 @@ class LoopDriver:
                 _emit(
                     on_event,
                     {"type": "tool_end", "id": call_id, "name": name, "content": content,
-                     "is_error": is_error, "refused": refusal is not None or gated},
+                     "is_error": is_error, "refused": refusal is not None or gated,
+                     "guard": guard},
                 )
 
                 # Only an executed `finish` counts; a refused one was never dispatched.
@@ -217,6 +228,9 @@ class LoopDriver:
                 ended = ABORTED
                 break
 
+        if ended == EXHAUSTED:
+            guards.append({"guard": "max-steps", "steps": steps})
+            logs.append(f"the step budget of {self.max_steps} was spent before the turn ended")
         return {
             "logs": logs,
             "messages": messages,
@@ -228,6 +242,8 @@ class LoopDriver:
             "usage": usage,
             "steps": steps,
             "max_steps": self.max_steps,
+            # Olit's own caps and guards, so an eval can see one shaped a trajectory.
+            "guards": guards,
         }
 
 

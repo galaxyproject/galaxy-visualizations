@@ -77,6 +77,17 @@ class Galaxy:
         with urllib.request.urlopen(req, timeout=180) as r:
             return json.loads(r.read())["outputs"][0]["id"]
 
+    def fetch_url(self, history_id, url, name, datatype=None):
+        """Let Galaxy pull the file itself, so a large input never crosses this harness."""
+        element = {"src": "url", "url": url, "name": name}
+        if datatype:
+            element["ext"] = datatype
+        got = self.call("api/tools/fetch", "POST", {
+            "history_id": history_id,
+            "targets": [{"destination": {"type": "hdas"}, "elements": [element]}],
+        })
+        return got["outputs"][0]["id"]
+
     def await_dataset(self, dataset_id, timeout=600):
         for _ in range(max(1, timeout // POLL_SECONDS)):
             d = self.call(f"api/datasets/{dataset_id}")

@@ -273,8 +273,14 @@ def _fixture_path(name):
     return path
 
 
-def _upload_fixture(galaxy, history_id, name, datatype):
-    dataset_id = galaxy.upload(history_id, name, _fixture_path(name).read_bytes(), datatype)
+def _stage_file(galaxy, history_id, spec):
+    """A fixture from disk, or a pinned URL Galaxy fetches itself."""
+    name = spec.get("name") or spec["file"]
+    datatype = spec.get("datatype")
+    if spec.get("url"):
+        dataset_id = galaxy.fetch_url(history_id, spec["url"], name, datatype)
+    else:
+        dataset_id = galaxy.upload(history_id, name, _fixture_path(name).read_bytes(), datatype)
     landed = galaxy.await_dataset(dataset_id)
     if landed.get("state") != "ok":
         raise tooltests.ToolTestError(f"{name} landed in state {landed.get('state')}")
@@ -287,16 +293,17 @@ def _upload_fixture(galaxy, history_id, name, datatype):
 def stage_dataset(config, spec):
     """A history holding the scenario's fixtures, as a researcher's would when they sit down.
 
-    `file` stages one; `files` stages several, so a scenario can be about combining them.
+    `file` stages one from `fixtures/`, `url` has Galaxy fetch one, and `files` stages
+    several so a scenario can be about combining them.
     """
     galaxy = tooltests.Galaxy(config["galaxy_root"], config.get("galaxy_key", ""))
-    wanted = spec.get("files") or [{"file": spec["file"], "datatype": spec.get("datatype")}]
+    wanted = spec.get("files") or [spec]
     history_id = galaxy.new_history(spec.get("history") or "olit eval")
     dataset_ids = {
-        f["file"]: _upload_fixture(galaxy, history_id, f["file"], f.get("datatype"))
+        (f.get("name") or f["file"]): _stage_file(galaxy, history_id, f)
         for f in wanted
     }
-    dataset_id = dataset_ids[wanted[0]["file"]]
+    dataset_id = dataset_ids[wanted[0].get("name") or wanted[0]["file"]]
     _resume_record(galaxy, history_id)
     staged = {"galaxy": galaxy, "history_id": history_id,
               "dataset_ids": dataset_ids, "test": None, "tool_id": None}

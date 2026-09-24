@@ -15,7 +15,7 @@ from . import invocation_outcome
 
 from . import page_edit
 from .galaxy_tool_docs import DOCS
-from .paging import ROW_CAP, page
+from .paging import ROW_CAP, page, server_page
 from .tool_inputs import build_input_template, summarize_tool_inputs
 from .visualization_inputs import build_visualization_template, template_cases
 
@@ -28,6 +28,9 @@ DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.ge
 PREVIEW_LINES = 50
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 PREVIEW_BYTES = 256 * 1024
+# The log fields Galaxy adds to a job under `full=true`.
+JOB_LOG_FIELDS = ("tool_stdout", "tool_stderr", "job_stdout", "job_stderr", "stdout", "stderr")
+JOB_LOG_BYTES = 4 * 1024
 
 
 def _q(params):
@@ -76,11 +79,16 @@ async def _get_user(g, a):
 
 
 async def _get_histories(g, a):
-    params = {"limit": a.get("limit", ROW_CAP), "offset": a.get("offset", 0)}
+    # galaxy-mcp returns every history by default; a browser transcript cannot hold that, so
+    # the page is bounded. One row past the limit is fetched to report that there are more.
+    limit = int(a.get("limit") or ROW_CAP)
+    offset = max(0, int(a.get("offset") or 0))
+    params = {"limit": limit + 1, "offset": offset}
     if a.get("name"):
         params["q"] = "name-contains"
         params["qv"] = a["name"]
-    return await g.get(f"api/histories{_q(params)}")
+    rows = await g.get(f"api/histories{_q(params)}")
+    return server_page(rows, offset, limit) if isinstance(rows, list) else rows
 
 
 async def _list_history_ids(g, a):
@@ -115,17 +123,22 @@ def _one_identifier(item):
 
 
 async def _get_history_contents(g, a):
+    # galaxy-mcp fetches the whole history and pages it here, so it always knows the total.
+    # Galaxy pages this one, which an 8,000-dataset history needs; one row past the limit is
+    # what tells the caller there are more.
+    limit = int(a.get("limit") or 100)
+    offset = max(0, int(a.get("offset") or 0))
     params = {
-        "limit": a.get("limit", 100),
-        "offset": a.get("offset", 0),
+        "limit": limit + 1,
+        "offset": offset,
         "deleted": a.get("deleted", False),
         "visible": a.get("visible", True),
         "order": a.get("order", "hid-asc"),
     }
     items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
-    if isinstance(items, list):
-        return [_one_identifier(i) for i in items]
-    return items
+    if not isinstance(items, list):
+        return items
+    return server_page([_one_identifier(i) for i in items], offset, limit)
 
 
 async def _create_history(g, a):
@@ -277,7 +290,25 @@ async def _get_job_details(g, a):
     job_id = dataset.get("creating_job")
     if not job_id:
         return {"error": "no creating job for dataset", "dataset_id": a["dataset_id"]}
-    return await g.get(f"api/jobs/{job_id}{_q({'full': True})}")
+    job = await g.get(f"api/jobs/{job_id}{_q({'full': True})}")
+    if not isinstance(job, dict):
+        return job
+    # `full=true` is fetched for the stderr of a failed job and carries the whole log with it.
+    job = dict(job)
+    for field in JOB_LOG_FIELDS:
+        if isinstance(job.get(field), str):
+            job[field] = _tail(job[field], JOB_LOG_BYTES)
+    return job
+
+
+def _tail(text, cap):
+    """Keep the end of a log, where a traceback is, and say how much was dropped."""
+    data = text.encode("utf-8", "replace")
+    if len(data) <= cap:
+        return text
+    # Cut on a line boundary, as pi's truncate does, so the first line shown is a whole one.
+    kept = data[-cap:].split(b"\n", 1)[-1]
+    return f"[Showing the last {len(kept)} of {len(data)} bytes.]\n{kept.decode('utf-8', 'replace')}"
 
 
 async def _get_dataset_details(g, a):
@@ -308,7 +339,10 @@ _tool("get_user", "read", "Get the current authenticated Galaxy user.", {}, [], 
 _tool(
     "get_histories", "read",
     "List the user's histories. Optional name filter; supports limit/offset paging.",
-    {"limit": _INT, "offset": _INT, "name": _STR}, [], _get_histories,
+    {"limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
+     "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
+     "name": _STR},
+    [], _get_histories,
 )
 _tool("list_history_ids", "read", "List just the id and name of each of the user's histories.", {}, [], _list_history_ids)
 _tool("get_history_details", "read", "Get full details of one history by id.", {"history_id": _STR}, ["history_id"], _get_history_details)
@@ -316,7 +350,9 @@ _tool(
     "get_history_contents", "read",
     "List datasets and collections in a history (hid-ordered; paged).",
     {
-        "history_id": _STR, "limit": _INT, "offset": _INT,
+        "history_id": _STR,
+        "limit": {"type": "integer", "description": "Rows per page; the reply names next_offset when more remain."},
+        "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
         "deleted": _BOOL, "visible": _BOOL, "order": _STR,
     },
     ["history_id"], _get_history_contents,
