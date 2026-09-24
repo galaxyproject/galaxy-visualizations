@@ -416,9 +416,10 @@ def _stage_invocation(galaxy, history_id, dataset_id, spec):
     return invocation["id"]
 
 
-def _settle_pending(staged, events, timeout=180, interval=5):
+def _settle_pending(staged, events, timeout=180, interval=10):
     """Wait for work Galaxy is advancing, as the shell's watcher does.
 
+    Ticks at the shell watcher's own rate (src/invocations.ts: 10s; loom's poller is 15s).
     Only states that progress on their own are waited on. A `paused` dataset is waiting on an
     input that failed or on the user, so watching it until a deadline freezes the agent for the
     whole window -- which is the opposite of what the shell does when work lands.
