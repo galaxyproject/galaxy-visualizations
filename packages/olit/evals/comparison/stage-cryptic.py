@@ -45,8 +45,14 @@ def main():
         "history_id": history["id"],
         "targets": [{"destination": {"type": "hdas"}, "elements": [element]}]})
     dataset_id = out["outputs"][0]["id"]
+    landed = {}
     for _ in range(120):
-        landed = call(base, key, f"api/datasets/{dataset_id}")
+        try:
+            landed = call(base, key, f"api/datasets/{dataset_id}")
+        except Exception as exc:  # a dropped lookup must not lose a staged history
+            print(f"  poll failed, retrying ({type(exc).__name__})", flush=True)
+            time.sleep(10)
+            continue
         if landed.get("state") in ("ok", "error"):
             break
         time.sleep(5)
