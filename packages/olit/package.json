@@ -7,22 +7,23 @@
         "static"
     ],
     "scripts": {
-        "dev": "npm run build && vite",
         "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:olit && vite build",
+        "build:olit": "cd brain && rm -rf build dist olit.egg-info && SOURCE_DATE_EPOCH=315532800 python -m build --wheel && cd .. && node wheel.stamp.js && mkdir -p static/pyodide && rm -f static/pyodide/olit-*.whl && cp brain/dist/olit-*.whl static/pyodide/",
+        "build:providers": "cd brain && python3 scripts/dump_providers.py",
         "build:pyodide": "node pyodide.install.js",
         "build:skills": "node skills.install.js",
-        "build:providers": "cd brain && python3 scripts/dump_providers.py",
-        "build:olit": "cd brain && rm -rf build dist olit.egg-info && SOURCE_DATE_EPOCH=315532800 python -m build --wheel && cd .. && node wheel.stamp.js && mkdir -p static/pyodide && rm -f static/pyodide/olit-*.whl && cp brain/dist/olit-*.whl static/pyodide/",
-        "preview": "vite preview",
+        "describe": "cd brain && python3 -m olit.describe --root ..",
+        "dev": "npm run build && vite",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
+        "preview": "vite preview",
+        "seams": "python3 seams/check.py && python3 seams/check_vendored.py",
         "test": "npm run test:unit && npm run test:python && npm run typecheck && npm run seams && npm run test:e2e",
+        "test:e2e": "bash e2e/run-all.sh",
         "test:python": "cd brain && python -m pytest tests/ -v --import-mode=importlib",
-        "typecheck": "tsc --noEmit",
         "test:ui": "vitest --ui",
         "test:unit": "vitest run",
         "test:watch": "vitest --watch",
-        "seams": "python3 seams/check.py && python3 seams/check_vendored.py",
-        "test:e2e": "bash e2e/run-all.sh"
+        "typecheck": "tsc --noEmit"
     },
     "dependencies": {
         "mermaid": "^11.16.1",
