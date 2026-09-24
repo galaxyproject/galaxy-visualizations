@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import time
 import os
 import pathlib
@@ -415,7 +416,7 @@ def _stage_invocation(galaxy, history_id, dataset_id, spec):
     return invocation["id"]
 
 
-def _settle_pending(staged, events, timeout=180, interval=1):
+def _settle_pending(staged, events, timeout=180, interval=5):
     """Wait for work Galaxy is advancing, as the shell's watcher does.
 
     Only states that progress on their own are waited on. A `paused` dataset is waiting on an
@@ -426,7 +427,13 @@ def _settle_pending(staged, events, timeout=180, interval=1):
     deadline = time.time() + timeout
     watched = {}
     while time.time() < deadline:
-        contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+        try:
+            contents = galaxy.call(f"api/histories/{history_id}/contents") or []
+        except Exception as exc:
+            # One truncated read must not end a run that has been going for half an hour.
+            logging.getLogger(__name__).info("settle poll failed, retrying: %s", exc)
+            time.sleep(interval)
+            continue
         live = [c for c in contents if isinstance(c, dict) and not c.get("deleted")]
         for c in live:
             if c.get("state") in ADVANCING_STATES:
