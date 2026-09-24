@@ -179,7 +179,10 @@ class LoopDriver:
                     try:
                         args = loads_with_repair(fn.get("arguments") or "{}")
                     except json.JSONDecodeError as e:
-                        refusal = MALFORMED_ARGS_ERROR.format(name=name, detail=e)
+                        # Counted here because dispatch, which owns the guard, is never reached.
+                        refusal = tools.repeating_unparsable(name) or MALFORMED_ARGS_ERROR.format(
+                            name=name, detail=e)
+                        tools.note_unparsable(name)
                         raw = fn.get("arguments") or ""
                         malformed = f"{len(raw)} chars, broke at {e.pos}: {around(raw, e.pos)}"
 

@@ -15,6 +15,7 @@ import { SessionStore, galaxyUserId, indexedDbStore } from "./session";
 import { advance, newDocument, noteModel, restoreMessages, type SessionDocument } from "./session-document";
 import { reportSavedState, savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
+import { historyFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
 import { runOlit, type LoopEvent, type Message } from "./pyodide-runner";
@@ -114,6 +115,8 @@ async function main() {
         fromGalaxy ||
         fromBrowser ||
         newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
+    // A restored session names the history it operated in; the url need not repeat it.
+    config.history_id = config.history_id || sessionDoc.history_id;
 
     const usage = mountUsageBar(container);
     mountBuildStamp(container, {
@@ -284,6 +287,12 @@ async function main() {
                 chat.updateToolCard(ev.id, status, ev.content);
                 // Galaxy returns the ids, so the model never has to register them.
                 watcher.ingest(ev.name, ev.content);
+                // A session opened without a history still ends up in one the agent chose.
+                const worked = historyFromResult(ev.name, ev.content);
+                if (worked) {
+                    sessionDoc.history_id = worked;
+                    config.history_id = worked;
+                }
             }
         };
     }

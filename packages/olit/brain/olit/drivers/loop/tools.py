@@ -319,6 +319,23 @@ class ToolSurface:
                 f"exact arguments, and its answer is fixed for this session. Use the answer you "
                 f"have, or take a different route.")
 
+    # A call refused before dispatch, keyed so repeats count however the bytes differ.
+    UNPARSABLE = {"arguments": "would not parse"}
+
+    def repeating_unparsable(self, name):
+        """Whether this tool's arguments have failed to parse often enough to stop trying."""
+        if self._repeating_a_failure(name, self.UNPARSABLE) is None:
+            return None
+        self._last_failure = None  # a speed bump, not a ban
+        return (f"Refused: the arguments for '{name}' have failed to parse "
+                f"{self.FAILED_REPEAT_LIMIT} times in a row. The shape is the problem rather "
+                f"than the content: send one JSON object containing only the parameters this "
+                f"tool declares, and keep large text out of it.")
+
+    def note_unparsable(self, name):
+        """Count a refusal the loop made before dispatch, which the guard cannot otherwise see."""
+        self._note_outcome(name, self.UNPARSABLE, True)
+
     def _repeating_a_failure(self, name, args):
         last = self._last_failure
         if not last or last["key"] != (name, brief(args)) or last["count"] < self.FAILED_REPEAT_LIMIT:

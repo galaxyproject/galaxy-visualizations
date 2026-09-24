@@ -145,3 +145,31 @@ def test_well_formed_calls_still_execute():
     assert driver.substrate.local.ran == ["print(1)"]
     (tool_message,) = tool_messages(result)
     assert tool_message["content"] == "ran"
+
+
+def unparsable(n):
+    """n calls whose arguments differ byte for byte but never parse."""
+    return [choice([call("run_python", "import os" + "x" * i)]) for i in range(n)]
+
+
+def test_arguments_that_keep_failing_to_parse_stop_being_asked_for():
+    """The guard lives in dispatch, which a malformed call never reaches."""
+    llm = ScriptedLlm(*unparsable(5), choice([], content="ok"))
+    _, result = _run(llm)
+
+    refusals = [m["content"] for m in tool_messages(result)]
+    assert any("failed to parse" in r for r in refusals), refusals
+    assert any("shape is the problem" in r for r in refusals)
+
+
+def test_a_parsable_call_in_between_clears_the_count():
+    """Three failures either side of a working call are not one run of failures."""
+    llm = ScriptedLlm(
+        *unparsable(2),
+        choice([call("run_python", '{"code": "1"}')]),
+        *unparsable(2),
+        choice([], content="ok"),
+    )
+    _, result = _run(llm)
+
+    assert not [m for m in tool_messages(result) if "failed to parse" in m["content"]]
