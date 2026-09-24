@@ -15,14 +15,10 @@ OUT="${LOOM_OUT:-$PWD/loom-results}"
 # linked scenario is silently invisible and loom exits 0 having run nothing.
 EXTRA="${LOOM_EXTRA_SCENARIOS:-$(cd "$(dirname "$0")" && pwd)/loom-scenarios}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-# loom's runner is a single spawn: it feeds every input and the process exits, so submitted
-# Galaxy work never lands and its own auto-resume has no session left to fire into. Olit's
-# harness settles advancing work between turns and then takes up to MAX_AUTO_FOLLOW_UPS
-# automatic turns (src/auto-resume.ts). Matching that here, from the outside, keeps loom
-# unmodified: each pass is a fresh loom session that re-reads its state from the bound Galaxy
-# page and history, which is how a resumed session works in production anyway.
-# One opening pass plus three follow-ups, matching MAX_AUTO_FOLLOW_UPS on the Olit side.
-PASSES="${LOOM_PASSES:-4}"
+# This script runs loom's own eval suite, which is a single spawn per scenario. That is fine for
+# the planning scenarios it was built for and wrong for anything whose work outlives a turn: see
+# drive-loom.py, which drives the native resume lifecycle instead.
+PASSES=1
 linked=()
 cleanup() { for l in "${linked[@]:-}"; do rm -rf "$l"; done; }
 trap cleanup EXIT
