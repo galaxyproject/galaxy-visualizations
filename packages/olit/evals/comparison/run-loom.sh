@@ -9,6 +9,23 @@ set -euo pipefail
 LOOM_DIR="${LOOM_DIR:-$HOME/loom}"
 MODEL="${LOOM_MODEL:-tacc:gpt-oss-120b}"
 OUT="${LOOM_OUT:-$PWD/loom-results}"
+# Scenarios that are ours rather than loom's. `run.ts` hardcodes evals/scenarios, so each one is
+# copied in for the run and removed after: loom's own scenarios stay read unmodified. Copied, not
+# symlinked -- `discoverScenarios` filters on `isDirectory()`, and a symlink is not one, so a
+# linked scenario is silently invisible and loom exits 0 having run nothing.
+EXTRA="${LOOM_EXTRA_SCENARIOS:-$(cd "$(dirname "$0")" && pwd)/loom-scenarios}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+# loom's runner is a single spawn: it feeds every input and the process exits, so submitted
+# Galaxy work never lands and its own auto-resume has no session left to fire into. Olit's
+# harness settles advancing work between turns and then takes up to MAX_AUTO_FOLLOW_UPS
+# automatic turns (src/auto-resume.ts). Matching that here, from the outside, keeps loom
+# unmodified: each pass is a fresh loom session that re-reads its state from the bound Galaxy
+# page and history, which is how a resumed session works in production anyway.
+# One opening pass plus three follow-ups, matching MAX_AUTO_FOLLOW_UPS on the Olit side.
+PASSES="${LOOM_PASSES:-4}"
+linked=()
+cleanup() { for l in "${linked[@]:-}"; do rm -rf "$l"; done; }
+trap cleanup EXIT
 
 fail() { echo "refusing to run: $*" >&2; exit 1; }
 
@@ -32,7 +49,13 @@ code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
 if [ "$#" -gt 0 ]; then
     scenarios=("$@")
     for s in "${scenarios[@]}"; do
-        [ -d "$LOOM_DIR/evals/scenarios/$s" ] || fail "no such loom scenario: $s"
+        if [ ! -d "$LOOM_DIR/evals/scenarios/$s" ]; then
+            [ -d "$EXTRA/$s" ] || fail "no such scenario: $s (looked in loom and $EXTRA)"
+            cp -R "$EXTRA/$s" "$LOOM_DIR/evals/scenarios/$s"
+            linked+=("$LOOM_DIR/evals/scenarios/$s")
+            [ -f "$EXTRA/$s/cwd/notebook.md" ] \
+                || fail "$s has no staged history binding; run stage-cryptic.py first"
+        fi
     done
 else
     scenarios=()
@@ -53,13 +76,25 @@ echo "${#scenarios[@]} scenario(s)"
 # newer than this invocation.
 for s in "${scenarios[@]}"; do
     echo "=== $s"
-    marker="$(mktemp)"                       # a timestamp to compare against
-    (cd "$LOOM_DIR" && npm run evals -- "$s" --model "$MODEL" 2>&1) | grep -E "PASS|FAIL|passed|failed" || true
-    latest=$(find "$LOOM_DIR/evals/results" -name '*.jsonl' -newer "$marker" -print0 2>/dev/null \
-        | xargs -0 ls -t 2>/dev/null | head -1 || true)
-    rm -f "$marker"
-    [ -n "$latest" ] || fail "loom wrote no results for $s; it did not run (a stale file would have been copied here)"
-    cp "$latest" "$OUT/$s.jsonl"
+    history=$(sed -n 's/^history_id: //p' "$EXTRA/$s/cwd/notebook.md" 2>/dev/null | head -1)
+    for pass in $(seq 1 "$PASSES"); do
+        [ "$PASSES" -gt 1 ] && echo "--- pass $pass/$PASSES" || true
+        marker="$(mktemp)"                   # a timestamp to compare against
+        (cd "$LOOM_DIR" && npm run evals -- "$s" --model "$MODEL" 2>&1) \
+            | grep -E "PASS|FAIL|passed|failed" || true
+        latest=$(find "$LOOM_DIR/evals/results" -name '*.jsonl' -newer "$marker" -print0 2>/dev/null \
+            | xargs -0 ls -t 2>/dev/null | head -1 || true)
+        rm -f "$marker"
+        [ -n "$latest" ] || fail "loom wrote no results for $s; it did not run (a stale file would have been copied here)"
+        cp "$latest" "$OUT/$s${PASSES:+.pass$pass}.jsonl"
+        # Each pass is a fresh loom session: the runner deletes its temp cwd, so the notebook
+        # does not survive. State carries in Galaxy -- the bound page and history the fixture
+        # points at -- which is what a resumed session reads in production too.
+        if [ "$pass" -lt "$PASSES" ] && [ -n "$history" ]; then
+            python3 "$HERE/settle-galaxy.py" "$history" "${LOOM_SETTLE_TIMEOUT:-5400}"
+        fi
+    done
+    cp "$OUT/$s.pass$PASSES.jsonl" "$OUT/$s.jsonl" 2>/dev/null || true
 done
 
 echo "done; per-scenario results under $OUT"
