@@ -5,6 +5,8 @@ import asyncio
 from olit.drivers.loop import notebook
 from olit.drivers.loop.tools import ToolSurface
 
+from .fakes import refused
+
 HISTORY = "f2db41e1fa331b3e"
 
 
@@ -116,7 +118,7 @@ def test_a_record_for_another_history_is_not_reused():
 
 def test_a_missing_history_id_is_refused_rather_than_guessed():
     g = FakeGalaxy()
-    out = run(notebook._notebook_resume(g, {}))
+    out = refused(run(notebook._notebook_resume(g, {})))
 
     assert "error" in out
     assert g.posted == [], "must not create an unattached record"

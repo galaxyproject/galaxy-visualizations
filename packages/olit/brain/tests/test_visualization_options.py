@@ -3,6 +3,8 @@ import asyncio
 
 from olit.drivers.loop.galaxy_tools import _get_visualization_options
 
+from .fakes import refused
+
 PLUGIN = {
     "name": "igv",
     "settings": [
@@ -40,7 +42,7 @@ def call(**kw):
 
 def test_a_name_declared_in_several_cases_is_refused_rather_than_guessed():
     """igv declares `genome` per case with a different source each time."""
-    out = call(parameter="genome")
+    out = refused(call(parameter="genome"))
     assert "more than one case" in out["error"]
     assert out["cases"] == ["builtin", "igv"]
     assert "`when`" in out["hint"]
@@ -63,7 +65,7 @@ def test_declared_options_need_no_fetching():
 
 
 def test_a_parameter_the_plugin_does_not_declare_is_refused():
-    assert "declares no parameter" in call(parameter="nonsense")["error"]
+    assert "declares no parameter" in refused(call(parameter="nonsense"))["error"]
 
 
 def test_browsing_says_how_to_get_the_value_to_store():

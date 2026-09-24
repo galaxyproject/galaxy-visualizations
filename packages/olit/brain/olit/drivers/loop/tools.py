@@ -10,6 +10,7 @@ from olit.substrate import Confirmation, LocalExecutionError
 from . import (artifacts, confusables, ena, fetch_failure_hint, galaxy_destructive,
                galaxy_tools, gtn, notebook, sra_import_gate)
 from .brief import brief
+from .outcome import ToolOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -151,21 +152,6 @@ ARTIFACT_HINT = ("This artifact is already displayed to the user and is not a hi
                  "so do not look for it there. Keeping it means writing {{artifact}} into a page "
                  "where it belongs; that token is the only way to place it, since its content is "
                  "held outside your context. Describe what it shows and finish.")
-
-
-@dataclass
-class ToolOutcome:
-    """What a tool call produced, and whether it counts as a failure."""
-
-    content: object
-    is_error: bool = False
-    refused: bool = False
-    # Which Olit guard refused this call, so an eval can see one in a trajectory.
-    guard: str | None = None
-
-    @property
-    def text(self):
-        return self.content if isinstance(self.content, str) else json.dumps(self.content)
 
 
 class ToolSurface:

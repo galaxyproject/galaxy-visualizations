@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 
 from olit.substrate.http import http
 
+from .outcome import ToolOutcome
+
 logger = logging.getLogger(__name__)
 
 GTN_HOST = "training.galaxyproject.org"
@@ -113,7 +115,7 @@ async def _gtn_search(args):
     if not topic:
         data = await http.request("GET", f"{GTN_API}/topics.json")
         if not isinstance(data, dict):
-            return {"error": "GTN returned an unexpected topics payload"}
+            return ToolOutcome({"error": "GTN returned an unexpected topics payload"}, is_error=True)
         topics = [
             {"name": t.get("name"), "title": t.get("title"), "summary": t.get("summary")}
             for t in data.values()
@@ -132,10 +134,10 @@ async def _gtn_search(args):
     except Exception:
         data = None
     if not isinstance(data, dict):
-        return {
+        return ToolOutcome({
             "error": f'Topic "{topic}" not found. '
             "Use gtn_search with no arguments to list available topics."
-        }
+        }, is_error=True)
 
     tutorials = []
     for m in data.get("materials") or []:
@@ -173,12 +175,12 @@ async def _gtn_search(args):
 async def _gtn_fetch(args):
     url = ((args or {}).get("url") or "").strip()
     if not url:
-        return {"error": "A tutorial url is required."}
+        return ToolOutcome({"error": "A tutorial url is required."}, is_error=True)
 
     parts = urlsplit(url)
     host = parts.hostname or ""
     if parts.scheme not in ("http", "https") or host != GTN_HOST:
-        return {"error": f"Only URLs on {GTN_HOST} are allowed. Got: {host or url}"}
+        return ToolOutcome({"error": f"Only URLs on {GTN_HOST} are allowed. Got: {host or url}"}, is_error=True)
 
     try:
         page = await http.request("GET", url)
@@ -186,9 +188,9 @@ async def _gtn_fetch(args):
         detail = str(exc)
         if len(detail) > ERROR_MAX_CHARS:
             detail = detail[:ERROR_MAX_CHARS] + " ..."
-        return {"url": url, "error": detail,
+        return ToolOutcome({"url": url, "error": detail,
                 "hint": "Check the url with gtn_search; tutorial paths include the topic, "
-                        "and a topic listed in one place may live under another."}
+                        "and a topic listed in one place may live under another."}, is_error=True)
     if not isinstance(page, str):
         page = json.dumps(page)
     text = _strip_html(page)

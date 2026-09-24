@@ -12,6 +12,8 @@ from urllib.parse import quote
 
 from olit.substrate.http import http
 
+from .outcome import ToolOutcome
+
 logger = logging.getLogger(__name__)
 
 ENA_HOST = "www.ebi.ac.uk"
@@ -41,7 +43,7 @@ def _rows(table):
 async def _ena_runs(args):
     accession = ((args or {}).get("accession") or "").strip()
     if not accession:
-        return {"error": "An ENA or SRA accession is required."}
+        return ToolOutcome({"error": "An ENA or SRA accession is required."}, is_error=True)
     limit = (args or {}).get("limit") or RUNS_DEFAULT
     try:
         limit = max(1, min(int(limit), RUNS_MAX))
@@ -56,8 +58,8 @@ async def _ena_runs(args):
         # ENA answers a bad accession with 400 and names the accession types it takes,
         # which is the most useful thing we could say here anyway.
         detail = str(exc)
-        return {"accession": accession,
-                "error": detail[:ERROR_MAX_CHARS] + (" ..." if len(detail) > ERROR_MAX_CHARS else "")}
+        return ToolOutcome({"accession": accession,
+                "error": detail[:ERROR_MAX_CHARS] + (" ..." if len(detail) > ERROR_MAX_CHARS else "")}, is_error=True)
 
     rows = _rows(table if isinstance(table, str) else str(table))
     if not rows:

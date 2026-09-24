@@ -54,3 +54,9 @@ def choice(tool_calls, finish_reason="tool_calls", content=""):
 
 def tool_messages(result):
     return [m for m in result["messages"] if m.get("role") == "tool"]
+
+
+def refused(outcome):
+    """The payload of a call the tool refused, asserting it was recorded as a failure."""
+    assert getattr(outcome, "is_error", False), f"not recorded as a failure: {outcome!r}"
+    return outcome.content

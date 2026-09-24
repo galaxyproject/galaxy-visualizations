@@ -3,6 +3,8 @@ import asyncio
 
 from olit.drivers.loop.galaxy_tools import _get_visualization_details
 
+from .fakes import refused
+
 IGV = {
     "name": "igv",
     "description": "Explore Genomic Data",
@@ -73,4 +75,4 @@ def test_a_plain_text_input_stores_a_string_and_claims_nothing_else():
 
 
 def test_an_unknown_visualization_is_refused():
-    assert "not an installed visualization" in details({})["error"]
+    assert "not an installed visualization" in refused(details({}))["error"]

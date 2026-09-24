@@ -11,6 +11,8 @@ import jsonschema
 from olit import vendor
 from olit.substrate.http import http
 
+from .outcome import ToolOutcome
+
 from . import invocation_outcome
 
 from . import page_edit
@@ -210,14 +212,14 @@ async def _run_tool(g, a):
     inputs = a.get("inputs") or {}
     foreign = await _foreign_inputs(g, inputs, history_id)
     if foreign:
-        return {
+        return ToolOutcome({
             "submitted": False,
             "error": "Refused: an input id does not identify a dataset in the target history.",
             "target_history_id": history_id,
             "rejected_inputs": foreign,
             "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
                     "history. To use data from elsewhere, copy it into this history first.",
-        }
+        }, is_error=True)
     try:
         return await g.post(
             "api/tools",
@@ -289,7 +291,7 @@ async def _get_job_details(g, a):
     dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     job_id = dataset.get("creating_job")
     if not job_id:
-        return {"error": "no creating job for dataset", "dataset_id": a["dataset_id"]}
+        return ToolOutcome({"error": "no creating job for dataset", "dataset_id": a["dataset_id"]}, is_error=True)
     job = await g.get(f"api/jobs/{job_id}{_q({'full': True})}")
     if not isinstance(job, dict):
         return job
@@ -513,14 +515,14 @@ async def _download_dataset(g, a):
         # Galaxy's chunked display: line-aligned, and it refuses binary itself.
         chunk = await _chunk(g, a["dataset_id"], MAX_DOWNLOAD_BYTES)
         if chunk is None:
-            return {
+            return ToolOutcome({
                 "error": (
                     f"Dataset is {stated / 1e6:.1f} MB and cannot be read in chunks. "
                     "Run a Galaxy tool on it instead."
                 ),
                 "dataset_id": a["dataset_id"],
                 "bytes": stated,
-            }
+            }, is_error=True)
         data, partial = chunk.encode("utf-8"), True
     else:
         data = await g.get(f"api/datasets/{a['dataset_id']}/display", binary=True)
@@ -566,19 +568,19 @@ async def _upload_file(g, a):
     # The counterpart to download_dataset.
     path = a["path"]
     if not os.path.isfile(path):
-        return {"error": f"No such file: {path}", "path": path}
+        return ToolOutcome({"error": f"No such file: {path}", "path": path}, is_error=True)
     with open(path, "rb") as f:
         raw = f.read()
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         # Pasted content goes up as text, so binary is refused.
-        return {
+        return ToolOutcome({
             "error": "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
             "Use upload_file_from_url for binary data.",
             "path": path,
             "bytes": len(raw),
-        }
+        }, is_error=True)
     element = {
         "src": "pasted",
         "paste_content": text,
@@ -866,8 +868,8 @@ async def _get_visualization_details(g, a):
     name = a["visualization"]
     plugin = await g.get(f"api/plugins/{name}") or {}
     if not plugin.get("name"):
-        return {"error": f"Refused: {name!r} is not an installed visualization.",
-                "hint": "Call list_visualizations for a dataset to see what this server offers."}
+        return ToolOutcome({"error": f"Refused: {name!r} is not an installed visualization.",
+                "hint": "Call list_visualizations for a dataset to see what this server offers."}, is_error=True)
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
     template = build_visualization_template(plugin, types)
@@ -934,26 +936,26 @@ async def _get_visualization_options(g, a):
     name, wanted = a["visualization"], a["parameter"]
     plugin = await g.get(f"api/plugins/{name}") or {}
     if not isinstance(plugin, dict) or not plugin.get("name"):
-        return {"error": f"Refused: {name!r} is not an installed visualization."}
+        return ToolOutcome({"error": f"Refused: {name!r} is not an installed visualization."}, is_error=True)
 
     found = (_find_declared(plugin.get("settings"), wanted)
              + _find_declared(plugin.get("tracks"), wanted))
     if not found:
-        return {"error": f"Refused: {name!r} declares no parameter {wanted!r}.",
-                "hint": f"Call get_visualization_details for {name!r} to see what it declares."}
+        return ToolOutcome({"error": f"Refused: {name!r} declares no parameter {wanted!r}.",
+                "hint": f"Call get_visualization_details for {name!r} to see what it declares."}, is_error=True)
 
     declared_cases = sorted({w for w, _ in found if w is not None})
     when = a.get("when")
     if when is not None:
         found = [(w, p) for w, p in found if w == when]
         if not found:
-            return {"error": f"Refused: {wanted!r} is not declared when {when!r}."}
+            return ToolOutcome({"error": f"Refused: {wanted!r} is not declared when {when!r}."}, is_error=True)
     if len(found) > 1:
         cases = sorted({w for w, _ in found if w is not None})
-        return {"error": f"Refused: {name!r} declares {wanted!r} in more than one case, and "
+        return ToolOutcome({"error": f"Refused: {name!r} declares {wanted!r} in more than one case, and "
                          "they do not share a source.",
                 "cases": cases,
-                "hint": "Pass `when` with the case you mean."}
+                "hint": "Pass `when` with the case you mean."}, is_error=True)
     declared = found[0][1]
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
@@ -967,7 +969,7 @@ async def _get_visualization_options(g, a):
     elif kind == "data_json":
         url = declared.get("url")
         if not url:
-            return {"error": f"{wanted!r} names no url to read its options from."}
+            return ToolOutcome({"error": f"{wanted!r} names no url to read its options from."}, is_error=True)
         fetched = await http.request("GET", url)
         entries = fetched if isinstance(fetched, list) else []
     elif kind == "data_table":
@@ -1022,8 +1024,8 @@ async def _get_visualization(g, a):
     """
     saved = await g.get(f"api/visualizations/{a['visualization_id']}") or {}
     if not saved.get("id"):
-        return {"error": f"No saved visualization {a['visualization_id']!r}.",
-                "hint": "Pass the visualization_id that save_visualization returned."}
+        return ToolOutcome({"error": f"No saved visualization {a['visualization_id']!r}.",
+                "hint": "Pass the visualization_id that save_visualization returned."}, is_error=True)
     config = (saved.get("latest_revision") or {}).get("config") or {}
     return {
         "visualization_id": saved.get("id"),
@@ -1174,7 +1176,7 @@ async def _save_visualization(g, a):
         plugin = await g.get(f"api/plugins/{a['visualization']}") or {}
         undeclared = _reject_undeclared(plugin, a)
         if undeclared:
-            return undeclared
+            return ToolOutcome(undeclared, is_error=True)
 
     name = a["visualization"]
     title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"
@@ -1191,10 +1193,10 @@ async def _save_visualization(g, a):
                                {"type": name, "title": title, "config": config})
         visualization_id = (created or {}).get("id")
         if not visualization_id:
-            return {"saved": False,
+            return ToolOutcome({"saved": False,
                     "error": "Galaxy accepted the visualization but returned no id, so there "
                              "is nothing to display or revise.",
-                    "response": created}
+                    "response": created}, is_error=True)
     # Galaxy reads the plugin name from the query, never from the saved object.
     query = {"visualization": name, "visualization_id": visualization_id, **_EMBED}
     artifact = {"kind": "visualization", "title": title,
@@ -1497,7 +1499,7 @@ async def _get_iwc_workflow_details(g, a):
     for w in await _iwc_manifest(g):
         if w.get("trsID") == a["trs_id"]:
             return w
-    return {"error": "trs_id not found in IWC manifest", "trs_id": a["trs_id"]}
+    return ToolOutcome({"error": "trs_id not found in IWC manifest", "trs_id": a["trs_id"]}, is_error=True)
 
 
 async def _import_workflow_from_iwc(g, a):

@@ -11,11 +11,14 @@ import pytest
 
 from olit.drivers.loop import galaxy_tools
 from olit.drivers.loop.galaxy_tools import (
+
     MAX_DOWNLOAD_BYTES,
     PREVIEW_LINES,
     _download_dataset,
     _upload_file,
 )
+
+from .fakes import refused
 
 
 @pytest.fixture(autouse=True)
@@ -110,7 +113,7 @@ async def test_a_file_written_locally_can_be_uploaded_back():
 @pytest.mark.asyncio
 async def test_uploading_a_missing_path_is_an_error_not_a_crash():
     g = FakeGalaxy("")
-    out = await _upload_file(g, {"path": "/data/does-not-exist.dat"})
+    out = refused(await _upload_file(g, {"path": "/data/does-not-exist.dat"}))
     assert "error" in out and g.posted is None
 
 
@@ -138,7 +141,7 @@ async def test_a_text_dataset_is_still_reported_as_text():
 async def test_uploading_binary_is_refused_rather_than_corrupted():
     g = FakeGalaxy(BINARY)
     downloaded = await _download_dataset(g, {"dataset_id": "bam2"})
-    out = await _upload_file(g, {"path": downloaded["path"]})
+    out = refused(await _upload_file(g, {"path": downloaded["path"]}))
     assert "error" in out and "binary" in out["error"].lower()
     assert g.posted is None  # nothing sent
 
@@ -172,7 +175,7 @@ async def test_an_unchunkable_oversized_dataset_is_refused():
     g = FakeGalaxy(BINARY)
     g.stated_size = MAX_DOWNLOAD_BYTES + 1
     g.chunkable = False
-    out = await _download_dataset(g, {"dataset_id": "bigbam"})
+    out = refused(await _download_dataset(g, {"dataset_id": "bigbam"}))
     assert "error" in out and "path" not in out
 
 
