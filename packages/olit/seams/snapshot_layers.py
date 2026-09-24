@@ -118,7 +118,7 @@ MODULE_CLASSIFICATION = {
                      "checkbox itself (applyJobOutcome), and no recorded run has the model "
                      "flipping a step that carries an id. Revisit if the flip ever moves to "
                      "the model.",
-    "auto-resume": "NA: loom's poller wakes the agent, so it needed a cap. olit's onSettled "
+    "auto-resume": "PORTED: bounded automatic Galaxy follow-up in src/auto-resume.ts. Was labelled NA on the reasoning that olit starts no turn, which described the gap rather than a constraint: the browser does not prevent it, and the watcher and submit lifecycle were already there. onSettled used to tell the user to ask; loom's own prompt forbids asking them to ask."
                    "posts a message and edits the record; it starts no turn, so there is no "
                    "automatic continuation to bound.",
     "invocation-failure-hint": "PARTIAL: the imperative rides the result as `outcome_note` (see the tool.get_invocations.outcome seam); the pointer to loom's two vendored failure references is not ported, because they live in its foundry bundle rather than in the shared galaxy-skills repo",

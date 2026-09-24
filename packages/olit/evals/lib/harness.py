@@ -5,10 +5,13 @@ import json
 import time
 import os
 import pathlib
+import re
 import runpy
 
 from olit.drivers.loop import notebook
 from olit.runtime import Session
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 from olit.substrate.llm import REGISTRY
 
 from . import tooltests
@@ -143,12 +146,30 @@ async def _run(scenario, model):
         cap = int(result.get("max_steps") or 0) or cap
         # Only after run() returns: a turn that dies mid-flight must not look complete.
         events.append("turn_end")
-        # The shell runs a watcher outside the loop (src/invocations.ts) that advances
-        # submitted work between turns, so production never meets the next user message
-        # with its jobs still queued. Without this the harness promises a watcher the
-        # prompt describes and does not provide.
+        # The shell continues by itself when work lands, bounded to MAX_AUTO_FOLLOW_UPS turns
+        # (src/auto-resume.ts). Waiting without acting is what the shell does not do.
         if staged:
-            _settle_pending(staged, events)
+            wait = scenario.get("settleTimeoutMs", 180_000) / 1000
+            landed = _settle_pending(staged, events, timeout=wait)
+            for _ in range(MAX_AUTO_FOLLOW_UPS):
+                if not landed:
+                    break
+                events.append("auto_follow_up")
+                text = resume_prompt() + "\n" + json.dumps(landed, indent=2)
+                messages = [*messages, {"role": "user", "content": text}]
+                graded.append({"role": "user", "content": text})
+                events.append("turn_start")
+                result = await session.turn(
+                    messages, lambda ev: _note(ev, tools_called, events, refused))
+                messages = result.get("messages") or messages
+                graded.extend(result.get("new_messages") or [])
+                logs.extend(result.get("logs") or [])
+                artifacts.extend(result.get("artifacts") or [])
+                exhausted = exhausted or bool(result.get("exhausted"))
+                steps = max(steps, int(result.get("steps") or 0))
+                cap = int(result.get("max_steps") or 0) or cap
+                events.append("turn_end")
+                landed = _settle_pending(staged, events, timeout=wait)
     return RunResult(graded if restart_after else messages,
                      logs, tools_called, events=events, artifacts=artifacts,
                      exhausted=exhausted, staged=staged, steps=steps, max_steps=cap,
@@ -345,6 +366,11 @@ def _stage_run(galaxy, history_id, dataset_id, spec):
 
 # Job states Galaxy will not leave, matching src/invocations.ts.
 RUNNING_STATES = ("new", "queued", "running", "paused", "upload", "setting_metadata")
+# What Galaxy advances on its own. `paused` is not terminal -- loom says so too -- but it waits
+# on an input that failed or on the user, so nothing is gained by watching it tick.
+ADVANCING_STATES = ("new", "queued", "running", "upload", "setting_metadata")
+# The shell continues by itself when work lands, up to this many turns: src/auto-resume.ts.
+MAX_AUTO_FOLLOW_UPS = 3
 
 # Galaxy 26 moves a settled invocation from `scheduled` to `completed`, so pinning either
 # word races the scheduler. What the staging asserts is the job outcome below.
@@ -390,18 +416,40 @@ def _stage_invocation(galaxy, history_id, dataset_id, spec):
 
 
 def _settle_pending(staged, events, timeout=180, interval=1):
-    """Advance submitted work to a terminal state, as the shell's watcher does."""
+    """Wait for work Galaxy is advancing, as the shell's watcher does.
+
+    Only states that progress on their own are waited on. A `paused` dataset is waiting on an
+    input that failed or on the user, so watching it until a deadline freezes the agent for the
+    whole window -- which is the opposite of what the shell does when work lands.
+    """
     galaxy, history_id = staged["galaxy"], staged["history_id"]
     deadline = time.time() + timeout
-    settled_any = False
+    watched = {}
     while time.time() < deadline:
         contents = galaxy.call(f"api/histories/{history_id}/contents") or []
-        pending = [c for c in contents
-                   if isinstance(c, dict) and not c.get("deleted")
-                   and c.get("state") in RUNNING_STATES]
-        if not pending:
+        live = [c for c in contents if isinstance(c, dict) and not c.get("deleted")]
+        for c in live:
+            if c.get("state") in ADVANCING_STATES:
+                watched[c.get("id")] = c
+        if not any(c.get("state") in ADVANCING_STATES for c in live):
             break
-        settled_any = True
         time.sleep(interval)
-    if settled_any:
-        events.append("work_settled")
+    if not watched:
+        return []
+    events.append("work_settled")
+    landed = {c.get("id"): c for c in
+              (galaxy.call(f"api/histories/{history_id}/contents") or []) if isinstance(c, dict)}
+    return [{"kind": "job", "id": str(i), "label": str(landed.get(i, {}).get("name") or i),
+             "outcome": "failed" if landed.get(i, {}).get("state") == "error" else "completed"}
+            for i in watched if landed.get(i, {}).get("state") in ("ok", "error")]
+
+
+def resume_prompt():
+    """The shell's own follow-up text, read from its single definition so it cannot drift."""
+    source = (ROOT / "src/auto-resume.ts").read_text()
+    body = source.split("export function buildResumePrompt", 1)[1].split("return (", 1)[1]
+    body = body.split("\n    );", 1)[0]
+    parts = re.findall(r'"((?:[^"\\]|\\.)*)"', body)
+    if not parts:
+        raise RuntimeError("buildResumePrompt moved; the harness can no longer read it")
+    return "".join(p.encode().decode("unicode_escape") for p in parts)
