@@ -3,7 +3,12 @@ import { ChatPanel } from "./orbit/chat/chat-panel";
 import type { Message } from "./pyodide-runner";
 
 /** Render the turn's messages; returns whether any assistant prose was shown. */
-export function renderMessages(chat: ChatPanel, messages: Message[], streamed: Set<string> = new Set()): boolean {
+export function renderMessages(
+    chat: ChatPanel,
+    messages: Message[],
+    streamed: Set<string> = new Set(),
+    failed: Set<string> = new Set(),
+): boolean {
     let spoke = false;
     for (const m of messages) {
         // `finish` puts the model's closing words in a tool argument, not in content.
@@ -24,7 +29,9 @@ export function renderMessages(chat: ChatPanel, messages: Message[], streamed: S
             }
         } else if (m.role === "tool" && m.tool_call_id) {
             if (!streamed.has(m.tool_call_id)) {
-                chat.updateToolCard(m.tool_call_id, toolStatus(m.content || ""), m.content || "");
+                // The recorded outcome, not a guess from the text.
+                const status = failed.has(m.tool_call_id) ? "error" : toolStatus(m.content || "");
+                chat.updateToolCard(m.tool_call_id, status, m.content || "");
             }
         }
     }
@@ -32,12 +39,12 @@ export function renderMessages(chat: ChatPanel, messages: Message[], streamed: S
 }
 
 /** Repaint a stored transcript into the panel; loom: session-replay.js on `--continue`. */
-export function replayMessages(chat: ChatPanel, messages: Message[]) {
+export function replayMessages(chat: ChatPanel, messages: Message[], failed: Set<string> = new Set()) {
     for (const m of messages) {
         if (m.role === "user") {
             chat.addUserMessage(m.content || "");
         } else if (m.role !== "system") {
-            renderMessages(chat, [m]);
+            renderMessages(chat, [m], new Set(), failed);
         }
     }
 }

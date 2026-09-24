@@ -3,7 +3,7 @@ import "./orbit/styles.css";
 import "./olit.css";
 import { editRecord } from "./record-write";
 import { describeSeedDataset, summarize } from "./seed-dataset";
-import { applyJobOutcome, noteSubmitted } from "./record-jobs";
+import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
@@ -161,12 +161,15 @@ async function main() {
     // Switching provider reloads, so what earlier turns produced comes back from storage
     // rather than from memory: without this a chart cannot be placed after a model switch.
     produced.push(...sessionDoc.artifacts);
+    // Which steps failed, recorded rather than re-derived: a restored session must render them
+    // exactly as the live one did.
+    const toolErrors = new Set<string>(sessionDoc.toolErrors || []);
     const restored = restoreMessages(sessionDoc, seed);
     const resumed = restored.length > 1;
     if (resumed) {
         convo.length = 0;
         convo.push(...restored);
-        replayMessages(chat, restored);
+        replayMessages(chat, restored, toolErrors);
         el.reset.classList.remove("hidden");
     }
     if (fromGalaxy) {
@@ -222,7 +225,7 @@ async function main() {
             );
         },
         onSettled: (w, state) => {
-            const what = w.kind === "invocation" ? "Workflow invocation" : "Galaxy job";
+            const what = WHAT[w.kind];
             const failed = isFailure(w.kind, state);
             if (failed) {
                 chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
@@ -276,6 +279,9 @@ async function main() {
             } else if (ev.type === "tool_end") {
                 // The brain states the outcome; toolStatus only guesses at it.
                 const status = ev.is_error ? "error" : toolStatus(ev.content);
+                if (ev.is_error) {
+                    toolErrors.add(ev.id);
+                }
                 chat.updateToolCard(ev.id, status, ev.content);
                 // Galaxy returns the ids, so the model never has to register them.
                 watcher.ingest(ev.name, ev.content);
@@ -351,7 +357,9 @@ async function main() {
 
         // One document, two stores: local now because it is cheap, Galaxy on a debounce
         // because every config change there inserts a whole new revision.
-        sessionDoc = advance(sessionDoc, { messages: convo, artifacts: produced, usage: reply.usage });
+        sessionDoc = advance(sessionDoc, {
+            messages: convo, artifacts: produced, usage: reply.usage, toolErrors,
+        });
         noteModel(sessionDoc, { provider: config.ai_provider, model: config.ai_model });
         void session.save(sessionDoc);
         el.save.textContent = "Save";

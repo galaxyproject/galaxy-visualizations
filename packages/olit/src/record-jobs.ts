@@ -15,7 +15,7 @@ const FAILED = "- [!]";
 
 export interface JobOutcome {
     id: string;
-    kind: "job" | "invocation";
+    kind: "job" | "invocation" | "dataset";
     state: string;
     failed: boolean;
 }
@@ -84,9 +84,16 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
  * where Galaxy's `id` was needed, which left the record unmatchable and the poller unable to
  * advance anything.
  */
-export function noteSubmitted(content: string, w: { id: string; kind: "job" | "invocation" }): string {
+/** What to call each kind in the record and the chat. */
+export const WHAT = {
+    job: "Galaxy job",
+    invocation: "Workflow invocation",
+    dataset: "Galaxy dataset",
+} as const;
+
+export function noteSubmitted(content: string, w: { id: string; kind: "job" | "invocation" | "dataset" }): string {
     if (content.includes(w.id)) return content;
-    const what = w.kind === "invocation" ? "Workflow invocation" : "Galaxy job";
+    const what = WHAT[w.kind];
     const entry = `- [ ] ${what} \`${w.id}\` — submitted, awaiting completion`;
     const lines = content.split("\n");
 

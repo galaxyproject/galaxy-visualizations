@@ -5,7 +5,7 @@
  */
 
 export interface GalaxyFollowUp {
-    kind: "job" | "invocation";
+    kind: "job" | "invocation" | "dataset";
     id: string;
     label: string;
     outcome: "completed" | "failed";
