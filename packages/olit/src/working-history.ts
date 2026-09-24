@@ -9,27 +9,27 @@
 const LISTS = ["outputs", "jobs", "items"];
 
 export function historyFromResult(name: string, content: string): string | undefined {
-    let payload: Record<string, any>;
-    try {
-        payload = JSON.parse(content);
-    } catch {
-        return undefined;
-    }
-    if (!payload || typeof payload !== "object") {
-        return undefined;
-    }
-    // A created history answers with its own id rather than naming one.
-    if (payload.model_class === "History" && typeof payload.id === "string") {
-        return payload.id;
-    }
-    if (typeof payload.history_id === "string") {
-        return payload.history_id;
-    }
-    for (const key of LISTS) {
-        const first = Array.isArray(payload[key]) ? payload[key][0] : undefined;
-        if (first && typeof first.history_id === "string") {
-            return first.history_id;
-        }
-    }
+  let payload: Record<string, any>;
+  try {
+    payload = JSON.parse(content);
+  } catch {
     return undefined;
+  }
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+  // A created history answers with its own id rather than naming one.
+  if (payload.model_class === "History" && typeof payload.id === "string") {
+    return payload.id;
+  }
+  if (typeof payload.history_id === "string") {
+    return payload.history_id;
+  }
+  for (const key of LISTS) {
+    const first = Array.isArray(payload[key]) ? payload[key][0] : undefined;
+    if (first && typeof first.history_id === "string") {
+      return first.history_id;
+    }
+  }
+  return undefined;
 }

@@ -57,30 +57,30 @@ export const LAYOUT = `
       </div>`;
 
 export interface Elements {
-    chat: HTMLElement;
-    messages: HTMLElement;
-    input: HTMLTextAreaElement;
-    send: HTMLButtonElement;
-    abort: HTMLButtonElement;
-    reset: HTMLButtonElement;
-    save: HTMLButtonElement;
-    model: HTMLButtonElement;
-    artifactContent: HTMLElement;
+  chat: HTMLElement;
+  messages: HTMLElement;
+  input: HTMLTextAreaElement;
+  send: HTMLButtonElement;
+  abort: HTMLButtonElement;
+  reset: HTMLButtonElement;
+  save: HTMLButtonElement;
+  model: HTMLButtonElement;
+  artifactContent: HTMLElement;
 }
 
 /** Write the layout into `container` and hand back the parts the shell drives. */
 export function mountLayout(container: HTMLElement): Elements {
-    container.innerHTML = LAYOUT;
-    const find = <T extends HTMLElement>(id: string) => container.querySelector<T>(id)!;
-    return {
-        chat: find("#chat-pane"),
-        messages: find("#messages"),
-        input: find<HTMLTextAreaElement>("#input"),
-        send: find<HTMLButtonElement>("#send-btn"),
-        abort: find<HTMLButtonElement>("#abort-btn"),
-        reset: find<HTMLButtonElement>("#reset-btn"),
-        save: find<HTMLButtonElement>("#save-btn"),
-        model: find<HTMLButtonElement>("#model-btn"),
-        artifactContent: find("#artifact-content"),
-    };
+  container.innerHTML = LAYOUT;
+  const find = <T extends HTMLElement>(id: string) => container.querySelector<T>(id)!;
+  return {
+    chat: find("#chat-pane"),
+    messages: find("#messages"),
+    input: find<HTMLTextAreaElement>("#input"),
+    send: find<HTMLButtonElement>("#send-btn"),
+    abort: find<HTMLButtonElement>("#abort-btn"),
+    reset: find<HTMLButtonElement>("#reset-btn"),
+    save: find<HTMLButtonElement>("#save-btn"),
+    model: find<HTMLButtonElement>("#model-btn"),
+    artifactContent: find("#artifact-content"),
+  };
 }

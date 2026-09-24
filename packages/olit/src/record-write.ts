@@ -23,28 +23,28 @@ const MAX_ATTEMPTS = 3;
 let pending: Promise<unknown> = Promise.resolve();
 
 function inTurn<T>(work: () => Promise<T>): Promise<T> {
-    const next = pending.then(work, work);
-    pending = next.catch(() => undefined);
-    return next;
+  const next = pending.then(work, work);
+  pending = next.catch(() => undefined);
+  return next;
 }
 
 export interface RecordTarget {
-    root: string;
-    credentials: RequestCredentials;
-    historyId: string;
+  root: string;
+  credentials: RequestCredentials;
+  historyId: string;
 }
 
 /** Find this history's record by its deterministic slug, the way the brain does. */
 export async function findRecord(t: RecordTarget): Promise<{ id: string } | null> {
-    const slug = `olit-${t.historyId}`;
-    // Narrow by slug rather than listing every page. The search matches substrings, so the
-    // exact slug is still picked out below.
-    const query = `search=${encodeURIComponent(`slug:${slug}`)}&limit=50`;
-    const res = await fetch(`${t.root}api/pages?${query}`, { credentials: t.credentials });
-    if (!res.ok) return null;
-    const pages = await res.json();
-    if (!Array.isArray(pages)) return null;
-    return pages.find((p: any) => p && p.slug === slug) || null;
+  const slug = `olit-${t.historyId}`;
+  // Narrow by slug rather than listing every page. The search matches substrings, so the
+  // exact slug is still picked out below.
+  const query = `search=${encodeURIComponent(`slug:${slug}`)}&limit=50`;
+  const res = await fetch(`${t.root}api/pages?${query}`, { credentials: t.credentials });
+  if (!res.ok) return null;
+  const pages = await res.json();
+  if (!Array.isArray(pages)) return null;
+  return pages.find((p: any) => p && p.slug === slug) || null;
 }
 
 /**
@@ -55,34 +55,34 @@ export async function findRecord(t: RecordTarget): Promise<{ id: string } | null
  * given the record's id for content that has to name the page it sits on.
  */
 export function editRecord(
-    t: RecordTarget,
-    edit: (content: string, recordId: string) => string,
+  t: RecordTarget,
+  edit: (content: string, recordId: string) => string,
 ): Promise<boolean> {
-    return inTurn(async () => {
-        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-            try {
-                const found = await findRecord(t);
-                if (!found) return false;
-                const res = await fetch(`${t.root}api/pages/${found.id}`, { credentials: t.credentials });
-                if (!res.ok) return false;
-                const page = (await res.json()) || {};
-                // `content` is the embed-expanded render; `content_editor` is the saved source.
-                const before = page.content_editor || page.content || "";
-                const after = edit(before, found.id);
-                if (after === before) return true;
+  return inTurn(async () => {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      try {
+        const found = await findRecord(t);
+        if (!found) return false;
+        const res = await fetch(`${t.root}api/pages/${found.id}`, { credentials: t.credentials });
+        if (!res.ok) return false;
+        const page = (await res.json()) || {};
+        // `content` is the embed-expanded render; `content_editor` is the saved source.
+        const before = page.content_editor || page.content || "";
+        const after = edit(before, found.id);
+        if (after === before) return true;
 
-                const put = await fetch(`${t.root}api/pages/${found.id}`, {
-                    method: "PUT",
-                    credentials: t.credentials,
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ content: after }),
-                });
-                if (put.ok) return true;
-                // A rejected write is re-read and reapplied rather than resent as it stands.
-            } catch (e) {
-                console.warn("[olit] record edit attempt failed", e);
-            }
-        }
-        return false;
-    });
+        const put = await fetch(`${t.root}api/pages/${found.id}`, {
+          method: "PUT",
+          credentials: t.credentials,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: after }),
+        });
+        if (put.ok) return true;
+        // A rejected write is re-read and reapplied rather than resent as it stands.
+      } catch (e) {
+        console.warn("[olit] record edit attempt failed", e);
+      }
+    }
+    return false;
+  });
 }

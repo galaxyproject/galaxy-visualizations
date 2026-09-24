@@ -16,61 +16,61 @@ export const SCHEMA = 1;
 const RECORD_MARKER = "<!-- olit:record -->";
 
 export interface SessionMeta {
-    /** Stable across reloads and saves. Owns this session's block in the record Page. */
-    id: string;
-    title: string;
-    createdAt: string;
-    updatedAt: string;
-    turn: number;
-    recordPageId?: string;
-    /** Which models produced this conversation. Provenance only: never restored as config. */
-    models: ModelUse[];
-    usage: { input: number; output: number; cost: number | null };
+  /** Stable across reloads and saves. Owns this session's block in the record Page. */
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  turn: number;
+  recordPageId?: string;
+  /** Which models produced this conversation. Provenance only: never restored as config. */
+  models: ModelUse[];
+  usage: { input: number; output: number; cost: number | null };
 }
 
 /** A model that produced part of this conversation. Carries no endpoint and no key. */
 export interface ModelUse {
-    provider: string;
-    model?: string;
-    firstTurn: number;
-    lastTurn: number;
+  provider: string;
+  model?: string;
+  firstTurn: number;
+  lastTurn: number;
 }
 
 export interface SessionDocument {
-    olit_session: number;
-    history_id?: string;
-    dataset_id?: string;
-    session: SessionMeta;
-    messages: Message[];
-    artifacts: Artifact[];
-    /** tool_call_ids that failed; the transcript carries no field for it. */
-    toolErrors?: string[];
+  olit_session: number;
+  history_id?: string;
+  dataset_id?: string;
+  session: SessionMeta;
+  messages: Message[];
+  artifacts: Artifact[];
+  /** tool_call_ids that failed; the transcript carries no field for it. */
+  toolErrors?: string[];
 }
 
 const uuid = () => globalThis.crypto?.randomUUID?.() || `s-${Date.now()}-${Math.random()}`;
 
 export function newDocument(options: {
-    historyId?: string;
-    datasetId?: string;
-    title?: string;
+  historyId?: string;
+  datasetId?: string;
+  title?: string;
 }): SessionDocument {
-    const now = new Date().toISOString();
-    return {
-        olit_session: SCHEMA,
-        history_id: options.historyId,
-        dataset_id: options.datasetId,
-        session: {
-            id: uuid(),
-            title: options.title || "Olit session",
-            createdAt: now,
-            updatedAt: now,
-            turn: 0,
-            models: [],
-            usage: { input: 0, output: 0, cost: null },
-        },
-        messages: [],
-        artifacts: [],
-    };
+  const now = new Date().toISOString();
+  return {
+    olit_session: SCHEMA,
+    history_id: options.historyId,
+    dataset_id: options.datasetId,
+    session: {
+      id: uuid(),
+      title: options.title || "Olit session",
+      createdAt: now,
+      updatedAt: now,
+      turn: 0,
+      models: [],
+      usage: { input: 0, output: 0, cost: null },
+    },
+    messages: [],
+    artifacts: [],
+  };
 }
 
 /** The seed prompt and the brain's refreshed blocks are regenerated, never stored.
@@ -79,71 +79,74 @@ export function newDocument(options: {
  * started, so a prompt correction would never reach it.
  */
 export function storableMessages(messages: Message[]): Message[] {
-    return messages.filter(
-        (m, i) =>
-            !(i === 0 && m.role === "system") &&
-            !(m.role === "system" && (m.content || "").includes(RECORD_MARKER)),
-    );
+  return messages.filter(
+    (m, i) =>
+      !(i === 0 && m.role === "system") &&
+      !(m.role === "system" && (m.content || "").includes(RECORD_MARKER)),
+  );
 }
 
 /** The stored conversation under the seed the plugin ships today. */
 export function restoreMessages(document: SessionDocument, seed: Message): Message[] {
-    return [seed, ...storableMessages(document.messages || [])];
+  return [seed, ...storableMessages(document.messages || [])];
 }
 
 /** The document after one completed turn. */
 export function advance(
-    document: SessionDocument,
-    changes: {
-        messages: Message[];
-        artifacts: Artifact[];
-        usage?: Partial<SessionMeta["usage"]>;
-        toolErrors?: Iterable<string>;
-    },
+  document: SessionDocument,
+  changes: {
+    messages: Message[];
+    artifacts: Artifact[];
+    usage?: Partial<SessionMeta["usage"]>;
+    toolErrors?: Iterable<string>;
+  },
 ): SessionDocument {
-    const previous = document.session;
-    return {
-        ...document,
-        toolErrors: changes.toolErrors ? [...changes.toolErrors] : document.toolErrors,
-        session: {
-            ...previous,
-            turn: previous.turn + 1,
-            updatedAt: new Date().toISOString(),
-            usage: {
-                input: previous.usage.input + (changes.usage?.input || 0),
-                output: previous.usage.output + (changes.usage?.output || 0),
-                cost:
-                    changes.usage?.cost == null && previous.usage.cost == null
-                        ? null
-                        : (previous.usage.cost || 0) + (changes.usage?.cost || 0),
-            },
-        },
-        messages: storableMessages(changes.messages),
-        artifacts: changes.artifacts,
-    };
+  const previous = document.session;
+  return {
+    ...document,
+    toolErrors: changes.toolErrors ? [...changes.toolErrors] : document.toolErrors,
+    session: {
+      ...previous,
+      turn: previous.turn + 1,
+      updatedAt: new Date().toISOString(),
+      usage: {
+        input: previous.usage.input + (changes.usage?.input || 0),
+        output: previous.usage.output + (changes.usage?.output || 0),
+        cost:
+          changes.usage?.cost == null && previous.usage.cost == null
+            ? null
+            : (previous.usage.cost || 0) + (changes.usage?.cost || 0),
+      },
+    },
+    messages: storableMessages(changes.messages),
+    artifacts: changes.artifacts,
+  };
 }
 
 /** Note which model produced this turn. Provenance: the runtime config comes from the browser. */
-export function noteModel(document: SessionDocument, use: { provider: string; model?: string }): void {
-    const turn = document.session.turn;
-    const last = document.session.models[document.session.models.length - 1];
-    if (last && last.provider === use.provider && last.model === use.model) {
-        last.lastTurn = turn;
-        return;
-    }
-    document.session.models.push({ ...use, firstTurn: turn, lastTurn: turn });
+export function noteModel(
+  document: SessionDocument,
+  use: { provider: string; model?: string },
+): void {
+  const turn = document.session.turn;
+  const last = document.session.models[document.session.models.length - 1];
+  if (last && last.provider === use.provider && last.model === use.model) {
+    last.lastTurn = turn;
+    return;
+  }
+  document.session.models.push({ ...use, firstTurn: turn, lastTurn: turn });
 }
 
 /** Is this a document we understand? A future schema is not ours to interpret. */
 export function isSessionDocument(value: unknown): value is SessionDocument {
-    const d = value as SessionDocument | undefined;
-    return Boolean(
-        d &&
-            typeof d === "object" &&
-            d.olit_session === SCHEMA &&
-            d.session &&
-            typeof d.session.id === "string" &&
-            Array.isArray(d.messages) &&
-            Array.isArray(d.artifacts),
-    );
+  const d = value as SessionDocument | undefined;
+  return Boolean(
+    d &&
+    typeof d === "object" &&
+    d.olit_session === SCHEMA &&
+    d.session &&
+    typeof d.session.id === "string" &&
+    Array.isArray(d.messages) &&
+    Array.isArray(d.artifacts),
+  );
 }

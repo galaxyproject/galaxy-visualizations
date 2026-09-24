@@ -2,7 +2,7 @@
   "_comment": "Vendored from galaxyproject/loom. Hashes pin the files so accidental edits fail CI. chat-panel.ts carries a documented 2-line import retarget; see README.md.",
   "upstream": "galaxyproject/loom",
   "files": {
-    "chat/chat-panel.ts": "e6abc88cdfbe93c1f6eaf274d3f6e61ebb4aa60e5e2072258ac977dc5ac5fcd3",
+    "chat/chat-panel.ts": "faee4e3de2f3cce252d54c91d8b30c3862c11ecdda89c39cd0e5f739b9cb92c9",
     "chat/markdown.ts": "9bf98b8a0cb2a4b4d406ccaaa2ed336341b3f521095f0d85b3a564968d8f8619",
     "chat/block-spacing.ts": "2beed8d2752fd09591b9a9f1c1ed88757529b144917e540315bc1bc841031550",
     "chat/copy-button.ts": "bd41f3f50584ebdccdbca2036b67bfe10348bf9ee648b6387372e72d51842142",
