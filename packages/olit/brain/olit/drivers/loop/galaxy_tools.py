@@ -555,7 +555,10 @@ async def _download_dataset(g, a):
 
 
 async def _upload_file_from_url(g, a):
-    element = {"src": "url", "url": a["url"], "ext": a.get("file_type", "auto"), "dbkey": a.get("dbkey", "?")}
+    # Galaxy's own uploader decompresses by default (uploadOptionModel.ts); the API does not, so a
+    # `.gz` URL declared as its uncompressed type lands as gzip bytes wearing the wrong label.
+    element = {"src": "url", "url": a["url"], "ext": a.get("file_type", "auto"), "dbkey": a.get("dbkey", "?"),
+               "auto_decompress": True}
     if a.get("file_name"):
         element["name"] = a["file_name"]
     payload = {"targets": [{"destination": {"type": "hdas"}, "elements": [element]}]}
