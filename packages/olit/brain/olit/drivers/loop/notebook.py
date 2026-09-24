@@ -2,9 +2,8 @@
 
 import logging
 
-from .outcome import ToolOutcome
-
 from . import page_edit
+from .outcome import ToolOutcome
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.shells.pie_chart import PieChartShell
 
 

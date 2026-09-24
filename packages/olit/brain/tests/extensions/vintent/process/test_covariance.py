@@ -1,4 +1,5 @@
 import pytest
+
 from olit.registry.extensions.vintent.modules.process.analyze.covariance import run
 
 

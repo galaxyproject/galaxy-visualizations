@@ -1,7 +1,9 @@
 """A rejected parameter comes back with the template the tool accepts."""
 
 import asyncio
+
 import pytest
+
 from olit.drivers.loop.galaxy_tools import ToolParameterError, _run_tool
 
 TOOL = {"inputs": [{"name": "column", "type": "text", "value": ""}]}

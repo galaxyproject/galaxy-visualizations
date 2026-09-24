@@ -67,7 +67,6 @@ def _squarify_recurse(
     # Determine layout direction (lay out along shorter edge)
     vertical = width >= height
 
-    total_size = sum(item["_norm_size"] for item in items)
     row: list[dict[str, Any]] = []
     row_size = 0.0
 

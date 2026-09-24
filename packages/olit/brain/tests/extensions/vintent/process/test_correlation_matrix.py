@@ -1,5 +1,6 @@
 import pytest
-from olit.registry.extensions.vintent.modules.process.analyze.correlation_matrix import run, log
+
+from olit.registry.extensions.vintent.modules.process.analyze.correlation_matrix import log, run
 
 
 def test_run_empty_rows_returns_empty():

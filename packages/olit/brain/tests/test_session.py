@@ -8,6 +8,7 @@ from olit.drivers.loop.agent import LoopDriver
 from olit.registry import ProcessRegistry
 from olit.substrate import Confirmation
 from olit.substrate.llm import Reply
+
 from .fakes import FakeSubstrate, ScriptedLlm, call
 
 

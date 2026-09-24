@@ -1,6 +1,4 @@
-import pytest
-from datetime import datetime, timedelta
-from olit.registry.extensions.vintent.modules.process.extract.date_filter import schema, run, log
+from olit.registry.extensions.vintent.modules.process.extract.date_filter import log, run, schema
 
 
 def test_schema_returns_none_without_temporal_columns():

@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.extract.range_filter import schema, run, log
+from olit.registry.extensions.vintent.modules.process.extract.range_filter import log, run, schema
 
 
 def test_schema_returns_none_without_quantitative_columns():

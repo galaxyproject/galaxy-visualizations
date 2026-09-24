@@ -3,10 +3,9 @@
 import asyncio
 import json
 
-import pytest
-
 from olit.drivers.loop import ena
 from olit.drivers.loop.tools import ToolSurface
+
 from .fakes import FakeSubstrate, refused
 
 # A paired run, its real sharding: first six characters, then no numbered subdirectory.

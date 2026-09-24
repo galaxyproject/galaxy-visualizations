@@ -1,4 +1,5 @@
 import pytest
+
 from olit.registry.extensions.vintent.modules.shells.base import ShellError
 from olit.registry.extensions.vintent.modules.shells.scatter import ScatterShell
 

@@ -11,12 +11,9 @@ import jsonschema
 from olit import vendor
 from olit.substrate.http import http
 
-from .outcome import ToolOutcome
-
-from . import invocation_outcome
-
-from . import page_edit
+from . import invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
+from .outcome import ToolOutcome
 from .paging import ROW_CAP, page, server_page
 from .tool_inputs import build_input_template, summarize_tool_inputs
 from .visualization_inputs import build_visualization_template, template_cases

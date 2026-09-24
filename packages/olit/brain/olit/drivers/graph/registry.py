@@ -3,8 +3,9 @@
 import json
 import logging
 
-from .agents import Agents
 from olit.exceptions import NodeExecutionError
+
+from .agents import Agents
 
 logger = logging.getLogger(__name__)
 

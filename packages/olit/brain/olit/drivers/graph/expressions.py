@@ -1,10 +1,11 @@
 """Expression operators for agent pipelines."""
 
 import logging
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from olit.exceptions import ExpressionError
+
 from .types import Context
 
 logger = logging.getLogger(__name__)

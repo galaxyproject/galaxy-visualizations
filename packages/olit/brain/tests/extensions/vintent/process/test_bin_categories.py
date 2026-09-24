@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.analyze.bin_categories import run, log
+from olit.registry.extensions.vintent.modules.process.analyze.bin_categories import log, run
 
 
 def test_run_empty_rows_returns_empty():

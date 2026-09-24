@@ -1,4 +1,5 @@
 from olit.exceptions import ConfigurationError
+
 from .galaxy import GalaxyApi
 
 

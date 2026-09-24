@@ -4,8 +4,8 @@ import asyncio
 
 from olit import compaction
 from olit.drivers.loop.agent import LoopDriver
-from olit.substrate import CapabilityManifest
 from olit.substrate.llm import Reply
+
 from .fakes import FakeSubstrate
 
 

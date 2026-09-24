@@ -2,7 +2,6 @@
 
 import asyncio
 
-from olit.drivers.graph import GraphDriver
 from olit.registry import ProcessRegistry, load_primitives
 
 load_primitives()

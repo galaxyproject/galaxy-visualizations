@@ -1,13 +1,11 @@
-import pytest
-from datetime import datetime
 from olit.registry.extensions.vintent.modules.profiler import (
+    MAX_ENUM_VALUES,
+    detect_delimiter,
     profile_csv,
     profile_tabular,
-    detect_delimiter,
     rows_from_tab,
     rows_from_tabular,
     skip_comment_lines,
-    MAX_ENUM_VALUES,
 )
 
 

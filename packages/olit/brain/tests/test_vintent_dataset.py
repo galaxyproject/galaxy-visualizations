@@ -1,19 +1,17 @@
 """End-to-end tests for the absorbed vintent pipeline as an olit graph process."""
 
 import asyncio
-from olit.substrate.llm import Reply
 import csv
 import io
 import json
 import os
 
 from olit.drivers.graph import GraphDriver
-from olit.registry import ProcessRegistry, SkillRegistry
-from olit.registry.extensions.vintent.modules.profiler import profile_rows, rows_from_tabular
+from olit.registry import ProcessRegistry, SkillRegistry, load_primitives
 from olit.registry.extensions.vintent.modules.process import run_process as leaf_run_process
+from olit.registry.extensions.vintent.modules.profiler import profile_rows, rows_from_tabular
 from olit.registry.extensions.vintent.modules.registry import PROCESSES, SHELLS
-
-from olit.registry import load_primitives
+from olit.substrate.llm import Reply
 
 load_primitives()
 
@@ -302,7 +300,7 @@ class LoopLlm:
 
 
 def test_full_loop_routes_artifact_and_injects_skill():
-    from olit.runtime import _inject_context, run
+    from olit.runtime import _inject_context
 
     csv_text = _csv_from_rows(_scatter_fixture()["data"]["values"])
     substrate = FakeSubstrate(csv_text, DECISIONS["scatter"])

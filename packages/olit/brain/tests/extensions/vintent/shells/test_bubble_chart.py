@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.shells.bubble_chart import BubbleChartShell
 
 

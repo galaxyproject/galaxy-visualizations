@@ -6,6 +6,7 @@ import pytest
 
 from olit.drivers.loop import sra_import_gate
 from olit.drivers.loop.tools import ToolSurface
+
 from .fakes import FakeSubstrate
 
 TOOL = "toolshed.g2.bx.psu.edu/repos/iuc/sra_tools/fasterq_dump/3.1.1+galaxy1"

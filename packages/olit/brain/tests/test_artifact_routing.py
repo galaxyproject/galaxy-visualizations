@@ -4,9 +4,7 @@ import asyncio
 import json
 
 from olit.drivers.loop.tools import ToolSurface
-from olit.registry import ProcessRegistry
-
-from olit.registry import load_primitives
+from olit.registry import ProcessRegistry, load_primitives
 
 load_primitives()
 

@@ -1,6 +1,4 @@
-import pytest
-import math
-from olit.registry.extensions.vintent.modules.process.analyze.fill_missing import run, log
+from olit.registry.extensions.vintent.modules.process.analyze.fill_missing import log, run
 
 
 def test_run_empty_rows_returns_empty():

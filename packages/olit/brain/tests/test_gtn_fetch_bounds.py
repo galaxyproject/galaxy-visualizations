@@ -2,8 +2,6 @@
 
 import asyncio
 
-import pytest
-
 from olit.drivers.loop import gtn
 
 from .fakes import refused

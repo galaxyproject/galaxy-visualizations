@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.shells.parallel_coordinates import ParallelCoordinatesShell
 
 

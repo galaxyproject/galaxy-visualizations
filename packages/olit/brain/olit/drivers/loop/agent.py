@@ -8,7 +8,6 @@ from olit.substrate import Cancellation
 from olit.substrate.llm.json_parse import loads_with_repair
 
 from .brief import around, brief
-
 from .secret_redaction import collect_secret_values, redact_secrets
 from .tools import ToolSurface, plain_tool_name, without_control_tokens
 

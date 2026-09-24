@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.extract.deduplicate import schema, run, log
+from olit.registry.extensions.vintent.modules.process.extract.deduplicate import log, run, schema
 
 
 def test_schema_returns_none_without_columns():

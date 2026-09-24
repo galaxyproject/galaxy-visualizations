@@ -1,4 +1,3 @@
-import pytest
 from olit.registry.extensions.vintent.modules.utility import user_asked_for
 
 

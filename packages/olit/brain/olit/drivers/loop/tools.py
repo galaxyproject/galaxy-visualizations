@@ -2,7 +2,6 @@
 
 import json
 import logging
-from dataclasses import dataclass
 
 from olit.registry import load_primitives
 from olit.substrate import Confirmation, LocalExecutionError

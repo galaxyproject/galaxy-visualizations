@@ -4,6 +4,7 @@ import asyncio
 import json
 
 from olit.drivers.loop.agent import LoopDriver
+
 from .fakes import FakeSubstrate, ScriptedLlm, call, choice, tool_messages
 
 

@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.analyze.rolling_average import run, log
+from olit.registry.extensions.vintent.modules.process.analyze.rolling_average import log, run
 
 
 def test_run_empty_rows_returns_empty():

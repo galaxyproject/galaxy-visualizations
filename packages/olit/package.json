@@ -14,7 +14,7 @@
         "build:skills": "node skills.install.js",
         "describe": "cd brain && python3 -m olit.describe --root ..",
         "dev": "npm run build && vite",
-        "lint:python": "cd brain && python -m black --check .",
+        "lint:python": "cd brain && python -m black --check . && uvx ruff check .",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
         "preview": "vite preview",
         "test": "npm run test:unit && npm run test:python && npm run lint:python && npm run typecheck && npm run vendored && npm run test:e2e",

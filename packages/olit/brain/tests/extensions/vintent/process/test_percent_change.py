@@ -1,5 +1,6 @@
 import pytest
-from olit.registry.extensions.vintent.modules.process.analyze.percent_change import run, log
+
+from olit.registry.extensions.vintent.modules.process.analyze.percent_change import log, run
 
 
 def test_run_empty_rows_returns_empty():

@@ -1,6 +1,7 @@
 """Matching a dataset to the visualizations Galaxy can render it with."""
 
 import asyncio
+
 from olit.drivers.loop.galaxy_tools import _list_visualizations
 
 COMPATIBLE = [

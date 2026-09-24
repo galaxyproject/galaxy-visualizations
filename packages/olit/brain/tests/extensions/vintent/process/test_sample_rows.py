@@ -1,5 +1,4 @@
-import pytest
-from olit.registry.extensions.vintent.modules.process.extract.sample_rows import schema, run, log
+from olit.registry.extensions.vintent.modules.process.extract.sample_rows import log, run, schema
 
 
 def test_schema_returns_none_with_fewer_than_2_rows():

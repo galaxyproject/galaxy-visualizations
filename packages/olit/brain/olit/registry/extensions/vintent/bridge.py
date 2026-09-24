@@ -1,13 +1,12 @@
 """Bridge: register the absorbed vintent leaves as olit graph primitives."""
 
 from olit.drivers.graph import register_builder, register_materializer
-
+from olit.registry.extensions.vintent.modules.process import run_process as _run_leaf_process
 from olit.registry.extensions.vintent.modules.profiler import (
     profile_rows,
     rows_from_tabular,
     source_format,
 )
-from olit.registry.extensions.vintent.modules.process import run_process as _run_leaf_process
 from olit.registry.extensions.vintent.modules.registry import PROCESSES, SHELLS
 from olit.registry.extensions.vintent.modules.tools import (
     NO_PROCESS_ID,
