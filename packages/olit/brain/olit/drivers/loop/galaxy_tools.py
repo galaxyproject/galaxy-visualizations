@@ -9,7 +9,17 @@ from urllib.parse import urlencode
 
 import jsonschema
 from galaxy_agent_semantics import workflow_inputs
-from galaxy_agent_semantics.tool_inputs import build_input_template, summarize_tool_inputs
+from galaxy_agent_semantics.tool_inputs import (
+    SHAPE_HINT,
+    USER_TOOL_SHAPE_HINT,
+    build_input_template,
+    check_tool_inputs,
+    format_input_rejects,
+    is_reference,
+    schema_describes_tool,
+    schema_has_inputs,
+    summarize_tool_inputs,
+)
 
 from olit import vendor
 from olit.substrate.http import http
@@ -220,6 +230,65 @@ async def _input_template_for(g, tool_id):
         return None
 
 
+def _note_unchecked(submitted, unchecked):
+    """Say the inputs went unchecked, rather than let a run imply they were vetted."""
+    if not unchecked:
+        return submitted
+    if isinstance(submitted, dict):
+        return {**submitted, "inputs_not_pre_checked": unchecked}
+    return submitted
+
+
+def _supplies_a_reference(inputs):
+    """Whether any supplied value could be a dataset or collection reference.
+
+    check_tool_inputs only rejects a value is_reference() recognises, so a run made
+    entirely of scalars has nothing to check and needs no schema read. It asks the same
+    predicate the checker asks, so the skip cannot disagree with the check.
+    """
+    if not isinstance(inputs, dict):
+        return False
+
+    def carries_src(value):
+        if isinstance(value, dict):
+            return is_reference(value) or any(carries_src(item) for item in value.values())
+        if isinstance(value, list):
+            return any(carries_src(item) for item in value)
+        return False
+
+    return any(carries_src(value) for value in inputs.values())
+
+
+async def _preflight_tool_inputs(g, tool_id, inputs, schema=None):
+    """Rejects the tool's own schema proves, or the reason the check could not be made.
+
+    Returns (refusal, unchecked): a refusal stops the submission, an unchecked reason never
+    does. `schema` is for a caller already holding the definition, as a user tool does.
+    """
+    held_schema = schema is not None
+    try:
+        if schema is None:
+            if not _supplies_a_reference(inputs):
+                return None, None
+            schema = await g.get(f"api/tools/{tool_id}{_q({'io_details': True})}")
+            if not schema_describes_tool(tool_id, schema):
+                described = schema.get("id") if isinstance(schema, dict) else None
+                return None, (
+                    f"Galaxy returned a schema for {described!r}, not {tool_id!r}, so it may "
+                    "describe a different version than the one being run"
+                )
+        if not schema_has_inputs(schema):
+            return None, f"the definition of {tool_id!r} arrived without a parameter list"
+        verdict = check_tool_inputs(schema, inputs)
+    except Exception as exc:
+        # Reported, never allowed to block a run.
+        return None, f"the input check for {tool_id!r} failed ({exc})"
+    if not verdict["rejects"]:
+        return None, None
+    hint = USER_TOOL_SHAPE_HINT if held_schema else SHAPE_HINT
+    return format_input_rejects(tool_id, verdict["rejects"], shape_hint=hint), None
+
+
 async def _run_tool(g, a):
     history_id = a["history_id"]
     inputs = a.get("inputs") or {}
@@ -236,11 +305,15 @@ async def _run_tool(g, a):
             },
             is_error=True,
         )
+    refusal, unchecked = await _preflight_tool_inputs(g, a["tool_id"], inputs)
+    if refusal:
+        return ToolOutcome({"submitted": False, "error": refusal}, is_error=True)
     try:
-        return await g.post(
+        submitted = await g.post(
             "api/tools",
             {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
         )
+        return _note_unchecked(submitted, unchecked)
     except Exception as exc:
         template = await _input_template_for(g, a["tool_id"]) if _is_parameter_error(exc) else None
         if template is None:
@@ -1464,10 +1537,20 @@ async def _delete_user_tool(g, a):
 
 
 async def _run_user_tool(g, a):
-    return await g.post(
+    inputs = a.get("inputs") or {}
+    # A user tool is scoped to its owner and never enters the toolbox, so its own
+    # representation is the only definition to check against.
+    tool = await _maybe_get(g, f"api/unprivileged_tools/{a['tool_uuid']}") or {}
+    representation = tool.get("representation") or None
+    tool_id = tool.get("tool_id") or a["tool_uuid"]
+    refusal, unchecked = await _preflight_tool_inputs(g, tool_id, inputs, schema=representation)
+    if refusal:
+        return ToolOutcome({"submitted": False, "error": refusal}, is_error=True)
+    submitted = await g.post(
         "api/tools",
-        {"history_id": a["history_id"], "tool_uuid": a["tool_uuid"], "inputs": a.get("inputs") or {}},
+        {"history_id": a["history_id"], "tool_uuid": a["tool_uuid"], "inputs": inputs},
     )
+    return _note_unchecked(submitted, unchecked)
 
 
 async def _list_pages(g, a):
