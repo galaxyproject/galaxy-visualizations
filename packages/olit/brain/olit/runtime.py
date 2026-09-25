@@ -41,10 +41,10 @@ class Session:
         )
         return "\n\n".join(t for t in blocks if t)
 
-    async def prepare(self, transcripts, history_id):
+    async def prepare(self, transcripts, record_page_id, history_id):
         """The transcript with the context block set and the record excerpt refreshed."""
         transcripts = _inject_context(transcripts, self.context())
-        excerpt = await notebook.excerpt(self.substrate.galaxy, history_id)
+        excerpt = await notebook.excerpt(self.substrate.galaxy, record_page_id, history_id)
         return _inject_record(transcripts, excerpt)
 
     async def turn(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
@@ -70,7 +70,9 @@ async def _session_for(config):
 
 async def run(config, inputs, on_event=None):
     session = await _session_for(config_module.parse(config))
-    transcripts = await session.prepare(inputs["transcripts"], session.config.get("history_id"))
+    transcripts = await session.prepare(
+        inputs["transcripts"], session.config.get("record_page_id"), session.config.get("history_id")
+    )
     try:
         result = await session.turn(
             transcripts, on_event, cancellation.from_js(), confirm.from_js(), inputs.get("artifacts")

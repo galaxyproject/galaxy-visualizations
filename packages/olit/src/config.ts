@@ -25,5 +25,8 @@ export function buildConfig(
     galaxy_root: incoming.root,
     history_id: incoming.historyId,
     dataset_id: incoming.datasetId,
+    // Filled in from the session document once it is loaded.
+    session_id: undefined as string | undefined,
+    record_page_id: undefined as string | undefined,
   };
 }

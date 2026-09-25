@@ -56,11 +56,12 @@ class LoopDriver:
         self.secrets = collect_secret_values(getattr(substrate, "config", None))
         config = getattr(substrate, "config", None) or {}
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
+        self.record = {"session_id": config.get("session_id"), "page_id": config.get("record_page_id")}
 
     async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
         # One surface per turn. Earlier turns' artifacts are handed in by the caller, which
         # holds them: this driver is rebuilt whenever the session's config changes.
-        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts)
+        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts, self.record)
         messages = [dict(m) for m in transcripts]
         # This run's output, kept apart from the transcript that compaction rewrites.
         produced = []

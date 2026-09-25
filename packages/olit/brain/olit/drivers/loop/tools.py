@@ -175,8 +175,10 @@ ARTIFACT_HINT = (
 
 
 class ToolSurface:
-    def __init__(self, substrate, processes=None, skills=None, confirmation=None, prior=None):
+    def __init__(self, substrate, processes=None, skills=None, confirmation=None, prior=None, record=None):
         self.substrate = substrate
+        # Record ownership is session state, not model input.
+        self.record = record or {}
         self.processes = processes
         self.skills = skills
         # Unavailable by default, which makes the destructive gate refuse headlessly.
@@ -222,7 +224,7 @@ class ToolSurface:
         tool = galaxy_tools.declared(name)
         if tool:
             return tool["schema"], [tool["capability"]]
-        if notebook.get_handler(name):
+        if name == "notebook_resume":
             return notebook.NOTEBOOK_RESUME, [notebook.CAPABILITY]
         if self.processes and name in (self.processes.names() or []):
             schema = next((s for s in _process_tool_schemas(self.processes) if s["function"]["name"] == name), None)
@@ -413,7 +415,11 @@ class ToolSurface:
             return self._skills_fetch(args)
         if name == "finish":
             return args.get("summary", "done")
-        handler = galaxy_tools.get_handler(name) or notebook.get_handler(name)
+        if name == "notebook_resume":
+            return self._claim_artifact(
+                await notebook.resume(self.substrate.galaxy, self.record.get("session_id"), self.record.get("page_id"))
+            )
+        handler = galaxy_tools.get_handler(name)
         if handler:
             args, refusal = self._place_artifacts(args)
             if refusal:

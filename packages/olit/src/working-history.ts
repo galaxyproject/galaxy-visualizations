@@ -33,3 +33,16 @@ export function historyFromResult(name: string, content: string): string | undef
   }
   return undefined;
 }
+
+/** The record page a `notebook_resume` answered with, so the session keeps owning it. */
+export function recordPageFromResult(name: string, content: string): string | undefined {
+  if (name !== "notebook_resume") {
+    return undefined;
+  }
+  try {
+    const payload = JSON.parse(content);
+    return typeof payload?.page_id === "string" ? payload.page_id : undefined;
+  } catch {
+    return undefined;
+  }
+}
