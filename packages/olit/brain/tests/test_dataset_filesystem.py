@@ -43,6 +43,9 @@ class FakeGalaxy:
     # Galaxy states file_size on the dataset record; the display endpoint returns bytes.
     stated_size = None
 
+    # What Galaxy parsed the dataset as, alongside the size on the same record.
+    details = None
+
     chunkable = True
 
     async def get(self, path, binary=False):
@@ -56,7 +59,10 @@ class FakeGalaxy:
             cut = cut[: cut.rfind("\n") + 1] or cut  # line-aligned, as Galaxy does
             return {"ck_data": cut, "offset": len(cut)}
         if not path.endswith("/display") and "ck_size=" not in path:
-            return {"file_size": self.stated_size} if self.stated_size is not None else {"id": "d"}
+            record = dict(self.details or {})
+            if self.stated_size is not None:
+                record["file_size"] = self.stated_size
+            return record or {"id": "d"}
         if binary and isinstance(self.content, str):
             return self.content.encode("utf-8")
         return self.content
@@ -215,3 +221,43 @@ def test_usage_keys_vary_by_provider(reported, expect_in, expect_out):
     if not got_in and not got_out:
         got_out = reported.get("total_tokens") or 0
     assert (got_in, got_out) == (expect_in, expect_out)
+
+
+@pytest.mark.asyncio
+async def test_the_result_states_the_format_galaxy_parsed(data_dir):
+    """The agent must not have to guess a separator off the preview.
+
+    The file is written as `.dat` whatever it was, and pandas infers nothing from that, so
+    the delimiter Galaxy recorded is the only truthful answer available.
+    """
+    g = FakeGalaxy(TABLE)
+    g.details = {"extension": "tabular", "metadata_delimiter": "\t"}
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert out["extension"] == "tabular"
+    assert out["delimiter"] == "\t"
+
+
+@pytest.mark.asyncio
+async def test_a_comma_delimited_dataset_says_so(data_dir):
+    g = FakeGalaxy("a,b\n1,2\n")
+    g.details = {"extension": "csv", "metadata_delimiter": ","}
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert out["delimiter"] == ","
+
+
+@pytest.mark.asyncio
+async def test_a_format_without_a_delimiter_reports_none(data_dir):
+    """A fasta has an extension and no delimiter; inventing one would be worse than silence."""
+    g = FakeGalaxy(">seq\nACGT\n")
+    g.details = {"extension": "fasta"}
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert out["extension"] == "fasta"
+    assert "delimiter" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_record_without_metadata_still_downloads(data_dir):
+    g = FakeGalaxy(TABLE)
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert os.path.isfile(out["path"])
+    assert "extension" not in out and "delimiter" not in out

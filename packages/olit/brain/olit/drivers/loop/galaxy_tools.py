@@ -592,6 +592,12 @@ async def _download_dataset(g, a):
         f.write(data)
 
     out = {"dataset_id": a["dataset_id"], "path": path, "bytes": len(data)}
+    # From the details already fetched above: what Galaxy parsed this as, so the parser is
+    # chosen from the server's own metadata rather than guessed off the preview.
+    if isinstance(details, dict):
+        for key, field in (("extension", "extension"), ("delimiter", "metadata_delimiter")):
+            if details.get(field) is not None:
+                out[key] = details[field]
     if partial:
         out.update(partial=True, bytes_total=stated)
     try:
@@ -1494,10 +1500,11 @@ _tool(
     "download_dataset",
     "read",
     "Save a dataset to the local filesystem and return its path plus a short preview. "
+    "The result reports the Galaxy extension and, for a tabular format, the delimiter "
+    "Galaxy parsed it with: pass that as sep rather than assuming one. "
     "A dataset over 20 MB comes back as a line-aligned prefix with partial=true and "
     "bytes_total set; never compute totals or counts from a partial read. "
-    "Read the file with run_python (e.g. pandas.read_csv(path, sep='\\t')); do not paste "
-    "the preview into code.",
+    "Read the file with run_python; do not paste the preview into code.",
     {"dataset_id": _STR},
     ["dataset_id"],
     _download_dataset,
