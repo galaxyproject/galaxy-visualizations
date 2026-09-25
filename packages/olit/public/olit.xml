@@ -69,45 +69,31 @@ task is complete, call finish with a one-line summary.
     <help format="markdown"><![CDATA[
 # What is Olit?
 
-Olit is a conversational assistant that helps you plan and run analyses in Galaxy. You
-describe what you want in plain language, and it proposes a plan, shows you the parameters,
-and — once you approve — runs the Galaxy tools and workflows on your behalf.
+Olit is a conversational research assistant that helps you plan and run analyses in Galaxy. Ask questions in plain language, explore your data, or describe an analysis you want to perform. For multi-step analyses, Olit proposes a plan for you to review before running Galaxy tools or workflows.
 
-After selecting a dataset, a chat panel opens alongside your history. Ask a question to get
-an answer, or ask for an analysis to get a plan you can review before anything runs.
+After selecting a dataset, a chat panel opens alongside your history. Olit works with your Galaxy data and tools while keeping you in control of what gets executed.
 
 ## Key Features
 
-- **Plan First, Run Second**: Multi-step analyses are drafted as a plan you approve, edit or
-  reject. Nothing is submitted to Galaxy until you say so.
-- **Parameter Review**: Before execution, every tool parameter is shown in a table you can
-  change, so there are no hidden defaults.
-- **Runs Real Galaxy Jobs**: Finds and runs installed tools, and can import and invoke
-  curated workflows from the Intergalactic Workflow Commission (IWC).
-- **Keeps a Record**: The plan, what was run, and what the results showed are written to a
-  Galaxy Page attached to your history, so the analysis stays readable and shareable.
-- **Watches Your Jobs**: Submitted jobs and workflow invocations are followed to completion
-  and reported back in the chat.
-- **Local Computation**: Quick calculations and data inspection run in your browser, without
-  creating Galaxy jobs.
+- **Plan First, Run Second**: Multi-step analyses are drafted as a plan you can approve, edit, or reject before execution.
+- **Parameter Review**: Tool parameters are shown before execution and can be changed, so you can see exactly what will be submitted.
+- **Runs Real Galaxy Jobs**: Finds and runs installed Galaxy tools and can import and invoke curated workflows from the Intergalactic Workflow Commission (IWC).
+- **Keeps a Record**: Plans, executed steps, and results are recorded in a Galaxy Page attached to your history, keeping the analysis readable and shareable.
+- **Watches Your Jobs**: Submitted jobs and workflow invocations are followed to completion and reported back in the chat.
+- **Local Computation**: Quick calculations and data inspection can run directly in your browser without creating Galaxy jobs.
 
-Everything runs in your browser using your own Galaxy session, so Olit can only see and do
-what you can. No separate server or container is needed.
+Olit runs in your browser using your existing Galaxy session. It requires no separate server or per-user container and operates with the same Galaxy access available to you.
 
-## Built on Orbit
+You can use Olit with an LLM service provided by your Galaxy server or connect directly to a supported provider using your own API key. When you provide your own key, it is kept only in the current browser tab and is never sent to or stored by Galaxy.
 
-Olit is a browser-native AI research assistant for Galaxy. Its agent behavior and
-interaction model are closely aligned with Orbit, the original Galaxy AI co-scientist. Several core concepts—including
-plan-and-approve, parameter review, the analysis record, and skills—were adapted directly from
-Orbit. Olit reimplements these concepts for a browser-native runtime integrated with Galaxy,
-with differences arising primarily from the capabilities and constraints of that environment.
+## Olit and Orbit
 
-Orbit runs as a Galaxy Interactive Tool, with a container per user and access to a shell.
-Choose Orbit when you need shell access or a per-user container; Olit provides a
-browser-native alternative that runs directly within a Galaxy session.
+Olit is closely aligned with Orbit, the original Galaxy AI co-scientist. Its agent model builds on concepts developed for Orbit, including plan-and-approve, parameter review, analysis records, and skills. Olit adapts these concepts to a lightweight, browser-native runtime integrated directly with Galaxy.
 
-- Orbit: [https://github.com/galaxyproject/loom](https://github.com/galaxyproject/loom)
-- Shared skills corpus: [https://github.com/galaxyproject/galaxy-skills](https://github.com/galaxyproject/galaxy-skills)
-- Galaxy visualization framework: [https://github.com/galaxyproject/galaxy-charts](https://github.com/galaxyproject/galaxy-charts)
+Orbit is suited to analyses requiring a shell or container environment, while Olit provides the same broader interaction model within a standard Galaxy session.
+
+- Orbit: https://github.com/galaxyproject/loom
+- Shared skills corpus: https://github.com/galaxyproject/galaxy-skills
+- Galaxy visualization framework: https://github.com/galaxyproject/galaxy-charts
 ]]></help>
 </visualization>
