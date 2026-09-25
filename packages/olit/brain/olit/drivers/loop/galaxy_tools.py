@@ -8,15 +8,16 @@ import tempfile
 from urllib.parse import urlencode
 
 import jsonschema
+from galaxy_agent_semantics import workflow_inputs
+from galaxy_agent_semantics.tool_inputs import build_input_template, summarize_tool_inputs
 
 from olit import vendor
 from olit.substrate.http import http
 
-from . import biocontainers, invocation_outcome, page_edit, workflow_inputs
+from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, page, server_page
-from .tool_inputs import build_input_template, summarize_tool_inputs
 from .visualization_inputs import build_visualization_template, template_cases
 
 logger = logging.getLogger(__name__)

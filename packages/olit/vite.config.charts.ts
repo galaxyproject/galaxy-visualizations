@@ -86,6 +86,19 @@ function olitWheel(): string {
   return wheel;
 }
 
+/** The semantics wheel staged under static/pyodide; micropip installs it before the brain. */
+function semanticsWheel(): string {
+  const wheel = readdirSync("static/pyodide").find(
+    (f) => f.startsWith("galaxy_agent_semantics-") && f.endsWith(".whl"),
+  );
+  if (!wheel) {
+    throw new Error(
+      "No semantics wheel under static/pyodide: run `npm run build:semantics` first.",
+    );
+  }
+  return wheel;
+}
+
 const targets = llmTargets();
 if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
   // Falling through to the local default here is the trap that answers with the wrong model.
@@ -114,6 +127,7 @@ export const viteConfigCharts = defineConfig({
   define: {
     "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
     "process.env.olit_wheel": JSON.stringify(olitWheel()),
+    "process.env.semantics_wheel": JSON.stringify(semanticsWheel()),
     "process.env.olit_commit": JSON.stringify(buildCommit()),
     "process.env.olit_built": JSON.stringify(new Date().toISOString()),
     // Dev only: route the brain through the /llm proxy above, which attaches the key.

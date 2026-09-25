@@ -1,6 +1,6 @@
 """The skeleton the description promises, built the way galaxy-mcp builds it."""
 
-from olit.drivers.loop.tool_inputs import build_input_template, summarize_tool_inputs
+from galaxy_agent_semantics.tool_inputs import build_input_template, summarize_tool_inputs
 
 CAT1 = {
     "inputs": [

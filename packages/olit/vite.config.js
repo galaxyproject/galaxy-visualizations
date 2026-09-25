@@ -30,6 +30,11 @@ const staticCopyPlugin = viteStaticCopy({
       dest: "pyodide",
       overwrite: true,
     },
+    {
+      src: "temp/pyodide/galaxy_agent_semantics-*.whl",
+      dest: "pyodide",
+      overwrite: true,
+    },
   ],
 });
 
