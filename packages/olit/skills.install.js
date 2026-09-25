@@ -146,9 +146,12 @@ async function main() {
     }
   }
 
+  // Per-file blob ids let vendored/check.py catch an edit made after vendoring.
+  const ids = Object.fromEntries(blobs.map((b) => [b.path, b.sha]));
   await writeFile(
     STAMP,
-    JSON.stringify({ repo: REPO, ref, sha, files: blobs.length, skills }, null, 2) + "\n",
+    JSON.stringify({ repo: REPO, ref, sha, files: blobs.length, skills, blobs: ids }, null, 2) +
+      "\n",
   );
   await writeLock(sha, ref);
   console.log(`[skills] vendored ${skills} skills (${blobs.length} files) at ${sha.slice(0, 8)}`);

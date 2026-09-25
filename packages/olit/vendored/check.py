@@ -21,6 +21,11 @@ CONTRACTS = ROOT / "brain" / "olit" / "vendor"
 CONTRACTS_MANIFEST = CONTRACTS / "MANIFEST.json"
 CONTRACTS_TRACKED = ["galaxy-charts.inputs.json"]
 
+# The skills corpus is gitignored and fetched by skills.install.js, which stamps each
+# file's git blob id. Recomputing them catches an edit made after vendoring.
+SKILLS = ROOT / "brain" / "olit" / "registry" / "skills" / "galaxy-skills"
+SKILLS_STAMP = SKILLS / "VENDORED.json"
+
 TRACKED = [
     "chat/chat-panel.ts",
     "chat/markdown.ts",
@@ -49,6 +54,53 @@ def current() -> dict:
 
 def contracts_now() -> dict:
     return {r: digest(CONTRACTS / r) for r in CONTRACTS_TRACKED if (CONTRACTS / r).exists()}
+
+
+def blob_id(path: pathlib.Path) -> str:
+    """The id git gives a blob, which is what the vendor stamp records."""
+    data = path.read_bytes()
+    h = hashlib.sha1()
+    h.update(b"blob %d\0" % len(data))
+    h.update(data)
+    return h.hexdigest()
+
+
+def skills(argv: list[str]) -> int:
+    """Compare the vendored skills corpus against the blob ids its install stamped."""
+    if not SKILLS_STAMP.exists():
+        print("skills corpus not vendored; run: node skills.install.js")
+        return 0
+    stamp = json.loads(SKILLS_STAMP.read_text())
+    pinned = stamp.get("blobs") or {}
+    if not pinned:
+        print("skills corpus predates blob stamping; re-vendor with: node skills.install.js")
+        return 0
+
+    present = {
+        str(p.relative_to(SKILLS)): p
+        for p in SKILLS.rglob("*")
+        if p.is_file() and p != SKILLS_STAMP
+    }
+    changed = sorted(r for r, want in pinned.items() if r in present and blob_id(present[r]) != want)
+    missing = sorted(r for r in pinned if r not in present)
+    extra = sorted(r for r in present if r not in pinned)
+    if not (changed or missing or extra):
+        print(f"{len(pinned)} vendored skill files unchanged at {stamp.get('sha', '?')[:8]}")
+        return 0
+
+    for r in changed:
+        print(f"  MODIFIED  skills/galaxy-skills/{r}")
+    for r in missing:
+        print(f"  MISSING   skills/galaxy-skills/{r}")
+    for r in extra:
+        print(f"  EXTRA     skills/galaxy-skills/{r}")
+    print(
+        f"\n{stamp.get('repo', 'galaxy-skills')} owns this corpus and olit vendors it verbatim.\n"
+        "A formatter or an editor reaching into it diverges from upstream and is undone by the\n"
+        "next vendor. Restore it with:\n"
+        "  node skills.install.js"
+    )
+    return 1
 
 
 def main(argv: list[str]) -> int:
@@ -96,7 +148,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     print(f"{len(pinned)} vendored files and {len(contracts['files'])} contracts unchanged")
-    return 0
+    return skills(argv)
 
 
 if __name__ == "__main__":

@@ -19,12 +19,16 @@ classifiers = [
 [project.optional-dependencies]
 dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio", "aiohttp"]
 
+# Vendored from galaxy-skills at build time and re-fetched from a pinned sha, so formatting
+# it here is both a divergence from upstream and wiped by the next vendor.
 [tool.black]
 line-length = 120
 target-version = ["py312"]
+force-exclude = "olit/registry/skills/galaxy-skills/"
 
 [tool.ruff]
 line-length = 120
+extend-exclude = ["olit/registry/skills/galaxy-skills"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
