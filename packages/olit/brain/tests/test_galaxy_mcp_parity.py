@@ -26,7 +26,7 @@ DIVERGES = {
     "download_dataset": "writes to the browser's in-memory filesystem and reports the format Galaxy parsed",
     "upload_file": "reads the browser's in-memory filesystem and sends pasted content",
     "get_tool_panel": "returns tool_count and section_count, which galaxy-mcp does not",
-    "get_workflow_input_template": "returns the trimmed input contract, not a filled skeleton with a guide",
+    "get_workflow_input_template": "documents the step annotation and default value olit adds to each slot",
     "recommend_biocontainer": "resolves through the quay.io tag listing; mulled cannot run in Pyodide",
 }
 
@@ -44,9 +44,6 @@ PARAMETERS = {
         "section": "filters to one section, because the whole panel does not fit the context window",
         "limit": "pages the panel for the same reason",
         "offset": "pages the panel for the same reason",
-    },
-    "get_workflow_input_template": {
-        "verbose": "olit's caps keep the run-form model inside the context window, so nothing lifts them",
     },
     "list_workflows": {
         "limit": "pages a long workflow list",

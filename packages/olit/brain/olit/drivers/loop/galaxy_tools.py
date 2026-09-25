@@ -15,6 +15,7 @@ from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, page, server_page
+from . import workflow_inputs
 from .tool_inputs import build_input_template, summarize_tool_inputs
 from .visualization_inputs import build_visualization_template, template_cases
 
@@ -705,55 +706,59 @@ async def _get_workflow_details(g, a):
     return await g.get(f"api/workflows/{a['workflow_id']}{_q({'version': a.get('version')})}")
 
 
-WORKFLOW_INPUT_STEPS = {"data_input", "data_collection_input", "parameter_input"}
-EXTENSION_LIST_CAP = 12
+async def _maybe_get(g, path):
+    """Galaxy answers 400 when style=run has no usable history; the caller falls back."""
+    try:
+        result = await g.get(path)
+    except Exception:
+        return None
+    return result if isinstance(result, dict) else None
 
 
-def _trim_extensions(value):
-    if isinstance(value, list) and len(value) > EXTENSION_LIST_CAP:
-        return {"count": len(value), "note": "accepts most datatypes"}
-    return value
-
-
-def _input_step(step):
-    """The parts of an input step a caller has to fill."""
-    inputs = []
-    for item in step.get("inputs") or []:
-        if not isinstance(item, dict):
+def _annotate_slots(slots, run_model):
+    """The step annotation and default value galaxy-mcp's slot contract leaves out."""
+    extras = {}
+    for step in (run_model or {}).get("steps") or []:
+        if not isinstance(step, dict):
             continue
-        inputs.append(
-            {
-                k: (_trim_extensions(v) if k == "acceptable_extensions" else v)
-                for k, v in item.items()
-                if k in ("name", "label", "optional", "acceptable_extensions", "collection_type", "value", "type")
-            }
-        )
-    return {
-        "step_index": step.get("step_index"),
-        "label": step.get("step_label"),
-        "name": step.get("step_name"),
-        "type": step.get("step_type"),
-        "annotation": step.get("annotation"),
-        "inputs": inputs,
-    }
+        param = (step.get("inputs") or [{}])[0]
+        extras[step.get("step_index")] = {
+            "annotation": step.get("annotation"),
+            "value": param.get("value") if isinstance(param, dict) else None,
+        }
+    for slot in slots:
+        for key, value in (extras.get(slot.get("step_index")) or {}).items():
+            if value is not None:
+                slot[key] = value
 
 
 async def _get_workflow_input_template(g, a):
-    """The inputs a workflow asks for, and any version warnings Galaxy raises."""
+    """The slots a workflow run has to fill, resolved against a history when one is given."""
+    workflow_id = a["workflow_id"]
     # style=run also validates that every tool is installed, so a missing one surfaces.
     params = {"style": "run", "instance": "false", "history_id": a.get("history_id")}
-    model = await g.get(f"api/workflows/{a['workflow_id']}/download{_q(params)}")
-    if not isinstance(model, dict) or "steps" not in model:
-        return model
-    steps = [s for s in model["steps"] if isinstance(s, dict) and s.get("step_type") in WORKFLOW_INPUT_STEPS]
+    run_model = await _maybe_get(g, f"api/workflows/{workflow_id}/download{_q(params)}")
+    slots = workflow_inputs.normalize_run_model(run_model) if run_model else []
+    if not slots:
+        run_model = None
+    definition = await _maybe_get(g, f"api/workflows/{workflow_id}/download") or {}
+    if not slots:
+        # The export still carries the declared contract when style=run resolves nothing.
+        slots = workflow_inputs.normalize_ga_steps(definition)
+    show = await _maybe_get(g, f"api/workflows/{workflow_id}") or {}
+    verbose = bool(a.get("verbose"))
+    template = workflow_inputs.build_workflow_input_template(
+        slots,
+        warnings=workflow_inputs.find_legacy_warnings(definition),
+        guide=workflow_inputs.build_guide(show, run_model, verbose),
+        verbose=verbose,
+    )
+    _annotate_slots(template["slots"], run_model)
     return {
-        "workflow_id": a["workflow_id"],
-        "name": model.get("name"),
-        "history_id": model.get("history_id"),
-        "has_upgrade_messages": model.get("has_upgrade_messages"),
-        "step_version_changes": model.get("step_version_changes"),
-        "inputs_by": "step_index",
-        "inputs": [_input_step(s) for s in steps],
+        "workflow_id": workflow_id,
+        "name": show.get("name") or (run_model or {}).get("name"),
+        "history_id": (run_model or {}).get("history_id"),
+        **template,
     }
 
 
@@ -1590,7 +1595,7 @@ _tool(
     "get_workflow_input_template",
     "read",
     "Get a workflow's run-form input template (fill and pass to invoke_workflow).",
-    {"workflow_id": _STR, "history_id": _STR},
+    {"workflow_id": _STR, "history_id": _STR, "verbose": _BOOL},
     ["workflow_id"],
     _get_workflow_input_template,
 )
