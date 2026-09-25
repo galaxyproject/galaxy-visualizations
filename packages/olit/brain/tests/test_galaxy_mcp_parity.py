@@ -13,6 +13,13 @@ from olit.drivers.loop.galaxy_tool_docs import DOCS
 
 REFERENCE = pathlib.Path(__file__).parent / "data" / "galaxy-mcp-docs.json"
 
+# Tools galaxy-mcp registers that olit deliberately does not, and why. Anything upstream
+# adds outside this list is a gap to close or a decision to record, not something to
+# discover months later from a scenario.
+NOT_PORTED = {
+    "connect": "hands galaxy-mcp a url and an api key; olit inherits the browser session",
+}
+
 # Tools whose description olit rewrites, and why. Anything not listed must match upstream.
 DIVERGES = {
     "download_dataset": "writes to the browser's in-memory filesystem and reports the format Galaxy parsed",
@@ -29,6 +36,25 @@ def reference():
 def test_every_description_olit_serves_exists_upstream():
     missing = sorted(set(DOCS) - set(reference()["docs"]))
     assert not missing, f"olit documents tools galaxy-mcp does not: {missing}"
+
+
+def test_olit_serves_every_tool_galaxy_mcp_registers():
+    """The check recommend_biocontainer needed: it shipped upstream and we did not notice."""
+    upstream = set(reference()["docs"])
+    absent = sorted(upstream - set(DOCS) - set(NOT_PORTED))
+    assert not absent, (
+        f"galaxy-mcp {reference()['version']} registers tools olit does not serve: {absent}. "
+        "Port them, or add each to NOT_PORTED with the reason olit omits it."
+    )
+
+
+def test_every_not_ported_tool_is_really_absent_and_really_upstream():
+    """A stale entry would exempt a tool olit has since ported, or one upstream dropped."""
+    upstream = set(reference()["docs"])
+    ported = sorted(set(NOT_PORTED) & set(DOCS))
+    assert not ported, f"NOT_PORTED names tools olit does serve; drop them: {ported}"
+    gone = sorted(set(NOT_PORTED) - upstream)
+    assert not gone, f"NOT_PORTED names tools galaxy-mcp no longer registers; drop them: {gone}"
 
 
 def test_descriptions_match_galaxy_mcp_unless_declared_otherwise():
