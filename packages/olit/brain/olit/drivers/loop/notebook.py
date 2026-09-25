@@ -8,7 +8,6 @@ from .outcome import ToolOutcome
 logger = logging.getLogger(__name__)
 
 
-# Galaxy slugs are lowercase alphanumerics and hyphens.
 def _page_source(page):
     """The editable markdown. `content` is the embed-expanded render, not the source."""
     return page.get("content_editor") or page.get("content") or ""
@@ -182,9 +181,9 @@ NOTEBOOK_RESUME = {
             "content. The record is this analysis's durable log: the approved plan, what "
             "was executed, and what the results showed. Call this once, before writing "
             "anything to the record, so you attach to the existing page instead of "
-            "starting a second one — the page is addressed by a fixed per-history slug, "
-            "so a reload finds the same record. Write to it afterwards with "
-            "update_page(page_id, content)."
+            "starting a second one — Galaxy attaches the page to the history itself, so "
+            "the same history always finds the same record whoever wrote it. Write to it "
+            "afterwards with update_page(page_id, content)."
         ),
         "parameters": {
             "type": "object",
