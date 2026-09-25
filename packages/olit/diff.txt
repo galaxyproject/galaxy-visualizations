@@ -1,0 +1,338 @@
+diff --git a/packages/olit/brain/olit/drivers/loop/galaxy_tools.py b/packages/olit/brain/olit/drivers/loop/galaxy_tools.py
+index c639e28f..cdc115c4 100644
+--- a/packages/olit/brain/olit/drivers/loop/galaxy_tools.py
++++ b/packages/olit/brain/olit/drivers/loop/galaxy_tools.py
+@@ -9,7 +9,17 @@ from urllib.parse import urlencode
+ 
+ import jsonschema
+ from galaxy_agent_semantics import workflow_inputs
+-from galaxy_agent_semantics.tool_inputs import build_input_template, summarize_tool_inputs
++from galaxy_agent_semantics.tool_inputs import (
++    SHAPE_HINT,
++    USER_TOOL_SHAPE_HINT,
++    build_input_template,
++    check_tool_inputs,
++    format_input_rejects,
++    is_reference,
++    schema_describes_tool,
++    schema_has_inputs,
++    summarize_tool_inputs,
++)
+ 
+ from olit import vendor
+ from olit.substrate.http import http
+@@ -149,14 +159,19 @@ async def _create_history(g, a):
+     return await g.post("api/histories", {"name": a["history_name"]})
+ 
+ 
++# Sources a history owns, and where each one answers its history_id. A library dataset is
++# scoped to a library rather than a history, so it is legitimately usable from any of them.
++HISTORY_SCOPED_SRCS = {"hda": "api/datasets", "hdca": "api/dataset_collections"}
++
++
+ def _hda_inputs(inputs):
+-    """Every `{src: hda, id: ...}` in a tool payload, with the field that carries it."""
++    """Every history-scoped reference in a tool payload, with the field that carries it."""
+     found = []
+ 
+     def walk(name, value):
+         if isinstance(value, dict):
+-            if value.get("src") == "hda" and value.get("id"):
+-                found.append((name, value["id"]))
++            if value.get("src") in HISTORY_SCOPED_SRCS and value.get("id"):
++                found.append((name, value["id"], value["src"]))
+                 return
+             for key, item in value.items():
+                 walk(f"{name}.{key}" if name else key, item)
+@@ -169,16 +184,16 @@ def _hda_inputs(inputs):
+ 
+ 
+ async def _foreign_inputs(g, inputs, history_id):
+-    """Dataset inputs that belong to a history other than the one the job will run in."""
++    """Inputs that belong to a history other than the one the job will run in."""
+     foreign = []
+-    for name, dataset_id in _hda_inputs(inputs):
+-        detail = await g.get(f"api/datasets/{dataset_id}") or {}
++    for name, object_id, src in _hda_inputs(inputs):
++        detail = await g.get(f"{HISTORY_SCOPED_SRCS[src]}/{object_id}") or {}
+         where = detail.get("history_id") if isinstance(detail, dict) else None
+         if where and where != history_id:
+             foreign.append(
+                 {
+                     "input": name,
+-                    "supplied_id": dataset_id,
++                    "supplied_id": object_id,
+                     "resolves_to_history_id": where,
+                     "resolves_to_name": detail.get("name"),
+                 }
+@@ -215,6 +230,65 @@ async def _input_template_for(g, tool_id):
+         return None
+ 
+ 
++def _note_unchecked(submitted, unchecked):
++    """Say the inputs went unchecked, rather than let a run imply they were vetted."""
++    if not unchecked:
++        return submitted
++    if isinstance(submitted, dict):
++        return {**submitted, "inputs_not_pre_checked": unchecked}
++    return submitted
++
++
++def _supplies_a_reference(inputs):
++    """Whether any supplied value could be a dataset or collection reference.
++
++    check_tool_inputs only rejects a value is_reference() recognises, so a run made
++    entirely of scalars has nothing to check and needs no schema read. It asks the same
++    predicate the checker asks, so the skip cannot disagree with the check.
++    """
++    if not isinstance(inputs, dict):
++        return False
++
++    def carries_src(value):
++        if isinstance(value, dict):
++            return is_reference(value) or any(carries_src(item) for item in value.values())
++        if isinstance(value, list):
++            return any(carries_src(item) for item in value)
++        return False
++
++    return any(carries_src(value) for value in inputs.values())
++
++
++async def _preflight_tool_inputs(g, tool_id, inputs, schema=None):
++    """Rejects the tool's own schema proves, or the reason the check could not be made.
++
++    Returns (refusal, unchecked): a refusal stops the submission, an unchecked reason never
++    does. `schema` is for a caller already holding the definition, as a user tool does.
++    """
++    held_schema = schema is not None
++    try:
++        if schema is None:
++            if not _supplies_a_reference(inputs):
++                return None, None
++            schema = await g.get(f"api/tools/{tool_id}{_q({'io_details': True})}")
++            if not schema_describes_tool(tool_id, schema):
++                described = schema.get("id") if isinstance(schema, dict) else None
++                return None, (
++                    f"Galaxy returned a schema for {described!r}, not {tool_id!r}, so it may "
++                    "describe a different version than the one being run"
++                )
++        if not schema_has_inputs(schema):
++            return None, f"the definition of {tool_id!r} arrived without a parameter list"
++        verdict = check_tool_inputs(schema, inputs)
++    except Exception as exc:
++        # Reported, never allowed to block a run.
++        return None, f"the input check for {tool_id!r} failed ({exc})"
++    if not verdict["rejects"]:
++        return None, None
++    hint = USER_TOOL_SHAPE_HINT if held_schema else SHAPE_HINT
++    return format_input_rejects(tool_id, verdict["rejects"], shape_hint=hint), None
++
++
+ async def _run_tool(g, a):
+     history_id = a["history_id"]
+     inputs = a.get("inputs") or {}
+@@ -231,11 +305,15 @@ async def _run_tool(g, a):
+             },
+             is_error=True,
+         )
++    refusal, unchecked = await _preflight_tool_inputs(g, a["tool_id"], inputs)
++    if refusal:
++        return ToolOutcome({"submitted": False, "error": refusal}, is_error=True)
+     try:
+-        return await g.post(
++        submitted = await g.post(
+             "api/tools",
+             {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
+         )
++        return _note_unchecked(submitted, unchecked)
+     except Exception as exc:
+         template = await _input_template_for(g, a["tool_id"]) if _is_parameter_error(exc) else None
+         if template is None:
+@@ -1459,10 +1537,20 @@ async def _delete_user_tool(g, a):
+ 
+ 
+ async def _run_user_tool(g, a):
+-    return await g.post(
++    inputs = a.get("inputs") or {}
++    # A user tool is scoped to its owner and never enters the toolbox, so its own
++    # representation is the only definition to check against.
++    tool = await _maybe_get(g, f"api/unprivileged_tools/{a['tool_uuid']}") or {}
++    representation = tool.get("representation") or None
++    tool_id = tool.get("tool_id") or a["tool_uuid"]
++    refusal, unchecked = await _preflight_tool_inputs(g, tool_id, inputs, schema=representation)
++    if refusal:
++        return ToolOutcome({"submitted": False, "error": refusal}, is_error=True)
++    submitted = await g.post(
+         "api/tools",
+-        {"history_id": a["history_id"], "tool_uuid": a["tool_uuid"], "inputs": a.get("inputs") or {}},
++        {"history_id": a["history_id"], "tool_uuid": a["tool_uuid"], "inputs": inputs},
+     )
++    return _note_unchecked(submitted, unchecked)
+ 
+ 
+ async def _list_pages(g, a):
+diff --git a/packages/olit/brain/tests/test_run_tool_history_guard.py b/packages/olit/brain/tests/test_run_tool_history_guard.py
+index 3bee7b96..30558807 100644
+--- a/packages/olit/brain/tests/test_run_tool_history_guard.py
++++ b/packages/olit/brain/tests/test_run_tool_history_guard.py
+@@ -83,7 +83,19 @@ def test_non_dataset_parameters_are_left_alone():
+ 
+ def test_the_finder_reaches_nested_structures():
+     found = _hda_inputs({"a": {"src": "hda", "id": "x"}, "r": [{"b": {"src": "hda", "id": "y"}}], "plain": 3})
+-    assert sorted(i for _, i in found) == ["x", "y"]
++    assert sorted(i for _, i, _ in found) == ["x", "y"]
++
++
++def test_the_finder_takes_collections_and_leaves_library_datasets():
++    """A collection belongs to a history; a library dataset is usable from any of them."""
++    found = _hda_inputs(
++        {
++            "c": {"src": "hdca", "id": "c1"},
++            "lib": {"src": "ldda", "id": "l1"},
++            "ld": {"src": "ld", "id": "l2"},
++        }
++    )
++    assert [(i, s) for _, i, s in found] == [("c1", "hdca")]
+ 
+ 
+ def test_history_contents_offers_one_identifier():
+diff --git a/packages/olit/brain/tests/test_run_tool_preflight.py b/packages/olit/brain/tests/test_run_tool_preflight.py
+new file mode 100644
+index 00000000..7027b88f
+--- /dev/null
++++ b/packages/olit/brain/tests/test_run_tool_preflight.py
+@@ -0,0 +1,134 @@
++"""Olit's wiring of the shared input check into the two execution paths.
++
++The semantics live in galaxy-agent-semantics and are tested there. What is tested here is
++only what olit does with a verdict: a provable mismatch must not be submitted, and an input
++set the checker could not read must still be.
++"""
++
++import asyncio
++
++from olit.drivers.loop.galaxy_tools import _run_tool, _run_user_tool
++
++CAT1 = {
++    "id": "cat1",
++    "name": "Concatenate",
++    "inputs": [{"name": "input1", "type": "data", "multiple": False, "optional": False}],
++}
++UDT = {
++    "tool_id": "my_filter",
++    "representation": {
++        "class": "GalaxyUserTool",
++        "id": "my_filter",
++        "inputs": [{"name": "input1", "type": "data", "multiple": False}],
++    },
++}
++
++
++class Galaxy:
++    """Records what was read and whether the run was submitted."""
++
++    def __init__(self, schema=CAT1, udt=UDT, dataset_history="h1", fail_schema=False):
++        self.schema, self.udt = schema, udt
++        self.dataset_history, self.fail_schema = dataset_history, fail_schema
++        self.gets, self.posted = [], None
++
++    async def get(self, path):
++        self.gets.append(path)
++        if path.startswith("api/tools/"):
++            if self.fail_schema:
++                raise RuntimeError("HTTP 500")
++            return self.schema
++        if path.startswith("api/unprivileged_tools/"):
++            return self.udt
++        if path.startswith("api/datasets/") or path.startswith("api/dataset_collections/"):
++            return {"history_id": self.dataset_history, "name": "thing"}
++        return {}
++
++    async def post(self, path, body):
++        self.posted = (path, body)
++        return {"jobs": [{"id": "j1"}]}
++
++    def schema_reads(self):
++        return [p for p in self.gets if p.startswith("api/tools/")]
++
++
++def run(galaxy, inputs, tool="cat1"):
++    return asyncio.run(_run_tool(galaxy, {"history_id": "h1", "tool_id": tool, "inputs": inputs}))
++
++
++def run_udt(galaxy, inputs):
++    return asyncio.run(_run_user_tool(galaxy, {"history_id": "h1", "tool_uuid": "u-1", "inputs": inputs}))
++
++
++def test_accepted_inputs_are_submitted():
++    g = Galaxy()
++    out = run(g, {"input1": {"src": "hda", "id": "d1"}})
++    assert g.posted is not None
++    assert "inputs_not_pre_checked" not in out
++
++
++def test_a_provable_mismatch_is_not_submitted():
++    """A collection where the parameter takes one dataset; Galaxy would accept the request."""
++    g = Galaxy()
++    out = run(g, {"input1": {"src": "hdca", "id": "c1"}})
++    assert g.posted is None
++    assert out.is_error
++    assert "input1" in out.content["error"]
++
++
++def test_a_schema_that_cannot_be_read_still_submits():
++    """Inability to preflight must never be what stops a valid run."""
++    g = Galaxy(fail_schema=True)
++    out = run(g, {"input1": {"src": "hda", "id": "d1"}})
++    assert g.posted is not None
++    assert "the input check for 'cat1' failed" in out["inputs_not_pre_checked"]
++
++
++def test_a_schema_for_another_tool_still_submits():
++    g = Galaxy(schema={"id": "other", "inputs": []})
++    out = run(g, {"input1": {"src": "hda", "id": "d1"}})
++    assert g.posted is not None
++    assert "not 'cat1'" in out["inputs_not_pre_checked"]
++
++
++def test_a_schema_without_a_parameter_list_still_submits():
++    g = Galaxy(schema={"id": "cat1"})
++    out = run(g, {"input1": {"src": "hda", "id": "d1"}})
++    assert g.posted is not None
++    assert "without a parameter list" in out["inputs_not_pre_checked"]
++
++
++def test_scalar_only_inputs_read_no_schema():
++    """The schema read builds the whole tool form server-side; nothing to check, nothing to read."""
++    g = Galaxy()
++    run(g, {"lines": 5, "cond": "c1>3"})
++    assert g.schema_reads() == []
++    assert g.posted is not None
++
++
++def test_a_reference_input_reads_the_schema_once():
++    g = Galaxy()
++    run(g, {"input1": {"src": "hda", "id": "d1"}})
++    assert len(g.schema_reads()) == 1
++
++
++def test_a_user_tool_is_checked_against_its_representation():
++    g = Galaxy()
++    out = run_udt(g, {"input1": {"src": "hdca", "id": "c1"}})
++    assert g.posted is None
++    assert out.is_error
++    assert g.schema_reads() == [], "a held representation needs no toolbox lookup"
++
++
++def test_a_user_tool_with_accepted_inputs_is_submitted():
++    g = Galaxy()
++    out = run_udt(g, {"input1": {"src": "hda", "id": "d1"}})
++    assert g.posted[1]["tool_uuid"] == "u-1"
++    assert "inputs_not_pre_checked" not in out
++
++
++def test_a_user_tool_whose_representation_is_missing_still_submits():
++    g = Galaxy(udt={"tool_id": "my_filter"})
++    out = run_udt(g, {"input1": {"src": "hdca", "id": "c1"}})
++    assert g.posted is not None
++    assert "inputs_not_pre_checked" in out

@@ -15,10 +15,10 @@ from galaxy_agent_semantics.tool_inputs import (
     build_input_template,
     check_tool_inputs,
     format_input_rejects,
-    is_reference,
     schema_describes_tool,
     schema_has_inputs,
     summarize_tool_inputs,
+    supplies_a_reference,
 )
 
 from olit import vendor
@@ -239,26 +239,6 @@ def _note_unchecked(submitted, unchecked):
     return submitted
 
 
-def _supplies_a_reference(inputs):
-    """Whether any supplied value could be a dataset or collection reference.
-
-    check_tool_inputs only rejects a value is_reference() recognises, so a run made
-    entirely of scalars has nothing to check and needs no schema read. It asks the same
-    predicate the checker asks, so the skip cannot disagree with the check.
-    """
-    if not isinstance(inputs, dict):
-        return False
-
-    def carries_src(value):
-        if isinstance(value, dict):
-            return is_reference(value) or any(carries_src(item) for item in value.values())
-        if isinstance(value, list):
-            return any(carries_src(item) for item in value)
-        return False
-
-    return any(carries_src(value) for value in inputs.values())
-
-
 async def _preflight_tool_inputs(g, tool_id, inputs, schema=None):
     """Rejects the tool's own schema proves, or the reason the check could not be made.
 
@@ -268,7 +248,7 @@ async def _preflight_tool_inputs(g, tool_id, inputs, schema=None):
     held_schema = schema is not None
     try:
         if schema is None:
-            if not _supplies_a_reference(inputs):
+            if not supplies_a_reference(inputs):
                 return None, None
             schema = await g.get(f"api/tools/{tool_id}{_q({'io_details': True})}")
             if not schema_describes_tool(tool_id, schema):
