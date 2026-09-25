@@ -564,6 +564,21 @@ async def _chunk(g, dataset_id, size):
 async def _download_dataset(g, a):
     # Written to the filesystem as bytes.
     details = await g.get(f"api/datasets/{a['dataset_id']}") or {}
+    # A dataset that is still processing has no content to read; its bytes so far are a
+    # partial file that looks whole. galaxy-mcp guards this with require_ok_state.
+    state = details.get("state") if isinstance(details, dict) else None
+    if state != "ok":
+        return ToolOutcome(
+            {
+                "error": (
+                    f"Dataset is in state {state!r}, not 'ok', so it holds nothing to read yet. "
+                    "Wait for the job producing it to finish and download it again."
+                ),
+                "dataset_id": a["dataset_id"],
+                "state": state,
+            },
+            is_error=True,
+        )
     stated = details.get("file_size") if isinstance(details, dict) else None
     partial = False
     if isinstance(stated, int) and stated > MAX_DOWNLOAD_BYTES:

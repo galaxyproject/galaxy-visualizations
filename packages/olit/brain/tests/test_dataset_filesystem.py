@@ -46,6 +46,9 @@ class FakeGalaxy:
     # What Galaxy parsed the dataset as, alongside the size on the same record.
     details = None
 
+    # Only an `ok` dataset holds readable content.
+    state = "ok"
+
     chunkable = True
 
     async def get(self, path, binary=False):
@@ -59,10 +62,11 @@ class FakeGalaxy:
             cut = cut[: cut.rfind("\n") + 1] or cut  # line-aligned, as Galaxy does
             return {"ck_data": cut, "offset": len(cut)}
         if not path.endswith("/display") and "ck_size=" not in path:
-            record = dict(self.details or {})
+            # Galaxy always states a state; a fake without one is not a dataset.
+            record = {"id": "d", "state": self.state, **(self.details or {})}
             if self.stated_size is not None:
                 record["file_size"] = self.stated_size
-            return record or {"id": "d"}
+            return record
         if binary and isinstance(self.content, str):
             return self.content.encode("utf-8")
         return self.content
@@ -261,3 +265,42 @@ async def test_a_record_without_metadata_still_downloads(data_dir):
     out = await _download_dataset(g, {"dataset_id": "abc123"})
     assert os.path.isfile(out["path"])
     assert "extension" not in out and "delimiter" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_dataset_still_running_is_refused_rather_than_read(data_dir):
+    """Its bytes so far are a partial file that looks whole. galaxy-mcp's require_ok_state."""
+    g = FakeGalaxy(TABLE)
+    g.state = "running"
+
+    out = refused(await _download_dataset(g, {"dataset_id": "abc123"}))
+
+    assert "not 'ok'" in out["error"] and out["state"] == "running"
+    assert not os.path.isfile(f"{data_dir}/abc123.dat"), "nothing may be written"
+
+
+@pytest.mark.asyncio
+async def test_an_errored_dataset_is_refused_too(data_dir):
+    g = FakeGalaxy(TABLE)
+    g.state = "error"
+
+    assert "not 'ok'" in refused(await _download_dataset(g, {"dataset_id": "abc123"}))["error"]
+
+
+@pytest.mark.asyncio
+async def test_a_dataset_that_states_no_state_is_refused(data_dir):
+    """A record with no state is not a dataset this can vouch for."""
+    g = FakeGalaxy(TABLE)
+    g.state = None
+
+    assert refused(await _download_dataset(g, {"dataset_id": "abc123"}))
+
+
+@pytest.mark.asyncio
+async def test_an_ok_dataset_downloads_as_before(data_dir):
+    g = FakeGalaxy(TABLE)
+
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+
+    assert out["path"] == f"{data_dir}/abc123.dat"
+    assert os.path.isfile(out["path"]) and out["lines"] == 120
