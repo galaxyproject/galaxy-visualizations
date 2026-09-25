@@ -25,8 +25,10 @@ DIVERGES = {
     "download_dataset": "writes to the browser's in-memory filesystem and reports the format Galaxy parsed",
     "upload_file": "reads the browser's in-memory filesystem and sends pasted content",
     "get_tool_panel": "returns tool_count and section_count, which galaxy-mcp does not",
+    "get_workflow_input_template": "returns the trimmed input contract, not a filled skeleton with a guide",
     "recommend_biocontainer": "resolves through the quay.io tag listing; mulled cannot run in Pyodide",
 }
+
 
 
 def reference():
@@ -85,3 +87,4 @@ def test_a_user_defined_tool_is_not_run_with_run_tool():
     doc = DOCS["create_user_tool"]
     assert "run_user_tool(history_id, tool_uuid" in doc
     assert "ships no third-party libraries" in doc
+

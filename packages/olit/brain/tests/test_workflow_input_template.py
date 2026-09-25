@@ -95,3 +95,11 @@ def test_the_result_names_how_inputs_are_keyed():
 def test_an_error_body_passes_through():
     """A missing tool comes back as an error dict; it must not be mistaken for a template."""
     assert run({"err_msg": "Following tools missing: falco"}) == {"err_msg": "Following tools missing: falco"}
+
+
+def test_the_prompt_names_the_field_this_tool_actually_returns():
+    """The prompt told the model to fill `inputs_template`, which is galaxy-mcp's shape."""
+    from olit.prompt import INVOKING_WORKFLOW
+
+    assert "inputs_template" not in INVOKING_WORKFLOW
+    assert {"inputs", "inputs_by"} <= set(run(RUN_MODEL))

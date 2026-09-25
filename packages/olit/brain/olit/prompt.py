@@ -74,17 +74,17 @@ reuse them and preserve provenance."""
 # loom: buildGalaxyContextBlock(), "Invoking a Galaxy workflow".
 INVOKING_WORKFLOW = """### Invoking a Galaxy workflow
 
-Call `get_workflow_input_template` before `invoke_workflow`. Take the
-`inputs_template` map out of what it returns -- that field, not the whole wrapper --
-keep its keys, replace every placeholder (`<value>`, `<dataset_id>`,
-`<collection_id>`) with a real value, and pass that map as `inputs`:
+Call `get_workflow_input_template` before `invoke_workflow`. It reports the slots
+a run has to fill; build the map yourself from the `inputs` list it returns, keyed
+by each entry's `step_index`, and pass that map as `inputs`:
 
 - Data **and** non-data slots both belong in `inputs`, keyed by step index: a
   collection slot takes `{"src":"hdca","id":"<collection_id>"}`, an
   integer/text/genome slot takes the bare scalar (`5`, `"hg38"`). Slots the template
   marks `optional` may be left out.
-- Pass `inputs_by="step_index|step_uuid"` verbatim -- the pipe-separated form is one
-  valid value, not a choice between two.
+- Pass `inputs_by` as the template reports it. Galaxy also accepts the
+  pipe-separated `step_index|step_uuid`, which is one valid value, not a choice
+  between two.
 - **Don't route workflow inputs through `params`.** It is the legacy per-step
   tool-override map, typed `dict[str, dict]`, so a scalar value fails with
   `Input should be a valid dictionary in ('body','parameters',<key>)`. Re-keying by
