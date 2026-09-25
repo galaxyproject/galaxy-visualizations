@@ -1,6 +1,7 @@
 """Orbit-compatible named Galaxy tools, cloned from galaxy-mcp."""
 
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -11,13 +12,14 @@ import jsonschema
 from olit import vendor
 from olit.substrate.http import http
 
-from . import biocontainers, invocation_outcome, page_edit
+from . import biocontainers, invocation_outcome, page_edit, workflow_inputs
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, page, server_page
-from . import workflow_inputs
 from .tool_inputs import build_input_template, summarize_tool_inputs
 from .visualization_inputs import build_visualization_template, template_cases
+
+logger = logging.getLogger(__name__)
 
 TOOLS = []
 HANDLERS = {}
@@ -715,6 +717,17 @@ async def _maybe_get(g, path):
     return result if isinstance(result, dict) else None
 
 
+async def _workflow_slots(g, workflow_id, history_id):
+    """A workflow's input slots: style=run first, the .ga export when it cannot resolve."""
+    params = {"style": "run", "instance": "false", "history_id": history_id}
+    run_model = await _maybe_get(g, f"api/workflows/{workflow_id}/download{_q(params)}")
+    slots = workflow_inputs.normalize_run_model(run_model) if run_model else []
+    if slots:
+        return slots, run_model
+    definition = await _maybe_get(g, f"api/workflows/{workflow_id}/download") or {}
+    return workflow_inputs.normalize_ga_steps(definition), None
+
+
 def _annotate_slots(slots, run_model):
     """The step annotation and default value galaxy-mcp's slot contract leaves out."""
     extras = {}
@@ -736,15 +749,8 @@ async def _get_workflow_input_template(g, a):
     """The slots a workflow run has to fill, resolved against a history when one is given."""
     workflow_id = a["workflow_id"]
     # style=run also validates that every tool is installed, so a missing one surfaces.
-    params = {"style": "run", "instance": "false", "history_id": a.get("history_id")}
-    run_model = await _maybe_get(g, f"api/workflows/{workflow_id}/download{_q(params)}")
-    slots = workflow_inputs.normalize_run_model(run_model) if run_model else []
-    if not slots:
-        run_model = None
+    slots, run_model = await _workflow_slots(g, workflow_id, a.get("history_id"))
     definition = await _maybe_get(g, f"api/workflows/{workflow_id}/download") or {}
-    if not slots:
-        # The export still carries the declared contract when style=run resolves nothing.
-        slots = workflow_inputs.normalize_ga_steps(definition)
     show = await _maybe_get(g, f"api/workflows/{workflow_id}") or {}
     verbose = bool(a.get("verbose"))
     template = workflow_inputs.build_workflow_input_template(
@@ -762,7 +768,80 @@ async def _get_workflow_input_template(g, a):
     }
 
 
+# Galaxy's datatype hierarchy is user-independent, so one fetch serves the session.
+_DATATYPES_CACHE = {}
+
+
+async def _datatypes_mapping(g):
+    key = getattr(g, "_root", "")
+    if key not in _DATATYPES_CACHE:
+        # Reading it is part of the preflight, so failing here falls through to Galaxy.
+        body = await g.get("api/datatypes/types_and_mapping?upload_only=false") or {}
+        _DATATYPES_CACHE[key] = body["datatypes_mapping"]
+    return _DATATYPES_CACHE[key]
+
+
+async def _enriched_inputs(g, inputs):
+    """Resolve each supplied {id, src} to the metadata validate_inputs reads."""
+    enriched = {}
+    for key, value in (inputs or {}).items():
+        if not (isinstance(value, dict) and "src" in value):
+            enriched[key] = value
+            continue
+        entry = dict(value)
+        try:
+            if value["src"] == "hda":
+                entry["ext"] = (await g.get(f"api/datasets/{value['id']}") or {}).get("extension")
+            elif value["src"] == "hdca":
+                collection = await g.get(f"api/dataset_collections/{value['id']}") or {}
+                entry["collection_type"] = collection.get("collection_type")
+                entry["element_extensions"] = sorted(
+                    {
+                        (e.get("object") or {}).get("extension")
+                        for e in collection.get("elements") or []
+                        if (e.get("object") or {}).get("extension")
+                    }
+                )
+        except Exception:
+            # Metadata we could not read leaves the validator permissive for that input.
+            pass
+        enriched[key] = entry
+    return enriched
+
+
+async def _rejected_before_submitting(g, a):
+    """What galaxy-mcp can prove wrong about these inputs, or None when it cannot tell.
+
+    Galaxy accepts a datatype its own converters cannot bridge, schedules the run and
+    lands an ok dataset holding nothing, so the mismatch has to be caught here.
+    """
+    try:
+        slots, _ = await _workflow_slots(g, a["workflow_id"], a.get("history_id"))
+        verdict = workflow_inputs.validate_inputs(
+            slots, await _enriched_inputs(g, a.get("inputs")), await _datatypes_mapping(g)
+        )
+        if not verdict["rejects"]:
+            return None
+        template = workflow_inputs.build_workflow_input_template(slots, warnings=verdict["warnings"])
+    except Exception:
+        # Preflight is advisory; it must never be what stops an otherwise valid run.
+        logger.warning("workflow preflight failed; submitting anyway", exc_info=True)
+        return None
+    lines = [f"  - step {r['step_index']} ({r.get('label', '?')}): {r['reason']}" for r in verdict["rejects"]]
+    return ToolOutcome(
+        "Workflow inputs failed validation; not submitting:\n"
+        + "\n".join(lines)
+        + "\n\nExpected input slots (fill and retry with inputs_by='step_index|step_uuid'):\n"
+        + json.dumps(template["slots"], indent=2, default=str),
+        is_error=True,
+    )
+
+
 async def _invoke_workflow(g, a):
+    if a.get("inputs"):
+        rejected = await _rejected_before_submitting(g, a)
+        if rejected:
+            return rejected
     body = {"inputs": a.get("inputs") or {}, "inputs_by": a.get("inputs_by", "step_index")}
     if a.get("params"):
         body["parameters"] = a["params"]
