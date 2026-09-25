@@ -1400,6 +1400,22 @@ async def _create_page(g, a):
 
 
 async def _update_page(g, a):
+    malformed = page_edit.malformed_object_ids(a.get("content") or a.get("section_content") or "")
+    if malformed:
+        return ToolOutcome(
+            {
+                "error": (
+                    f"These name a Galaxy object by something that is not its encoded id: "
+                    f"{', '.join(malformed)}. Galaxy stores that and the embed renders nothing. "
+                    "For an artifact you just made, write {{artifact}} where it belongs and the "
+                    "directive is built for you; otherwise use the encoded id a tool returned."
+                ),
+                "page_id": a.get("page_id"),
+            },
+            is_error=True,
+            refused=True,
+            guard="malformed-object-id",
+        )
     payload = {k: a[k] for k in ("title", "content") if a.get(k) is not None}
     payload.setdefault("edit_source", "agent")
 
