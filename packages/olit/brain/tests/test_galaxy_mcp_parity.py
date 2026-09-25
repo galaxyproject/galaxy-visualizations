@@ -18,6 +18,7 @@ DIVERGES = {
     "download_dataset": "writes to the browser's in-memory filesystem and reports the format Galaxy parsed",
     "upload_file": "reads the browser's in-memory filesystem and sends pasted content",
     "get_tool_panel": "returns tool_count and section_count, which galaxy-mcp does not",
+    "recommend_biocontainer": "resolves through the quay.io tag listing; mulled cannot run in Pyodide",
 }
 
 

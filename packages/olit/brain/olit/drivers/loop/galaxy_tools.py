@@ -11,7 +11,7 @@ import jsonschema
 from olit import vendor
 from olit.substrate.http import http
 
-from . import invocation_outcome, page_edit
+from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, page, server_page
@@ -1341,6 +1341,14 @@ async def _list_user_tools(g, a):
     return await g.get(f"api/unprivileged_tools{_q({'active': a.get('active', True)})}")
 
 
+async def _recommend_biocontainer(g, a):
+    """Not a Galaxy call: the registry is quay.io, which the browser can read directly."""
+    try:
+        return await biocontainers.recommend(a.get("packages") or [])
+    except ValueError as e:
+        return ToolOutcome({"error": str(e)}, is_error=True)
+
+
 async def _create_user_tool(g, a):
     return await g.post("api/unprivileged_tools", {"representation": a["representation"]})
 
@@ -1607,6 +1615,14 @@ _tool(
     {"representation": {"type": "object"}},
     ["representation"],
     _create_user_tool,
+)
+_tool(
+    "recommend_biocontainer",
+    "read",
+    DOCS["recommend_biocontainer"],
+    {"packages": {"type": "array", "items": {"type": "string"}}},
+    ["packages"],
+    _recommend_biocontainer,
 )
 _tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _STR}, ["uuid"], _delete_user_tool)
 _tool(
