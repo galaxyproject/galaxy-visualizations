@@ -10,6 +10,7 @@ import json
 import pathlib
 
 from olit.drivers.loop.galaxy_tool_docs import DOCS
+from olit.drivers.loop.galaxy_tools import TOOLS
 
 REFERENCE = pathlib.Path(__file__).parent / "data" / "galaxy-mcp-docs.json"
 
@@ -29,6 +30,39 @@ DIVERGES = {
     "recommend_biocontainer": "resolves through the quay.io tag listing; mulled cannot run in Pyodide",
 }
 
+
+# Parameters that differ from galaxy-mcp, and why, one entry per parameter name. Argument
+# names are compared whether or not the description is declared in DIVERGES, so a capability
+# olit drops stays visible even where the prose is ours to write.
+PARAMETERS = {
+    "download_dataset": {
+        "file_path": "there is no filesystem path to write to; the bytes come back in the result",
+        "use_default_filename": "no file is written, so there is no filename to default to",
+        "require_ok_state": "olit always refuses a dataset that is not ok; callers cannot turn it off",
+    },
+    "get_tool_panel": {
+        "section": "filters to one section, because the whole panel does not fit the context window",
+        "limit": "pages the panel for the same reason",
+        "offset": "pages the panel for the same reason",
+    },
+    "get_workflow_input_template": {
+        "verbose": "olit's caps keep the run-form model inside the context window, so nothing lifts them",
+    },
+    "list_workflows": {
+        "limit": "pages a long workflow list",
+        "offset": "pages a long workflow list",
+    },
+    "update_page": {
+        "expect_hash": "refuses an edit written against content the record has since moved past",
+        "section_heading": "edits one section, so a long record need not be rewritten whole",
+        "section_content": "edits one section, so a long record need not be rewritten whole",
+    },
+    "upload_file": {
+        "file_type": "upstream takes these on upload_file_from_url only; pasted uploads accept them too",
+        "dbkey": "upstream takes these on upload_file_from_url only; pasted uploads accept them too",
+        "file_name": "names the dataset, which otherwise falls back to the basename",
+    },
+}
 
 
 def reference():
@@ -88,3 +122,43 @@ def test_a_user_defined_tool_is_not_run_with_run_tool():
     assert "run_user_tool(history_id, tool_uuid" in doc
     assert "ships no third-party libraries" in doc
 
+
+def olit_parameters():
+    """The argument names olit declares to the model, per tool."""
+    return {tool["name"]: set(tool["schema"]["function"]["parameters"]["properties"]) for tool in TOOLS}
+
+
+def shared_tools():
+    upstream = reference()["params"]
+    return upstream, olit_parameters(), sorted(set(upstream) & set(olit_parameters()))
+
+
+def test_parameters_match_galaxy_mcp_unless_each_one_is_declared():
+    """download_dataset dropped require_ok_state inside a declared divergence and nothing saw it."""
+    upstream, ours, shared = shared_tools()
+    undeclared = {
+        name: sorted((set(upstream[name]) ^ ours[name]) - set(PARAMETERS.get(name) or ()))
+        for name in shared
+        if (set(upstream[name]) ^ ours[name]) - set(PARAMETERS.get(name) or ())
+    }
+    assert not undeclared, (
+        f"these parameters differ from galaxy-mcp {reference()['version']} undeclared: {undeclared}. "
+        "Match upstream, or name each one in PARAMETERS with the reason olit differs."
+    )
+
+
+def test_every_declared_parameter_really_differs():
+    """A stale entry would exempt a parameter that has since come back into line."""
+    upstream, ours, shared = shared_tools()
+    agreed = {
+        name: sorted(set(params) - (set(upstream[name]) ^ ours[name]))
+        for name, params in PARAMETERS.items()
+        if name in shared and set(params) - (set(upstream[name]) ^ ours[name])
+    }
+    assert not agreed, f"these no longer differ from upstream; drop them from PARAMETERS: {agreed}"
+
+
+def test_the_parameter_list_names_only_tools_both_sides_serve():
+    _, _, shared = shared_tools()
+    unknown = sorted(set(PARAMETERS) - set(shared))
+    assert not unknown, f"PARAMETERS names tools galaxy-mcp and olit do not both serve: {unknown}"

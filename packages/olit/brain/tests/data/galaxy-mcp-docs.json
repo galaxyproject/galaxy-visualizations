@@ -47,5 +47,198 @@
   "upload_file": "Upload a local file to Galaxy for analysis.\n\nGalaxy automatically detects the file type (FASTQ, BAM, BED, etc.) and\nindexes the file appropriately. Large files are uploaded efficiently.\n\nRECOMMENDED WORKFLOW:\n1. Create a history: create_history(\"My Analysis\")\n2. Upload your data files with this function\n3. Wait for upload to complete (check dataset state)\n4. Run tools on the uploaded data: run_tool()\n\nArgs:\n    path: Local file path to upload. Supports common bioinformatics formats:\n          - Sequences: .fastq, .fasta, .fa, .fq, .fastq.gz\n          - Alignments: .bam, .sam, .cram\n          - Annotations: .bed, .gff, .gtf, .vcf\n          - Tabular: .csv, .tsv, .txt\n    history_id: Target history ID. If None, uses the most recent history.\n                Recommend always specifying for clarity.\n\nReturns:\n    GalaxyResult with:\n    - data.outputs: List of created datasets with IDs\n    - data.jobs: Upload job information\n\nExample:\n    >>> upload_file(\"/data/reads.fastq.gz\", \"abc123def456\")\n    GalaxyResult(\n        data={\n            \"outputs\": [{\"id\": \"dataset789\", \"name\": \"reads.fastq.gz\", \"state\": \"queued\"}],\n            \"jobs\": [{\"id\": \"job123\", \"state\": \"ok\"}]\n        },\n        message=\"Uploaded file '/data/reads.fastq.gz'\"\n    )\n\nNEXT STEPS:\n- Wait for upload: Dataset state changes from \"queued\" -> \"running\" -> \"ok\"\n- Check status: get_history_contents(history_id) or get_dataset_details(dataset_id)\n- Run analysis: run_tool(history_id, tool_id, {\"input\": {\"src\": \"hda\", \"id\": dataset_id}})\n\nERROR HANDLING:\n- \"File not found\": Check path exists and is readable\n- \"Permission denied\": Ensure file has read permissions\n- \"Quota exceeded\": User's Galaxy storage quota may be full",
   "upload_file_from_url": "Upload a file from a URL to Galaxy\n\nArgs:\n    url: URL of the file to upload (e.g., 'https://example.com/data.fasta')\n    history_id: Galaxy history ID where to upload the file - optional, uses current history\n               (e.g., '1cd8e2f6b131e5aa', typically 16 characters)\n    file_type: Galaxy file format name (default: 'auto' for auto-detection)\n              Common types: 'fasta', 'fastq', 'bam', 'vcf', 'bed', 'tabular', etc.\n    dbkey: Database key/genome build (default: '?', e.g., 'hg38', 'mm10', 'dm6')\n    file_name: Optional name for the uploaded file in Galaxy (inferred from URL if not provided)\n\nReturns:\n    GalaxyResult with upload status and information about the created dataset(s) in data field"
  },
+ "params": {
+  "cancel_workflow_invocation": [
+   "invocation_id"
+  ],
+  "connect": [
+   "url",
+   "api_key"
+  ],
+  "create_history": [
+   "history_name"
+  ],
+  "create_page": [
+   "history_id",
+   "title",
+   "content",
+   "annotation",
+   "slug"
+  ],
+  "create_user_tool": [
+   "representation"
+  ],
+  "delete_user_tool": [
+   "uuid"
+  ],
+  "download_dataset": [
+   "dataset_id",
+   "file_path",
+   "use_default_filename",
+   "require_ok_state"
+  ],
+  "get_collection_details": [
+   "collection_id",
+   "max_elements"
+  ],
+  "get_dataset_details": [
+   "dataset_id",
+   "include_preview",
+   "preview_lines"
+  ],
+  "get_histories": [
+   "limit",
+   "offset",
+   "name"
+  ],
+  "get_history_contents": [
+   "history_id",
+   "limit",
+   "offset",
+   "deleted",
+   "visible",
+   "order"
+  ],
+  "get_history_details": [
+   "history_id"
+  ],
+  "get_invocations": [
+   "invocation_id",
+   "workflow_id",
+   "history_id",
+   "limit",
+   "view",
+   "step_details"
+  ],
+  "get_iwc_workflow_details": [
+   "trs_id"
+  ],
+  "get_iwc_workflows": [],
+  "get_job_details": [
+   "dataset_id",
+   "history_id"
+  ],
+  "get_page": [
+   "page_id",
+   "include_rendered"
+  ],
+  "get_page_revision": [
+   "page_id",
+   "revision_id"
+  ],
+  "get_server_info": [],
+  "get_tool_citations": [
+   "tool_id"
+  ],
+  "get_tool_details": [
+   "tool_id",
+   "io_details"
+  ],
+  "get_tool_input_template": [
+   "tool_id"
+  ],
+  "get_tool_panel": [],
+  "get_tool_run_examples": [
+   "tool_id",
+   "tool_version"
+  ],
+  "get_user": [],
+  "get_workflow_details": [
+   "workflow_id",
+   "version"
+  ],
+  "get_workflow_input_template": [
+   "workflow_id",
+   "history_id",
+   "verbose"
+  ],
+  "import_workflow_from_iwc": [
+   "trs_id"
+  ],
+  "invoke_workflow": [
+   "workflow_id",
+   "inputs",
+   "params",
+   "history_id",
+   "history_name",
+   "inputs_by",
+   "parameters_normalized"
+  ],
+  "list_history_ids": [],
+  "list_page_revisions": [
+   "page_id",
+   "sort_desc"
+  ],
+  "list_pages": [
+   "history_id",
+   "search",
+   "limit",
+   "offset",
+   "show_published",
+   "show_shared"
+  ],
+  "list_user_tools": [
+   "active"
+  ],
+  "list_workflows": [
+   "workflow_id",
+   "name",
+   "published"
+  ],
+  "recommend_biocontainer": [
+   "packages"
+  ],
+  "recommend_iwc_workflows": [
+   "intent",
+   "limit"
+  ],
+  "revert_page_revision": [
+   "page_id",
+   "revision_id"
+  ],
+  "run_tool": [
+   "history_id",
+   "tool_id",
+   "inputs"
+  ],
+  "run_user_tool": [
+   "history_id",
+   "tool_uuid",
+   "inputs"
+  ],
+  "search_iwc_workflows": [
+   "query"
+  ],
+  "search_tools_by_keywords": [
+   "keywords"
+  ],
+  "search_tools_by_name": [
+   "query"
+  ],
+  "update_history": [
+   "history_id",
+   "name",
+   "annotation",
+   "tags",
+   "deleted",
+   "published"
+  ],
+  "update_page": [
+   "page_id",
+   "content",
+   "title"
+  ],
+  "upload_file": [
+   "path",
+   "history_id"
+  ],
+  "upload_file_from_url": [
+   "url",
+   "history_id",
+   "file_type",
+   "dbkey",
+   "file_name"
+  ]
+ },
  "version": "1.10.0"
 }
