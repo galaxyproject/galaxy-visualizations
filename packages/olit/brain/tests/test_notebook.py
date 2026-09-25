@@ -289,3 +289,16 @@ def test_page_source_prefers_the_editable_markdown_over_the_expanded_render():
     # html pages carry no content_editor, so fall back rather than return nothing
     assert _page_source({"content": "<p>html page</p>"}) == "<p>html page</p>"
     assert _page_source({}) == ""
+
+
+def test_the_notebook_title_names_the_history_it_belongs_to():
+    """Cosmetic only: Galaxy attaches the page by history_id, and the lookup reads that."""
+    from olit.drivers.loop.notebook import title_for_history
+
+    assert title_for_history("1e5daa97722f8d8f") == "Olit Notebook (1e5daa97)"
+
+
+def test_two_histories_get_titles_that_differ():
+    from olit.drivers.loop.notebook import title_for_history
+
+    assert title_for_history("1e5daa97722f8d8f") != title_for_history("6eaa8cfc125102c1")

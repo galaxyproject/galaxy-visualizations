@@ -22,7 +22,7 @@ plan, what was executed, and what the results showed.
 
 
 def title_for_history(history_id):
-    return f"Olit record ({history_id[:8]})"
+    return f"Olit Notebook ({history_id[:8]})"
 
 
 async def _find_for_history(g, history_id):
