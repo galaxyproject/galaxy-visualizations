@@ -83,7 +83,19 @@ def test_non_dataset_parameters_are_left_alone():
 
 def test_the_finder_reaches_nested_structures():
     found = _hda_inputs({"a": {"src": "hda", "id": "x"}, "r": [{"b": {"src": "hda", "id": "y"}}], "plain": 3})
-    assert sorted(i for _, i in found) == ["x", "y"]
+    assert sorted(i for _, i, _ in found) == ["x", "y"]
+
+
+def test_the_finder_takes_collections_and_leaves_library_datasets():
+    """A collection belongs to a history; a library dataset is usable from any of them."""
+    found = _hda_inputs(
+        {
+            "c": {"src": "hdca", "id": "c1"},
+            "lib": {"src": "ldda", "id": "l1"},
+            "ld": {"src": "ld", "id": "l2"},
+        }
+    )
+    assert [(i, s) for _, i, s in found] == [("c1", "hdca")]
 
 
 def test_history_contents_offers_one_identifier():

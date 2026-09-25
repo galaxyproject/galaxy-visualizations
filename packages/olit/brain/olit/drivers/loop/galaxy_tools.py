@@ -149,14 +149,19 @@ async def _create_history(g, a):
     return await g.post("api/histories", {"name": a["history_name"]})
 
 
+# Sources a history owns, and where each one answers its history_id. A library dataset is
+# scoped to a library rather than a history, so it is legitimately usable from any of them.
+HISTORY_SCOPED_SRCS = {"hda": "api/datasets", "hdca": "api/dataset_collections"}
+
+
 def _hda_inputs(inputs):
-    """Every `{src: hda, id: ...}` in a tool payload, with the field that carries it."""
+    """Every history-scoped reference in a tool payload, with the field that carries it."""
     found = []
 
     def walk(name, value):
         if isinstance(value, dict):
-            if value.get("src") == "hda" and value.get("id"):
-                found.append((name, value["id"]))
+            if value.get("src") in HISTORY_SCOPED_SRCS and value.get("id"):
+                found.append((name, value["id"], value["src"]))
                 return
             for key, item in value.items():
                 walk(f"{name}.{key}" if name else key, item)
@@ -169,16 +174,16 @@ def _hda_inputs(inputs):
 
 
 async def _foreign_inputs(g, inputs, history_id):
-    """Dataset inputs that belong to a history other than the one the job will run in."""
+    """Inputs that belong to a history other than the one the job will run in."""
     foreign = []
-    for name, dataset_id in _hda_inputs(inputs):
-        detail = await g.get(f"api/datasets/{dataset_id}") or {}
+    for name, object_id, src in _hda_inputs(inputs):
+        detail = await g.get(f"{HISTORY_SCOPED_SRCS[src]}/{object_id}") or {}
         where = detail.get("history_id") if isinstance(detail, dict) else None
         if where and where != history_id:
             foreign.append(
                 {
                     "input": name,
-                    "supplied_id": dataset_id,
+                    "supplied_id": object_id,
                     "resolves_to_history_id": where,
                     "resolves_to_name": detail.get("name"),
                 }
