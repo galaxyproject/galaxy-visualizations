@@ -4,7 +4,7 @@ import json
 import logging
 
 from olit.registry import load_primitives
-from olit.substrate import Confirmation, LocalExecutionError
+from olit.substrate import Confirmation, LocalExecutionError, galaxy_ops
 
 from . import (
     artifacts,
@@ -423,6 +423,12 @@ class ToolSurface:
             if isinstance(opened, dict) and opened.get("page_id"):
                 self.record["page_id"] = opened["page_id"]
             return self._claim_artifact(opened)
+        delegated = galaxy_tools.delegated_to_ops(name)
+        if delegated and self.substrate.ops.available():
+            envelope, refusal = await self.substrate.ops.run(name, args, delegated)
+            if refusal:
+                return ToolOutcome(refusal, is_error=True)
+            return galaxy_ops.rendered(envelope)
         handler = galaxy_tools.get_handler(name)
         if handler:
             args, refusal = self._place_artifacts(args)

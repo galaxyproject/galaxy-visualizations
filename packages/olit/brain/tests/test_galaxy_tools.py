@@ -4,6 +4,7 @@ import asyncio
 import json
 
 from olit.drivers.loop.tools import ToolSurface
+from olit.substrate.galaxy_ops import GalaxyOps
 
 
 class FakeManifest:
@@ -38,6 +39,8 @@ class FakeSubstrate:
     def __init__(self, caps=("read",)):
         self.manifest = FakeManifest(caps)
         self.galaxy = FakeGalaxy(self.manifest)
+        # Outside Pyodide this reports itself unavailable, so dispatch uses the handler here.
+        self.ops = GalaxyOps({}, self.manifest)
 
 
 def _names(surface):

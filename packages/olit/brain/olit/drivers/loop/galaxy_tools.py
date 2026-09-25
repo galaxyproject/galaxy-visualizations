@@ -258,6 +258,20 @@ SETTLED = frozenset(
 )
 
 
+# Operations galaxy-ops runs instead of the handler below, while that path is being proved.
+# The handler stays where it is: taking a name out of here is the whole of a rollback.
+DELEGATED_TO_OPS = {
+    "get_tool_run_examples": "read",
+    "get_histories": "read",
+    "get_tool_input_template": "read",
+}
+
+
+def delegated_to_ops(name):
+    """The capability this operation needs when galaxy-ops runs it, or None to run it here."""
+    return DELEGATED_TO_OPS.get(name)
+
+
 def settled(name):
     """Whether repeating this call with the same arguments can produce anything new."""
     return name in SETTLED

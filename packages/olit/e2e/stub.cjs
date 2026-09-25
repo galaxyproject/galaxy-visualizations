@@ -66,6 +66,14 @@ const runPython = [{
     function: { name: "run_python", arguments: JSON.stringify({ code: RUN_PYTHON_CODE }) },
 }];
 
+// The three operations galaxy-ops runs instead of a handler here: a plain read, a paginated
+// one, and one that shapes its answer from the tool's schema.
+const delegatedOps = [
+    { id: "call_1", type: "function", function: { name: "get_histories", arguments: JSON.stringify({ limit: 2 }) } },
+    { id: "call_2", type: "function", function: { name: "get_tool_run_examples", arguments: JSON.stringify({ tool_id: "cat1" }) } },
+    { id: "call_3", type: "function", function: { name: "get_tool_input_template", arguments: JSON.stringify({ tool_id: "cat1" }) } },
+];
+
 const createVisualization = [{
     id: "call_1",
     type: "function",
@@ -229,6 +237,13 @@ const server = http.createServer(async (req, res) => {
         }
         if (script === "compact") {
             return json(res, 200, message("ok"));
+        }
+        if (script === "ops-bridge") {
+            const msgs = body.messages || [];
+            const tail = msgs[msgs.length - 1] || {};
+            return json(res, 200, tail.role === "tool"
+                ? message("operations answered")
+                : message("", delegatedOps));
         }
         if (script === "python") {
             const msgs = body.messages || [];

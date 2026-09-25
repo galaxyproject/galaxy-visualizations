@@ -197,6 +197,8 @@ async function main() {
     extraPackages: [`${indexURL}/${process.env.olit_wheel}`],
     // The key is the worker's to hold; the brain's config never carries it.
     llm: { baseUrl: config.ai_base_url, apiKey: creds.apiKey },
+    galaxy: { root: config.galaxy_root, credentials },
+    opsModule: process.env.ops_module as string,
   });
   let ready = false;
   const readyInfo = chat.addInfoMessage("Loading Olit...");

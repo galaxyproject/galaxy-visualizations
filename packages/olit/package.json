@@ -7,8 +7,9 @@
     "static"
   ],
   "scripts": {
-    "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:olit && vite build",
+    "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:ops && npm run build:olit && vite build",
     "build:olit": "cd brain && rm -rf build dist olit.egg-info && SOURCE_DATE_EPOCH=315532800 python -m build --wheel && cd .. && node wheel.stamp.js && mkdir -p static/pyodide && rm -f static/pyodide/olit-*.whl && cp brain/dist/olit-*.whl static/pyodide/",
+    "build:ops": "node ops.install.js",
     "build:providers": "cd brain && python3 scripts/dump_providers.py",
     "build:pyodide": "node pyodide.install.js",
     "build:skills": "node skills.install.js",
@@ -30,6 +31,7 @@
     "vendored": "python3 vendored/check.py"
   },
   "dependencies": {
+    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.1/galaxyproject-galaxy-ops-0.1.0.tgz",
     "mermaid": "^11.16.1",
     "vega-embed": "^7.1.0"
   },
