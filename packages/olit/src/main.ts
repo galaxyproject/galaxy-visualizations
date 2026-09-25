@@ -194,10 +194,7 @@ async function main() {
   const indexURL = `${incoming.root}${base}static/pyodide`;
   const pyodide = new PyodideManager({
     indexURL,
-    extraPackages: [
-      `${indexURL}/${process.env.semantics_wheel}`,
-      `${indexURL}/${process.env.olit_wheel}`,
-    ],
+    extraPackages: [`${indexURL}/${process.env.olit_wheel}`],
     // The key is the worker's to hold; the brain's config never carries it.
     llm: { baseUrl: config.ai_base_url, apiKey: creds.apiKey },
   });

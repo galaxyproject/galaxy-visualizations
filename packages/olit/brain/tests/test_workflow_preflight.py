@@ -123,8 +123,7 @@ def test_a_collection_in_a_dataset_slot_is_stopped():
     g = Galaxy()
     out = invoke(g, {"0": {"src": "hdca", "id": "c1"}})
     assert g.posted is None
-    assert "Slot expects a single dataset" in out.content
-    assert "a dataset collection (hdca)" in out.content
+    assert "got a collection (hdca)" in out.content
 
 
 def test_a_parameter_slot_given_a_dataset_is_stopped():

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "olit"
 version = "0.0.0"
 description = "olit agent brain (client-only Galaxy co-scientist)"
-dependencies = ["numpy", "pandas", "pydantic", "PyYAML", "jsonschema", "galaxy-agent-semantics==0.1.0"]
+dependencies = ["numpy", "pandas", "pydantic", "PyYAML", "jsonschema"]
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"

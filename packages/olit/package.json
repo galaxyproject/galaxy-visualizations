@@ -7,11 +7,10 @@
     "static"
   ],
   "scripts": {
-    "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:semantics && npm run build:olit && vite build",
+    "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:olit && vite build",
     "build:olit": "cd brain && rm -rf build dist olit.egg-info && SOURCE_DATE_EPOCH=315532800 python -m build --wheel && cd .. && node wheel.stamp.js && mkdir -p static/pyodide && rm -f static/pyodide/olit-*.whl && cp brain/dist/olit-*.whl static/pyodide/",
     "build:providers": "cd brain && python3 scripts/dump_providers.py",
     "build:pyodide": "node pyodide.install.js",
-    "build:semantics": "node semantics.install.js",
     "build:skills": "node skills.install.js",
     "describe": "cd brain && python3 -m olit.describe --root ..",
     "dev": "npm run build && vite",
