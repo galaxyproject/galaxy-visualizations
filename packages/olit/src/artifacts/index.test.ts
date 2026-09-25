@@ -8,7 +8,7 @@ const renderMermaid = vi.fn();
 vi.mock("./vega", () => ({ renderVega: (...a: unknown[]) => renderVega(...a) }));
 vi.mock("./mermaid", () => ({ renderMermaid: (...a: unknown[]) => renderMermaid(...a) }));
 
-const { renderArtifact } = await import("./index");
+const { renderArtifact, paneArtifacts } = await import("./index");
 
 describe("renderArtifact", () => {
   let content: HTMLElement;
@@ -61,5 +61,24 @@ describe("renderArtifact", () => {
     expect(renderVega).not.toHaveBeenCalled();
     expect(renderMermaid).not.toHaveBeenCalled();
     expect(content.querySelector("iframe")?.getAttribute("src")).toBe(url);
+  });
+});
+
+describe("paneArtifacts", () => {
+  const scatter = { kind: "vega-lite", title: "Scatter Plot", spec: {} } as any;
+  const regression = { kind: "vega-lite", title: "Linear Regression", spec: {} } as any;
+
+  it("shows the newest artifact, not the first one the session produced", () => {
+    // A reopened session was showing the scatter it started with instead of the
+    // regression it ended on, because every stored artifact was rendered in order.
+    expect(paneArtifacts([scatter, regression])).toEqual([regression]);
+  });
+
+  it("shows the only artifact when a session produced one", () => {
+    expect(paneArtifacts([scatter])).toEqual([scatter]);
+  });
+
+  it("shows nothing for a session that produced none", () => {
+    expect(paneArtifacts([])).toEqual([]);
   });
 });

@@ -75,6 +75,16 @@ const createVisualization = [{
     },
 }];
 
+// Two turns, two differently titled artifacts, so a drive can tell which one the pane shows.
+const showTitled = (title) => [{
+    id: "call_1",
+    type: "function",
+    function: {
+        name: "show_visualization",
+        arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl", title }),
+    },
+}];
+
 // Galaxy parses olit.xml server-side and hands the specs back through data-incoming;
 // reading the file keeps the harness on the same prompt the deployment would serve.
 function pluginSpecs() {
@@ -230,6 +240,12 @@ const server = http.createServer(async (req, res) => {
         // Keyed on the last message; by turn two the transcript always has a tool result.
         const messages = body.messages || [];
         const last = messages[messages.length - 1] || {};
+        if (script === "two-artifacts") {
+            const turns = messages.filter((m) => m.role === "user").length;
+            return json(res, 200, last.role === "tool"
+                ? message(`Chart ${turns} is open.`)
+                : message("", showTitled(turns < 2 ? "First Chart" : "Second Chart")));
+        }
         if (script === "visualization") {
             return json(res, 200, last.role === "tool"
                 ? message("The structure is open in the viewer.")

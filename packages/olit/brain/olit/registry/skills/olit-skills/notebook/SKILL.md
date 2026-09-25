@@ -55,11 +55,24 @@ A rejected proposal in the log is worse than no log.
 ### What a Page can hold
 
 Pages render Galaxy Flavored Markdown: ordinary markdown plus ```galaxy directive
-blocks for embedding results — `history_dataset_display`,
-`history_dataset_as_image`, `history_dataset_as_table`, `invocation_outputs`,
-`workflow_display`. Use those to show a dataset rather than pasting its contents.
-Directives take **encoded ids**, which you get from `get_history_contents` or
-`get_dataset_details`.
+blocks for embedding results. Use those to show a result rather than pasting its
+contents. Each directive names its own argument, and Galaxy rejects any other name:
+
+| directive | argument |
+|---|---|
+| `history_dataset_display` | `history_dataset_id` |
+| `history_dataset_collection_display` | `history_dataset_collection_id` |
+| `history_dataset_as_image` | `history_dataset_id` |
+| `history_dataset_as_table` | `history_dataset_id` |
+| `invocation_outputs` | `invocation_id` |
+| `workflow_display` | `workflow_id` |
+
+So a collection goes in as
+`history_dataset_collection_display(history_dataset_collection_id=d0bfe935d0f5258d)`, and
+a dataset as `history_dataset_display(history_dataset_id=f2db41e1fa331b3e)`. The values are
+**encoded ids**, which you get from `get_history_contents`, `get_dataset_details` or the
+tool result that created the thing. A directive is neither a tool nor a visualization, so
+`search_tools_by_name` and `get_visualization_details` cannot tell you anything about one.
 
 Do **not** wrap content in ```txt, ```text, or any other fence: Galaxy renders those
 as raw monospace instead of formatted content.

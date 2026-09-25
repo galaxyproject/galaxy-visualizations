@@ -15,7 +15,7 @@
     "describe": "cd brain && python3 -m olit.describe --root ..",
     "dev": "npm run build && vite",
     "lint:js": "prettier --config ./prettier.config.js --check './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
-    "lint:python": "cd brain && python -m black --check . && uvx ruff check .",
+    "lint:python": "cd brain && python -m black --check . && ruff check .",
     "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:python && npm run lint:python && npm run lint:js && npm run typecheck && npm run vendored && npm run test:e2e",

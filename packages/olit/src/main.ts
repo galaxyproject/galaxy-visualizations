@@ -25,7 +25,7 @@ import { historyFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
 import { runOlit, type LoopEvent, type Message } from "./pyodide-runner";
-import { renderArtifact, type Artifact } from "./artifacts";
+import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
 import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
 import { mountLayout } from "./layout";
@@ -182,7 +182,7 @@ async function main() {
   }
   // Replayed like the transcript: a resumed session that can still place a chart but shows
   // an empty pane is telling the user it lost something it did not.
-  for (const artifact of produced) {
+  for (const artifact of paneArtifacts(produced)) {
     await renderArtifact(el.artifactContent, artifact);
   }
 
