@@ -86,13 +86,25 @@ function blobSha(content) {
   return createHash("sha1").update(`blob ${content.length}\0`).update(content).digest("hex");
 }
 
+/** The agent-facing subtree. `dev-skills/` assumes a checkout, a shell and planemo. */
+const SUBTREE = "skills/";
+/** Kept beside the corpus because vendoring someone's text without their licence is rude. */
+const ALSO = new Set(["LICENSE"]);
+
+/** Where a blob lands under DEST: the subtree prefix is stripped, so paths stay short. */
+function localPath(path) {
+  return path.startsWith(SUBTREE) ? path.slice(SUBTREE.length) : path;
+}
+
 async function listBlobs(sha) {
   const tree = await api(`repos/${REPO}/git/trees/${sha}?recursive=1`);
   if (tree.truncated) {
     // A partial tree would silently drop skills; refuse rather than vendor it.
     throw new Error("GitHub returned a truncated tree; refusing a partial corpus");
   }
-  return (tree.tree || []).filter((n) => n.type === "blob" && typeof n.path === "string");
+  return (tree.tree || [])
+    .filter((n) => n.type === "blob" && typeof n.path === "string")
+    .filter((n) => n.path.startsWith(SUBTREE) || ALSO.has(n.path));
 }
 
 async function download(sha, blob) {
@@ -134,20 +146,20 @@ async function main() {
 
   let skills = 0;
   for (const blob of blobs) {
-    const target = join(DEST, blob.path);
+    const target = join(DEST, localPath(blob.path));
     // A path escaping DEST would write anywhere on the build machine.
     if (!target.startsWith(DEST)) {
       throw new Error(`refusing path outside the corpus dir: ${blob.path}`);
     }
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, await download(sha, blob));
-    if (blob.path === "SKILL.md" || blob.path.endsWith("/SKILL.md")) {
+    if (localPath(blob.path).endsWith("SKILL.md")) {
       skills += 1;
     }
   }
 
   // Per-file blob ids let vendored/check.py catch an edit made after vendoring.
-  const ids = Object.fromEntries(blobs.map((b) => [b.path, b.sha]));
+  const ids = Object.fromEntries(blobs.map((b) => [localPath(b.path), b.sha]));
   await writeFile(
     STAMP,
     JSON.stringify({ repo: REPO, ref, sha, files: blobs.length, skills, blobs: ids }, null, 2) +

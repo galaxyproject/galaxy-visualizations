@@ -156,7 +156,7 @@ def _skills_fetch_schema(skills):
                         "description": (
                             "Relative path inside the repo, e.g. "
                             "'collection-manipulation/SKILL.md', "
-                            "'galaxy-integration/mcp-reference/gotchas.md'."
+                            "'galaxy-mcp-reference/gotchas.md'."
                         ),
                     },
                 },
