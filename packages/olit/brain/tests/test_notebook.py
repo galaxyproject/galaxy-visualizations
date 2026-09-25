@@ -3,6 +3,7 @@
 import asyncio
 
 from olit.drivers.loop import notebook
+from olit.drivers.loop.outcome import ToolOutcome
 from olit.drivers.loop.tools import ToolSurface
 
 HISTORY = "f2db41e1fa331b3e"
@@ -148,13 +149,23 @@ def _excerpt(galaxy, page_id="p1", history_id=HISTORY):
     return asyncio.run(notebook.excerpt(galaxy, page_id, history_id))
 
 
-def test_no_record_page_means_no_excerpt():
-    """A session that has not opened its record yet; the turn proceeds without one."""
-    assert _excerpt(FakeGalaxy(), page_id=None) == ""
+def test_neither_binding_means_no_excerpt():
+    assert _excerpt(FakeGalaxy(), page_id=None, history_id=None) == ""
 
 
-def test_a_page_galaxy_does_not_have_means_no_excerpt():
-    assert _excerpt(FakeGalaxy()) == ""
+def test_a_session_with_no_record_yet_is_still_told_its_history():
+    """A session has a history before it has a record; the binding must not wait for one."""
+    text = _excerpt(FakeGalaxy(), page_id=None)
+
+    assert f'history_id="{HISTORY}"' in text
+    assert "The record (current contents)" not in text
+
+
+def test_a_page_galaxy_does_not_have_falls_back_to_the_binding():
+    text = _excerpt(FakeGalaxy())
+
+    assert HISTORY in text
+    assert "The record (current contents)" not in text
 
 
 def test_the_excerpt_carries_the_record_and_the_data_boundary():
@@ -180,10 +191,13 @@ def test_a_long_record_is_elided_in_the_middle_like_loom():
 
 def test_an_unreachable_galaxy_does_not_break_the_turn():
     class Broken(FakeGalaxy):
-        async def get(self, path):
+        async def get(self, path, params=None):
             raise RuntimeError("network down")
 
-    assert _excerpt(Broken()) == ""
+    text = _excerpt(Broken())
+
+    assert "The record (current contents)" not in text
+    assert f'history_id="{HISTORY}"' in text, "the history is known without asking Galaxy"
 
 
 def test_the_excerpt_names_the_working_history():
@@ -302,3 +316,24 @@ def test_two_sessions_get_different_identities():
     other = "9a8b7c6d-0000-4000-8000-111122223333"
     assert notebook.title_for_session(SESSION) != notebook.title_for_session(other)
     assert notebook.slug_for_session(SESSION) != notebook.slug_for_session(other)
+
+
+def test_a_session_without_an_identity_is_refused_not_crashed():
+    """A missing session id used to reach `None[:8]` and surface as a TypeError."""
+    out = run(notebook.resume(FakeGalaxy(), None, None))
+
+    assert isinstance(out, ToolOutcome) and out.is_error
+    assert "no identity" in out.content["error"]
+
+
+def test_the_surface_keeps_the_page_it_just_created():
+    """Without this every call makes another page: the harness holds no session document."""
+    surface = ToolSurface(Substrate(["read", "write"]), record={"session_id": SESSION})
+    galaxy = FakeGalaxy()
+    surface.substrate.galaxy = galaxy
+
+    run(surface._dispatch("notebook_resume", {}))
+    run(surface._dispatch("notebook_resume", {}))
+
+    assert surface.record["page_id"] == "newpage1"
+    assert len(galaxy.posted) == 1, "the second call must reuse the first page"

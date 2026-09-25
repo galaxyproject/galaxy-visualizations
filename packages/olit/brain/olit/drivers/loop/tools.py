@@ -416,9 +416,13 @@ class ToolSurface:
         if name == "finish":
             return args.get("summary", "done")
         if name == "notebook_resume":
-            return self._claim_artifact(
-                await notebook.resume(self.substrate.galaxy, self.record.get("session_id"), self.record.get("page_id"))
+            opened = await notebook.resume(
+                self.substrate.galaxy, self.record.get("session_id"), self.record.get("page_id")
             )
+            # Keep the page this session just made, so a later call reuses it.
+            if isinstance(opened, dict) and opened.get("page_id"):
+                self.record["page_id"] = opened["page_id"]
+            return self._claim_artifact(opened)
         handler = galaxy_tools.get_handler(name)
         if handler:
             args, refusal = self._place_artifacts(args)

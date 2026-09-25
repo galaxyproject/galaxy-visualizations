@@ -92,20 +92,14 @@ async def excerpt(g, page_id, history_id):
     Two independent bindings: the record the session owns, and the history it is working
     in. A session can change history without changing its record.
     """
-    if not page_id:
-        return ""
-    try:
-        full = await _usable(g, page_id)
-        if not full:
-            return ""
-    except Exception:
-        # No record yet, or Galaxy is unreachable; the turn proceeds without it.
-        logger.debug("record excerpt unavailable", exc_info=True)
-        return ""
-
-    content = (_page_source(full) if isinstance(full, dict) else "") or ""
-    if not content.strip():
-        return ""
+    content = ""
+    if page_id:
+        try:
+            full = await _usable(g, page_id)
+            content = (_page_source(full) if full else "") or ""
+        except Exception:
+            # Galaxy is unreachable; the turn proceeds on the binding alone.
+            logger.debug("record excerpt unavailable", exc_info=True)
 
     body, elided = content, False
     if len(content) > HEAD_MAX_CHARS + TAIL_MAX_CHARS + 100:
@@ -127,6 +121,8 @@ where they will not find them.{manifest_block}
         if history_id
         else ""
     )
+    if not content.strip():
+        return binding.rstrip()
     return f"""{binding}## The record (current contents)
 
 Page `{page_id}` -- the durable record for this analysis. It accumulates over the
@@ -149,6 +145,11 @@ async def resume(g, session_id, page_id):
     `page_id` is session context supplied by the shell, never a tool argument: the record
     a session owns is not the model's to choose.
     """
+    if not session_id:
+        return ToolOutcome(
+            {"error": "This session has no identity, so it cannot own a record page."},
+            is_error=True,
+        )
     if page_id:
         existing = await _usable(g, page_id)
         if existing:
