@@ -28,7 +28,10 @@ PROMPT_MODULE = "prompt.py"
 SKIPPED = ("vendor/", "registry/skills/")
 
 # Modules that name the guards able to refuse a call.
-GUARD_MODULES = ("drivers/loop/tools.py", "drivers/loop/agent.py")
+# Where a guard can be named. Scanned rather than listed: a guard set in a module nobody
+# thought to list is invisible here, to the published policy and to the drift check that
+# reads it -- which is how `malformed-object-id` went unreported.
+GUARD_PACKAGES = ("drivers/loop",)
 
 _QUERY_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^&?{}\"']*)")
 
@@ -226,12 +229,17 @@ def tools():
     return dict(sorted(out.items()))
 
 
+def guard_modules():
+    """Every module a guard could be named in, so none is missed by omission."""
+    base = package_root()
+    return sorted(p for package in GUARD_PACKAGES for p in (base / package).glob("*.py"))
+
+
 def guards():
     """Every guard that can refuse a call, read from the code that names them."""
     found = set()
-    base = package_root()
-    for rel in GUARD_MODULES:
-        tree = ast.parse((base / rel).read_text())
+    for path in guard_modules():
+        tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.keyword) and node.arg == "guard":
                 if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
