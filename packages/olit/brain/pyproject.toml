@@ -17,7 +17,17 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "ruff", "mypy", "types-PyYAML", "types-jsonschema", "pytest", "pytest-asyncio", "aiohttp"]
+dev = [
+    "black",
+    "ruff",
+    "mypy",
+    "types-PyYAML",
+    "types-jsonschema",
+    "pandas-stubs",
+    "pytest",
+    "pytest-asyncio",
+    "aiohttp",
+]
 
 # Vendored from galaxy-skills at build time and re-fetched from a pinned sha, so formatting
 # it here is both a divergence from upstream and wiped by the next vendor.
@@ -56,13 +66,6 @@ exclude = "^olit/registry/skills/"
 # getattr, so neither side declares these attributes.
 module = ["olit.registry.python.*"]
 disable_error_code = ["attr-defined"]
-
-[[tool.mypy.overrides]]
-# The vintent modules are a self-contained subsystem with their own TypedDict contract and
-# registry/skills holds vendored third-party scripts: neither is olit's to type, and checking
-# them buries the core in noise. Imported by olit, so silenced rather than excluded.
-module = ["olit.registry.extensions.vintent.modules.*"]
-ignore_errors = true
 
 [[tool.mypy.overrides]]
 # Supplied by the Pyodide runtime, so they exist in the browser and never under CPython.
