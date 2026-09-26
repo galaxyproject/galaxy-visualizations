@@ -33,7 +33,7 @@
     "typecheck:python": "cd brain && python -m mypy olit"
   },
   "dependencies": {
-    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.3/galaxyproject-galaxy-ops-0.1.1-fork.3.tgz",
+    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.4/galaxyproject-galaxy-ops-0.1.1-fork.4.tgz",
     "mermaid": "^11.16.1",
     "vega-embed": "^7.1.0"
   },
