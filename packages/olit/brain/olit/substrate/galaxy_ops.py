@@ -1,14 +1,25 @@
-"""Galaxy operations run by galaxy-ops in the shell, reached across the Pyodide boundary.
+"""Galaxy operations run by galaxy-ops, reached from wherever the brain happens to run.
 
 One call for every operation. Nothing here knows what any of them do: the name and the
 arguments go out, an envelope comes back. What olit keeps on this side is what olit owns --
 the capability gate, and the tool contract the model reads.
+
+Two transports reach the same operations. In the browser the shell has already loaded them
+and olit calls across the Pyodide boundary; under CPython -- tests, evals -- a node process
+loads the same module and answers one line at a time. The operation is the same either way,
+so neither transport may know an operation by name.
 """
 
+import asyncio
 import json
+import os
 import re
+import shutil
+import sys
 
 CAMEL = re.compile(r"_([a-z0-9])")
+# The driver is beside this module so an installed brain carries it too.
+DRIVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "galaxy_ops_driver.mjs")
 
 
 def camel(key):
@@ -27,17 +38,11 @@ def as_wire(args):
 
 
 class GalaxyOpsUnavailable(RuntimeError):
-    """No executor in this runtime: outside the browser, or the module did not load."""
+    """No transport in this runtime: no shell, and no node to stand in for one."""
 
 
-class GalaxyOps:
-    def __init__(self, config, manifest):
-        self.manifest = manifest
-
-    def scoped(self, manifest):
-        view = GalaxyOps.__new__(GalaxyOps)
-        view.manifest = manifest
-        return view
+class PyodideTransport:
+    """The shell already holds the operations; call across the boundary to reach them."""
 
     def available(self):
         try:
@@ -46,21 +51,108 @@ class GalaxyOps:
             return False
         return getattr(js, "olitRunOperation", None) is not None
 
-    async def run(self, name, args, capability="read"):
-        """The operation's data, or a ToolOutcome-shaped error the caller can return."""
-        self.manifest.require(capability)
-        try:
-            import js
-            from pyodide.ffi import to_js
-        except ImportError as exc:  # pragma: no cover - exercised only outside Pyodide
-            raise GalaxyOpsUnavailable(str(exc)) from exc
-        answer = await js.olitRunOperation(name, to_js(as_wire(args), dict_converter=js.Object.fromEntries))
+    async def run(self, name, wire):
+        import js
+        from pyodide.ffi import to_js
+
+        answer = await js.olitRunOperation(name, to_js(wire, dict_converter=js.Object.fromEntries))
         # Pyodide hands back a proxy for a JS object and a dict for one it converted itself;
         # which of the two depends on the value, so take either and free only what can be freed.
         envelope = answer.to_py() if hasattr(answer, "to_py") else answer
         release = getattr(answer, "destroy", None)
         if callable(release):
             release()
+        return envelope
+
+
+class NodeTransport:
+    """One node process for the session, holding the same operations the shell would."""
+
+    def __init__(self, root, key, driver=DRIVER):
+        self._root = root
+        self._key = key
+        self._driver = driver
+        self._process = None
+        self._turn = 0
+        # One request on the wire at a time: the answers come back on one stream.
+        self._lock = asyncio.Lock()
+
+    def available(self):
+        return bool(self._root) and shutil.which("node") is not None and os.path.exists(self._driver)
+
+    async def _started(self):
+        if self._process is not None and self._process.returncode is None:
+            return self._process
+        environment = {**os.environ, "GALAXY_ROOT": self._root or "", "GALAXY_KEY": self._key or ""}
+        self._process = await asyncio.create_subprocess_exec(
+            "node",
+            self._driver,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=environment,
+            cwd=os.path.dirname(self._driver),
+        )
+        return self._process
+
+    async def _stopped(self, process):
+        stderr = (await process.stderr.read()).decode()[-2000:]
+        self._process = None
+        return GalaxyOpsUnavailable(f"galaxy-ops driver stopped: {stderr}")
+
+    async def run(self, name, wire):
+        async with self._lock:
+            process = await self._started()
+            self._turn += 1
+            body = json.dumps({"id": self._turn, "name": name, "args": wire}).encode()
+            process.stdin.write(f"{len(body)}\n".encode() + body)
+            await process.stdin.drain()
+            header = await process.stdout.readline()
+            if not header:
+                raise await self._stopped(process)
+            # readexactly, because an answer is routinely past what a line reader will buffer
+            # and a reader that gave up mid-answer would pair the next one with this question.
+            try:
+                payload = await process.stdout.readexactly(int(header))
+            except asyncio.IncompleteReadError as exc:
+                raise await self._stopped(process) from exc
+        return json.loads(payload)["envelope"]
+
+    async def close(self):
+        if self._process is not None and self._process.returncode is None:
+            self._process.stdin.close()
+            await self._process.wait()
+        self._process = None
+
+
+class GalaxyOps:
+    def __init__(self, config, manifest):
+        self.manifest = manifest
+        self._transports = [PyodideTransport()]
+        # Outside Pyodide the key is how a brain reaches Galaxy at all; in the browser there is
+        # none, and the shell authenticates with the user's session instead.
+        if sys.platform != "emscripten":
+            self._transports.append(NodeTransport(config.get("galaxy_root"), config.get("galaxy_key")))
+
+    def scoped(self, manifest):
+        view = GalaxyOps.__new__(GalaxyOps)
+        view.manifest = manifest
+        view._transports = self._transports
+        return view
+
+    def _transport(self):
+        return next((t for t in self._transports if t.available()), None)
+
+    def available(self):
+        return self._transport() is not None
+
+    async def run(self, name, args, capability="read"):
+        """The operation's data, or a ToolOutcome-shaped error the caller can return."""
+        self.manifest.require(capability)
+        transport = self._transport()
+        if transport is None:
+            raise GalaxyOpsUnavailable("no galaxy-ops transport in this runtime")
+        envelope = await transport.run(name, as_wire(args))
         if not envelope.get("success"):
             return None, envelope.get("message") or f"{name} failed"
         return envelope, None

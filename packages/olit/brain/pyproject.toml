@@ -53,3 +53,5 @@ include = ["olit*"]
 # example files a SKILL.md points at), so the glob has to recurse.
 "olit.registry" = ["processes/*.yml", "skills/**/*"]
 "olit.vendor" = ["*.json"]
+# The node driver is how an installed brain reaches galaxy-ops outside the browser.
+"olit.substrate" = ["*.mjs"]
