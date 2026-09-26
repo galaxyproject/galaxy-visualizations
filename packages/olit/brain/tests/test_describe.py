@@ -29,7 +29,16 @@ def test_a_tool_carries_its_contract_and_the_query_it_builds():
     tool = described()["tools"]["get_job_details"]
     assert tool["capability"] == "read"
     assert tool["query"]["full"] is True
-    assert set(tool) == {"capability", "runner", "signature", "params", "prose", "query", "passthrough"}
+    assert set(tool) == {
+        "capability",
+        "runner",
+        "signature",
+        "params",
+        "prose",
+        "query",
+        "passthrough",
+        "promised_fields",
+    }
 
 
 def test_no_operation_olit_still_runs_itself_only_forwards_it():

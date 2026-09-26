@@ -236,6 +236,18 @@ KEPT_LOCAL = {
 }
 
 
+# Top-level fields of `data` that a description tells the model to read. Declared here rather
+# than in a test because it is a fact about the contract: the parity guard reads it back off a
+# live result, and `describe` publishes it so an upstream drift check can see what is covered.
+PROMISED_FIELDS = {
+    "get_tool_panel": ("tool_count", "section_count"),
+}
+
+
+def promised_fields(name):
+    return PROMISED_FIELDS.get(name, ())
+
+
 def delegated_to_ops(name):
     """The capability this operation needs when galaxy-ops runs it, or None to run it here.
 

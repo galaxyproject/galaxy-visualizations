@@ -221,6 +221,7 @@ def tools():
             "prose": fingerprint("\n".join(prose)),
             "query": dict(sorted(query.items())),
             "passthrough": handler is not None and tool["name"] in passthrough,
+            "promised_fields": list(galaxy_tools.promised_fields(tool["name"])),
         }
     return dict(sorted(out.items()))
 
