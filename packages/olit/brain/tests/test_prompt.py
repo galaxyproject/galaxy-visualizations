@@ -396,8 +396,8 @@ def test_verification_keeps_the_per_format_checks():
 
 def test_galaxy_guidance_is_gated_on_the_catalog():
     """loom gates its Galaxy block on a live connection; olit's gate is the catalog."""
-    up = prompt.system_text(galaxy_ok=True)
-    down = prompt.system_text(galaxy_ok=False)
+    up = prompt.system_text()
+    down = prompt.system_text(galaxy_status=prompt.GALAXY_UNREACHABLE)
 
     for heading in ("### Galaxy terminology", "### Drafting a new plan", "### Invoking a Galaxy workflow"):
         assert heading in up, heading
@@ -406,17 +406,17 @@ def test_galaxy_guidance_is_gated_on_the_catalog():
 
 def test_the_unavailable_notice_replaces_the_guidance_rather_than_leaving_a_hole():
     """loom emits a NOT CONNECTED variant instead of simply dropping the block."""
-    down = prompt.system_text(galaxy_ok=False)
+    down = prompt.system_text(galaxy_status=prompt.GALAXY_UNREACHABLE)
 
     assert "## Galaxy: NOT AVAILABLE" in down
     assert "reload" in down
-    assert "## Galaxy: NOT AVAILABLE" not in prompt.system_text(galaxy_ok=True)
+    assert "## Galaxy: NOT AVAILABLE" not in prompt.system_text()
 
 
 def test_the_unavailable_notice_names_the_cause_the_gate_measures():
-    """It blamed the openapi catalog, which `_galaxy_ok` deliberately does not consult: the gate
+    """It blamed the openapi catalog, which the readiness check deliberately does not consult: the gate
     is whether the server answers and the ops path exists."""
-    down = " ".join(prompt.system_text(galaxy_ok=False).split())
+    down = " ".join(prompt.system_text(galaxy_status=prompt.GALAXY_UNREACHABLE).split())
 
     assert "Galaxy did not answer" in down
     assert "catalog" not in down.lower()
@@ -434,7 +434,7 @@ def test_the_notification_promise_matches_what_the_shell_delivers():
 
 def test_the_discipline_blocks_are_not_gated():
     """Only the Galaxy-derived sections move; loom's unconditional blocks stay unconditional."""
-    down = prompt.system_text(galaxy_ok=False)
+    down = prompt.system_text(galaxy_status=prompt.GALAXY_UNREACHABLE)
 
     for heading in (
         "## Operating discipline",

@@ -27,13 +27,18 @@ class Session:
         await self.substrate.init()
         return self
 
-    def _galaxy_ok(self):
-        """Whether Galaxy work can actually run: the server answers and the ops path exists.
+    def _galaxy_status(self):
+        """What Galaxy work can run: everything, nothing, or only the tools olit runs itself.
 
         Not the openapi catalog, which only serves the graph route: it can fail on a server
         whose tools all work, and loading it says nothing about whether an operation can run.
+        The two failures are told apart because they leave different tools working.
         """
-        return self.substrate.galaxy.reachable() and self.substrate.ops.available()
+        if not self.substrate.galaxy.reachable():
+            return prompt.GALAXY_UNREACHABLE
+        if not self.substrate.ops.available():
+            return prompt.OPS_UNAVAILABLE
+        return prompt.GALAXY_READY
 
     def context(self):
         """The brain's own system text: discipline, Galaxy guidance and the skills router."""
@@ -42,7 +47,7 @@ class Session:
             prompt.system_text(
                 model=target.model.id,
                 provider=target.provider.id,
-                galaxy_ok=self._galaxy_ok(),
+                galaxy_status=self._galaxy_status(),
                 seed_dataset=self.config.get("dataset_id"),
             ),
             self.skills.router_text(),

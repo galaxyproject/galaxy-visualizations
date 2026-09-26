@@ -150,12 +150,26 @@ resources before deciding what runs where:
 resuming, not for every new plan."""
 
 
+# What the runtime found. The two failures leave different amounts working, so they say
+# different things: the gate is one flag but it is not one situation.
+GALAXY_READY = "ok"
+GALAXY_UNREACHABLE = "unreachable"
+OPS_UNAVAILABLE = "ops-unavailable"
+
 # loom: buildGalaxyContextBlock's NOT CONNECTED variant, shell-disabled branch.
 GALAXY_UNAVAILABLE = """## Galaxy: NOT AVAILABLE
 
 Galaxy did not answer, so no Galaxy tool or workflow can run in this session. Nothing you
 propose can execute until it does. Say so plainly and ask the user to check that the server
 is up and reload the page, rather than proposing analysis steps you cannot carry out."""
+
+GALAXY_PARTLY_AVAILABLE = """## Galaxy: PARTLY AVAILABLE
+
+The operations galaxy-ops runs did not load, so most Galaxy tools will fail in this session.
+These still reach Galaxy: `run_tool`, `upload_file_from_url`, `get_history_contents`,
+`get_job_details`, `get_invocations`, `download_dataset`, the visualization tools, and the
+record (`get_page`, `update_page`). Use them where they serve the request, say plainly what
+you could not do, and ask the user to reload the page to get the rest back."""
 
 
 # loom: buildOperatingDisciplineBlock(), with its subsections reordered and notebook retargeted.
@@ -496,33 +510,42 @@ def _no_local_shell(ctx):
     return NO_LOCAL_SHELL
 
 
+def _ready(ctx):
+    return ctx.get("galaxy_status", GALAXY_READY) == GALAXY_READY
+
+
 def _galaxy_unavailable(ctx):
     # loom: the NOT CONNECTED variant, emitted *instead of* the Galaxy guidance below.
-    return "" if ctx.get("galaxy_ok", True) else GALAXY_UNAVAILABLE
+    status = ctx.get("galaxy_status", GALAXY_READY)
+    if status == GALAXY_UNREACHABLE:
+        return GALAXY_UNAVAILABLE
+    if status == OPS_UNAVAILABLE:
+        return GALAXY_PARTLY_AVAILABLE
+    return ""
 
 
 def _galaxy_terminology(ctx):
-    return GALAXY_TERMINOLOGY if ctx.get("galaxy_ok", True) else ""
+    return GALAXY_TERMINOLOGY if _ready(ctx) else ""
 
 
 def _getting_data_in(ctx):
-    return GETTING_DATA_IN if ctx.get("galaxy_ok", True) else ""
+    return GETTING_DATA_IN if _ready(ctx) else ""
 
 
 def _importing_sra(ctx):
-    return IMPORTING_SRA if ctx.get("galaxy_ok", True) else ""
+    return IMPORTING_SRA if _ready(ctx) else ""
 
 
 def _invoking_workflow(ctx):
-    return INVOKING_WORKFLOW if ctx.get("galaxy_ok", True) else ""
+    return INVOKING_WORKFLOW if _ready(ctx) else ""
 
 
 def _executing_a_step(ctx):
-    return EXECUTING_A_STEP if ctx.get("galaxy_ok", True) else ""
+    return EXECUTING_A_STEP if _ready(ctx) else ""
 
 
 def _drafting_a_plan(ctx):
-    return DRAFTING_A_PLAN if ctx.get("galaxy_ok", True) else ""
+    return DRAFTING_A_PLAN if _ready(ctx) else ""
 
 
 def _operating_discipline(ctx):
@@ -607,7 +630,13 @@ BLOCKS = [
 ]
 
 
-def system_text(today=None, model=None, provider=None, galaxy_ok=True, seed_dataset=None):
+def system_text(today=None, model=None, provider=None, galaxy_status=GALAXY_READY, seed_dataset=None):
     """The block text appended to the shell-seeded identity prompt."""
-    ctx = {"today": today, "model": model, "provider": provider, "galaxy_ok": galaxy_ok, "seed_dataset": seed_dataset}
+    ctx = {
+        "today": today,
+        "model": model,
+        "provider": provider,
+        "galaxy_status": galaxy_status,
+        "seed_dataset": seed_dataset,
+    }
     return "\n\n".join(b for b in (block(ctx) for block in BLOCKS) if b)
