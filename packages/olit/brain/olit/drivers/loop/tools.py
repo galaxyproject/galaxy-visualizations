@@ -18,7 +18,7 @@ from . import (
     sra_import_gate,
 )
 from .brief import brief
-from .outcome import ToolOutcome
+from .outcome import ToolOutcome, rendered
 
 logger = logging.getLogger(__name__)
 
@@ -434,8 +434,16 @@ class ToolSurface:
         if delegated:
             return await self._run_delegated(name, args, delegated)
         if handler:
-            result = self._claim_artifact(await handler(self.substrate.galaxy, args))
-            payload = json.dumps(result, default=str)
+            try:
+                result = self._claim_artifact(await handler(self.substrate.galaxy, args))
+            except galaxy_tools.ToolParameterError as exc:
+                template = await self._tool_input_template(args.get("tool_id"))
+                return ToolOutcome(galaxy_tools.parameter_help(str(exc), template), is_error=True)
+            # A handler that built its own outcome has already said what happened, including
+            # whether it failed; re-serialising it would hand the model a Python repr.
+            if isinstance(result, ToolOutcome):
+                return result
+            payload = rendered({"data": result})
             # Galaxy names the url and the status; it cannot say that guessing another is wrong.
             hint = fetch_failure_hint.for_result(result)
             return f"{payload}\n\n{hint}" if hint else payload
@@ -448,6 +456,19 @@ class ToolSurface:
             logger.info("tool name %r resolved to %r", name, folded)
             return await self._dispatch(folded, args)
         return ToolOutcome(f"Unknown tool: {plain_tool_name(name)}", is_error=True)
+
+    async def _tool_input_template(self, tool_id):
+        """The shape a tool accepts, or None. Built by galaxy-ops, so olit keeps no second copy."""
+        if not tool_id:
+            return None
+        try:
+            envelope, refusal = await self.substrate.ops.run("get_tool_input_template", {"tool_id": tool_id})
+        except Exception as exc:
+            logger.info("no input template for %s: %s", tool_id, exc)
+            return None
+        if refusal:
+            return None
+        return (envelope.get("data") or {}).get("inputs_template")
 
     async def _run_delegated(self, name, args, capability):
         """One galaxy-ops operation, with the reading olit adds to any Galaxy result."""
@@ -462,7 +483,7 @@ class ToolSurface:
         hint = await galaxy_tools.catalog_miss_hint(self.substrate.galaxy, name, args, data) or (
             fetch_failure_hint.for_result(data)
         )
-        payload = galaxy_ops.rendered(envelope)
+        payload = rendered(envelope)
         return f"{payload}\n\n{hint}" if hint else payload
 
     async def _gate_destructive(self, name, op):

@@ -1,6 +1,7 @@
 """Stand-ins for the substrate, shared by the loop tests."""
 
 from olit.substrate import CapabilityManifest
+from olit.substrate.galaxy_ops import as_wire
 from olit.substrate.llm import Reply
 
 
@@ -54,6 +55,8 @@ class FakeOps:
     async def run(self, name, args, capability="read"):
         if self.manifest is not None:
             self.manifest.require(capability)
+        # Renamed as the real bridge renames it, so a test sees what galaxy-ops would.
+        args = as_wire(args)
         self.calls.append((name, args, capability))
         if self.answer is None:
             return {"success": True, "data": {}}, None
