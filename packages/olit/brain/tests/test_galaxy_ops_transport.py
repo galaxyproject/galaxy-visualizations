@@ -12,7 +12,13 @@ import subprocess
 
 import pytest
 
-from olit.substrate.galaxy_ops import NodeTransport
+from olit.substrate.galaxy_ops import GalaxyOps, GalaxyOpsUnavailable, NodeTransport
+
+
+class _Manifest:
+    def require(self, capability):
+        pass
+
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="the transport needs node")
 
@@ -153,3 +159,62 @@ def test_the_real_driver_reports_a_bug_in_an_operation_as_an_envelope():
     assert envelope["success"] is False
     assert envelope["errorKind"] == "unexpected"
     assert "toLowerCase" in envelope["message"]
+
+
+SILENT = """
+process.stdin.on("data", () => {});   // reads the request and never answers
+"""
+
+
+def test_a_driver_that_never_answers_is_given_up_on(tmp_path):
+    """Without a deadline the turn waits forever on a process that stopped answering."""
+    driver = tmp_path / "silent.mjs"
+    driver.write_text(SILENT)
+    transport = NodeTransport("http://galaxy.invalid", "k", driver=str(driver), timeout=1)
+
+    async def go():
+        try:
+            await transport.run("get_histories", {"size": 1})
+        except GalaxyOpsUnavailable as exc:
+            return str(exc)
+        finally:
+            await transport.close()
+        return None
+
+    message = asyncio.run(go())
+    assert message and "did not answer" in message
+
+
+def test_giving_up_leaves_no_process_behind(tmp_path):
+    """The answer can no longer arrive in order, so the process must not be reused."""
+    driver = tmp_path / "silent.mjs"
+    driver.write_text(SILENT)
+    transport = NodeTransport("http://galaxy.invalid", "k", driver=str(driver), timeout=1)
+
+    def running():
+        return len(subprocess.run(["pgrep", "-f", str(driver)], capture_output=True, text=True).stdout.split())
+
+    async def go():
+        try:
+            await transport.run("get_histories", {"size": 1})
+        except GalaxyOpsUnavailable:
+            pass
+        return running()
+
+    assert asyncio.run(go()) == 0
+
+
+def test_the_facade_turns_a_deadline_into_a_failure_envelope(tmp_path):
+    """One channel: a transport that gave up is still an envelope, not an exception."""
+    driver = tmp_path / "silent.mjs"
+    driver.write_text(SILENT)
+
+    class Ops(GalaxyOps):
+        def __init__(self):
+            self.manifest = _Manifest()
+            self._transports = [NodeTransport("http://galaxy.invalid", "k", driver=str(driver), timeout=1)]
+
+    envelope = asyncio.run(Ops().run("get_histories", {}))
+    assert envelope["success"] is False
+    assert envelope["errorKind"] == "unavailable"
+    assert "did not answer" in envelope["message"]

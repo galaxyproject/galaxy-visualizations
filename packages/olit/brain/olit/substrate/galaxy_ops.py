@@ -75,10 +75,15 @@ class PyodideTransport:
 class NodeTransport:
     """One node process for the session, holding the same operations the shell would."""
 
-    def __init__(self, root, key, driver=DRIVER):
+    # Long enough for an upload or a workflow import, short enough that a driver which stopped
+    # answering does not hold the turn open. The browser has the shell's own lifecycle instead.
+    REQUEST_TIMEOUT = 300
+
+    def __init__(self, root, key, driver=DRIVER, timeout=REQUEST_TIMEOUT):
         self._root = root
         self._key = key
         self._driver = driver
+        self._timeout = timeout
         self._process = None
         self._turn = 0
         # One request on the wire at a time: the answers come back on one stream.
@@ -114,15 +119,22 @@ class NodeTransport:
             body = json.dumps({"id": self._turn, "name": name, "args": wire}).encode()
             process.stdin.write(f"{len(body)}\n".encode() + body)
             await process.stdin.drain()
-            header = await process.stdout.readline()
-            if not header:
-                raise await self._stopped(process)
-            # readexactly, because an answer is routinely past what a line reader will buffer
-            # and a reader that gave up mid-answer would pair the next one with this question.
             try:
-                payload = await process.stdout.readexactly(int(header))
+                async with asyncio.timeout(self._timeout):
+                    header = await process.stdout.readline()
+                    if not header:
+                        raise await self._stopped(process)
+                    # readexactly, because an answer is routinely past what a line reader will
+                    # buffer, and a reader that gave up mid-answer would pair the next one with
+                    # this question.
+                    payload = await process.stdout.readexactly(int(header))
             except asyncio.IncompleteReadError as exc:
                 raise await self._stopped(process) from exc
+            except TimeoutError as exc:
+                # The answer to this question can no longer arrive in order, so the process
+                # cannot be reused: end it and let the next call start a fresh one.
+                await self.close()
+                raise GalaxyOpsUnavailable(f"{name} did not answer within {self._timeout}s") from exc
         return json.loads(payload)["envelope"]
 
     async def close(self):
