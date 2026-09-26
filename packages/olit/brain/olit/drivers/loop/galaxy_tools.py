@@ -17,7 +17,6 @@ from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, server_page
-from .tool_inputs import build_input_template
 from .visualization_inputs import build_visualization_template, template_cases
 
 logger = logging.getLogger(__name__)
@@ -98,6 +97,9 @@ async def _get_history_contents(g, a):
         "deleted": a.get("deleted", False),
         "visible": a.get("visible", True),
         "order": a.get("order", "hid-asc"),
+        # Galaxy honours `order` only alongside v=dev; without it the parameter is ignored
+        # outright, so the sort the description offers did nothing. Same item shape either way.
+        "v": "dev",
     }
     items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
     if not isinstance(items, list):
@@ -148,13 +150,18 @@ async def _foreign_inputs(g, inputs, history_id):
 
 
 class ToolParameterError(Exception):
-    """A rejected parameter, carrying the template the tool actually accepts."""
+    """A rejected parameter. The dispatcher attaches the template: building it is an operation
+    galaxy-ops owns, and a handler is only handed the Galaxy client."""
 
-    def __init__(self, detail, template):
-        super().__init__(
-            f"{detail}\nThe tool accepts these input keys. Fill this template and resend:\n"
-            f"{json.dumps(template, indent=1)}"
-        )
+
+def parameter_help(detail, template):
+    """What the model is told when a tool rejects its inputs."""
+    if not template:
+        return detail
+    return (
+        f"{detail}\nThe tool accepts these input keys. Fill this template and resend:\n"
+        f"{json.dumps(template, indent=1)}"
+    )
 
 
 # Galaxy says this in prose on the paths that answer 500 instead of rejecting the request.
@@ -166,14 +173,6 @@ def _is_parameter_error(exc):
     if getattr(exc, "status_code", None) == 400:
         return True
     return any(phrase in str(exc) for phrase in PARAMETER_ERROR_PHRASES)
-
-
-async def _input_template_for(g, tool_id):
-    try:
-        info = await g.get(f"api/tools/{tool_id}{_q({'io_details': True})}")
-        return build_input_template(info) if info else None
-    except Exception:
-        return None
 
 
 async def _run_tool(g, a):
@@ -198,11 +197,10 @@ async def _run_tool(g, a):
             {"history_id": history_id, "tool_id": a["tool_id"], "inputs": inputs},
         )
     except Exception as exc:
-        template = await _input_template_for(g, a["tool_id"]) if _is_parameter_error(exc) else None
-        if template is None:
+        if not _is_parameter_error(exc):
             raise
-        # Galaxy names the offending key but not the shape it wanted; Olit holds it.
-        raise ToolParameterError(str(exc), template) from exc
+        # Galaxy names the offending key but not the shape it wanted.
+        raise ToolParameterError(str(exc)) from exc
 
 
 # Lookups over data Galaxy holds still for a session: the same question returns the same answer.
