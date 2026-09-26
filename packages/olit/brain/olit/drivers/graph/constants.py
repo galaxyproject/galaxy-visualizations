@@ -34,6 +34,9 @@ class ErrorCode(str, Enum):
 
     UNKNOWN_NODE = "unknown_node"
     MISSING_START = "missing_start"
+    NODE_LIMIT_EXHAUSTED = "node_limit_exhausted"
+    NODE_EXECUTION_FAILED = "node_execution_failed"
+    REASONING_FAILED = "reasoning_failed"
     MISSING_INPUTS = "missing_inputs"
     MISSING_AGENT = "missing_agent"
     SUBAGENT_FAILED = "subagent_failed"

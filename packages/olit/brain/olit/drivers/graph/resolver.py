@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from olit.exceptions import ExpressionError
+from olit.exceptions import ExpressionError, NodeExecutionError
 
 from .constants import ControlOp
 from .expressions import EXPR_OPS, get_available_operators
@@ -102,6 +102,13 @@ class Resolver:
             elif isinstance(src, dict):
                 self.state[key] = self.resolve(src, ctx)
             elif isinstance(src, str):
-                self.state[key] = payload.get(src)
+                # A source the payload has no key for wrote None, and the null surfaced several
+                # nodes later as if the node had produced nothing.
+                if src not in payload:
+                    raise NodeExecutionError(
+                        f"emit source '{src}' is not in this node's payload",
+                        details={"dest": dest, "available": sorted(payload)},
+                    )
+                self.state[key] = payload[src]
             else:
                 self.state[key] = src
