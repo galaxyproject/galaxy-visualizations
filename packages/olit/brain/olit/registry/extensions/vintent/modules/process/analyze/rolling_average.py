@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import math
 from typing import Any
+
+from olit.registry.extensions.vintent.modules.process import is_finite_number
 
 PROCESS_ID = "rolling_average"
 PROCESS_PHASE = "analyze"
@@ -31,7 +32,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
         v = row.get(field)
         new_row = dict(row)
 
-        if isinstance(v, (int, float)) and math.isfinite(v):
+        if is_finite_number(v):
             values_buffer.append(v)
             if len(values_buffer) > window:
                 values_buffer.pop(0)

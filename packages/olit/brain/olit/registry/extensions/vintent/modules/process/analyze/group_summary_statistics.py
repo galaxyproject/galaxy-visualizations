@@ -3,14 +3,12 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from olit.registry.extensions.vintent.modules.process import is_finite_number
+
 PROCESS_ID = "group_summary_statistics"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
-
-
-def _is_finite(v: Any) -> bool:
-    return isinstance(v, (int, float)) and math.isfinite(v)
 
 
 def _median(vals: list[float]) -> float:
@@ -40,7 +38,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
 
     for g, items in groups.items():
         for f in fields:
-            values = [r.get(f) for r in items if _is_finite(r.get(f))]
+            values = [value for value in (r.get(f) for r in items) if is_finite_number(value)]
             if not values:
                 continue
 

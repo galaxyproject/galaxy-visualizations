@@ -1,5 +1,6 @@
+import math
 from collections.abc import Callable
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Literal, Optional, TypedDict, TypeGuard
 
 from olit.registry.extensions.vintent.modules.exceptions import ProcessError
 
@@ -9,6 +10,11 @@ ProcessPhase = Literal["extract", "analyze"]
 RowType = dict[str, Any]
 RowsType = list[RowType]
 ParamsType = dict[str, Any]
+
+
+def is_finite_number(value: Any) -> TypeGuard[float]:
+    """A cell arithmetic can use. `bool` passes, as any `int` does, because `bool` is an `int`."""
+    return isinstance(value, (int, float)) and math.isfinite(value)
 
 
 class Process(TypedDict, total=False):

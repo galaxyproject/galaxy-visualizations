@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from olit.registry.extensions.vintent.modules.process import is_finite_number
+
 PROCESS_ID = "outlier_filter"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
@@ -24,7 +26,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
     values = []
     for row in rows:
         v = row.get(field)
-        if isinstance(v, (int, float)) and math.isfinite(v):
+        if is_finite_number(v):
             values.append(v)
 
     if len(values) < 4:
@@ -50,7 +52,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
     result: list[dict[str, Any]] = []
     for row in rows:
         v = row.get(field)
-        if isinstance(v, (int, float)) and math.isfinite(v):
+        if is_finite_number(v):
             if lower <= v <= upper:
                 result.append(row)
         else:

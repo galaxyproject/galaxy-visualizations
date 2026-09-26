@@ -18,7 +18,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]):
     if len(columns) < 2:
         raise Exception("pca_requires_two_columns")
 
-    X = []
+    samples: list[list[float]] = []
     kept_rows = []
 
     for r in rows:
@@ -28,10 +28,10 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]):
             continue
         if any(np.isnan(v) for v in vals):
             continue
-        X.append(vals)
+        samples.append(vals)
         kept_rows.append(r)
 
-    X = np.asarray(X, dtype=float)
+    X = np.asarray(samples, dtype=float)
 
     if X.shape[0] < X.shape[1]:
         raise Exception("pca_invalid_shape")
