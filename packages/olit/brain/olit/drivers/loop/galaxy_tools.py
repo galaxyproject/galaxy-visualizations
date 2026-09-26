@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import tempfile
+from collections.abc import Callable
 from urllib.parse import urlencode
 
 import jsonschema
@@ -21,8 +22,10 @@ from .visualization_inputs import build_visualization_template, template_cases
 
 logger = logging.getLogger(__name__)
 
-TOOLS = []
-HANDLERS = {}
+# A declaration per advertised tool, and the handler for the ones olit runs itself. A tool
+# declared with no handler is one galaxy-ops runs.
+TOOLS: list[dict] = []
+HANDLERS: dict[str, Callable | None] = {}
 
 # Pyodide's MEMFS is olit's equivalent of the filesystem Orbit has on disk.
 DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.gettempdir(), "olit-data")

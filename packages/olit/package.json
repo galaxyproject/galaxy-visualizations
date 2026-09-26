@@ -21,15 +21,16 @@
     "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
     "preview": "vite preview",
     "stale": "node stale.check.js",
-    "test": "npm run test:unit && npm run test:python && npm run lint:python && npm run lint:js && npm run typecheck && npm run vendored && npm run test:e2e",
+    "test": "npm run test:unit && npm run test:python && npm run lint:python && npm run lint:js && npm run typecheck && npm run typecheck:python && npm run vendored && npm run test:e2e",
     "test:e2e": "bash e2e/run-all.sh",
-    "test:python": "cd brain && python -m pytest tests/ -v --import-mode=importlib",
+    "test:python": "cd brain && python -m pytest tests/ -v -r s --import-mode=importlib",
     "test:ui": "vitest --ui",
     "test:unit": "vitest run",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
     "vendored": "python3 vendored/check.py",
-    "galaxy-ops-registry": "node scripts/capture_galaxy_ops_registry.mjs"
+    "galaxy-ops-registry": "node scripts/capture_galaxy_ops_registry.mjs",
+    "typecheck:python": "cd brain && python -m mypy olit"
   },
   "dependencies": {
     "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.3/galaxyproject-galaxy-ops-0.1.1-fork.3.tgz",
