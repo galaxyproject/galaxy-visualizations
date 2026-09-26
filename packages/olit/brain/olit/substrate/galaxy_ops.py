@@ -16,7 +16,8 @@ import json
 import os
 import re
 import shutil
-import sys
+
+from .browser import in_browser
 
 CAMEL = re.compile(r"_([a-z0-9])")
 # The driver is beside this module so an installed brain carries it too.
@@ -137,7 +138,7 @@ class GalaxyOps:
         self._transports = [PyodideTransport()]
         # Outside Pyodide the key is how a brain reaches Galaxy at all; in the browser there is
         # none, and the shell authenticates with the user's session instead.
-        if sys.platform != "emscripten":
+        if not in_browser():
             self._transports.append(NodeTransport(config.get("galaxy_root"), config.get("galaxy_key")))
 
     def scoped(self, manifest):

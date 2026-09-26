@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import sys
 import tempfile
 from collections.abc import Callable
 from urllib.parse import urlencode
@@ -11,6 +10,7 @@ from urllib.parse import urlencode
 import jsonschema
 
 from olit import vendor
+from olit.substrate.browser import in_browser
 from olit.substrate.http import http
 
 from . import biocontainers, invocation_outcome, page_edit
@@ -27,7 +27,7 @@ TOOLS: list[dict] = []
 HANDLERS: dict[str, Callable | None] = {}
 
 # Pyodide's MEMFS is olit's equivalent of the filesystem Orbit has on disk.
-DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.gettempdir(), "olit-data")
+DATA_DIR = "/data" if in_browser() else os.path.join(tempfile.gettempdir(), "olit-data")
 # Enough to show the header and shape of a table without a run_python round trip.
 PREVIEW_LINES = 50
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
