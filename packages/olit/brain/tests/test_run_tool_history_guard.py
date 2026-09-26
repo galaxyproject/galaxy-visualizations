@@ -41,10 +41,9 @@ def test_a_dataset_from_another_history_is_refused_before_submission():
     g = Galaxy({"d1": ELSEWHERE})
     out = refused(run(g, HERE, {"input": {"src": "hda", "id": "d1"}}))
     assert g.posted is None, "nothing may reach Galaxy"
-    assert out["submitted"] is False
-    assert out["rejected_inputs"][0]["supplied_id"] == "d1"
-    assert out["rejected_inputs"][0]["resolves_to_history_id"] == ELSEWHERE
-    assert out["target_history_id"] == HERE
+    assert "d1" in out, "the refusal has to name the input it rejected"
+    assert ELSEWHERE in out, "the refusal has to name where the input actually lives"
+    assert HERE in out, "the refusal has to name the history it was aimed at"
 
 
 def test_working_in_a_newly_created_history_is_allowed():
@@ -63,7 +62,7 @@ def test_one_bad_input_among_several_refuses_the_whole_submission():
         )
     )
     assert g.posted is None
-    assert [f["supplied_id"] for f in out["rejected_inputs"]] == ["d2"]
+    assert "d2" in out, "the refusal has to name the input it rejected"
 
 
 def test_nested_and_repeated_inputs_are_inspected():
@@ -72,7 +71,7 @@ def test_nested_and_repeated_inputs_are_inspected():
         run(g, HERE, {"queries": [{"input2": {"src": "hda", "id": "d1"}}, {"input2": {"src": "hda", "id": "d2"}}]})
     )
     assert g.posted is None
-    assert [f["supplied_id"] for f in out["rejected_inputs"]] == ["d2"]
+    assert "d2" in out, "the refusal has to name the input it rejected"
 
 
 def test_non_dataset_parameters_are_left_alone():

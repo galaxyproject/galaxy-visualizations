@@ -181,14 +181,10 @@ async def _run_tool(g, a):
     foreign = await _foreign_inputs(g, inputs, history_id)
     if foreign:
         return ToolOutcome(
-            {
-                "submitted": False,
-                "error": "Refused: an input id does not identify a dataset in the target history.",
-                "target_history_id": history_id,
-                "rejected_inputs": foreign,
-                "hint": "Use the `id` field of a dataset returned by get_history_contents for this "
-                "history. To use data from elsewhere, copy it into this history first.",
-            },
+            f"Refused: these inputs do not identify a dataset in history {history_id}: "
+            f"{json.dumps(foreign, default=str)}. Use the `id` field of a dataset returned by "
+            f"get_history_contents for this history. To use data from elsewhere, copy it into "
+            f"this history first.",
             is_error=True,
         )
     try:
@@ -297,7 +293,7 @@ async def _get_job_details(g, a):
     dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
     job_id = dataset.get("creating_job")
     if not job_id:
-        return ToolOutcome({"error": "no creating job for dataset", "dataset_id": a["dataset_id"]}, is_error=True)
+        return ToolOutcome(f"No creating job for dataset {a['dataset_id']}.", is_error=True)
     job = await g.get(f"api/jobs/{job_id}{_q({'full': True})}")
     if not isinstance(job, dict):
         return job
@@ -432,14 +428,8 @@ async def _download_dataset(g, a):
     state = details.get("state") if isinstance(details, dict) else None
     if state != "ok":
         return ToolOutcome(
-            {
-                "error": (
-                    f"Dataset is in state {state!r}, not 'ok', so it holds nothing to read yet. "
-                    "Wait for the job producing it to finish and download it again."
-                ),
-                "dataset_id": a["dataset_id"],
-                "state": state,
-            },
+            f"Dataset is in state {state!r}, not 'ok', so it holds nothing to read yet. "
+            "Wait for the job producing it to finish and download it again.",
             is_error=True,
         )
     stated = details.get("file_size") if isinstance(details, dict) else None
@@ -449,14 +439,7 @@ async def _download_dataset(g, a):
         chunk = await _chunk(g, a["dataset_id"], MAX_DOWNLOAD_BYTES)
         if chunk is None:
             return ToolOutcome(
-                {
-                    "error": (
-                        f"Dataset is {stated / 1e6:.1f} MB and cannot be read in chunks. "
-                        "Run a Galaxy tool on it instead."
-                    ),
-                    "dataset_id": a["dataset_id"],
-                    "bytes": stated,
-                },
+                f"Dataset is {stated / 1e6:.1f} MB and cannot be read in chunks. " "Run a Galaxy tool on it instead.",
                 is_error=True,
             )
         data, partial = chunk.encode("utf-8"), True
@@ -515,7 +498,7 @@ async def _upload_file(g, a):
     # The counterpart to download_dataset.
     path = a["path"]
     if not os.path.isfile(path):
-        return ToolOutcome({"error": f"No such file: {path}", "path": path}, is_error=True)
+        return ToolOutcome(f"No such file: {path}", is_error=True)
     with open(path, "rb") as f:
         raw = f.read()
     try:
@@ -523,12 +506,8 @@ async def _upload_file(g, a):
     except UnicodeDecodeError:
         # Pasted content goes up as text, so binary is refused.
         return ToolOutcome(
-            {
-                "error": "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
-                "Use upload_file_from_url for binary data.",
-                "path": path,
-                "bytes": len(raw),
-            },
+            "Cannot upload binary content: Galaxy accepts pasted uploads as text only. "
+            "Use upload_file_from_url for binary data.",
             is_error=True,
         )
     element = {
@@ -725,10 +704,8 @@ async def _get_visualization_details(g, a):
     plugin = await g.get(f"api/plugins/{name}") or {}
     if not plugin.get("name"):
         return ToolOutcome(
-            {
-                "error": f"Refused: {name!r} is not an installed visualization.",
-                "hint": "Call list_visualizations for a dataset to see what this server offers.",
-            },
+            f"Refused: {name!r} is not an installed visualization. Call list_visualizations "
+            f"for a dataset to see what this server offers.",
             is_error=True,
         )
 
@@ -797,15 +774,13 @@ async def _get_visualization_options(g, a):
     name, wanted = a["visualization"], a["parameter"]
     plugin = await g.get(f"api/plugins/{name}") or {}
     if not isinstance(plugin, dict) or not plugin.get("name"):
-        return ToolOutcome({"error": f"Refused: {name!r} is not an installed visualization."}, is_error=True)
+        return ToolOutcome(f"Refused: {name!r} is not an installed visualization.", is_error=True)
 
     found = _find_declared(plugin.get("settings"), wanted) + _find_declared(plugin.get("tracks"), wanted)
     if not found:
         return ToolOutcome(
-            {
-                "error": f"Refused: {name!r} declares no parameter {wanted!r}.",
-                "hint": f"Call get_visualization_details for {name!r} to see what it declares.",
-            },
+            f"Refused: {name!r} declares no parameter {wanted!r}. Call "
+            f"get_visualization_details for {name!r} to see what it declares.",
             is_error=True,
         )
 
@@ -814,16 +789,12 @@ async def _get_visualization_options(g, a):
     if when is not None:
         found = [(w, p) for w, p in found if w == when]
         if not found:
-            return ToolOutcome({"error": f"Refused: {wanted!r} is not declared when {when!r}."}, is_error=True)
+            return ToolOutcome(f"Refused: {wanted!r} is not declared when {when!r}.", is_error=True)
     if len(found) > 1:
         cases = sorted({w for w, _ in found if w is not None})
         return ToolOutcome(
-            {
-                "error": f"Refused: {name!r} declares {wanted!r} in more than one case, and "
-                "they do not share a source.",
-                "cases": cases,
-                "hint": "Pass `when` with the case you mean.",
-            },
+            f"Refused: {name!r} declares {wanted!r} in more than one case, and they do not "
+            f"share a source: {json.dumps(cases, default=str)}. Pass `when` with the case you mean.",
             is_error=True,
         )
     declared = found[0][1]
@@ -839,7 +810,7 @@ async def _get_visualization_options(g, a):
     elif kind == "data_json":
         url = declared.get("url")
         if not url:
-            return ToolOutcome({"error": f"{wanted!r} names no url to read its options from."}, is_error=True)
+            return ToolOutcome(f"{wanted!r} names no url to read its options from.", is_error=True)
         fetched = await http.request("GET", url)
         entries = fetched if isinstance(fetched, list) else []
     elif kind == "data_table":
@@ -908,10 +879,8 @@ async def _get_visualization(g, a):
     saved = await g.get(f"api/visualizations/{a['visualization_id']}") or {}
     if not saved.get("id"):
         return ToolOutcome(
-            {
-                "error": f"No saved visualization {a['visualization_id']!r}.",
-                "hint": "Pass the visualization_id that save_visualization returned.",
-            },
+            f"No saved visualization {a['visualization_id']!r}. Pass the visualization_id "
+            f"that save_visualization returned.",
             is_error=True,
         )
     config = (saved.get("latest_revision") or {}).get("config") or {}
@@ -1090,12 +1059,8 @@ async def _save_visualization(g, a):
         visualization_id = (created or {}).get("id")
         if not visualization_id:
             return ToolOutcome(
-                {
-                    "saved": False,
-                    "error": "Galaxy accepted the visualization but returned no id, so there "
-                    "is nothing to display or revise.",
-                    "response": created,
-                },
+                "Galaxy accepted the visualization but returned no id, so there is nothing "
+                f"to display or revise. It answered: {json.dumps(created, default=str)}",
                 is_error=True,
             )
     # Galaxy reads the plugin name from the query, never from the saved object.
@@ -1126,7 +1091,7 @@ async def _recommend_biocontainer(g, a):
     try:
         return await biocontainers.recommend(a.get("packages") or [])
     except ValueError as e:
-        return ToolOutcome({"error": str(e)}, is_error=True)
+        return ToolOutcome(str(e), is_error=True)
 
 
 async def _get_page(g, a):
@@ -1143,15 +1108,10 @@ async def _update_page(g, a):
     malformed = page_edit.malformed_object_ids(a.get("content") or a.get("section_content") or "")
     if malformed:
         return ToolOutcome(
-            {
-                "error": (
-                    f"These name a Galaxy object by something that is not its encoded id: "
-                    f"{', '.join(malformed)}. Galaxy stores that and the embed renders nothing. "
-                    "For an artifact you just made, write {{artifact}} where it belongs and the "
-                    "directive is built for you; otherwise use the encoded id a tool returned."
-                ),
-                "page_id": a.get("page_id"),
-            },
+            f"These name a Galaxy object by something that is not its encoded id: "
+            f"{', '.join(malformed)}. Galaxy stores that and the embed renders nothing. "
+            "For an artifact you just made, write {{artifact}} where it belongs and the "
+            "directive is built for you; otherwise use the encoded id a tool returned.",
             is_error=True,
             refused=True,
             guard="malformed-object-id",

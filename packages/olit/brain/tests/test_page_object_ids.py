@@ -88,8 +88,8 @@ def test_writing_a_malformed_id_is_refused_before_galaxy_sees_it():
 def test_the_refusal_points_at_the_artifact_token():
     _, out = write("```galaxy\nvisualization(visualization_id=plotly)\n```")
 
-    assert "{{artifact}}" in out.content["error"]
-    assert "visualization_id=plotly" in out.content["error"]
+    assert "{{artifact}}" in out.content
+    assert "visualization_id=plotly" in out.content
 
 
 def test_an_encoded_id_written_by_hand_still_works():

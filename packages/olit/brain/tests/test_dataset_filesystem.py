@@ -124,7 +124,7 @@ async def test_a_file_written_locally_can_be_uploaded_back():
 async def test_uploading_a_missing_path_is_an_error_not_a_crash():
     g = FakeGalaxy("")
     out = refused(await _upload_file(g, {"path": "/data/does-not-exist.dat"}))
-    assert "error" in out and g.posted is None
+    assert "No such file" in out and g.posted is None
 
 
 @pytest.mark.asyncio
@@ -152,7 +152,7 @@ async def test_uploading_binary_is_refused_rather_than_corrupted():
     g = FakeGalaxy(BINARY)
     downloaded = await _download_dataset(g, {"dataset_id": "bam2"})
     out = refused(await _upload_file(g, {"path": downloaded["path"]}))
-    assert "error" in out and "binary" in out["error"].lower()
+    assert "binary" in out.lower()
     assert g.posted is None  # nothing sent
 
 
@@ -186,7 +186,7 @@ async def test_an_unchunkable_oversized_dataset_is_refused():
     g.stated_size = MAX_DOWNLOAD_BYTES + 1
     g.chunkable = False
     out = refused(await _download_dataset(g, {"dataset_id": "bigbam"}))
-    assert "error" in out and "path" not in out
+    assert "cannot be read in chunks" in out
 
 
 @pytest.mark.asyncio
@@ -246,7 +246,7 @@ async def test_a_dataset_still_running_is_refused_rather_than_read(data_dir):
 
     out = refused(await _download_dataset(g, {"dataset_id": "abc123"}))
 
-    assert "not 'ok'" in out["error"] and out["state"] == "running"
+    assert "not 'ok'" in out and "running" in out
     assert not os.path.isfile(f"{data_dir}/abc123.dat"), "nothing may be written"
 
 
@@ -255,7 +255,7 @@ async def test_an_errored_dataset_is_refused_too(data_dir):
     g = FakeGalaxy(TABLE)
     g.state = "error"
 
-    assert "not 'ok'" in refused(await _download_dataset(g, {"dataset_id": "abc123"}))["error"]
+    assert "not 'ok'" in refused(await _download_dataset(g, {"dataset_id": "abc123"}))
 
 
 @pytest.mark.asyncio
