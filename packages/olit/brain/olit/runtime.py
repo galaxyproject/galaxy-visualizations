@@ -27,6 +27,14 @@ class Session:
         await self.substrate.init()
         return self
 
+    def _galaxy_ok(self):
+        """Whether Galaxy work can actually run: the server answers and the ops path exists.
+
+        Not the openapi catalog, which only serves the graph route: it can fail on a server
+        whose tools all work, and loading it says nothing about whether an operation can run.
+        """
+        return self.substrate.galaxy.reachable() and self.substrate.ops.available()
+
     def context(self):
         """The brain's own system text: discipline, Galaxy guidance and the skills router."""
         target = self.substrate.llm.target
@@ -34,7 +42,7 @@ class Session:
             prompt.system_text(
                 model=target.model.id,
                 provider=target.provider.id,
-                galaxy_ok=bool(self.substrate.catalog.status().get("op_count")),
+                galaxy_ok=self._galaxy_ok(),
                 seed_dataset=self.config.get("dataset_id"),
             ),
             self.skills.router_text(),

@@ -21,9 +21,14 @@ class Substrate:
         self.catalog = Catalog(config, self.manifest)
 
     async def init(self):
+        await self.galaxy.probe()
         await self.catalog.init()
         await self.llm.init()
         return self
+
+    async def close(self):
+        """Release what the session holds outside the process; safe to call more than once."""
+        await self.ops.close()
 
     def scoped(self, capabilities):
         """A narrower view: the intersection of this manifest with `capabilities`."""
