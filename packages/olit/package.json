@@ -31,7 +31,7 @@
     "vendored": "python3 vendored/check.py"
   },
   "dependencies": {
-    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.1/galaxyproject-galaxy-ops-0.1.0.tgz",
+    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.1/galaxyproject-galaxy-ops-0.1.1-fork.1.tgz",
     "mermaid": "^11.16.1",
     "vega-embed": "^7.1.0"
   },
