@@ -78,6 +78,8 @@ class NodeTransport:
     # Long enough for an upload or a workflow import, short enough that a driver which stopped
     # answering does not hold the turn open. The browser has the shell's own lifecycle instead.
     REQUEST_TIMEOUT = 300
+    # How much of a stopped driver's stderr the failure carries, counted from the end.
+    STDERR_TAIL = 2000
 
     def __init__(self, root, key, driver=DRIVER, timeout=REQUEST_TIMEOUT):
         self._root = root
@@ -86,11 +88,15 @@ class NodeTransport:
         self._timeout = timeout
         self._process = None
         self._turn = 0
+        self._stderr_tail = b""
+        self._draining = None
         # One request on the wire at a time: the answers come back on one stream.
         self._lock = asyncio.Lock()
+        # Neither node nor the driver beside this module appears mid-session, so resolve once.
+        self._runnable = shutil.which("node") is not None and os.path.exists(driver)
 
     def available(self):
-        return bool(self._root) and shutil.which("node") is not None and os.path.exists(self._driver)
+        return bool(self._root) and self._runnable
 
     async def _started(self):
         if self._process is not None and self._process.returncode is None:
@@ -105,10 +111,19 @@ class NodeTransport:
             env=environment,
             cwd=os.path.dirname(self._driver),
         )
+        self._stderr_tail = b""
+        self._draining = asyncio.create_task(self._drain(self._process.stderr))
         return self._process
 
+    async def _drain(self, stream):
+        """Keep the tail of the driver's stderr; a pipe nobody reads blocks the process filling it."""
+        while chunk := await stream.read(self.STDERR_TAIL):
+            self._stderr_tail = (self._stderr_tail + chunk)[-self.STDERR_TAIL :]
+
     async def _stopped(self, process):
-        stderr = (await process.stderr.read()).decode()[-2000:]
+        if self._draining is not None:
+            await self._draining
+        stderr = self._stderr_tail.decode(errors="replace")
         self._process = None
         return GalaxyOpsUnavailable(f"galaxy-ops driver stopped: {stderr}")
 
@@ -141,6 +156,9 @@ class NodeTransport:
         if self._process is not None and self._process.returncode is None:
             self._process.stdin.close()
             await self._process.wait()
+        if self._draining is not None:
+            self._draining.cancel()
+            self._draining = None
         self._process = None
 
 

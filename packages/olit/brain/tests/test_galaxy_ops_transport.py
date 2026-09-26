@@ -161,6 +161,37 @@ def test_the_real_driver_reports_a_bug_in_an_operation_as_an_envelope():
     assert "toLowerCase" in envelope["message"]
 
 
+LOUD = """
+process.stdin.on("data", () => {
+  for (let i = 0; i < 400; i++) process.stderr.write("x".repeat(1000) + "\\n");
+  process.stderr.write("the line that says why\\n", () => process.exit(1));
+});
+"""
+
+
+def test_a_driver_that_floods_stderr_is_reported_from_its_tail(tmp_path):
+    """A pipe nobody reads blocks the process filling it, so the driver never reached its exit.
+
+    The deadline is short so a regression fails as a timeout instead of holding the suite open.
+    """
+    driver = tmp_path / "loud.mjs"
+    driver.write_text(LOUD)
+    transport = NodeTransport("http://galaxy.invalid", "k", driver=str(driver), timeout=5)
+
+    async def go():
+        try:
+            await transport.run("get_histories", {"size": 1})
+        except GalaxyOpsUnavailable as exc:
+            return str(exc)
+        finally:
+            await transport.close()
+        return None
+
+    message = asyncio.run(go())
+    assert message and "the line that says why" in message
+    assert len(message) < 2 * NodeTransport.STDERR_TAIL
+
+
 SILENT = """
 process.stdin.on("data", () => {});   // reads the request and never answers
 """
