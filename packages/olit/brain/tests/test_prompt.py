@@ -132,13 +132,33 @@ def test_the_plan_template_teaches_the_rigid_heading():
     assert "(missing letter)" in block and "(missing routing tag)" in block
 
 
-def test_routing_tags_describe_only_what_this_build_can_run():
-    """No local execution here, so [local] and [hybrid] cannot describe anything."""
+def test_only_one_routing_tag_is_taught_because_only_one_can_describe_anything():
+    """loom's four tags separate local from remote; this build runs everything on Galaxy, and the
+    block that defined the difference is deliberately not emitted, so a second tag names nothing."""
     block = prompt.PLAN_CONVENTION
 
-    assert "`[galaxy]` or `[remote]`" in block
-    assert "[local]" not in block
-    assert "[hybrid]" not in block
+    assert "The routing tag is `[galaxy]`" in block
+    for absent in ("[remote]", "[local]", "[hybrid]"):
+        assert absent not in block, f"{absent} cannot describe a step in this build"
+
+
+def test_the_chat_formatting_reason_is_one_the_renderer_really_has():
+    """It blamed token streaming, which this build does not do: the assistant's text arrives whole.
+    Both symptoms are real in `marked` regardless -- adjacent markers break, a single newline joins."""
+    block = prompt.CHAT_FORMATTING
+
+    assert "stream" not in block.lower()
+    assert "single newline joins two" in " ".join(block.split())
+
+
+def test_the_skill_rule_is_stated_where_the_skills_are_listed():
+    """Two more copies said "fetch the skill first": one in the identity prompt and one naming
+    udt-authoring. The router carries the rule beside the paths, and when no skills load there is
+    nothing to fetch, so the copies could only go stale or mislead."""
+    assert "udt-authoring" not in prompt.GALAXY_TERMINOLOGY
+    xml = Path(__file__).resolve().parents[2] / "public" / "olit.xml"
+    if xml.is_file():
+        assert "fetch the relevant skill first" not in xml.read_text()
 
 
 def test_step_anchors_are_not_taught():

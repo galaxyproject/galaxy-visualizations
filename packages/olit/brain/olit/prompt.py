@@ -21,8 +21,7 @@ GALAXY_TERMINOLOGY = """## Galaxy
   `create_user_tool`, `list_user_tools`, `run_user_tool`, `delete_user_tool`.
   **Do not generate old-style XML tool wrappers when the user asks for a UDT** --
   that is a different concept (legacy ToolShed tools). Reach for the real tools
-  rather than inventing a workaround. When authoring the UDT definition, fetch the
-  `udt-authoring` skill first rather than writing the YAML from memory.
+  rather than inventing a workaround.
 - **Workflow invocation**: a single run of a Galaxy workflow on a history.
 - **IWC**: Intergalactic Workflow Commission -- registry of curated workflows.
   `search_iwc_workflows` queries it."""
@@ -344,9 +343,9 @@ Conventions:
   `## Plan A: RNA-seq DE [galaxy]`. Failing, and to be avoided: `## Plan: ...`
   (missing letter), `## Plan A: RNA-seq DE` (missing routing tag),
   `## Plan A - Title [galaxy]` (dash instead of colon).
-- The routing tag is `[galaxy]` or `[remote]`, literal, lowercase, no spaces inside
-  the brackets. There is no local execution in this build, so every step runs on
-  Galaxy.
+- The routing tag is `[galaxy]`, literal, lowercase, no spaces inside the brackets.
+  There is no local execution in this build, so every step runs on Galaxy and no other
+  tag can describe anything.
 - Each step needs a **Verification** sub-bullet naming a concrete check -- inspect the
   dataset, parse the file, compare expected rows -- never a vague "looks good". For
   Galaxy work the check runs once the step finishes, not by waiting in the turn.
@@ -377,9 +376,9 @@ user can confirm they took."""
 # loom: buildChatFormattingBlock(), the record wording retargeted to the page.
 CHAT_FORMATTING = """## Chat formatting
 
-Chat is rendered as markdown. Tokens stream live, so adjacent bold/italic markers
-without whitespace between them break parsing -- the user sees literal `**asterisks**`
-instead of bold. Two rules:
+Chat is rendered as markdown. Adjacent bold or italic markers with no whitespace between
+them break parsing -- the user sees literal `**asterisks**` -- and a single newline joins two
+lines into one paragraph. Two rules:
 
 - **Always separate distinct progress updates with a blank line.** If you announce
   "Starting step 2", complete it, and then announce step 3, those are three distinct
