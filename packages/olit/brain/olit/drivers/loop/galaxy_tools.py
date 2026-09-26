@@ -29,7 +29,6 @@ DATA_DIR = "/data" if sys.platform == "emscripten" else os.path.join(tempfile.ge
 # Enough to show the header and shape of a table without a run_python round trip.
 PREVIEW_LINES = 50
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
-PREVIEW_BYTES = 256 * 1024
 # The log fields Galaxy adds to a job under `full=true`.
 JOB_LOG_FIELDS = ("tool_stdout", "tool_stderr", "job_stdout", "job_stderr", "stdout", "stderr")
 JOB_LOG_BYTES = 4 * 1024
@@ -70,13 +69,6 @@ def _tool(name, capability, description, properties, required, handler):
 
 
 # --- core tier ---------------------------------------------------------------
-
-
-CONTENTS_NOTE = (
-    "This is just a count. To get actual datasets, use "
-    "get_history_contents(history_id, limit=25, order='create_time-dsc') "
-    "for newest datasets first."
-)
 
 
 # Galaxy returns the underlying Dataset id beside the HDA id. Both encode the same way, so
@@ -410,13 +402,6 @@ _tool(
 # --- extended tier: tools, datasets, workflows, pages, user tools ------------
 
 
-PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
-PANEL_KEEP = ("id", "name", "description")
-
-
-COLLECTION_ELEMENT_CAP = 100
-
-
 async def _chunk(g, dataset_id, size):
     """A line-aligned prefix, or None if the datatype cannot be chunked."""
     try:
@@ -544,10 +529,6 @@ async def _upload_file(g, a):
     if a.get("history_id"):
         payload["history_id"] = a["history_id"]
     return await g.post("api/tools/fetch", payload)
-
-
-# Galaxy's datatype hierarchy is user-independent, so one fetch serves the session.
-_DATATYPES_CACHE = {}
 
 
 async def _job_states(g, invocation_id):
@@ -1510,13 +1491,6 @@ _tool(
 
 
 # --- niche tier: IWC (external GitHub manifest, not the Galaxy API) -----------
-
-_IWC_MANIFEST_URL = "https://iwc.galaxyproject.org/workflow_manifest.json"
-_iwc_cache = {}
-
-
-README_SUMMARY_CHARS = 300
-
 
 _tool(
     "get_iwc_workflows",
