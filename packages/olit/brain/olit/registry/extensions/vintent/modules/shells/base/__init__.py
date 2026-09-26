@@ -42,7 +42,10 @@ class BaseShell:
 
     required: dict[str, Any] = {}
     optional: dict[str, Any] = {}
-    processes = None
+
+    def processes(self, profile: DatasetProfile, params: ShellParamsType) -> list[dict[str, Any]]:
+        """Analyze steps to run before compiling, as `{id, params}`; none by default."""
+        return []
 
     def is_applicable(self, profile: DatasetProfile) -> bool:
         if not self.signatures:
