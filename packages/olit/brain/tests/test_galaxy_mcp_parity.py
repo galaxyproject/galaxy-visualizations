@@ -41,9 +41,13 @@ PARAMETERS = {
         "require_ok_state": "olit always refuses a dataset that is not ok; callers cannot turn it off",
     },
     "get_tool_panel": {
-        "section": "filters to one section, because the whole panel does not fit the context window",
+        "section_id": "opens one section, because the whole panel does not fit the context window",
         "limit": "pages the panel for the same reason",
         "offset": "pages the panel for the same reason",
+    },
+    "get_iwc_workflows": {
+        "limit": "pages the IWC list, whose raw entries carry whole workflow definitions",
+        "offset": "pages the IWC list for the same reason",
     },
     "list_workflows": {
         "limit": "pages a long workflow list",

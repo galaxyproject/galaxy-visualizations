@@ -66,12 +66,15 @@ const runPython = [{
     function: { name: "run_python", arguments: JSON.stringify({ code: RUN_PYTHON_CODE }) },
 }];
 
-// The three operations galaxy-ops runs instead of a handler here: a plain read, a paginated
-// one, and one that shapes its answer from the tool's schema.
+// A spread of the operations galaxy-ops runs instead of a handler here: a paginated read, two
+// that shape their answer from a tool's schema, one that pages a list Galaxy will not page,
+// and a write. Kept small enough that the turn fits the drive's context budget uncompacted.
 const delegatedOps = [
     { id: "call_1", type: "function", function: { name: "get_histories", arguments: JSON.stringify({ limit: 2 }) } },
     { id: "call_2", type: "function", function: { name: "get_tool_run_examples", arguments: JSON.stringify({ tool_id: "cat1" }) } },
     { id: "call_3", type: "function", function: { name: "get_tool_input_template", arguments: JSON.stringify({ tool_id: "cat1" }) } },
+    { id: "call_4", type: "function", function: { name: "get_tool_panel", arguments: JSON.stringify({ limit: 3 }) } },
+    { id: "call_5", type: "function", function: { name: "create_history", arguments: JSON.stringify({ history_name: "olit e2e ops" }) } },
 ];
 
 const createVisualization = [{

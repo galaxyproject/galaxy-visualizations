@@ -7,6 +7,7 @@ two contracts disagree about it in a way that would quietly corrupt a payload.
 
 import asyncio
 import json
+import pathlib
 
 from olit.drivers.loop import galaxy_tools
 from olit.drivers.loop.tools import ToolSurface
@@ -62,14 +63,27 @@ def test_the_values_are_never_renamed():
     assert as_wire({"tool_id": "t", "inputs": payload})["inputs"] == payload
 
 
-def test_only_the_three_proven_operations_are_delegated():
-    assert set(galaxy_tools.DELEGATED_TO_OPS) == {
-        "get_tool_run_examples",
-        "get_histories",
-        "get_tool_input_template",
-    }
-    for name in galaxy_tools.DELEGATED_TO_OPS:
-        assert galaxy_tools.get_handler(name), f"{name} must keep its handler for rollback"
+def test_a_tool_is_delegated_exactly_when_it_has_no_handler_here():
+    """The two facts are one fact, so they cannot drift apart."""
+    for tool in galaxy_tools.TOOLS:
+        delegated = galaxy_tools.delegated_to_ops(tool["name"])
+        if tool["handler"] is None:
+            assert delegated == tool["capability"], tool["name"]
+        else:
+            assert delegated is None, tool["name"]
+
+
+def test_every_galaxy_operation_is_either_delegated_or_says_why_it_is_not():
+    """A shared operation kept here needs a reason on the record, not a silent handler."""
+    shared = set(json.loads((pathlib.Path(__file__).parent / "data" / "galaxy-ops-browser.json").read_text()))
+    kept = {t["name"] for t in galaxy_tools.TOOLS if t["handler"] is not None} & shared
+    assert kept == set(galaxy_tools.KEPT_LOCAL), (
+        f"kept without a reason: {sorted(kept - set(galaxy_tools.KEPT_LOCAL))}; "
+        f"reason with no tool: {sorted(set(galaxy_tools.KEPT_LOCAL) - kept)}"
+    )
+    delegated = {t["name"] for t in galaxy_tools.TOOLS if t["handler"] is None}
+    assert delegated <= shared, f"delegated but absent from galaxy-ops: {sorted(delegated - shared)}"
+    assert delegated | kept == shared, f"galaxy-ops operations olit does not serve: {sorted(shared - delegated - kept)}"
 
 
 def test_a_delegated_call_goes_through_the_executor():

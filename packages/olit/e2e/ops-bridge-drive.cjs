@@ -62,7 +62,7 @@ const waitFor = async (page, fn, ms) => {
   const body = tools.map((t) => (typeof t === "string" ? t : JSON.stringify(t))).join("\n");
   check(
     "every delegated operation answered with data",
-    tools.length === 3 && !/"data": *null/.test(body),
+    tools.length === 5 && !/"data": *null/.test(body),
     `${tools.length} result(s)`,
   );
   check("the answers came from Galaxy, not a stub", /model_class.*History/.test(body));
@@ -70,10 +70,24 @@ const waitFor = async (page, fn, ms) => {
     "the richer one carries what its semantics produce",
     /inputs_template/.test(body) && /repeat_key_hint/.test(body),
   );
+  check("a paged operation reports the total, not just the page", /"total"/.test(body));
+  check("the tool panel arrives summarized rather than whole", /"tool_count"/.test(body) && !/"elems"/.test(body));
+  check("a write reached Galaxy through the same bridge", /olit e2e ops/.test(body));
+  // Matched against the envelope rather than the payload: a tool's own test cases carry
+  // fields named expect_failure, which is data rather than a failure of this call.
+  const broke = tools
+    .map((t) => (typeof t === "string" ? t : JSON.stringify(t)))
+    .filter((one) => /^Refused|needs galaxy-ops|has no operation named|"errorKind"/.test(one));
+  check("no operation reported a failure", broke.length === 0, broke.join(" | ").slice(0, 200));
   check(
-    "no operation reported a failure",
-    !/failed|not_found|no operation named/i.test(body),
-    body.slice(0, 160),
+    "every result is an envelope with data",
+    tools.every((t) => {
+      try {
+        return JSON.parse(String(t).split("\n\n")[0]).data != null;
+      } catch {
+        return false;
+      }
+    }),
   );
   await p.screenshot({ path: `${OUT}/ops-bridge.png` });
   console.log(

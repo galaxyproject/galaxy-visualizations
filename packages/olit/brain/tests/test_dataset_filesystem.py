@@ -198,17 +198,6 @@ async def test_a_dataset_at_the_limit_is_still_downloaded():
     assert "partial" not in out
 
 
-@pytest.mark.asyncio
-async def test_the_details_preview_reads_a_chunk_not_the_whole_file():
-    """/display streams everything; previewing must not pull a large dataset into memory."""
-    from olit.drivers.loop.galaxy_tools import _get_dataset_details
-
-    g = FakeGalaxy(TABLE)
-    out = await _get_dataset_details(g, {"dataset_id": "d", "preview_lines": 1000})
-    assert out["preview"]
-    assert not any(c.endswith("/display") for c in g.fetched)
-
-
 @pytest.mark.parametrize(
     "reported,expect_in,expect_out",
     [

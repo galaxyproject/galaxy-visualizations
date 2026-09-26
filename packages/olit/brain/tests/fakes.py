@@ -31,13 +31,57 @@ class Local:
         return self.output
 
 
+class FakeOps:
+    """galaxy-ops as a test double: the fake Galaxy answers, wrapped in an envelope.
+
+    It knows no operation either. `answer` is given the name and the arguments and returns
+    the envelope's data, so a test states what galaxy-ops would have found and nothing more.
+    """
+
+    def __init__(self, answer=None, manifest=None):
+        self.answer = answer
+        self.manifest = manifest
+        self.calls = []
+
+    def scoped(self, manifest):
+        view = FakeOps(self.answer, manifest)
+        view.calls = self.calls
+        return view
+
+    def available(self):
+        return True
+
+    async def run(self, name, args, capability="read"):
+        if self.manifest is not None:
+            self.manifest.require(capability)
+        self.calls.append((name, args, capability))
+        if self.answer is None:
+            return {"success": True, "data": {}}, None
+        found = self.answer(name, args)
+        if isinstance(found, tuple):
+            return found
+        return {"success": True, "data": found}, None
+
+
 class FakeSubstrate:
-    def __init__(self, llm=None, *, galaxy=None, local=None, config=None, capabilities=("llm", "local", "read")):
+    def __init__(
+        self,
+        llm=None,
+        *,
+        galaxy=None,
+        local=None,
+        config=None,
+        ops=None,
+        capabilities=("llm", "local", "read"),
+    ):
         self.llm = llm
         self.galaxy = galaxy
         self.local = Local() if local is None else local
         self.config = config
         self.manifest = CapabilityManifest(list(capabilities))
+        self.ops = FakeOps() if ops is None else ops
+        if getattr(self.ops, "manifest", None) is None:
+            self.ops.manifest = self.manifest
 
     def scoped(self, capabilities):
         return self
