@@ -190,7 +190,9 @@ class ToolSurface:
         # Fan-out intent for this turn; the surface is rebuilt per turn, as loom clears per turn.
         self.sra = sra_import_gate.SraImportGate()
         # The last call that failed and how often it has repeated, for the loop guard.
-        self._last_failure = None
+        # How many times each call has failed this session, keyed like a settled
+        # question: a success elsewhere is no evidence that this call will start working.
+        self._failures = {}
         # How often each settled lookup has been asked, by name and arguments.
         self._settled = {}
         self._schemas = None
@@ -248,7 +250,7 @@ class ToolSurface:
         repeated = self._repeating_a_failure(name, args)
         if repeated:
             logger.info("  -> breaking a loop of identical failing calls")
-            self._last_failure = None  # a speed bump, not a ban
+            self._forget_failure(name, args)  # a speed bump, not a ban
             return ToolOutcome(repeated, is_error=True, refused=True, guard="repeated-failure")
         settled = self._asking_a_settled_question(name, args)
         if settled:
@@ -351,7 +353,7 @@ class ToolSurface:
         """Whether this tool's arguments have failed to parse often enough to stop trying."""
         if self._repeating_a_failure(name, self.UNPARSABLE) is None:
             return None
-        self._last_failure = None  # a speed bump, not a ban
+        self._forget_failure(name, self.UNPARSABLE)  # a speed bump, not a ban
         return (
             f"Refused: the arguments for '{name}' have failed to parse "
             f"{self.FAILED_REPEAT_LIMIT} times in a row. The shape is the problem rather "
@@ -364,24 +366,29 @@ class ToolSurface:
         self._note_outcome(name, self.UNPARSABLE, True)
 
     def _repeating_a_failure(self, name, args):
-        last = self._last_failure
-        if not last or last["key"] != (name, brief(args)) or last["count"] < self.FAILED_REPEAT_LIMIT:
+        """Why this call is not worth making again, or None.
+
+        Counted per call rather than only for the most recent one: a read between two failing
+        writes is the ordinary shape of a retry, and it used to clear the count and let the
+        same failing write repeat without limit.
+        """
+        count = self._failures.get((name, brief(args)), 0)
+        if count < self.FAILED_REPEAT_LIMIT:
             return None
         return (
             f"Refused: '{name}' was already called with these exact arguments "
-            f"{last['count']} times and failed each time. Change the arguments or the "
+            f"{count} times and failed each time. Change the arguments or the "
             f"approach; resending the same call cannot succeed."
         )
 
+    def _forget_failure(self, name, args):
+        self._failures.pop((name, brief(args)), None)
+
     def _note_outcome(self, name, args, is_error):
-        key = (name, brief(args))
-        last = self._last_failure
         if not is_error:
-            self._last_failure = None
-        elif last and last["key"] == key:
-            last["count"] += 1
-        else:
-            self._last_failure = {"key": key, "count": 1}
+            return
+        key = (name, brief(args))
+        self._failures[key] = self._failures.get(key, 0) + 1
 
     async def _dispatch(self, name, args):
         # First, so the confusables fold below cannot route around it.
