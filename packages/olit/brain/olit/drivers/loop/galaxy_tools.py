@@ -233,8 +233,17 @@ KEPT_LOCAL = {
 # Top-level fields of `data` that a description tells the model to read. Declared here rather
 # than in a test because it is a fact about the contract: the parity guard reads it back off a
 # live result, and `describe` publishes it so an upstream drift check can see what is covered.
+# The basis is the result galaxy-mcp documents, whose descriptions olit serves verbatim; the
+# parity guard reads each one back off a live result. Two of these were wrong when checked --
+# a collection arrived without `collection` or `note`, and test examples without
+# `requested_version` -- so the class of defect is not hypothetical.
 PROMISED_FIELDS = {
     "get_tool_panel": ("tool_count", "section_count"),
+    "get_tool_citations": ("tool_name", "tool_version", "citations"),
+    "get_tool_input_template": ("tool_id", "inputs_template", "parameters"),
+    "get_tool_run_examples": ("tool_id", "requested_version", "test_cases"),
+    "get_history_details": ("history", "contents_summary"),
+    "get_collection_details": ("collection_id", "collection", "elements", "elements_truncated", "note"),
 }
 
 

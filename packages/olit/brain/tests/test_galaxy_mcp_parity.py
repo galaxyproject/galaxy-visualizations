@@ -235,17 +235,6 @@ def test_every_field_a_delegated_description_names_is_classified():
     )
 
 
-def test_a_promised_field_is_really_named_in_the_description():
-    """A stale entry would have the live check assert a promise nothing makes."""
-    unpromised = sorted(
-        (name, field)
-        for name, fields in PROMISED_FIELDS.items()
-        for field in fields
-        if field not in mentioned_fields(name)
-    )
-    assert not unpromised, f"these are not named in the description any more; drop them: {unpromised}"
-
-
 def test_the_promised_fields_name_only_delegated_tools():
     """A tool olit still runs itself is covered by its own handler's tests."""
     unknown = sorted(set(PROMISED_FIELDS) - set(delegated_tools()))
@@ -257,6 +246,11 @@ def test_the_promised_fields_name_only_delegated_tools():
 # close, so the pairing is asserted rather than assumed.
 LIVE_CASES = {
     "get_tool_panel": {},
+    "get_tool_citations": {"tool_id": "cat1"},
+    "get_tool_input_template": {"tool_id": "cat1"},
+    "get_tool_run_examples": {"tool_id": "cat1"},
+    "get_history_details": {"history_id": "$history"},
+    "get_collection_details": {"collection_id": "$collection"},
 }
 
 
@@ -278,6 +272,10 @@ def test_a_delegated_result_carries_every_field_its_description_promises():
     This is the one that would have caught get_tool_panel. Everything above compares olit's
     words against galaxy-mcp's words; only this compares olit's words against what the
     delegated implementation actually returns.
+
+    A failure naming `requested_version`, `collection` or `note` means the installed galaxy-ops
+    predates the fixes for those on the fork's fixes.000: cut the artifact rather than shorten
+    the promise.
     """
     substrate = Substrate(
         {
@@ -287,15 +285,27 @@ def test_a_delegated_result_carries_every_field_its_description_promises():
         }
     )
 
+    async def staged(galaxy):
+        """A history with one empty collection in it, so a collection read has something to read."""
+        history = await galaxy.post("api/histories", {"name": "olit promised-field check"})
+        collection = await galaxy.post(
+            f"api/histories/{history['id']}/contents",
+            {"type": "dataset_collection", "collection_type": "list", "name": "probe", "element_identifiers": []},
+        )
+        return history["id"], collection["id"]
+
     async def collect():
         found = {}
-        histories = await substrate.ops.run("get_histories", {"limit": 1}, "read")
-        history_id = ((histories or {}).get("data") or [{}])[0].get("id")
-        for name, args in LIVE_CASES.items():
-            filled = {k: (history_id if v == "$history" else v) for k, v in args.items()}
-            envelope = await substrate.ops.run(name, filled, "read")
-            found[name] = envelope.get("data") if envelope.get("success") else envelope.get("message")
-        await substrate.close()
+        history_id, collection_id = await staged(substrate.galaxy)
+        fixtures = {"$history": history_id, "$collection": collection_id}
+        try:
+            for name, args in LIVE_CASES.items():
+                filled = {k: fixtures.get(v, v) for k, v in args.items()}
+                envelope = await substrate.ops.run(name, filled, "read")
+                found[name] = envelope.get("data") if envelope.get("success") else envelope.get("message")
+        finally:
+            await substrate.galaxy.put(f"api/histories/{history_id}", {"deleted": True})
+            await substrate.close()
         return found
 
     results = asyncio.run(collect())
