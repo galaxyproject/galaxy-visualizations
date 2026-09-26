@@ -54,36 +54,6 @@ def package_root():
     return pathlib.Path(inspect.getsourcefile(prompt)).resolve().parent
 
 
-def py_symbol(text, symbol):
-    """A module-level constant (triple-quoted, braced or parenthesised), or a `def` body."""
-    m = re.search(rf'^{re.escape(symbol)} = ("""|\'\'\')', text, re.M)
-    if m:
-        quote = m.group(1)
-        end = text.index(quote, m.end())
-        return text[m.start() : end + len(quote)]
-    for opener, closer in (("{", "}"), ("(", ")")):
-        m = re.search(rf"^{re.escape(symbol)} = \{opener}$", text, re.M)
-        if not m:
-            continue
-        lines = text[m.start() :].splitlines()
-        body = [lines[0]]
-        for line in lines[1:]:
-            body.append(line)
-            if line == closer:
-                break
-        return "\n".join(body)
-    m = re.search(rf"^def {re.escape(symbol)}\b", text, re.M)
-    if not m:
-        return None
-    rest = text[m.start() :].splitlines()
-    out = [rest[0]]
-    for line in rest[1:]:
-        if line and not line[0].isspace():
-            break
-        out.append(line)
-    return "\n".join(out).rstrip()
-
-
 def symbols():
     """Every module-level name olit defines, by module. Presence is what a seam asks about."""
     out = {}

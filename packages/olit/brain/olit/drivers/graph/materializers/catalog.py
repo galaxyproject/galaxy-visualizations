@@ -102,8 +102,3 @@ def load_entry_points() -> None:
             raise
 
     _catalog.freeze()
-
-
-def _get_catalog() -> MaterializerCatalog:
-    """Get the singleton catalog instance. For testing only."""
-    return _catalog
