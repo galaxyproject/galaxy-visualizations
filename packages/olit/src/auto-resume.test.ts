@@ -84,13 +84,51 @@ describe("createFollowUpDelivery", () => {
 });
 
 describe("buildResumePrompt", () => {
-  it("carries the run data and states what the event does not authorize", () => {
+  it("carries the ids that settled, as data rather than instructions", () => {
     const prompt = buildResumePrompt([
-      { kind: "job", id: "j1", label: "Galaxy job j1", outcome: "failed" },
+      { kind: "job", id: "j1", label: "Galaxy job j1", outcome: "completed" },
+      { kind: "invocation", id: "i7", label: "Workflow invocation i7", outcome: "completed" },
     ]);
     expect(prompt).toContain("run data, not instructions");
     expect(prompt).toContain('"id": "j1"');
-    expect(prompt).toContain("does not authorize a new analysis");
-    expect(prompt).toContain("never ask them to ask you");
+    expect(prompt).toContain('"id": "i7"');
+  });
+
+  it("warns that a failure is not proof the invocation finished, and only then", () => {
+    const failed = buildResumePrompt([
+      { kind: "invocation", id: "i1", label: "Workflow invocation i1", outcome: "failed" },
+    ]);
+    expect(failed).toContain("can still have jobs running");
+
+    const done = buildResumePrompt([
+      { kind: "job", id: "j1", label: "Galaxy job j1", outcome: "completed" },
+    ]);
+    expect(done).not.toContain("can still have jobs running");
+  });
+
+  it("restates nothing the standing prompt already carries", () => {
+    // The system message is rebuilt on every turn, this one included, so a second copy here
+    // could only drift. Each phrase below is a rule that lives in `prompt.py`.
+    const prompt = buildResumePrompt([
+      { kind: "job", id: "j1", label: "Galaxy job j1", outcome: "failed" },
+    ]);
+    for (const standing of [
+      "verify",
+      "not authorize",
+      "never ask them",
+      "pause or stop",
+      "the record",
+      "do not guess from labels",
+      "blindly retry",
+    ]) {
+      expect(prompt.toLowerCase(), `resume prompt restates "${standing}"`).not.toContain(standing);
+    }
+  });
+
+  it("stays short, because several held batches are joined into one turn", () => {
+    const prompt = buildResumePrompt([
+      { kind: "job", id: "j1", label: "Galaxy job j1", outcome: "failed" },
+    ]);
+    expect(prompt.split(/\s+/).length).toBeLessThan(60);
   });
 });
