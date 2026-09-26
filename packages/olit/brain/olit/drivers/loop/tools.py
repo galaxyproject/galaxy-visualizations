@@ -4,7 +4,7 @@ import json
 import logging
 
 from olit.registry import load_primitives
-from olit.substrate import Confirmation, LocalExecutionError, galaxy_ops
+from olit.substrate import Confirmation, LocalExecutionError
 
 from . import (
     artifacts,
@@ -462,23 +462,19 @@ class ToolSurface:
         if not tool_id:
             return None
         try:
-            envelope, refusal = await self.substrate.ops.run("get_tool_input_template", {"tool_id": tool_id})
+            envelope = await self.substrate.ops.run("get_tool_input_template", {"tool_id": tool_id})
         except Exception as exc:
             logger.info("no input template for %s: %s", tool_id, exc)
             return None
-        if refusal:
+        if not envelope.get("success"):
             return None
         return (envelope.get("data") or {}).get("inputs_template")
 
     async def _run_delegated(self, name, args, capability):
         """One galaxy-ops operation, with the reading olit adds to any Galaxy result."""
-        try:
-            envelope, refusal = await self.substrate.ops.run(name, args, capability)
-        except galaxy_ops.GalaxyOpsUnavailable as exc:
-            logger.error("no galaxy-ops transport for %s: %s", name, exc)
-            return ToolOutcome(f"'{name}' needs galaxy-ops, which this runtime cannot reach: {exc}", is_error=True)
-        if refusal:
-            return ToolOutcome(refusal, is_error=True)
+        envelope = await self.substrate.ops.run(name, args, capability)
+        if not envelope.get("success"):
+            return ToolOutcome(envelope.get("message") or f"{name} failed", is_error=True)
         data = envelope.get("data")
         hint = await galaxy_tools.catalog_miss_hint(self.substrate.galaxy, name, args, data) or (
             fetch_failure_hint.for_result(data)

@@ -289,12 +289,12 @@ def test_a_delegated_result_carries_every_field_its_description_promises():
 
     async def collect():
         found = {}
-        histories, _ = await substrate.ops.run("get_histories", {"limit": 1}, "read")
+        histories = await substrate.ops.run("get_histories", {"limit": 1}, "read")
         history_id = ((histories or {}).get("data") or [{}])[0].get("id")
         for name, args in LIVE_CASES.items():
             filled = {k: (history_id if v == "$history" else v) for k, v in args.items()}
-            envelope, refusal = await substrate.ops.run(name, filled, "read")
-            found[name] = (envelope or {}).get("data") if not refusal else refusal
+            envelope = await substrate.ops.run(name, filled, "read")
+            found[name] = envelope.get("data") if envelope.get("success") else envelope.get("message")
         await substrate.close()
         return found
 

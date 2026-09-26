@@ -59,11 +59,10 @@ class FakeOps:
         args = as_wire(args)
         self.calls.append((name, args, capability))
         if self.answer is None:
-            return {"success": True, "data": {}}, None
+            return {"success": True, "data": {}}
         found = self.answer(name, args)
-        if isinstance(found, tuple):
-            return found
-        return {"success": True, "data": found}, None
+        # A test that wants to state a failure returns the envelope itself.
+        return found if isinstance(found, dict) and "success" in found else {"success": True, "data": found}
 
 
 class FakeSubstrate:

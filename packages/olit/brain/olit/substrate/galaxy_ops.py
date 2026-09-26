@@ -38,7 +38,12 @@ def as_wire(args):
 
 
 class GalaxyOpsUnavailable(RuntimeError):
-    """No transport in this runtime: no shell, and no node to stand in for one."""
+    """A transport could not carry the call. Converted to a failure envelope at the facade."""
+
+
+def failed(message):
+    """A failure in the shape galaxy-ops states its own failures in."""
+    return {"success": False, "message": message, "errorKind": "unavailable"}
 
 
 class PyodideTransport:
@@ -154,12 +159,17 @@ class GalaxyOps:
         return self._transport() is not None
 
     async def run(self, name, args, capability="read"):
-        """The operation's data, or a ToolOutcome-shaped error the caller can return."""
+        """The operation's envelope, whether or not it succeeded.
+
+        One channel: a failure is an envelope, as it is inside galaxy-ops. An operation that
+        could not run is something to tell the model, not an exception for the loop to catch.
+        The capability gate still raises, as it does everywhere else in the substrate.
+        """
         self.manifest.require(capability)
         transport = self._transport()
         if transport is None:
-            raise GalaxyOpsUnavailable("no galaxy-ops transport in this runtime")
-        envelope = await transport.run(name, as_wire(args))
-        if not envelope.get("success"):
-            return None, envelope.get("message") or f"{name} failed"
-        return envelope, None
+            return failed("no galaxy-ops transport in this runtime")
+        try:
+            return await transport.run(name, as_wire(args))
+        except GalaxyOpsUnavailable as exc:
+            return failed(str(exc))

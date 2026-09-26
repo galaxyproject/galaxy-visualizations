@@ -12,6 +12,7 @@ import pathlib
 from olit.drivers.loop import galaxy_tools
 from olit.drivers.loop.outcome import rendered
 from olit.drivers.loop.tools import ToolSurface
+from olit.substrate import galaxy_ops
 from olit.substrate.galaxy_ops import GalaxyOps, as_wire, camel
 
 
@@ -44,9 +45,7 @@ class Executor(GalaxyOps):
     async def run(self, name, args, capability="read"):
         self.manifest.require(capability)
         self.seen.append((name, as_wire(args)))
-        if not self.envelope.get("success"):
-            return None, self.envelope.get("message")
-        return self.envelope, None
+        return self.envelope
 
 
 def test_a_declared_argument_is_renamed_for_the_wire():
@@ -134,3 +133,42 @@ def _substrate(ops):
             self.ops = ops
 
     return Substrate()
+
+
+class _NoTransport(GalaxyOps):
+    """A runtime with nothing to carry the call: the browser shell absent and no node."""
+
+    def __init__(self):
+        self.manifest = Manifest()
+        self._transports = []
+
+
+def test_a_runtime_with_no_transport_answers_with_a_failure_not_an_exception():
+    envelope = asyncio.run(_NoTransport().run("get_histories", {}))
+    assert envelope["success"] is False
+    assert envelope["errorKind"] == "unavailable"
+    assert "transport" in envelope["message"]
+
+
+def test_a_transport_that_dies_mid_call_is_reported_the_same_way():
+    class Dies(GalaxyOps):
+        def __init__(self):
+            self.manifest = Manifest()
+            self._transports = [self]
+
+        def available(self):
+            return True
+
+        async def run(self, name, wire):
+            raise galaxy_ops.GalaxyOpsUnavailable("driver stopped: boom")
+
+    ops = Dies()
+    envelope = asyncio.run(GalaxyOps.run(ops, "get_histories", {}))
+    assert envelope["success"] is False
+    assert "driver stopped" in envelope["message"]
+
+
+def test_the_facade_never_returns_a_tuple():
+    """One channel: every answer is an envelope, so no caller unpacks a refusal."""
+    envelope = asyncio.run(_NoTransport().run("get_histories", {}))
+    assert isinstance(envelope, dict)

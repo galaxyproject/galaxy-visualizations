@@ -58,7 +58,7 @@ def test_the_dispatcher_attaches_the_template_galaxy_ops_builds():
 
 def test_the_rejection_still_reaches_the_model_without_a_template():
     """The template is help, not the answer: losing it must not lose the rejection."""
-    outcome = _dispatch(lambda name, args: ({"success": False, "message": "no such tool"}, None))
+    outcome = _dispatch(lambda name, args: {"success": False, "message": "no such tool"})
     assert outcome.is_error
     assert "invalid key structure" in outcome.content
     assert "Fill this template" not in outcome.content
