@@ -42,7 +42,8 @@ class Resolver:
         if fn:
             try:
                 return fn(expr, ctx, self.resolve)
-            except ExpressionError:
+            except (ExpressionError, NodeExecutionError):
+                # A $ref fault inside an expression is the node's, not the operator's.
                 raise
             except Exception as e:
                 logger.exception("Unexpected error in expression evaluation")
@@ -96,9 +97,14 @@ class Resolver:
             if isinstance(src, dict) and "$append" in src:
                 appended = src["$append"]
                 value = payload.get("result") if appended == "result" else self.resolve(appended, ctx)
-                self.state.setdefault(key, [])
-                if isinstance(self.state[key], list):
-                    self.state[key].append(value)
+                if self.state.get(key) is None:
+                    self.state[key] = []
+                if not isinstance(self.state[key], list):
+                    raise NodeExecutionError(
+                        f"cannot append to state.{key}, which holds a {type(self.state[key]).__name__}",
+                        details={"dest": dest, "found": type(self.state[key]).__name__},
+                    )
+                self.state[key].append(value)
             elif isinstance(src, dict):
                 self.state[key] = self.resolve(src, ctx)
             elif isinstance(src, str):

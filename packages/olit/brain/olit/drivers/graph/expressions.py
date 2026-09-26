@@ -1,6 +1,5 @@
 """Expression operators for agent pipelines."""
 
-import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -8,11 +7,12 @@ from olit.exceptions import ExpressionError
 
 from .types import Context
 
-logger = logging.getLogger(__name__)
-
 # Type alias for expression definitions
 ExprDict = dict[str, Any]
 ResolveFunc = Callable[[Any, Context], Any]
+
+# Comparisons a filter where-clause may carry, in the order they are looked for.
+COMPARISONS = ("eq", "ne", "starts_with", "not_starts_with", "contains", "not_null", "in")
 
 
 def _type_name(value: Any) -> str:
@@ -20,6 +20,26 @@ def _type_name(value: Any) -> str:
     if value is None:
         return "null"
     return type(value).__name__
+
+
+def _require_list(items: Any, operator: str, parameter: str = "from") -> list:
+    """A null source is the empty collection; anything else that is not a list is a fault.
+
+    `$ref` refuses a path that is not there, so a non-list here is a real value of the wrong type
+    rather than an unresolved reference, and swallowing it returned an empty answer about data that
+    was never read.
+    """
+    if items is None:
+        return []
+    if not isinstance(items, list):
+        raise ExpressionError(
+            "Source is not an array",
+            operator=operator,
+            parameter=parameter,
+            expected="list",
+            received=_type_name(items),
+        )
+    return items
 
 
 def _truncate(value: Any, max_len: int = 50) -> str:
@@ -95,12 +115,16 @@ def expr_get(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
         )
 
     if obj is None:
-        logger.debug("get: obj is null, returning default")
         return default
 
     if not isinstance(obj, dict):
-        logger.debug("get: obj is %s (not dict), returning default", _type_name(obj))
-        return default
+        raise ExpressionError(
+            "Object is not a mapping",
+            operator="get",
+            parameter="obj",
+            expected="object",
+            received=_type_name(obj),
+        )
 
     return obj.get(key, default)
 
@@ -168,24 +192,16 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
     """Find an item in an array and return a field from it."""
     source = resolve(expr.get("from"), ctx)
 
+    # lookup owes its caller a value, so it has no empty answer to give for a null source.
     if source is None:
         raise ExpressionError(
             "Source array is null",
             operator="lookup",
             parameter="from",
             expected="non-null array",
-            hint="The 'from' parameter resolved to null. Check the reference path.",
         )
 
-    if not isinstance(source, list):
-        raise ExpressionError(
-            "Source is not an array",
-            operator="lookup",
-            parameter="from",
-            expected="list",
-            received=_type_name(source),
-            hint="The 'from' parameter must be a list/array to search through.",
-        )
+    source = _require_list(source, "lookup")
 
     match = expr.get("match", {})
     if not match:
@@ -241,17 +257,9 @@ def expr_lookup(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> Any:
 
 def expr_count_where(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> int:
     """Count items in an array that match a condition."""
-    items = resolve(expr.get("from"), ctx)
+    items = _require_list(resolve(expr.get("from"), ctx), "count_where")
     field = expr.get("field")
     equals = resolve(expr.get("equals"), ctx)
-
-    if items is None:
-        logger.debug("count_where: source is null, returning 0")
-        return 0
-
-    if not isinstance(items, list):
-        logger.debug("count_where: source is %s (not list), returning 0", _type_name(items))
-        return 0
 
     if not field:
         raise ExpressionError(
@@ -267,12 +275,9 @@ def expr_count_where(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> int:
 
 def expr_any(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> bool:
     """Check if any item in an array matches a condition."""
-    items = resolve(expr.get("from"), ctx)
+    items = _require_list(resolve(expr.get("from"), ctx), "any")
     field = expr.get("field")
     equals = resolve(expr.get("equals"), ctx)
-
-    if items is None or not isinstance(items, list):
-        return False
 
     if not field:
         raise ExpressionError(
@@ -288,16 +293,8 @@ def expr_any(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> bool:
 
 def expr_unique(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
     """Deduplicate array items by a specified field, preserving order."""
-    items = resolve(expr.get("from"), ctx)
+    items = _require_list(resolve(expr.get("from"), ctx), "unique")
     by_field = expr.get("by")
-
-    if items is None:
-        logger.debug("unique: source is null, returning empty list")
-        return []
-
-    if not isinstance(items, list):
-        logger.debug("unique: source is %s (not list), returning empty list", _type_name(items))
-        return []
 
     if not by_field:
         # No field specified - dedupe by entire item (for simple values)
@@ -314,9 +311,9 @@ def expr_unique(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
     seen_values: set = set()
     result = []
     for item in items:
-        if isinstance(item, dict):
-            value = item.get(by_field)
-            if value is not None and value not in seen_values:
+        if isinstance(item, dict) and by_field in item:
+            value = item[by_field]
+            if value not in seen_values:
                 seen_values.add(value)
                 result.append(item)
     return result
@@ -324,25 +321,10 @@ def expr_unique(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
 
 def expr_select(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
     """Project specific fields from array items."""
-    items = resolve(expr.get("from"), ctx)
+    items = _require_list(resolve(expr.get("from"), ctx), "select")
     fields = expr.get("fields", [])
 
-    if items is None:
-        logger.debug("select: source is null, returning empty list")
-        return []
-
-    if not isinstance(items, list):
-        raise ExpressionError(
-            "Source is not an array",
-            operator="select",
-            parameter="from",
-            expected="list",
-            received=_type_name(items),
-            hint="The 'from' parameter must be a list of objects to project fields from.",
-        )
-
     if not fields:
-        logger.debug("select: no fields specified, returning original items")
         return items
 
     if not isinstance(fields, list):
@@ -366,16 +348,7 @@ def expr_select(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
 
 def expr_filter(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
     """Filter array items by a condition."""
-    items = resolve(expr.get("from"), ctx)
-
-    if items is None:
-        logger.debug("filter: source is null, returning empty list")
-        return []
-
-    if not isinstance(items, list):
-        # Return empty list for non-list input (lenient behavior)
-        logger.debug("filter: source is %s (not list), returning empty list", _type_name(items))
-        return []
+    items = _require_list(resolve(expr.get("from"), ctx), "filter")
 
     where = expr.get("where", {})
     if not where:
@@ -391,54 +364,43 @@ def expr_filter(expr: ExprDict, ctx: Context, resolve: ResolveFunc) -> list:
             hint="Usage: {op: filter, from: [...], where: {field: 'status', eq: 'active'}}",
         )
 
-    result = []
-    conditions_found = False
+    # The clause is read before the walk, so an empty source cannot make a valid clause look missing.
+    comparison = next((c for c in COMPARISONS if c in where and (c != "not_null" or where[c])), None)
+    if comparison is None:
+        raise ExpressionError(
+            "No valid comparison operator in where condition",
+            operator="filter",
+            parameter="where",
+            expected=f"one of: {', '.join(COMPARISONS)}",
+            received=str(list(where.keys())),
+            hint="Add a comparison: {field: 'name', eq: 'value'} or {field: 'name', starts_with: 'prefix'}",
+        )
 
+    against = resolve(where.get(comparison), ctx) if comparison in ("eq", "ne", "in") else where.get(comparison)
+
+    result = []
     for item in items:
         if not isinstance(item, dict):
             continue
         value = item.get(field)
 
-        # Check various conditions
-        if "eq" in where:
-            conditions_found = True
-            if value == resolve(where.get("eq"), ctx):
-                result.append(item)
-        elif "ne" in where:
-            conditions_found = True
-            if value != resolve(where.get("ne"), ctx):
-                result.append(item)
-        elif "starts_with" in where:
-            conditions_found = True
-            if isinstance(value, str) and value.startswith(where.get("starts_with")):
-                result.append(item)
-        elif "not_starts_with" in where:
-            conditions_found = True
-            if isinstance(value, str) and not value.startswith(where.get("not_starts_with")):
-                result.append(item)
-        elif "contains" in where:
-            conditions_found = True
-            if isinstance(value, str) and where.get("contains") in value:
-                result.append(item)
-        elif "not_null" in where and where.get("not_null"):
-            conditions_found = True
-            if value is not None:
-                result.append(item)
-        elif "in" in where:
-            conditions_found = True
-            in_set = resolve(where.get("in"), ctx)
-            if isinstance(in_set, list) and value in in_set:
-                result.append(item)
+        if comparison == "eq":
+            keep = value == against
+        elif comparison == "ne":
+            keep = value != against
+        elif comparison == "starts_with":
+            keep = isinstance(value, str) and value.startswith(against)
+        elif comparison == "not_starts_with":
+            keep = isinstance(value, str) and not value.startswith(against)
+        elif comparison == "contains":
+            keep = isinstance(value, str) and against in value
+        elif comparison == "not_null":
+            keep = value is not None
+        else:
+            keep = isinstance(against, list) and value in against
 
-    if not conditions_found:
-        raise ExpressionError(
-            "No valid comparison operator in where condition",
-            operator="filter",
-            parameter="where",
-            expected="one of: eq, ne, starts_with, not_starts_with, contains, not_null, in",
-            received=str(list(where.keys())),
-            hint="Add a comparison: {field: 'name', eq: 'value'} or {field: 'name', starts_with: 'prefix'}",
-        )
+        if keep:
+            result.append(item)
 
     return result
 

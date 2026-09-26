@@ -68,6 +68,9 @@ class Runner:
         logger.info("Starting graph execution: %s", graph_id)
         logger.debug("Graph inputs: %s", inputs)
 
+        # Declared state keys exist from the start holding null, so a $ref to one is a value and a
+        # $ref to a key the graph never declared is a fault.
+        self.state.update({name: None for name in (self.graph.get("state") or {})})
         self.state["inputs"] = self._with_defaults(inputs)
         missing = self._missing_required()
         if missing:

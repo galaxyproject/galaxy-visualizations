@@ -1,47 +1,61 @@
 """Reference path resolution for agent pipelines."""
 
-import logging
 from typing import Any
 
-from .types import Context
+from olit.exceptions import NodeExecutionError
 
-logger = logging.getLogger(__name__)
+from .types import Context
 
 # Valid root namespaces for $ref paths
 VALID_NAMESPACES = frozenset({"state", "inputs", "run", "result"})
 
+_ABSENT = object()
+
+
+def _type_name(value: Any) -> str:
+    return "null" if value is None else type(value).__name__
+
 
 def get_path(path: str, ctx: Context, state: dict[str, Any]) -> Any:
-    """Resolve a dot-notation path to its value."""
+    """Resolve a dot-notation path: a path that is not there is a fault, a null it holds is a value."""
     parts = str(path).split(".")
     root = parts[0]
     rest = parts[1:]
 
-    # Resolve root namespace
-    cur: Any = None
+    cur: Any
     if root == "state":
         cur = state
     elif root == "inputs":
-        cur = state.get("inputs")
+        cur = state.get("inputs", _ABSENT)
     elif root == "run":
-        cur = ctx.get("run")
+        cur = ctx.get("run", _ABSENT)
     elif root == "result":
-        cur = ctx.get("result")
+        cur = ctx.get("result", _ABSENT)
     else:
-        # Warn about invalid namespace to help debug silent failures
-        logger.warning(
-            "Invalid $ref namespace '%s' in path '%s'. " "Valid namespaces: %s. Returning None.",
-            root,
-            path,
-            ", ".join(sorted(VALID_NAMESPACES)),
+        raise NodeExecutionError(
+            f"$ref '{path}' names no namespace",
+            details={"path": path, "namespace": root, "available": sorted(VALID_NAMESPACES)},
         )
-        return None
 
-    # Traverse remaining path segments
+    if cur is _ABSENT:
+        raise NodeExecutionError(
+            f"$ref '{path}' reads {root}, which this node does not have",
+            details={"path": path, "namespace": root},
+        )
+
+    walked = [root]
     for segment in rest:
-        if isinstance(cur, dict) and segment in cur:
-            cur = cur[segment]
-        else:
-            return None
+        if not isinstance(cur, dict):
+            raise NodeExecutionError(
+                f"$ref '{path}' reads '{segment}' from a {_type_name(cur)}",
+                details={"path": path, "resolved": ".".join(walked), "found": _type_name(cur)},
+            )
+        if segment not in cur:
+            raise NodeExecutionError(
+                f"$ref '{path}' stops at '{segment}'",
+                details={"path": path, "resolved": ".".join(walked), "available": sorted(cur)},
+            )
+        cur = cur[segment]
+        walked.append(segment)
 
     return cur
