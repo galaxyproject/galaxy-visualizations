@@ -3,16 +3,14 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from olit.registry.extensions.vintent.modules.process import is_finite_number
+
 PROCESS_ID = "group_aggregate"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
 
 AGG_OPS = {"mean", "sum", "min", "max", "count"}
-
-
-def _is_finite(v: Any) -> bool:
-    return isinstance(v, (int, float)) and math.isfinite(v)
 
 
 def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -27,27 +25,29 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
     for row in rows:
         key = row.get(group_by)
         groups.setdefault(key, []).append(row)
+    if op == "count":
+        return [{group_by: key, "count": len(group)} for key, group in groups.items()]
+    # Every other op reduces a column, so without one there is nothing to reduce.
+    if not metric:
+        return rows
     out: list[dict[str, Any]] = []
     for key, group in groups.items():
-        if op == "count":
-            out.append({group_by: key, "count": len(group)})
+        values = [value for value in (r.get(metric) for r in group) if is_finite_number(value)]
+        if not values:
+            continue
+        if op == "mean":
+            agg = sum(values) / len(values)
+        elif op == "sum":
+            agg = sum(values)
+        elif op == "min":
+            agg = min(values)
+        elif op == "max":
+            agg = max(values)
         else:
-            values = [r.get(metric) for r in group if _is_finite(r.get(metric))]
-            if not values:
-                continue
-            if op == "mean":
-                agg = sum(values) / len(values)
-            elif op == "sum":
-                agg = sum(values)
-            elif op == "min":
-                agg = min(values)
-            elif op == "max":
-                agg = max(values)
-            else:
-                continue
-            if not math.isfinite(agg):
-                continue
-            out.append({group_by: key, metric: float(agg)})
+            continue
+        if not math.isfinite(agg):
+            continue
+        out.append({group_by: key, metric: float(agg)})
     return out
 
 
