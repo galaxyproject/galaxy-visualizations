@@ -34,6 +34,21 @@ function galaxyFetch(credentials) {
 
 export { galaxyFetch as __galaxyFetchForTest };
 
+/** The two failures an executor can answer with itself. Both executors -- this one and the
+ * node driver the brain uses off the browser -- must state them identically, or the same
+ * fault reads differently depending on where olit is running. */
+export function noSuchOperation(name) {
+  return {
+    success: false,
+    errorKind: "not_found",
+    message: `galaxy-ops has no operation named '${name}'`,
+  };
+}
+
+export function unexpectedFailure(err) {
+  return { success: false, errorKind: "unexpected", message: String(err?.message ?? err) };
+}
+
 export function install(galaxy) {
   const byName = new Map(allOperations.map((op) => [op.name, op]));
   const ctx = createGalaxyContext({
@@ -45,9 +60,16 @@ export function install(galaxy) {
   globalThis.olitRunOperation = async (name, args) => {
     const op = byName.get(name);
     if (!op) {
-      return { success: false, errorKind: "not_found", message: `no operation named '${name}'` };
+      return noSuchOperation(name);
     }
-    return runWithEnvelope(op, args || {}, ctx);
+    try {
+      return await runWithEnvelope(op, args || {}, ctx);
+    } catch (err) {
+      // galaxy-ops rethrows anything that is not a Galaxy error. Across the Pyodide boundary
+      // that becomes a JS exception the loop reports as a raise; an envelope says the same
+      // thing in the shape every other answer takes, and matches the node driver.
+      return unexpectedFailure(err);
+    }
   };
   globalThis.olitOperationNames = () => [...byName.keys()];
 }

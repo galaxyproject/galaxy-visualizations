@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 // @ts-expect-error -- plain JS module, loaded by the worker rather than the app bundle
-import { __galaxyFetchForTest as galaxyFetch } from "./galaxy-ops-executor.js";
+import * as executor from "./galaxy-ops-executor.js";
+
+const { __galaxyFetchForTest: galaxyFetch, noSuchOperation, unexpectedFailure } = executor;
 
 /** The request that reached fetch, however the caller handed it over. */
 async function sent(target: Request | string, options?: RequestInit) {
@@ -56,5 +58,29 @@ describe("the galaxy fetch olit hands galaxy-ops", () => {
     expect((await sent(new Request("http://galaxy.invalid/api/version"))).credentials).toBe(
       "include",
     );
+  });
+});
+
+describe("the failures an executor answers with itself", () => {
+  // The node driver the brain uses off the browser states these identically; a Python test
+  // pins the same wording there, so the two cannot drift apart unnoticed.
+  it("names an operation this build does not have", () => {
+    expect(noSuchOperation("nope")).toEqual({
+      success: false,
+      errorKind: "not_found",
+      message: "galaxy-ops has no operation named 'nope'",
+    });
+  });
+
+  it("reports a non-Galaxy error as an envelope rather than letting it cross the boundary", () => {
+    expect(unexpectedFailure(new Error("boom"))).toEqual({
+      success: false,
+      errorKind: "unexpected",
+      message: "boom",
+    });
+  });
+
+  it("reports a thrown non-error too", () => {
+    expect(unexpectedFailure("plain string").message).toBe("plain string");
   });
 });

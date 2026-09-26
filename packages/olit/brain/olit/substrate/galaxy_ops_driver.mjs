@@ -15,15 +15,25 @@ function send(message) {
   process.stdout.write(body);
 }
 
+// Stated exactly as src/pyodide/galaxy-ops-executor.js states them: the same fault has to read
+// the same way whichever executor carried the call. A test on each side pins the wording.
+function noSuchOperation(name) {
+  return { success: false, errorKind: "not_found", message: `galaxy-ops has no operation named '${name}'` };
+}
+
+function unexpectedFailure(err) {
+  return { success: false, errorKind: "unexpected", message: String(err?.message ?? err) };
+}
+
 async function answer(request) {
   const op = byName.get(request.name);
   if (!op) {
-    return { success: false, message: `galaxy-ops has no operation named ${request.name}` };
+    return noSuchOperation(request.name);
   }
   try {
     return await runWithEnvelope(op, request.args, ctx);
   } catch (err) {
-    return { success: false, message: String(err?.message ?? err) };
+    return unexpectedFailure(err);
   }
 }
 

@@ -115,3 +115,41 @@ def test_closing_twice_is_harmless(tmp_path):
         await transport.close()
 
     asyncio.run(go())
+
+
+# The browser executor states these identically (src/pyodide/galaxy-ops-executor.test.ts pins
+# it there). Running the real driver here is what stops the two wordings drifting apart.
+def test_the_real_driver_names_an_operation_it_does_not_have():
+    transport = NodeTransport("http://galaxy.invalid", "k")
+    if not transport.available():
+        pytest.skip("the real driver needs node and a resolvable galaxy-ops")
+
+    async def go():
+        envelope = await transport.run("no_such_operation", {})
+        await transport.close()
+        return envelope
+
+    envelope = asyncio.run(go())
+    assert envelope == {
+        "success": False,
+        "errorKind": "not_found",
+        "message": "galaxy-ops has no operation named 'no_such_operation'",
+    }
+
+
+def test_the_real_driver_reports_a_bug_in_an_operation_as_an_envelope():
+    """galaxy-ops rethrows anything that is not a Galaxy error; neither executor lets it out."""
+    transport = NodeTransport("http://galaxy.invalid", "k")
+    if not transport.available():
+        pytest.skip("the real driver needs node and a resolvable galaxy-ops")
+
+    async def go():
+        # `query` is used as a string inside the operation, so a number throws a TypeError.
+        envelope = await transport.run("search_iwc_workflows", {"query": 5})
+        await transport.close()
+        return envelope
+
+    envelope = asyncio.run(go())
+    assert envelope["success"] is False
+    assert envelope["errorKind"] == "unexpected"
+    assert "toLowerCase" in envelope["message"]
