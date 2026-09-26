@@ -18,7 +18,7 @@ from . import (
     sra_import_gate,
 )
 from .brief import brief
-from .outcome import ToolOutcome
+from .outcome import ToolOutcome, rendered
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ def _skills_fetch_schema(skills):
                         "description": (
                             "Relative path inside the repo, e.g. "
                             "'collection-manipulation/SKILL.md', "
-                            "'galaxy-integration/mcp-reference/gotchas.md'."
+                            "'galaxy-mcp-reference/gotchas.md'."
                         ),
                     },
                 },
@@ -175,8 +175,10 @@ ARTIFACT_HINT = (
 
 
 class ToolSurface:
-    def __init__(self, substrate, processes=None, skills=None, confirmation=None, prior=None):
+    def __init__(self, substrate, processes=None, skills=None, confirmation=None, prior=None, record=None):
         self.substrate = substrate
+        # Record ownership is session state, not model input.
+        self.record = record or {}
         self.processes = processes
         self.skills = skills
         # Unavailable by default, which makes the destructive gate refuse headlessly.
@@ -188,7 +190,9 @@ class ToolSurface:
         # Fan-out intent for this turn; the surface is rebuilt per turn, as loom clears per turn.
         self.sra = sra_import_gate.SraImportGate()
         # The last call that failed and how often it has repeated, for the loop guard.
-        self._last_failure = None
+        # How many times each call has failed this session, keyed like a settled
+        # question: a success elsewhere is no evidence that this call will start working.
+        self._failures = {}
         # How often each settled lookup has been asked, by name and arguments.
         self._settled = {}
         self._schemas = None
@@ -222,7 +226,7 @@ class ToolSurface:
         tool = galaxy_tools.declared(name)
         if tool:
             return tool["schema"], [tool["capability"]]
-        if notebook.get_handler(name):
+        if name == "notebook_resume":
             return notebook.NOTEBOOK_RESUME, [notebook.CAPABILITY]
         if self.processes and name in (self.processes.names() or []):
             schema = next((s for s in _process_tool_schemas(self.processes) if s["function"]["name"] == name), None)
@@ -246,7 +250,7 @@ class ToolSurface:
         repeated = self._repeating_a_failure(name, args)
         if repeated:
             logger.info("  -> breaking a loop of identical failing calls")
-            self._last_failure = None  # a speed bump, not a ban
+            self._forget_failure(name, args)  # a speed bump, not a ban
             return ToolOutcome(repeated, is_error=True, refused=True, guard="repeated-failure")
         settled = self._asking_a_settled_question(name, args)
         if settled:
@@ -278,8 +282,7 @@ class ToolSurface:
                 is_error=True,
             )
         try:
-            result = await self._dispatch(name, args)
-            outcome = result if isinstance(result, ToolOutcome) else ToolOutcome(result)
+            outcome = await self._dispatch(name, args)
             self._note_outcome(name, args, outcome.is_error)
             logger.info("  -> %s", brief(outcome.content))
             return outcome
@@ -349,7 +352,7 @@ class ToolSurface:
         """Whether this tool's arguments have failed to parse often enough to stop trying."""
         if self._repeating_a_failure(name, self.UNPARSABLE) is None:
             return None
-        self._last_failure = None  # a speed bump, not a ban
+        self._forget_failure(name, self.UNPARSABLE)  # a speed bump, not a ban
         return (
             f"Refused: the arguments for '{name}' have failed to parse "
             f"{self.FAILED_REPEAT_LIMIT} times in a row. The shape is the problem rather "
@@ -362,24 +365,29 @@ class ToolSurface:
         self._note_outcome(name, self.UNPARSABLE, True)
 
     def _repeating_a_failure(self, name, args):
-        last = self._last_failure
-        if not last or last["key"] != (name, brief(args)) or last["count"] < self.FAILED_REPEAT_LIMIT:
+        """Why this call is not worth making again, or None.
+
+        Counted per call rather than only for the most recent one: a read between two failing
+        writes is the ordinary shape of a retry, and it used to clear the count and let the
+        same failing write repeat without limit.
+        """
+        count = self._failures.get((name, brief(args)), 0)
+        if count < self.FAILED_REPEAT_LIMIT:
             return None
         return (
             f"Refused: '{name}' was already called with these exact arguments "
-            f"{last['count']} times and failed each time. Change the arguments or the "
+            f"{count} times and failed each time. Change the arguments or the "
             f"approach; resending the same call cannot succeed."
         )
 
+    def _forget_failure(self, name, args):
+        self._failures.pop((name, brief(args)), None)
+
     def _note_outcome(self, name, args, is_error):
-        key = (name, brief(args))
-        last = self._last_failure
         if not is_error:
-            self._last_failure = None
-        elif last and last["key"] == key:
-            last["count"] += 1
-        else:
-            self._last_failure = {"key": key, "count": 1}
+            return
+        key = (name, brief(args))
+        self._failures[key] = self._failures.get(key, 0) + 1
 
     async def _dispatch(self, name, args):
         # First, so the confusables fold below cannot route around it.
@@ -391,7 +399,7 @@ class ToolSurface:
 
         if name == "run_python":
             try:
-                return await self.substrate.local.run(args.get("code", ""))
+                return ToolOutcome(await self.substrate.local.run(args.get("code", "")))
             except LocalExecutionError as exc:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
@@ -412,26 +420,73 @@ class ToolSurface:
         if name == "skills_fetch":
             return self._skills_fetch(args)
         if name == "finish":
-            return args.get("summary", "done")
-        handler = galaxy_tools.get_handler(name) or notebook.get_handler(name)
-        if handler:
+            return ToolOutcome(args.get("summary", "done"))
+        if name == "notebook_resume":
+            opened = await notebook.resume(
+                self.substrate.galaxy, self.record.get("session_id"), self.record.get("page_id")
+            )
+            # Keep the page this session just made, so a later call reuses it.
+            if isinstance(opened, dict) and opened.get("page_id"):
+                self.record["page_id"] = opened["page_id"]
+            return ToolOutcome(self._claim_artifact(opened))
+        delegated = galaxy_tools.delegated_to_ops(name)
+        handler = galaxy_tools.get_handler(name)
+        if delegated or handler:
+            # Artifact tokens are olit's indirection, so they are resolved for a Galaxy
+            # operation whichever side goes on to run it.
             args, refusal = self._place_artifacts(args)
             if refusal:
                 return ToolOutcome(f"Refused: {refusal}", is_error=True)
-            result = self._claim_artifact(await handler(self.substrate.galaxy, args))
-            payload = json.dumps(result, default=str)
+        if delegated:
+            return await self._run_delegated(name, args, delegated)
+        if handler:
+            try:
+                result = self._claim_artifact(await handler(self.substrate.galaxy, args))
+            except galaxy_tools.ToolParameterError as exc:
+                template = await self._tool_input_template(args.get("tool_id"))
+                return ToolOutcome(galaxy_tools.parameter_help(str(exc), template), is_error=True)
+            # A handler that built its own outcome has already said what happened, including
+            # whether it failed; re-serialising it would hand the model a Python repr.
+            if isinstance(result, ToolOutcome):
+                return result
+            payload = rendered({"data": result})
             # Galaxy names the url and the status; it cannot say that guessing another is wrong.
             hint = fetch_failure_hint.for_result(result)
-            return f"{payload}\n\n{hint}" if hint else payload
+            return ToolOutcome(f"{payload}\n\n{hint}" if hint else payload)
         reference_handler = gtn.get_handler(name) or ena.get_handler(name)
         if reference_handler:
-            return json.dumps(await reference_handler(args), default=str)
+            return ToolOutcome(json.dumps(await reference_handler(args), default=str))
         # Last resort: the name may be spelled with Cyrillic/Greek lookalikes.
         folded = self._fold_tool_name(name)
         if folded:
             logger.info("tool name %r resolved to %r", name, folded)
             return await self._dispatch(folded, args)
         return ToolOutcome(f"Unknown tool: {plain_tool_name(name)}", is_error=True)
+
+    async def _tool_input_template(self, tool_id):
+        """The shape a tool accepts, or None. Built by galaxy-ops, so olit keeps no second copy."""
+        if not tool_id:
+            return None
+        try:
+            envelope = await self.substrate.ops.run("get_tool_input_template", {"tool_id": tool_id})
+        except Exception as exc:
+            logger.info("no input template for %s: %s", tool_id, exc)
+            return None
+        if not envelope.get("success"):
+            return None
+        return (envelope.get("data") or {}).get("inputs_template")
+
+    async def _run_delegated(self, name, args, capability):
+        """One galaxy-ops operation, with the reading olit adds to any Galaxy result."""
+        envelope = await self.substrate.ops.run(name, args, capability)
+        if not envelope.get("success"):
+            return ToolOutcome(envelope.get("message") or f"{name} failed", is_error=True)
+        data = envelope.get("data")
+        hint = await galaxy_tools.catalog_miss_hint(self.substrate.galaxy, name, args, data) or (
+            fetch_failure_hint.for_result(data)
+        )
+        payload = rendered(envelope)
+        return ToolOutcome(f"{payload}\n\n{hint}" if hint else payload)
 
     async def _gate_destructive(self, name, op):
         """Why this must not run, or None if the user approved; never cached."""
@@ -479,7 +534,7 @@ class ToolSurface:
                 "Check the path against the skills router in the system prompt.",
                 is_error=True,
             )
-        return text
+        return ToolOutcome(text)
 
     async def _run_process(self, args):
         proc = self.processes.get(args.get("name")) if self.processes else None
@@ -497,7 +552,7 @@ class ToolSurface:
         if isinstance(summary, dict) and summary.get("ok") is False:
             return ToolOutcome(json.dumps(summary), is_error=True, refused=True, guard="process-refusal")
         if summary and last.get("ok") is not False:
-            return json.dumps(summary)
+            return ToolOutcome(json.dumps(summary))
         # Surface a failed graph rather than returning a bare null.
         if last.get("ok") is False:
             return ToolOutcome(json.dumps({"ok": False, "error": last.get("error")}), is_error=True)
@@ -505,5 +560,5 @@ class ToolSurface:
         # A renderable artifact goes to the shell out of band, not into the context.
         claimed = self._claim_artifact(output, hint=ARTIFACT_HINT)
         if claimed is not output:
-            return json.dumps({**claimed, "ok": True}, default=str)
-        return json.dumps(output)
+            return ToolOutcome(json.dumps({**claimed, "ok": True}, default=str))
+        return ToolOutcome(json.dumps(output))

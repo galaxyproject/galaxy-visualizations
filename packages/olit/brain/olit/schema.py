@@ -74,20 +74,6 @@ RunSpec = Annotated[
 # --- Traverse type definitions ---
 
 
-class FetchSpec(BaseModel):
-    """Fetch configuration for traverse types."""
-
-    target: str
-    id_param: str = "id"
-
-
-class RelationSpec(BaseModel):
-    """Relation definition for traverse types."""
-
-    type: str
-    extract: str
-
-
 class ControlCondition(BaseModel):
     """Control flow condition specification."""
 

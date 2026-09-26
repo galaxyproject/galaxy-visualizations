@@ -50,4 +50,4 @@ def test_a_visualization_with_no_config_yet_reads_as_empty_not_missing():
 
 
 def test_an_unknown_visualization_is_refused():
-    assert "No saved visualization" in refused(read({}))["error"]
+    assert "No saved visualization" in refused(read({}))

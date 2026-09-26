@@ -61,7 +61,8 @@ export function newDocument(options: {
     dataset_id: options.datasetId,
     session: {
       id: uuid(),
-      title: options.title || "Olit session",
+      // Left empty so `title()` can name it; any default here is >= 3 chars and wins.
+      title: options.title || "",
       createdAt: now,
       updatedAt: now,
       turn: 0,

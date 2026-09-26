@@ -17,14 +17,18 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio", "aiohttp"]
+dev = ["black", "ruff", "mypy", "types-PyYAML", "types-jsonschema", "pytest", "pytest-asyncio", "aiohttp"]
 
+# Vendored from galaxy-skills at build time and re-fetched from a pinned sha, so formatting
+# it here is both a divergence from upstream and wiped by the next vendor.
 [tool.black]
 line-length = 120
 target-version = ["py312"]
+force-exclude = "olit/registry/skills/galaxy-skills/"
 
 [tool.ruff]
 line-length = 120
+extend-exclude = ["olit/registry/skills/galaxy-skills"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
@@ -40,6 +44,30 @@ select = ["E", "F", "I"]
 [tool.mypy]
 python_version = "3.12"
 strict = false
+# A process's parameter annotations are matched by identity to build the JSON schema the model
+# reads (registry/processes.py), so `str` cannot become `str | None` without changing the
+# advertised type. These signatures mean implicit Optional and have to keep saying so.
+no_implicit_optional = false
+# Vendored third-party scripts, run inside a skill rather than imported by olit.
+exclude = "^olit/registry/skills/"
+
+[[tool.mypy.overrides]]
+# A process attaches its metadata to the function object and processes.py reads it back with
+# getattr, so neither side declares these attributes.
+module = ["olit.registry.python.*"]
+disable_error_code = ["attr-defined"]
+
+[[tool.mypy.overrides]]
+# The vintent modules are a self-contained subsystem with their own TypedDict contract and
+# registry/skills holds vendored third-party scripts: neither is olit's to type, and checking
+# them buries the core in noise. Imported by olit, so silenced rather than excluded.
+module = ["olit.registry.extensions.vintent.modules.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Supplied by the Pyodide runtime, so they exist in the browser and never under CPython.
+module = ["js", "js.*", "pyodide", "pyodide.*", "pyodide_js"]
+ignore_missing_imports = true
 
 [tool.setuptools.packages.find]
 include = ["olit*"]
@@ -49,3 +77,5 @@ include = ["olit*"]
 # example files a SKILL.md points at), so the glob has to recurse.
 "olit.registry" = ["processes/*.yml", "skills/**/*"]
 "olit.vendor" = ["*.json"]
+# The node driver is how an installed brain reaches galaxy-ops outside the browser.
+"olit.substrate" = ["*.mjs"]

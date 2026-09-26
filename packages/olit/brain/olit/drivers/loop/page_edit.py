@@ -4,6 +4,25 @@ import re
 
 HEADING_RE = re.compile(r"^#{1,6}\s")
 
+# Galaxy encodes an object id as 16 lowercase hex characters.
+ENCODED_ID = re.compile(r"[0-9a-f]{16}")
+# The directive arguments that name a Galaxy object. Only these: a page carries plenty of
+# other arguments, and judging them is Galaxy's job, not this one's.
+OBJECT_ARGUMENT = re.compile(
+    r"\b(visualization_id|history_dataset_id|history_dataset_collection_id)\s*=\s*[\"']?([^\s,)\"']+)"
+)
+
+
+def malformed_object_ids(content):
+    """Directive arguments naming a Galaxy object by something that is not its id.
+
+    Galaxy validates that an argument's *name* is allowed and never looks at its value, so
+    `visualization_id=plotly` is stored and renders a broken embed with no error anywhere.
+    """
+    return [
+        f"{name}={value}" for name, value in OBJECT_ARGUMENT.findall(content or "") if not ENCODED_ID.fullmatch(value)
+    ]
+
 
 def djb2_hash(text):
     """Galaxy's page hash, in `sectionDiffUtils.ts` and `page_assistant.py`."""

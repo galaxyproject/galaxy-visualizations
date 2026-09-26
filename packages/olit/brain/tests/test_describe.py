@@ -26,15 +26,32 @@ def test_every_tool_the_model_is_shown_is_described():
 
 
 def test_a_tool_carries_its_contract_and_the_query_it_builds():
-    tool = described()["tools"]["get_histories"]
+    tool = described()["tools"]["get_job_details"]
     assert tool["capability"] == "read"
-    assert tool["query"]["q"] == "name-contains"
-    assert set(tool) == {"capability", "signature", "params", "prose", "query", "passthrough"}
+    assert tool["query"]["full"] is True
+    assert set(tool) == {
+        "capability",
+        "runner",
+        "signature",
+        "params",
+        "prose",
+        "query",
+        "passthrough",
+        "promised_fields",
+    }
 
 
-def test_a_passthrough_tool_is_marked_and_a_shaping_one_is_not():
+def test_no_operation_olit_still_runs_itself_only_forwards_it():
+    """Forwarding is what galaxy-ops does; a handler that stayed here shapes its result."""
     tools = described()["tools"]
-    assert tools["get_tool_details"]["passthrough"] and not tools["get_tool_input_template"]["passthrough"]
+    assert [n for n, t in tools.items() if t["passthrough"]] == []
+
+
+def test_a_delegated_tool_says_galaxy_ops_runs_it_and_claims_no_query():
+    tools = described()["tools"]
+    assert tools["get_histories"]["runner"] == "galaxy-ops"
+    assert tools["get_histories"]["query"] == {} and tools["get_histories"]["passthrough"] is False
+    assert tools["get_history_contents"]["runner"] == "olit"
 
 
 def test_prompt_blocks_are_symbols_the_prompt_module_defines():

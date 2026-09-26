@@ -66,12 +66,33 @@ const runPython = [{
     function: { name: "run_python", arguments: JSON.stringify({ code: RUN_PYTHON_CODE }) },
 }];
 
+// A spread of the operations galaxy-ops runs instead of a handler here: a paginated read, two
+// that shape their answer from a tool's schema, one that pages a list Galaxy will not page,
+// and a write. Kept small enough that the turn fits the drive's context budget uncompacted.
+const delegatedOps = [
+    { id: "call_1", type: "function", function: { name: "get_histories", arguments: JSON.stringify({ limit: 2 }) } },
+    { id: "call_2", type: "function", function: { name: "get_tool_run_examples", arguments: JSON.stringify({ tool_id: "cat1" }) } },
+    { id: "call_3", type: "function", function: { name: "get_tool_input_template", arguments: JSON.stringify({ tool_id: "cat1" }) } },
+    { id: "call_4", type: "function", function: { name: "get_tool_panel", arguments: JSON.stringify({ limit: 3 }) } },
+    { id: "call_5", type: "function", function: { name: "create_history", arguments: JSON.stringify({ history_name: "olit e2e ops" }) } },
+];
+
 const createVisualization = [{
     id: "call_1",
     type: "function",
     function: {
         name: "show_visualization",
         arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl" }),
+    },
+}];
+
+// Two turns, two differently titled artifacts, so a drive can tell which one the pane shows.
+const showTitled = (title) => [{
+    id: "call_1",
+    type: "function",
+    function: {
+        name: "show_visualization",
+        arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl", title }),
     },
 }];
 
@@ -220,6 +241,13 @@ const server = http.createServer(async (req, res) => {
         if (script === "compact") {
             return json(res, 200, message("ok"));
         }
+        if (script === "ops-bridge") {
+            const msgs = body.messages || [];
+            const tail = msgs[msgs.length - 1] || {};
+            return json(res, 200, tail.role === "tool"
+                ? message("operations answered")
+                : message("", delegatedOps));
+        }
         if (script === "python") {
             const msgs = body.messages || [];
             const tail = msgs[msgs.length - 1] || {};
@@ -230,6 +258,12 @@ const server = http.createServer(async (req, res) => {
         // Keyed on the last message; by turn two the transcript always has a tool result.
         const messages = body.messages || [];
         const last = messages[messages.length - 1] || {};
+        if (script === "two-artifacts") {
+            const turns = messages.filter((m) => m.role === "user").length;
+            return json(res, 200, last.role === "tool"
+                ? message(`Chart ${turns} is open.`)
+                : message("", showTitled(turns < 2 ? "First Chart" : "Second Chart")));
+        }
         if (script === "visualization") {
             return json(res, 200, last.role === "tool"
                 ? message("The structure is open in the viewer.")

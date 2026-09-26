@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 
 from olit.exceptions import HttpError
 
+from .browser import in_browser
+
 logger = logging.getLogger(__name__)
 
 # Retry configuration
@@ -151,15 +153,6 @@ def _report(on_retry, status, wait, attempt):
         logger.debug("retry listener raised", exc_info=True)
 
 
-def is_pyodide():
-    try:
-        import pyodide_js  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
-
-
 # parse response without relying on content type
 async def parse_response(response):
     text = await response.text()
@@ -243,7 +236,7 @@ class ServerHttpClient(HttpClient):
 # ----------------------------
 
 http: HttpClient
-if is_pyodide():
+if in_browser():
     http = BrowserHttpClient()
 else:
     http = ServerHttpClient()

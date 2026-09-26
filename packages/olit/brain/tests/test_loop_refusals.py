@@ -163,8 +163,12 @@ def test_arguments_that_keep_failing_to_parse_stop_being_asked_for():
     assert any("shape is the problem" in r for r in refusals)
 
 
-def test_a_parsable_call_in_between_clears_the_count():
-    """Three failures either side of a working call are not one run of failures."""
+def test_a_working_call_in_between_does_not_clear_the_count():
+    """Four unparsable calls are four, whatever succeeded between them.
+
+    They used to be forgiven: any success reset the counter, so a model that read something
+    between two malformed writes could repeat the malformed write without limit.
+    """
     llm = ScriptedLlm(
         *unparsable(2),
         choice([call("run_python", '{"code": "1"}')]),
@@ -173,4 +177,4 @@ def test_a_parsable_call_in_between_clears_the_count():
     )
     _, result = _run(llm)
 
-    assert not [m for m in tool_messages(result) if "failed to parse" in m["content"]]
+    assert [m for m in tool_messages(result) if "failed to parse" in m["content"]]

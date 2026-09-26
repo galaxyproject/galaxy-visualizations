@@ -58,5 +58,5 @@ export function reportSavedState(saved: boolean) {
 /** Galaxy requires at least three characters and shows this in the user's visualization list. */
 export function title(document: SessionDocument): string {
   const given = (document.session.title || "").trim();
-  return given.length >= 3 ? given : `Olit session ${document.session.id.slice(0, 8)}`;
+  return given.length >= 3 ? given : `Olit Session (${document.session.id.slice(0, 8)})`;
 }

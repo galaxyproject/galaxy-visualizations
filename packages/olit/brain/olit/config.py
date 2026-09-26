@@ -10,6 +10,8 @@ class Config(BaseModel):
     galaxy_key: str | None = None
     history_id: str | None = None
     dataset_id: str | None = None
+    session_id: str | None = None
+    record_page_id: str | None = None
 
     ai_provider: str | None = None
     ai_base_url: str | None = None

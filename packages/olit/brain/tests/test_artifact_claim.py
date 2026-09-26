@@ -47,7 +47,7 @@ class Substrate:
 def _create():
     surface = ToolSurface(Substrate())
     outcome = asyncio.run(surface.dispatch("show_visualization", {"dataset_id": DATASET, "visualization": "ngl"}))
-    return surface, json.loads(outcome.text)
+    return surface, json.loads(outcome.text)["data"]
 
 
 def test_the_shell_receives_a_renderable_artifact():
@@ -67,4 +67,4 @@ def test_a_tool_without_an_artifact_is_untouched():
     surface = ToolSurface(Substrate())
     outcome = asyncio.run(surface.dispatch("list_visualizations", {"dataset_id": DATASET}))
     assert surface.artifacts == []
-    assert "visualizations" in json.loads(outcome.text)
+    assert "visualizations" in json.loads(outcome.text)["data"]

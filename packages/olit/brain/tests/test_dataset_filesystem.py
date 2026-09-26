@@ -43,6 +43,12 @@ class FakeGalaxy:
     # Galaxy states file_size on the dataset record; the display endpoint returns bytes.
     stated_size = None
 
+    # What Galaxy parsed the dataset as, alongside the size on the same record.
+    details = None
+
+    # Only an `ok` dataset holds readable content.
+    state = "ok"
+
     chunkable = True
 
     async def get(self, path, binary=False):
@@ -56,7 +62,11 @@ class FakeGalaxy:
             cut = cut[: cut.rfind("\n") + 1] or cut  # line-aligned, as Galaxy does
             return {"ck_data": cut, "offset": len(cut)}
         if not path.endswith("/display") and "ck_size=" not in path:
-            return {"file_size": self.stated_size} if self.stated_size is not None else {"id": "d"}
+            # Galaxy always states a state; a fake without one is not a dataset.
+            record = {"id": "d", "state": self.state, **(self.details or {})}
+            if self.stated_size is not None:
+                record["file_size"] = self.stated_size
+            return record
         if binary and isinstance(self.content, str):
             return self.content.encode("utf-8")
         return self.content
@@ -114,7 +124,7 @@ async def test_a_file_written_locally_can_be_uploaded_back():
 async def test_uploading_a_missing_path_is_an_error_not_a_crash():
     g = FakeGalaxy("")
     out = refused(await _upload_file(g, {"path": "/data/does-not-exist.dat"}))
-    assert "error" in out and g.posted is None
+    assert "No such file" in out and g.posted is None
 
 
 @pytest.mark.asyncio
@@ -142,7 +152,7 @@ async def test_uploading_binary_is_refused_rather_than_corrupted():
     g = FakeGalaxy(BINARY)
     downloaded = await _download_dataset(g, {"dataset_id": "bam2"})
     out = refused(await _upload_file(g, {"path": downloaded["path"]}))
-    assert "error" in out and "binary" in out["error"].lower()
+    assert "binary" in out.lower()
     assert g.posted is None  # nothing sent
 
 
@@ -176,7 +186,7 @@ async def test_an_unchunkable_oversized_dataset_is_refused():
     g.stated_size = MAX_DOWNLOAD_BYTES + 1
     g.chunkable = False
     out = refused(await _download_dataset(g, {"dataset_id": "bigbam"}))
-    assert "error" in out and "path" not in out
+    assert "cannot be read in chunks" in out
 
 
 @pytest.mark.asyncio
@@ -189,29 +199,79 @@ async def test_a_dataset_at_the_limit_is_still_downloaded():
 
 
 @pytest.mark.asyncio
-async def test_the_details_preview_reads_a_chunk_not_the_whole_file():
-    """/display streams everything; previewing must not pull a large dataset into memory."""
-    from olit.drivers.loop.galaxy_tools import _get_dataset_details
+async def test_the_result_states_the_format_galaxy_parsed(data_dir):
+    """The agent must not have to guess a separator off the preview.
 
+    The file is written as `.dat` whatever it was, and pandas infers nothing from that, so
+    the delimiter Galaxy recorded is the only truthful answer available.
+    """
     g = FakeGalaxy(TABLE)
-    out = await _get_dataset_details(g, {"dataset_id": "d", "preview_lines": 1000})
-    assert out["preview"]
-    assert not any(c.endswith("/display") for c in g.fetched)
+    g.details = {"extension": "tabular", "metadata_delimiter": "\t"}
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert out["extension"] == "tabular"
+    assert out["delimiter"] == "\t"
 
 
-@pytest.mark.parametrize(
-    "reported,expect_in,expect_out",
-    [
-        ({"prompt_tokens": 10, "completion_tokens": 4}, 10, 4),
-        ({"input_tokens": 7, "output_tokens": 3}, 7, 3),
-        ({"total_tokens": 12}, 0, 12),
-        ({}, 0, 0),
-    ],
-)
-def test_usage_keys_vary_by_provider(reported, expect_in, expect_out):
-    """Reading only prompt_tokens/completion_tokens silently shows nothing elsewhere."""
-    got_in = reported.get("prompt_tokens") or reported.get("input_tokens") or 0
-    got_out = reported.get("completion_tokens") or reported.get("output_tokens") or 0
-    if not got_in and not got_out:
-        got_out = reported.get("total_tokens") or 0
-    assert (got_in, got_out) == (expect_in, expect_out)
+@pytest.mark.asyncio
+async def test_a_comma_delimited_dataset_says_so(data_dir):
+    g = FakeGalaxy("a,b\n1,2\n")
+    g.details = {"extension": "csv", "metadata_delimiter": ","}
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert out["delimiter"] == ","
+
+
+@pytest.mark.asyncio
+async def test_a_format_without_a_delimiter_reports_none(data_dir):
+    """A fasta has an extension and no delimiter; inventing one would be worse than silence."""
+    g = FakeGalaxy(">seq\nACGT\n")
+    g.details = {"extension": "fasta"}
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert out["extension"] == "fasta"
+    assert "delimiter" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_record_without_metadata_still_downloads(data_dir):
+    g = FakeGalaxy(TABLE)
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+    assert os.path.isfile(out["path"])
+    assert "extension" not in out and "delimiter" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_dataset_still_running_is_refused_rather_than_read(data_dir):
+    """Its bytes so far are a partial file that looks whole. galaxy-mcp's require_ok_state."""
+    g = FakeGalaxy(TABLE)
+    g.state = "running"
+
+    out = refused(await _download_dataset(g, {"dataset_id": "abc123"}))
+
+    assert "not 'ok'" in out and "running" in out
+    assert not os.path.isfile(f"{data_dir}/abc123.dat"), "nothing may be written"
+
+
+@pytest.mark.asyncio
+async def test_an_errored_dataset_is_refused_too(data_dir):
+    g = FakeGalaxy(TABLE)
+    g.state = "error"
+
+    assert "not 'ok'" in refused(await _download_dataset(g, {"dataset_id": "abc123"}))
+
+
+@pytest.mark.asyncio
+async def test_a_dataset_that_states_no_state_is_refused(data_dir):
+    """A record with no state is not a dataset this can vouch for."""
+    g = FakeGalaxy(TABLE)
+    g.state = None
+
+    assert refused(await _download_dataset(g, {"dataset_id": "abc123"}))
+
+
+@pytest.mark.asyncio
+async def test_an_ok_dataset_downloads_as_before(data_dir):
+    g = FakeGalaxy(TABLE)
+
+    out = await _download_dataset(g, {"dataset_id": "abc123"})
+
+    assert out["path"] == f"{data_dir}/abc123.dat"
+    assert os.path.isfile(out["path"]) and out["lines"] == 120

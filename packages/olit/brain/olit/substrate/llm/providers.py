@@ -100,9 +100,10 @@ JETSTREAM2 = Provider(
     name="Jetstream2 LLM inference service",
     base_url="https://llm.jetstream-cloud.org/api",
     auth_env="JETSTREAM2_KEY",
+    # First is the default the picker offers; gpt-oss-120b is what olit is evaluated on.
     models={
-        "llama-4-scout": Model("llama-4-scout", context_window=328_000),
         "gpt-oss-120b": Model("gpt-oss-120b", context_window=131_072),
+        "llama-4-scout": Model("llama-4-scout", context_window=328_000),
     },
 )
 

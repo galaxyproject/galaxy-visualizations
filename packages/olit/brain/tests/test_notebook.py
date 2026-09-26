@@ -1,13 +1,13 @@
-"""The record: one Galaxy Page per history, found again rather than recreated."""
+"""The record: one standalone Galaxy Page per session, named rather than discovered."""
 
 import asyncio
 
 from olit.drivers.loop import notebook
+from olit.drivers.loop.outcome import ToolOutcome
 from olit.drivers.loop.tools import ToolSurface
 
-from .fakes import refused
-
 HISTORY = "f2db41e1fa331b3e"
+SESSION = "4f2a9c1b-7d3e-4a21-9f00-1b2c3d4e5f60"
 
 
 class FakeGalaxy:
@@ -20,8 +20,6 @@ class FakeGalaxy:
 
     async def get(self, path):
         self.gets.append(path)
-        if path.startswith("api/pages?"):
-            return self.pages
         if path.startswith("api/pages/"):
             page_id = path.split("/")[-1]
             return next((p for p in self.pages if p.get("id") == page_id), {})
@@ -41,94 +39,83 @@ def run(coro):
 # --- Identity -----------------------------------------------------------------
 
 
-def test_the_record_is_found_by_history_association():
-    g = FakeGalaxy([{"id": "p1", "history_id": HISTORY, "content": "prior work"}])
-    out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
-
-    assert out["created"] is False
-    assert out["page_id"] == "p1"
-    assert any("history_id=" in path for path in g.gets), "must ask Galaxy to scope by history"
+def _resume(galaxy, page_id=None, session_id=SESSION):
+    return run(notebook.resume(galaxy, session_id, page_id))
 
 
-def test_creation_does_not_invent_a_slug():
+def test_the_bound_page_is_opened_without_asking_galaxy_to_search():
+    g = FakeGalaxy([{"id": "p1", "content": "prior work"}])
+
+    out = _resume(g, page_id="p1")
+
+    assert out["created"] is False and out["page_id"] == "p1"
+    assert out["content"] == "prior work"
+    assert not any("api/pages?" in path for path in g.gets), "nothing may query pages by history"
+
+
+def test_a_session_with_no_page_creates_a_standalone_one():
     g = FakeGalaxy()
-    run(notebook._notebook_resume(g, {"history_id": HISTORY}))
 
-    _, payload = g.posted[0]
-    assert payload["history_id"] == HISTORY
-    assert "slug" not in payload
+    out = _resume(g)
 
-
-def test_a_first_call_creates_the_record_once():
-    g = FakeGalaxy()
-    out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
-
-    assert out["created"] is True
-    assert out["page_id"] == "newpage1"
+    assert out["created"] is True and out["page_id"] == "newpage1"
     path, payload = g.posted[0]
     assert path == "api/pages"
-    # Attached to the history, so it shows up as that history's notebook in Galaxy.
-    assert payload["history_id"] == HISTORY
-    # Galaxy defaults a page to html, which keeps the body out of the editor and leaves a
-    # galaxy directive as literal text.
+    # Standalone on purpose: the record belongs to the session, not to a history.
+    assert "history_id" not in payload
+    assert payload["slug"] == f"olit-{SESSION}"
+    assert payload["title"] == "Olit Notebook (4f2a9c1b)"
+    # Galaxy defaults a page to html, which keeps the body out of the editor.
     assert payload["content_format"] == "markdown"
 
 
-def test_a_second_call_reattaches_instead_of_creating_a_second_record():
-    """The reload case. A new page here would orphan the previous record silently."""
-    g = FakeGalaxy()
-    first = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
-    second = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
+def test_a_deleted_page_is_replaced_and_the_new_id_returned():
+    """Galaxy answers 200 with deleted=true, so this is read off the body, not a status."""
+    g = FakeGalaxy([{"id": "p1", "deleted": True, "content": "gone"}])
 
-    assert second["created"] is False
-    assert second["page_id"] == first["page_id"]
-    assert len(g.posted) == 1, "resume created a second page"
+    out = _resume(g, page_id="p1")
+
+    assert out["created"] is True and out["page_id"] == "newpage1"
 
 
-def test_resuming_returns_the_existing_body_so_prior_work_is_readable():
-    g = FakeGalaxy(
-        [
-            {
-                "id": "p1",
-                "history_id": HISTORY,
-                "slug": f"olit-{HISTORY}",
-                "title": "olit record",
-                "content": "## Record\n\nStep 1 done.",
-            }
-        ]
-    )
-    out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
-
-    assert out["created"] is False
-    assert "Step 1 done." in out["content"]
-
-
-def test_a_page_that_merely_mentions_the_slug_is_not_the_record():
-    """Galaxy's page search is free text over title and content; only slug identifies."""
-    g = FakeGalaxy([{"id": "decoy", "slug": "someone-elses-page", "content": f"see olit-{HISTORY} for details"}])
-    out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
+def test_a_page_galaxy_no_longer_has_is_replaced():
+    out = _resume(FakeGalaxy(), page_id="vanished")
 
     assert out["created"] is True
-    assert out["page_id"] != "decoy"
 
 
-def test_a_record_for_another_history_is_not_reused():
-    g = FakeGalaxy([{"id": "other", "history_id": "aaaaaaaaaaaaaaaa", "content": "not this one"}])
-    out = run(notebook._notebook_resume(g, {"history_id": HISTORY}))
+def test_an_unreachable_galaxy_never_replaces_the_record():
+    """A transient failure must not orphan a record that is still there."""
 
-    assert out["created"] is True
-    assert out["page_id"] != "other"
+    class Broken(FakeGalaxy):
+        async def get(self, path):
+            raise RuntimeError("network down")
+
+    g = Broken()
+    try:
+        _resume(g, page_id="p1")
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("a failed read must not be treated as a missing page")
+    assert g.posted == [], "nothing may be created while the answer is unknown"
 
 
-def test_a_missing_history_id_is_refused_rather_than_guessed():
+def test_the_same_session_keeps_the_same_page_across_calls():
     g = FakeGalaxy()
-    out = refused(run(notebook._notebook_resume(g, {})))
+    first = _resume(g)
+    second = _resume(g, page_id=first["page_id"])
 
-    assert "error" in out
-    assert g.posted == [], "must not create an unattached record"
+    assert second["created"] is False and second["page_id"] == first["page_id"]
+    assert len(g.posted) == 1
 
 
-# --- Gating -------------------------------------------------------------------
+def test_a_changed_working_history_does_not_touch_the_record():
+    """The two bindings are independent: the page is the session's, not the history's."""
+    g = FakeGalaxy([{"id": "p1", "content": "kept"}])
+
+    assert _resume(g, page_id="p1")["page_id"] == "p1"
+    assert g.posted == []
 
 
 class Manifest:
@@ -158,21 +145,31 @@ def test_the_surface_advertises_and_dispatches_notebook_resume():
     assert "notebook_resume" not in read_only
 
 
-def _excerpt(galaxy, history_id=HISTORY):
-    return asyncio.run(notebook.excerpt(galaxy, history_id))
+def _excerpt(galaxy, page_id="p1", history_id=HISTORY):
+    return asyncio.run(notebook.excerpt(galaxy, page_id, history_id))
 
 
-def test_no_history_means_no_excerpt():
-    """The eval harness and tests run without a bound history; the turn proceeds."""
-    assert _excerpt(FakeGalaxy(), history_id=None) == ""
+def test_neither_binding_means_no_excerpt():
+    assert _excerpt(FakeGalaxy(), page_id=None, history_id=None) == ""
 
 
-def test_no_record_yet_means_no_excerpt():
-    assert _excerpt(FakeGalaxy()) == ""
+def test_a_session_with_no_record_yet_is_still_told_its_history():
+    """A session has a history before it has a record; the binding must not wait for one."""
+    text = _excerpt(FakeGalaxy(), page_id=None)
+
+    assert f'history_id="{HISTORY}"' in text
+    assert "The record (current contents)" not in text
+
+
+def test_a_page_galaxy_does_not_have_falls_back_to_the_binding():
+    text = _excerpt(FakeGalaxy())
+
+    assert HISTORY in text
+    assert "The record (current contents)" not in text
 
 
 def test_the_excerpt_carries_the_record_and_the_data_boundary():
-    page = {"id": "p1", "history_id": HISTORY, "content": "## Record\n\nStep 1 done."}
+    page = {"id": "p1", "content": "## Record\n\nStep 1 done."}
 
     text = _excerpt(FakeGalaxy([page]))
 
@@ -183,7 +180,7 @@ def test_the_excerpt_carries_the_record_and_the_data_boundary():
 
 def test_a_long_record_is_elided_in_the_middle_like_loom():
     body = "H" * notebook.HEAD_MAX_CHARS + "M" * 5000 + "T" * notebook.TAIL_MAX_CHARS
-    page = {"id": "p1", "history_id": HISTORY, "content": body}
+    page = {"id": "p1", "content": body}
 
     text = _excerpt(FakeGalaxy([page]))
 
@@ -194,22 +191,33 @@ def test_a_long_record_is_elided_in_the_middle_like_loom():
 
 def test_an_unreachable_galaxy_does_not_break_the_turn():
     class Broken(FakeGalaxy):
-        async def get(self, path):
+        async def get(self, path, params=None):
             raise RuntimeError("network down")
 
-    assert _excerpt(Broken()) == ""
+    text = _excerpt(Broken())
+
+    assert "The record (current contents)" not in text
+    assert f'history_id="{HISTORY}"' in text, "the history is known without asking Galaxy"
 
 
-def test_the_excerpt_names_the_bound_history():
+def test_the_excerpt_names_the_working_history():
     """loom's buildGalaxyPageBindingBlock tells the agent the history every turn; without it
     the agent omits history_id and Galaxy puts outputs in a history the user never opened."""
-    page = {"id": "p1", "history_id": HISTORY, "content": "## Record\n\nx"}
+    page = {"id": "p1", "content": "## Record\n\nx"}
 
     text = _excerpt(FakeGalaxy([page]))
 
     assert HISTORY in text
-    assert "bound to" in text
+    assert "working in" in text
     assert f'history_id="{HISTORY}"' in text
+
+
+def test_the_record_is_shown_even_with_no_working_history():
+    """The two bindings are independent, so one missing does not hide the other."""
+    text = _excerpt(FakeGalaxy([{"id": "p1", "content": "## Record\n\nkept"}]), history_id=None)
+
+    assert "kept" in text
+    assert "Galaxy binding" not in text
 
 
 def test_the_binding_block_lists_the_history_datasets():
@@ -250,7 +258,7 @@ def test_the_binding_block_lists_the_history_datasets():
                 ]
             return {}
 
-    out = asyncio.run(notebook.excerpt(G(), "h1"))
+    out = asyncio.run(notebook.excerpt(G(), "p1", "h1"))
 
     assert "## Datasets in this history" in out
     assert "aaaa000000000001" in out, "a live dataset must be listed"
@@ -273,7 +281,7 @@ def test_the_binding_block_survives_a_history_it_cannot_list():
                 return [{"id": "p1", "history_id": "h1"}]
             return {}
 
-    out = asyncio.run(notebook.excerpt(G(), "h1"))
+    out = asyncio.run(notebook.excerpt(G(), "p1", "h1"))
 
     assert "## Galaxy binding" in out
     assert "## Datasets in this history" not in out
@@ -289,3 +297,43 @@ def test_page_source_prefers_the_editable_markdown_over_the_expanded_render():
     # html pages carry no content_editor, so fall back rather than return nothing
     assert _page_source({"content": "<p>html page</p>"}) == "<p>html page</p>"
     assert _page_source({}) == ""
+
+
+def test_the_notebook_is_named_after_the_session_that_owns_it():
+    """Matches the saved session's own title, which is the pairing a user sees."""
+    assert notebook.title_for_session(SESSION) == "Olit Notebook (4f2a9c1b)"
+
+
+def test_the_slug_is_derived_from_the_session_and_is_a_legal_galaxy_slug():
+    import re
+
+    slug = notebook.slug_for_session(SESSION)
+    assert slug == f"olit-{SESSION}"
+    assert re.fullmatch(r"[a-z0-9-]+", slug), "Galaxy rejects anything else"
+
+
+def test_two_sessions_get_different_identities():
+    other = "9a8b7c6d-0000-4000-8000-111122223333"
+    assert notebook.title_for_session(SESSION) != notebook.title_for_session(other)
+    assert notebook.slug_for_session(SESSION) != notebook.slug_for_session(other)
+
+
+def test_a_session_without_an_identity_is_refused_not_crashed():
+    """A missing session id used to reach `None[:8]` and surface as a TypeError."""
+    out = run(notebook.resume(FakeGalaxy(), None, None))
+
+    assert isinstance(out, ToolOutcome) and out.is_error
+    assert "no identity" in out.content["error"]
+
+
+def test_the_surface_keeps_the_page_it_just_created():
+    """Without this every call makes another page: the harness holds no session document."""
+    surface = ToolSurface(Substrate(["read", "write"]), record={"session_id": SESSION})
+    galaxy = FakeGalaxy()
+    surface.substrate.galaxy = galaxy
+
+    run(surface._dispatch("notebook_resume", {}))
+    run(surface._dispatch("notebook_resume", {}))
+
+    assert surface.record["page_id"] == "newpage1"
+    assert len(galaxy.posted) == 1, "the second call must reuse the first page"

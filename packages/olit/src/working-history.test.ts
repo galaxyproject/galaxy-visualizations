@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { historyFromResult } from "./working-history";
+import { historyFromResult, recordPageFromResult } from "./working-history";
 
 const result = (payload: unknown) => JSON.stringify(payload);
 
@@ -36,5 +36,32 @@ describe("the history a session ends up working in", () => {
       items: [{ model_class: "History", id: "other", name: "Unnamed history" }],
     });
     expect(historyFromResult("get_histories", listed)).toBeUndefined();
+  });
+});
+
+describe("recordPageFromResult", () => {
+  it("learns the page a record call answered with", () => {
+    const content = JSON.stringify({
+      created: true,
+      page_id: "p9",
+      title: "Olit Notebook (4f2a9c1b)",
+    });
+    expect(recordPageFromResult("notebook_resume", content)).toBe("p9");
+  });
+
+  it("ignores a page id mentioned by any other tool", () => {
+    // Only the record call speaks for the record; update_page reports one too.
+    const content = JSON.stringify({ page_id: "someone-elses" });
+    expect(recordPageFromResult("update_page", content)).toBeUndefined();
+  });
+
+  it("survives a result that is not JSON", () => {
+    expect(recordPageFromResult("notebook_resume", "Refused: no")).toBeUndefined();
+  });
+
+  it("survives a result with no page id", () => {
+    expect(
+      recordPageFromResult("notebook_resume", JSON.stringify({ error: "boom" })),
+    ).toBeUndefined();
   });
 });

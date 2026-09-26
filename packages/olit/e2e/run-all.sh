@@ -32,7 +32,9 @@ GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=ollama LLM_ROOT=http://127.0.0.1:
   npm run dev > /tmp/olit-e2e-dev.log 2>&1 & pids+=($!)
 for _ in $(seq 40); do curl -sf -o /dev/null http://localhost:5173/ && break; sleep 1; done
 
-for d in confirm session unsaved-changes catalog-refusal ratelimit visualization-artifact artifact-survives-switch run-python; do
+ran=""
+for d in confirm session unsaved-changes catalog-refusal ratelimit visualization-artifact artifact-survives-switch artifact-restore-newest run-python; do
+    ran="$ran $d"
     if LLM_CONTEXT_WINDOW=40000 node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
@@ -46,11 +48,21 @@ done
 env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tmp/olit-e2e-build.log 2>&1
 
 for d in credentials artifact-pane provider-switch galaxy-boot; do
+    ran="$ran $d"
     if node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
         echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1
     fi
+done
+
+# Derived from what is on disk, so a driver this script forgets to run is named here
+# instead of vanishing. These need a real Galaxy; a green run above is not coverage of them.
+echo
+for f in e2e/*-drive.cjs; do
+    d=$(basename "$f" -drive.cjs)
+    case " $ran " in *" $d "*) continue;; esac
+    printf '  SKIP  %-22s not run here: it needs a real Galaxy (see the header of %s)\n' "$d" "$f"
 done
 
 exit $fail

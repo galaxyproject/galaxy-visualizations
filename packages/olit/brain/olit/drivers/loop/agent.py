@@ -56,11 +56,12 @@ class LoopDriver:
         self.secrets = collect_secret_values(getattr(substrate, "config", None))
         config = getattr(substrate, "config", None) or {}
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
+        self.record = {"session_id": config.get("session_id"), "page_id": config.get("record_page_id")}
 
     async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
         # One surface per turn. Earlier turns' artifacts are handed in by the caller, which
         # holds them: this driver is rebuilt whenever the session's config changes.
-        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts)
+        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts, self.record)
         messages = [dict(m) for m in transcripts]
         # This run's output, kept apart from the transcript that compaction rewrites.
         produced = []
@@ -81,20 +82,16 @@ class LoopDriver:
                 ended = ABORTED
                 break
 
-            # Top of a step is the only point where every tool call has its result.
-            messages, status = await compaction.compact(
-                messages, self.substrate.llm, self.compaction, cancellation, measured
+            messages, measured, reported_overflow = await _compacted(
+                messages,
+                self.substrate.llm,
+                self.compaction,
+                cancellation,
+                measured,
+                reported_overflow,
+                on_event,
+                logs,
             )
-            if status == compaction.COMPACTED:
-                logs.append("compacted the conversation")
-                _emit(on_event, {"type": "compacted"})
-                # The index it carried does not point into the rewritten transcript.
-                measured = None
-            elif status == compaction.IMPOSSIBLE and not reported_overflow:
-                # Once per turn: the condition persists and would bury the output.
-                reported_overflow = True
-                logs.append("over the context budget with nothing left to compact")
-                _emit(on_event, {"type": "context_overflow"})
 
             try:
                 reply = await self.substrate.llm.complete(
@@ -110,19 +107,7 @@ class LoopDriver:
                 ended = ABORTED
                 break
 
-            # Providers disagree on the key names, and some report only a total.
-            _u = reply.usage or {}
-            _in = _u.get("prompt_tokens") or _u.get("input_tokens") or 0
-            _out = _u.get("completion_tokens") or _u.get("output_tokens") or 0
-            if not _in and not _out:
-                _out = _u.get("total_tokens") or 0
-            usage["input"] += int(_in)
-            usage["output"] += int(_out)
-            # Only providers that price the call report this; others leave it None.
-            if _u.get("cost") is not None:
-                usage["cost"] = (usage["cost"] or 0.0) + float(_u["cost"])
-            if not _u:
-                logs.append("usage: provider reported none")
+            _add_usage(usage, reply.usage, logs)
 
             truncated = reply.finish_reason == TRUNCATED
             tool_calls = reply.tool_calls
@@ -261,6 +246,41 @@ class LoopDriver:
             # Olit's own caps and guards, so an eval can see one shaped a trajectory.
             "guards": guards,
         }
+
+
+async def _compacted(messages, llm, budget, cancellation, measured, reported_overflow, on_event, logs):
+    """Compact at the top of a step; the transcript, the still-valid token index, and whether
+    an overflow has been reported this turn."""
+    # Top of a step is the only point where every tool call has its result.
+    messages, status = await compaction.compact(messages, llm, budget, cancellation, measured)
+    if status == compaction.COMPACTED:
+        logs.append("compacted the conversation")
+        _emit(on_event, {"type": "compacted"})
+        # The index it carried does not point into the rewritten transcript.
+        measured = None
+    elif status == compaction.IMPOSSIBLE and not reported_overflow:
+        # Once per turn: the condition persists and would bury the output.
+        reported_overflow = True
+        logs.append("over the context budget with nothing left to compact")
+        _emit(on_event, {"type": "context_overflow"})
+    return messages, measured, reported_overflow
+
+
+def _add_usage(usage, reported, logs):
+    """Fold one reply's token report into the turn's running total."""
+    # Providers disagree on the key names, and some report only a total.
+    _u = reported or {}
+    _in = _u.get("prompt_tokens") or _u.get("input_tokens") or 0
+    _out = _u.get("completion_tokens") or _u.get("output_tokens") or 0
+    if not _in and not _out:
+        _out = _u.get("total_tokens") or 0
+    usage["input"] += int(_in)
+    usage["output"] += int(_out)
+    # Only providers that price the call report this; others leave it None.
+    if _u.get("cost") is not None:
+        usage["cost"] = (usage["cost"] or 0.0) + float(_u["cost"])
+    if not _u:
+        logs.append("usage: provider reported none")
 
 
 def _emit(on_event, event):

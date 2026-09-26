@@ -16,6 +16,11 @@ export interface Artifact {
  * Two sources, and no third: kinds olit produces itself, and Galaxy visualizations, which
  * Galaxy renders at its own display route from a dataset or a saved visualization.
  */
+/** What the pane shows for a list: the newest, since a live turn clears the pane first. */
+export function paneArtifacts(artifacts: Artifact[]): Artifact[] {
+  return artifacts.length ? [artifacts[artifacts.length - 1]] : [];
+}
+
 export async function renderArtifact(content: HTMLElement, artifact: Artifact): Promise<void> {
   const card = document.createElement("div");
   card.className = "artifact-card";

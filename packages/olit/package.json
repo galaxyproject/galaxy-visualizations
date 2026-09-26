@@ -7,27 +7,33 @@
     "static"
   ],
   "scripts": {
-    "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:olit && vite build",
+    "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:ops && npm run build:olit && vite build",
     "build:olit": "cd brain && rm -rf build dist olit.egg-info && SOURCE_DATE_EPOCH=315532800 python -m build --wheel && cd .. && node wheel.stamp.js && mkdir -p static/pyodide && rm -f static/pyodide/olit-*.whl && cp brain/dist/olit-*.whl static/pyodide/",
+    "build:ops": "node ops.install.js",
     "build:providers": "cd brain && python3 scripts/dump_providers.py",
     "build:pyodide": "node pyodide.install.js",
     "build:skills": "node skills.install.js",
     "describe": "cd brain && python3 -m olit.describe --root ..",
     "dev": "npm run build && vite",
+    "galaxy-mcp-docs": "python3 scripts/capture_galaxy_mcp_docs.py",
     "lint:js": "prettier --config ./prettier.config.js --check './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
-    "lint:python": "cd brain && python -m black --check . && uvx ruff check .",
+    "lint:python": "cd brain && python -m black --check . && ruff check .",
     "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
     "preview": "vite preview",
-    "test": "npm run test:unit && npm run test:python && npm run lint:python && npm run lint:js && npm run typecheck && npm run vendored && npm run test:e2e",
+    "stale": "node stale.check.js",
+    "test": "npm run test:unit && npm run test:python && npm run lint:python && npm run lint:js && npm run typecheck && npm run typecheck:python && npm run vendored && npm run test:e2e",
     "test:e2e": "bash e2e/run-all.sh",
-    "test:python": "cd brain && python -m pytest tests/ -v --import-mode=importlib",
+    "test:python": "cd brain && python -m pytest tests/ -v -r s --import-mode=importlib",
     "test:ui": "vitest --ui",
     "test:unit": "vitest run",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
-    "vendored": "python3 vendored/check.py"
+    "vendored": "python3 vendored/check.py",
+    "galaxy-ops-registry": "node scripts/capture_galaxy_ops_registry.mjs",
+    "typecheck:python": "cd brain && python -m mypy olit"
   },
   "dependencies": {
+    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.4/galaxyproject-galaxy-ops-0.1.1-fork.4.tgz",
     "mermaid": "^11.16.1",
     "vega-embed": "^7.1.0"
   },
