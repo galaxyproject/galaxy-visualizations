@@ -140,6 +140,13 @@ class GalaxyOps:
         view._transports = self._transports
         return view
 
+    async def close(self):
+        """Release whatever a transport holds. A scoped view shares them, so this is idempotent."""
+        for transport in self._transports:
+            release = getattr(transport, "close", None)
+            if release is not None:
+                await release()
+
     def _transport(self):
         return next((t for t in self._transports if t.available()), None)
 

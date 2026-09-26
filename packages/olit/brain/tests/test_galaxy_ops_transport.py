@@ -8,6 +8,7 @@ wrong question, so `list_pages` reported a page count from `list_page_revisions`
 import asyncio
 import json
 import shutil
+import subprocess
 
 import pytest
 
@@ -78,3 +79,39 @@ def test_each_answer_comes_back_with_its_own_question(transport):
 def test_a_driver_that_is_not_there_is_not_available(tmp_path):
     assert not NodeTransport("http://galaxy.invalid", "k", driver=str(tmp_path / "absent.mjs")).available()
     assert not NodeTransport(None, "k").available()
+
+
+def test_closing_a_session_releases_its_driver(tmp_path):
+    """Outside the browser each session starts a node process; nothing else reaps them."""
+    driver = tmp_path / "stub.mjs"
+    driver.write_text(STUB)
+
+    def running():
+        found = subprocess.run(["pgrep", "-f", str(driver)], capture_output=True, text=True).stdout.split()
+        return len(found)
+
+    async def go():
+        transports = [NodeTransport("http://galaxy.invalid", "k", driver=str(driver)) for _ in range(3)]
+        for t in transports:
+            await t.run("get_histories", {"size": 10})
+        started = running()
+        for t in transports:
+            await t.close()
+        return started, running()
+
+    started, left = asyncio.run(go())
+    assert started >= 3, f"expected a process per transport, saw {started}"
+    assert left == 0, f"{left} driver process(es) survived close()"
+
+
+def test_closing_twice_is_harmless(tmp_path):
+    driver = tmp_path / "stub.mjs"
+    driver.write_text(STUB)
+    transport = NodeTransport("http://galaxy.invalid", "k", driver=str(driver))
+
+    async def go():
+        await transport.run("get_histories", {"size": 1})
+        await transport.close()
+        await transport.close()
+
+    asyncio.run(go())

@@ -15,6 +15,7 @@ import shutil
 
 import pytest
 
+from olit.drivers.loop import galaxy_tools
 from olit.drivers.loop.galaxy_tool_docs import DOCS
 from olit.drivers.loop.galaxy_tools import TOOLS
 from olit.substrate.substrate import Substrate
@@ -187,11 +188,9 @@ FIELD_MENTION = re.compile(r"`([a-z_][a-z0-9_]{2,})`")
 # Prose, not field names.
 NOT_FIELDS = {"data", "true", "false", "none", "null"}
 
-# Top-level fields of `data` that a delegated tool's description tells the model to read.
-# Adding one here means the live check below must be able to reach it.
-PROMISED_FIELDS = {
-    "get_tool_panel": ("tool_count", "section_count"),
-}
+# Declared in galaxy_tools beside the tools themselves; `describe` publishes it so the seam
+# check upstream can tell which shaped-return promises are covered.
+PROMISED_FIELDS = galaxy_tools.PROMISED_FIELDS
 
 # Every other field a delegated description names, and why it is not a top-level promise.
 # A mention that is in neither table fails the exhaustiveness test, so delegating a tool or
@@ -290,10 +289,13 @@ def test_a_delegated_result_carries_every_field_its_description_promises():
 
     async def collect():
         found = {}
+        histories, _ = await substrate.ops.run("get_histories", {"limit": 1}, "read")
+        history_id = ((histories or {}).get("data") or [{}])[0].get("id")
         for name, args in LIVE_CASES.items():
-            envelope, refusal = await substrate.ops.run(name, args, "read")
+            filled = {k: (history_id if v == "$history" else v) for k, v in args.items()}
+            envelope, refusal = await substrate.ops.run(name, filled, "read")
             found[name] = (envelope or {}).get("data") if not refusal else refusal
-        await substrate.ops._transports[1].close()
+        await substrate.close()
         return found
 
     results = asyncio.run(collect())
