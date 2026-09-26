@@ -32,7 +32,7 @@
     "galaxy-ops-registry": "node scripts/capture_galaxy_ops_registry.mjs"
   },
   "dependencies": {
-    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.2/galaxyproject-galaxy-ops-0.1.1-fork.2.tgz",
+    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.3/galaxyproject-galaxy-ops-0.1.1-fork.3.tgz",
     "mermaid": "^11.16.1",
     "vega-embed": "^7.1.0"
   },

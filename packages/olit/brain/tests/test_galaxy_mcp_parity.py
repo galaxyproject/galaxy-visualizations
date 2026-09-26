@@ -6,11 +6,18 @@ so the reference is a snapshot of the version olit is written against. Refresh i
 changed rather than leaving it to be found in an eval months later.
 """
 
+import asyncio
 import json
+import os
 import pathlib
+import re
+import shutil
+
+import pytest
 
 from olit.drivers.loop.galaxy_tool_docs import DOCS
 from olit.drivers.loop.galaxy_tools import TOOLS
+from olit.substrate.substrate import Substrate
 
 REFERENCE = pathlib.Path(__file__).parent / "data" / "galaxy-mcp-docs.json"
 
@@ -163,3 +170,140 @@ def test_the_parameter_list_names_only_tools_both_sides_serve():
     _, _, shared = shared_tools()
     unknown = sorted(set(PARAMETERS) - set(shared))
     assert not unknown, f"PARAMETERS names tools galaxy-mcp and olit do not both serve: {unknown}"
+
+
+# ---------------------------------------------------------------------------
+# What a description promises the result will hold.
+#
+# olit serves galaxy-mcp's descriptions but no longer produces most results itself, so a
+# description can promise a field the delegated implementation does not return. That is
+# invisible to every check above -- they compare descriptions and argument names, never
+# what comes back. `get_tool_panel` promised `tool_count` for a release after the
+# delegated implementation stopped returning it, and a scenario found it, not a test.
+# ---------------------------------------------------------------------------
+
+# Backticked lowercase identifiers are how these descriptions name a field.
+FIELD_MENTION = re.compile(r"`([a-z_][a-z0-9_]{2,})`")
+# Prose, not field names.
+NOT_FIELDS = {"data", "true", "false", "none", "null"}
+
+# Top-level fields of `data` that a delegated tool's description tells the model to read.
+# Adding one here means the live check below must be able to reach it.
+PROMISED_FIELDS = {
+    "get_tool_panel": ("tool_count", "section_count"),
+}
+
+# Every other field a delegated description names, and why it is not a top-level promise.
+# A mention that is in neither table fails the exhaustiveness test, so delegating a tool or
+# rewriting a description forces the question instead of leaving it to a scenario.
+NOT_A_TOP_LEVEL_PROMISE = {
+    ("get_tool_panel", "panel"): "olit keys the hierarchy `entries`; upstream's wording predates that",
+    ("get_page_revision", "content"): "a field of the revision returned, not of the envelope",
+    ("get_page_revision", "content_editor"): "named to say a revision does not carry one",
+    ("get_page_revision", "edit_source"): "a field of the revision returned",
+    ("get_tool_input_template", "inputs"): "names run_tool's argument, not a field of this result",
+    ("list_page_revisions", "edit_source"): "a field of each revision in the list",
+    ("get_workflow_input_template", "inputs_template"): "covered by the workflow template tests upstream",
+    ("get_workflow_input_template", "guide"): "covered by the workflow template tests upstream",
+    ("get_workflow_input_template", "warnings"): "covered by the workflow template tests upstream",
+    ("get_workflow_input_template", "annotation"): "a field of a slot, not of the envelope",
+    ("get_workflow_input_template", "history_id"): "a field of a slot, not of the envelope",
+    ("get_workflow_input_template", "options"): "a field of a slot, not of the envelope",
+    ("get_workflow_input_template", "value"): "a field of a slot, not of the envelope",
+}
+
+
+def delegated_tools():
+    return [t["name"] for t in TOOLS if t["handler"] is None]
+
+
+def mentioned_fields(name):
+    return {f for f in FIELD_MENTION.findall(DOCS.get(name, "")) if f not in NOT_FIELDS}
+
+
+def test_every_field_a_delegated_description_names_is_classified():
+    """A promised field is either checked below or written down as not being one."""
+    unclassified = sorted(
+        (name, field)
+        for name in delegated_tools()
+        for field in mentioned_fields(name)
+        if field not in PROMISED_FIELDS.get(name, ()) and (name, field) not in NOT_A_TOP_LEVEL_PROMISE
+    )
+    assert not unclassified, (
+        f"these delegated descriptions name a field nothing accounts for: {unclassified}. "
+        "Add it to PROMISED_FIELDS so the live check reads it back, or to "
+        "NOT_A_TOP_LEVEL_PROMISE with the reason it is not a promise about the envelope."
+    )
+
+
+def test_a_promised_field_is_really_named_in_the_description():
+    """A stale entry would have the live check assert a promise nothing makes."""
+    unpromised = sorted(
+        (name, field)
+        for name, fields in PROMISED_FIELDS.items()
+        for field in fields
+        if field not in mentioned_fields(name)
+    )
+    assert not unpromised, f"these are not named in the description any more; drop them: {unpromised}"
+
+
+def test_the_promised_fields_name_only_delegated_tools():
+    """A tool olit still runs itself is covered by its own handler's tests."""
+    unknown = sorted(set(PROMISED_FIELDS) - set(delegated_tools()))
+    assert not unknown, f"PROMISED_FIELDS names tools olit runs itself: {unknown}"
+
+
+# The arguments each promised-field check calls with. A tool in PROMISED_FIELDS without a
+# case here is a promise nothing reads back, which is the hole this whole section exists to
+# close, so the pairing is asserted rather than assumed.
+LIVE_CASES = {
+    "get_tool_panel": {},
+}
+
+
+def test_every_promised_field_has_a_way_to_read_it_back():
+    missing = sorted(set(PROMISED_FIELDS) - set(LIVE_CASES))
+    assert not missing, f"promised with no live case, so nothing checks it: {missing}"
+
+
+def _live_galaxy():
+    """The Galaxy a live check may use, or None; the delegated path needs node to reach it."""
+    root = os.environ.get("GALAXY_URL", "").strip()
+    return root if root and shutil.which("node") else None
+
+
+@pytest.mark.skipif(_live_galaxy() is None, reason="needs GALAXY_URL and node: it reads a real result back")
+def test_a_delegated_result_carries_every_field_its_description_promises():
+    """The check the description-only tests cannot make: ask the runtime and read it back.
+
+    This is the one that would have caught get_tool_panel. Everything above compares olit's
+    words against galaxy-mcp's words; only this compares olit's words against what the
+    delegated implementation actually returns.
+    """
+    substrate = Substrate(
+        {
+            "galaxy_root": _live_galaxy(),
+            "galaxy_key": os.environ.get("GALAXY_API_KEY") or os.environ.get("GALAXY_LOCAL_KEY", ""),
+            "capabilities": {"read": True, "write": True},
+        }
+    )
+
+    async def collect():
+        found = {}
+        for name, args in LIVE_CASES.items():
+            envelope, refusal = await substrate.ops.run(name, args, "read")
+            found[name] = (envelope or {}).get("data") if not refusal else refusal
+        await substrate.ops._transports[1].close()
+        return found
+
+    results = asyncio.run(collect())
+    broken = []
+    for name, promised in PROMISED_FIELDS.items():
+        data = results[name]
+        if not isinstance(data, dict):
+            broken.append(f"{name}: no result to read ({str(data)[:80]})")
+            continue
+        for field in promised:
+            if field not in data:
+                broken.append(f"{name}.{field}: promised by the description, absent from the result")
+    assert not broken, "\n".join(broken)
