@@ -22,7 +22,6 @@ class Substrate:
 
     async def init(self):
         await self.galaxy.probe()
-        await self.catalog.init()
         await self.llm.init()
         return self
 
