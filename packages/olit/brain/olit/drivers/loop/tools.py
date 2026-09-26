@@ -282,8 +282,7 @@ class ToolSurface:
                 is_error=True,
             )
         try:
-            result = await self._dispatch(name, args)
-            outcome = result if isinstance(result, ToolOutcome) else ToolOutcome(result)
+            outcome = await self._dispatch(name, args)
             self._note_outcome(name, args, outcome.is_error)
             logger.info("  -> %s", brief(outcome.content))
             return outcome
@@ -400,7 +399,7 @@ class ToolSurface:
 
         if name == "run_python":
             try:
-                return await self.substrate.local.run(args.get("code", ""))
+                return ToolOutcome(await self.substrate.local.run(args.get("code", "")))
             except LocalExecutionError as exc:
                 return ToolOutcome(str(exc), is_error=True)
         if self.processes and name in (self.processes.names() or []):
@@ -421,7 +420,7 @@ class ToolSurface:
         if name == "skills_fetch":
             return self._skills_fetch(args)
         if name == "finish":
-            return args.get("summary", "done")
+            return ToolOutcome(args.get("summary", "done"))
         if name == "notebook_resume":
             opened = await notebook.resume(
                 self.substrate.galaxy, self.record.get("session_id"), self.record.get("page_id")
@@ -429,7 +428,7 @@ class ToolSurface:
             # Keep the page this session just made, so a later call reuses it.
             if isinstance(opened, dict) and opened.get("page_id"):
                 self.record["page_id"] = opened["page_id"]
-            return self._claim_artifact(opened)
+            return ToolOutcome(self._claim_artifact(opened))
         delegated = galaxy_tools.delegated_to_ops(name)
         handler = galaxy_tools.get_handler(name)
         if delegated or handler:
@@ -453,10 +452,10 @@ class ToolSurface:
             payload = rendered({"data": result})
             # Galaxy names the url and the status; it cannot say that guessing another is wrong.
             hint = fetch_failure_hint.for_result(result)
-            return f"{payload}\n\n{hint}" if hint else payload
+            return ToolOutcome(f"{payload}\n\n{hint}" if hint else payload)
         reference_handler = gtn.get_handler(name) or ena.get_handler(name)
         if reference_handler:
-            return json.dumps(await reference_handler(args), default=str)
+            return ToolOutcome(json.dumps(await reference_handler(args), default=str))
         # Last resort: the name may be spelled with Cyrillic/Greek lookalikes.
         folded = self._fold_tool_name(name)
         if folded:
@@ -487,7 +486,7 @@ class ToolSurface:
             fetch_failure_hint.for_result(data)
         )
         payload = rendered(envelope)
-        return f"{payload}\n\n{hint}" if hint else payload
+        return ToolOutcome(f"{payload}\n\n{hint}" if hint else payload)
 
     async def _gate_destructive(self, name, op):
         """Why this must not run, or None if the user approved; never cached."""
@@ -535,7 +534,7 @@ class ToolSurface:
                 "Check the path against the skills router in the system prompt.",
                 is_error=True,
             )
-        return text
+        return ToolOutcome(text)
 
     async def _run_process(self, args):
         proc = self.processes.get(args.get("name")) if self.processes else None
@@ -553,7 +552,7 @@ class ToolSurface:
         if isinstance(summary, dict) and summary.get("ok") is False:
             return ToolOutcome(json.dumps(summary), is_error=True, refused=True, guard="process-refusal")
         if summary and last.get("ok") is not False:
-            return json.dumps(summary)
+            return ToolOutcome(json.dumps(summary))
         # Surface a failed graph rather than returning a bare null.
         if last.get("ok") is False:
             return ToolOutcome(json.dumps({"ok": False, "error": last.get("error")}), is_error=True)
@@ -561,5 +560,5 @@ class ToolSurface:
         # A renderable artifact goes to the shell out of band, not into the context.
         claimed = self._claim_artifact(output, hint=ARTIFACT_HINT)
         if claimed is not output:
-            return json.dumps({**claimed, "ok": True}, default=str)
-        return json.dumps(output)
+            return ToolOutcome(json.dumps({**claimed, "ok": True}, default=str))
+        return ToolOutcome(json.dumps(output))
