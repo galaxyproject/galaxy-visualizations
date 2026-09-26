@@ -21,6 +21,9 @@ class FieldInfo(TypedDict):
     missing_ratio: float
     min: float | None
     max: float | None
+    # The distinct values of a nominal column, up to `profiler.MAX_ENUM_VALUES`.
+    values: list[Any] | None
+    values_truncated: bool
 
 
 class ValidationErrorDetails(TypedDict, total=False):

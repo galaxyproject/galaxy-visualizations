@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Literal, Optional, TypedDict, TypeGuard
 
 from olit.registry.extensions.vintent.core.exceptions import AppError
 from olit.registry.extensions.vintent.modules.profiler import DatasetProfile
-from olit.registry.extensions.vintent.modules.schemas import FieldType, ValidationResult
+from olit.registry.extensions.vintent.modules.schemas import FieldType, ValidationError, ValidationResult
 
 VEGA_LITE_SCHEMA = "https://vega.github.io/schema/vega-lite/v6.json"
 
@@ -15,7 +15,9 @@ class ShellError(AppError):
     code = "SHELL_ERROR"
 
 
-EncodingMapType = dict[str, "EncodingSpecType"]
+# A declared parameter is either an encoding the planner fills with a column name, recognised by its
+# string `type`, or a JSON Schema fragment the planner receives verbatim (`tools.is_encoding_spec`).
+EncodingMapType = dict[str, "EncodingSpecType | ParamSchemaType"]
 RendererType = Literal["vega-lite"]
 ShellParamsType = dict[str, Any]
 
@@ -25,7 +27,6 @@ class BaseShell:
     Base class for all visualization shells.
 
     All attributes are class-level configuration.
-    Attributes defaulting to None must be normalized by consumers.
     Shells are static strategy definitions, not stateful objects.
     """
 
@@ -35,13 +36,10 @@ class BaseShell:
     goals: list[str] = []
 
     # metadata
-    optional: Optional[EncodingMapType] = None
-    required: Optional[EncodingMapType] = None
+    optional: EncodingMapType = {}
+    required: EncodingMapType = {}
     semantics: Literal["rowwise", "aggregate"] = "rowwise"
     signatures: Optional[list[list[FieldType]]] = None
-
-    required: dict[str, Any] = {}
-    optional: dict[str, Any] = {}
 
     def processes(self, profile: DatasetProfile, params: ShellParamsType) -> list[dict[str, Any]]:
         """Analyze steps to run before compiling, as `{id, params}`; none by default."""
@@ -53,22 +51,22 @@ class BaseShell:
 
         fields_by_type: dict[str, list[str]] = {}
         for name, meta in profile.get("fields", {}).items():
-            t = meta.get("type") or "nominal"
-            fields_by_type.setdefault(t, []).append(name)
+            field_type = meta.get("type") or "nominal"
+            fields_by_type.setdefault(field_type, []).append(name)
 
         for sig in self.signatures:
-            needed: dict[str, int] = {}
-            for t in sig:
-                needed[t] = needed.get(t, 0) + 1
+            needed: dict[FieldType, int] = {}
+            for wanted in sig:
+                needed[wanted] = needed.get(wanted, 0) + 1
 
             ok = True
-            for t, n in needed.items():
-                if t == "any":
-                    if sum(len(v) for v in fields_by_type.values()) < n:
+            for wanted, count in needed.items():
+                if wanted == "any":
+                    if sum(len(v) for v in fields_by_type.values()) < count:
                         ok = False
                         break
                 else:
-                    if len(fields_by_type.get(t, [])) < n:
+                    if len(fields_by_type.get(wanted, [])) < count:
                         ok = False
                         break
 
@@ -81,9 +79,9 @@ class BaseShell:
         """Check the encodings the shell declares: present, naming a field, of the declared type."""
         fields = profile.get("fields", {})
         declared = {**{k: v for k, v in self.optional.items() if params.get(k)}, **self.required}
-        errors: list[dict[str, Any]] = []
+        errors: list[ValidationError] = []
         for encoding, spec in declared.items():
-            if not isinstance(spec, dict) or "type" not in spec:
+            if not is_encoding_spec(spec):
                 continue
             field = params.get(encoding)
             if not field:
@@ -93,7 +91,7 @@ class BaseShell:
             if meta is None:
                 errors.append({"code": "unknown_field", "details": {"encoding": encoding, "field": field}})
                 continue
-            expected = spec.get("type", "any")
+            expected = spec["type"]
             if expected != "any" and meta.get("type") != expected:
                 errors.append(
                     {
@@ -145,7 +143,25 @@ class BaseShell:
             )
 
 
-class EncodingSpecType(TypedDict, total=False):
+class _EncodingType(TypedDict):
+    """`type` is what `is_encoding_spec` reads, so an entry without one is not an encoding."""
+
+    type: FieldType
+
+
+class EncodingSpecType(_EncodingType, total=False):
     aggregate: bool | str
     bin: bool
-    type: FieldType
+
+
+class ParamSchemaType(TypedDict, total=False):
+    """A parameter that is not a column. It carries no `type`, which is what keeps it out of
+    `is_encoding_spec` and so out of the column selectors the planner is offered."""
+
+    enum: list[Any]
+    description: str
+
+
+def is_encoding_spec(spec: Any) -> TypeGuard[EncodingSpecType]:
+    """An entry the planner fills with a column name, rather than one it receives verbatim."""
+    return isinstance(spec, dict) and "type" in spec and isinstance(spec["type"], str)

@@ -67,55 +67,35 @@ class BoxPlotGroupedShell(BaseShell):
         x_field = params.get("x")
         y_field = params.get("y")
 
-        chosen = (("x", x_field), ("y", y_field))
-        absent = next((encoding for encoding, field in chosen if not field), None)
-        if absent:
-            return {
-                "ok": False,
-                "errors": [{"code": "missing_required_encoding", "details": {"encoding": absent}}],
-                "warnings": [],
-            }
-
-        unknown = next(((e, f) for e, f in chosen if f not in fields), None)
-        if unknown:
-            return {
-                "ok": False,
-                "errors": [{"code": "unknown_field", "details": {"encoding": unknown[0], "field": unknown[1]}}],
-                "warnings": [],
-            }
-
-        if fields[x_field].get("type") != "nominal":
-            return {
-                "ok": False,
-                "errors": [
-                    {
-                        "code": "invalid_field_type",
-                        "details": {
-                            "encoding": "x",
-                            "field": x_field,
-                            "expected": "nominal",
-                            "actual": fields[x_field].get("type"),
-                        },
-                    }
-                ],
-                "warnings": [],
-            }
-
-        if fields[y_field].get("type") != "quantitative":
-            return {
-                "ok": False,
-                "errors": [
-                    {
-                        "code": "invalid_field_type",
-                        "details": {
-                            "encoding": "y",
-                            "field": y_field,
-                            "expected": "quantitative",
-                            "actual": fields[y_field].get("type"),
-                        },
-                    }
-                ],
-                "warnings": [],
-            }
+        for encoding, field, expected in (("x", x_field, "nominal"), ("y", y_field, "quantitative")):
+            if not field:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "missing_required_encoding", "details": {"encoding": encoding}}],
+                    "warnings": [],
+                }
+            if field not in fields:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "unknown_field", "details": {"encoding": encoding, "field": field}}],
+                    "warnings": [],
+                }
+            actual = fields[field].get("type")
+            if actual != expected:
+                return {
+                    "ok": False,
+                    "errors": [
+                        {
+                            "code": "invalid_field_type",
+                            "details": {
+                                "encoding": encoding,
+                                "field": field,
+                                "expected": expected,
+                                "actual": actual,
+                            },
+                        }
+                    ],
+                    "warnings": [],
+                }
 
         return {"ok": True, "errors": [], "warnings": []}

@@ -4,6 +4,7 @@ from typing import Any, Optional
 from .process import Process
 from .profiler import DatasetProfile
 from .registry import SHELLS
+from .shells.base import is_encoding_spec
 
 NO_PROCESS_ID = "none"
 MAX_SHELLS = 50
@@ -294,10 +295,6 @@ def build_fill_shell_params_tool(
             },
         },
     }
-
-
-def is_encoding_spec(spec: Any) -> bool:
-    return isinstance(spec, dict) and "type" in spec and isinstance(spec["type"], str)
 
 
 def build_parse_intent_tool(profile: DatasetProfile) -> Optional[dict[str, Any]]:
