@@ -28,10 +28,11 @@
     "test:unit": "vitest run",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
-    "vendored": "python3 vendored/check.py"
+    "vendored": "python3 vendored/check.py",
+    "galaxy-ops-registry": "node scripts/capture_galaxy_ops_registry.mjs"
   },
   "dependencies": {
-    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.1/galaxyproject-galaxy-ops-0.1.1-fork.1.tgz",
+    "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.2/galaxyproject-galaxy-ops-0.1.1-fork.2.tgz",
     "mermaid": "^11.16.1",
     "vega-embed": "^7.1.0"
   },

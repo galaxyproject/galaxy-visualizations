@@ -424,16 +424,16 @@ class ToolSurface:
                 self.record["page_id"] = opened["page_id"]
             return self._claim_artifact(opened)
         delegated = galaxy_tools.delegated_to_ops(name)
-        if delegated and self.substrate.ops.available():
-            envelope, refusal = await self.substrate.ops.run(name, args, delegated)
-            if refusal:
-                return ToolOutcome(refusal, is_error=True)
-            return galaxy_ops.rendered(envelope)
         handler = galaxy_tools.get_handler(name)
-        if handler:
+        if delegated or handler:
+            # Artifact tokens are olit's indirection, so they are resolved for a Galaxy
+            # operation whichever side goes on to run it.
             args, refusal = self._place_artifacts(args)
             if refusal:
                 return ToolOutcome(f"Refused: {refusal}", is_error=True)
+        if delegated:
+            return await self._run_delegated(name, args, delegated)
+        if handler:
             result = self._claim_artifact(await handler(self.substrate.galaxy, args))
             payload = json.dumps(result, default=str)
             # Galaxy names the url and the status; it cannot say that guessing another is wrong.
@@ -448,6 +448,22 @@ class ToolSurface:
             logger.info("tool name %r resolved to %r", name, folded)
             return await self._dispatch(folded, args)
         return ToolOutcome(f"Unknown tool: {plain_tool_name(name)}", is_error=True)
+
+    async def _run_delegated(self, name, args, capability):
+        """One galaxy-ops operation, with the reading olit adds to any Galaxy result."""
+        try:
+            envelope, refusal = await self.substrate.ops.run(name, args, capability)
+        except galaxy_ops.GalaxyOpsUnavailable as exc:
+            logger.error("no galaxy-ops transport for %s: %s", name, exc)
+            return ToolOutcome(f"'{name}' needs galaxy-ops, which this runtime cannot reach: {exc}", is_error=True)
+        if refusal:
+            return ToolOutcome(refusal, is_error=True)
+        data = envelope.get("data")
+        hint = await galaxy_tools.catalog_miss_hint(self.substrate.galaxy, name, args, data) or (
+            fetch_failure_hint.for_result(data)
+        )
+        payload = galaxy_ops.rendered(envelope)
+        return f"{payload}\n\n{hint}" if hint else payload
 
     async def _gate_destructive(self, name, op):
         """Why this must not run, or None if the user approved; never cached."""

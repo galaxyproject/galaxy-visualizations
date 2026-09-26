@@ -12,11 +12,11 @@ import jsonschema
 from olit import vendor
 from olit.substrate.http import http
 
-from . import biocontainers, invocation_outcome, page_edit, workflow_inputs
+from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
-from .paging import ROW_CAP, page, server_page
-from .tool_inputs import build_input_template, summarize_tool_inputs
+from .paging import ROW_CAP, server_page
+from .tool_inputs import build_input_template
 from .visualization_inputs import build_visualization_template, template_cases
 
 logger = logging.getLogger(__name__)
@@ -72,45 +72,11 @@ def _tool(name, capability, description, properties, required, handler):
 # --- core tier ---------------------------------------------------------------
 
 
-async def _get_server_info(g, a):
-    return {"version": await g.get("api/version"), "configuration": await g.get("api/configuration")}
-
-
-async def _get_user(g, a):
-    return await g.get("api/whoami")
-
-
-async def _get_histories(g, a):
-    # galaxy-mcp returns every history by default; a browser transcript cannot hold that, so
-    # the page is bounded. One row past the limit is fetched to report that there are more.
-    limit = int(a.get("limit") or ROW_CAP)
-    offset = max(0, int(a.get("offset") or 0))
-    params = {"limit": limit + 1, "offset": offset}
-    if a.get("name"):
-        params["q"] = "name-contains"
-        params["qv"] = a["name"]
-    rows = await g.get(f"api/histories{_q(params)}")
-    return server_page(rows, offset, limit) if isinstance(rows, list) else rows
-
-
-async def _list_history_ids(g, a):
-    histories = await g.get("api/histories?keys=id,name") or []
-    return [{"id": h.get("id"), "name": h.get("name")} for h in histories]
-
-
 CONTENTS_NOTE = (
     "This is just a count. To get actual datasets, use "
     "get_history_contents(history_id, limit=25, order='create_time-dsc') "
     "for newest datasets first."
 )
-
-
-async def _get_history_details(g, a):
-    # Galaxy counts the history's items itself; listing every id to length it made the
-    # cost of this call grow with the history.
-    history = await g.get(f"api/histories/{a['history_id']}") or {}
-    total = history.get("count") if isinstance(history, dict) else None
-    return {"history": history, "contents_summary": {"total_items": total or 0, "note": CONTENTS_NOTE}}
 
 
 # Galaxy returns the underlying Dataset id beside the HDA id. Both encode the same way, so
@@ -142,10 +108,6 @@ async def _get_history_contents(g, a):
     if not isinstance(items, list):
         return items
     return server_page([_one_identifier(i) for i in items], offset, limit)
-
-
-async def _create_history(g, a):
-    return await g.post("api/histories", {"name": a["history_name"]})
 
 
 # Sources a history owns, and where each one answers its history_id. A library dataset is
@@ -258,18 +220,36 @@ SETTLED = frozenset(
 )
 
 
-# Operations galaxy-ops runs instead of the handler below, while that path is being proved.
-# The handler stays where it is: taking a name out of here is the whole of a rollback.
-DELEGATED_TO_OPS = {
-    "get_tool_run_examples": "read",
-    "get_histories": "read",
-    "get_tool_input_template": "read",
+# Why a Galaxy operation galaxy-ops also implements is still run here. Every other shared
+# operation is declared with no handler, and galaxy-ops runs it.
+KEPT_LOCAL = {
+    "run_tool": "galaxy-ops runs a tool through /api/tool_requests and blocks until the jobs "
+    "settle; olit submits to /api/tools and lets the loop watch, and adds the target-history "
+    "input guard and the input template a parameter error earns.",
+    "upload_file_from_url": "galaxy-ops uploads through the legacy upload1 form; olit uses "
+    "/api/tools/fetch with auto_decompress, which is what lands the datatype Galaxy sniffs.",
+    "get_history_contents": "olit drops the underlying `dataset_id` beside the HDA id, which "
+    "encodes identically and silently addresses another object, and bounds the page by bytes.",
+    "get_page": "paired with update_page: olit hashes the body so an edit can say what it "
+    "expected, and withholds the rendered content until it is asked for.",
+    "update_page": "olit edits one section against a hash, and refuses content naming a Galaxy "
+    "object by anything but its encoded id.",
+    "get_invocations": "olit settles an invocation against its job states, because Galaxy "
+    "reports `completed` for a run whose jobs errored.",
+    "get_job_details": "olit asks for `full` and tails the logs, which is how a failed job is "
+    "diagnosed; neither galaxy-ops nor the MCP server returns them.",
 }
 
 
 def delegated_to_ops(name):
-    """The capability this operation needs when galaxy-ops runs it, or None to run it here."""
-    return DELEGATED_TO_OPS.get(name)
+    """The capability this operation needs when galaxy-ops runs it, or None to run it here.
+
+    A declaration with no handler has no other way to run, so the two cannot disagree.
+    """
+    declaration = declared(name)
+    if declaration is None or declaration["handler"] is not None:
+        return None
+    return declaration["capability"]
 
 
 def settled(name):
@@ -277,18 +257,27 @@ def settled(name):
     return name in SETTLED
 
 
-def _no_tool_matched(query):
-    # An empty list reads as an answer, so the same search comes back; say it is exhausted.
-    return {
-        "query": query,
-        "tools": [],
-        "hint": "No installed Galaxy tool matches this text. A near-identical query returns the "
-        "same empty answer, so change the term or the route rather than searching again.",
-    }
-
-
 # This agent, and a standalone plugin that defers its chart to its own LLM at view time.
 NOT_OFFERED = {"olit", "vintent"}
+
+
+# The tool catalog does not hold visualizations, so a search that came back empty may still
+# have named one. Policy rather than operation: it holds whoever ran the search.
+CATALOG_SEARCHES = frozenset({"search_tools_by_name", "search_tools_by_keywords"})
+
+
+async def catalog_miss_hint(g, name, args, data):
+    """Where the thing this search did not find actually lives, or None."""
+    if name not in CATALOG_SEARCHES or data:
+        return None
+    query = args.get("query") or " ".join(args.get("keywords") or [])
+    plugin = await _a_visualization_named(g, query)
+    if not plugin:
+        return None
+    return (
+        f"[olit] {plugin!r} is a visualization, which the tool catalog does not hold. "
+        "list_visualizations names the ones that can render a given dataset."
+    )
 
 
 async def _a_visualization_named(g, query):
@@ -297,25 +286,6 @@ async def _a_visualization_named(g, query):
     installed = await g.get("api/plugins") or []
     names = [p.get("name") for p in installed if p.get("name") not in NOT_OFFERED]
     return next((n for n in names if n and n.lower() == wanted), None)
-
-
-async def _search_tools_by_name(g, a):
-    found = await g.get(f"api/tools{_q({'q': a['query']})}")
-    if found:
-        return found
-    plugin = await _a_visualization_named(g, a["query"])
-    if plugin:
-        return {
-            "query": a["query"],
-            "tools": [],
-            "hint": f"{plugin!r} is a visualization, which the tool catalog does not hold. "
-            f"list_visualizations names the ones that can render a given dataset.",
-        }
-    return _no_tool_matched(a["query"])
-
-
-async def _get_tool_details(g, a):
-    return await g.get(f"api/tools/{a['tool_id']}{_q({'io_details': a.get('io_details', False)})}")
 
 
 async def _get_job_details(g, a):
@@ -351,33 +321,12 @@ def _ends(text, cap):
     )
 
 
-async def _get_dataset_details(g, a):
-    dataset = await g.get(f"api/datasets/{a['dataset_id']}") or {}
-    if a.get("include_preview", True):
-        try:
-            want = int(a.get("preview_lines", 10) or 10)
-            text = await _chunk(g, a["dataset_id"], PREVIEW_BYTES)
-            if text is None:
-                content = await g.get(f"api/datasets/{a['dataset_id']}/display")
-                text = content if isinstance(content, str) else json.dumps(content)
-            dataset = dict(dataset)
-            dataset["preview"] = "\n".join(text.splitlines()[:want])
-        except Exception as exc:
-            # A dataset that is still running has nothing to read yet. Naming that beats an
-            # absent field, which reads the same as a dataset with no content at all.
-            dataset = dict(dataset)
-            dataset["preview_unavailable"] = str(exc)
-    return dataset
-
-
 _STR = {"type": "string"}
 _INT = {"type": "integer"}
 _BOOL = {"type": "boolean"}
 
-_tool(
-    "get_server_info", "read", "Get the connected Galaxy server's version and configuration.", {}, [], _get_server_info
-)
-_tool("get_user", "read", "Get the current authenticated Galaxy user.", {}, [], _get_user)
+_tool("get_server_info", "read", "Get the connected Galaxy server's version and configuration.", {}, [], None)
+_tool("get_user", "read", "Get the current authenticated Galaxy user.", {}, [], None)
 _tool(
     "get_histories",
     "read",
@@ -388,18 +337,16 @@ _tool(
         "name": _STR,
     },
     [],
-    _get_histories,
+    None,
 )
-_tool(
-    "list_history_ids", "read", "List just the id and name of each of the user's histories.", {}, [], _list_history_ids
-)
+_tool("list_history_ids", "read", "List just the id and name of each of the user's histories.", {}, [], None)
 _tool(
     "get_history_details",
     "read",
     "Get full details of one history by id.",
     {"history_id": _STR},
     ["history_id"],
-    _get_history_details,
+    None,
 )
 _tool(
     "get_history_contents",
@@ -416,7 +363,7 @@ _tool(
     ["history_id"],
     _get_history_contents,
 )
-_tool("create_history", "write", "Create a new history.", {"history_name": _STR}, ["history_name"], _create_history)
+_tool("create_history", "write", "Create a new history.", {"history_name": _STR}, ["history_name"], None)
 _tool(
     "run_tool",
     "write",
@@ -432,7 +379,7 @@ _tool(
     "Search the connected Galaxy's tool catalog by name/text. Returns matching Galaxy tools.",
     {"query": _STR},
     ["query"],
-    _search_tools_by_name,
+    None,
 )
 _tool(
     "get_tool_details",
@@ -440,7 +387,7 @@ _tool(
     "Get a Galaxy tool's details by tool_id; set io_details for its input/output schema.",
     {"tool_id": _STR, "io_details": _BOOL},
     ["tool_id"],
-    _get_tool_details,
+    None,
 )
 _tool(
     "get_job_details",
@@ -456,122 +403,18 @@ _tool(
     "Get a dataset's metadata; include a short content preview by default.",
     {"dataset_id": _STR, "include_preview": _BOOL, "preview_lines": _INT},
     ["dataset_id"],
-    _get_dataset_details,
+    None,
 )
 
 
 # --- extended tier: tools, datasets, workflows, pages, user tools ------------
 
 
-async def _update_history(g, a):
-    updates = {k: a[k] for k in ("name", "annotation", "tags", "deleted", "published") if a.get(k) is not None}
-    return await g.put(f"api/histories/{a['history_id']}", updates)
-
-
-async def _search_tools_by_keywords(g, a):
-    query = " ".join(a.get("keywords") or [])
-    return await g.get(f"api/tools{_q({'q': query})}") or _no_tool_matched(query)
-
-
 PANEL_STRUCTURAL = {"ToolSection", "ToolSectionLabel"}
 PANEL_KEEP = ("id", "name", "description")
 
 
-def _panel_entry(entry):
-    return {k: entry[k] for k in PANEL_KEEP if entry.get(k)}
-
-
-def _count_panel(entries):
-    """Tools and sections in a panel subtree."""
-    tools = sections = 0
-    for entry in entries or []:
-        if not isinstance(entry, dict):
-            continue
-        if entry.get("model_class") == "ToolSection":
-            sections += 1
-            sub_tools, sub_sections = _count_panel(entry.get("elems"))
-            tools += sub_tools
-            sections += sub_sections
-        elif entry.get("model_class") not in PANEL_STRUCTURAL:
-            tools += 1
-    return tools, sections
-
-
-async def _get_tool_panel(g, a):
-    """Sections and their tools, counted."""
-    panel = await g.get("api/tools?in_panel=true")
-    if not isinstance(panel, list):
-        return panel
-    tools, sections = _count_panel(panel)
-    out = []
-    for entry in panel:
-        if entry.get("model_class") == "ToolSection":
-            out.append(
-                {
-                    "section": entry.get("name"),
-                    "tools": [
-                        _panel_entry(e)
-                        for e in entry.get("elems") or []
-                        if e.get("model_class") not in PANEL_STRUCTURAL
-                    ],
-                }
-            )
-        elif entry.get("model_class") not in PANEL_STRUCTURAL:
-            out.append(_panel_entry(entry))
-    if a.get("section"):
-        needle = _alnum(a["section"])
-        out = [s for s in out if needle in _alnum(s.get("section"))]
-    result = page(out, a.get("offset"), a.get("limit"))
-    result["tool_count"] = tools
-    result["section_count"] = sections
-    return result
-
-
-async def _get_tool_citations(g, a):
-    info = await g.get(f"api/tools/{a['tool_id']}") or {}
-    citations = info.get("citations") or []
-    return {
-        "tool_name": info.get("name", a["tool_id"]),
-        "tool_version": info.get("version", "unknown"),
-        "citations": citations,
-    }
-
-
-async def _get_tool_input_template(g, a):
-    # galaxy-mcp builds the skeleton the description promises.
-    info = await g.get(f"api/tools/{a['tool_id']}{_q({'io_details': True})}") or {}
-    return {
-        "tool_id": a["tool_id"],
-        "inputs_template": build_input_template(info),
-        "parameters": summarize_tool_inputs(info),
-    }
-
-
-async def _get_tool_run_examples(g, a):
-    tid = a["tool_id"]
-    ver = a.get("tool_version")
-    path = f"api/tools/{tid}/versions/{ver}/interop" if ver else f"api/tools/{tid}/interop"
-    return await g.get(path)
-
-
 COLLECTION_ELEMENT_CAP = 100
-
-
-async def _get_collection_details(g, a):
-    got = await g.get(f"api/dataset_collections/{a['collection_id']}?instance_type=history")
-    if not isinstance(got, dict):
-        return got
-    limit = int(a.get("max_elements") or COLLECTION_ELEMENT_CAP)
-    elements = got.get("elements")
-    if isinstance(elements, list) and len(elements) > limit:
-        return {
-            **got,
-            "elements": elements[:limit],
-            "elements_truncated": True,
-            "elements_shown": limit,
-            "element_count": got.get("element_count", len(elements)),
-        }
-    return got
 
 
 async def _chunk(g, dataset_id, size):
@@ -703,179 +546,8 @@ async def _upload_file(g, a):
     return await g.post("api/tools/fetch", payload)
 
 
-def _alnum(text):
-    return "".join(c for c in (text or "").lower() if c.isalnum())
-
-
-async def _list_workflows(g, a):
-    params = {"show_published": a.get("published", False)}
-    workflows = await g.get(f"api/workflows{_q(params)}") or []
-    if a.get("name"):
-        # Galaxy's ?search drops short terms, so match name and tags here instead.
-        needle = _alnum(a["name"])
-        workflows = [
-            w
-            for w in workflows
-            if needle in _alnum(w.get("name")) or any(needle in _alnum(t) for t in w.get("tags") or [])
-        ]
-    if a.get("workflow_id"):
-        workflows = [w for w in workflows if w.get("id") == a["workflow_id"]]
-    return page(workflows, a.get("offset"), a.get("limit"))
-
-
-async def _get_workflow_details(g, a):
-    return await g.get(f"api/workflows/{a['workflow_id']}{_q({'version': a.get('version')})}")
-
-
-async def _maybe_get(g, path):
-    """Galaxy answers 400 when style=run has no usable history; the caller falls back."""
-    try:
-        result = await g.get(path)
-    except Exception:
-        return None
-    return result if isinstance(result, dict) else None
-
-
-async def _workflow_slots(g, workflow_id, history_id):
-    """A workflow's input slots: style=run first, the .ga export when it cannot resolve."""
-    params = {"style": "run", "instance": "false", "history_id": history_id}
-    run_model = await _maybe_get(g, f"api/workflows/{workflow_id}/download{_q(params)}")
-    slots = workflow_inputs.normalize_run_model(run_model) if run_model else []
-    if slots:
-        return slots, run_model
-    definition = await _maybe_get(g, f"api/workflows/{workflow_id}/download") or {}
-    return workflow_inputs.normalize_ga_steps(definition), None
-
-
-def _annotate_slots(slots, run_model):
-    """The step annotation and default value galaxy-mcp's slot contract leaves out."""
-    extras = {}
-    for step in (run_model or {}).get("steps") or []:
-        if not isinstance(step, dict):
-            continue
-        param = (step.get("inputs") or [{}])[0]
-        extras[step.get("step_index")] = {
-            "annotation": step.get("annotation"),
-            "value": param.get("value") if isinstance(param, dict) else None,
-        }
-    for slot in slots:
-        for key, value in (extras.get(slot.get("step_index")) or {}).items():
-            if value is not None:
-                slot[key] = value
-
-
-async def _get_workflow_input_template(g, a):
-    """The slots a workflow run has to fill, resolved against a history when one is given."""
-    workflow_id = a["workflow_id"]
-    # style=run also validates that every tool is installed, so a missing one surfaces.
-    slots, run_model = await _workflow_slots(g, workflow_id, a.get("history_id"))
-    definition = await _maybe_get(g, f"api/workflows/{workflow_id}/download") or {}
-    show = await _maybe_get(g, f"api/workflows/{workflow_id}") or {}
-    verbose = bool(a.get("verbose"))
-    template = workflow_inputs.build_workflow_input_template(
-        slots,
-        warnings=workflow_inputs.find_legacy_warnings(definition),
-        guide=workflow_inputs.build_guide(show, run_model, verbose),
-        verbose=verbose,
-    )
-    _annotate_slots(template["slots"], run_model)
-    return {
-        "workflow_id": workflow_id,
-        "name": show.get("name") or (run_model or {}).get("name"),
-        "history_id": (run_model or {}).get("history_id"),
-        **template,
-    }
-
-
 # Galaxy's datatype hierarchy is user-independent, so one fetch serves the session.
 _DATATYPES_CACHE = {}
-
-
-async def _datatypes_mapping(g):
-    key = getattr(g, "_root", "")
-    if key not in _DATATYPES_CACHE:
-        # Reading it is part of the preflight, so failing here falls through to Galaxy.
-        body = await g.get("api/datatypes/types_and_mapping?upload_only=false") or {}
-        _DATATYPES_CACHE[key] = body["datatypes_mapping"]
-    return _DATATYPES_CACHE[key]
-
-
-async def _enriched_inputs(g, inputs):
-    """Resolve each supplied {id, src} to the metadata validate_inputs reads."""
-    enriched = {}
-    for key, value in (inputs or {}).items():
-        if not (isinstance(value, dict) and "src" in value):
-            enriched[key] = value
-            continue
-        entry = dict(value)
-        try:
-            if value["src"] == "hda":
-                entry["ext"] = (await g.get(f"api/datasets/{value['id']}") or {}).get("extension")
-            elif value["src"] == "hdca":
-                collection = await g.get(f"api/dataset_collections/{value['id']}") or {}
-                entry["collection_type"] = collection.get("collection_type")
-                entry["element_extensions"] = sorted(
-                    {
-                        (e.get("object") or {}).get("extension")
-                        for e in collection.get("elements") or []
-                        if (e.get("object") or {}).get("extension")
-                    }
-                )
-        except Exception:
-            # Metadata we could not read leaves the validator permissive for that input.
-            pass
-        enriched[key] = entry
-    return enriched
-
-
-async def _rejected_before_submitting(g, a):
-    """What galaxy-mcp can prove wrong about these inputs, or None when it cannot tell.
-
-    Galaxy accepts a datatype its own converters cannot bridge, schedules the run and
-    lands an ok dataset holding nothing, so the mismatch has to be caught here.
-    """
-    try:
-        slots, _ = await _workflow_slots(g, a["workflow_id"], a.get("history_id"))
-        verdict = workflow_inputs.validate_inputs(
-            slots, await _enriched_inputs(g, a.get("inputs")), await _datatypes_mapping(g)
-        )
-        if not verdict["rejects"]:
-            return None
-        template = workflow_inputs.build_workflow_input_template(slots, warnings=verdict["warnings"])
-    except Exception:
-        # Preflight is advisory; it must never be what stops an otherwise valid run.
-        logger.warning("workflow preflight failed; submitting anyway", exc_info=True)
-        return None
-    lines = [f"  - step {r['step_index']} ({r.get('label', '?')}): {r['reason']}" for r in verdict["rejects"]]
-    return ToolOutcome(
-        "Workflow inputs failed validation; not submitting:\n"
-        + "\n".join(lines)
-        + "\n\nExpected input slots (fill and retry with inputs_by='step_index|step_uuid'):\n"
-        + json.dumps(template["slots"], indent=2, default=str),
-        is_error=True,
-    )
-
-
-async def _invoke_workflow(g, a):
-    if a.get("inputs"):
-        rejected = await _rejected_before_submitting(g, a)
-        if rejected:
-            return rejected
-    body = {"inputs": a.get("inputs") or {}, "inputs_by": a.get("inputs_by", "step_index")}
-    if a.get("params"):
-        body["parameters"] = a["params"]
-    if a.get("parameters_normalized"):
-        body["parameters_normalized"] = True
-    if a.get("history_id"):
-        body["history_id"] = a["history_id"]
-    elif a.get("history_name"):
-        body["new_history_name"] = a["history_name"]
-    return await g.post(f"api/workflows/{a['workflow_id']}/invocations", body)
-
-
-async def _cancel_workflow_invocation(g, a):
-    result = await g.delete(f"api/invocations/{a['invocation_id']}")
-    return {"cancelled": True, "invocation": result}
 
 
 async def _job_states(g, invocation_id):
@@ -1455,46 +1127,12 @@ async def _save_visualization(g, a):
 
 
 # api/dynamic_tools is admin-only; a user's own tools live behind api/unprivileged_tools.
-async def _list_user_tools(g, a):
-    return await g.get(f"api/unprivileged_tools{_q({'active': a.get('active', True)})}")
-
-
 async def _recommend_biocontainer(g, a):
     """Not a Galaxy call: the registry is quay.io, which the browser can read directly."""
     try:
         return await biocontainers.recommend(a.get("packages") or [])
     except ValueError as e:
         return ToolOutcome({"error": str(e)}, is_error=True)
-
-
-async def _create_user_tool(g, a):
-    return await g.post("api/unprivileged_tools", {"representation": a["representation"]})
-
-
-async def _delete_user_tool(g, a):
-    await g.delete(f"api/unprivileged_tools/{a['uuid']}")
-    return {"uuid": a["uuid"], "deactivated": True}
-
-
-async def _run_user_tool(g, a):
-    return await g.post(
-        "api/tools",
-        {"history_id": a["history_id"], "tool_uuid": a["tool_uuid"], "inputs": a.get("inputs") or {}},
-    )
-
-
-async def _list_pages(g, a):
-    params = {
-        "search": a.get("search"),
-        "limit": a.get("limit", 100),
-        "offset": a.get("offset", 0),
-        "show_published": a.get("show_published", False),
-        "show_shared": a.get("show_shared", False),
-    }
-    pages = await g.get(f"api/pages{_q(params)}") or []
-    if a.get("history_id"):
-        pages = [p for p in pages if p.get("history_id") == a["history_id"]]
-    return pages
 
 
 async def _get_page(g, a):
@@ -1505,16 +1143,6 @@ async def _get_page(g, a):
         if not a.get("include_rendered"):
             result.pop("content", None)
     return result
-
-
-async def _create_page(g, a):
-    payload = {k: a[k] for k in ("title", "content", "annotation", "slug") if a.get(k) is not None}
-    payload.setdefault("edit_source", "agent")
-    if a.get("history_id"):
-        payload["history_id"] = a["history_id"]
-    # Galaxy defaults a page to html and sanitizes the body against that.
-    payload["content_format"] = "markdown"
-    return await g.post("api/pages", payload)
 
 
 async def _update_page(g, a):
@@ -1560,21 +1188,6 @@ async def _update_page(g, a):
     return written
 
 
-async def _list_page_revisions(g, a):
-    revisions = await g.get(f"api/pages/{a['page_id']}/revisions") or []
-    if a.get("sort_desc") and isinstance(revisions, list):
-        revisions = list(reversed(revisions))
-    return revisions
-
-
-async def _get_page_revision(g, a):
-    return await g.get(f"api/pages/{a['page_id']}/revisions/{a['revision_id']}")
-
-
-async def _revert_page_revision(g, a):
-    return await g.post(f"api/pages/{a['page_id']}/revisions/{a['revision_id']}/revert", {})
-
-
 _tool(
     "update_history",
     "write",
@@ -1588,7 +1201,7 @@ _tool(
         "published": _BOOL,
     },
     ["history_id"],
-    _update_history,
+    None,
 )
 _tool(
     "search_tools_by_keywords",
@@ -1596,15 +1209,15 @@ _tool(
     "Search the Galaxy tool catalog by a list of keywords.",
     {"keywords": {"type": "array", "items": _STR}},
     ["keywords"],
-    _search_tools_by_keywords,
+    None,
 )
 _tool(
     "get_tool_panel",
     "read",
     "Get the Galaxy tool panel (sections and tools); optional section filter, limit/offset paging.",
-    {"section": _STR, "limit": _INT, "offset": _INT},
+    {"section_id": _STR, "limit": _INT, "offset": _INT},
     [],
-    _get_tool_panel,
+    None,
 )
 _tool(
     "get_tool_citations",
@@ -1612,7 +1225,7 @@ _tool(
     "Get a tool's citations (bibtex).",
     {"tool_id": _STR},
     ["tool_id"],
-    _get_tool_citations,
+    None,
 )
 _tool(
     "get_tool_input_template",
@@ -1620,7 +1233,7 @@ _tool(
     "Get a tool's input parameter schema (a fillable template).",
     {"tool_id": _STR},
     ["tool_id"],
-    _get_tool_input_template,
+    None,
 )
 _tool(
     "get_tool_run_examples",
@@ -1628,7 +1241,7 @@ _tool(
     "Get structural example inputs for a tool.",
     {"tool_id": _STR, "tool_version": _STR},
     ["tool_id"],
-    _get_tool_run_examples,
+    None,
 )
 _tool(
     "get_collection_details",
@@ -1636,7 +1249,7 @@ _tool(
     "Get a dataset collection's details and elements.",
     {"collection_id": _STR, "max_elements": _INT},
     ["collection_id"],
-    _get_collection_details,
+    None,
 )
 _tool(
     "download_dataset",
@@ -1679,7 +1292,7 @@ _tool(
         "offset": {"type": "integer", "description": "Rows to skip, from a previous reply's next_offset."},
     },
     [],
-    _list_workflows,
+    None,
 )
 _tool(
     "get_workflow_details",
@@ -1687,7 +1300,7 @@ _tool(
     "Get a stored workflow's details.",
     {"workflow_id": _STR, "version": _INT},
     ["workflow_id"],
-    _get_workflow_details,
+    None,
 )
 _tool(
     "get_workflow_input_template",
@@ -1695,7 +1308,7 @@ _tool(
     "Get a workflow's run-form input template (fill and pass to invoke_workflow).",
     {"workflow_id": _STR, "history_id": _STR, "verbose": _BOOL},
     ["workflow_id"],
-    _get_workflow_input_template,
+    None,
 )
 _tool(
     "invoke_workflow",
@@ -1712,7 +1325,7 @@ _tool(
         "parameters_normalized": _BOOL,
     },
     ["workflow_id"],
-    _invoke_workflow,
+    None,
 )
 _tool(
     "cancel_workflow_invocation",
@@ -1720,7 +1333,7 @@ _tool(
     "Cancel a running workflow invocation.",
     {"invocation_id": _STR},
     ["invocation_id"],
-    _cancel_workflow_invocation,
+    None,
 )
 _tool(
     "get_invocations",
@@ -1739,16 +1352,14 @@ _tool(
     [],
     _get_invocations,
 )
-_tool(
-    "list_user_tools", "read", "List the user's dynamic (user-defined) tools.", {"active": _BOOL}, [], _list_user_tools
-)
+_tool("list_user_tools", "read", "List the user's dynamic (user-defined) tools.", {"active": _BOOL}, [], None)
 _tool(
     "create_user_tool",
     "write",
     "Create a dynamic (user-defined) tool from a representation.",
     {"representation": {"type": "object"}},
     ["representation"],
-    _create_user_tool,
+    None,
 )
 _tool(
     "recommend_biocontainer",
@@ -1758,14 +1369,14 @@ _tool(
     ["packages"],
     _recommend_biocontainer,
 )
-_tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _STR}, ["uuid"], _delete_user_tool)
+_tool("delete_user_tool", "write", "Delete a dynamic tool by uuid.", {"uuid": _STR}, ["uuid"], None)
 _tool(
     "run_user_tool",
     "write",
     "Run a dynamic (user-defined) tool by uuid in a history.",
     {"history_id": _STR, "tool_uuid": _STR, "inputs": {"type": "object"}},
     ["history_id", "tool_uuid", "inputs"],
-    _run_user_tool,
+    None,
 )
 _tool(
     "get_visualization_options",
@@ -1834,7 +1445,7 @@ _tool(
     "List pages (Galaxy markdown documents; a history-attached page is a Notebook).",
     {"history_id": _STR, "search": _STR, "limit": _INT, "offset": _INT, "show_published": _BOOL, "show_shared": _BOOL},
     [],
-    _list_pages,
+    None,
 )
 _tool(
     "get_page",
@@ -1850,7 +1461,7 @@ _tool(
     "Create a page (Notebook if history_id given, else a standalone Report).",
     {"history_id": _STR, "title": _STR, "content": _STR, "annotation": _STR, "slug": _STR},
     [],
-    _create_page,
+    None,
 )
 _tool(
     "update_page",
@@ -1878,7 +1489,7 @@ _tool(
     "List a page's edit revisions.",
     {"page_id": _STR, "sort_desc": _BOOL},
     ["page_id"],
-    _list_page_revisions,
+    None,
 )
 _tool(
     "get_page_revision",
@@ -1886,7 +1497,7 @@ _tool(
     "Get one page revision.",
     {"page_id": _STR, "revision_id": _STR},
     ["page_id", "revision_id"],
-    _get_page_revision,
+    None,
 )
 _tool(
     "revert_page_revision",
@@ -1894,7 +1505,7 @@ _tool(
     "Revert a page to an earlier revision.",
     {"page_id": _STR, "revision_id": _STR},
     ["page_id", "revision_id"],
-    _revert_page_revision,
+    None,
 )
 
 
@@ -1904,106 +1515,25 @@ _IWC_MANIFEST_URL = "https://iwc.galaxyproject.org/workflow_manifest.json"
 _iwc_cache = {}
 
 
-async def _iwc_manifest(g):
-    g.manifest.require("read")
-    if "workflows" not in _iwc_cache:
-        # The manifest is a list of collections; flatten to their workflows.
-        raw = await http.request("GET", _IWC_MANIFEST_URL) or []
-        workflows = []
-        for collection in raw:
-            workflows.extend(collection.get("workflows", []))
-        _iwc_cache["workflows"] = workflows
-    return _iwc_cache["workflows"]
-
-
 README_SUMMARY_CHARS = 300
-
-
-def _tool_name(tool_id):
-    """The name inside a toolshed id, which is what a user recognises."""
-    parts = tool_id.split("/")
-    return parts[-2] if len(parts) > 2 else tool_id
-
-
-def _iwc_tools(definition):
-    names = []
-    for step in (definition.get("steps") or {}).values():
-        tool_id = step.get("tool_id") if isinstance(step, dict) else None
-        name = _tool_name(tool_id) if tool_id else None
-        if name and name not in names:
-            names.append(name)
-    return names
-
-
-def _iwc_entry(w):
-    d = w.get("definition", {})
-    return {
-        "trsID": w.get("trsID", ""),
-        "name": d.get("name", ""),
-        "description": d.get("annotation", ""),
-        "tags": d.get("tags", []),
-        "categories": w.get("categories", []),
-        "readme_summary": (w.get("readme") or "")[:README_SUMMARY_CHARS],
-        "step_count": len(d.get("steps") or {}),
-        "authors": w.get("authors") or [],
-        "tools_used": _iwc_tools(d),
-    }
-
-
-async def _get_iwc_workflows(g, a):
-    return [_iwc_entry(w) for w in await _iwc_manifest(g)]
-
-
-def _iwc_text(entry):
-    """The words an entry itself carries, which is what the description says it matches."""
-    values = [entry["trsID"], entry["name"], entry["description"], entry["readme_summary"]]
-    values += entry["tags"] + entry["categories"]
-    return " ".join(str(v) for v in values).lower()
-
-
-async def _search_iwc_workflows(g, a):
-    needle = (a.get("query") or "").lower()
-    entries = [_iwc_entry(w) for w in await _iwc_manifest(g)]
-    return [e for e in entries if needle in _iwc_text(e)]
-
-
-async def _recommend_iwc_workflows(g, a):
-    hits = await _search_iwc_workflows(g, {"query": a.get("intent", "")})
-    return hits[: a.get("limit", 5)]
-
-
-async def _get_iwc_workflow_details(g, a):
-    for w in await _iwc_manifest(g):
-        if w.get("trsID") == a["trs_id"]:
-            return w
-    return ToolOutcome({"error": "trs_id not found in IWC manifest", "trs_id": a["trs_id"]}, is_error=True)
-
-
-async def _import_workflow_from_iwc(g, a):
-    details = await _get_iwc_workflow_details(g, {"trs_id": a["trs_id"]})
-    if "error" in details:
-        return details
-    return await g.post("api/workflows", {"workflow": details.get("definition")})
 
 
 _tool(
     "get_iwc_workflows",
     "read",
     "List curated Interactive Workflow Composer (IWC) workflows.",
-    {},
+    {"limit": _INT, "offset": _INT},
     [],
-    _get_iwc_workflows,
+    None,
 )
-_tool(
-    "search_iwc_workflows", "read", "Search IWC workflows by text.", {"query": _STR}, ["query"], _search_iwc_workflows
-)
+_tool("search_iwc_workflows", "read", "Search IWC workflows by text.", {"query": _STR}, ["query"], None)
 _tool(
     "recommend_iwc_workflows",
     "read",
     "Recommend IWC workflows for a described intent.",
     {"intent": _STR, "limit": _INT},
     ["intent"],
-    _recommend_iwc_workflows,
+    None,
 )
 _tool(
     "get_iwc_workflow_details",
@@ -2011,7 +1541,7 @@ _tool(
     "Get a single IWC workflow by TRS id.",
     {"trs_id": _STR},
     ["trs_id"],
-    _get_iwc_workflow_details,
+    None,
 )
 _tool(
     "import_workflow_from_iwc",
@@ -2019,7 +1549,7 @@ _tool(
     "Import an IWC workflow into Galaxy by TRS id.",
     {"trs_id": _STR},
     ["trs_id"],
-    _import_workflow_from_iwc,
+    None,
 )
 
 

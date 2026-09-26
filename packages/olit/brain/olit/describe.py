@@ -208,15 +208,19 @@ def tools():
                 kind += f"={spec['default']}"
             shown[name] = kind + ("!" if name in required else "")
             prose.append(f"{name}:{spec.get('description', '')}")
-        node = by_name.get(tool["handler"].__name__)
+        # A tool with no handler is run by galaxy-ops, so the query it builds is not olit's
+        # to state and there is no local body to call a passthrough.
+        handler = tool["handler"]
+        node = by_name.get(handler.__name__) if handler is not None else None
         query = _handler_query(node) if node else {}
         out[tool["name"]] = {
             "capability": tool["capability"],
+            "runner": "olit" if handler is not None else "galaxy-ops",
             "signature": fingerprint(fn.get("description", "") + "|" + ",".join(sorted(properties))),
             "params": shown,
             "prose": fingerprint("\n".join(prose)),
             "query": dict(sorted(query.items())),
-            "passthrough": tool["name"] in passthrough,
+            "passthrough": handler is not None and tool["name"] in passthrough,
         }
     return dict(sorted(out.items()))
 
