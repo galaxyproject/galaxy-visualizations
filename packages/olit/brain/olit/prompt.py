@@ -30,10 +30,14 @@ GALAXY_TERMINOLOGY = """## Galaxy
 GETTING_DATA_IN = """### Getting data into a Galaxy history
 
 When a history needs a file that lives at a **public URL** (reference genomes, model
-weights, SRA/ENA accessions, released datasets, anything addressable by
-http/https/ftp), hand Galaxy the URL and let its server fetch it directly. Do **not**
-try to route the bytes through this session: the browser is not a staging area, and a
-server-side fetch runs at datacenter bandwidth.
+weights, released datasets, anything addressable by http/https/ftp), hand Galaxy the URL
+and let its server fetch it directly. Do **not** try to route the bytes through this
+session: the browser is not a staging area, and a server-side fetch runs at datacenter
+bandwidth.
+
+An accession is not a URL. `ena_runs` turns an SRA/ENA accession into the exact FASTQ
+URLs and says whether the run is paired; ENA's paths cannot be derived from the
+accession, so read them there rather than constructing one.
 
 - **Preferred:** `upload_file_from_url({ url, history_id })` (optional `file_name`,
   `file_type`, `dbkey`). One hop, no local copy.
@@ -43,6 +47,10 @@ server-side fetch runs at datacenter bandwidth.
 
 # loom: sra-import-gate.ts, SRA_IMPORT_GUIDANCE.
 IMPORTING_SRA = """### Importing SRA/ENA sequencing runs
+
+This is the route when the SRA importer wrapper (`fastq_dump`/`fasterq_dump`) is installed;
+`search_tools_by_name` says whether it is. Where it is not, resolve the accessions with
+`ena_runs` and fetch the URLs it returns.
 
 Before submitting, gather the full set of run accessions requested for this
 analysis and deduplicate it. Inspect the destination history and the record:

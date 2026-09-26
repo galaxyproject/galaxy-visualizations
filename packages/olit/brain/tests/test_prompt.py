@@ -88,6 +88,25 @@ def test_galaxy_tools_are_named_the_way_olit_names_them():
     assert "search_iwc_workflows" in text and "galaxy_search_iwc" not in text
 
 
+def test_an_accession_is_not_offered_as_a_url():
+    """Two blocks named a preferred route for an accession and neither mentioned `ena_runs`, the
+    one thing that turns an accession into a URL. ENA's paths cannot be derived from it."""
+    text = " ".join(prompt.system_text().split())
+
+    assert "SRA/ENA accessions, released datasets" not in text
+    assert "An accession is not a URL" in text
+    assert "ena_runs" in text
+
+
+def test_the_sra_importer_route_states_that_it_needs_the_wrapper():
+    """The wrapper is an installed IUC tool, absent on plenty of servers, and the block read as
+    though it were always there."""
+    text = " ".join(prompt.IMPORTING_SRA.split())
+
+    assert "when the SRA importer wrapper" in text
+    assert "Where it is not, resolve the accessions with `ena_runs`" in text
+
+
 def test_the_local_upload_path_is_refused_not_recommended():
     """Orbit tells the agent to upload local files; here that tool cannot work."""
     text = prompt.system_text()
@@ -179,6 +198,18 @@ def test_every_template_step_carries_a_verification_line():
     steps = [ln for ln in prompt.PLAN_CONVENTION.splitlines() if ln.startswith("- [ ] ")]
     assert len(steps) == 3
     assert prompt.PLAN_CONVENTION.count("- Verification:") == len(steps)
+
+
+def test_the_identity_prompt_does_not_claim_tools_are_the_only_way_to_act():
+    """A reply with no tool calls ends the turn as REPLIED (`agent.py`), so "act only by calling
+    tools" described something the loop does not do, one word from the banned wording below."""
+    xml = Path(__file__).resolve().parents[2] / "public" / "olit.xml"
+    if not xml.is_file():
+        pytest.skip("olit.xml not present next to the brain package")
+    text = " ".join(xml.read_text().split())
+
+    assert "act only by calling tools" not in text
+    assert "Everything that touches Galaxy or runs code happens through a tool call." in text
 
 
 def test_the_identity_prompt_does_not_forbid_talking():
