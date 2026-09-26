@@ -11,6 +11,7 @@ so neither transport may know an operation by name.
 """
 
 import asyncio
+import copy
 import json
 import os
 import re
@@ -140,9 +141,9 @@ class GalaxyOps:
             self._transports.append(NodeTransport(config.get("galaxy_root"), config.get("galaxy_key")))
 
     def scoped(self, manifest):
-        view = GalaxyOps.__new__(GalaxyOps)
+        """A view gated by a narrower manifest, sharing the SAME transports."""
+        view = copy.copy(self)
         view.manifest = manifest
-        view._transports = self._transports
         return view
 
     async def close(self):

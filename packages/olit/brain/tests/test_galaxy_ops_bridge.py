@@ -172,3 +172,11 @@ def test_the_facade_never_returns_a_tuple():
     """One channel: every answer is an envelope, so no caller unpacks a refusal."""
     envelope = asyncio.run(_NoTransport().run("get_histories", {}))
     assert isinstance(envelope, dict)
+
+
+def test_a_scoped_view_carries_everything_the_facade_holds():
+    """Copied rather than rebuilt field by field, so a new field cannot be left behind."""
+    ops = GalaxyOps({"galaxy_root": "http://galaxy.invalid/", "galaxy_key": "k"}, Manifest())
+    view = ops.scoped(Manifest())
+    assert vars(view).keys() == vars(ops).keys()
+    assert view._transports is ops._transports, "a scoped view must share the transports"
