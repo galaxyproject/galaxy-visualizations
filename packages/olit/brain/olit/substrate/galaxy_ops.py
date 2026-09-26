@@ -163,9 +163,3 @@ class GalaxyOps:
         if not envelope.get("success"):
             return None, envelope.get("message") or f"{name} failed"
         return envelope, None
-
-
-def rendered(envelope):
-    """The envelope as the model sees it, with the empty halves left out."""
-    out = {k: v for k, v in envelope.items() if k in ("data", "message", "pagination") and v is not None}
-    return json.dumps(out, default=str)

@@ -10,8 +10,9 @@ import json
 import pathlib
 
 from olit.drivers.loop import galaxy_tools
+from olit.drivers.loop.outcome import rendered
 from olit.drivers.loop.tools import ToolSurface
-from olit.substrate.galaxy_ops import GalaxyOps, as_wire, camel, rendered
+from olit.substrate.galaxy_ops import GalaxyOps, as_wire, camel
 
 
 class Manifest:

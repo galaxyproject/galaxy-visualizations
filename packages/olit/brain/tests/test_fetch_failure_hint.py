@@ -106,5 +106,5 @@ def test_the_hint_rides_a_result_olit_produced_itself():
     text = asyncio.run(surface.dispatch("get_history_contents", {"history_id": "h1"})).text
 
     payload, _, appended = text.partition("\n\n")
-    assert json.loads(payload)["state"] == "error"
+    assert json.loads(payload)["data"]["state"] == "error"
     assert "ena_runs" in appended
