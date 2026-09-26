@@ -202,9 +202,6 @@ NOT_A_TOP_LEVEL_PROMISE = {
     ("get_page_revision", "edit_source"): "a field of the revision returned",
     ("get_tool_input_template", "inputs"): "names run_tool's argument, not a field of this result",
     ("list_page_revisions", "edit_source"): "a field of each revision in the list",
-    ("get_workflow_input_template", "inputs_template"): "covered by the workflow template tests upstream",
-    ("get_workflow_input_template", "guide"): "covered by the workflow template tests upstream",
-    ("get_workflow_input_template", "warnings"): "covered by the workflow template tests upstream",
     ("get_workflow_input_template", "annotation"): "a field of a slot, not of the envelope",
     ("get_workflow_input_template", "history_id"): "a field of a slot, not of the envelope",
     ("get_workflow_input_template", "options"): "a field of a slot, not of the envelope",
@@ -251,6 +248,28 @@ LIVE_CASES = {
     "get_tool_run_examples": {"tool_id": "cat1"},
     "get_history_details": {"history_id": "$history"},
     "get_collection_details": {"collection_id": "$collection"},
+    "get_workflow_input_template": {"workflow_id": "$workflow"},
+}
+
+
+# One data input and nothing else: enough for a run-form template, and it names no tool, so
+# the check does not depend on which tools the instance has installed.
+ONE_INPUT_WORKFLOW = {
+    "a_galaxy_workflow": "true",
+    "format-version": "0.1",
+    "name": "olit promised-field probe",
+    "annotation": "Staged by the promised-field check.",
+    "steps": {
+        "0": {
+            "id": 0,
+            "type": "data_input",
+            "label": "reads",
+            "tool_state": '{"optional": false}',
+            "inputs": [{"name": "reads", "description": ""}],
+            "input_connections": {},
+            "workflow_outputs": [],
+        }
+    },
 }
 
 
@@ -286,25 +305,26 @@ def test_a_delegated_result_carries_every_field_its_description_promises():
     )
 
     async def staged(galaxy):
-        """A history with one empty collection in it, so a collection read has something to read."""
+        """A history with an empty collection and a one-input workflow, so every case has a subject."""
         history = await galaxy.post("api/histories", {"name": "olit promised-field check"})
         collection = await galaxy.post(
             f"api/histories/{history['id']}/contents",
             {"type": "dataset_collection", "collection_type": "list", "name": "probe", "element_identifiers": []},
         )
-        return history["id"], collection["id"]
+        workflow = await galaxy.post("api/workflows", {"workflow": ONE_INPUT_WORKFLOW})
+        return {"$history": history["id"], "$collection": collection["id"], "$workflow": workflow["id"]}
 
     async def collect():
         found = {}
-        history_id, collection_id = await staged(substrate.galaxy)
-        fixtures = {"$history": history_id, "$collection": collection_id}
+        fixtures = await staged(substrate.galaxy)
         try:
             for name, args in LIVE_CASES.items():
                 filled = {k: fixtures.get(v, v) for k, v in args.items()}
                 envelope = await substrate.ops.run(name, filled, "read")
                 found[name] = envelope.get("data") if envelope.get("success") else envelope.get("message")
         finally:
-            await substrate.galaxy.put(f"api/histories/{history_id}", {"deleted": True})
+            await substrate.galaxy.delete(f"api/workflows/{fixtures['$workflow']}")
+            await substrate.galaxy.put(f"api/histories/{fixtures['$history']}", {"deleted": True})
             await substrate.close()
         return found
 

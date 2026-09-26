@@ -244,6 +244,7 @@ PROMISED_FIELDS = {
     "get_tool_run_examples": ("tool_id", "requested_version", "test_cases"),
     "get_history_details": ("history", "contents_summary"),
     "get_collection_details": ("collection_id", "collection", "elements", "elements_truncated", "note"),
+    "get_workflow_input_template": ("inputs_template", "guide", "warnings"),
 }
 
 
