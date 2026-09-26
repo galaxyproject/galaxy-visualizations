@@ -102,10 +102,3 @@ def _summarize_param(p):
         if _options_truncated(p):
             out["choices_truncated"] = True
     return out
-
-
-def summarize_tool_inputs(tool_info):
-    """A model-friendly parameter list that keeps the nesting flattened keys need."""
-    if not isinstance(tool_info, dict):
-        return []
-    return [_summarize_param(p) for p in tool_info.get("inputs", [])]

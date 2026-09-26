@@ -1,6 +1,6 @@
 """The skeleton the description promises, built the way galaxy-mcp builds it."""
 
-from olit.drivers.loop.tool_inputs import build_input_template, summarize_tool_inputs
+from olit.drivers.loop.tool_inputs import build_input_template
 
 CAT1 = {
     "inputs": [
@@ -44,16 +44,3 @@ def test_a_conditional_shows_its_selector_and_first_branch():
     assert template["adv|mode"] == "simple"
     assert template["adv|n"] == 0
     assert "adv|x" not in template
-
-
-def test_the_summary_keeps_the_nesting_flattened_keys_need():
-    summary = summarize_tool_inputs(CAT1)
-    repeat = next(p for p in summary if p["type"] == "repeat")
-    assert repeat["repeat_key_hint"] == "queries_0|<param>"
-    assert [c["name"] for c in repeat["children"]] == ["input2"]
-
-
-def test_a_select_offers_its_choices():
-    summary = summarize_tool_inputs(COND)
-    assert summary[0]["selector"]["choices"] == ["simple", "full"]
-    assert summary[0]["selector"]["key_hint"] == "adv|mode"
