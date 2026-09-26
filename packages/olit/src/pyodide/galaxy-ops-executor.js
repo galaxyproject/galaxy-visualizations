@@ -17,16 +17,22 @@ import {
 /**
  * Galaxy as olit reaches it: as the user whose session the page is already in. olit carries no
  * Galaxy key by design, so the client's own x-api-key header is dropped rather than sent empty.
+ *
+ * The client calls this with one Request rather than a url and an init, so the method, the body
+ * and the content type all live on that object. It is rebuilt from itself with the key removed,
+ * because an init assembled here would replace its headers instead of amending them -- which
+ * cost a form-encoded POST its content type, and Galaxy then read no name out of the body.
  */
 function galaxyFetch(credentials) {
-  return (url, options) => {
-    const init = { ...(options || {}) };
-    init.credentials = credentials || "include";
-    const headers = { ...(init.headers || {}) };
-    delete headers["x-api-key"];
-    return fetch(url, { ...init, headers });
+  return (input, options) => {
+    const request = input instanceof Request && !options ? input : new Request(input, options);
+    const headers = new Headers(request.headers);
+    headers.delete("x-api-key");
+    return fetch(new Request(request, { headers, credentials: credentials || "include" }));
   };
 }
+
+export { galaxyFetch as __galaxyFetchForTest };
 
 export function install(galaxy) {
   const byName = new Map(allOperations.map((op) => [op.name, op]));
