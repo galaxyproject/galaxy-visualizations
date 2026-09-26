@@ -79,12 +79,58 @@ class LinearRegressionShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 
-        for f in (params.get("x"), params.get("y"), "yhat"):
-            if f not in fields or fields[f].get("type") != "quantitative":
+        for encoding in ("x", "y"):
+            field = params.get(encoding)
+            if not field:
                 return {
-                    "errors": [{"code": "invalid_or_missing_field", "field": f}],
+                    "errors": [{"code": "missing_required_encoding", "details": {"encoding": encoding}}],
                     "ok": False,
                     "warnings": [],
                 }
+            if field not in fields:
+                return {
+                    "errors": [{"code": "unknown_field", "details": {"encoding": encoding, "field": field}}],
+                    "ok": False,
+                    "warnings": [],
+                }
+            if fields[field].get("type") != "quantitative":
+                return {
+                    "errors": [
+                        {
+                            "code": "invalid_field_type",
+                            "details": {
+                                "encoding": encoding,
+                                "field": field,
+                                "expected": "quantitative",
+                                "actual": fields[field].get("type"),
+                            },
+                        }
+                    ],
+                    "ok": False,
+                    "warnings": [],
+                }
+
+        # yhat is fitted by the regression process, so its absence is a pipeline fault.
+        if "yhat" not in fields:
+            return {
+                "errors": [{"code": "missing_derived_field", "details": {"field": "yhat"}}],
+                "ok": False,
+                "warnings": [],
+            }
+        if fields["yhat"].get("type") != "quantitative":
+            return {
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "yhat",
+                            "expected": "quantitative",
+                            "actual": fields["yhat"].get("type"),
+                        },
+                    }
+                ],
+                "ok": False,
+                "warnings": [],
+            }
 
         return {"errors": [], "ok": True, "warnings": []}

@@ -116,15 +116,21 @@ class NormalizedStackedBarShell(BaseShell):
             if "count" not in fields:
                 return {
                     "ok": False,
-                    "errors": [{"code": "missing_count_field"}],
+                    "errors": [{"code": "missing_derived_field", "details": {"field": "count"}}],
                     "warnings": [],
                 }
         else:
             metric = params.get("metric")
-            if not metric or metric not in fields:
+            if not metric:
                 return {
                     "ok": False,
-                    "errors": [{"code": "invalid_metric"}],
+                    "errors": [{"code": "missing_required_encoding", "details": {"encoding": "metric"}}],
+                    "warnings": [],
+                }
+            if metric not in fields:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "unknown_field", "details": {"encoding": "metric", "field": metric}}],
                     "warnings": [],
                 }
 

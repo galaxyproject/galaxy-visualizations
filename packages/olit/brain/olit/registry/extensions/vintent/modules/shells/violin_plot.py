@@ -94,24 +94,43 @@ class ViolinPlotShell(BaseShell):
         del params  # Unused - validation is based on density_estimate output fields
         fields = profile.get("fields", {})
 
-        if not {"value", "density", "group"}.issubset(fields):
+        absent = [name for name in ("value", "density", "group") if name not in fields]
+        if absent:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_density_fields"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": ", ".join(absent)}}],
                 "warnings": [],
             }
 
         if fields["value"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "value_not_quantitative"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "value",
+                            "expected": "quantitative",
+                            "actual": fields["value"].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 
         if fields["density"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "density_not_quantitative"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "density",
+                            "expected": "quantitative",
+                            "actual": fields["density"].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 

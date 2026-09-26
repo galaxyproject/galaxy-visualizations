@@ -91,17 +91,34 @@ class StripPlotShell(BaseShell):
         group_by = params.get("group_by")
         color = params.get("color")
 
-        if not field or field not in fields:
+        if not field:
             return {
                 "ok": False,
-                "errors": [{"code": "invalid_field"}],
+                "errors": [{"code": "missing_required_encoding", "details": {"encoding": "field"}}],
+                "warnings": [],
+            }
+
+        if field not in fields:
+            return {
+                "ok": False,
+                "errors": [{"code": "unknown_field", "details": {"encoding": "field", "field": field}}],
                 "warnings": [],
             }
 
         if fields[field].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "field_not_quantitative"}],
+                "errors": [
+                    {
+                        "code": "invalid_field_type",
+                        "details": {
+                            "encoding": "field",
+                            "field": field,
+                            "expected": "quantitative",
+                            "actual": fields[field].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 
@@ -109,13 +126,23 @@ class StripPlotShell(BaseShell):
             if group_by not in fields:
                 return {
                     "ok": False,
-                    "errors": [{"code": "invalid_group_by"}],
+                    "errors": [{"code": "unknown_field", "details": {"encoding": "group_by", "field": group_by}}],
                     "warnings": [],
                 }
             if fields[group_by].get("type") != "nominal":
                 return {
                     "ok": False,
-                    "errors": [{"code": "group_by_not_nominal"}],
+                    "errors": [
+                        {
+                            "code": "invalid_field_type",
+                            "details": {
+                                "encoding": "group_by",
+                                "field": group_by,
+                                "expected": "nominal",
+                                "actual": fields[group_by].get("type"),
+                            },
+                        }
+                    ],
                     "warnings": [],
                 }
 
@@ -123,13 +150,23 @@ class StripPlotShell(BaseShell):
             if color not in fields:
                 return {
                     "ok": False,
-                    "errors": [{"code": "invalid_color_field"}],
+                    "errors": [{"code": "unknown_field", "details": {"encoding": "color", "field": color}}],
                     "warnings": [],
                 }
             if fields[color].get("type") != "nominal":
                 return {
                     "ok": False,
-                    "errors": [{"code": "color_not_nominal"}],
+                    "errors": [
+                        {
+                            "code": "invalid_field_type",
+                            "details": {
+                                "encoding": "color",
+                                "field": color,
+                                "expected": "nominal",
+                                "actual": fields[color].get("type"),
+                            },
+                        }
+                    ],
                     "warnings": [],
                 }
 

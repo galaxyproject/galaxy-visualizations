@@ -75,10 +75,11 @@ class SummaryStatisticsShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 
-        if not {"column", "mean", "median", "std", "min", "max"}.issubset(fields):
+        absent = [name for name in ("column", "mean", "median", "std", "min", "max") if name not in fields]
+        if absent:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_summary_fields"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": ", ".join(absent)}}],
                 "warnings": [],
             }
 
@@ -86,7 +87,16 @@ class SummaryStatisticsShell(BaseShell):
             if fields[k].get("type") != "quantitative":
                 return {
                     "ok": False,
-                    "errors": [{"code": "invalid_stat_type", "details": {"field": k}}],
+                    "errors": [
+                        {
+                            "code": "invalid_derived_field_type",
+                            "details": {
+                                "field": k,
+                                "expected": "quantitative",
+                                "actual": fields[k].get("type"),
+                            },
+                        }
+                    ],
                     "warnings": [],
                 }
 

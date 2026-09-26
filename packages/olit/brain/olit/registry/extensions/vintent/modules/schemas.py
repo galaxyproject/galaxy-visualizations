@@ -23,21 +23,43 @@ class FieldInfo(TypedDict):
     max: float | None
 
 
+class ValidationErrorDetails(TypedDict, total=False):
+    """Which encoding, column and type a validation error is about.
+
+    The code names the condition and these name its subject. Before this the subject lived inside
+    the code, so 34 spellings existed for six conditions and nothing could read the field out.
+    Required keys differ by code and are asserted in `test_shell_validation_contract.py`.
+    """
+
+    encoding: str
+    field: str
+    expected: str
+    actual: str
+    field_type: str
+    required: int
+    found: int
+
+
 class ValidationError(TypedDict, total=False):
+    """A shell refusing the parameters it was given.
+
+    Two pairs, because a column the planner chose and a column an analyze step was supposed to
+    produce fail for different reasons and are fixed in different places: re-ask the planner, or
+    repair the pipeline.
+    """
+
     code: Literal[
-        "aggregate_missing",
-        "bin_missing",
-        "invalid_aggregate_target",
-        "invalid_bin_target",
-        "invalid_field_type",
-        "invalid_signature",
+        # An encoding the shell declares: absent, naming no known column, or the wrong type.
         "missing_required_encoding",
-        "not_enough_fields",
-        "not_enough_quantitative_fields",
         "unknown_field",
-        "unknown_shell",
+        "invalid_field_type",
+        # A column an analyze step should have produced: absent, or the wrong type.
+        "missing_derived_field",
+        "invalid_derived_field_type",
+        # A requirement over the profile as a whole rather than one column.
+        "not_enough_fields",
     ]
-    details: dict[str, Any]
+    details: ValidationErrorDetails
 
 
 class ValidationWarning(TypedDict, total=False):

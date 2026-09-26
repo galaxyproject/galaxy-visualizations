@@ -67,31 +67,54 @@ class BoxPlotGroupedShell(BaseShell):
         x_field = params.get("x")
         y_field = params.get("y")
 
-        if not x_field or not y_field:
+        chosen = (("x", x_field), ("y", y_field))
+        absent = next((encoding for encoding, field in chosen if not field), None)
+        if absent:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_required_encoding"}],
+                "errors": [{"code": "missing_required_encoding", "details": {"encoding": absent}}],
                 "warnings": [],
             }
 
-        if x_field not in fields or y_field not in fields:
+        unknown = next(((e, f) for e, f in chosen if f not in fields), None)
+        if unknown:
             return {
                 "ok": False,
-                "errors": [{"code": "unknown_field"}],
+                "errors": [{"code": "unknown_field", "details": {"encoding": unknown[0], "field": unknown[1]}}],
                 "warnings": [],
             }
 
         if fields[x_field].get("type") != "nominal":
             return {
                 "ok": False,
-                "errors": [{"code": "x_not_nominal"}],
+                "errors": [
+                    {
+                        "code": "invalid_field_type",
+                        "details": {
+                            "encoding": "x",
+                            "field": x_field,
+                            "expected": "nominal",
+                            "actual": fields[x_field].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 
         if fields[y_field].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "y_not_quantitative"}],
+                "errors": [
+                    {
+                        "code": "invalid_field_type",
+                        "details": {
+                            "encoding": "y",
+                            "field": y_field,
+                            "expected": "quantitative",
+                            "actual": fields[y_field].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 

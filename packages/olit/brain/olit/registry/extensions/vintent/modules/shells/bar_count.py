@@ -82,14 +82,23 @@ class BarCountShell(BaseShell):
         if "count" not in fields:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_count_field"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": "count"}}],
                 "warnings": [],
             }
 
         if fields["count"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "count_not_quantitative"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "count",
+                            "expected": "quantitative",
+                            "actual": fields["count"].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 
