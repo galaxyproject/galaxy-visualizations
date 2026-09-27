@@ -260,10 +260,9 @@ async def get_visualization_options(g, charts, a):
     # galaxy-charts answers `{label, value}`; what the model stores is the value, whole.
     entries = [{"id": _identity(o.get("value")), "name": o.get("label"), "value": o.get("value")} for o in offered]
 
-    # Labels are cheap to scan; the stored value is only returned for what was asked for,
-    # because these can be large and only the chosen one is ever written.
-    listed = [{"id": e["id"], "name": e["name"]} for e in entries]
-    result = {"parameter": wanted, "source": kind, "total": len(entries), "options": listed[:ROW_CAP]}
+    # Each option carries the value to store: matching a label and filling the field is one call,
+    # and an id is not a value for an input whose options are objects.
+    result = {"parameter": wanted, "source": kind, "total": len(entries), "options": entries[:ROW_CAP]}
     # A case can be declared and still hold nothing on this server: IGV's builtin genomes
     # are a data table an admin may never have filled. Naming its siblings is the difference
     # between a dead end and a second try.
@@ -282,8 +281,7 @@ async def get_visualization_options(g, charts, a):
         )
     else:
         result["hint"] = (
-            "Call again with `search` to get the value to store for one of these; "
-            "the stored value is the whole entry, not its id."
+            "Store an option's `value` as given rather than rebuilding it from its id; " "`search` narrows a long list."
         )
     return result
 

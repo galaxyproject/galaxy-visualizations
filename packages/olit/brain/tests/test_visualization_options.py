@@ -184,6 +184,26 @@ def test_a_path_that_is_not_rooted_at_a_group_is_refused():
     assert "is not a parameter path" in refused(call(parameter="source.genome", config=builtin()))
 
 
+def test_every_listed_option_carries_the_value_to_store():
+    """A select over objects hands back a dictionary; matching a label and filling the field is
+    one call. A live session held only the id, and satisfied the refusal by wrapping it."""
+    out = call(parameter="settings.source.genome", config=builtin())
+
+    assert out["options"][0]["value"] == {
+        "id": "hg19",
+        "columns": ["value", "name"],
+        "row": ["hg19", "Human hg19"],
+        "table": "fasta_indexes",
+    }
+
+
+def test_a_select_over_scalars_lists_the_scalar_as_its_value():
+    """The other kind: the option's value is the scalar itself, so id and value agree."""
+    out = call(charts=Charts(offered=[{"label": "Expanded", "value": "EXPANDED"}]), parameter="tracks.displayMode")
+
+    assert out["options"][0] == {"id": "EXPANDED", "name": "Expanded", "value": "EXPANDED"}
+
+
 def test_an_option_carries_the_value_to_store_whole():
     match = call(parameter="settings.source.genome", config=builtin(), search="hg19")["matches"][0]
     assert match["id"] == "hg19"
