@@ -74,18 +74,6 @@ def build_visualization_template(plugin, types):
     return out
 
 
-def template_cases(plugin):
-    """The other cases each conditional offers, so the first is not the only one seen."""
-    out = {}
-    for group in ("settings", "tracks"):
-        for param in (plugin or {}).get(group) or []:
-            if param.get("type") == "conditional":
-                values = [c.get("value") for c in param.get("cases") or []]
-                if len(values) > 1:
-                    out[param["name"]] = values
-    return out
-
-
 GROUPS = ("settings", "tracks")
 
 

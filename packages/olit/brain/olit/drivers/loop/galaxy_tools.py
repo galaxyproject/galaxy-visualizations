@@ -16,13 +16,7 @@ from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, server_page
-from .visualization_inputs import (
-    build_visualization_template,
-    case_value,
-    declared_paths,
-    resolve_parameter,
-    template_cases,
-)
+from .visualization_inputs import build_visualization_template, case_value, declared_paths, resolve_parameter
 
 logger = logging.getLogger(__name__)
 
@@ -736,13 +730,11 @@ async def _get_visualization_details(g, a):
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
     template = build_visualization_template(plugin, types)
-    other_cases = template_cases(plugin)
     return {
         "name": plugin.get("name"),
         "description": plugin.get("description"),
         # The shape to fill, as get_tool_input_template gives one for a Galaxy tool.
         "config_template": template,
-        **({"other_cases": other_cases} if other_cases else {}),
         "settings": [_describe_parameter(p, types, ("settings",)) for p in (plugin.get("settings") or [])],
         "tracks": [_describe_parameter(p, types, ("tracks",)) for p in (plugin.get("tracks") or [])],
         "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
