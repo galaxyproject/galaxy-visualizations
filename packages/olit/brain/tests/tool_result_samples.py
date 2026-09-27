@@ -37,7 +37,9 @@ PAGE = {"id": "p9", "slug": "olit-h1", "title": "Olit Notebook", "content": "# R
 # An upload whose source url failed: the result still names datasets to watch, and a hint
 # paragraph follows the JSON, so the payload is not the whole string.
 FAILED_FETCH = {
-    "outputs": [{"id": "d3", "hid": 3, "state": "error", "history_id": "h1", "misc_info": "Failed to fetch url ftp://sra-pub/x"}],
+    "outputs": [
+        {"id": "d3", "hid": 3, "state": "error", "history_id": "h1", "misc_info": "Failed to fetch url ftp://sra-pub/x"}
+    ],
     "jobs": [{"id": "j3", "state": "error"}],
 }
 

@@ -100,9 +100,7 @@ async def _session_for(config):
 async def run(config, inputs, on_event=None):
     parsed = config_module.parse(config)
     session = await _session_for(parsed)
-    transcripts = await session.prepare(
-        inputs["transcripts"], parsed.get("record_page_id"), parsed.get("history_id")
-    )
+    transcripts = await session.prepare(inputs["transcripts"], parsed.get("record_page_id"), parsed.get("history_id"))
     try:
         result = await session.turn(
             transcripts, on_event, cancellation.from_js(), confirm.from_js(), inputs.get("artifacts")
