@@ -22,7 +22,7 @@ const TYPES = {
     ".md": "text/markdown",
 };
 
-let script = "confirm";     // confirm | slow | compact | ratelimit
+let script = "confirm";     // confirm | slow | compact | ratelimit | plan | plan-after-graph
 let rateLimited = 0;
 let calls = 0;
 const seen = [];            // every Galaxy request the brain actually made
@@ -76,6 +76,13 @@ const delegatedOps = [
     { id: "call_4", type: "function", function: { name: "get_tool_panel", arguments: JSON.stringify({ limit: 3 }) } },
     { id: "call_5", type: "function", function: { name: "create_history", arguments: JSON.stringify({ history_name: "olit e2e ops" }) } },
 ];
+
+// The graph route: it reaches Galaxy through the openapi catalog, which this stub does not serve.
+const chartTheDataset = [{
+    id: "call_1",
+    type: "function",
+    function: { name: "vintent_dataset", arguments: JSON.stringify({ dataset_id: "__test__", request: "chart it" }) },
+}];
 
 const createVisualization = [{
     id: "call_1",
@@ -228,7 +235,14 @@ const server = http.createServer(async (req, res) => {
             await new Promise((r) => setTimeout(r, 60000));
             return json(res, 200, message("too late"));
         }
-        if (script === "plan") {
+        if (script === "plan" || script === "plan-after-graph") {
+            // The graph route is the only thing that loads the tool catalog, so a drive that
+            // needs the catalog asked for takes it before asking for a plan.
+            const msgs = body.messages || [];
+            const asked = msgs.some((m) => m.role === "tool");
+            if (script === "plan-after-graph" && !asked) {
+                return json(res, 200, message("", chartTheDataset));
+            }
             // A plan card, so the driver has an Approve button to click.
             return json(res, 200, message(
                 "```plan\n## Plan A: Stub Plan [galaxy]\n\n" +

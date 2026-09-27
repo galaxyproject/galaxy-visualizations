@@ -1,9 +1,14 @@
-// The refuse path: with no Galaxy tool catalog, approving a plan must be refused *before*
-// the turn is sent. loom's init gate short-circuits before any LLM call; this asserts the
-// same property the same way the live driver asserts the approval gate -- by counting calls
-// on the far side, not by trusting the UI.
+// The refuse path, and the path that must not refuse.
 //
-// The stub serves no OpenAPI document, so this tier is already the unavailable state.
+// With the tool catalog asked for and unavailable, approving a plan must be refused *before*
+// the turn is sent. loom's init gate short-circuits before any LLM call; this asserts the same
+// property the same way the live driver asserts the approval gate -- by counting calls on the
+// far side, not by trusting the UI.
+//
+// The catalog loads on first use, and only the graph route uses it, so a session that has not
+// taken that route has a catalog that is not loaded and not broken either. Approving then has
+// to proceed: reading "not asked" as "failed" refused every plan in every ordinary session.
+// The stub serves no OpenAPI document, so taking the graph route is what makes it unavailable.
 const { chromium } = require("playwright");
 
 const APP = process.env.APP_URL || "http://localhost:5173/";
@@ -16,10 +21,10 @@ const check = (name, ok, detail) => {
 };
 const calls = async () => (await (await fetch(`${STUB}/__seen`)).json()).calls;
 
-async function waitFor(page, fn, ms) {
+async function waitFor(page, fn, ms, arg) {
     const end = Date.now() + ms;
     while (Date.now() < end) {
-        if (await page.evaluate(fn)) return true;
+        if (await page.evaluate(fn, arg)) return true;
         await page.waitForTimeout(400);
     }
     return false;
@@ -45,9 +50,35 @@ async function waitFor(page, fn, ms) {
         process.exit(1);
     }
 
-    // The catalog never loaded, so the guard should fire on this click.
-    const before = await calls();
+    // Nothing has needed the catalog, which is not the same as it having failed.
+    const beforeAllowed = await calls();
     await page.click(".plan-draft-approve");
+    await page.waitForTimeout(2500);
+    const afterAllowed = await calls();
+    const allowedBody = await page.evaluate(() => document.body.innerText);
+    check("a catalog nothing asked for does not refuse the plan",
+          !/Galaxy is not available/i.test(allowedBody),
+          /Galaxy is not available/i.test(allowedBody) ? "refused an ordinary session" : "approval proceeded");
+    check("the approved turn was sent", afterAllowed > beforeAllowed,
+          `${beforeAllowed} -> ${afterAllowed} provider calls`);
+
+    // Now take the graph route, which is what loads the catalog -- and it cannot load here.
+    // The approved turn above answered with another plan card, so count from what is on screen.
+    await fetch(`${STUB}/__script?name=plan-after-graph`);
+    const cards = await page.locator(".plan-draft-approve").count();
+    await page.fill("#input", "Chart the seed dataset, then plan the rest.");
+    await page.click("#send-btn");
+    const recarded = await waitFor(
+        page, (n) => document.querySelectorAll(".plan-draft-approve").length > n, 180000, cards);
+    check("plan draft card offered after the graph route", recarded);
+    if (!recarded) {
+        console.log(logs.slice(-8).join("\n"));
+        await browser.close();
+        process.exit(1);
+    }
+
+    const before = await calls();
+    await page.locator(".plan-draft-approve").last().click();
     await page.waitForTimeout(2500);
     const after = await calls();
 
