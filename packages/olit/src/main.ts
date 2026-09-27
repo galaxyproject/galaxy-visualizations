@@ -7,7 +7,7 @@ import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
-import { catalogRefusalMessage, galaxyCanRun } from "./catalog-gate";
+import { catalogFailed, catalogRefusalMessage, galaxyCanRun } from "./catalog-gate";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
@@ -346,9 +346,9 @@ async function main() {
     // Surface a broken Galaxy catalog once; it is otherwise a silent dead end.
     const cat = reply.diagnostics && reply.diagnostics.catalog;
     latestCatalog = cat || latestCatalog;
-    if (cat && !cat.loaded) {
+    if (catalogFailed(cat)) {
       chat.addErrorMessage(
-        `Galaxy catalog did not load (root=${config.galaxy_root}): ${cat.error}`,
+        `Galaxy catalog did not load (root=${config.galaxy_root}): ${cat!.error}`,
       );
     }
     chat.hideThinking();

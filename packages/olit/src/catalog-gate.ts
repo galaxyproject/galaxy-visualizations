@@ -10,12 +10,19 @@ export interface CatalogStatus {
   loaded?: boolean;
   op_count?: number;
   error?: string | null;
+  /** Whether anything has needed the catalog yet; it loads on first use. */
+  asked?: boolean;
+}
+
+/** Whether the catalog was asked for and could not answer. */
+export function catalogFailed(catalog: CatalogStatus | null | undefined): boolean {
+  if (!catalog || catalog.asked === false) return false;
+  return !catalog.loaded || (catalog.op_count ?? 0) === 0;
 }
 
 export function galaxyCanRun(catalog: CatalogStatus | null | undefined): boolean {
-  // Unknown means the brain has not reported yet: do not block on missing evidence.
-  if (!catalog) return true;
-  return Boolean(catalog.loaded) && (catalog.op_count ?? 0) > 0;
+  // Unreported and not-yet-asked are both absence of evidence, not a broken catalog.
+  return !catalogFailed(catalog);
 }
 
 export function catalogRefusalMessage(catalog: CatalogStatus | null | undefined): string {
