@@ -205,6 +205,7 @@ async function main() {
     llm: { baseUrl: config.ai_base_url, apiKey: creds.apiKey },
     galaxy: { root: config.galaxy_root, credentials },
     opsModule: process.env.ops_module as string,
+    chartsModule: process.env.charts_module as string,
   });
   let ready = false;
   const readyInfo = chat.addInfoMessage("Loading Olit...");
