@@ -690,6 +690,9 @@ def _describe_parameter(param, types):
         for f in source.get("filters") or []:
             if param.get(f) is not None:
                 options[f] = param[f]
+        if source["kind"] != "declared":
+            # A declared source carries its values; every other kind holds them on the server.
+            options["resolve"] = "get_visualization_options"
         described["options"] = options
 
     test = param.get("test_param")

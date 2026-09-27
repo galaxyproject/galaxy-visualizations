@@ -50,7 +50,11 @@ def test_a_dataset_input_states_the_object_it_stores():
 def test_a_dataset_input_states_the_datatypes_it_accepts():
     """The distinction a caller needs: a genome is not a track."""
     track = details()["tracks"][0]
-    assert track["options"] == {"kind": "history_dataset", "extension": "bam,bed"}
+    assert track["options"] == {
+        "kind": "history_dataset",
+        "extension": "bam,bed",
+        "resolve": "get_visualization_options",
+    }
 
 
 def test_a_conditional_is_expanded_into_its_cases():
@@ -65,7 +69,16 @@ def test_a_conditional_is_expanded_into_its_cases():
 
 def test_a_remote_option_source_names_where_to_fetch_it():
     igv_genome = details()["settings"][1]["cases"][0]["inputs"][0]
-    assert igv_genome["options"] == {"kind": "data_json", "url": "https://x/g.json"}
+    assert igv_genome["options"] == {
+        "kind": "data_json",
+        "url": "https://x/g.json",
+        "resolve": "get_visualization_options",
+    }
+
+
+def test_a_declared_source_carries_its_values_and_names_no_call():
+    source = details()["settings"][1]
+    assert "resolve" not in source["chosen_by"]["options"]
 
 
 def test_a_plain_text_input_stores_a_string_and_claims_nothing_else():
