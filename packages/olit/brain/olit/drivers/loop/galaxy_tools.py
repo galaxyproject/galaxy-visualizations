@@ -912,17 +912,17 @@ def _check_level(entry, declared, types, where):
         value = entry[param["name"]]
         if param.get("type") == "conditional":
             test = (param.get("test_param") or {}).get("name")
-            chosen = value.get(test) if isinstance(value, dict) else None
-            wanted = case_value(chosen)
-            inputs = next(
-                (
-                    c.get("inputs") or []
-                    for c in param.get("cases") or []
-                    if wanted is not None and case_value(c.get("value")) == wanted
-                ),
-                [],
-            )
-            nested = _check_level(value, [param.get("test_param")] + list(inputs), types, f"{param['name']}")
+            cases = param.get("cases") or []
+            wanted = case_value(value.get(test) if isinstance(value, dict) else None)
+            active = next((c for c in cases if wanted is not None and case_value(c.get("value")) == wanted), None)
+            if active is None:
+                labels = ", ".join(repr(c.get("value")) for c in cases)
+                return {
+                    "error": f"Refused: {param['name']}.{test} selects the case, so it takes one of {labels}.",
+                    "declared": sorted(allowed),
+                }
+            # A test parameter holds a case label, not a value of its own declared type.
+            nested = _check_level(value, [{"name": test}] + list(active.get("inputs") or []), types, param["name"])
             if nested:
                 return nested
             continue

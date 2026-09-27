@@ -215,7 +215,10 @@ CONDITIONAL_PLUGIN = {
             "name": "source",
             "type": "conditional",
             "test_param": {"name": "origin", "type": "select"},
-            "cases": [{"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]}],
+            "cases": [
+                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]},
+                {"value": "builtin", "inputs": [{"name": "dbkey", "type": "data_table"}]},
+            ],
         },
     ],
     "tracks": [{"name": "urlDataset", "type": "data"}],
@@ -262,10 +265,19 @@ class Charts:
 
 
 def test_a_case_parameter_is_only_valid_for_the_chosen_case():
+    """`genome` belongs to the igv case; under builtin the conditional declares dbkey instead."""
     g = ConditionalGalaxy()
     out = refused(save(g, visualization="igv", settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}}))
     assert out["saved"] is False
     assert "genome" in out["error"]
+
+
+def test_a_case_label_the_conditional_does_not_declare_is_refused():
+    g = ConditionalGalaxy()
+    out = refused(save(g, visualization="igv", settings={"source": {"origin": "remote"}}))
+    assert out["saved"] is False
+    assert "selects the case" in out["error"]
+    assert "'igv'" in out["error"] and "'builtin'" in out["error"]
 
 
 def test_both_visualization_tools_hand_back_an_artifact_that_embeds_them():

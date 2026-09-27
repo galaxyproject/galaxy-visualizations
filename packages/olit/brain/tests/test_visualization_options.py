@@ -404,14 +404,33 @@ def test_a_boolean_case_is_selected_by_either_representation():
         assert out["parameter"] == "settings.mode.depth", stored
 
 
+TYPES = {"boolean": {"stores": {"type": "boolean"}}, "select": {"stores": {"type": "string"}}}
+
+
 def test_the_save_validator_reads_a_case_value_the_same_way():
     """Two walkers over one representation: a case either walker finds, both must find."""
     from olit.drivers.loop.galaxy_tools import _check_level
     from olit.drivers.loop.visualization_inputs import resolve_parameter
 
-    types = {"boolean": {"stores": {"type": "boolean"}}, "select": {"stores": {"type": "string"}}}
     entry = {"mode": {"advanced": True, "depth": "d"}}
 
     hit, problem = resolve_parameter(BOOLEAN, "settings.mode.depth", {"settings": entry})
     assert hit and not problem, problem
-    assert _check_level(entry, [BOOLEAN_CASE], types, "settings") is None
+    assert _check_level(entry, [BOOLEAN_CASE], TYPES, "settings") is None
+
+
+def test_a_test_parameter_is_validated_as_a_case_label():
+    """It selects the case, so it holds a label; `"true"` is right even where boolean stores."""
+    from olit.drivers.loop.galaxy_tools import _check_level
+
+    for stored in ("true", True, "false"):
+        entry = {"mode": {"advanced": stored, **({"depth": "d"} if stored != "false" else {})}}
+        assert _check_level(entry, [BOOLEAN_CASE], TYPES, "settings") is None, stored
+
+
+def test_a_test_parameter_holding_no_declared_label_is_refused():
+    from olit.drivers.loop.galaxy_tools import _check_level
+
+    bad = _check_level({"mode": {"advanced": "maybe"}}, [BOOLEAN_CASE], TYPES, "settings")
+    assert bad and "selects the case" in bad["error"]
+    assert "'true'" in bad["error"] and "'false'" in bad["error"]
