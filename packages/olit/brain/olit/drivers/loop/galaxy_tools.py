@@ -16,7 +16,13 @@ from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, server_page
-from .visualization_inputs import build_visualization_template, declared_paths, resolve_parameter, template_cases
+from .visualization_inputs import (
+    build_visualization_template,
+    case_value,
+    declared_paths,
+    resolve_parameter,
+    template_cases,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -915,7 +921,15 @@ def _check_level(entry, declared, types, where):
         if param.get("type") == "conditional":
             test = (param.get("test_param") or {}).get("name")
             chosen = value.get(test) if isinstance(value, dict) else None
-            inputs = next((c.get("inputs") or [] for c in param.get("cases") or [] if c.get("value") == chosen), [])
+            wanted = case_value(chosen)
+            inputs = next(
+                (
+                    c.get("inputs") or []
+                    for c in param.get("cases") or []
+                    if wanted is not None and case_value(c.get("value")) == wanted
+                ),
+                [],
+            )
             nested = _check_level(value, [param.get("test_param")] + list(inputs), types, f"{param['name']}")
             if nested:
                 return nested

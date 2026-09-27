@@ -375,3 +375,43 @@ def test_a_failed_lookup_is_reported_rather_than_shown_as_no_options():
 
 def test_browsing_says_how_to_get_the_value_to_store():
     assert "search" in call(parameter="settings.source.genome", config=builtin())["hint"]
+
+
+# --- the case value both walkers read ---------------------------------------------------
+
+BOOLEAN_CASE = {
+    "name": "mode",
+    "type": "conditional",
+    "test_param": {"name": "advanced", "type": "boolean"},
+    "cases": [
+        {"value": "true", "inputs": [{"name": "depth", "type": "select", "data": [{"label": "Deep", "value": "d"}]}]},
+        {"value": "false", "inputs": []},
+    ],
+}
+BOOLEAN = {"name": "b", "settings": [BOOLEAN_CASE]}
+
+
+def test_a_boolean_case_is_selected_by_either_representation():
+    """The form stringifies a boolean to `"true"`, so a config may hold the string or the boolean."""
+    for stored in ("true", True):
+        out = call(
+            charts=Charts(offered=[{"label": "Deep", "value": "d"}]),
+            plugin=BOOLEAN,
+            visualization="b",
+            parameter="settings.mode.depth",
+            config={"settings": {"mode": {"advanced": stored}}},
+        )
+        assert out["parameter"] == "settings.mode.depth", stored
+
+
+def test_the_save_validator_reads_a_case_value_the_same_way():
+    """Two walkers over one representation: a case either walker finds, both must find."""
+    from olit.drivers.loop.galaxy_tools import _check_level
+    from olit.drivers.loop.visualization_inputs import resolve_parameter
+
+    types = {"boolean": {"stores": {"type": "boolean"}}, "select": {"stores": {"type": "string"}}}
+    entry = {"mode": {"advanced": True, "depth": "d"}}
+
+    hit, problem = resolve_parameter(BOOLEAN, "settings.mode.depth", {"settings": entry})
+    assert hit and not problem, problem
+    assert _check_level(entry, [BOOLEAN_CASE], types, "settings") is None

@@ -120,11 +120,20 @@ def _state(config, group):
     return held if isinstance(held, dict) else {}
 
 
-def _hit(declared, path, case=None, other_cases=()):
-    return {"declared": declared, "path": path, "case": case, "other_cases": list(other_cases)}
+def case_value(value):
+    """A case value as the form compares it, where a boolean stringifies to `"true"`."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return None if value is None else str(value)
+
+
+def _hit(declared, path):
+    """A resolution; the case it sits in is filled in by whichever conditional selected it."""
+    return {"declared": declared, "path": path, "case": None, "other_cases": []}
 
 
 def _resolve(params, segments, state, trail):
+    """The input `segments` names under `params`, or a sentence saying why it is not reachable."""
     name, rest = segments[0], segments[1:]
     here = ".".join(trail + [name])
     param = next((p for p in params or [] if isinstance(p, dict) and p.get("name") == name), None)
@@ -146,8 +155,8 @@ def _resolve(params, segments, state, trail):
 
     # The config selects one case, exactly as the form does; the others are not in play.
     nested = state.get(name) if isinstance(state, dict) else None
-    chosen = nested.get(test.get("name")) if isinstance(nested, dict) else None
-    active = next((c for c in cases if chosen is not None and str(c.get("value")) == str(chosen)), None)
+    chosen = case_value(nested.get(test.get("name")) if isinstance(nested, dict) else None)
+    active = next((c for c in cases if chosen is not None and case_value(c.get("value")) == chosen), None)
     if active is None:
         offered = ", ".join(repr(c.get("value")) for c in cases)
         return None, (
@@ -159,8 +168,7 @@ def _resolve(params, segments, state, trail):
         hit["other_cases"] = [
             c.get("value")
             for c in cases
-            if str(c.get("value")) != str(active.get("value"))
-            and any(i.get("name") == rest[0] for i in c.get("inputs") or [])
+            if case_value(c.get("value")) != chosen and any(i.get("name") == rest[0] for i in c.get("inputs") or [])
         ]
     return hit, problem
 
