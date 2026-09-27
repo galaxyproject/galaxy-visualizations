@@ -67,32 +67,35 @@ class BoxPlotGroupedShell(BaseShell):
         x_field = params.get("x")
         y_field = params.get("y")
 
-        if not x_field or not y_field:
-            return {
-                "ok": False,
-                "errors": [{"code": "missing_required_encoding"}],
-                "warnings": [],
-            }
-
-        if x_field not in fields or y_field not in fields:
-            return {
-                "ok": False,
-                "errors": [{"code": "unknown_field"}],
-                "warnings": [],
-            }
-
-        if fields[x_field].get("type") != "nominal":
-            return {
-                "ok": False,
-                "errors": [{"code": "x_not_nominal"}],
-                "warnings": [],
-            }
-
-        if fields[y_field].get("type") != "quantitative":
-            return {
-                "ok": False,
-                "errors": [{"code": "y_not_quantitative"}],
-                "warnings": [],
-            }
+        for encoding, field, expected in (("x", x_field, "nominal"), ("y", y_field, "quantitative")):
+            if not field:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "missing_required_encoding", "details": {"encoding": encoding}}],
+                    "warnings": [],
+                }
+            if field not in fields:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "unknown_field", "details": {"encoding": encoding, "field": field}}],
+                    "warnings": [],
+                }
+            actual = fields[field].get("type")
+            if actual != expected:
+                return {
+                    "ok": False,
+                    "errors": [
+                        {
+                            "code": "invalid_field_type",
+                            "details": {
+                                "encoding": encoding,
+                                "field": field,
+                                "expected": expected,
+                                "actual": actual,
+                            },
+                        }
+                    ],
+                    "warnings": [],
+                }
 
         return {"ok": True, "errors": [], "warnings": []}

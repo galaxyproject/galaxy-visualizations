@@ -81,31 +81,65 @@ class BarAggregateShell(BaseShell):
 
         fields = profile.get("fields", {})
 
-        if not group_by or group_by not in fields:
+        if not group_by:
             return {
                 "ok": False,
-                "errors": [{"code": "invalid_group_by"}],
+                "errors": [{"code": "missing_required_encoding", "details": {"encoding": "group_by"}}],
+                "warnings": [],
+            }
+
+        if group_by not in fields:
+            return {
+                "ok": False,
+                "errors": [{"code": "unknown_field", "details": {"encoding": "group_by", "field": group_by}}],
                 "warnings": [],
             }
 
         if fields[group_by].get("type") != "nominal":
             return {
                 "ok": False,
-                "errors": [{"code": "group_by_not_nominal"}],
+                "errors": [
+                    {
+                        "code": "invalid_field_type",
+                        "details": {
+                            "encoding": "group_by",
+                            "field": group_by,
+                            "expected": "nominal",
+                            "actual": fields[group_by].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 
         if op != "count":
-            if not metric or metric not in fields:
+            if not metric:
                 return {
                     "ok": False,
-                    "errors": [{"code": "invalid_metric"}],
+                    "errors": [{"code": "missing_required_encoding", "details": {"encoding": "metric"}}],
+                    "warnings": [],
+                }
+
+            if metric not in fields:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "unknown_field", "details": {"encoding": "metric", "field": metric}}],
                     "warnings": [],
                 }
             if fields[metric].get("type") != "quantitative":
                 return {
                     "ok": False,
-                    "errors": [{"code": "metric_not_quantitative"}],
+                    "errors": [
+                        {
+                            "code": "invalid_field_type",
+                            "details": {
+                                "encoding": "metric",
+                                "field": metric,
+                                "expected": "quantitative",
+                                "actual": fields[metric].get("type"),
+                            },
+                        }
+                    ],
                     "warnings": [],
                 }
 

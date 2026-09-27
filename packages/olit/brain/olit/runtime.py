@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 class Session:
-    """Everything a turn runs against, built once per worker and reused across turns."""
+    """Everything a turn runs against, built once per config identity and reused across turns."""
 
     def __init__(self, config):
         self.config = config
+        self.identity = config.identity()
         self.substrate = Substrate(config)
         self.processes = ProcessRegistry().load_packaged()
         self.skills = SkillRegistry().load_packaged()
@@ -27,6 +28,28 @@ class Session:
         await self.substrate.init()
         return self
 
+    def rebind(self, config):
+        """Point this session at a new turn's context."""
+        self.config = config
+        self.driver.rebind(session_id=config.get("session_id"), page_id=config.get("record_page_id"))
+
+    async def close(self):
+        """Release what the session holds outside the interpreter."""
+        await self.substrate.close()
+
+    def _galaxy_status(self):
+        """What Galaxy work can run: everything, nothing, or only the tools olit runs itself.
+
+        Not the openapi catalog, which only serves the graph route: it can fail on a server
+        whose tools all work, and loading it says nothing about whether an operation can run.
+        The two failures are told apart because they leave different tools working.
+        """
+        if not self.substrate.galaxy.reachable():
+            return prompt.GALAXY_UNREACHABLE
+        if not self.substrate.ops.available():
+            return prompt.OPS_UNAVAILABLE
+        return prompt.GALAXY_READY
+
     def context(self):
         """The brain's own system text: discipline, Galaxy guidance and the skills router."""
         target = self.substrate.llm.target
@@ -34,17 +57,17 @@ class Session:
             prompt.system_text(
                 model=target.model.id,
                 provider=target.provider.id,
-                galaxy_ok=bool(self.substrate.catalog.status().get("op_count")),
+                galaxy_status=self._galaxy_status(),
                 seed_dataset=self.config.get("dataset_id"),
             ),
             self.skills.router_text(),
         )
         return "\n\n".join(t for t in blocks if t)
 
-    async def prepare(self, transcripts, history_id):
+    async def prepare(self, transcripts, record_page_id, history_id):
         """The transcript with the context block set and the record excerpt refreshed."""
         transcripts = _inject_context(transcripts, self.context())
-        excerpt = await notebook.excerpt(self.substrate.galaxy, history_id)
+        excerpt = await notebook.excerpt(self.substrate.galaxy, record_page_id, history_id)
         return _inject_record(transcripts, excerpt)
 
     async def turn(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
@@ -52,6 +75,7 @@ class Session:
 
     def diagnostics(self):
         return {
+            "galaxy": self._galaxy_status(),
             "catalog": self.substrate.catalog.status(),
             "capabilities": self.substrate.manifest.to_list(),
         }
@@ -61,16 +85,22 @@ _session = None
 
 
 async def _session_for(config):
-    """The worker's session, rebuilt only when the config it was built from changes."""
+    """The worker's session, rebuilt only when what it is built from changes."""
     global _session
-    if _session is None or _session.config != config:
-        _session = await Session(config).init()
+    if _session is not None and _session.identity == config.identity():
+        _session.rebind(config)
+        return _session
+    if _session is not None:
+        # A replaced session still holds a transport.
+        await _session.close()
+    _session = await Session(config).init()
     return _session
 
 
 async def run(config, inputs, on_event=None):
-    session = await _session_for(config_module.parse(config))
-    transcripts = await session.prepare(inputs["transcripts"], session.config.get("history_id"))
+    parsed = config_module.parse(config)
+    session = await _session_for(parsed)
+    transcripts = await session.prepare(inputs["transcripts"], parsed.get("record_page_id"), parsed.get("history_id"))
     try:
         result = await session.turn(
             transcripts, on_event, cancellation.from_js(), confirm.from_js(), inputs.get("artifacts")

@@ -80,12 +80,20 @@ class ExecutorHandler:
         sub_runner = Runner(subagent, registry)
         sub_result = await sub_runner.run(sub_inputs)
 
-        if not sub_result or "last" not in sub_result:
-            logger.error("Sub-agent failed: %s", agent_id)
-            return {"ok": False, "error": {"code": ErrorCode.SUBAGENT_FAILED}}
+        last = (sub_result or {}).get("last") or {}
+        if last.get("ok") is not True:
+            logger.error("Sub-agent %s failed: %s", agent_id, last.get("error"))
+            return {
+                "ok": False,
+                "error": {
+                    "code": ErrorCode.SUBAGENT_FAILED,
+                    "message": f"sub-agent {agent_id} did not complete",
+                    "details": {"agent_id": agent_id, "cause": last.get("error")},
+                },
+            }
 
         logger.info("Sub-agent completed: %s", agent_id)
-        ctx["result"] = sub_result["last"]["result"]
+        ctx["result"] = last.get("result")
         runner.resolver.apply_emit(node.get("emit"), {"result": ctx["result"]}, ctx)
         return {"ok": True, "result": ctx["result"]}
 

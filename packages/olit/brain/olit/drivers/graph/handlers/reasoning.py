@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING, Any
 
+from ..constants import ErrorCode
 from ..types import Context, NodeDefinition, Result
 
 if TYPE_CHECKING:
@@ -35,7 +36,7 @@ class ReasoningHandler:
             return {
                 "ok": False,
                 "error": {
-                    "code": "reasoning_failed",
+                    "code": ErrorCode.REASONING_FAILED,
                     "message": str(e),
                     "node_id": ctx.get("nodeId"),
                 },

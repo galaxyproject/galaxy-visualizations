@@ -10,6 +10,8 @@ export interface LlmAuth {
 export interface PyodideManagerOptions {
   indexURL: string;
   extraPackages?: string[];
+  galaxy?: { root: string; credentials?: RequestCredentials };
+  opsModule?: string;
   /** Held by the worker, which signs the brain's requests to this endpoint. */
   llm?: LlmAuth;
 }
@@ -73,6 +75,8 @@ export class PyodideManager {
         extraPackages: options.extraPackages,
         packages: this.packages,
         llm: options.llm,
+        galaxy: options.galaxy,
+        opsModule: options.opsModule,
       },
     });
   }

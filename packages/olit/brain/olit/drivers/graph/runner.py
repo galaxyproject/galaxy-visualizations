@@ -3,6 +3,8 @@
 import logging
 from typing import TYPE_CHECKING, Any
 
+from olit.exceptions import NodeExecutionError
+
 from .constants import MAX_NODES, ErrorCode, NodeType
 from .handlers import get_handler
 from .resolver import Resolver
@@ -66,6 +68,9 @@ class Runner:
         logger.info("Starting graph execution: %s", graph_id)
         logger.debug("Graph inputs: %s", inputs)
 
+        # Declared state keys exist from the start holding null, so a $ref to one is a value and a
+        # $ref to a key the graph never declared is a fault.
+        self.state.update({name: None for name in (self.graph.get("state") or {})})
         self.state["inputs"] = self._with_defaults(inputs)
         missing = self._missing_required()
         if missing:
@@ -110,6 +115,19 @@ class Runner:
             logger.error("Graph has no start node")
             output = {"ok": False, "error": {"code": ErrorCode.MISSING_START, "message": "Graph has no start node"}}
 
+        if node_id and safety >= MAX_NODES:
+            # Reaching the ceiling does not prove a cycle: a long walk hits it too. Either way the
+            # walk stopped short, so the last node's result is not the graph's answer.
+            logger.error("Graph %s stopped at the %d node limit, still at %s", graph_id, MAX_NODES, node_id)
+            output = {
+                "ok": False,
+                "error": {
+                    "code": ErrorCode.NODE_LIMIT_EXHAUSTED,
+                    "message": f"{graph_id} stopped after {MAX_NODES} nodes without reaching an end",
+                    "details": {"nodes_executed": safety, "next_node": node_id},
+                },
+            }
+
         logger.info("Graph execution completed: %s (nodes executed: %d)", graph_id, safety)
         return {"state": self.state, "last": output}
 
@@ -127,7 +145,21 @@ class Runner:
         handler = get_handler(node_type)
 
         if handler:
-            res = await handler.execute(node, ctx, self.registry, self)
+            try:
+                res = await handler.execute(node, ctx, self.registry, self)
+            except NodeExecutionError as e:
+                # A node that cannot run is a failed node, not a crashed graph: the walk can still
+                # take on.error, and the caller still gets state back.
+                logger.error("Node %s could not run: %s", node_id, e.message)
+                res = {
+                    "ok": False,
+                    "error": {
+                        "code": ErrorCode.NODE_EXECUTION_FAILED,
+                        "message": e.message,
+                        "node_id": node_id,
+                        "details": e.details,
+                    },
+                }
         else:
             res = {"ok": False, "error": {"code": ErrorCode.UNKNOWN_NODE_TYPE, "message": str(node_type)}}
 

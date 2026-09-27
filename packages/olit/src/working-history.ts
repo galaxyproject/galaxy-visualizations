@@ -1,3 +1,5 @@
+import { galaxyObject, toolPayload } from "./tool-result";
+
 /** The history the agent is working in, read from what Galaxy returns to a tool call.
  *
  * A session opened without a history in its URL still ends up in one, because the agent
@@ -9,13 +11,8 @@
 const LISTS = ["outputs", "jobs", "items"];
 
 export function historyFromResult(name: string, content: string): string | undefined {
-  let payload: Record<string, any>;
-  try {
-    payload = JSON.parse(content);
-  } catch {
-    return undefined;
-  }
-  if (!payload || typeof payload !== "object") {
+  const payload = galaxyObject(content);
+  if (!payload) {
     return undefined;
   }
   // A created history answers with its own id rather than naming one.
@@ -32,4 +29,14 @@ export function historyFromResult(name: string, content: string): string | undef
     }
   }
   return undefined;
+}
+
+/** The record page a `notebook_resume` answered with, so the session keeps owning it. */
+export function recordPageFromResult(name: string, content: string): string | undefined {
+  if (name !== "notebook_resume") {
+    return undefined;
+  }
+  // Olit's own tool: no Galaxy envelope.
+  const payload = toolPayload(content);
+  return typeof payload?.page_id === "string" ? payload.page_id : undefined;
 }

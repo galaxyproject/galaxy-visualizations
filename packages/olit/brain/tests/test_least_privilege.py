@@ -92,8 +92,8 @@ def test_a_view_shares_state_rather_than_resetting_it():
     assert asyncio.run(view.local.run("x + 1")) == "42"
     # One rate limiter per session, shared by every scoped view.
     assert view.llm._limiter is substrate.llm._limiter
-    # Same loaded spec, so scoping costs no network round trip.
-    assert view.catalog._providers is substrate.catalog._providers
+    # Same catalog state, so scoping costs no round trip and a lazy load is seen by both.
+    assert view.catalog._loaded is substrate.catalog._loaded
 
 
 # --- End to end through a process tool ------------------------------------------

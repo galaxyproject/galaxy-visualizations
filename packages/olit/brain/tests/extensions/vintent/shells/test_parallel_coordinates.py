@@ -21,6 +21,7 @@ class TestParallelCoordinatesValidate:
         assert result["errors"] == []
 
     def test_validate_not_enough_quantitative_fields(self):
+        """The count is the whole subject here, so the details carry it rather than a field name."""
         shell = ParallelCoordinatesShell()
         params = {}
         profile = _profile(
@@ -32,7 +33,8 @@ class TestParallelCoordinatesValidate:
         )
         result = shell.validate(profile, params)
         assert result["ok"] is False
-        assert result["errors"][0]["code"] == "not_enough_quantitative_fields"
+        assert result["errors"][0]["code"] == "not_enough_fields"
+        assert result["errors"][0]["details"] == {"field_type": "quantitative", "required": 3, "found": 2}
 
 
 class TestParallelCoordinatesIsApplicable:

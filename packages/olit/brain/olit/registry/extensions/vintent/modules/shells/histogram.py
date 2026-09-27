@@ -51,16 +51,26 @@ class HistogramShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 
-        if "bin_start" not in fields or "bin_end" not in fields or "count" not in fields:
+        absent = [name for name in ("bin_start", "bin_end", "count") if name not in fields]
+        if absent:
             return {
-                "errors": [{"code": "missing_derived_fields"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": ", ".join(absent)}}],
                 "ok": False,
                 "warnings": [],
             }
 
         if fields["count"].get("type") != "quantitative":
             return {
-                "errors": [{"code": "invalid_count_type"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "count",
+                            "expected": "quantitative",
+                            "actual": fields["count"].get("type"),
+                        },
+                    }
+                ],
                 "ok": False,
                 "warnings": [],
             }

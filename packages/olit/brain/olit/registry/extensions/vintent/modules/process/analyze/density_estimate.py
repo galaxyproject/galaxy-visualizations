@@ -5,14 +5,12 @@ from typing import Any
 
 import numpy as np
 
+from olit.registry.extensions.vintent.modules.process import is_finite_number
+
 PROCESS_ID = "density_estimate"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
-
-
-def _is_finite(v: Any) -> bool:
-    return isinstance(v, (int, float)) and math.isfinite(v)
 
 
 def _kde_1d(x: np.ndarray, grid: np.ndarray) -> np.ndarray:
@@ -41,7 +39,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
 
     for r in rows:
         v = r.get(field)
-        if not _is_finite(v):
+        if not is_finite_number(v):
             continue
         key = r.get(group_by) if group_by else "__all__"
         groups.setdefault(key, []).append(float(v))

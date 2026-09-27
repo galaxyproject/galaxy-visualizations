@@ -152,6 +152,21 @@ describe("a saved Olit visualization is a restorable session", () => {
     expect(title(doc).length).toBeGreaterThanOrEqual(3);
   });
 
+  it("names a new session after itself, so two of them are told apart", () => {
+    // Every saved session read "Olit session": the default was >= 3 chars, so the
+    // fallback that carries the hash could never run.
+    const one = title(newDocument({}));
+    const two = title(newDocument({}));
+    expect(one).toMatch(/^Olit Session \([0-9a-f]{8}\)$/);
+    expect(one).not.toEqual(two);
+  });
+
+  it("keeps a name the user gave it", () => {
+    const doc = newDocument({});
+    doc.session.title = "Rabies dating run";
+    expect(title(doc)).toBe("Rabies dating run");
+  });
+
   it("surfaces a failed save instead of pretending it worked", async () => {
     vi.stubGlobal(
       "fetch",

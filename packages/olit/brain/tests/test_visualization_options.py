@@ -39,9 +39,9 @@ def call(**kw):
 def test_a_name_declared_in_several_cases_is_refused_rather_than_guessed():
     """igv declares `genome` per case with a different source each time."""
     out = refused(call(parameter="genome"))
-    assert "more than one case" in out["error"]
-    assert out["cases"] == ["builtin", "igv"]
-    assert "`when`" in out["hint"]
+    assert "more than one case" in out
+    assert "builtin" in out and "igv" in out, "the cases it could not choose between"
+    assert "`when`" in out, "the refusal has to say how to disambiguate"
 
 
 def test_naming_the_case_resolves_the_right_source():
@@ -61,7 +61,7 @@ def test_declared_options_need_no_fetching():
 
 
 def test_a_parameter_the_plugin_does_not_declare_is_refused():
-    assert "declares no parameter" in refused(call(parameter="nonsense"))["error"]
+    assert "declares no parameter" in refused(call(parameter="nonsense"))
 
 
 def test_browsing_says_how_to_get_the_value_to_store():

@@ -103,7 +103,12 @@ class ParallelCoordinatesShell(BaseShell):
 
         if quant_count < 3:
             return {
-                "errors": [{"code": "not_enough_quantitative_fields"}],
+                "errors": [
+                    {
+                        "code": "not_enough_fields",
+                        "details": {"field_type": "quantitative", "required": 3, "found": quant_count},
+                    }
+                ],
                 "ok": False,
                 "warnings": [],
             }

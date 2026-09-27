@@ -72,7 +72,17 @@ class BarSeriesShell(BaseShell):
 
         if not isinstance(fields, list) or len(fields) < 2:
             return {
-                "errors": [{"code": "not_enough_fields"}],
+                "errors": [
+                    {
+                        "code": "not_enough_fields",
+                        "details": {
+                            "encoding": "values",
+                            "field_type": "quantitative",
+                            "required": 2,
+                            "found": len(fields) if isinstance(fields, list) else 0,
+                        },
+                    }
+                ],
                 "ok": False,
                 "warnings": [],
             }
@@ -86,7 +96,7 @@ class BarSeriesShell(BaseShell):
                     "errors": [
                         {
                             "code": "unknown_field",
-                            "details": {"field": f},
+                            "details": {"encoding": "values", "field": f},
                         }
                     ],
                     "ok": False,
@@ -99,6 +109,7 @@ class BarSeriesShell(BaseShell):
                         {
                             "code": "invalid_field_type",
                             "details": {
+                                "encoding": "values",
                                 "field": f,
                                 "expected": "quantitative",
                                 "actual": meta.get("type"),

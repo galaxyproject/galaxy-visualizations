@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import math
 from typing import Any
+
+from olit.registry.extensions.vintent.modules.process import is_finite_number
 
 PROCESS_ID = "percent_change"
 PROCESS_PHASE = "analyze"
@@ -30,7 +31,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
         v = row.get(field)
         new_row = dict(row)
 
-        if isinstance(v, (int, float)) and math.isfinite(v):
+        if is_finite_number(v):
             if prev_value is not None and prev_value != 0:
                 pct_change = ((v - prev_value) / abs(prev_value)) * 100
                 new_row[f"{field}_pct_change"] = pct_change

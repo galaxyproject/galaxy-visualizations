@@ -4,6 +4,8 @@ import math
 from collections import Counter
 from typing import Any
 
+from olit.registry.extensions.vintent.modules.process import is_finite_number
+
 PROCESS_ID = "fill_missing"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
@@ -27,9 +29,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
     elif strategy == "zero":
         computed_fill = 0
     elif strategy in ("mean", "median"):
-        values = [
-            row.get(field) for row in rows if isinstance(row.get(field), (int, float)) and math.isfinite(row.get(field))
-        ]
+        values = [value for value in (row.get(field) for row in rows) if is_finite_number(value)]
         if not values:
             computed_fill = 0
         elif strategy == "mean":

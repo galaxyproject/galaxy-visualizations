@@ -88,31 +88,64 @@ class LollipopShell(BaseShell):
 
         fields = profile.get("fields", {})
 
-        if not category or category not in fields:
+        if not category:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_required_encoding"}],
+                "errors": [{"code": "missing_required_encoding", "details": {"encoding": "category"}}],
+                "warnings": [],
+            }
+
+        if category not in fields:
+            return {
+                "ok": False,
+                "errors": [{"code": "unknown_field", "details": {"encoding": "category", "field": category}}],
                 "warnings": [],
             }
 
         if fields[category].get("type") != "nominal":
             return {
                 "ok": False,
-                "errors": [{"code": "invalid_field_type"}],
+                "errors": [
+                    {
+                        "code": "invalid_field_type",
+                        "details": {
+                            "encoding": "category",
+                            "field": category,
+                            "expected": "nominal",
+                            "actual": fields[category].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 
         if op != "count":
-            if not value or value not in fields:
+            if not value:
                 return {
                     "ok": False,
-                    "errors": [{"code": "missing_required_encoding"}],
+                    "errors": [{"code": "missing_required_encoding", "details": {"encoding": "value"}}],
+                    "warnings": [],
+                }
+            if value not in fields:
+                return {
+                    "ok": False,
+                    "errors": [{"code": "unknown_field", "details": {"encoding": "value", "field": value}}],
                     "warnings": [],
                 }
             if fields[value].get("type") != "quantitative":
                 return {
                     "ok": False,
-                    "errors": [{"code": "invalid_field_type"}],
+                    "errors": [
+                        {
+                            "code": "invalid_field_type",
+                            "details": {
+                                "encoding": "value",
+                                "field": value,
+                                "expected": "quantitative",
+                                "actual": fields[value].get("type"),
+                            },
+                        }
+                    ],
                     "warnings": [],
                 }
 

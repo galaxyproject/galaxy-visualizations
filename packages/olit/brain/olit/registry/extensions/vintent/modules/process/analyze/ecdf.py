@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-import math
 from typing import Any
+
+from olit.registry.extensions.vintent.modules.process import is_finite_number
 
 PROCESS_ID = "ecdf"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
-
-
-def _is_finite(v: Any) -> bool:
-    return isinstance(v, (int, float)) and math.isfinite(v)
 
 
 def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -27,7 +24,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
 
     for r in rows:
         v = r.get(field)
-        if not _is_finite(v):
+        if not is_finite_number(v):
             continue
         key = r.get(group_by) if group_by else None
         groups.setdefault(key, []).append(float(v))

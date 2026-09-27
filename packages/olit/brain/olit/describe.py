@@ -28,7 +28,10 @@ PROMPT_MODULE = "prompt.py"
 SKIPPED = ("vendor/", "registry/skills/")
 
 # Modules that name the guards able to refuse a call.
-GUARD_MODULES = ("drivers/loop/tools.py", "drivers/loop/agent.py")
+# Where a guard can be named. Scanned rather than listed: a guard set in a module nobody
+# thought to list is invisible here, to the published policy and to the drift check that
+# reads it -- which is how `malformed-object-id` went unreported.
+GUARD_PACKAGES = ("drivers/loop",)
 
 _QUERY_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^&?{}\"']*)")
 
@@ -49,36 +52,6 @@ def fingerprint(text):
 
 def package_root():
     return pathlib.Path(inspect.getsourcefile(prompt)).resolve().parent
-
-
-def py_symbol(text, symbol):
-    """A module-level constant (triple-quoted, braced or parenthesised), or a `def` body."""
-    m = re.search(rf'^{re.escape(symbol)} = ("""|\'\'\')', text, re.M)
-    if m:
-        quote = m.group(1)
-        end = text.index(quote, m.end())
-        return text[m.start() : end + len(quote)]
-    for opener, closer in (("{", "}"), ("(", ")")):
-        m = re.search(rf"^{re.escape(symbol)} = \{opener}$", text, re.M)
-        if not m:
-            continue
-        lines = text[m.start() :].splitlines()
-        body = [lines[0]]
-        for line in lines[1:]:
-            body.append(line)
-            if line == closer:
-                break
-        return "\n".join(body)
-    m = re.search(rf"^def {re.escape(symbol)}\b", text, re.M)
-    if not m:
-        return None
-    rest = text[m.start() :].splitlines()
-    out = [rest[0]]
-    for line in rest[1:]:
-        if line and not line[0].isspace():
-            break
-        out.append(line)
-    return "\n".join(out).rstrip()
 
 
 def symbols():
@@ -208,25 +181,35 @@ def tools():
                 kind += f"={spec['default']}"
             shown[name] = kind + ("!" if name in required else "")
             prose.append(f"{name}:{spec.get('description', '')}")
-        node = by_name.get(tool["handler"].__name__)
+        # A tool with no handler is run by galaxy-ops, so the query it builds is not olit's
+        # to state and there is no local body to call a passthrough.
+        handler = tool["handler"]
+        node = by_name.get(handler.__name__) if handler is not None else None
         query = _handler_query(node) if node else {}
         out[tool["name"]] = {
             "capability": tool["capability"],
+            "runner": "olit" if handler is not None else "galaxy-ops",
             "signature": fingerprint(fn.get("description", "") + "|" + ",".join(sorted(properties))),
             "params": shown,
             "prose": fingerprint("\n".join(prose)),
             "query": dict(sorted(query.items())),
-            "passthrough": tool["name"] in passthrough,
+            "passthrough": handler is not None and tool["name"] in passthrough,
+            "promised_fields": list(galaxy_tools.promised_fields(tool["name"])),
         }
     return dict(sorted(out.items()))
+
+
+def guard_modules():
+    """Every module a guard could be named in, so none is missed by omission."""
+    base = package_root()
+    return sorted(p for package in GUARD_PACKAGES for p in (base / package).glob("*.py"))
 
 
 def guards():
     """Every guard that can refuse a call, read from the code that names them."""
     found = set()
-    base = package_root()
-    for rel in GUARD_MODULES:
-        tree = ast.parse((base / rel).read_text())
+    for path in guard_modules():
+        tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.keyword) and node.arg == "guard":
                 if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):

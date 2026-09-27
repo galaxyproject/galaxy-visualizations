@@ -20,8 +20,11 @@ MODULES = ("ena.py", "galaxy_tools.py", "gtn.py", "notebook.py")
 def dispatched_handlers():
     """The functions a tool call actually reaches, by name."""
     names = set()
-    for module in (ena, galaxy_tools, gtn, notebook):
-        names |= {f.__name__ for f in module.HANDLERS.values()}
+    for module in (ena, galaxy_tools, gtn):
+        # A tool declared with no handler is run by galaxy-ops, which declares its own failures.
+        names |= {f.__name__ for f in module.HANDLERS.values() if f is not None}
+    # Dispatched by name: its identity is session state, not a (g, args) argument.
+    names.add(notebook.resume.__name__)
     return names
 
 

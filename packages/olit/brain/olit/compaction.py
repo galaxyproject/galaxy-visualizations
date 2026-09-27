@@ -3,6 +3,8 @@
 import logging
 import math
 
+from olit.substrate.llm import REASONING_KEYS
+
 logger = logging.getLogger(__name__)
 
 # pi's AgentHarness defaults.
@@ -120,8 +122,10 @@ class Settings:
 
 
 def estimate_tokens(message):
-    """pi's estimate: characters over four."""
+    """pi's estimate: characters over four, over everything the request carries."""
     chars = len(message.get("content") or "")
+    for key in REASONING_KEYS:
+        chars += len(message.get(key) or "")
     for call in message.get("tool_calls") or []:
         fn = call.get("function") or {}
         chars += len(fn.get("name") or "") + len(fn.get("arguments") or "")

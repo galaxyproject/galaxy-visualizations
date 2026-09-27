@@ -38,7 +38,7 @@ class Llm:
         # The rate comes from the endpoint; one bucket per session, shared by scoped views.
         self._limiter = TokenBucketRateLimiter.from_requests_per_minute(self.target.rate_limit)
         logger.info(
-            "llm target: provider=%s model=%s window=%d max_tokens=%d",
+            "llm target: provider=%s model=%s window=%s max_tokens=%s",
             self.target.provider.id,
             self.target.model.id,
             self.target.context_window,

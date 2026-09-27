@@ -13,7 +13,7 @@ PRODUCES_SHAPE = "aggregate"
 def run(rows: list[dict[str, Any]], params: dict[str, Any]):
     columns = params.get("columns") or []
 
-    X = []
+    samples: list[list[float]] = []
     for r in rows:
         try:
             vals = [float(r[c]) for c in columns]
@@ -21,12 +21,12 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]):
             continue
         if any(np.isnan(v) for v in vals):
             continue
-        X.append(vals)
+        samples.append(vals)
 
-    if len(X) < 2:
+    if len(samples) < 2:
         raise Exception("covariance_invalid_shape")
 
-    X = np.asarray(X, dtype=float)
+    X = np.asarray(samples, dtype=float)
     cov = np.cov(X, rowvar=False)
 
     out: list[dict[str, Any]] = []

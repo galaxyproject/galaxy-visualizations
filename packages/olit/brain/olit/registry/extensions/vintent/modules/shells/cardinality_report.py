@@ -61,17 +61,27 @@ class CardinalityReportShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 
-        if not {"column", "unique"}.issubset(fields):
+        absent = [name for name in ("column", "unique") if name not in fields]
+        if absent:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_cardinality_fields"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": ", ".join(absent)}}],
                 "warnings": [],
             }
 
         if fields["unique"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "invalid_unique_type"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "unique",
+                            "expected": "quantitative",
+                            "actual": fields["unique"].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 

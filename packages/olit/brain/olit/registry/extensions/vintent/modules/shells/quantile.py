@@ -90,24 +90,43 @@ class QuantileShell(BaseShell):
         del params  # Unused - validation is based on quantiles process output fields
         fields = profile.get("fields", {})
 
-        if not {"q", "value"}.issubset(fields):
+        absent = [name for name in ("q", "value") if name not in fields]
+        if absent:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_quantile_fields"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": ", ".join(absent)}}],
                 "warnings": [],
             }
 
         if fields["q"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "q_not_quantitative"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "q",
+                            "expected": "quantitative",
+                            "actual": fields["q"].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 
         if fields["value"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "value_not_quantitative"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "value",
+                            "expected": "quantitative",
+                            "actual": fields["value"].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 

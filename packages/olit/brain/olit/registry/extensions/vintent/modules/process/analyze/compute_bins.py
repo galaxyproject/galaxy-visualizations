@@ -14,6 +14,9 @@ def run(rows: list[dict[str, object]], params: dict[str, Any]) -> list[dict[str,
         return []
     field = params.get("field")
     bins = params.get("bins", DEFAULT_BINS)
+    # Without a column there is nothing to bin, so pass the rows on rather than emptying them.
+    if not field:
+        return rows
     values: list[float] = []
     for row in rows:
         v = row.get(field)

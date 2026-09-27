@@ -81,12 +81,12 @@
     "base_url": "https://llm.jetstream-cloud.org/api",
     "models": [
       {
-        "id": "llama-4-scout",
-        "context_window": 328000
-      },
-      {
         "id": "gpt-oss-120b",
         "context_window": 131072
+      },
+      {
+        "id": "llama-4-scout",
+        "context_window": 328000
       }
     ],
     "free_model": false,

@@ -60,17 +60,28 @@ class PcaShell(BaseShell):
     ) -> ValidationResult:
         fields = profile.get("fields", {})
 
-        if not {"PC1", "PC2"}.issubset(fields):
+        absent = [name for name in ("PC1", "PC2") if name not in fields]
+        if absent:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_pca_components"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": ", ".join(absent)}}],
                 "warnings": [],
             }
 
-        if fields["PC1"].get("type") != "quantitative" or fields["PC2"].get("type") != "quantitative":
+        wrong = next((n for n in ("PC1", "PC2") if fields[n].get("type") != "quantitative"), None)
+        if wrong:
             return {
                 "ok": False,
-                "errors": [{"code": "invalid_pca_type"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": wrong,
+                            "expected": "quantitative",
+                            "actual": fields[wrong].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
 

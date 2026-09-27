@@ -7,7 +7,13 @@ import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
-import { catalogRefusalMessage, galaxyCanRun } from "./catalog-gate";
+import {
+  catalogFailed,
+  catalogRefusalMessage,
+  galaxyCanRun,
+  galaxyPartialWarning,
+  galaxyRefusalMessage,
+} from "./diagnostics";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
@@ -21,11 +27,11 @@ import {
 } from "./session-document";
 import { reportSavedState, savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
-import { historyFromResult } from "./working-history";
+import { historyFromResult, recordPageFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
 import { runOlit, type LoopEvent, type Message } from "./pyodide-runner";
-import { renderArtifact, type Artifact } from "./artifacts";
+import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
 import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
 import { mountLayout } from "./layout";
@@ -123,6 +129,9 @@ async function main() {
     newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
   // A restored session names the history it operated in; the url need not repeat it.
   config.history_id = config.history_id || sessionDoc.history_id;
+  // The record page is named, never discovered: the session owns one and says which.
+  config.session_id = sessionDoc.session.id;
+  config.record_page_id = sessionDoc.session.recordPageId;
 
   const usage = mountUsageBar(container);
   mountBuildStamp(container, {
@@ -182,7 +191,7 @@ async function main() {
   }
   // Replayed like the transcript: a resumed session that can still place a chart but shows
   // an empty pane is telling the user it lost something it did not.
-  for (const artifact of produced) {
+  for (const artifact of paneArtifacts(produced)) {
     await renderArtifact(el.artifactContent, artifact);
   }
 
@@ -194,6 +203,8 @@ async function main() {
     extraPackages: [`${indexURL}/${process.env.olit_wheel}`],
     // The key is the worker's to hold; the brain's config never carries it.
     llm: { baseUrl: config.ai_base_url, apiKey: creds.apiKey },
+    galaxy: { root: config.galaxy_root, credentials },
+    opsModule: process.env.ops_module as string,
   });
   let ready = false;
   const readyInfo = chat.addInfoMessage("Loading Olit...");
@@ -272,8 +283,8 @@ async function main() {
   const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
     onPaused: (text) => chat.addInfoMessage(text),
   });
-  // Last catalog status the brain reported; undefined until the first turn returns.
-  let latestCatalog: import("./catalog-gate").CatalogStatus | undefined;
+  // Last diagnostics the brain reported; undefined until the first turn returns.
+  let latest: import("./diagnostics").Diagnostics | undefined;
 
   /** Cards rendered live from loop events; the final reconcile skips these ids. */
   function liveEvents(streamed: Set<string>) {
@@ -309,6 +320,12 @@ async function main() {
           sessionDoc.history_id = worked;
           config.history_id = worked;
         }
+        // A record page the brain created or replaced; the session owns it from here.
+        const page = recordPageFromResult(ev.name, ev.content);
+        if (page) {
+          sessionDoc.session.recordPageId = page;
+          config.record_page_id = page;
+        }
       }
     };
   }
@@ -333,12 +350,9 @@ async function main() {
     console.groupEnd();
 
     // Surface a broken Galaxy catalog once; it is otherwise a silent dead end.
-    const cat = reply.diagnostics && reply.diagnostics.catalog;
-    latestCatalog = cat || latestCatalog;
-    if (cat && !cat.loaded) {
-      chat.addErrorMessage(
-        `Galaxy catalog did not load (root=${config.galaxy_root}): ${cat.error}`,
-      );
+    latest = reply.diagnostics || latest;
+    if (catalogFailed(reply.diagnostics?.catalog)) {
+      chat.addErrorMessage(catalogRefusalMessage(reply.diagnostics?.catalog));
     }
     chat.hideThinking();
     retryNotice.stop();
@@ -523,9 +537,13 @@ async function main() {
     const { action, body } = (e as CustomEvent<{ action: string; body: string }>).detail;
     if (action === "approve") {
       // loom's init gate refuses /execute when Galaxy cannot run the plan.
-      if (!galaxyCanRun(latestCatalog)) {
-        chat.addErrorMessage(catalogRefusalMessage(latestCatalog));
+      if (!galaxyCanRun(latest?.galaxy)) {
+        chat.addErrorMessage(galaxyRefusalMessage());
         return;
+      }
+      const partial = galaxyPartialWarning(latest?.galaxy);
+      if (partial) {
+        chat.addInfoMessage(partial);
       }
       el.input.value =
         "I approve the plan above. Show the full parameter table for review before executing.";

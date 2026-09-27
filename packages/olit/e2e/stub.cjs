@@ -22,7 +22,8 @@ const TYPES = {
     ".md": "text/markdown",
 };
 
-let script = "confirm";     // confirm | slow | compact | ratelimit
+let script = "confirm";     // confirm | slow | compact | ratelimit | plan | plan-after-graph
+let galaxyUp = true;        // /api/version answers, which is what the brain probes for reachability
 let rateLimited = 0;
 let calls = 0;
 const seen = [];            // every Galaxy request the brain actually made
@@ -66,12 +67,40 @@ const runPython = [{
     function: { name: "run_python", arguments: JSON.stringify({ code: RUN_PYTHON_CODE }) },
 }];
 
+// A spread of the operations galaxy-ops runs instead of a handler here: a paginated read, two
+// that shape their answer from a tool's schema, one that pages a list Galaxy will not page,
+// and a write. Kept small enough that the turn fits the drive's context budget uncompacted.
+const delegatedOps = [
+    { id: "call_1", type: "function", function: { name: "get_histories", arguments: JSON.stringify({ limit: 2 }) } },
+    { id: "call_2", type: "function", function: { name: "get_tool_run_examples", arguments: JSON.stringify({ tool_id: "cat1" }) } },
+    { id: "call_3", type: "function", function: { name: "get_tool_input_template", arguments: JSON.stringify({ tool_id: "cat1" }) } },
+    { id: "call_4", type: "function", function: { name: "get_tool_panel", arguments: JSON.stringify({ limit: 3 }) } },
+    { id: "call_5", type: "function", function: { name: "create_history", arguments: JSON.stringify({ history_name: "olit e2e ops" }) } },
+];
+
+// The graph route: it reaches Galaxy through the openapi catalog, which this stub does not serve.
+const chartTheDataset = [{
+    id: "call_1",
+    type: "function",
+    function: { name: "vintent_dataset", arguments: JSON.stringify({ dataset_id: "__test__", request: "chart it" }) },
+}];
+
 const createVisualization = [{
     id: "call_1",
     type: "function",
     function: {
         name: "show_visualization",
         arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl" }),
+    },
+}];
+
+// Two turns, two differently titled artifacts, so a drive can tell which one the pane shows.
+const showTitled = (title) => [{
+    id: "call_1",
+    type: "function",
+    function: {
+        name: "show_visualization",
+        arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl", title }),
     },
 }];
 
@@ -151,6 +180,11 @@ const server = http.createServer(async (req, res) => {
     }
     // Drives that assert on what the model was sent need the record to start empty;
     // `/__script` deliberately keeps it, because a drive may switch scripts mid-turn.
+    // The brain probes /api/version once per session; a drive needs Galaxy down before it boots.
+    if (url.startsWith("/__galaxy")) {
+        galaxyUp = new URL(url, "http://x").searchParams.get("up") !== "0";
+        return json(res, 200, { galaxyUp });
+    }
     if (url.startsWith("/__forget")) {
         prompts.length = 0;
         return json(res, 200, { prompts: 0 });
@@ -207,7 +241,14 @@ const server = http.createServer(async (req, res) => {
             await new Promise((r) => setTimeout(r, 60000));
             return json(res, 200, message("too late"));
         }
-        if (script === "plan") {
+        if (script === "plan" || script === "plan-after-graph") {
+            // The graph route is the only thing that loads the tool catalog, so a drive that
+            // needs the catalog asked for takes it before asking for a plan.
+            const msgs = body.messages || [];
+            const asked = msgs.some((m) => m.role === "tool");
+            if (script === "plan-after-graph" && !asked) {
+                return json(res, 200, message("", chartTheDataset));
+            }
             // A plan card, so the driver has an Approve button to click.
             return json(res, 200, message(
                 "```plan\n## Plan A: Stub Plan [galaxy]\n\n" +
@@ -220,6 +261,13 @@ const server = http.createServer(async (req, res) => {
         if (script === "compact") {
             return json(res, 200, message("ok"));
         }
+        if (script === "ops-bridge") {
+            const msgs = body.messages || [];
+            const tail = msgs[msgs.length - 1] || {};
+            return json(res, 200, tail.role === "tool"
+                ? message("operations answered")
+                : message("", delegatedOps));
+        }
         if (script === "python") {
             const msgs = body.messages || [];
             const tail = msgs[msgs.length - 1] || {};
@@ -230,6 +278,12 @@ const server = http.createServer(async (req, res) => {
         // Keyed on the last message; by turn two the transcript always has a tool result.
         const messages = body.messages || [];
         const last = messages[messages.length - 1] || {};
+        if (script === "two-artifacts") {
+            const turns = messages.filter((m) => m.role === "user").length;
+            return json(res, 200, last.role === "tool"
+                ? message(`Chart ${turns} is open.`)
+                : message("", showTitled(turns < 2 ? "First Chart" : "Second Chart")));
+        }
         if (script === "visualization") {
             return json(res, 200, last.role === "tool"
                 ? message("The structure is open in the viewer.")
@@ -240,6 +294,7 @@ const server = http.createServer(async (req, res) => {
 
     // Everything else is Galaxy; record it so tests can assert on the PUT.
     seen.push(`${req.method} ${url}`);
+    if (!galaxyUp && url.includes("/api/")) return json(res, 503, { err_msg: "galaxy is down" });
     if (url.includes("/api/plugins/olit")) return json(res, 200, pluginDict());
     if (url.includes("/api/plugins")) return json(res, 200, [{ name: "ngl", settings: [], tracks: [] }]);
     if (url.includes("/api/datatypes/")) return json(res, 200, [{ visualization: "ngl" }]);

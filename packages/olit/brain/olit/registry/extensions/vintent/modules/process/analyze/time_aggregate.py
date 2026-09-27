@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import math
 from datetime import datetime
 from typing import Any
+
+from olit.registry.extensions.vintent.modules.process import is_finite_number
 
 PROCESS_ID = "time_aggregate"
 PROCESS_PHASE = "analyze"
@@ -65,9 +66,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
         if op == "count" or not metric:
             result.append({"period": key, "count": len(group)})
         else:
-            values = [
-                r.get(metric) for r in group if isinstance(r.get(metric), (int, float)) and math.isfinite(r.get(metric))
-            ]
+            values = [value for value in (r.get(metric) for r in group) if is_finite_number(value)]
             if not values:
                 continue
 

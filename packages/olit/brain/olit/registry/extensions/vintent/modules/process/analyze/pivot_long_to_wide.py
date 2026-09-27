@@ -28,7 +28,10 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
 
     out: list[dict[str, Any]] = []
     for _, r in wide.iterrows():
-        out.append(r.where(pd.notnull(r), None).to_dict())
+        filled = r.where(pd.notnull(r), None).to_dict()
+        # A pivot names the new columns after the key column's values, which may be numbers, while
+        # every consumer of a row reads its keys as column names.
+        out.append({str(name): value for name, value in filled.items()})
 
     return out
 

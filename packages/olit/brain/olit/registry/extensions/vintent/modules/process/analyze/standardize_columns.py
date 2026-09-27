@@ -3,14 +3,12 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from olit.registry.extensions.vintent.modules.process import is_finite_number
+
 PROCESS_ID = "standardize_columns"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "rowwise"
-
-
-def _is_finite(v: Any) -> bool:
-    return isinstance(v, (int, float)) and math.isfinite(v)
 
 
 def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -27,7 +25,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
     stats: dict[str, dict[str, float]] = {}
 
     for c in columns:
-        vals = [float(r[c]) for r in rows if _is_finite(r.get(c))]
+        vals = [float(value) for value in (r.get(c) for r in rows) if is_finite_number(value)]
         if not vals:
             continue
         mean = sum(vals) / len(vals)
@@ -41,7 +39,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
         nr = dict(r)
         for c, s in stats.items():
             v = r.get(c)
-            if not _is_finite(v):
+            if not is_finite_number(v):
                 continue
             x = float(v)
             if with_mean:

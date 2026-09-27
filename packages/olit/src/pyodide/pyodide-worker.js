@@ -56,6 +56,11 @@ self.onmessage = async (e) => {
         );
         console.log(`Loaded ${whl}`);
       }
+      if (payload.opsModule) {
+        // Imported rather than bundled: this worker is served as a file, not built by vite.
+        const ops = await import(`${payload.indexURL}/${payload.opsModule}`);
+        ops.install(payload.galaxy || {});
+      }
       self.postMessage({ type: "ready" });
     } catch (err) {
       self.postMessage({ type: "error", error: String(err) });

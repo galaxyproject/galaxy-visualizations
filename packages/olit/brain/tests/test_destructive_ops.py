@@ -7,10 +7,16 @@ from olit.drivers.loop import galaxy_destructive
 from olit.drivers.loop.tools import ToolSurface
 from olit.substrate import Confirmation
 
-from .fakes import FakeSubstrate
+from .fakes import FakeOps, FakeSubstrate
 
 
 class RecordingGalaxy:
+    """Everything that reached Galaxy, by whichever side ran the operation.
+
+    The gate sits before dispatch chooses a side, so `calls` staying empty is the assertion
+    either way: an operation galaxy-ops runs must be stopped just as surely as one olit runs.
+    """
+
     def __init__(self):
         self.calls = []
 
@@ -26,9 +32,18 @@ class RecordingGalaxy:
         self.calls.append(("POST", path, body))
         return {"id": "h1"}
 
+    def through_ops(self, name, args):
+        self.calls.append(("OPS", name, args))
+        return {"id": "h1"}
+
 
 def _dispatch(name, args, confirmation=None):
-    substrate = FakeSubstrate(galaxy=RecordingGalaxy(), capabilities=("llm", "local", "read", "write"))
+    galaxy = RecordingGalaxy()
+    substrate = FakeSubstrate(
+        galaxy=galaxy,
+        ops=FakeOps(galaxy.through_ops),
+        capabilities=("llm", "local", "read", "write"),
+    )
     surface = ToolSurface(substrate, confirmation=confirmation)
     return asyncio.run(surface.dispatch(name, args)).text, substrate.galaxy
 

@@ -8,7 +8,7 @@ import pytest
 from olit.drivers.loop import fetch_failure_hint as hint
 from olit.drivers.loop.tools import ToolSurface
 
-from .fakes import FakeSubstrate
+from .fakes import FakeOps, FakeSubstrate
 
 # The shape Galaxy returned in the session this exists for.
 ENA_FAILURE = {
@@ -83,13 +83,28 @@ class FailingGalaxy:
         return ENA_FAILURE
 
 
-def test_the_hint_rides_the_tool_result_without_deforming_it():
-    substrate = FakeSubstrate(galaxy=FailingGalaxy(), capabilities=("llm", "local", "read"))
+def test_the_hint_rides_a_delegated_result_without_deforming_it():
+    """The triage is olit's, so it rides a result galaxy-ops produced as well as one olit did."""
+    substrate = FakeSubstrate(
+        galaxy=FailingGalaxy(),
+        ops=FakeOps(lambda name, args: ENA_FAILURE),
+        capabilities=("llm", "local", "read"),
+    )
     surface = ToolSurface(substrate)
     text = asyncio.run(surface.dispatch("get_dataset_details", {"dataset_id": "d1"})).text
 
     payload, _, appended = text.partition("\n\n")
     # The model still gets parseable JSON; the hint sits after it, as loom appends its own.
-    assert json.loads(payload)["state"] == "error"
+    assert json.loads(payload)["data"]["state"] == "error"
     assert appended.startswith("[olit]")
+    assert "ena_runs" in appended
+
+
+def test_the_hint_rides_a_result_olit_produced_itself():
+    substrate = FakeSubstrate(galaxy=FailingGalaxy(), capabilities=("llm", "local", "read"))
+    surface = ToolSurface(substrate)
+    text = asyncio.run(surface.dispatch("get_history_contents", {"history_id": "h1"})).text
+
+    payload, _, appended = text.partition("\n\n")
+    assert json.loads(payload)["data"]["state"] == "error"
     assert "ena_runs" in appended

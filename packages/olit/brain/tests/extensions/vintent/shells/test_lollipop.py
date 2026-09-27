@@ -36,12 +36,14 @@ class TestLollipopValidate:
         assert result["errors"][0]["code"] == "missing_required_encoding"
 
     def test_validate_category_not_in_fields(self):
+        """A named column the profile lacks is a different fault from an unset encoding."""
         shell = LollipopShell()
         params = {"category": "missing", "op": "count"}
         profile = _profile({"type": {"type": "nominal"}})
         result = shell.validate(profile, params)
         assert result["ok"] is False
-        assert result["errors"][0]["code"] == "missing_required_encoding"
+        assert result["errors"][0]["code"] == "unknown_field"
+        assert result["errors"][0]["details"] == {"encoding": "category", "field": "missing"}
 
     def test_validate_category_wrong_type(self):
         shell = LollipopShell()

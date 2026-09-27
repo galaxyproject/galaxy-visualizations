@@ -50,12 +50,6 @@ class ProviderError(AppError):
     code = "PROVIDER_ERROR"
 
 
-class ApiCallError(AppError):
-    """Error calling an API operation."""
-
-    code = "API_CALL_ERROR"
-
-
 class CapabilityError(AppError):
     """Operation requires a capability the manifest has not granted."""
 

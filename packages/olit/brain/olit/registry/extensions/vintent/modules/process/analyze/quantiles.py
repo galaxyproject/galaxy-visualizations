@@ -3,14 +3,12 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from olit.registry.extensions.vintent.modules.process import is_finite_number
+
 PROCESS_ID = "quantiles"
 PROCESS_PHASE = "analyze"
 REQUIRES_SHAPE = "rowwise"
 PRODUCES_SHAPE = "aggregate"
-
-
-def _is_finite(v: Any) -> bool:
-    return isinstance(v, (int, float)) and math.isfinite(v)
 
 
 def _quantile(sorted_vals: list[float], q: float) -> float:
@@ -43,7 +41,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
         groups: dict[Any, list[float]] = {}
         for r in rows:
             v = r.get(field)
-            if _is_finite(v):
+            if is_finite_number(v):
                 groups.setdefault(r.get(group_by), []).append(float(v))
 
         for g, vals in groups.items():
@@ -60,7 +58,7 @@ def run(rows: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, An
                     }
                 )
     else:
-        vals = [float(r.get(field)) for r in rows if _is_finite(r.get(field))]
+        vals = [float(value) for value in (r.get(field) for r in rows) if is_finite_number(value)]
         if not vals:
             return []
         vals.sort()

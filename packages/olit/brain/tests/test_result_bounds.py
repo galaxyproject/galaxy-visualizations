@@ -10,8 +10,8 @@ import asyncio
 import json
 
 from olit.drivers.loop.agent import MAX_TOOL_RESULT_BYTES, LoopDriver
-from olit.drivers.loop.galaxy_tools import _get_histories, _get_history_contents, _get_tool_panel
-from olit.drivers.loop.paging import ROW_BYTES_CAP, ROW_CAP, page
+from olit.drivers.loop.galaxy_tools import _get_history_contents
+from olit.drivers.loop.paging import ROW_BYTES_CAP, ROW_CAP, server_page
 from olit.substrate.llm import Reply
 
 from .fakes import FakeSubstrate, Local, ScriptedLlm
@@ -28,38 +28,24 @@ class FakeGalaxy:
 
 
 def test_a_page_carries_the_offset_to_continue_from():
-    got = page([{"i": i} for i in range(250)])
-    assert got["shown"] == ROW_CAP and got["total"] == 250
+    got = server_page([{"i": i} for i in range(ROW_CAP + 1)])
+    assert got["shown"] == ROW_CAP
     assert got["truncated"] is True and got["next_offset"] == ROW_CAP
 
 
 def test_fat_rows_are_bounded_by_bytes_not_by_count():
-    got = page([{"pad": "x" * 5000} for _ in range(ROW_CAP)])
+    got = server_page([{"pad": "x" * 5000} for _ in range(ROW_CAP)])
     assert got["shown"] < ROW_CAP
     assert len(json.dumps(got["items"])) <= ROW_BYTES_CAP + 5000
 
 
 def test_one_oversized_row_still_comes_back():
-    assert page([{"pad": "x" * (ROW_BYTES_CAP * 2)}])["shown"] == 1
+    assert server_page([{"pad": "x" * (ROW_BYTES_CAP * 2)}])["shown"] == 1
 
 
 def test_a_complete_page_is_not_marked_truncated():
-    got = page([{"i": i} for i in range(3)])
+    got = server_page([{"i": i} for i in range(3)])
     assert "truncated" not in got and "next_offset" not in got
-
-
-def test_get_histories_asks_galaxy_for_a_bounded_page():
-    g = FakeGalaxy([])
-    asyncio.run(_get_histories(g, {}))
-    # One past the cap: the extra row is how a bounded page reports that more exist.
-    assert f"limit={ROW_CAP + 1}" in g.paths[0]
-
-
-def test_a_bounded_page_of_histories_says_that_more_exist():
-    g = FakeGalaxy([{"id": f"h{i}"} for i in range(ROW_CAP + 1)])
-    got = asyncio.run(_get_histories(g, {}))
-    assert got["shown"] == ROW_CAP
-    assert got["truncated"] is True and got["next_offset"] == ROW_CAP
 
 
 def test_a_bounded_page_of_history_contents_says_that_more_exist():
@@ -67,29 +53,6 @@ def test_a_bounded_page_of_history_contents_says_that_more_exist():
     got = asyncio.run(_get_history_contents(g, {"history_id": "h1"}))
     assert "limit=101" in g.paths[0]
     assert got["shown"] == 100 and got["truncated"] is True and got["next_offset"] == 100
-
-
-def test_the_last_page_of_histories_is_not_marked_truncated():
-    g = FakeGalaxy([{"id": "h1"}, {"id": "h2"}])
-    got = asyncio.run(_get_histories(g, {}))
-    assert got["shown"] == 2 and "truncated" not in got
-
-
-def test_the_tool_panel_can_be_narrowed_to_one_section():
-    panel = [
-        {
-            "model_class": "ToolSection",
-            "name": "Get Data",
-            "elems": [{"model_class": "Tool", "id": "upload1", "name": "Upload"}],
-        },
-        {
-            "model_class": "ToolSection",
-            "name": "Text Manipulation",
-            "elems": [{"model_class": "Tool", "id": "cat1", "name": "Concatenate"}],
-        },
-    ]
-    got = asyncio.run(_get_tool_panel(FakeGalaxy(panel), {"section": "text manipulation"}))
-    assert [s["section"] for s in got["items"]] == ["Text Manipulation"]
 
 
 def _run(output):

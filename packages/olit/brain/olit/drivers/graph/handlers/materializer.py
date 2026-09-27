@@ -29,7 +29,7 @@ class MaterializerHandler:
         """Execute the materializer node."""
         _ = registry  # Materializers don't use the registry
 
-        target = node.get("target")
+        target = str(node.get("target"))
         args_spec = node.get("args", {})
         workspace_spec = node.get("workspace")
         input_schema = node.get("input_schema")

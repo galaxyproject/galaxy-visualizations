@@ -1,8 +1,11 @@
 """Direct, capability-gated Galaxy REST access by path."""
 
 import copy
+import logging
 
 from .http import http
+
+logger = logging.getLogger(__name__)
 
 
 class GalaxyHttp:
@@ -10,12 +13,26 @@ class GalaxyHttp:
         self._root = (config.get("galaxy_root") or "/").rstrip("/") + "/"
         self._key = config.get("galaxy_key")
         self.manifest = manifest
+        self._reachable = None
 
     def scoped(self, manifest):
         """A view of this client gated by a narrower manifest (same root and key)."""
         view = copy.copy(self)
         view.manifest = manifest
         return view
+
+    async def probe(self):
+        """Whether Galaxy answers on the path the tools use. Ungated: liveness, not an action."""
+        try:
+            await http.request("GET", self._url("api/version"), headers=self._headers())
+            self._reachable = True
+        except Exception as exc:
+            logger.warning("galaxy did not answer at %s: %s", self._root, exc)
+            self._reachable = False
+        return self._reachable
+
+    def reachable(self):
+        return bool(self._reachable)
 
     def _headers(self):
         headers = {}

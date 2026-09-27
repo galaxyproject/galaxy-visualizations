@@ -1,6 +1,6 @@
 """Dialect adapters, keyed by the `api` a provider names."""
 
-from .openai_completions import OpenAICompletions, Reply
+from .openai_completions import REASONING_KEYS, OpenAICompletions, Reply
 
 ADAPTERS = {a.id: a for a in (OpenAICompletions(),)}
 
@@ -13,4 +13,4 @@ def get_adapter(api):
     return adapter
 
 
-__all__ = ["ADAPTERS", "get_adapter", "OpenAICompletions", "Reply"]
+__all__ = ["ADAPTERS", "REASONING_KEYS", "get_adapter", "OpenAICompletions", "Reply"]

@@ -69,9 +69,8 @@ def _analyze(shell_id=None, values=None, params=None, transformed=False):
     """Run the chosen shell's analyze processes (if any), then re-profile."""
     values = values or []
     shell = SHELLS.get(shell_id)
-    steps = getattr(shell, "processes", None)
-    if callable(steps):
-        for step in steps(profile_rows(values), params or {}):
+    if shell is not None:
+        for step in shell.processes(profile_rows(values), params or {}):
             process = PROCESSES.ANALYZE.get(step.get("id"))
             if process:
                 values = _run_leaf_process(process, values, step.get("params", {}))

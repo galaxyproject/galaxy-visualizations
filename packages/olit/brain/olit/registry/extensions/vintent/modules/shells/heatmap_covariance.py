@@ -74,16 +74,26 @@ class HeatmapCovarianceShell(BaseShell):
         params: ShellParamsType,
     ) -> ValidationResult:
         fields = profile.get("fields", {})
-        if not {"x", "y", "value"}.issubset(fields):
+        absent = [name for name in ("x", "y", "value") if name not in fields]
+        if absent:
             return {
                 "ok": False,
-                "errors": [{"code": "missing_derived_fields"}],
+                "errors": [{"code": "missing_derived_field", "details": {"field": ", ".join(absent)}}],
                 "warnings": [],
             }
         if fields["value"].get("type") != "quantitative":
             return {
                 "ok": False,
-                "errors": [{"code": "invalid_value_type"}],
+                "errors": [
+                    {
+                        "code": "invalid_derived_field_type",
+                        "details": {
+                            "field": "value",
+                            "expected": "quantitative",
+                            "actual": fields["value"].get("type"),
+                        },
+                    }
+                ],
                 "warnings": [],
             }
         return {"ok": True, "errors": [], "warnings": []}

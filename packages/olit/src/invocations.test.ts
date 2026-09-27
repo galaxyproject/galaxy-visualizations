@@ -12,7 +12,9 @@ import {
   type Watched,
 } from "./invocations";
 
-const runToolResult = (jobs: unknown[]) => JSON.stringify({ jobs, outputs: [{ id: "ds1" }] });
+/** A Galaxy tool result as the brain renders one; the boundary test holds this shape to it. */
+const galaxyResult = (payload: unknown) => JSON.stringify({ data: payload });
+const runToolResult = (jobs: unknown[]) => galaxyResult({ jobs, outputs: [{ id: "ds1" }] });
 
 describe("extractWatched", () => {
   it("takes queued job ids out of a run_tool result", () => {
@@ -22,7 +24,7 @@ describe("extractWatched", () => {
   });
 
   it("takes the invocation id out of an invoke_workflow result", () => {
-    const out = extractWatched("invoke_workflow", JSON.stringify({ id: "inv1", state: "new" }));
+    const out = extractWatched("invoke_workflow", galaxyResult({ id: "inv1", state: "new" }));
 
     expect(out).toEqual([
       { kind: "invocation", id: "inv1", label: "invoke_workflow", state: "new" },
