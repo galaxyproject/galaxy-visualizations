@@ -71,6 +71,10 @@
           "is_text",
           "is_number"
         ]
+      },
+      "fallback": {
+        "value": "auto",
+        "requires": "is_auto"
       }
     },
     "data": {
@@ -167,6 +171,12 @@
         "additionalProperties": {}
       },
       "nests": "conditional"
+    },
+    "hidden": {
+      "stores": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      }
     }
   }
 }
