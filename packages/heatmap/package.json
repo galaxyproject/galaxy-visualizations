@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/heatmap",
-    "version": "0.0.17",
+    "version": "0.0.18",
     "type": "module",
     "license": "MIT",
     "files": [
@@ -22,7 +22,7 @@
         "@vitejs/plugin-vue": "^6.0.3",
         "@vitest/ui": "^4.0.16",
         "d3": "^7.9.0",
-        "galaxy-charts": "^0.1.10",
+        "galaxy-charts": "^0.1.14",
         "galaxy-charts-xml-parser": "^1.0.3",
         "happy-dom": "^20.0.11",
         "naive-ui": "^2.40.1",
