@@ -74,12 +74,14 @@ class FakeSubstrate:
         local=None,
         config=None,
         ops=None,
+        charts=None,
         capabilities=("llm", "local", "read"),
     ):
         self.llm = llm
         self.galaxy = galaxy
         self.local = Local() if local is None else local
         self.config = config
+        self.charts = charts
         self.manifest = CapabilityManifest(list(capabilities))
         self.ops = FakeOps() if ops is None else ops
         if getattr(self.ops, "manifest", None) is None:

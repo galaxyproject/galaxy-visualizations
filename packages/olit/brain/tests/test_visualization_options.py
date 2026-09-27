@@ -434,3 +434,25 @@ def test_a_test_parameter_holding_no_declared_label_is_refused():
     bad = _check_level({"mode": {"advanced": "maybe"}}, [BOOLEAN_CASE], TYPES, "settings")
     assert bad and "selects the case" in bad["error"]
     assert "'true'" in bad["error"] and "'false'" in bad["error"]
+
+
+def test_the_surface_dispatches_this_tool_to_the_module_that_defines_it():
+    """The dispatcher special-cases this call, so moving the handler has to move the call with it.
+
+    Nothing exercised that path when the handler moved modules, and the tool raised
+    `module ... has no attribute 'get_visualization_options'` against a real Galaxy.
+    """
+    from olit.drivers.loop.tools import ToolSurface
+
+    from .fakes import FakeSubstrate
+
+    substrate = FakeSubstrate(galaxy=Galaxy(), charts=Charts(), capabilities=("llm", "local", "read"))
+    out = asyncio.run(
+        ToolSurface(substrate).dispatch(
+            "get_visualization_options",
+            {"visualization": "igv", "parameter": "settings.source.genome", "config": builtin()},
+        )
+    )
+
+    assert not getattr(out, "is_error", False), out.content
+    assert "hg19" in str(out.content)
