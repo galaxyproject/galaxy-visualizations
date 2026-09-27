@@ -1,4 +1,5 @@
 /** Background watcher for submitted Galaxy work; the analogue of loom's galaxy-poller. */
+import { galaxyObject } from "./tool-result";
 
 export type WatchKind = "job" | "invocation" | "dataset";
 
@@ -36,13 +37,8 @@ export function isFailure(kind: WatchKind, state: string | undefined): boolean {
 
 /** Ids worth watching in a tool result, or none; an unknown shape yields nothing. */
 export function extractWatched(toolName: string, content: string): Watched[] {
-  let payload: any;
-  try {
-    payload = JSON.parse(content);
-  } catch {
-    return [];
-  }
-  if (!payload || typeof payload !== "object") return [];
+  const payload = galaxyObject(content);
+  if (!payload) return [];
 
   const out: Watched[] = [];
   if (toolName === "run_tool") {

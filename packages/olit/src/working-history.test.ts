@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { historyFromResult, recordPageFromResult } from "./working-history";
 
-const result = (payload: unknown) => JSON.stringify(payload);
+/** A Galaxy tool result as the brain renders one; the boundary test holds this shape to it. */
+const result = (payload: unknown) => JSON.stringify({ data: payload });
 
 describe("the history a session ends up working in", () => {
   it("is the one a created history names as its own id", () => {
@@ -41,6 +42,7 @@ describe("the history a session ends up working in", () => {
 
 describe("recordPageFromResult", () => {
   it("learns the page a record call answered with", () => {
+    // The record is Olit's own tool: no envelope, the object itself.
     const content = JSON.stringify({
       created: true,
       page_id: "p9",

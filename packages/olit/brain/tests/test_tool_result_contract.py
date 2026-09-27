@@ -72,3 +72,22 @@ def test_a_handler_refusal_is_not_serialised_as_a_python_repr():
 def test_the_envelope_leaves_out_what_is_empty():
     assert json.loads(rendered({"data": 1, "message": None, "pagination": None})) == {"data": 1}
     assert json.loads(rendered({"data": 1, "message": "m"})) == {"data": 1, "message": "m"}
+
+
+def test_the_samples_the_shell_reads_are_produced_by_this_surface():
+    """`tool_result_samples` is the one producer for both sides of the boundary.
+
+    The shell's `tool-result.boundary.test.ts` runs it and reads the output with the real
+    readers. Exercising it here too means a broken producer fails on this side rather than
+    only in the other suite.
+    """
+    from .tool_result_samples import CALLS, produce
+
+    samples = produce()
+    assert set(samples) == {label for label, _, _ in CALLS}
+    for label, content in samples.items():
+        payload = json.loads(content.split("\n\n", 1)[0])
+        assert isinstance(payload, dict), f"{label} does not open with an object"
+        # notebook_resume is Olit's own tool and answers with its object; the rest are Galaxy's.
+        if label != "notebook_resume":
+            assert "data" in payload, f"{label} carries no data"

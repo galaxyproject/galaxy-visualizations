@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { extractWatched, isFailure, isTerminal } from "./invocations";
 
+/** The payload sits under `data`, as every Galaxy tool result does. */
 const UPLOAD = JSON.stringify({
-  outputs: [
-    { id: "d1", hda_ldda: "hda", state: "queued" },
-    { id: "d2", hda_ldda: "hda" },
-  ],
+  data: {
+    outputs: [
+      { id: "d1", hda_ldda: "hda", state: "queued" },
+      { id: "d2", hda_ldda: "hda" },
+    ],
+  },
 });
 
 describe("a fetched dataset is watched work", () => {
