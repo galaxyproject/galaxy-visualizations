@@ -99,6 +99,17 @@ def test_a_failed_lookup_is_reported_rather_than_shown_as_no_options():
     assert "Could not resolve" in out and "no route to host" in out
 
 
+def test_the_path_the_details_publish_resolves_to_the_declared_name():
+    """get_visualization_details nests `genome` inside `source`, so a caller may name the path."""
+    for parameter in ("source.genome", "settings.source.genome"):
+        assert call(parameter=parameter, when="builtin")["source"] == "data_table"
+
+
+def test_a_path_still_needs_its_case_named():
+    """The path does not disambiguate: every case declares `genome` under the same conditional."""
+    assert "more than one case" in refused(call(parameter="source.genome"))
+
+
 def test_a_parameter_the_plugin_does_not_declare_is_refused():
     assert "declares no parameter" in refused(call(parameter="nonsense"))
 

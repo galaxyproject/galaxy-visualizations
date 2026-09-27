@@ -759,6 +759,11 @@ def _find_declared(params, wanted, when=None):
     return found
 
 
+def _declared_name(parameter):
+    """The declared name in a parameter path, which is published nested inside its conditional."""
+    return str(parameter or "").rsplit(".", 1)[-1].strip()
+
+
 def _identity(value):
     """What names an option: an object's id, or the value itself when it is a scalar."""
     return value.get("id") if isinstance(value, dict) else value
@@ -778,7 +783,7 @@ async def get_visualization_options(g, charts, a):
     what is in one. Without this the agent invents an option, and for a parameter whose value
     is an object copied verbatim it cannot invent a usable one.
     """
-    name, wanted = a["visualization"], a["parameter"]
+    name, wanted = a["visualization"], _declared_name(a["parameter"])
     plugin = await g.get(f"api/plugins/{name}") or {}
     if not isinstance(plugin, dict) or not plugin.get("name"):
         return ToolOutcome(f"Refused: {name!r} is not an installed visualization.", is_error=True)
