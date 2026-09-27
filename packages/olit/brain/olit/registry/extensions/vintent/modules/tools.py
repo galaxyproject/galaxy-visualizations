@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Optional
 
-from .process import Process
 from .profiler import DatasetProfile
 from .registry import SHELLS
 from .shells.base import is_encoding_spec
@@ -34,103 +33,6 @@ GOAL_DESCRIPTIONS = {
     "summary": "Get aggregate statistics or data overview (e.g., 'statistics', 'summary', 'describe', 'overview')",
     "outliers": "Identify unusual or extreme values (e.g., 'outliers', 'anomalies', 'extreme values', 'unusual')",
 }
-
-
-CHOOSE_PROCESS_PREFIX = "choose_process_"
-
-
-def build_choose_process_tools(
-    processes: dict[str, Process],
-    profile: DatasetProfile,
-    context: Any = None,
-) -> list[dict[str, Any]]:
-    """One tool per process variant; the LLM picks exactly one to call.
-
-    Avoids JSON Schema `oneOf` at the top level (rejected by Azure OpenAI)
-    while preserving rigid per-variant params validation. Each tool is named
-    ``choose_process_<id>``; ``get_chosen_process()`` resolves the call.
-    """
-    base_description = (
-        "CRITICAL: Choose 'none' for 99% of requests. Only select a preprocessing step "
-        "if the user EXPLICITLY uses words like 'top N', 'bottom N', 'filter', 'sort', 'sample', or 'limit'.\n\n"
-        "ALWAYS choose 'none' for these request types (no preprocessing needed):\n"
-        "- Histogram/distribution: 'show histogram of X', 'distribution of Y', 'how is Z distributed'\n"
-        "- Scatter/correlation: 'X vs Y', 'correlation between X and Y', 'relationship'\n"
-        "- Bar/comparison: 'compare X by Y', 'X across categories'\n"
-        "- Line/trend: 'X over time', 'trend of Y'\n"
-        "- Any aggregation: 'average', 'sum', 'count', 'mean', 'total'\n\n"
-        "ONLY use a process when the user says things like:\n"
-        "- 'top 10 by X' or 'bottom 5 by Y' → rank_top_k\n"
-        "- 'filter where X > 100' → range_filter\n"
-        "- 'sample 50 rows' → sample_rows"
-    )
-
-    tools: list[dict[str, Any]] = [
-        {
-            "type": "function",
-            "function": {
-                "name": f"{CHOOSE_PROCESS_PREFIX}{NO_PROCESS_ID}",
-                "description": base_description + "\n\n"
-                "DEFAULT CHOICE - call this for histogram, distribution, scatter, correlation, bar chart, "
-                "line chart, trend, comparison, aggregation, or ANY visualization request that does not "
-                "explicitly mention 'top N', 'bottom N', 'filter', 'sample', or 'limit rows'.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": False,
-                },
-            },
-        }
-    ]
-
-    for process_id in sorted(processes.keys()):
-        process = processes[process_id]
-        schema = process.get("schema")
-        if not schema:
-            continue
-        spec = schema(profile, context)
-        if not spec:
-            continue
-        description = spec.get("description", "") or f"Apply the {spec['id']} preprocessing."
-        tools.append(
-            {
-                "type": "function",
-                "function": {
-                    "name": f"{CHOOSE_PROCESS_PREFIX}{spec['id']}",
-                    "description": description,
-                    "parameters": spec["params"],
-                },
-            }
-        )
-
-    return tools
-
-
-def get_chosen_process(reply: dict[str, Any]) -> Optional[dict[str, Any]]:
-    """Find the first ``choose_process_<id>`` tool call in `reply`.
-
-    Returns ``{"id": <id>, "params": <args>}`` or ``None`` if no choose_process
-    tool was called. ``params`` is empty for ``id == "none"``.
-    """
-    import json
-
-    tool_calls = reply.get("choices", [{}])[0].get("message", {}).get("tool_calls") or []
-    for call in tool_calls:
-        fn = call.get("function") or {}
-        name = fn.get("name", "")
-        if not name.startswith(CHOOSE_PROCESS_PREFIX):
-            continue
-        process_id = name[len(CHOOSE_PROCESS_PREFIX) :]
-        args_raw = fn.get("arguments")
-        if isinstance(args_raw, str):
-            try:
-                params = json.loads(args_raw) if args_raw else {}
-            except json.JSONDecodeError:
-                params = {}
-        else:
-            params = args_raw or {}
-        return {"id": process_id, "params": params}
-    return None
 
 
 def _field_names_by_type(profile: DatasetProfile) -> dict[str, list[str]]:
