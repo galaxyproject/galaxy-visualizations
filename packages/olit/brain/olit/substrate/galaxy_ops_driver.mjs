@@ -8,10 +8,16 @@ import { Console } from "node:console";
 
 import { allOperations, createGalaxyContext, runWithEnvelope } from "@galaxyproject/galaxy-ops/browser";
 
+import { noRedirect } from "./no_redirect.mjs";
+
 // stdout carries the framing, so anything logged goes to stderr instead.
 globalThis.console = new Console(process.stderr);
 
-const ctx = createGalaxyContext({ baseUrl: process.env.GALAXY_ROOT, apiKey: process.env.GALAXY_KEY });
+const ctx = createGalaxyContext({
+  baseUrl: process.env.GALAXY_ROOT,
+  apiKey: process.env.GALAXY_KEY,
+  fetchImpl: noRedirect,
+});
 const byName = new Map(allOperations.map((op) => [op.name, op]));
 
 function send(message) {

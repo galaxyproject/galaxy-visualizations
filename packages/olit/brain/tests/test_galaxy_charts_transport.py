@@ -29,6 +29,12 @@ TABLE = {"columns": ["name", "value"], "fields": [["hg38", "hg38.fa"]]}
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.server.seen.append((self.path, self.headers.get("x-api-key")))
+        if self.path in self.server.redirect:
+            self.send_response(302)
+            self.send_header("location", self.server.redirect[self.path])
+            self.send_header("content-length", "0")
+            self.end_headers()
+            return
         if self.path in self.server.refuse:
             self.send_response(500)
             self.send_header("content-length", "0")
@@ -50,6 +56,22 @@ def galaxy():
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
     server.seen = []
     server.refuse = set()
+    server.redirect = {}
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield server
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=5)
+
+
+@pytest.fixture
+def elsewhere():
+    """A second origin, so a leak would be visible as a request arriving here."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server.seen = []
+    server.refuse = set()
+    server.redirect = {}
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield server
@@ -118,3 +140,25 @@ def test_a_call_the_driver_does_not_answer_is_refused(galaxy):
     assert envelope["success"] is False
     assert envelope["errorKind"] == "not_found"
     assert galaxy.seen == []
+
+
+def test_a_redirect_does_not_carry_the_api_key_anywhere(galaxy, elsewhere):
+    """A transport holding a Galaxy key may not follow a redirect: the key would go with it."""
+    galaxy.redirect["/api/tool_data/moved"] = f"http://127.0.0.1:{elsewhere.server_port}/api/tool_data/moved"
+
+    envelope = options(f"http://127.0.0.1:{galaxy.server_port}", galaxy, "moved")
+
+    assert elsewhere.seen == [], "the key must not reach the redirect target"
+    assert galaxy.seen == [("/api/tool_data/moved", "k")]
+    assert envelope["success"] is True, "a table that cannot be read is skipped, not fatal"
+    assert envelope["data"] == []
+
+
+def test_a_same_origin_redirect_is_refused_too(galaxy):
+    """The invariant is unconditional rather than an origin comparison, so this is refused as well."""
+    galaxy.redirect["/api/tool_data/local"] = "/api/tool_data/hg"
+
+    envelope = options(f"http://127.0.0.1:{galaxy.server_port}", galaxy, "local")
+
+    assert envelope["data"] == []
+    assert [path for path, _ in galaxy.seen] == ["/api/tool_data/local"]

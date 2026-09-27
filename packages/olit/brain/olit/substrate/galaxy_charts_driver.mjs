@@ -5,6 +5,8 @@ import { Console } from "node:console";
 
 import { getOptions } from "galaxy-charts/runtime";
 
+import { noRedirect } from "./no_redirect.mjs";
+
 // stdout carries the framing, so anything logged goes to stderr instead.
 globalThis.console = new Console(process.stderr);
 
@@ -18,8 +20,16 @@ async function body(response) {
   return await response.json();
 }
 
+async function keyed(path) {
+  const response = await noRedirect(`${ROOT}/${path}`, { headers: KEY ? { "x-api-key": KEY } : {} });
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error(`${path} redirected to ${response.headers.get("location")}; the api key is not sent there.`);
+  }
+  return body(response);
+}
+
 const client = {
-  api: async (path) => body(await fetch(`${ROOT}/${path}`, { headers: KEY ? { "x-api-key": KEY } : {} })),
+  api: keyed,
   url: async (target) => body(await fetch(target)),
 };
 
