@@ -73,8 +73,10 @@ before binding anything, the way `get_tool_details` comes before `run_tool`.
 `get_visualization_options` resolves an `options` source into the actual choices, whether they
 come from a remote list, a Galaxy data table or the history. Where a value is an object, pass the
 one it returns through unchanged: it carries fields the plugin needs and rebuilding it from an id
-produces something that looks right and does not load. A name a conditional declares in more than
-one case needs `when` to say which case you mean.
+produces something that looks right and does not load. Name the parameter by the `path` each input
+publishes. Where that path crosses a conditional, pass `config` in the shape `save_visualization`
+takes: the test parameter in it says which case is in play, so the same name under two
+conditionals stays distinct.
 
 `options` is what separates inputs that look alike. Two inputs can both take a dataset and accept
 different datatypes: a genome takes a reference, a track takes the track formats. Match the
