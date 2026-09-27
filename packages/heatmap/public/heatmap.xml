@@ -474,6 +474,12 @@
             </cases>
         </input>
         <input>
+            <name>job_dataset_id</name>
+            <label>Clustered dataset</label>
+            <help>Set when Cluster Data runs; cleared when the tracks change.</help>
+            <type>hidden</type>
+        </input>
+        <input>
             <name>show_legend</name>
             <label>Show legend</label>
             <help>Would you like to add a legend?</help>

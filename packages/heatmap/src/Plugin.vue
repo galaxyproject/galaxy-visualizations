@@ -91,7 +91,7 @@ async function render() {
 async function onCluster() {
     const toolDict = buildJobDict("heatmap", props.datasetId, props.tracks, ["x", "y", "z"]);
     const jobDatasetId = await jobsCreate(toolDict);
-    emit("save", { job_dataset_id: jobDatasetId });
+    emit("save", { settings: { job_dataset_id: jobDatasetId } });
 }
 
 onMounted(() => {
@@ -106,7 +106,7 @@ watch(
 
 watch(
     () => props.tracks,
-    () => emit("update", { job_dataset_id: null }),
+    () => emit("update", { settings: { job_dataset_id: undefined } }),
     { deep: true },
 );
 </script>
