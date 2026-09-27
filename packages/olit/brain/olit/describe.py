@@ -93,11 +93,24 @@ def identity_prompt(root):
     return {"fingerprint": fingerprint(found.group(1))} if found else {}
 
 
+def _handler_trees():
+    """Parsed sources of every module that defines a registered handler.
+
+    Taken from the handlers themselves, so extracting a domain into its own module keeps its
+    query and passthrough metadata instead of quietly dropping it.
+    """
+    modules = {t["handler"].__module__ for t in galaxy_tools.TOOLS if t["handler"] is not None}
+    trees = []
+    for name in sorted(modules):
+        relative = pathlib.Path(*name.split(".")[1:]).with_suffix(".py")
+        trees.append(ast.parse((package_root() / relative).read_text()))
+    return trees
+
+
 def _passthrough_handlers():
     """Handlers whose whole body is one `return await g.<verb>(...)`."""
-    tree = ast.parse((package_root() / "drivers/loop/galaxy_tools.py").read_text())
     out = set()
-    for node in ast.walk(tree):
+    for node in (n for tree in _handler_trees() for n in ast.walk(tree)):
         if not isinstance(node, ast.AsyncFunctionDef) or not node.name.startswith("_"):
             continue
         body = [
@@ -161,9 +174,11 @@ def _handler_query(node):
 
 def tools():
     """Per tool: what the model is shown, the query it builds, and how it answers."""
-    source = ast.parse((package_root() / "drivers/loop/galaxy_tools.py").read_text())
     by_name = {
-        node.name: node for node in ast.walk(source) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        node.name: node
+        for tree in _handler_trees()
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
     passthrough = _passthrough_handlers()
     out = {}

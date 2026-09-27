@@ -46,7 +46,7 @@ def _dispatch(name, args, answer=None):
 
 
 def test_a_local_refusal_reads_as_a_sentence():
-    out = _dispatch("update_page", {"page_id": "p1", "content": "visualization_id=ngl"})
+    out = _dispatch("update_page", {"page_id": "p1", "content": "history_dataset_id=reads"})
     assert out.is_error and isinstance(out.content, str)
     assert not out.content.lstrip().startswith("{"), "a failure is prose, not a record"
 
@@ -58,7 +58,7 @@ def test_a_delegated_failure_reads_the_same_way():
 
 def test_a_refusal_still_carries_what_the_model_needs_to_recover():
     """Dropping the dict must not drop the instruction that was inside it."""
-    out = _dispatch("update_page", {"page_id": "p1", "content": "visualization_id=ngl"})
+    out = _dispatch("update_page", {"page_id": "p1", "content": "history_dataset_id=reads"})
     assert "{{artifact}}" in out.content, "the way out has to survive the reshaping"
 
 

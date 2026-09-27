@@ -1,7 +1,4 @@
 {
-  "_comment": "Owned by galaxyproject/galaxy-charts and copied from its build. Hashes fail CI on an edit here; the fix belongs upstream.",
-  "upstream": "galaxyproject/galaxy-charts",
-  "files": {
-    "galaxy-charts.inputs.json": "9b3ba3e75afdab3a4443b852e001478bd9fb4675249812b65ab85fe88fb9db2a"
-  }
+  "_comment": "Owned by galaxyproject/galaxy-charts and copied from the installed npm package, which the vendored check compares against; the copy exists because the brain reads it from its own wheel.",
+  "upstream": "galaxyproject/galaxy-charts"
 }

@@ -29,7 +29,7 @@ def _surface():
     return ToolSurface(FakeSubstrate(galaxy=_Galaxy(), ops=FakeOps(), capabilities=("llm", "local", "read", "write")))
 
 
-REFUSED = {"page_id": "p1", "content": "visualization_id=ngl"}
+REFUSED = {"page_id": "p1", "content": "history_dataset_id=reads"}
 
 
 def _dispatch(surface, name, args):
@@ -65,7 +65,7 @@ def test_a_different_call_keeps_its_own_count():
     surface = _surface()
     for _ in range(3):
         _dispatch(surface, "update_page", REFUSED)
-    other = dict(REFUSED, content="visualization_id=molstar")
+    other = dict(REFUSED, content="history_dataset_id=contigs")
     assert _dispatch(surface, "update_page", other).guard == "malformed-object-id"
 
 

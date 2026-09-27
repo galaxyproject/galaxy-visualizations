@@ -12,7 +12,8 @@ import subprocess
 
 import pytest
 
-from olit.substrate.galaxy_ops import GalaxyOps, GalaxyOpsUnavailable, NodeTransport
+from olit.substrate.galaxy_ops import DRIVER, GalaxyOps
+from olit.substrate.transport import NodeTransport, TransportUnavailable
 
 
 class _Manifest:
@@ -84,7 +85,7 @@ def test_each_answer_comes_back_with_its_own_question(transport):
 
 def test_a_driver_that_is_not_there_is_not_available(tmp_path):
     assert not NodeTransport("http://galaxy.invalid", "k", driver=str(tmp_path / "absent.mjs")).available()
-    assert not NodeTransport(None, "k").available()
+    assert not NodeTransport(None, "k", DRIVER).available()
 
 
 def test_closing_a_session_releases_its_driver(tmp_path):
@@ -126,7 +127,7 @@ def test_closing_twice_is_harmless(tmp_path):
 # The browser executor states these identically (src/pyodide/galaxy-ops-executor.test.ts pins
 # it there). Running the real driver here is what stops the two wordings drifting apart.
 def test_the_real_driver_names_an_operation_it_does_not_have():
-    transport = NodeTransport("http://galaxy.invalid", "k")
+    transport = NodeTransport("http://galaxy.invalid", "k", DRIVER)
     if not transport.available():
         pytest.skip("the real driver needs node and a resolvable galaxy-ops")
 
@@ -145,7 +146,7 @@ def test_the_real_driver_names_an_operation_it_does_not_have():
 
 def test_the_real_driver_reports_a_bug_in_an_operation_as_an_envelope():
     """galaxy-ops rethrows anything that is not a Galaxy error; neither executor lets it out."""
-    transport = NodeTransport("http://galaxy.invalid", "k")
+    transport = NodeTransport("http://galaxy.invalid", "k", DRIVER)
     if not transport.available():
         pytest.skip("the real driver needs node and a resolvable galaxy-ops")
 
@@ -181,7 +182,7 @@ def test_a_driver_that_floods_stderr_is_reported_from_its_tail(tmp_path):
     async def go():
         try:
             await transport.run("get_histories", {"size": 1})
-        except GalaxyOpsUnavailable as exc:
+        except TransportUnavailable as exc:
             return str(exc)
         finally:
             await transport.close()
@@ -206,7 +207,7 @@ def test_a_driver_that_never_answers_is_given_up_on(tmp_path):
     async def go():
         try:
             await transport.run("get_histories", {"size": 1})
-        except GalaxyOpsUnavailable as exc:
+        except TransportUnavailable as exc:
             return str(exc)
         finally:
             await transport.close()
@@ -228,7 +229,7 @@ def test_giving_up_leaves_no_process_behind(tmp_path):
     async def go():
         try:
             await transport.run("get_histories", {"size": 1})
-        except GalaxyOpsUnavailable:
+        except TransportUnavailable:
             pass
         return running()
 

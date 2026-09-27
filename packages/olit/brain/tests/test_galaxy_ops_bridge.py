@@ -160,7 +160,7 @@ def test_a_transport_that_dies_mid_call_is_reported_the_same_way():
             return True
 
         async def run(self, name, wire):
-            raise galaxy_ops.GalaxyOpsUnavailable("driver stopped: boom")
+            raise galaxy_ops.TransportUnavailable("driver stopped: boom")
 
     ops = Dies()
     envelope = asyncio.run(GalaxyOps.run(ops, "get_histories", {}))

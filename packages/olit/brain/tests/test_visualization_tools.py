@@ -4,10 +4,10 @@ import asyncio
 from urllib.parse import parse_qs, urlparse
 
 from olit.drivers.loop import artifacts
-from olit.drivers.loop.galaxy_tools import (
-    _get_visualization_options,
+from olit.drivers.loop.visualizations import (
     _save_visualization,
     _show_visualization,
+    get_visualization_options,
 )
 
 from .fakes import refused
@@ -215,7 +215,10 @@ CONDITIONAL_PLUGIN = {
             "name": "source",
             "type": "conditional",
             "test_param": {"name": "origin", "type": "select"},
-            "cases": [{"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]}],
+            "cases": [
+                {"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]},
+                {"value": "builtin", "inputs": [{"name": "dbkey", "type": "data_table"}]},
+            ],
         },
     ],
     "tracks": [{"name": "urlDataset", "type": "data"}],
@@ -251,11 +254,30 @@ def test_the_nested_form_is_accepted():
     assert g.posted[1]["config"]["settings"]["source"]["genome"] == {"id": "hg38"}
 
 
+class Charts:
+    """galaxy-charts, as far as the policy around it is concerned."""
+
+    def __init__(self, offered):
+        self.offered = offered
+
+    async def get_options(self, declared_input, context=None):
+        return {"success": True, "data": self.offered}
+
+
 def test_a_case_parameter_is_only_valid_for_the_chosen_case():
+    """`genome` belongs to the igv case; under builtin the conditional declares dbkey instead."""
     g = ConditionalGalaxy()
     out = refused(save(g, visualization="igv", settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}}))
     assert out["saved"] is False
     assert "genome" in out["error"]
+
+
+def test_a_case_label_the_conditional_does_not_declare_is_refused():
+    g = ConditionalGalaxy()
+    out = refused(save(g, visualization="igv", settings={"source": {"origin": "remote"}}))
+    assert out["saved"] is False
+    assert "selects the case" in out["error"]
+    assert "'igv'" in out["error"] and "'builtin'" in out["error"]
 
 
 def test_both_visualization_tools_hand_back_an_artifact_that_embeds_them():
@@ -342,7 +364,15 @@ def test_an_empty_case_names_the_siblings_that_might_not_be():
             return {"columns": [], "fields": []}
 
     out = asyncio.run(
-        _get_visualization_options(Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
+        get_visualization_options(
+            Galaxy(),
+            Charts([]),
+            {
+                "visualization": "igv",
+                "parameter": "settings.source.genome",
+                "config": {"settings": {"source": {"origin": "builtin"}}},
+            },
+        )
     )
     assert out["total"] == 0
     assert out["other_cases"] == ["igv"]
@@ -372,7 +402,15 @@ def test_a_case_that_has_options_says_nothing_about_its_siblings():
             return {"columns": ["value", "name"], "fields": [["hg38", "Human"]]}
 
     out = asyncio.run(
-        _get_visualization_options(Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
+        get_visualization_options(
+            Galaxy(),
+            Charts([{"label": "Human", "value": {"id": "hg38"}}]),
+            {
+                "visualization": "igv",
+                "parameter": "settings.source.genome",
+                "config": {"settings": {"source": {"origin": "builtin"}}},
+            },
+        )
     )
     assert out["total"] == 1
     assert "other_cases" not in out

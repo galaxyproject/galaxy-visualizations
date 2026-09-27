@@ -31,7 +31,7 @@ const staticCopyPlugin = viteStaticCopy({
       overwrite: true,
     },
     {
-      src: "temp/pyodide/galaxy-ops-*.js",
+      src: "temp/pyodide/galaxy-*.js",
       dest: "pyodide",
       overwrite: true,
     },

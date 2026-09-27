@@ -1,6 +1,6 @@
 """A plugin's config template: the shape to fill, as a Galaxy tool already gets one."""
 
-from olit.drivers.loop.visualization_inputs import build_visualization_template, template_cases
+from olit.drivers.loop.visualization_inputs import build_visualization_template
 
 TYPES = {
     "text": {"stores": {"type": "string"}},
@@ -62,11 +62,6 @@ def test_a_conditional_nests_its_case_rather_than_flattening_it():
     assert settings["source"]["origin"] == "builtin"
     assert settings["source"]["genome"] == {"<from get_visualization_options>": True}
     assert "source.origin" not in settings and "origin" not in settings
-
-
-def test_the_other_cases_are_named_so_the_first_is_not_the_only_one_seen():
-    assert template_cases(IGV) == {"source": ["builtin", "igv"]}
-    assert template_cases(PLOTLY) == {}
 
 
 def test_a_plugin_with_no_tracks_gets_no_tracks_key():

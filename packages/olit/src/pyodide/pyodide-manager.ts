@@ -12,6 +12,7 @@ export interface PyodideManagerOptions {
   extraPackages?: string[];
   galaxy?: { root: string; credentials?: RequestCredentials };
   opsModule?: string;
+  chartsModule?: string;
   /** Held by the worker, which signs the brain's requests to this endpoint. */
   llm?: LlmAuth;
 }
@@ -77,6 +78,7 @@ export class PyodideManager {
         llm: options.llm,
         galaxy: options.galaxy,
         opsModule: options.opsModule,
+        chartsModule: options.chartsModule,
       },
     });
   }

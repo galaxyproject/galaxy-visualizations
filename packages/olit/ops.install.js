@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bundle galaxy-ops and the executor into one module the Pyodide worker can import.
+ * Bundle each peer and its executor into one module the Pyodide worker can import.
  *
  * The worker is copied rather than bundled -- it is loaded from a URL string, so vite never
  * sees it -- which is why this cannot be a bare import inside the worker. It is served beside
@@ -17,25 +17,29 @@ import { build } from "vite";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DESTS = [join(HERE, "static", "pyodide"), join(HERE, "temp", "pyodide")];
-const PREFIX = "galaxy-ops-";
+/** One executor bundled and content-stamped; each peer the brain calls gets its own. */
+async function stage(prefix, entry) {
+  const bundled = await build({
+    configFile: false,
+    logLevel: "warn",
+    build: {
+      write: false,
+      target: "es2022",
+      lib: { entry: join(HERE, "src", "pyodide", entry), formats: ["es"] },
+    },
+  });
+  const [{ output }] = [].concat(bundled);
+  const code = output.find((chunk) => chunk.type === "chunk").code;
+  const name = `${prefix}${createHash("sha256").update(code).digest("hex").slice(0, 12)}.js`;
 
-const bundled = await build({
-  configFile: false,
-  logLevel: "warn",
-  build: {
-    write: false,
-    target: "es2022",
-    lib: { entry: join(HERE, "src", "pyodide", "galaxy-ops-executor.js"), formats: ["es"] },
-  },
-});
-const [{ output }] = [].concat(bundled);
-const code = output.find((chunk) => chunk.type === "chunk").code;
-const tag = createHash("sha256").update(code).digest("hex").slice(0, 12);
-const name = `${PREFIX}${tag}.js`;
-
-for (const dest of DESTS) {
-  mkdirSync(dest, { recursive: true });
-  for (const old of readdirSync(dest).filter((f) => f.startsWith(PREFIX))) rmSync(join(dest, old));
-  writeFileSync(join(dest, name), code);
+  for (const dest of DESTS) {
+    mkdirSync(dest, { recursive: true });
+    for (const old of readdirSync(dest).filter((f) => f.startsWith(prefix)))
+      rmSync(join(dest, old));
+    writeFileSync(join(dest, name), code);
+  }
+  console.log(`${prefix} module staged: ${name} (${(code.length / 1024).toFixed(0)} KB)`);
 }
-console.log(`galaxy-ops module staged: ${name} (${(code.length / 1024).toFixed(0)} KB)`);
+
+await stage("galaxy-ops-", "galaxy-ops-executor.js");
+await stage("galaxy-charts-", "galaxy-charts-executor.js");

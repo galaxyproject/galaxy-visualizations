@@ -3,7 +3,7 @@ import { onMounted, onBeforeUnmount, type Ref, ref, watch } from "vue";
 
 import igv from "igv";
 import { LastQueue } from "./lastQueue";
-import { GalaxyApi, useDataTableStore, useDataJsonStore } from "galaxy-charts";
+import { GalaxyApi, getOptions, optionValue } from "galaxy-charts";
 import CONFIG from "./config.yml";
 
 import Modal from "./Modal.vue";
@@ -118,12 +118,14 @@ function dispose() {
 }
 
 async function findGenome(dbkey: string) {
-    // attempt to match database key to galaxy genomes
+    // attempt to match database key to galaxy genomes, in table order
     const sources = ["fasta_indexes", "twobit"];
-    const dataTableStore = useDataTableStore();
     for (const table of sources) {
-        const dataTable = await dataTableStore.getDataTable(table);
-        const matchTable = dataTable.find((item) => Array.isArray(item.value?.row) && item.value.row.includes(dbkey));
+        const dataTable = await getOptions({ type: "data_table", tables: [table] });
+        const matchTable = dataTable.find((item) => {
+            const row = optionValue(item)?.row;
+            return Array.isArray(row) && row.includes(dbkey);
+        });
         if (matchTable) {
             return {
                 genome: matchTable.value,
@@ -132,10 +134,12 @@ async function findGenome(dbkey: string) {
         }
     }
 
-    // attempt to match database key to igv genomes
-    const dataJsonStore = useDataJsonStore();
-    const dataJson = await dataJsonStore.getDataJson(IGV_GENOMES);
-    const matchJson = dataJson.find((item) => item.value?.id === dbkey);
+    // attempt to match database key to igv genomes; an unreachable list leaves the genome unmatched
+    const dataJson = await getOptions({ type: "data_json", url: IGV_GENOMES }).catch((err) => {
+        console.debug("[igv] Could not reach the IGV genome list.", err);
+        return [];
+    });
+    const matchJson = dataJson.find((item) => optionValue(item)?.id === dbkey);
     if (matchJson) {
         return {
             genome: matchJson.value,

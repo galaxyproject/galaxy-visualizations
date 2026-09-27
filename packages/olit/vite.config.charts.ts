@@ -87,12 +87,12 @@ function olitWheel(): string {
 }
 
 /** The galaxy-ops module staged under static/pyodide; the worker imports it by name. */
-function opsModule(): string {
+function stagedModule(prefix: string): string {
   const found = readdirSync("static/pyodide").find(
-    (f) => f.startsWith("galaxy-ops-") && f.endsWith(".js"),
+    (f) => f.startsWith(prefix) && f.endsWith(".js"),
   );
   if (!found) {
-    throw new Error("No galaxy-ops module under static/pyodide: run `npm run build:ops` first.");
+    throw new Error(`No ${prefix} module under static/pyodide: run \`npm run build:ops\` first.`);
   }
   return found;
 }
@@ -125,7 +125,8 @@ export const viteConfigCharts = defineConfig({
   define: {
     "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
     "process.env.olit_wheel": JSON.stringify(olitWheel()),
-    "process.env.ops_module": JSON.stringify(opsModule()),
+    "process.env.ops_module": JSON.stringify(stagedModule("galaxy-ops-")),
+    "process.env.charts_module": JSON.stringify(stagedModule("galaxy-charts-")),
     "process.env.olit_commit": JSON.stringify(buildCommit()),
     "process.env.olit_built": JSON.stringify(new Date().toISOString()),
     // Dev only: route the brain through the /llm proxy above, which attaches the key.
