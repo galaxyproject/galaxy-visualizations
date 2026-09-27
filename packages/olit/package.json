@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.1.1-fork.5/galaxyproject-galaxy-ops-0.1.1-fork.5.tgz",
-    "galaxy-charts": "^0.1.14",
+    "galaxy-charts": "^0.1.15",
     "mermaid": "^11.16.1",
     "vega-embed": "^7.1.0"
   },
