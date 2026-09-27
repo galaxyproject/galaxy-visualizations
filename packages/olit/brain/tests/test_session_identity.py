@@ -29,6 +29,36 @@ def _for(**overrides):
     return asyncio.run(runtime._session_for(parse({**BASE, **overrides})))
 
 
+# --- how an in-process caller builds one --------------------------------------
+
+
+def test_a_session_takes_the_dict_an_in_process_caller_passes():
+    """`~/agents` evals/lib/harness.py does `await Session(config).init()` with a plain dict.
+
+    F3 added `config.identity()` to `Session.__init__`, which a dict does not have, and every
+    scenario in the suite errored at construction before reaching the model. `runtime.run()`
+    parses first, so nothing inside olit exercised the dict form.
+    """
+    session = runtime.Session(dict(BASE))
+
+    assert session.config.session_id == "s1"
+    assert session.identity == parse(BASE).identity()
+
+
+def test_the_dict_form_keeps_the_stable_identity():
+    """The behaviour F3 introduced, reached the way the harness reaches it."""
+    first = runtime.Session(dict(BASE))
+
+    assert first.identity == runtime.Session({**BASE, "record_page_id": "p1"}).identity
+    assert first.identity != runtime.Session({**BASE, "ai_model": "another-model"}).identity
+
+
+def test_a_dict_the_config_rejects_still_fails_at_construction():
+    """Normalizing must not become a way to smuggle an unknown key past the model."""
+    with pytest.raises(Exception):
+        runtime.Session({**BASE, "not_a_real_key": 1})
+
+
 # --- what identity is --------------------------------------------------------
 
 

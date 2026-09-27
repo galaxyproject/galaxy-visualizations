@@ -17,9 +17,10 @@ class Session:
     """Everything a turn runs against, built once per config identity and reused across turns."""
 
     def __init__(self, config):
-        self.config = config
-        self.identity = config.identity()
-        self.substrate = Substrate(config)
+        # Accepts the dict an in-process caller passes; everything below reads a Config.
+        self.config = config_module.parse(config)
+        self.identity = self.config.identity()
+        self.substrate = Substrate(self.config)
         self.processes = ProcessRegistry().load_packaged()
         self.skills = SkillRegistry().load_packaged()
         self.driver = LoopDriver(self.substrate, self.processes, self.skills)
