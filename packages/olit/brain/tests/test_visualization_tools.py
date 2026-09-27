@@ -353,7 +353,13 @@ def test_an_empty_case_names_the_siblings_that_might_not_be():
 
     out = asyncio.run(
         get_visualization_options(
-            Galaxy(), Charts([]), {"visualization": "igv", "parameter": "genome", "when": "builtin"}
+            Galaxy(),
+            Charts([]),
+            {
+                "visualization": "igv",
+                "parameter": "settings.source.genome",
+                "config": {"settings": {"source": {"origin": "builtin"}}},
+            },
         )
     )
     assert out["total"] == 0
@@ -387,7 +393,11 @@ def test_a_case_that_has_options_says_nothing_about_its_siblings():
         get_visualization_options(
             Galaxy(),
             Charts([{"label": "Human", "value": {"id": "hg38"}}]),
-            {"visualization": "igv", "parameter": "genome", "when": "builtin"},
+            {
+                "visualization": "igv",
+                "parameter": "settings.source.genome",
+                "config": {"settings": {"source": {"origin": "builtin"}}},
+            },
         )
     )
     assert out["total"] == 1

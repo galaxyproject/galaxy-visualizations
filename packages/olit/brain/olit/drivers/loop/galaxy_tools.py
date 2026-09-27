@@ -16,7 +16,7 @@ from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome
 from .paging import ROW_CAP, server_page
-from .visualization_inputs import build_visualization_template, template_cases
+from .visualization_inputs import build_visualization_template, declared_paths, resolve_parameter, template_cases
 
 logger = logging.getLogger(__name__)
 
@@ -667,11 +667,14 @@ def _visualization_config(a):
     return config
 
 
-def _describe_parameter(param, types):
+def _describe_parameter(param, types, path=()):
     """One declared input, joined with what galaxy-charts stores for its type."""
     kind = param.get("type")
     spec = types.get(kind) or {}
     described = {"name": param.get("name"), "type": kind}
+    if path:
+        # The address get_visualization_options takes, so it is copied rather than inferred.
+        described["path"] = ".".join(list(path) + [param.get("name") or "?"])
     for key in ("label", "help"):
         if param.get(key):
             described[key] = param[key]
@@ -697,9 +700,13 @@ def _describe_parameter(param, types):
 
     test = param.get("test_param")
     if test:
-        described["chosen_by"] = _describe_parameter(test, types)
+        inside = list(path) + [param.get("name") or "?"] if path else ()
+        described["chosen_by"] = _describe_parameter(test, types, inside)
         described["cases"] = [
-            {"when": c.get("value"), "inputs": [_describe_parameter(i, types) for i in (c.get("inputs") or [])]}
+            {
+                "when": c.get("value"),
+                "inputs": [_describe_parameter(i, types, inside) for i in (c.get("inputs") or [])],
+            }
             for c in (param.get("cases") or [])
         ]
     return described
@@ -730,38 +737,12 @@ async def _get_visualization_details(g, a):
         # The shape to fill, as get_tool_input_template gives one for a Galaxy tool.
         "config_template": template,
         **({"other_cases": other_cases} if other_cases else {}),
-        "settings": [_describe_parameter(p, types) for p in (plugin.get("settings") or [])],
-        "tracks": [_describe_parameter(p, types) for p in (plugin.get("tracks") or [])],
+        "settings": [_describe_parameter(p, types, ("settings",)) for p in (plugin.get("settings") or [])],
+        "tracks": [_describe_parameter(p, types, ("tracks",)) for p in (plugin.get("tracks") or [])],
         "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
         "them and pass them to save_visualization: settings cannot ride in a displayed "
         "visualization, only in a saved one.",
     }
-
-
-def _find_declared(params, wanted, when=None):
-    """Every declaration of a name, paired with the conditional case it sits in.
-
-    A conditional can declare the same name in several cases with different sources: igv's
-    `genome` is a remote list under one origin and a data table under another. Picking the
-    first would resolve the wrong one silently.
-    """
-    found = []
-    for param in params or []:
-        if not isinstance(param, dict):
-            continue
-        if param.get("name") == wanted:
-            found.append((when, param))
-        test = param.get("test_param") or {}
-        if test.get("name") == wanted:
-            found.append((when, test))
-        for case in param.get("cases") or []:
-            found += _find_declared(case.get("inputs"), wanted, case.get("value"))
-    return found
-
-
-def _declared_name(parameter):
-    """The declared name in a parameter path, which is published nested inside its conditional."""
-    return str(parameter or "").rsplit(".", 1)[-1].strip()
 
 
 def _identity(value):
@@ -783,33 +764,19 @@ async def get_visualization_options(g, charts, a):
     what is in one. Without this the agent invents an option, and for a parameter whose value
     is an object copied verbatim it cannot invent a usable one.
     """
-    name, wanted = a["visualization"], _declared_name(a["parameter"])
+    name, asked = a["visualization"], a["parameter"]
     plugin = await g.get(f"api/plugins/{name}") or {}
     if not isinstance(plugin, dict) or not plugin.get("name"):
         return ToolOutcome(f"Refused: {name!r} is not an installed visualization.", is_error=True)
 
-    found = _find_declared(plugin.get("settings"), wanted) + _find_declared(plugin.get("tracks"), wanted)
-    if not found:
-        return ToolOutcome(
-            f"Refused: {name!r} declares no parameter {wanted!r}. Call "
-            f"get_visualization_details for {name!r} to see what it declares.",
-            is_error=True,
-        )
-
-    declared_cases = sorted({w for w, _ in found if w is not None})
-    when = a.get("when")
-    if when is not None:
-        found = [(w, p) for w, p in found if w == when]
-        if not found:
-            return ToolOutcome(f"Refused: {wanted!r} is not declared when {when!r}.", is_error=True)
-    if len(found) > 1:
-        cases = sorted({w for w, _ in found if w is not None})
-        return ToolOutcome(
-            f"Refused: {name!r} declares {wanted!r} in more than one case, and they do not "
-            f"share a source: {json.dumps(cases, default=str)}. Pass `when` with the case you mean.",
-            is_error=True,
-        )
-    declared = found[0][1]
+    resolved, problem = resolve_parameter(plugin, asked, a.get("config"))
+    if problem:
+        leaf = str(asked).rsplit(".", 1)[-1]
+        elsewhere = [path for path in declared_paths(plugin, leaf) if path != asked]
+        where = f" {leaf!r} is declared at {', '.join(elsewhere)}." if elsewhere else ""
+        return ToolOutcome(f"Refused: {problem}{where}", is_error=True)
+    declared, wanted = resolved["declared"], resolved["path"]
+    declared_cases, when = resolved["other_cases"], resolved["case"]
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
     kind = (((types.get(declared.get("type")) or {}).get("options")) or {}).get("kind")
@@ -838,7 +805,7 @@ async def get_visualization_options(g, charts, a):
     # A case can be declared and still hold nothing on this server: IGV's builtin genomes
     # are a data table an admin may never have filled. Naming its siblings is the difference
     # between a dead end and a second try.
-    siblings = [c for c in declared_cases if c != when]
+    siblings = declared_cases
     if not entries and siblings:
         result["other_cases"] = siblings
         result["hint"] = (
@@ -1325,8 +1292,16 @@ _tool(
     "get_visualization_options",
     "read",
     "Resolve a visualization parameter's selectable options from wherever the plugin says "
-    "they live. Use `search` to get the value to store.",
-    {"visualization": _STR, "parameter": _STR, "search": _STR, "when": _STR, "dataset_id": _STR},
+    "they live. `parameter` is the `path` get_visualization_details publishes. Where a name is "
+    "declared in several cases of a conditional, pass `config` in the shape save_visualization "
+    "takes, so the test parameter in it says which case. Use `search` to get the value to store.",
+    {
+        "visualization": _STR,
+        "parameter": _STR,
+        "search": _STR,
+        "config": {"type": "object"},
+        "dataset_id": _STR,
+    },
     ["visualization", "parameter"],
     get_visualization_options,
 )

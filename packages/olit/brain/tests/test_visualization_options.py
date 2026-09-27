@@ -1,4 +1,9 @@
-"""Where a parameter's options live, resolved rather than invented."""
+"""Where a parameter's options live, resolved rather than invented.
+
+A parameter is named by the `path` get_visualization_details publishes, and a conditional's
+branch is read from `config` in the shape save_visualization takes. Both are structural: a leaf
+name cannot address heatmap's two axes, and no single case value can tell them apart.
+"""
 
 import asyncio
 
@@ -6,26 +11,104 @@ from olit.drivers.loop.galaxy_tools import get_visualization_options
 
 from .fakes import refused
 
-PLUGIN = {
+IGV = {
     "name": "igv",
     "settings": [
         {
             "name": "source",
             "type": "conditional",
-            "test_param": {"name": "origin", "type": "select", "data": [{"label": "IGV", "value": "igv"}]},
+            "test_param": {
+                "name": "origin",
+                "type": "select",
+                "data": [{"label": "IGV", "value": "igv"}, {"label": "Built in", "value": "builtin"}],
+            },
             "cases": [
                 {"value": "igv", "inputs": [{"name": "genome", "type": "data_json", "url": "https://x/g.json"}]},
                 {"value": "builtin", "inputs": [{"name": "genome", "type": "data_table", "tables": ["fasta_indexes"]}]},
             ],
         },
+        {"name": "locus", "type": "text"},
     ],
     "tracks": [{"name": "displayMode", "type": "select", "data": [{"label": "Expanded", "value": "EXPANDED"}]}],
 }
 
 
+# Two sibling conditionals declaring the same names, with the same case values in both.
+def _axis(name):
+    return {
+        "name": name,
+        "type": "conditional",
+        "test_param": {"name": "type", "type": "select", "data": [{"label": "Date", "value": "d"}]},
+        "cases": [
+            {"value": "auto", "inputs": []},
+            {
+                "value": "d",
+                "inputs": [{"name": "precision", "type": "select", "data": [{"label": "Day", "value": "day"}]}],
+            },
+            {"value": "f", "inputs": [{"name": "precision", "type": "integer"}]},
+        ],
+    }
+
+
+HEATMAP = {"name": "heatmap", "settings": [_axis("x_axis_type"), _axis("y_axis_type")]}
+
+# Nesting is part of the galaxy-charts contract, so a path has to carry identity at every level.
+NESTED = {
+    "name": "deep",
+    "settings": [
+        {
+            "name": "outer",
+            "type": "conditional",
+            "test_param": {"name": "outer_mode", "type": "select", "data": [{"label": "A", "value": "a"}]},
+            "cases": [
+                {
+                    "value": "a",
+                    "inputs": [
+                        {
+                            "name": "middle",
+                            "type": "conditional",
+                            "test_param": {"name": "middle_mode", "type": "select", "data": []},
+                            "cases": [
+                                {
+                                    "value": "m",
+                                    "inputs": [
+                                        {
+                                            "name": "inner",
+                                            "type": "conditional",
+                                            "test_param": {"name": "inner_mode", "type": "select", "data": []},
+                                            "cases": [
+                                                {
+                                                    "value": "p",
+                                                    "inputs": [{"name": "leaf", "type": "data_table", "tables": ["p"]}],
+                                                },
+                                                {
+                                                    "value": "q",
+                                                    "inputs": [
+                                                        {"name": "leaf", "type": "data_json", "url": "https://q"}
+                                                    ],
+                                                },
+                                            ],
+                                        }
+                                    ],
+                                },
+                                {"value": "n", "inputs": [{"name": "leaf", "type": "data_json", "url": "https://n"}]},
+                            ],
+                        }
+                    ],
+                },
+                {"value": "b", "inputs": [{"name": "middle", "type": "text"}]},
+            ],
+        }
+    ],
+}
+
+
 class Galaxy:
+    def __init__(self, plugin=None):
+        self.plugin = plugin or IGV
+
     async def get(self, path, **kwargs):
-        return PLUGIN
+        return self.plugin
 
 
 class Charts:
@@ -57,62 +140,238 @@ class Charts:
         return {"success": True, "data": self.offered}
 
 
-def call(charts=None, **kw):
-    return asyncio.run(get_visualization_options(Galaxy(), charts or Charts(), {"visualization": "igv", **kw}))
+def call(charts=None, plugin=None, visualization="igv", **kw):
+    return asyncio.run(
+        get_visualization_options(Galaxy(plugin), charts or Charts(), {"visualization": visualization, **kw})
+    )
+
+
+def builtin(**kw):
+    return {"settings": {"source": {"origin": "builtin"}}, **kw}
+
+
+# --- igv: one path, three sources -------------------------------------------------------
 
 
 def test_a_name_declared_in_several_cases_is_refused_rather_than_guessed():
     """igv declares `genome` per case with a different source each time."""
-    out = refused(call(parameter="genome"))
-    assert "more than one case" in out
-    assert "builtin" in out and "igv" in out, "the cases it could not choose between"
-    assert "`when`" in out, "the refusal has to say how to disambiguate"
+    out = refused(call(parameter="settings.source.genome"))
+    assert "'settings.source' selects its inputs by 'origin'" in out
+    assert "'igv'" in out and "'builtin'" in out, "the cases it could not choose between"
+    assert "`config`" in out, "the refusal has to say how to disambiguate"
 
 
-def test_naming_the_case_resolves_the_right_source():
-    assert call(parameter="genome", when="builtin")["source"] == "data_table"
+def test_the_config_selects_the_case_and_so_the_source():
+    assert call(parameter="settings.source.genome", config=builtin())["source"] == "data_table"
+
+
+def test_the_answer_names_the_canonical_path():
+    assert call(parameter="settings.source.genome", config=builtin())["parameter"] == "settings.source.genome"
+
+
+def test_a_path_that_is_not_rooted_at_a_group_is_refused():
+    assert "is not a parameter path" in refused(call(parameter="source.genome", config=builtin()))
 
 
 def test_an_option_carries_the_value_to_store_whole():
-    match = call(parameter="genome", when="builtin", search="hg19")["matches"][0]
+    match = call(parameter="settings.source.genome", config=builtin(), search="hg19")["matches"][0]
     assert match["id"] == "hg19"
     assert match["value"]["table"] == "fasta_indexes"
     assert match["value"]["row"] == ["hg19", "Human hg19"]
 
 
-def test_a_declared_select_is_offered_by_its_own_values():
-    out = call(charts=Charts(offered=[{"label": "Expanded", "value": "EXPANDED"}]), parameter="displayMode")
-    assert out["source"] == "declared"
-    assert out["total"] == 1 and out["options"][0]["id"] == "EXPANDED"
-
-
 def test_the_resolver_is_asked_for_the_declared_input_it_found():
     charts = Charts()
-    call(charts=charts, parameter="genome", when="builtin")
+    call(charts=charts, parameter="settings.source.genome", config=builtin())
     declared, context = charts.asked[0]
     assert declared["type"] == "data_table" and declared["tables"] == ["fasta_indexes"]
     assert "datasetId" in context
 
 
-def test_a_failed_lookup_is_reported_rather_than_shown_as_no_options():
-    out = refused(call(charts=Charts(message="no route to host"), parameter="genome", when="builtin"))
-    assert "Could not resolve" in out and "no route to host" in out
+def test_the_other_cases_are_named_when_this_one_holds_nothing():
+    out = call(charts=Charts(offered=[]), parameter="settings.source.genome", config=builtin())
+    assert out["other_cases"] == ["igv"]
 
 
-def test_the_path_the_details_publish_resolves_to_the_declared_name():
-    """get_visualization_details nests `genome` inside `source`, so a caller may name the path."""
-    for parameter in ("source.genome", "settings.source.genome"):
-        assert call(parameter=parameter, when="builtin")["source"] == "data_table"
+# --- a test parameter is a value too ----------------------------------------------------
 
 
-def test_a_path_still_needs_its_case_named():
-    """The path does not disambiguate: every case declares `genome` under the same conditional."""
-    assert "more than one case" in refused(call(parameter="source.genome"))
+def test_a_test_parameter_resolves_without_a_branch():
+    """It selects the branch, so it cannot need one; heatmap's `type` was unreachable before."""
+    out = call(charts=Charts(offered=[{"label": "Built in", "value": "builtin"}]), parameter="settings.source.origin")
+    assert out["source"] == "declared"
+    assert out["options"][0]["id"] == "builtin"
+
+
+def test_a_test_parameter_holds_nothing_deeper():
+    assert "holds nothing named" in refused(call(parameter="settings.source.origin.nope"))
+
+
+# --- heatmap: sibling conditionals sharing names and case values ------------------------
+
+
+def test_sibling_conditionals_are_told_apart_by_the_path():
+    charts = Charts(offered=[{"label": "Day", "value": "day"}])
+    for axis, kind in (("x_axis_type", "select"), ("y_axis_type", "select")):
+        out = call(
+            charts=charts,
+            plugin=HEATMAP,
+            visualization="heatmap",
+            parameter=f"settings.{axis}.precision",
+            config={"settings": {axis: {"type": "d"}}},
+        )
+        assert out["parameter"] == f"settings.{axis}.precision"
+        assert out["source"] == "declared", kind
+
+
+def test_the_same_case_value_in_both_siblings_stays_unambiguous():
+    """`when` could not do this: both axes offer 'd', so only the path separates them."""
+    charts = Charts(offered=[])
+    config = {"settings": {"x_axis_type": {"type": "f"}, "y_axis_type": {"type": "d"}}}
+    x = call(
+        charts=charts,
+        plugin=HEATMAP,
+        visualization="heatmap",
+        parameter="settings.x_axis_type.precision",
+        config=config,
+    )
+    y = call(
+        charts=charts,
+        plugin=HEATMAP,
+        visualization="heatmap",
+        parameter="settings.y_axis_type.precision",
+        config=config,
+    )
+    assert x["source"] == "integer" or x["source"] is not None
+    assert charts.asked[-2][0]["type"] == "integer", "x chose case 'f'"
+    assert charts.asked[-1][0]["type"] == "select", "y chose case 'd'"
+    assert y["parameter"] == "settings.y_axis_type.precision"
+
+
+def test_a_leaf_name_under_two_conditionals_is_refused_with_both_paths():
+    out = refused(call(plugin=HEATMAP, visualization="heatmap", parameter="precision"))
+    assert "is not a parameter path" in out
+    assert "settings.x_axis_type.precision" in out and "settings.y_axis_type.precision" in out
+
+
+# --- nesting ----------------------------------------------------------------------------
+
+
+def test_a_nested_path_reads_a_branch_at_every_level():
+    charts = Charts()
+    out = call(
+        charts=charts,
+        plugin=NESTED,
+        visualization="deep",
+        parameter="settings.outer.middle.leaf",
+        config={"settings": {"outer": {"outer_mode": "a", "middle": {"middle_mode": "n"}}}},
+    )
+    assert out["parameter"] == "settings.outer.middle.leaf"
+    assert charts.asked[0][0]["type"] == "data_json", "the inner branch chose the json source"
+
+
+def test_a_nested_path_missing_the_inner_branch_is_refused():
+    out = refused(
+        call(
+            plugin=NESTED,
+            visualization="deep",
+            parameter="settings.outer.middle.leaf",
+            config={"settings": {"outer": {"outer_mode": "a"}}},
+        )
+    )
+    assert "'settings.outer.middle' selects its inputs by 'middle_mode'" in out
+    assert "'m'" in out and "'n'" in out, "the cases it could not choose between"
+
+
+def test_three_conditional_levels_resolve_by_the_same_recursion():
+    """Depth is not a case the traversal knows about: each level reads its own selector."""
+    charts = Charts()
+    out = call(
+        charts=charts,
+        plugin=NESTED,
+        visualization="deep",
+        parameter="settings.outer.middle.inner.leaf",
+        config={
+            "settings": {"outer": {"outer_mode": "a", "middle": {"middle_mode": "m", "inner": {"inner_mode": "q"}}}}
+        },
+    )
+    assert out["parameter"] == "settings.outer.middle.inner.leaf"
+    assert charts.asked[0][0]["url"] == "https://q", "the innermost selector chose the source"
+
+
+def test_the_innermost_missing_selector_is_the_one_named():
+    """An outer level being satisfied must not make an inner omission look resolved."""
+    out = refused(
+        call(
+            plugin=NESTED,
+            visualization="deep",
+            parameter="settings.outer.middle.inner.leaf",
+            config={"settings": {"outer": {"outer_mode": "a", "middle": {"middle_mode": "m"}}}},
+        )
+    )
+    assert "'settings.outer.middle.inner' selects its inputs by 'inner_mode'" in out
+    assert "'p'" in out and "'q'" in out
+
+
+def test_a_deep_test_parameter_is_reachable_too():
+    out = call(
+        charts=Charts(offered=[{"label": "Q", "value": "q"}]),
+        plugin=NESTED,
+        visualization="deep",
+        parameter="settings.outer.middle.inner.inner_mode",
+        config={"settings": {"outer": {"outer_mode": "a", "middle": {"middle_mode": "m"}}}},
+    )
+    assert out["parameter"] == "settings.outer.middle.inner.inner_mode"
+    assert out["source"] == "declared"
+
+
+def test_an_outer_branch_that_declares_a_plain_input_is_reachable():
+    """Case 'b' declares `middle` as text, so the same name is a leaf down that branch."""
+    charts = Charts(offered=[])
+    out = call(
+        charts=charts,
+        plugin=NESTED,
+        visualization="deep",
+        parameter="settings.outer.middle",
+        config={"settings": {"outer": {"outer_mode": "b"}}},
+    )
+    assert out["parameter"] == "settings.outer.middle"
+
+
+# --- addressing ------------------------------------------------------------------------
+
+
+def test_a_declared_select_in_tracks_is_offered_by_its_own_values():
+    out = call(charts=Charts(offered=[{"label": "Expanded", "value": "EXPANDED"}]), parameter="tracks.displayMode")
+    assert out["source"] == "declared"
+    assert out["total"] == 1 and out["options"][0]["id"] == "EXPANDED"
 
 
 def test_a_parameter_the_plugin_does_not_declare_is_refused():
-    assert "declares no parameter" in refused(call(parameter="nonsense"))
+    assert "is not a parameter path" in refused(call(parameter="nonsense"))
+
+
+def test_a_path_naming_an_input_the_group_lacks_is_refused():
+    assert "declares nothing named 'nonsense'" in refused(call(parameter="settings.nonsense"))
+
+
+def test_a_plain_input_holds_nothing_deeper():
+    assert "holds nothing named" in refused(call(parameter="settings.locus.inner"))
+
+
+def test_a_conditional_named_alone_says_what_to_name_instead():
+    out = refused(call(parameter="settings.source"))
+    assert "is a conditional" in out and "origin" in out
+
+
+def test_a_group_named_alone_is_refused():
+    assert "is not a parameter path" in refused(call(parameter="settings"))
+
+
+def test_a_failed_lookup_is_reported_rather_than_shown_as_no_options():
+    out = refused(call(charts=Charts(message="no route to host"), parameter="settings.source.genome", config=builtin()))
+    assert "Could not resolve" in out and "no route to host" in out
 
 
 def test_browsing_says_how_to_get_the_value_to_store():
-    assert "search" in call(parameter="genome", when="builtin")["hint"]
+    assert "search" in call(parameter="settings.source.genome", config=builtin())["hint"]
