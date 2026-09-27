@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 class Session:
-    """Everything a turn runs against, built once per worker and reused across turns."""
+    """Everything a turn runs against, built once per config identity and reused across turns."""
 
     def __init__(self, config):
         self.config = config
+        self.identity = config.identity()
         self.substrate = Substrate(config)
         self.processes = ProcessRegistry().load_packaged()
         self.skills = SkillRegistry().load_packaged()
@@ -26,6 +27,15 @@ class Session:
     async def init(self):
         await self.substrate.init()
         return self
+
+    def rebind(self, config):
+        """Point this session at a new turn's context."""
+        self.config = config
+        self.driver.rebind(session_id=config.get("session_id"), page_id=config.get("record_page_id"))
+
+    async def close(self):
+        """Release what the session holds outside the interpreter."""
+        await self.substrate.close()
 
     def _galaxy_status(self):
         """What Galaxy work can run: everything, nothing, or only the tools olit runs itself.
@@ -74,17 +84,23 @@ _session = None
 
 
 async def _session_for(config):
-    """The worker's session, rebuilt only when the config it was built from changes."""
+    """The worker's session, rebuilt only when what it is built from changes."""
     global _session
-    if _session is None or _session.config != config:
-        _session = await Session(config).init()
+    if _session is not None and _session.identity == config.identity():
+        _session.rebind(config)
+        return _session
+    if _session is not None:
+        # A replaced session still holds a transport.
+        await _session.close()
+    _session = await Session(config).init()
     return _session
 
 
 async def run(config, inputs, on_event=None):
-    session = await _session_for(config_module.parse(config))
+    parsed = config_module.parse(config)
+    session = await _session_for(parsed)
     transcripts = await session.prepare(
-        inputs["transcripts"], session.config.get("record_page_id"), session.config.get("history_id")
+        inputs["transcripts"], parsed.get("record_page_id"), parsed.get("history_id")
     )
     try:
         result = await session.turn(

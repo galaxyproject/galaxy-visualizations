@@ -58,6 +58,13 @@ class LoopDriver:
         self.max_steps = int(config.get("max_steps") or MAX_STEPS)
         self.record = {"session_id": config.get("session_id"), "page_id": config.get("record_page_id")}
 
+    def rebind(self, session_id=None, page_id=None):
+        """Set this turn's record context; an absent value keeps what a tool opened."""
+        if session_id:
+            self.record["session_id"] = session_id
+        if page_id:
+            self.record["page_id"] = page_id
+
     async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
         # One surface per turn. Earlier turns' artifacts are handed in by the caller, which
         # holds them: this driver is rebuilt whenever the session's config changes.

@@ -1,5 +1,7 @@
 """What the shell hands the brain, validated once at the boundary."""
 
+from typing import ClassVar
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -40,6 +42,13 @@ class Config(BaseModel):
         if unknown:
             raise ValueError(f"unknown capabilities {unknown}; known: {sorted(known)}")
         return value
+
+    # Turn-scoped fields excluded from session identity.
+    CONTEXT_FIELDS: ClassVar[tuple[str, ...]] = ("history_id", "dataset_id", "session_id", "record_page_id")
+
+    def identity(self):
+        """Return the stable session identity."""
+        return {k: v for k, v in self.model_dump().items() if k not in self.CONTEXT_FIELDS}
 
     def get(self, key, default=None):
         """Dict access, so the substrate can keep reading it the way it always has."""
