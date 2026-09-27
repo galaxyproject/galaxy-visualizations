@@ -10,6 +10,8 @@ parameter and the chosen case's inputs.
 Pure functions of their arguments; the fetching lives in galaxy_tools.py.
 """
 
+import json
+
 # What a value looks like before the model replaces it, by what the type stores.
 _SCALAR_PLACEHOLDER = {
     "boolean": False,
@@ -95,8 +97,13 @@ def _paths_declaring(params, name, path):
 
 
 def declared_paths(plugin, name):
-    """Every canonical path under which `plugin` declares `name`."""
-    return [path for group in GROUPS for path in _paths_declaring((plugin or {}).get(group), name, [group])]
+    """Every canonical path under which `plugin` declares `name`, each named once.
+
+    Several cases of one conditional declare the same name at the same path, so a walk over the
+    cases finds it repeatedly.
+    """
+    found = [path for group in GROUPS for path in _paths_declaring((plugin or {}).get(group), name, [group])]
+    return list(dict.fromkeys(found))
 
 
 def _state(config, group):
@@ -113,6 +120,14 @@ def case_value(value):
     if isinstance(value, bool):
         return "true" if value else "false"
     return None if value is None else str(value)
+
+
+def _shape(trail, test_name):
+    """The config a caller has to send, written the way the template writes an unfilled value."""
+    nested = {test_name: "<value>"}
+    for step in reversed(trail):
+        nested = {step: nested}
+    return json.dumps(nested)
 
 
 def _hit(declared, path):
@@ -148,7 +163,8 @@ def _resolve(params, segments, state, trail):
     if active is None:
         offered = ", ".join(repr(c.get("value")) for c in cases)
         return None, (
-            f"{here!r} selects its inputs by {test.get('name')!r}. " f"Pass `config` holding it as one of {offered}."
+            f"{here!r} selects its inputs by {test.get('name')!r}. Pass "
+            f"config={_shape(trail + [name], test.get('name'))} with {test.get('name')!r} as one of {offered}."
         )
     hit, problem = _resolve(active.get("inputs"), rest, nested, trail + [name])
     if hit and hit["case"] is None:

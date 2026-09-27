@@ -158,7 +158,18 @@ def test_a_name_declared_in_several_cases_is_refused_rather_than_guessed():
     out = refused(call(parameter="settings.source.genome"))
     assert "'settings.source' selects its inputs by 'origin'" in out
     assert "'igv'" in out and "'builtin'" in out, "the cases it could not choose between"
-    assert "`config`" in out, "the refusal has to say how to disambiguate"
+
+
+def test_the_refusal_shows_the_config_to_send_not_only_its_values():
+    """A live run looped six times on this: naming the values does not say where they go."""
+    out = refused(call(parameter="settings.source.genome"))
+    assert 'config={"settings": {"source": {"origin": "<value>"}}}' in out
+
+
+def test_a_path_is_named_once_however_many_cases_declare_it():
+    """Each case of `source` declares `genome` at the same path, so the walk finds it three times."""
+    out = refused(call(parameter="genome"))
+    assert out.count("settings.source.genome") == 1, out
 
 
 def test_the_config_selects_the_case_and_so_the_source():
