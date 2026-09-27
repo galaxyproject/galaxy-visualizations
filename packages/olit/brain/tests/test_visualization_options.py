@@ -7,7 +7,7 @@ name cannot address heatmap's two axes, and no single case value can tell them a
 
 import asyncio
 
-from olit.drivers.loop.galaxy_tools import get_visualization_options
+from olit.drivers.loop.visualizations import get_visualization_options
 
 from .fakes import refused
 
@@ -409,8 +409,8 @@ TYPES = {"boolean": {"stores": {"type": "boolean"}}, "select": {"stores": {"type
 
 def test_the_save_validator_reads_a_case_value_the_same_way():
     """Two walkers over one representation: a case either walker finds, both must find."""
-    from olit.drivers.loop.galaxy_tools import _check_level
     from olit.drivers.loop.visualization_inputs import resolve_parameter
+    from olit.drivers.loop.visualizations import _check_level
 
     entry = {"mode": {"advanced": True, "depth": "d"}}
 
@@ -421,7 +421,7 @@ def test_the_save_validator_reads_a_case_value_the_same_way():
 
 def test_a_test_parameter_is_validated_as_a_case_label():
     """It selects the case, so it holds a label; `"true"` is right even where boolean stores."""
-    from olit.drivers.loop.galaxy_tools import _check_level
+    from olit.drivers.loop.visualizations import _check_level
 
     for stored in ("true", True, "false"):
         entry = {"mode": {"advanced": stored, **({"depth": "d"} if stored != "false" else {})}}
@@ -429,7 +429,7 @@ def test_a_test_parameter_is_validated_as_a_case_label():
 
 
 def test_a_test_parameter_holding_no_declared_label_is_refused():
-    from olit.drivers.loop.galaxy_tools import _check_level
+    from olit.drivers.loop.visualizations import _check_level
 
     bad = _check_level({"mode": {"advanced": "maybe"}}, [BOOLEAN_CASE], TYPES, "settings")
     assert bad and "selects the case" in bad["error"]

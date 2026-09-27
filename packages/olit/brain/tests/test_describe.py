@@ -85,3 +85,39 @@ def test_the_shell_contract_a_harness_stands_in_for_is_published():
     shell = described()["shell"]
     assert shell["max_auto_follow_ups"] == 3
     assert shell["resume_prompt"].startswith("[Olit automatic Galaxy follow-up]")
+
+
+def test_a_handler_outside_galaxy_tools_still_carries_its_query():
+    """The visualization handlers live in their own module; their metadata has to follow them.
+
+    Discovery reads each handler's own module, so an extraction cannot silently leave a tool
+    with an empty query and passthrough False while every other check still passes.
+    """
+    tools = described()["tools"]
+    assert tools["save_visualization"]["query"] == {"visualization": None, "visualization_id": None}
+    assert tools["show_visualization"]["query"] == {"dataset_id": None, "visualization": None}
+    assert tools["list_visualizations"]["query"] == {"dataset_id": None}
+
+
+def test_discovery_spans_every_module_that_defines_a_handler():
+    """Named by the handlers themselves rather than a list that can go stale."""
+    modules = {t["handler"].__module__ for t in galaxy_tools.TOOLS if t["handler"] is not None}
+    assert len(modules) > 1, "the split put handlers in more than one module"
+    assert modules == {"olit.drivers.loop.galaxy_tools", "olit.drivers.loop.visualizations"}
+    assert len(describe._handler_trees()) == len(modules)
+
+
+def test_every_tool_with_a_local_handler_is_parsed_from_somewhere():
+    """A handler whose module discovery missed would report no query at all."""
+    trees = describe._handler_trees()
+    import ast
+
+    defined = {
+        node.name
+        for tree in trees
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    for tool in galaxy_tools.TOOLS:
+        if tool["handler"] is not None:
+            assert tool["handler"].__name__ in defined, tool["name"]

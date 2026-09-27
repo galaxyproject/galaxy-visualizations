@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop.galaxy_tools import _list_visualizations
+from olit.drivers.loop.visualizations import _list_visualizations
 
 COMPATIBLE = [
     {
