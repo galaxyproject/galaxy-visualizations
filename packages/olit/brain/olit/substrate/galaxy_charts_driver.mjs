@@ -1,7 +1,12 @@
 // Reaches galaxy-charts' option resolution for a brain outside the browser, with an api key.
 //
 // Framed as the galaxy-ops driver frames: the byte length on one line, then that many bytes of JSON.
+import { Console } from "node:console";
+
 import { getOptions } from "galaxy-charts/runtime";
+
+// stdout carries the framing, so anything logged goes to stderr instead.
+globalThis.console = new Console(process.stderr);
 
 const ROOT = (process.env.GALAXY_ROOT || "").replace(/\/+$/, "");
 const KEY = process.env.GALAXY_KEY || "";

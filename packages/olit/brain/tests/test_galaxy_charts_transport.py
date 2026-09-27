@@ -29,6 +29,11 @@ TABLE = {"columns": ["name", "value"], "fields": [["hg38", "hg38.fa"]]}
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.server.seen.append((self.path, self.headers.get("x-api-key")))
+        if self.path in self.server.refuse:
+            self.send_response(500)
+            self.send_header("content-length", "0")
+            self.end_headers()
+            return
         body = json.dumps(TABLE).encode()
         self.send_response(200)
         self.send_header("content-type", "application/json")
@@ -44,6 +49,7 @@ class _Handler(BaseHTTPRequestHandler):
 def galaxy():
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
     server.seen = []
+    server.refuse = set()
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield server
@@ -87,6 +93,16 @@ def test_a_root_carrying_one_reaches_the_same_path(galaxy):
 
     assert galaxy.seen == [("/api/tool_data/dbkeys", "k")]
     assert envelope["success"] is True
+
+
+def test_a_table_galaxy_refuses_leaves_the_framing_intact(galaxy):
+    """galaxy-charts logs the refusal, and a log on stdout would be read as a message length."""
+    galaxy.refuse.add("/api/tool_data/broken")
+
+    envelope = options(f"http://127.0.0.1:{galaxy.server_port}", galaxy, "broken")
+
+    assert envelope["success"] is True
+    assert envelope["data"] == []
 
 
 def test_a_call_the_driver_does_not_answer_is_refused(galaxy):

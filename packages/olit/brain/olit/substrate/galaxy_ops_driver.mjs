@@ -4,7 +4,12 @@
 // Each message is its byte length on one line, then that many bytes of JSON. An answer can
 // be megabytes, which is past what a line-oriented reader will buffer, and a reader that
 // gives up mid-line would pair every later answer with the wrong question.
+import { Console } from "node:console";
+
 import { allOperations, createGalaxyContext, runWithEnvelope } from "@galaxyproject/galaxy-ops/browser";
+
+// stdout carries the framing, so anything logged goes to stderr instead.
+globalThis.console = new Console(process.stderr);
 
 const ctx = createGalaxyContext({ baseUrl: process.env.GALAXY_ROOT, apiKey: process.env.GALAXY_KEY });
 const byName = new Map(allOperations.map((op) => [op.name, op]));
