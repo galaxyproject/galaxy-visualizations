@@ -668,70 +668,6 @@ def _visualization_config(a):
     return config
 
 
-def _as_stored(value, stores):
-    """A declared default in the type galaxy-charts says the input stores."""
-    kind = (stores or {}).get("type")
-    if kind == "boolean":
-        return str(value).lower() == "true"
-    if kind in ("integer", "number"):
-        try:
-            return int(value) if kind == "integer" else float(value)
-        except (TypeError, ValueError):
-            return None
-    return value
-
-
-def _declared_default(param, types):
-    """The value an omitted input takes: the plugin's own, else the one its type declares."""
-    spec = types.get(param.get("type")) or {}
-    if param.get("value") is not None:
-        return _as_stored(param["value"], spec.get("stores"))
-    fallback = spec.get("fallback") or {}
-    if not fallback:
-        return None
-    requires = fallback.get("requires")
-    if requires and str(param.get(requires, "")).lower() != "true":
-        return None
-    return fallback.get("value")
-
-
-def _completed(entry, declared, types):
-    """`entry` plus every declared input it leaves out. Mirrors galaxy-charts `parseValues`."""
-    out = dict(entry or {})
-    for param in declared or []:
-        if not isinstance(param, dict) or not param.get("name"):
-            continue
-        name = param["name"]
-        if param.get("type") == "conditional":
-            test = (param.get("test_param") or {}).get("name")
-            nested = dict(out.get(name) or {})
-            chosen = nested.get(test) if test else None
-            if test and chosen is None:
-                chosen = _declared_default(param.get("test_param") or {}, types)
-                if chosen is not None:
-                    nested[test] = chosen
-            inputs = next((c.get("inputs") or [] for c in param.get("cases") or [] if c.get("value") == chosen), [])
-            out[name] = _completed(nested, list(inputs), types)
-            continue
-        if name in out:
-            continue
-        default = _declared_default(param, types)
-        if default is not None:
-            out[name] = default
-    return out
-
-
-def complete_config(plugin, a):
-    """`a` with the declared inputs the caller left out, so a saved config matches the form's."""
-    types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
-    filled = dict(a)
-    if a.get("settings") is not None:
-        filled["settings"] = _completed(a["settings"], plugin.get("settings"), types)
-    if a.get("tracks") is not None:
-        filled["tracks"] = [_completed(t, plugin.get("tracks"), types) for t in a["tracks"]]
-    return filled
-
-
 def _describe_parameter(param, types):
     """One declared input, joined with what galaxy-charts stores for its type."""
     kind = param.get("type")
@@ -1117,7 +1053,6 @@ async def _save_visualization(g, a):
         undeclared = _reject_undeclared(plugin, a)
         if undeclared:
             return ToolOutcome(undeclared, is_error=True)
-        a = complete_config(plugin, a)
 
     name = a["visualization"]
     title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"
