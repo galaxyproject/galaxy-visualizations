@@ -1,6 +1,9 @@
 """Compaction: the oldest conversation is replaced by a summary of it, not dropped."""
 
 import asyncio
+import json
+
+import pytest
 
 from olit import compaction
 from olit.drivers.loop.agent import LoopDriver
@@ -310,3 +313,44 @@ def test_a_normal_turn_never_pays_for_a_summarization():
 
     assert len(llm.calls) == 1
     assert llm.calls[0]["tools"] is True
+
+
+class TestReasoningCounts:
+    """A reasoning model's chain of thought is stored on the message and sent back with it.
+
+    The estimate counted `content` and the tool calls and nothing else, so an assistant turn
+    whose bulk was reasoning looked like a handful of tokens. Inside a turn the provider's own
+    count covers it, but that count is absent at the top of every turn and after every
+    compaction, which is exactly where the decision to compact is made.
+    """
+
+    def _assistant(self, key, reasoning):
+        return {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "c1", "function": {"name": "get_histories", "arguments": "{}"}}],
+            key: reasoning,
+        }
+
+    def test_reasoning_is_counted_under_either_spelling(self):
+        from olit.substrate.llm import REASONING_KEYS
+
+        for key in REASONING_KEYS:
+            message = self._assistant(key, "x" * 4000)
+            assert compaction.estimate_tokens(message) >= 1000, key
+
+    def test_the_estimate_is_close_to_what_the_request_carries(self):
+        message = self._assistant("reasoning_content", "think. " * 1600)
+        sent = len(json.dumps(message)) // 4
+
+        estimate = compaction.estimate_tokens(message)
+
+        # Within a tenth: the remainder is JSON punctuation, which no message ever counted.
+        assert estimate == pytest.approx(sent, rel=0.1)
+
+    def test_a_transcript_that_is_mostly_reasoning_asks_to_be_compacted(self):
+        """The consequence: it used to slip under the threshold and the provider rejected it."""
+        settings = compaction.Settings({"ai_context_window": 8000, "ai_reserve_tokens": 1000})
+        messages = [{"role": "user", "content": "go"}, self._assistant("reasoning_content", "x" * 40000)]
+
+        assert compaction.should_compact(compaction.context_tokens(messages), settings)
