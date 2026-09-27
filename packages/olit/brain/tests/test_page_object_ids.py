@@ -1,14 +1,19 @@
-"""A page may not name a Galaxy object by anything but its encoded id.
+"""A page may not name a dataset or a collection by anything but its encoded id.
 
 Galaxy's directive validation checks that an argument's *name* is allowed and never looks
 at the value, and the `visualization` directive takes DynamicArguments, so it validates
-nothing at all. `visualization_id=plotly` is stored and the embed renders nothing.
+nothing at all. `history_dataset_id=trimmed reads` is stored and the embed renders nothing.
+
+`visualization_id` is not an object id: MarkdownGalaxy.vue binds it to VisualizationWrapper's
+`name`, which VisualizationFrame resolves through `api/plugins/<name>`. A plugin name is what
+belongs there, so it is not checked here.
 """
 
 import asyncio
 
 import pytest
 
+from olit.drivers.loop import artifacts
 from olit.drivers.loop.galaxy_tools import _update_page
 from olit.drivers.loop.outcome import ToolOutcome
 from olit.drivers.loop.page_edit import malformed_object_ids
@@ -43,21 +48,25 @@ def write(content, **extra):
 # --- what the validator sees ------------------------------------------------------------
 
 
-def test_a_plugin_name_where_an_id_belongs_is_malformed():
-    assert malformed_object_ids("visualization(visualization_id=plotly)") == ["visualization_id=plotly"]
+def test_a_name_where_a_dataset_id_belongs_is_malformed():
+    assert malformed_object_ids("history_dataset_display(history_dataset_id=reads)") == ["history_dataset_id=reads"]
 
 
 def test_an_encoded_id_is_accepted():
-    assert malformed_object_ids(f"visualization(visualization_id={REAL})") == []
+    assert malformed_object_ids(f"history_dataset_display(history_dataset_id={REAL})") == []
 
 
-def test_a_good_and_a_bad_argument_in_one_directive_are_told_apart():
-    bad = malformed_object_ids(f"visualization(visualization_id=plotly, history_dataset_id={ALSO_REAL})")
-    assert bad == ["visualization_id=plotly"]
+def test_a_plugin_name_beside_a_bad_dataset_id_leaves_the_plugin_name_alone():
+    bad = malformed_object_ids("visualization(visualization_id=plotly, history_dataset_id=reads)")
+    assert bad == ["history_dataset_id=reads"]
+
+
+def test_a_plugin_name_is_what_the_visualization_directive_takes():
+    assert malformed_object_ids(f"visualization(visualization_id=plotly, history_dataset_id={ALSO_REAL})") == []
 
 
 def test_each_object_argument_is_checked():
-    for name in ("visualization_id", "history_dataset_id", "history_dataset_collection_id"):
+    for name in ("history_dataset_id", "history_dataset_collection_id"):
         assert malformed_object_ids(f"x({name}=nope)") == [f"{name}=nope"]
 
 
@@ -67,7 +76,7 @@ def test_other_arguments_are_left_to_galaxy():
 
 
 def test_a_quoted_id_is_read_through_its_quotes():
-    assert malformed_object_ids(f'visualization(visualization_id="{REAL}")') == []
+    assert malformed_object_ids(f'history_dataset_display(history_dataset_id="{REAL}")') == []
 
 
 def test_a_page_with_no_directives_is_untouched():
@@ -78,7 +87,7 @@ def test_a_page_with_no_directives_is_untouched():
 
 
 def test_writing_a_malformed_id_is_refused_before_galaxy_sees_it():
-    g, out = write("## Record\n\n```galaxy\nvisualization(visualization_id=plotly)\n```")
+    g, out = write("## Record\n\n```galaxy\nhistory_dataset_display(history_dataset_id=reads)\n```")
 
     assert isinstance(out, ToolOutcome) and out.refused
     assert out.guard == "malformed-object-id"
@@ -86,10 +95,10 @@ def test_writing_a_malformed_id_is_refused_before_galaxy_sees_it():
 
 
 def test_the_refusal_points_at_the_artifact_token():
-    _, out = write("```galaxy\nvisualization(visualization_id=plotly)\n```")
+    _, out = write("```galaxy\nhistory_dataset_display(history_dataset_id=reads)\n```")
 
     assert "{{artifact}}" in out.content
-    assert "visualization_id=plotly" in out.content
+    assert "history_dataset_id=reads" in out.content
 
 
 def test_an_encoded_id_written_by_hand_still_works():
@@ -102,17 +111,31 @@ def test_an_encoded_id_written_by_hand_still_works():
 
 def test_the_resolved_artifact_path_is_unaffected():
     """`{{artifact}}` is expanded before the handler runs, so what arrives is a real id."""
-    g, out = write(f"```galaxy\nvisualization(visualization_id={REAL}, history_dataset_id={ALSO_REAL})\n```")
+    g, out = write(f"```galaxy\nvisualization(visualization_id=plotly, history_dataset_id={ALSO_REAL})\n```")
 
     assert not isinstance(out, ToolOutcome) and g.puts
 
 
 def test_a_section_edit_is_checked_too():
-    g, out = write(None, section_heading="## Chart", section_content="visualization(visualization_id=plotly)")
+    g, out = write(None, section_heading="## Chart", section_content="visualization(history_dataset_id=reads)")
 
     assert isinstance(out, ToolOutcome) and out.refused
 
 
-@pytest.mark.parametrize("value", ["plotly", "nope", "0c97fda4aafcf41", "0c97fda4aafcf4188", "ZZZZZZZZZZZZZZZZ"])
+@pytest.mark.parametrize("value", ["reads", "nope", "0c97fda4aafcf41", "0c97fda4aafcf4188", "ZZZZZZZZZZZZZZZZ"])
 def test_anything_that_is_not_sixteen_hex_is_refused(value):
-    assert malformed_object_ids(f"visualization(visualization_id={value})")
+    assert malformed_object_ids(f"visualization(history_dataset_id={value})")
+
+
+def test_every_directive_an_artifact_renders_passes_this_validator():
+    """The guard and the renderer answer to the same contract, so neither may reject the other."""
+    rendered = [
+        artifacts.render(
+            {"kind": "visualization", "title": "atlas of d1", "visualization": "atlas", "dataset_id": REAL}
+        ),
+        artifacts.render({"kind": "vega-lite", "title": "Glucose", "spec": {"mark": "point"}}),
+        artifacts.render({"kind": "mermaid", "title": "Lineage", "diagram": "graph TD;\nA-->B;"}),
+    ]
+    for markdown in rendered:
+        assert markdown is not None
+        assert malformed_object_ids(markdown) == [], markdown

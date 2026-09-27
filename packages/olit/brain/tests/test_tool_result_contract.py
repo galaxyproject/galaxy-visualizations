@@ -57,14 +57,14 @@ def test_both_sides_answer_in_the_same_shape():
 
 
 def test_a_handler_refusal_keeps_its_error_flag_and_guard():
-    out = _dispatch("update_page", {"page_id": "p1", "content": "visualization_id=ngl"})
+    out = _dispatch("update_page", {"page_id": "p1", "content": "history_dataset_id=reads"})
     assert out.is_error and out.refused
     assert out.guard == "malformed-object-id"
 
 
 def test_a_handler_refusal_is_not_serialised_as_a_python_repr():
     """The repr also lost is_error, so the loop guard never counted the refusal."""
-    out = _dispatch("update_page", {"page_id": "p1", "content": "visualization_id=ngl"})
+    out = _dispatch("update_page", {"page_id": "p1", "content": "history_dataset_id=reads"})
     assert "ToolOutcome(" not in str(out.content)
     assert "is_error=" not in str(out.content)
 
