@@ -1,13 +1,9 @@
-// Resolves a visualization input's options for a brain outside the browser.
-//
-// Knows one call, and nothing about what any input type means: galaxy-charts owns which endpoint
-// an option kind draws on and how its payload becomes options. What lives here is the connection,
-// because reaching Galaxy off the browser needs a key the page session would otherwise carry.
+// Reaches galaxy-charts' option resolution for a brain outside the browser, with an api key.
 //
 // Framed as the galaxy-ops driver frames: the byte length on one line, then that many bytes of JSON.
 import { getOptions } from "galaxy-charts/runtime";
 
-const ROOT = process.env.GALAXY_ROOT || "";
+const ROOT = (process.env.GALAXY_ROOT || "").replace(/\/+$/, "");
 const KEY = process.env.GALAXY_KEY || "";
 
 async function body(response) {
@@ -18,7 +14,7 @@ async function body(response) {
 }
 
 const client = {
-  api: async (path) => body(await fetch(`${ROOT}${path}`, { headers: KEY ? { "x-api-key": KEY } : {} })),
+  api: async (path) => body(await fetch(`${ROOT}/${path}`, { headers: KEY ? { "x-api-key": KEY } : {} })),
   url: async (target) => body(await fetch(target)),
 };
 
@@ -28,8 +24,6 @@ function send(message) {
   process.stdout.write(payload);
 }
 
-// Stated as src/pyodide/galaxy-charts-executor.js states them: the same fault has to read the same
-// way whichever executor carried the call.
 export function noSuchCall(name) {
   return { success: false, errorKind: "not_found", message: `galaxy-charts has no call named '${name}'` };
 }

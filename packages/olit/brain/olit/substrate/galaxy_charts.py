@@ -1,8 +1,4 @@
-"""Visualization input options, resolved by galaxy-charts wherever the brain runs.
-
-One call. Nothing here knows what an option kind means: galaxy-charts owns which endpoint a kind
-draws on and how its payload becomes options, so a new input type needs no change on this side.
-"""
+"""Visualization input options, resolved by galaxy-charts wherever the brain runs."""
 
 import os
 

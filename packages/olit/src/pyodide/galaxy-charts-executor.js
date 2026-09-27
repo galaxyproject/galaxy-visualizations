@@ -1,10 +1,4 @@
-/**
- * One way in to galaxy-charts' option resolution, for the brain to call across the Pyodide boundary.
- *
- * Knows one call and nothing about what any input type means: galaxy-charts owns which endpoint an
- * option kind draws on and how its payload becomes options, so a new type needs no change here.
- * What this holds is the connection, as the user whose session the page is already in.
- */
+/** Reaches galaxy-charts' option resolution over the page's own Galaxy session. */
 import { getOptions } from "galaxy-charts/runtime";
 
 async function body(response) {
@@ -14,7 +8,6 @@ async function body(response) {
   return await response.json();
 }
 
-/** Stated as brain/olit/substrate/galaxy_charts_driver.mjs states them. */
 export function noSuchCall(name) {
   return {
     success: false,
@@ -29,8 +22,9 @@ export function unexpectedFailure(err) {
 
 export function install(galaxy) {
   const credentials = galaxy.credentials || "include";
+  const root = String(galaxy.root || "/").replace(/\/+$/, "");
   const client = {
-    api: async (path) => body(await fetch(`${galaxy.root || "/"}${path}`, { credentials })),
+    api: async (path) => body(await fetch(`${root}/${path}`, { credentials })),
     url: async (target) => body(await fetch(target)),
   };
   globalThis.olitGetChartsOptions = async (name, args) => {
