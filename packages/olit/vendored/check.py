@@ -10,16 +10,20 @@ chat-panel.ts is the one documented exception: a 2-line import retarget.
 import hashlib
 import json
 import pathlib
+import shutil
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 VENDORED = ROOT / "src" / "orbit"
 MANIFEST = VENDORED / "MANIFEST.json"
 
-# Contracts owned elsewhere, vendored so the brain reads them offline.
+# Contracts owned elsewhere, vendored so the brain reads them from its own wheel inside Pyodide,
+# where node_modules does not exist. Each maps to where the installed dependency publishes it,
+# which is the source of truth the copy is checked against.
 CONTRACTS = ROOT / "brain" / "olit" / "vendor"
 CONTRACTS_MANIFEST = CONTRACTS / "MANIFEST.json"
-CONTRACTS_TRACKED = ["galaxy-charts.inputs.json"]
+CONTRACTS_TRACKED = {"galaxy-charts.inputs.json": "galaxy-charts/dist/galaxy-charts.inputs.json"}
+NODE_MODULES = ROOT / "node_modules"
 
 # The skills corpus is gitignored and fetched by skills.install.js, which stamps each
 # file's git blob id. Recomputing them catches an edit made after vendoring.
@@ -52,8 +56,36 @@ def current() -> dict:
     return out
 
 
-def contracts_now() -> dict:
-    return {r: digest(CONTRACTS / r) for r in CONTRACTS_TRACKED if (CONTRACTS / r).exists()}
+def contracts(update: bool) -> int:
+    """Each vendored contract against the dependency that publishes it."""
+    upstream = json.loads(CONTRACTS_MANIFEST.read_text()).get("upstream", "upstream")
+    drifted, uninstalled = [], []
+    for name, published in CONTRACTS_TRACKED.items():
+        source = NODE_MODULES / published
+        copy = CONTRACTS / name
+        if not source.exists():
+            uninstalled.append(published)
+        elif update:
+            shutil.copyfile(source, copy)
+        elif not copy.exists() or digest(copy) != digest(source):
+            drifted.append(name)
+
+    if uninstalled:
+        print(f"{len(uninstalled)} contract(s) unchecked; not installed: {', '.join(uninstalled)}")
+    if update:
+        print(f"copied {len(CONTRACTS_TRACKED) - len(uninstalled)} contract(s) from the installed package")
+        return 0
+    if drifted:
+        for name in drifted:
+            print(f"  DIFFERS   brain/olit/vendor/{name}")
+        print(
+            f"\n{upstream} owns these; olit reads them and does not author them. The installed\n"
+            "package is the source of truth, so re-copy from it with:\n"
+            "  python3 vendored/check.py --update"
+        )
+        return 1
+    print(f"{len(CONTRACTS_TRACKED) - len(uninstalled)} contract(s) match the installed package")
+    return 0
 
 
 def blob_id(path: pathlib.Path) -> str:
@@ -105,16 +137,13 @@ def skills(argv: list[str]) -> int:
 
 def main(argv: list[str]) -> int:
     manifest = json.loads(MANIFEST.read_text())
-    contracts = json.loads(CONTRACTS_MANIFEST.read_text())
     now = current()
 
     if "--update" in argv:
         manifest["files"] = now
         MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
-        contracts["files"] = contracts_now()
-        CONTRACTS_MANIFEST.write_text(json.dumps(contracts, indent=2) + "\n")
-        print(f"pinned {len(now)} vendored files and {len(contracts['files'])} contracts")
-        return 0
+        print(f"pinned {len(now)} vendored files")
+        return contracts(update=True)
 
     pinned = manifest.get("files") or {}
     if not pinned:
@@ -136,18 +165,10 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
-    drifted = [r for r, h in (contracts.get("files") or {}).items() if contracts_now().get(r) != h]
-    if drifted:
-        for r in drifted:
-            print(f"  MODIFIED  brain/olit/vendor/{r}")
-        print(
-            f"\n{contracts['upstream']} owns these; olit reads them and does not author them.\n"
-            "Re-copy from a build of that repo and re-pin with:\n"
-            "  python3 vendored/check.py --update"
-        )
+    if contracts(update=False):
         return 1
 
-    print(f"{len(pinned)} vendored files and {len(contracts['files'])} contracts unchanged")
+    print(f"{len(pinned)} vendored files unchanged")
     return skills(argv)
 
 
