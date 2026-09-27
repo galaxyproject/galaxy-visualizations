@@ -11,7 +11,6 @@ import jsonschema
 
 from olit import vendor
 from olit.substrate.browser import in_browser
-from olit.substrate.http import http
 
 from . import biocontainers, invocation_outcome, page_edit
 from .galaxy_tool_docs import DOCS
@@ -757,14 +756,9 @@ def _find_declared(params, wanted, when=None):
     return found
 
 
-def _by_id(entries):
-    """One entry per id, ordered by id, as galaxy-charts' dataTableStore offers them."""
-    unique = {}
-    for entry in entries:
-        key = entry.get("id") or ""
-        if key and key not in unique:
-            unique[key] = entry
-    return [unique[key] for key in sorted(unique)]
+def _identity(value):
+    """What names an option: an object's id, or the value itself when it is a scalar."""
+    return value.get("id") if isinstance(value, dict) else value
 
 
 def _match(entry, search):
@@ -774,7 +768,7 @@ def _match(entry, search):
     return search.lower() in hay
 
 
-async def _get_visualization_options(g, a):
+async def get_visualization_options(g, charts, a):
     """What a parameter's options actually are, resolved from where the plugin says they live.
 
     The declaration says a genome comes from a remote list or a data table; it does not say
@@ -810,51 +804,28 @@ async def _get_visualization_options(g, a):
     declared = found[0][1]
 
     types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
-    source = ((types.get(declared.get("type")) or {}).get("options")) or {}
-    kind = source.get("kind")
+    kind = (((types.get(declared.get("type")) or {}).get("options")) or {}).get("kind")
     search = a.get("search")
 
-    entries = []
-    if kind == "declared":
-        entries = [dict(o) for o in (declared.get("data") or [])]
-    elif kind == "data_json":
-        url = declared.get("url")
-        if not url:
-            return ToolOutcome(f"{wanted!r} names no url to read its options from.", is_error=True)
-        fetched = await http.request("GET", url)
-        entries = fetched if isinstance(fetched, list) else []
-    elif kind == "data_table":
-        # Follows galaxy-charts' dataTableStore, which owns this shape: the name and value
-        # columns when the row is whole and the first column when it is not, then one entry
-        # per id, ordered by id, which is the order the plugin's own form offers.
-        for table in declared.get("tables") or []:
-            data = await g.get(f"api/tool_data/{table}") or {}
-            columns = data.get("columns") or []
-            name_col = columns.index("name") if "name" in columns else 0
-            value_col = columns.index("value") if "value" in columns else 0
-            for row in data.get("fields") or []:
-                whole = len(row) == len(columns)
-                entries.append(
-                    {
-                        "id": row[value_col] if whole else (row[0] if row else None),
-                        "name": row[name_col] if whole else (row[0] if row else None),
-                        "columns": columns,
-                        "row": row,
-                        "table": table,
-                    }
-                )
-        entries = _by_id(entries)
-    else:
+    envelope = await charts.get_options(declared, {"datasetId": a.get("dataset_id")})
+    if not envelope.get("success"):
+        return ToolOutcome(
+            f"Could not resolve {wanted!r}: {envelope.get('message') or 'the lookup failed'}.", is_error=True
+        )
+    offered = envelope.get("data") or []
+    if not kind:
         return {
             "parameter": wanted,
-            "source": kind or declared.get("type"),
+            "source": declared.get("type"),
             "hint": "This parameter's options are not a list to browse; "
             "get_visualization_details says what it accepts.",
         }
+    # galaxy-charts answers `{label, value}`; what the model stores is the value, whole.
+    entries = [{"id": _identity(o.get("value")), "name": o.get("label"), "value": o.get("value")} for o in offered]
 
     # Labels are cheap to scan; the stored value is only returned for what was asked for,
     # because these can be large and only the chosen one is ever written.
-    listed = [{"id": e.get("id"), "name": e.get("name") or e.get("label")} for e in entries]
+    listed = [{"id": e["id"], "name": e["name"]} for e in entries]
     result = {"parameter": wanted, "source": kind, "total": len(entries), "options": listed[:ROW_CAP]}
     # A case can be declared and still hold nothing on this server: IGV's builtin genomes
     # are a data table an admin may never have filled. Naming its siblings is the difference
@@ -1347,9 +1318,9 @@ _tool(
     "read",
     "Resolve a visualization parameter's selectable options from wherever the plugin says "
     "they live. Use `search` to get the value to store.",
-    {"visualization": _STR, "parameter": _STR, "search": _STR, "when": _STR},
+    {"visualization": _STR, "parameter": _STR, "search": _STR, "when": _STR, "dataset_id": _STR},
     ["visualization", "parameter"],
-    _get_visualization_options,
+    get_visualization_options,
 )
 _tool(
     "get_visualization",

@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop.galaxy_tools import _get_visualization_options
+from olit.drivers.loop.galaxy_tools import get_visualization_options
 
 from .fakes import refused
 
@@ -22,18 +22,43 @@ PLUGIN = {
     "tracks": [{"name": "displayMode", "type": "select", "data": [{"label": "Expanded", "value": "EXPANDED"}]}],
 }
 
-TABLE = {"columns": ["value", "name"], "fields": [["hg19", "Human hg19"]]}
-
 
 class Galaxy:
     async def get(self, path, **kwargs):
-        if path.startswith("api/tool_data/"):
-            return TABLE
         return PLUGIN
 
 
-def call(**kw):
-    return asyncio.run(_get_visualization_options(Galaxy(), {"visualization": "igv", **kw}))
+class Charts:
+    """galaxy-charts, as far as the policy around it is concerned."""
+
+    def __init__(self, offered=None, message=None):
+        self.offered = (
+            offered
+            if offered is not None
+            else [
+                {
+                    "label": "Human hg19",
+                    "value": {
+                        "id": "hg19",
+                        "columns": ["value", "name"],
+                        "row": ["hg19", "Human hg19"],
+                        "table": "fasta_indexes",
+                    },
+                }
+            ]
+        )
+        self.message = message
+        self.asked = []
+
+    async def get_options(self, declared_input, context=None):
+        self.asked.append((declared_input, context))
+        if self.message:
+            return {"success": False, "message": self.message}
+        return {"success": True, "data": self.offered}
+
+
+def call(charts=None, **kw):
+    return asyncio.run(get_visualization_options(Galaxy(), charts or Charts(), {"visualization": "igv", **kw}))
 
 
 def test_a_name_declared_in_several_cases_is_refused_rather_than_guessed():
@@ -48,16 +73,30 @@ def test_naming_the_case_resolves_the_right_source():
     assert call(parameter="genome", when="builtin")["source"] == "data_table"
 
 
-def test_a_data_table_option_carries_the_row_it_came_from():
+def test_an_option_carries_the_value_to_store_whole():
     match = call(parameter="genome", when="builtin", search="hg19")["matches"][0]
-    assert match["id"] == "hg19" and match["table"] == "fasta_indexes"
-    assert match["row"] == ["hg19", "Human hg19"]
+    assert match["id"] == "hg19"
+    assert match["value"]["table"] == "fasta_indexes"
+    assert match["value"]["row"] == ["hg19", "Human hg19"]
 
 
-def test_declared_options_need_no_fetching():
-    out = call(parameter="displayMode")
+def test_a_declared_select_is_offered_by_its_own_values():
+    out = call(charts=Charts(offered=[{"label": "Expanded", "value": "EXPANDED"}]), parameter="displayMode")
     assert out["source"] == "declared"
-    assert out["options"][0]["id"] is None or out["total"] == 1
+    assert out["total"] == 1 and out["options"][0]["id"] == "EXPANDED"
+
+
+def test_the_resolver_is_asked_for_the_declared_input_it_found():
+    charts = Charts()
+    call(charts=charts, parameter="genome", when="builtin")
+    declared, context = charts.asked[0]
+    assert declared["type"] == "data_table" and declared["tables"] == ["fasta_indexes"]
+    assert "datasetId" in context
+
+
+def test_a_failed_lookup_is_reported_rather_than_shown_as_no_options():
+    out = refused(call(charts=Charts(message="no route to host"), parameter="genome", when="builtin"))
+    assert "Could not resolve" in out and "no route to host" in out
 
 
 def test_a_parameter_the_plugin_does_not_declare_is_refused():
@@ -66,36 +105,3 @@ def test_a_parameter_the_plugin_does_not_declare_is_refused():
 
 def test_browsing_says_how_to_get_the_value_to_store():
     assert "search" in call(parameter="genome", when="builtin")["hint"]
-
-
-def test_a_data_table_is_offered_once_per_id_and_ordered_by_it():
-    """galaxy-charts' dataTableStore dedupes and sorts; the form shows that order."""
-    import olit.drivers.loop.galaxy_tools as gt
-
-    wide = {"columns": ["value", "name"], "fields": [["mm10", "Mouse"], ["hg19", "Human"], ["mm10", "Mouse again"]]}
-
-    class Wide(Galaxy):
-        async def get(self, path, **kwargs):
-            return wide if path.startswith("api/tool_data/") else PLUGIN
-
-    out = asyncio.run(
-        gt._get_visualization_options(Wide(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
-    )
-    assert [o["id"] for o in out["options"]] == ["hg19", "mm10"]
-    assert out["total"] == 2
-
-
-def test_a_short_row_falls_back_to_its_first_column():
-    """dataTableStore does the same, so a ragged table reads the same in both."""
-    import olit.drivers.loop.galaxy_tools as gt
-
-    ragged = {"columns": ["value", "name", "path"], "fields": [["hg38"]]}
-
-    class Ragged(Galaxy):
-        async def get(self, path, **kwargs):
-            return ragged if path.startswith("api/tool_data/") else PLUGIN
-
-    out = asyncio.run(
-        gt._get_visualization_options(Ragged(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
-    )
-    assert out["options"] == [{"id": "hg38", "name": "hg38"}]

@@ -5,9 +5,9 @@ from urllib.parse import parse_qs, urlparse
 
 from olit.drivers.loop import artifacts
 from olit.drivers.loop.galaxy_tools import (
-    _get_visualization_options,
     _save_visualization,
     _show_visualization,
+    get_visualization_options,
 )
 
 from .fakes import refused
@@ -251,6 +251,16 @@ def test_the_nested_form_is_accepted():
     assert g.posted[1]["config"]["settings"]["source"]["genome"] == {"id": "hg38"}
 
 
+class Charts:
+    """galaxy-charts, as far as the policy around it is concerned."""
+
+    def __init__(self, offered):
+        self.offered = offered
+
+    async def get_options(self, declared_input, context=None):
+        return {"success": True, "data": self.offered}
+
+
 def test_a_case_parameter_is_only_valid_for_the_chosen_case():
     g = ConditionalGalaxy()
     out = refused(save(g, visualization="igv", settings={"source": {"origin": "builtin", "genome": {"id": "hg19"}}}))
@@ -342,7 +352,9 @@ def test_an_empty_case_names_the_siblings_that_might_not_be():
             return {"columns": [], "fields": []}
 
     out = asyncio.run(
-        _get_visualization_options(Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
+        get_visualization_options(
+            Galaxy(), Charts([]), {"visualization": "igv", "parameter": "genome", "when": "builtin"}
+        )
     )
     assert out["total"] == 0
     assert out["other_cases"] == ["igv"]
@@ -372,7 +384,11 @@ def test_a_case_that_has_options_says_nothing_about_its_siblings():
             return {"columns": ["value", "name"], "fields": [["hg38", "Human"]]}
 
     out = asyncio.run(
-        _get_visualization_options(Galaxy(), {"visualization": "igv", "parameter": "genome", "when": "builtin"})
+        get_visualization_options(
+            Galaxy(),
+            Charts([{"label": "Human", "value": {"id": "hg38"}}]),
+            {"visualization": "igv", "parameter": "genome", "when": "builtin"},
+        )
     )
     assert out["total"] == 1
     assert "other_cases" not in out
