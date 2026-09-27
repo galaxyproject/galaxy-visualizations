@@ -7,7 +7,13 @@ import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
-import { catalogFailed, catalogRefusalMessage, galaxyCanRun } from "./catalog-gate";
+import {
+  catalogFailed,
+  catalogRefusalMessage,
+  galaxyCanRun,
+  galaxyPartialWarning,
+  galaxyRefusalMessage,
+} from "./diagnostics";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
@@ -277,8 +283,8 @@ async function main() {
   const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
     onPaused: (text) => chat.addInfoMessage(text),
   });
-  // Last catalog status the brain reported; undefined until the first turn returns.
-  let latestCatalog: import("./catalog-gate").CatalogStatus | undefined;
+  // Last diagnostics the brain reported; undefined until the first turn returns.
+  let latest: import("./diagnostics").Diagnostics | undefined;
 
   /** Cards rendered live from loop events; the final reconcile skips these ids. */
   function liveEvents(streamed: Set<string>) {
@@ -344,12 +350,9 @@ async function main() {
     console.groupEnd();
 
     // Surface a broken Galaxy catalog once; it is otherwise a silent dead end.
-    const cat = reply.diagnostics && reply.diagnostics.catalog;
-    latestCatalog = cat || latestCatalog;
-    if (catalogFailed(cat)) {
-      chat.addErrorMessage(
-        `Galaxy catalog did not load (root=${config.galaxy_root}): ${cat!.error}`,
-      );
+    latest = reply.diagnostics || latest;
+    if (catalogFailed(reply.diagnostics?.catalog)) {
+      chat.addErrorMessage(catalogRefusalMessage(reply.diagnostics?.catalog));
     }
     chat.hideThinking();
     retryNotice.stop();
@@ -534,9 +537,13 @@ async function main() {
     const { action, body } = (e as CustomEvent<{ action: string; body: string }>).detail;
     if (action === "approve") {
       // loom's init gate refuses /execute when Galaxy cannot run the plan.
-      if (!galaxyCanRun(latestCatalog)) {
-        chat.addErrorMessage(catalogRefusalMessage(latestCatalog));
+      if (!galaxyCanRun(latest?.galaxy)) {
+        chat.addErrorMessage(galaxyRefusalMessage());
         return;
+      }
+      const partial = galaxyPartialWarning(latest?.galaxy);
+      if (partial) {
+        chat.addInfoMessage(partial);
       }
       el.input.value =
         "I approve the plan above. Show the full parameter table for review before executing.";

@@ -75,6 +75,7 @@ class Session:
 
     def diagnostics(self):
         return {
+            "galaxy": self._galaxy_status(),
             "catalog": self.substrate.catalog.status(),
             "capabilities": self.substrate.manifest.to_list(),
         }

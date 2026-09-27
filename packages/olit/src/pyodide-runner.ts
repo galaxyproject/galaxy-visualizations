@@ -1,5 +1,5 @@
 import type { Artifact } from "./artifacts";
-import type { CatalogStatus } from "./catalog-gate";
+import type { Diagnostics } from "./diagnostics";
 import type { PyodideManager } from "./pyodide/pyodide-manager";
 
 export interface ToolCall {
@@ -42,7 +42,7 @@ export interface TurnResult {
   usage?: { input?: number; output?: number; cost?: number | null };
   steps?: number;
   max_steps?: number;
-  diagnostics?: { catalog?: CatalogStatus };
+  diagnostics?: Diagnostics;
   error?: { message?: string; status_code?: number };
 }
 
