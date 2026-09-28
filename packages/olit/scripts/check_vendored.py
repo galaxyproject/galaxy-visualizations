@@ -13,7 +13,7 @@ import pathlib
 import shutil
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 VENDORED = ROOT / "src" / "orbit"
 MANIFEST = VENDORED / "MANIFEST.json"
 
@@ -25,7 +25,7 @@ CONTRACTS_MANIFEST = CONTRACTS / "MANIFEST.json"
 CONTRACTS_TRACKED = {"galaxy-charts.inputs.json": "galaxy-charts/dist/galaxy-charts.inputs.json"}
 NODE_MODULES = ROOT / "node_modules"
 
-# The skills corpus is gitignored and fetched by scripts/build/skills.js, which stamps each
+# The skills corpus is gitignored and fetched by scripts/install_skills.js, which stamps each
 # file's git blob id. Recomputing them catches an edit made after vendoring.
 SKILLS = ROOT / "brain" / "olit" / "registry" / "skills" / "galaxy-skills"
 SKILLS_STAMP = SKILLS / "VENDORED.json"
@@ -81,7 +81,7 @@ def contracts(update: bool) -> int:
         print(
             f"\n{upstream} owns these; olit reads them and does not author them. The installed\n"
             "package is the source of truth, so re-copy from it with:\n"
-            "  python3 scripts/check/vendored.py --update"
+            "  python3 scripts/check_vendored.py --update"
         )
         return 1
     print(f"{len(CONTRACTS_TRACKED) - len(uninstalled)} contract(s) match the installed package")
@@ -100,12 +100,12 @@ def blob_id(path: pathlib.Path) -> str:
 def skills(argv: list[str]) -> int:
     """Compare the vendored skills corpus against the blob ids its install stamped."""
     if not SKILLS_STAMP.exists():
-        print("skills corpus not vendored; run: node scripts/build/skills.js")
+        print("skills corpus not vendored; run: node scripts/install_skills.js")
         return 0
     stamp = json.loads(SKILLS_STAMP.read_text())
     pinned = stamp.get("blobs") or {}
     if not pinned:
-        print("skills corpus predates blob stamping; re-vendor with: node scripts/build/skills.js")
+        print("skills corpus predates blob stamping; re-vendor with: node scripts/install_skills.js")
         return 0
 
     present = {str(p.relative_to(SKILLS)): p for p in SKILLS.rglob("*") if p.is_file() and p != SKILLS_STAMP}
@@ -126,7 +126,7 @@ def skills(argv: list[str]) -> int:
         f"\n{stamp.get('repo', 'galaxy-skills')} owns this corpus and olit vendors it verbatim.\n"
         "A formatter or an editor reaching into it diverges from upstream and is undone by the\n"
         "next vendor. Restore it with:\n"
-        "  node scripts/build/skills.js"
+        "  node scripts/install_skills.js"
     )
     return 1
 
@@ -143,7 +143,7 @@ def main(argv: list[str]) -> int:
 
     pinned = manifest.get("files") or {}
     if not pinned:
-        print("no pins recorded; run: python3 scripts/check/vendored.py --update")
+        print("no pins recorded; run: python3 scripts/check_vendored.py --update")
         return 1
 
     changed = [r for r in TRACKED if r in pinned and now.get(r) != pinned[r]]
@@ -157,7 +157,7 @@ def main(argv: list[str]) -> int:
             "\nVendored files are synced from loom by copy and must stay identical.\n"
             "Put olit-specific changes in olit-owned files (e.g. src/credentials.css).\n"
             "If this is a deliberate re-sync from upstream, re-pin with:\n"
-            "  python3 scripts/check/vendored.py --update"
+            "  python3 scripts/check_vendored.py --update"
         )
         return 1
 

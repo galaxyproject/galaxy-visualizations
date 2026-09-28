@@ -15,7 +15,7 @@ GENERATED = ROOT / "src" / "providers.generated.json"
 
 def test_the_generated_provider_list_matches_the_registry():
     before = GENERATED.read_text()
-    subprocess.run([sys.executable, "scripts/build/providers.py"], cwd=ROOT, check=True, capture_output=True)
+    subprocess.run([sys.executable, "scripts/dump_providers.py"], cwd=ROOT, check=True, capture_output=True)
     after = GENERATED.read_text()
     if before != after:
         GENERATED.write_text(before)  # leave the tree as we found it

@@ -8,7 +8,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { allOperations } from "@galaxyproject/galaxy-ops/browser";
 
-const out = resolve(dirname(fileURLToPath(import.meta.url)), "../../brain/tests/data/galaxy-ops-browser.json");
+const out = resolve(dirname(fileURLToPath(import.meta.url)), "../brain/tests/data/galaxy-ops-browser.json");
 const names = allOperations.map((op) => op.name).sort();
 writeFileSync(out, JSON.stringify(names, null, 2) + "\n");
 console.log(`${names.length} operations -> ${out}`);

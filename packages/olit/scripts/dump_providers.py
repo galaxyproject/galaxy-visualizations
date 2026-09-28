@@ -8,7 +8,7 @@ import json
 import pathlib
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "brain"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "brain"))
 
 from olit.substrate.llm.providers import REGISTRY  # noqa: E402
 
@@ -31,6 +31,6 @@ for p in REGISTRY.values():
         }
     )
 
-target = pathlib.Path(__file__).resolve().parents[2] / "src" / "providers.generated.json"
+target = pathlib.Path(__file__).resolve().parents[1] / "src" / "providers.generated.json"
 target.write_text(json.dumps(out, indent=2) + "\n")
 print(f"wrote {target} ({len(out)} providers)")

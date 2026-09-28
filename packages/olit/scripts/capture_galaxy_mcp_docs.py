@@ -15,7 +15,7 @@ import pathlib
 import sys
 import textwrap
 
-HERE = pathlib.Path(__file__).resolve().parents[2]
+HERE = pathlib.Path(__file__).resolve().parents[1]
 OUT = HERE / "brain" / "tests" / "data" / "galaxy-mcp-docs.json"
 
 

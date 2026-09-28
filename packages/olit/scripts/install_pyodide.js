@@ -118,7 +118,7 @@ export function copyRuntime(nodePath, tempDir, destDir, fileNames) {
 
 /** Installs pyodide and packages */
 async function main() {
-  const repoRoot = path.join(__dirname, "..", "..");
+  const repoRoot = path.join(__dirname, "..");
   const destDir = path.join(repoRoot, "static", "pyodide");
   const nodePath = path.join(repoRoot, "node_modules", "pyodide");
   const tempDir = path.join(repoRoot, "temp", "pyodide");
