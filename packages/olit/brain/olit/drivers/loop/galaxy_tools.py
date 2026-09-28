@@ -44,15 +44,19 @@ async def _get_history_contents(g, a):
     # what tells the caller there are more.
     limit = int(a.get("limit") or 100)
     offset = max(0, int(a.get("offset") or 0))
+    # Both arguments widen what is listed, so each one filters only while it is not asked for.
+    wanted = [("deleted", "False")] if not a.get("deleted", False) else []
+    wanted += [("visible", "True")] if a.get("visible", True) else []
     params = {
         "limit": limit + 1,
         "offset": offset,
-        "deleted": a.get("deleted", False),
-        "visible": a.get("visible", True),
         "order": a.get("order", "hid-asc"),
         # Galaxy honours `order` only alongside v=dev; without it the parameter is ignored
         # outright, so the sort the description offers did nothing. Same item shape either way.
         "v": "dev",
+        # This endpoint filters through q/qv; a plain `deleted` or `visible` is ignored.
+        "q": [field for field, _ in wanted],
+        "qv": [value for _, value in wanted],
     }
     items = await g.get(f"api/histories/{a['history_id']}/contents{_q(params)}")
     if not isinstance(items, list):

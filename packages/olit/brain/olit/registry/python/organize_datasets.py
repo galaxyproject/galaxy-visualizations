@@ -68,8 +68,9 @@ async def organize_datasets(
         {
             "history_id": history_id,
             "v": "dev",
-            "deleted": False,
-            "visible": True,
+            # This endpoint filters through q/qv; a plain `visible` or `deleted` is ignored.
+            "q": ["visible", "deleted"],
+            "qv": ["True", "False"],
         },
     )
 

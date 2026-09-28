@@ -14,6 +14,16 @@ SRA = [
 ZIPPED = [{"id": f"z{i}", "name": f"run_{i}.txt", "history_content_type": "dataset"} for i in range(3, 7)]
 
 
+# What a history item is when it says nothing: shown, and not deleted.
+ITEM_DEFAULTS = {"visible": True, "deleted": False}
+
+
+def _filtered(contents, asked):
+    """Galaxy's q/qv filtering, as the contents endpoint applies it."""
+    wanted = dict(zip(asked.get("q") or [], asked.get("qv") or []))
+    return [d for d in contents if all(str(d.get(f, ITEM_DEFAULTS.get(f))) == v for f, v in wanted.items())]
+
+
 class FakeCatalog:
     """Answers the three ops the process calls and records what it was asked."""
 
@@ -24,7 +34,7 @@ class FakeCatalog:
     async def call(self, target, input=None):
         self.calls.append((target, input or {}))
         if target.endswith("contents.get"):
-            return {"ok": True, "result": self.contents}
+            return {"ok": True, "result": _filtered(self.contents, input or {})}
         if target == "galaxy.dataset_collections.post":
             return {"ok": True, "result": {"id": "hdca1", "name": (input or {}).get("name")}}
         if target == "galaxy.histories.show.contents.bulk.put":
@@ -249,3 +259,36 @@ def test_galaxys_own_detected_extension_counts_as_compressed():
     assert compression_lost("fastqsanger", detected) == ["reads_1"]
     assert compression_lost("fastqsanger.gz", detected) == []
     assert compression_lost(None, detected) == []
+
+
+# A history that already holds a collection: Galaxy keeps a hidden copy per element, under the
+# same name as the dataset it was built from.
+WITH_HIDDEN = [
+    {"id": "v1", "name": "contigs_A.fasta.gz", "history_content_type": "dataset"},
+    {"id": "v2", "name": "contigs_B.fasta.gz", "history_content_type": "dataset"},
+    {"id": "h1", "name": "contigs_A.fasta.gz", "history_content_type": "dataset", "visible": False},
+    {"id": "h2", "name": "contigs_B.fasta.gz", "history_content_type": "dataset", "visible": False},
+    {"id": "d1", "name": "contigs_C.fasta.gz", "history_content_type": "dataset", "deleted": True},
+]
+
+
+def test_a_hidden_copy_is_not_collected_beside_the_dataset_it_copies():
+    """Duplicate element identifiers are refused by Galaxy, so the collection is never built."""
+    catalog, _ = _run(WITH_HIDDEN, structure="list")
+    body = catalog.input_for("dataset_collections.post")
+
+    assert [e["id"] for e in body["element_identifiers"]] == ["v1", "v2"]
+
+
+def test_a_deleted_dataset_is_left_out():
+    catalog, _ = _run(WITH_HIDDEN, structure="list")
+    body = catalog.input_for("dataset_collections.post")
+
+    assert "d1" not in [e["id"] for e in body["element_identifiers"]]
+
+
+def test_a_retype_touches_only_what_the_user_can_see():
+    catalog, _ = _run(WITH_HIDDEN, structure="list", datatype="fasta.gz")
+    body = catalog.input_for("contents.bulk.put")
+
+    assert [i["id"] for i in body["items"]] == ["v1", "v2"]
