@@ -32,7 +32,7 @@ import { createConfirm } from "./confirm-modal";
 import { PyodideManager } from "./pyodide/pyodide-manager";
 import { runOlit, type LoopEvent, type Message } from "./pyodide-runner";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
-import { InvocationWatcher, galaxyStateReader, isFailure } from "./invocations";
+import { InvocationWatcher, galaxyStateReader, outcomeOf } from "./invocations";
 import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
 import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
@@ -243,9 +243,13 @@ async function main() {
     },
     onSettled: (w, state) => {
       const what = WHAT[w.kind];
-      const failed = isFailure(w.kind, state);
+      const outcome = outcomeOf(w.kind, state);
+      const failed = outcome === "failed";
       if (failed) {
         chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
+      } else if (outcome === "cancelled") {
+        // The user asked for this; an alarm about it would be the loudest thing in the room.
+        chat.addInfoMessage(`${what} ${w.id} was cancelled.`);
       } else {
         chat.addInfoMessage(`${what} ${w.id} finished (${state}).`);
       }
@@ -266,7 +270,7 @@ async function main() {
       if (config.history_id) {
         void editRecord(
           { root: config.galaxy_root, credentials, historyId: config.history_id },
-          (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, failed }),
+          (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
         );
       }
     },

@@ -8,6 +8,7 @@ import {
   galaxyStateReader,
   isFailure,
   isTerminal,
+  outcomeOf,
   settleInvocation,
   type Watched,
 } from "./invocations";
@@ -92,7 +93,14 @@ describe("terminal states", () => {
   it("separates failure from completion so the user is told which", () => {
     expect(isFailure("job", "error")).toBe(true);
     expect(isFailure("job", "ok")).toBe(false);
-    expect(isFailure("invocation", "cancelled")).toBe(true);
+    expect(isFailure("invocation", "failed")).toBe(true);
+  });
+
+  it("answers cancelled as itself, because a stop the user asked for is not a failure", () => {
+    expect(outcomeOf("invocation", "cancelled")).toBe("cancelled");
+    expect(outcomeOf("invocation", "failed")).toBe("failed");
+    expect(outcomeOf("invocation", "completed")).toBe("completed");
+    expect(isFailure("invocation", "cancelled")).toBe(false);
   });
 });
 

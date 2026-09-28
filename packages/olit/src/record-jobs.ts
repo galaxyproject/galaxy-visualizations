@@ -9,6 +9,8 @@
  * is appended, and only once.
  */
 
+import type { Outcome } from "./invocations";
+
 const DONE = "- [x]";
 const PENDING = "- [ ]";
 const FAILED = "- [!]";
@@ -17,7 +19,7 @@ export interface JobOutcome {
   id: string;
   kind: "job" | "invocation" | "dataset";
   state: string;
-  failed: boolean;
+  outcome: Outcome;
 }
 
 /** The line index whose text mentions `id`, or -1. */
@@ -37,7 +39,11 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   const at = lineWithId(lines, outcome.id);
   if (at < 0) return content;
 
-  const stamp = `${outcome.failed ? "failed" : "finished"} (${outcome.state})`;
+  // A cancel names itself; "cancelled (cancelled)" would say it twice.
+  const stamp =
+    outcome.outcome === "cancelled"
+      ? "cancelled"
+      : `${outcome.outcome === "failed" ? "failed" : "finished"} (${outcome.state})`;
   // Already recorded: do not append a second time.
   if (lines[at].includes(stamp)) return content;
   for (let i = at; i < Math.min(at + 4, lines.length); i++) {
@@ -53,11 +59,13 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   ) {
     step -= 1;
   }
-  if (step >= 0) {
+  // A cancelled step is neither verified nor failed, so its marker is left as the agent
+  // wrote it and the status line below is what says the run was stopped.
+  if (step >= 0 && outcome.outcome !== "cancelled") {
     const marker = lines[step].trimStart();
-    if (marker.startsWith(PENDING) && !outcome.failed) {
+    if (marker.startsWith(PENDING) && outcome.outcome === "completed") {
       lines[step] = lines[step].replace(PENDING, DONE);
-    } else if (marker.startsWith(DONE) && outcome.failed) {
+    } else if (marker.startsWith(DONE) && outcome.outcome === "failed") {
       // Verified-complete for a job Galaxy says failed is a false claim. A step still
       // pending is left alone: it was never claimed, and a retry is legitimate.
       lines[step] = lines[step].replace(DONE, FAILED);

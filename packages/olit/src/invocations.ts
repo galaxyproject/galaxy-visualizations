@@ -28,11 +28,23 @@ export function isTerminal(kind: WatchKind, state: string | undefined): boolean 
   return INVOCATION_TERMINAL.has(state);
 }
 
+/**
+ * What a settled state amounts to. Cancelling is its own answer, as it is in
+ * `brain/olit/drivers/loop/invocation_outcome.py`: a run the user stopped did not fail, and
+ * it did not do what was asked either, so neither word describes it.
+ */
+export type Outcome = "completed" | "failed" | "cancelled";
+
+export function outcomeOf(kind: WatchKind, state: string | undefined): Outcome {
+  if (kind === "invocation" && state === "cancelled") return "cancelled";
+  return isFailure(kind, state) ? "failed" : "completed";
+}
+
 export function isFailure(kind: WatchKind, state: string | undefined): boolean {
   if (!state) return false;
   if (kind === "job") return state === "error";
   if (kind === "dataset") return DATASET_FAILED.has(state);
-  return state === "failed" || state === "cancelled";
+  return state === "failed";
 }
 
 /** Ids worth watching in a tool result, or none; an unknown shape yields nothing. */
