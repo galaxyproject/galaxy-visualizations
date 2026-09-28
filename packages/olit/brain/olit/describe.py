@@ -274,7 +274,8 @@ def shell(root):
         return {}
     found = re.search(r"DEFAULT_MAX_AUTO_FOLLOW_UPS = (\d+)", source)
     body = source.split("export function buildResumePrompt", 1)[-1].split("return (", 1)[-1]
-    parts = re.findall(r'"((?:[^"\\]|\\.)*)"', body.split("\n    );", 1)[0])
+    # The return expression itself, so the published prompt is the prompt and not the file.
+    parts = re.findall(r'"((?:[^"\\]|\\.)*)"', body.split("\n  );", 1)[0])
     return {
         "max_auto_follow_ups": int(found.group(1)) if found else None,
         "resume_prompt": "".join(p.encode().decode("unicode_escape") for p in parts) or None,

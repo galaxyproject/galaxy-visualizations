@@ -85,6 +85,9 @@ def test_the_shell_contract_a_harness_stands_in_for_is_published():
     shell = described()["shell"]
     assert shell["max_auto_follow_ups"] == 3
     assert shell["resume_prompt"].startswith("[Olit automatic Galaxy follow-up]")
+    # A harness sends this text to a model, so it is the prompt and nothing around it.
+    assert shell["resume_prompt"].endswith("this is not proof the invocation has finished.")
+    assert "export" not in shell["resume_prompt"]
 
 
 def test_a_handler_outside_galaxy_tools_still_carries_its_query():
