@@ -158,7 +158,7 @@ async function main() {
     }
   }
 
-  // Per-file blob ids let vendored/check.py catch an edit made after vendoring.
+  // Per-file blob ids let scripts/check_vendored.py catch an edit made after vendoring.
   const ids = Object.fromEntries(blobs.map((b) => [localPath(b.path), b.sha]));
   await writeFile(
     STAMP,

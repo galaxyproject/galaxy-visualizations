@@ -36,6 +36,23 @@ DIVERGES = {
     "get_tool_panel": "returns tool_count and section_count, which galaxy-mcp does not",
     "get_workflow_input_template": "documents the step annotation and default value olit adds to each slot",
     "recommend_biocontainer": "resolves through the quay.io tag listing; mulled cannot run in Pyodide",
+    # Upstream added paging to these; olit has not ported it, so its text must not advertise a
+    # limit/offset the tool does not take. Unported, not a decision: see PARAMETERS below.
+    "list_history_ids": "does not take the limit/offset upstream added",
+    "list_user_tools": "does not take the limit/offset upstream added",
+    "search_iwc_workflows": "does not take the limit/offset upstream added",
+    "search_tools_by_keywords": "does not take the limit/offset upstream added",
+    "search_tools_by_name": "does not take the limit/offset upstream added",
+    "run_tool": "does not take the tool_version upstream added",
+    "list_workflows": "matches alphanumerics and tags rather than a lowercase substring, pages the "
+    "result, and keeps the workflow_id upstream dropped",
+    # Upstream refuses these outright on a server too old for the feature; olit has no version gate.
+    "create_page": "does not gate on the server version",
+    "list_pages": "does not gate on the server version",
+    "get_server_info": "reports neither unsupported_tools nor version_known, having no version gate",
+    "run_user_tool": "does not preflight inputs against the tool definition before submitting",
+    "revert_page_revision": "does not report content_editor_source",
+    "get_page_revision": "does not report content_editor_source either",
 }
 
 
@@ -48,18 +65,33 @@ PARAMETERS = {
         "use_default_filename": "no file is written, so there is no filename to default to",
         "require_ok_state": "olit always refuses a dataset that is not ok; callers cannot turn it off",
     },
-    "get_tool_panel": {
-        "section_id": "opens one section, because the whole panel does not fit the context window",
-        "limit": "pages the panel for the same reason",
-        "offset": "pages the panel for the same reason",
+    # Paging upstream added after olit's own, and a tool version, none of them ported yet.
+    # Not decisions: each is a capability olit lacks, and the descriptions say so too.
+    "list_history_ids": {
+        "limit": "upstream pages this; olit returns the whole list",
+        "offset": "upstream pages this; olit returns the whole list",
     },
-    "get_iwc_workflows": {
-        "limit": "pages the IWC list, whose raw entries carry whole workflow definitions",
-        "offset": "pages the IWC list for the same reason",
+    "list_user_tools": {
+        "limit": "upstream pages this; olit returns the whole list",
+        "offset": "upstream pages this; olit returns the whole list",
+    },
+    "search_iwc_workflows": {
+        "limit": "upstream pages this; olit returns the whole match set",
+        "offset": "upstream pages this; olit returns the whole match set",
+    },
+    "search_tools_by_keywords": {
+        "limit": "upstream pages this; olit returns the whole match set",
+        "offset": "upstream pages this; olit returns the whole match set",
+    },
+    "search_tools_by_name": {
+        "limit": "upstream pages this; olit returns the whole match set",
+        "offset": "upstream pages this; olit returns the whole match set",
+    },
+    "run_tool": {
+        "tool_version": "upstream asks Galaxy for a version; olit lets Galaxy choose",
     },
     "list_workflows": {
-        "limit": "pages a long workflow list",
-        "offset": "pages a long workflow list",
+        "workflow_id": "kept after upstream dropped it, so one workflow can still be read by id",
     },
     "update_page": {
         "expect_hash": "refuses an edit written against content the record has since moved past",

@@ -120,7 +120,17 @@ After submitting with `run_tool` or `invoke_workflow`:
    error and use `- [!]`.
 
 Never check off a step that is still running: a checkbox that ran ahead of the evidence
-is worse than an empty one."""
+is worse than an empty one.
+
+A submission that timed out may still have been accepted. Before sending one again, look at
+the history or the invocation to see whether Galaxy took it; never replay a submission blind.
+
+A tool that answered is not a result: a successful metadata request does not mean a dataset
+has finished, and a successful tool response is not scientific success. Say what you verified,
+what is running and what comes next -- each tool call already shows in the transcript as it
+happens, so the words that earn their place are the ones a reader cannot get from the call
+itself. Repeated reads of a resource the monitor is already watching are refused for two
+minutes, because they cannot answer anything new."""
 
 # loom: buildGalaxyContextBlock(), the "Drafting a new plan" section.
 DRAFTING_A_PLAN = """### Drafting a new plan
@@ -415,6 +425,47 @@ When you do post a multi-line update, prefer a markdown list or a fenced code bl
 over inline-bold-heavy run-on prose."""
 
 
+# loom: GALAXY_ARTIFACT_LINK_GUIDANCE, interpolated into the chat formatting block as upstream
+# interpolates it. loom names the connected server in its own connection block and warns against
+# using it for an artifact recorded elsewhere; olit is served by one Galaxy, so the root is named
+# here and that warning is inapplicable. The routes are Galaxy's own.
+ARTIFACT_LINKS = """### Clickable Galaxy artifacts
+
+Every Galaxy artifact you name in chat or in the record carries a descriptive Markdown
+link -- [variant calls](url), never a bare name or an id in backticks. This covers
+histories, datasets, collections, workflows, invocations, jobs, tools, pages and
+revisions. Use the id a tool returned. Never guess one: where an artifact's identity is
+unknown, resolve it from the record or a tool result before promising a link.
+
+A link is absolute and rooted at **{root}**, which already carries this deployment's path
+prefix. Prefer a browser url a tool handed you; otherwise join that root with these routes,
+url-encoding each id:
+
+- history: `/histories/view?id={{history_id}}`
+- dataset: `/datasets/{{dataset_id}}`
+- collection: `/collection/{{collection_id}}/sheet`
+- stored workflow: `/published/workflow?id={{stored_workflow_id}}`
+- invocation: `/workflows/invocations/{{invocation_id}}`
+- job: `/jobs/{{job_id}}/view`
+- tool: `/?tool_id={{tool_id}}`
+- page: `/published/page?id={{page_id}}`
+
+An invocation's `workflow_id` is not a `stored_workflow_id`: resolve the stored workflow
+before linking it. Never substitute a dataset uuid, a collection element id or a HID for an
+encoded id.
+
+Encoded ids inside ```galaxy directives stay exactly as they are; the readable links belong
+in the prose around them, so the record reads on its own. Timestamps, empty slugs and other
+non-artifact metadata stay plain text rather than becoming invented links."""
+
+
+def chat_formatting_block(galaxy_root=None):
+    """loom: buildChatFormattingBlock(), with the artifact-link convention at its tail."""
+    if not galaxy_root:
+        return CHAT_FORMATTING
+    return f"{CHAT_FORMATTING}\n\n{ARTIFACT_LINKS.replace('{root}', galaxy_root.rstrip('/'))}"
+
+
 # loom: buildNotebookWriteBlock(), retargeted from notebook.md edits to the Galaxy page.
 RECORD_WRITES = """## The record
 
@@ -573,7 +624,7 @@ def _parameter_review(ctx):
 
 
 def _chat_formatting(ctx):
-    return CHAT_FORMATTING
+    return chat_formatting_block(ctx.get("galaxy_root"))
 
 
 def _record_writes(ctx):
@@ -638,7 +689,7 @@ BLOCKS = [
 ]
 
 
-def system_text(today=None, model=None, provider=None, galaxy_status=GALAXY_READY, seed_dataset=None):
+def system_text(today=None, model=None, provider=None, galaxy_status=GALAXY_READY, seed_dataset=None, galaxy_root=None):
     """The block text appended to the shell-seeded identity prompt."""
     ctx = {
         "today": today,
@@ -646,5 +697,6 @@ def system_text(today=None, model=None, provider=None, galaxy_status=GALAXY_READ
         "provider": provider,
         "galaxy_status": galaxy_status,
         "seed_dataset": seed_dataset,
+        "galaxy_root": galaxy_root,
     }
     return "\n\n".join(b for b in (block(ctx) for block in BLOCKS) if b)

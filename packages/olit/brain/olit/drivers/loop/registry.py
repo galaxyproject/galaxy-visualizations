@@ -20,13 +20,13 @@ _BOOL = {"type": "boolean"}
 
 
 def _q(params):
-    """Query string from a dict; drop None, lowercase bools (Galaxy wants true/false)."""
+    """Query string from a dict; drop None, lowercase bools, repeat a key per list item."""
     clean = {}
     for k, v in params.items():
         if v is None:
             continue
         clean[k] = str(v).lower() if isinstance(v, bool) else v
-    return ("?" + urlencode(clean)) if clean else ""
+    return ("?" + urlencode(clean, doseq=True)) if clean else ""
 
 
 def _tool(name, capability, description, properties, required, handler):

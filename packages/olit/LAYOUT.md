@@ -25,9 +25,51 @@ brain/olit/              the agent (Python, runs in Pyodide)
     python/*.py               plain async processes (lineage_report, organize_datasets)
     extensions/               materializers a process can call, each behind a bridge.py
   vendor/                   contracts owned elsewhere, pinned (galaxy-charts input types)
+contract/                 what olit publishes about itself, for an outside evaluator
+  describe.py               the brain: tools, queries, guards, policy, prompt symbols
+  shell.mjs                 the shell: the follow-up cap and the message it builds
 e2e/                      Playwright drives against a stub, plus opt-in live drives
-vendored/                 integrity of the files copied in from elsewhere
+scripts/                  tooling, one flat folder, each file named for what it does
+  install_*                 what `npm run build` calls: pyodide, skills, ops
+  dump_providers.py         the same, emitting src/providers.generated.json
+  stamp_wheel.js            the same, giving the wheel a content-addressed name
+  capture_*                 run by hand to refresh a pinned upstream snapshot, whose
+                            output is committed: galaxy-mcp docs, galaxy-ops registry
+  check_*                   reports and gates that change nothing: stale pins, the
+                            integrity of files copied in from elsewhere
 ```
+
+## Where tooling belongs
+
+Tooling lives flat in `scripts/`, one file per job, named `<verb>_<subject>` so an `ls`
+groups the verbs and the name says when it runs. The extension follows what the script has
+to load, not which side of olit it serves: `check_vendored.py` is Python because it reads
+manifests the brain writes, `install_skills.js` is JavaScript because it fetches through
+node.
+
+If another repo names a path, it is not tooling but an interface, and it gets a top-level
+folder of its own -- which is why `contract/` sits beside `brain/` and `src/` rather than
+under `scripts/`: the `agents` repo runs `contract/describe.py` and `contract/shell.mjs` by
+those paths.
+
+Two things stay put despite looking like tooling. `brain/olit/substrate/*.mjs` are runtime
+transports, resolved relative to their module and shipped in the wheel so an installed
+brain can reach Galaxy outside the browser. `brain/tests/data/*.json` are fixtures, living
+beside the tests that read them, which is where the `capture_*` scripts write.
+
+## Vendored integrity
+
+Some files are copies of files owned elsewhere: Orbit's chat UI under `src/orbit/`, and the
+galaxy-charts input contract under `brain/olit/vendor/`. They are synced by copy, which works
+only while the copies stay byte-identical, so their hashes are pinned in a manifest.
+
+```bash
+npm run vendored                              # or: python3 scripts/check_vendored.py
+python3 scripts/check_vendored.py --update    # re-pin after a deliberate re-sync
+```
+
+The Orbit seam registry, which tracks what Olit's prompts and tools carry from Orbit, lives
+in the `agents` repo and reads what `npm run describe` publishes.
 
 Two Galaxy surfaces, one gate. The loop uses named tools over direct REST
 (`substrate/galaxy_http.py`), the surface galaxy-mcp defines; graph processes use the

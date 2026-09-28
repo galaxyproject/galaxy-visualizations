@@ -14,7 +14,12 @@ const RECORD = `## Record
 *Submitted jobs are currently running.*
 `;
 
-const ok = (id: string) => ({ id, kind: "job" as const, state: "ok", failed: false });
+const ok = (id: string) => ({
+  id,
+  kind: "job" as const,
+  state: "ok",
+  outcome: "completed" as const,
+});
 
 describe("applyJobOutcome", () => {
   it("flips the step carrying the id and records the state", () => {
@@ -47,7 +52,7 @@ describe("applyJobOutcome", () => {
       id: "d071e794759ab192",
       kind: "job",
       state: "error",
-      failed: true,
+      outcome: "failed" as const,
     });
     expect(out).toContain("- [ ] 1. **Filter rows**");
     expect(out).toContain("Status: failed (error)");
@@ -59,10 +64,34 @@ describe("applyJobOutcome", () => {
       id: "d071e794759ab192",
       kind: "job",
       state: "error",
-      failed: true,
+      outcome: "failed" as const,
     });
     expect(out).toContain("- [!] 1. **Filter rows**");
     expect(out).not.toContain("- [x] 1. **Filter rows**");
+  });
+
+  it("leaves a cancelled step unticked, because a stop is not a verification", () => {
+    const out = applyJobOutcome(RECORD, {
+      id: "d071e794759ab192",
+      kind: "invocation",
+      state: "cancelled",
+      outcome: "cancelled" as const,
+    });
+    expect(out).toContain("- [ ] 1. **Filter rows**");
+    expect(out).toContain("Status: cancelled");
+    expect(out).not.toContain("failed");
+  });
+
+  it("leaves a step the agent already ticked alone when the run was cancelled", () => {
+    const claimed = RECORD.replace("- [ ] 1. **Filter rows**", "- [x] 1. **Filter rows**");
+    const out = applyJobOutcome(claimed, {
+      id: "d071e794759ab192",
+      kind: "invocation",
+      state: "cancelled",
+      outcome: "cancelled" as const,
+    });
+    expect(out).toContain("- [x] 1. **Filter rows**");
+    expect(out).not.toContain("- [!] 1. **Filter rows**");
   });
 
   it("does nothing to an empty record", () => {
@@ -94,7 +123,7 @@ describe("noteSubmitted", () => {
       id: "417e33144b294c21",
       kind: "invocation",
       state: "scheduled",
-      failed: false,
+      outcome: "completed" as const,
     });
     expect(done).toContain("- [x] Workflow invocation");
     expect(done).toContain("Status: finished (scheduled)");

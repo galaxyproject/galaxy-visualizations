@@ -8,6 +8,7 @@ import {
   galaxyStateReader,
   isFailure,
   isTerminal,
+  outcomeOf,
   settleInvocation,
   type Watched,
 } from "./invocations";
@@ -92,7 +93,14 @@ describe("terminal states", () => {
   it("separates failure from completion so the user is told which", () => {
     expect(isFailure("job", "error")).toBe(true);
     expect(isFailure("job", "ok")).toBe(false);
-    expect(isFailure("invocation", "cancelled")).toBe(true);
+    expect(isFailure("invocation", "failed")).toBe(true);
+  });
+
+  it("answers cancelled as itself, because a stop the user asked for is not a failure", () => {
+    expect(outcomeOf("invocation", "cancelled")).toBe("cancelled");
+    expect(outcomeOf("invocation", "failed")).toBe("failed");
+    expect(outcomeOf("invocation", "completed")).toBe("completed");
+    expect(isFailure("invocation", "cancelled")).toBe(false);
   });
 });
 
@@ -131,6 +139,26 @@ describe("InvocationWatcher", () => {
 
     expect(settled).toHaveLength(1);
     expect(watcher.pending).toBe(0);
+    watcher.stop();
+  });
+
+  it("names what it is still watching, so a turn need not read it to learn it is running", () => {
+    const { watcher } = make(["running"]);
+    watcher.ingest("run_tool", runToolResult([{ id: "job1", state: "new" }]));
+
+    expect(watcher.watched()).toEqual([
+      { kind: "job", id: "job1", state: "new", label: "run_tool" },
+    ]);
+    watcher.stop();
+  });
+
+  it("names nothing once an item settles, because settlement is its own to report", async () => {
+    const { watcher } = make(["ok"]);
+    watcher.ingest("run_tool", runToolResult([{ id: "job1", state: "new" }]));
+
+    await watcher.tick();
+
+    expect(watcher.watched()).toEqual([]);
     watcher.stop();
   });
 

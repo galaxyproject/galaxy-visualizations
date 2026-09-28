@@ -46,7 +46,7 @@ def parameters(node):
 
 def main(argv):
     if not argv:
-        sys.exit("usage: capture_galaxy_mcp_docs.py <path to galaxy_mcp/server.py> [version]")
+        sys.exit("usage: galaxy-mcp-docs.py <path to galaxy_mcp/server.py> [version]")
     source = pathlib.Path(argv[0])
     version = argv[1] if len(argv) > 1 else json.loads(OUT.read_text())["version"]
     tree = ast.parse(source.read_text())
