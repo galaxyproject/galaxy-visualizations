@@ -4,7 +4,7 @@
 // `src/auto-resume.ts` rather than reading it: the settled runs go in as JSON on stdin, and
 // the message that comes back is the one the shell would deliver.
 //
-//   node --experimental-strip-types scripts/shell-contract.mjs < runs.json
+//   node --experimental-strip-types contract/shell.mjs < runs.json
 import { readFileSync } from "node:fs";
 
 import { DEFAULT_MAX_AUTO_FOLLOW_UPS, buildResumePrompt } from "../src/auto-resume.ts";
