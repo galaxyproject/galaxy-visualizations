@@ -160,6 +160,8 @@ def _describe_parameter(param, types, path=()):
         if source["kind"] != "declared":
             # A declared source carries its values; every other kind holds them on the server.
             options["resolve"] = "get_visualization_options"
+            # An option's `value` is what the form assigns; its id only identifies the option.
+            options["pass_through"] = "the resolved option's `value`, unchanged"
         described["options"] = options
 
     test = param.get("test_param")
@@ -201,9 +203,10 @@ async def _get_visualization_details(g, a):
         "config_template": template,
         "settings": [_describe_parameter(p, types, ("settings",)) for p in (plugin.get("settings") or [])],
         "tracks": [_describe_parameter(p, types, ("tracks",)) for p in (plugin.get("tracks") or [])],
-        "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
-        "them and pass them to save_visualization: settings cannot ride in a displayed "
-        "visualization, only in a saved one.",
+        "hint": "`stores` is the schema a value is validated against; for an input naming "
+        "`pass_through`, resolve its options and send the chosen option's `value` rather than "
+        "building one to that schema. Build `settings` and `tracks` and pass them to "
+        "save_visualization: settings cannot ride in a displayed visualization, only in a saved one.",
     }
 
 

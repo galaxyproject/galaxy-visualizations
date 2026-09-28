@@ -54,6 +54,7 @@ def test_a_dataset_input_states_the_datatypes_it_accepts():
         "kind": "history_dataset",
         "extension": "bam,bed",
         "resolve": "get_visualization_options",
+        "pass_through": "the resolved option's `value`, unchanged",
     }
 
 
@@ -73,6 +74,7 @@ def test_a_remote_option_source_names_where_to_fetch_it():
         "kind": "data_json",
         "url": "https://x/g.json",
         "resolve": "get_visualization_options",
+        "pass_through": "the resolved option's `value`, unchanged",
     }
 
 
