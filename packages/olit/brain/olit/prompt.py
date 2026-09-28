@@ -122,6 +122,9 @@ After submitting with `run_tool` or `invoke_workflow`:
 Never check off a step that is still running: a checkbox that ran ahead of the evidence
 is worse than an empty one.
 
+A submission that timed out may still have been accepted. Before sending one again, look at
+the history or the invocation to see whether Galaxy took it; never replay a submission blind.
+
 A tool that answered is not a result: a successful metadata request does not mean a dataset
 has finished, and a successful tool response is not scientific success. Say what you verified,
 what is running and what comes next -- each tool call already shows in the transcript as it

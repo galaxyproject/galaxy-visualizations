@@ -623,3 +623,12 @@ def test_the_client_the_turn_reads_its_root_from_exposes_one():
     substrate = Substrate({"galaxy_root": "https://example.org/galaxy/", "capabilities": "read"})
 
     assert substrate.galaxy.galaxy_root == "https://example.org/galaxy/"
+
+
+def test_a_timed_out_submission_is_checked_before_it_is_sent_again():
+    """loom added this when it split a dropped transport from a timeout; a browser fetch times
+    out too, and a replayed submission is a second Galaxy job."""
+    text = prompt.system_text()
+
+    assert "never replay a submission blind" in text
+    assert "may still have been accepted" in text
