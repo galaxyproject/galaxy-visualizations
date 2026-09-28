@@ -97,6 +97,12 @@ function stagedModule(prefix: string): string {
   return found;
 }
 
+/** A build artefact's name, or empty under vitest, which neither builds the plugin nor boots
+ * the worker: an absent wheel has nothing to stamp and an absent peer module installs nothing. */
+function artefact(named: () => string): string {
+  return process.env.VITEST ? "" : named();
+}
+
 const targets = llmTargets();
 if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
   // Falling through to the local default here is the trap that answers with the wrong model.
@@ -124,9 +130,9 @@ export const viteConfigCharts = defineConfig({
   },
   define: {
     "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
-    "process.env.olit_wheel": JSON.stringify(olitWheel()),
-    "process.env.ops_module": JSON.stringify(stagedModule("galaxy-ops-")),
-    "process.env.charts_module": JSON.stringify(stagedModule("galaxy-charts-")),
+    "process.env.olit_wheel": JSON.stringify(artefact(olitWheel)),
+    "process.env.ops_module": JSON.stringify(artefact(() => stagedModule("galaxy-ops-"))),
+    "process.env.charts_module": JSON.stringify(artefact(() => stagedModule("galaxy-charts-"))),
     "process.env.olit_commit": JSON.stringify(buildCommit()),
     "process.env.olit_built": JSON.stringify(new Date().toISOString()),
     // Dev only: route the brain through the /llm proxy above, which attaches the key.

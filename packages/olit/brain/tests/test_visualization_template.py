@@ -66,3 +66,18 @@ def test_a_conditional_nests_its_case_rather_than_flattening_it():
 
 def test_a_plugin_with_no_tracks_gets_no_tracks_key():
     assert "tracks" not in build_visualization_template({"settings": []}, TYPES)
+
+
+def test_the_declared_test_value_selects_the_case():
+    """galaxy-charts `formatConditional` reads `test_param.value`; case order is not a default."""
+    plugin = {"settings": [dict(IGV["settings"][1], test_param={"name": "origin", "value": "igv"})]}
+    source = build_visualization_template(plugin, TYPES)["settings"]["source"]
+
+    assert source["origin"] == "igv"
+    assert source["genome"] == {"<from get_visualization_options>": True}
+
+
+def test_case_order_decides_only_when_nothing_is_declared():
+    source = build_visualization_template(IGV, TYPES)["settings"]["source"]
+
+    assert source["origin"] == "builtin"

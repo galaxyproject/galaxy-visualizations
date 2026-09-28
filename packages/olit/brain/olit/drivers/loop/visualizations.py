@@ -14,7 +14,13 @@ from olit import vendor
 from .outcome import ToolOutcome
 from .paging import ROW_CAP
 from .registry import _STR, _q, _tool
-from .visualization_inputs import build_visualization_template, case_value, declared_paths, resolve_parameter
+from .visualization_inputs import (
+    build_visualization_template,
+    case_value,
+    declared_paths,
+    effective_default,
+    resolve_parameter,
+)
 
 
 async def a_visualization_named(g, query):
@@ -142,6 +148,9 @@ def _describe_parameter(param, types, path=()):
     for key in ("label", "help"):
         if param.get(key):
             described[key] = param[key]
+    default = effective_default(param, spec)
+    if default is not None:
+        described["default"] = default
     if spec.get("stores"):
         described["stores"] = spec["stores"]
     for bound in spec.get("bounds") or []:
@@ -160,6 +169,8 @@ def _describe_parameter(param, types, path=()):
         if source["kind"] != "declared":
             # A declared source carries its values; every other kind holds them on the server.
             options["resolve"] = "get_visualization_options"
+            # An option's `value` is what the form assigns; its id only identifies the option.
+            options["pass_through"] = "the resolved option's `value`, unchanged"
         described["options"] = options
 
     test = param.get("test_param")
@@ -201,9 +212,10 @@ async def _get_visualization_details(g, a):
         "config_template": template,
         "settings": [_describe_parameter(p, types, ("settings",)) for p in (plugin.get("settings") or [])],
         "tracks": [_describe_parameter(p, types, ("tracks",)) for p in (plugin.get("tracks") or [])],
-        "hint": "`stores` is the shape each value must take. Build `settings` and `tracks` to "
-        "them and pass them to save_visualization: settings cannot ride in a displayed "
-        "visualization, only in a saved one.",
+        "hint": "`stores` is the schema a value is validated against; for an input naming "
+        "`pass_through`, resolve its options and send the chosen option's `value` rather than "
+        "building one to that schema. Build `settings` and `tracks` and pass them to "
+        "save_visualization: settings cannot ride in a displayed visualization, only in a saved one.",
     }
 
 
@@ -260,10 +272,9 @@ async def get_visualization_options(g, charts, a):
     # galaxy-charts answers `{label, value}`; what the model stores is the value, whole.
     entries = [{"id": _identity(o.get("value")), "name": o.get("label"), "value": o.get("value")} for o in offered]
 
-    # Labels are cheap to scan; the stored value is only returned for what was asked for,
-    # because these can be large and only the chosen one is ever written.
-    listed = [{"id": e["id"], "name": e["name"]} for e in entries]
-    result = {"parameter": wanted, "source": kind, "total": len(entries), "options": listed[:ROW_CAP]}
+    # Each option carries the value to store: matching a label and filling the field is one call,
+    # and an id is not a value for an input whose options are objects.
+    result = {"parameter": wanted, "source": kind, "total": len(entries), "options": entries[:ROW_CAP]}
     # A case can be declared and still hold nothing on this server: IGV's builtin genomes
     # are a data table an admin may never have filled. Naming its siblings is the difference
     # between a dead end and a second try.
@@ -282,8 +293,7 @@ async def get_visualization_options(g, charts, a):
         )
     else:
         result["hint"] = (
-            "Call again with `search` to get the value to store for one of these; "
-            "the stored value is the whole entry, not its id."
+            "Store an option's `value` as given rather than rebuilding it from its id; " "`search` narrows a long list."
         )
     return result
 

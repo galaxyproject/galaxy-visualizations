@@ -158,7 +158,18 @@ def test_a_name_declared_in_several_cases_is_refused_rather_than_guessed():
     out = refused(call(parameter="settings.source.genome"))
     assert "'settings.source' selects its inputs by 'origin'" in out
     assert "'igv'" in out and "'builtin'" in out, "the cases it could not choose between"
-    assert "`config`" in out, "the refusal has to say how to disambiguate"
+
+
+def test_the_refusal_shows_the_config_to_send_not_only_its_values():
+    """A live run looped six times on this: naming the values does not say where they go."""
+    out = refused(call(parameter="settings.source.genome"))
+    assert 'config={"settings": {"source": {"origin": "<value>"}}}' in out
+
+
+def test_a_path_is_named_once_however_many_cases_declare_it():
+    """Each case of `source` declares `genome` at the same path, so the walk finds it three times."""
+    out = refused(call(parameter="genome"))
+    assert out.count("settings.source.genome") == 1, out
 
 
 def test_the_config_selects_the_case_and_so_the_source():
@@ -171,6 +182,26 @@ def test_the_answer_names_the_canonical_path():
 
 def test_a_path_that_is_not_rooted_at_a_group_is_refused():
     assert "is not a parameter path" in refused(call(parameter="source.genome", config=builtin()))
+
+
+def test_every_listed_option_carries_the_value_to_store():
+    """A select over objects hands back a dictionary; matching a label and filling the field is
+    one call. A live session held only the id, and satisfied the refusal by wrapping it."""
+    out = call(parameter="settings.source.genome", config=builtin())
+
+    assert out["options"][0]["value"] == {
+        "id": "hg19",
+        "columns": ["value", "name"],
+        "row": ["hg19", "Human hg19"],
+        "table": "fasta_indexes",
+    }
+
+
+def test_a_select_over_scalars_lists_the_scalar_as_its_value():
+    """The other kind: the option's value is the scalar itself, so id and value agree."""
+    out = call(charts=Charts(offered=[{"label": "Expanded", "value": "EXPANDED"}]), parameter="tracks.displayMode")
+
+    assert out["options"][0] == {"id": "EXPANDED", "name": "Expanded", "value": "EXPANDED"}
 
 
 def test_an_option_carries_the_value_to_store_whole():
@@ -434,3 +465,25 @@ def test_a_test_parameter_holding_no_declared_label_is_refused():
     bad = _check_level({"mode": {"advanced": "maybe"}}, [BOOLEAN_CASE], TYPES, "settings")
     assert bad and "selects the case" in bad["error"]
     assert "'true'" in bad["error"] and "'false'" in bad["error"]
+
+
+def test_the_surface_dispatches_this_tool_to_the_module_that_defines_it():
+    """The dispatcher special-cases this call, so moving the handler has to move the call with it.
+
+    Nothing exercised that path when the handler moved modules, and the tool raised
+    `module ... has no attribute 'get_visualization_options'` against a real Galaxy.
+    """
+    from olit.drivers.loop.tools import ToolSurface
+
+    from .fakes import FakeSubstrate
+
+    substrate = FakeSubstrate(galaxy=Galaxy(), charts=Charts(), capabilities=("llm", "local", "read"))
+    out = asyncio.run(
+        ToolSurface(substrate).dispatch(
+            "get_visualization_options",
+            {"visualization": "igv", "parameter": "settings.source.genome", "config": builtin()},
+        )
+    )
+
+    assert not getattr(out, "is_error", False), out.content
+    assert "hg19" in str(out.content)

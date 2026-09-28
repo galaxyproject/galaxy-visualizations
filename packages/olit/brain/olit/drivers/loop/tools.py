@@ -16,6 +16,7 @@ from . import (
     gtn,
     notebook,
     sra_import_gate,
+    visualizations,
 )
 from .brief import brief
 from .outcome import ToolOutcome, rendered
@@ -430,11 +431,11 @@ class ToolSurface:
                 self.record["page_id"] = opened["page_id"]
             return ToolOutcome(self._claim_artifact(opened))
         if name == "get_visualization_options":
-            # Resolution belongs to galaxy-charts; the policy around it stays in galaxy_tools.
+            # Resolution belongs to galaxy-charts; the policy around it stays on this side.
             return ToolOutcome(
                 rendered(
                     {
-                        "data": await galaxy_tools.get_visualization_options(
+                        "data": await visualizations.get_visualization_options(
                             self.substrate.galaxy, self.substrate.charts, args
                         )
                     }

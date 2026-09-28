@@ -151,15 +151,15 @@ def test_the_real_driver_reports_a_bug_in_an_operation_as_an_envelope():
         pytest.skip("the real driver needs node and a resolvable galaxy-ops")
 
     async def go():
-        # `query` is used as a string inside the operation, so a number throws a TypeError.
-        envelope = await transport.run("search_iwc_workflows", {"query": 5})
+        # The tokeniser reads `query` character by character, so a list throws a TypeError.
+        envelope = await transport.run("search_iwc_workflows", {"query": [1, 2]})
         await transport.close()
         return envelope
 
     envelope = asyncio.run(go())
     assert envelope["success"] is False
     assert envelope["errorKind"] == "unexpected"
-    assert "toLowerCase" in envelope["message"]
+    assert "codePointAt" in envelope["message"]
 
 
 LOUD = """
