@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+const HERE = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const DESTS = [join(HERE, "static", "pyodide"), join(HERE, "temp", "pyodide")];
 /** One executor bundled and content-stamped; each peer the brain calls gets its own. */
 async function stage(prefix, entry) {

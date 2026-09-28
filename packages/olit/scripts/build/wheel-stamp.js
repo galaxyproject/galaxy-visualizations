@@ -18,7 +18,7 @@ import { readdirSync, readFileSync, renameSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DIST = join(dirname(fileURLToPath(import.meta.url)), "brain", "dist");
+const DIST = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "brain", "dist");
 const STAMPED = /^olit-.*-0[0-9a-f]{12}-py3-none-any\.whl$/;
 
 function main() {

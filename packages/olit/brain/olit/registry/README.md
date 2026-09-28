@@ -3,7 +3,7 @@
 **Skills** are markdown the model may follow, disclosed progressively as Orbit does it: the
 frontmatter of every `SKILL.md` becomes a router in the system prompt and a body is read
 with `skills_fetch({repo, path})`. `skills/olit-skills/` is our own and the default repo;
-`skills/galaxy-skills/` is vendored at build time by `skills.install.js`, pinned by
+`skills/galaxy-skills/` is vendored at build time by `scripts/build/skills.js`, pinned by
 `skills.lock.json`, and gitignored.
 
 **Processes** are procedures the model cannot deviate from, each advertised as a tool

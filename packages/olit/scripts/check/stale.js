@@ -30,7 +30,7 @@ async function skills() {
   return (
     `skills     BEHIND by ${cmp.total_commits} commit(s): ${lock.sha.slice(0, 8)} -> ${head.sha.slice(0, 8)}\n` +
     `           ${touched} file(s) changed under skills/, the subtree olit vendors\n` +
-    `           update: edit skills.lock.json, node skills.install.js, python3 vendored/check.py --update`
+    `           update: edit skills.lock.json, node scripts/build/skills.js, python3 scripts/check/vendored.py --update`
   );
 }
 
