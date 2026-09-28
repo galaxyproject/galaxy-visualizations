@@ -104,3 +104,48 @@ def test_a_refused_tool_meets_the_loop_guard_like_any_other_failure():
     for _ in range(ToolSurface.FAILED_REPEAT_LIMIT):
         assert "'write' capability" in asyncio.run(surface.dispatch("save_visualization", args)).content
     assert "cannot succeed" in asyncio.run(surface.dispatch("save_visualization", args)).content
+
+
+class RecordingOps:
+    """A galaxy-ops transport that records what it was asked to run."""
+
+    def __init__(self, manifest):
+        self.manifest = manifest
+        self.runs = []
+
+    def available(self):
+        return True
+
+    def scoped(self, manifest):
+        return self
+
+    async def run(self, name, args, capability="read"):
+        self.manifest.require(capability)
+        self.runs.append((name, args))
+        return {"success": True, "data": {"id": args.get("dataset_id"), "state": "running"}}
+
+
+def test_a_watched_resource_is_read_once_and_then_answered_from_what_is_known():
+    """The contract is the request, not the refusal: a second read must not reach Galaxy."""
+    substrate = FakeSubstrate(("read",))
+    substrate.ops = RecordingOps(substrate.manifest)
+    watching = [{"kind": "dataset", "id": "d1", "state": "running"}]
+    surface = ToolSurface(substrate, watching=watching)
+
+    first = asyncio.run(surface.dispatch("get_dataset_details", {"dataset_id": "d1"}))
+    second = asyncio.run(surface.dispatch("get_dataset_details", {"dataset_id": "d1"}))
+
+    assert first.is_error is False
+    assert second.is_error is True
+    assert second.guard == "galaxy-poll"
+    assert len(substrate.ops.runs) == 1, "the refused read still reached Galaxy"
+
+
+def test_a_resource_the_watcher_dropped_is_read_as_often_as_asked():
+    substrate = FakeSubstrate(("read",))
+    substrate.ops = RecordingOps(substrate.manifest)
+    surface = ToolSurface(substrate, watching=[])
+
+    for _ in range(2):
+        assert asyncio.run(surface.dispatch("get_dataset_details", {"dataset_id": "d1"})).is_error is False
+    assert len(substrate.ops.runs) == 2

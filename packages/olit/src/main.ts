@@ -343,6 +343,7 @@ async function main() {
       config,
       transcripts: convo,
       artifacts: produced,
+      watching: watcher.watched(),
       onEvent: liveEvents(streamed),
     });
     console.log("diagnostics", reply.diagnostics);

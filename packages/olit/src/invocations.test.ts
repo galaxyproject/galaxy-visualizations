@@ -134,6 +134,26 @@ describe("InvocationWatcher", () => {
     watcher.stop();
   });
 
+  it("names what it is still watching, so a turn need not read it to learn it is running", () => {
+    const { watcher } = make(["running"]);
+    watcher.ingest("run_tool", runToolResult([{ id: "job1", state: "new" }]));
+
+    expect(watcher.watched()).toEqual([
+      { kind: "job", id: "job1", state: "new", label: "run_tool" },
+    ]);
+    watcher.stop();
+  });
+
+  it("names nothing once an item settles, because settlement is its own to report", async () => {
+    const { watcher } = make(["ok"]);
+    watcher.ingest("run_tool", runToolResult([{ id: "job1", state: "new" }]));
+
+    await watcher.tick();
+
+    expect(watcher.watched()).toEqual([]);
+    watcher.stop();
+  });
+
   it("does not watch the same id twice", () => {
     const { watcher } = make(["running"]);
     watcher.ingest("run_tool", runToolResult([{ id: "job1", state: "new" }]));

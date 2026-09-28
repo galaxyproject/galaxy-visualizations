@@ -65,10 +65,12 @@ class LoopDriver:
         if page_id:
             self.record["page_id"] = page_id
 
-    async def run(self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None):
+    async def run(
+        self, transcripts, on_event=None, cancellation=None, confirmation=None, artifacts=None, watching=None
+    ):
         # One surface per turn. Earlier turns' artifacts are handed in by the caller, which
         # holds them: this driver is rebuilt whenever the session's config changes.
-        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts, self.record)
+        tools = ToolSurface(self.substrate, self.processes, self.skills, confirmation, artifacts, self.record, watching)
         messages = [dict(m) for m in transcripts]
         # This run's output, kept apart from the transcript that compaction rewrites.
         produced = []

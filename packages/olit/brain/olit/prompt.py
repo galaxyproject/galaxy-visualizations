@@ -120,7 +120,14 @@ After submitting with `run_tool` or `invoke_workflow`:
    error and use `- [!]`.
 
 Never check off a step that is still running: a checkbox that ran ahead of the evidence
-is worse than an empty one."""
+is worse than an empty one.
+
+A tool that answered is not a result: a successful metadata request does not mean a dataset
+has finished, and a successful tool response is not scientific success. Say what you verified,
+what is running and what comes next -- each tool call already shows in the transcript as it
+happens, so the words that earn their place are the ones a reader cannot get from the call
+itself. Repeated reads of a resource the monitor is already watching are refused for two
+minutes, because they cannot answer anything new."""
 
 # loom: buildGalaxyContextBlock(), the "Drafting a new plan" section.
 DRAFTING_A_PLAN = """### Drafting a new plan

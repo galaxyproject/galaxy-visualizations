@@ -107,6 +107,11 @@ export class InvocationWatcher {
     return this.watching.size;
   }
 
+  /** What is still unfinished, for a turn that would otherwise read it again itself. */
+  watched(): Array<Watched> {
+    return [...this.watching.values()].map((w) => ({ ...w }));
+  }
+
   /** One poll pass. Exposed so a test can step the loop without a timer. */
   async tick(): Promise<void> {
     for (const [key, w] of [...this.watching]) {

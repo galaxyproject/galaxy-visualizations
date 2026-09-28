@@ -12,6 +12,7 @@ from . import (
     ena,
     fetch_failure_hint,
     galaxy_destructive,
+    galaxy_poll_guard,
     galaxy_tools,
     gtn,
     notebook,
@@ -176,7 +177,9 @@ ARTIFACT_HINT = (
 
 
 class ToolSurface:
-    def __init__(self, substrate, processes=None, skills=None, confirmation=None, prior=None, record=None):
+    def __init__(
+        self, substrate, processes=None, skills=None, confirmation=None, prior=None, record=None, watching=None
+    ):
         self.substrate = substrate
         # Record ownership is session state, not model input.
         self.record = record or {}
@@ -190,6 +193,8 @@ class ToolSurface:
         self.prior = list(prior or [])
         # Fan-out intent for this turn; the surface is rebuilt per turn, as loom clears per turn.
         self.sra = sra_import_gate.SraImportGate()
+        # The shell watcher owns settlement; this only stops a read it has nothing new to answer.
+        self.poll = galaxy_poll_guard.GalaxyPollGuard(watching)
         # The last call that failed and how often it has repeated, for the loop guard.
         # How many times each call has failed this session, keyed like a settled
         # question: a success elsewhere is no evidence that this call will start working.
@@ -257,6 +262,10 @@ class ToolSurface:
         if settled:
             logger.info("  -> %s was already answered with these arguments", name)
             return ToolOutcome(settled, is_error=True, refused=True, guard="settled-question")
+        cooling = self.poll.check(name, args)
+        if cooling:
+            logger.info("  -> %s is watched and was just read", name)
+            return ToolOutcome(cooling, is_error=True, refused=True, guard="galaxy-poll")
         fanned_out = self.sra.check(call_id, name, args)
         if fanned_out:
             logger.info("  -> blocking an SRA import that would fan out")

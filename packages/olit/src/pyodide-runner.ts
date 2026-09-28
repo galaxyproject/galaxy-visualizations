@@ -56,12 +56,14 @@ export interface TurnRequest {
   transcripts: Message[];
   /** What earlier turns produced, held by the shell because the brain is rebuilt on a config change. */
   artifacts: Artifact[];
+  /** Galaxy work the watcher is following, so the brain need not read it to learn it is running. */
+  watching?: Array<{ kind: string; id: string; state?: string }>;
   onEvent?: (event: LoopEvent) => void;
 }
 
 export async function runOlit(
   pyodide: PyodideManager,
-  { config, transcripts, artifacts, onEvent }: TurnRequest,
+  { config, transcripts, artifacts, watching, onEvent }: TurnRequest,
 ): Promise<TurnResult> {
   pyodide.onEvent = onEvent;
   try {
@@ -70,7 +72,7 @@ export async function runOlit(
       "from js import olitEmit",
       "from olit import run",
       `config = ${toDict(config)}`,
-      `inputs = ${toDict({ transcripts, artifacts })}`,
+      `inputs = ${toDict({ transcripts, artifacts, watching: watching ?? [] })}`,
       "def _on_event(ev):",
       "    olitEmit(json.dumps(ev))",
       "result = await run(config, inputs, _on_event)",
