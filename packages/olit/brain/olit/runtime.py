@@ -60,6 +60,7 @@ class Session:
                 provider=target.provider.id,
                 galaxy_status=self._galaxy_status(),
                 seed_dataset=self.config.get("dataset_id"),
+                galaxy_root=self.substrate.galaxy.galaxy_root,
             ),
             self.skills.router_text(),
         )

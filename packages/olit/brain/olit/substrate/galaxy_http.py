@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 class GalaxyHttp:
     def __init__(self, config, manifest):
         self._root = (config.get("galaxy_root") or "/").rstrip("/") + "/"
+        # The root a link has to be absolute against; `_root` is the join base for a request.
+        self.galaxy_root = self._root
         self._key = config.get("galaxy_key")
         self.manifest = manifest
         self._reachable = None
