@@ -14,6 +14,8 @@ import inspect
 import json
 import pathlib
 import re
+import shutil
+import subprocess
 import sys
 
 from olit import compaction, prompt
@@ -23,6 +25,9 @@ SCHEMA = 1
 
 # Where the system prompt is composed; its blocks are named separately.
 PROMPT_MODULE = "prompt.py"
+
+# The script that answers for the shell's follow-up contract, run from the checkout root.
+SHELL_CONTRACT = "scripts/shell-contract.mjs"
 
 # Excluded from the symbol table: contracts owned elsewhere, and the vendored corpus.
 SKIPPED = ("vendor/", "registry/skills/")
@@ -265,20 +270,27 @@ def loop():
 
 
 def shell(root):
-    """What the shell around the brain does between turns, for a harness that stands in for it."""
+    """What the shell around the brain does between turns, asked of the shell itself.
+
+    The follow-up message is built from the runs that settled, so there is no constant to
+    publish: a harness standing in for the browser runs the same script with its own runs.
+    """
     if root is None:
         return {}
-    try:
-        source = (pathlib.Path(root) / "src/auto-resume.ts").read_text()
-    except OSError:
+    script = pathlib.Path(root) / SHELL_CONTRACT
+    if not script.is_file() or not shutil.which("node"):
         return {}
-    found = re.search(r"DEFAULT_MAX_AUTO_FOLLOW_UPS = (\d+)", source)
-    body = source.split("export function buildResumePrompt", 1)[-1].split("return (", 1)[-1]
-    # The return expression itself, so the published prompt is the prompt and not the file.
-    parts = re.findall(r'"((?:[^"\\]|\\.)*)"', body.split("\n  );", 1)[0])
+    stated = subprocess.run(
+        ["node", "--experimental-strip-types", str(script)],
+        input="",
+        capture_output=True,
+        text=True,
+    )
+    if stated.returncode:
+        raise SystemExit(f"the shell could not state its contract:\n{stated.stderr}")
     return {
-        "max_auto_follow_ups": int(found.group(1)) if found else None,
-        "resume_prompt": "".join(p.encode().decode("unicode_escape") for p in parts) or None,
+        "max_auto_follow_ups": json.loads(stated.stdout)["max_auto_follow_ups"],
+        "resume_prompt_from": SHELL_CONTRACT,
     }
 
 
