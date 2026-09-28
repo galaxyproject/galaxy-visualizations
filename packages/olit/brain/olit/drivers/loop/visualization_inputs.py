@@ -11,6 +11,7 @@ Pure functions of their arguments; the fetching lives in galaxy_tools.py.
 """
 
 import json
+import math
 
 # What a value looks like before the model replaces it, by what the type stores.
 _SCALAR_PLACEHOLDER = {
@@ -30,12 +31,50 @@ def _declared_values(param, spec):
     return [v.get("value") for v in (param.get(field) or []) if isinstance(v, dict) and v.get("value") is not None]
 
 
+def _truthy(value):
+    """galaxy-charts `toBoolean`."""
+    return str(value).lower() == "true"
+
+
+def _parse_numeric_literal(value):
+    """A declared numeric literal, or nothing: a value that is not one states no default."""
+    try:
+        parsed = json.loads(str(value))
+    except ValueError:
+        return None
+    if isinstance(parsed, bool) or not isinstance(parsed, (int, float)) or not math.isfinite(parsed):
+        return None
+    return parsed
+
+
+def effective_default(param, spec):
+    """What an input holds when no config sets it: the declared value, then the type's fallback,
+    read through the coercion the type declares. The default-resolution path only."""
+    value = param.get("value")
+    if value is None:
+        fallback = (spec or {}).get("fallback") or {}
+        requires = fallback.get("requires")
+        if fallback and (not requires or _truthy(param.get(requires))):
+            value = fallback.get("value")
+    if value is None:
+        return None
+    coerce = (spec or {}).get("coerce")
+    if coerce == "boolean":
+        return _truthy(value)
+    if coerce == "number":
+        return _parse_numeric_literal(value)
+    return value
+
+
 def _placeholder(param, types):
     spec = types.get(param.get("type")) or {}
     stores = spec.get("stores") or {}
     if stores.get("type") == "object":
         # An entry is copied whole from get_visualization_options, never rebuilt from an id.
         return {"<from get_visualization_options>": True}
+    default = effective_default(param, spec)
+    if default is not None:
+        return default
     choices = _declared_values(param, spec)
     if choices:
         return choices[0]
@@ -52,11 +91,13 @@ def _fill(param, types, out):
 
     test = param.get("test_param") or {}
     cases = param.get("cases") or []
-    first = cases[0] if cases else {}
+    # galaxy-charts `formatConditional`: the declared value selects the case, order only without one.
+    wanted = case_value(test.get("value"))
+    chosen = next((c for c in cases if case_value(c.get("value")) == wanted), None) or (cases[0] if cases else {})
     nested = {}
     if test.get("name"):
-        nested[test["name"]] = first.get("value", "<choice>")
-    for child in first.get("inputs") or []:
+        nested[test["name"]] = chosen.get("value", "<choice>")
+    for child in chosen.get("inputs") or []:
         _fill(child, types, nested)
     out[name] = nested
 

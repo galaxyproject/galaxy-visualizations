@@ -14,7 +14,13 @@ from olit import vendor
 from .outcome import ToolOutcome
 from .paging import ROW_CAP
 from .registry import _STR, _q, _tool
-from .visualization_inputs import build_visualization_template, case_value, declared_paths, resolve_parameter
+from .visualization_inputs import (
+    build_visualization_template,
+    case_value,
+    declared_paths,
+    effective_default,
+    resolve_parameter,
+)
 
 
 async def a_visualization_named(g, query):
@@ -142,6 +148,9 @@ def _describe_parameter(param, types, path=()):
     for key in ("label", "help"):
         if param.get(key):
             described[key] = param[key]
+    default = effective_default(param, spec)
+    if default is not None:
+        described["default"] = default
     if spec.get("stores"):
         described["stores"] = spec["stores"]
     for bound in spec.get("bounds") or []:

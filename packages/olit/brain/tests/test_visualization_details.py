@@ -91,3 +91,38 @@ def test_a_plain_text_input_stores_a_string_and_claims_nothing_else():
 
 def test_an_unknown_visualization_is_refused():
     assert "not an installed visualization" in refused(details({}))
+
+
+def test_a_declared_default_is_published():
+    """galaxy-charts resolves an unset input to it, so hiding it leaves the agent guessing."""
+    assert details()["settings"][0]["default"] == "all"
+
+
+def test_a_conditional_publishes_the_default_that_chooses_its_case():
+    source = dict(IGV["settings"][1], test_param={"name": "origin", "type": "select", "value": "igv"})
+    published = details({"name": "igv", "settings": [source]})["settings"][0]
+
+    assert published["chosen_by"]["default"] == "igv"
+
+
+def test_a_default_is_coerced_by_what_the_contract_declares():
+    """The declaration carries XML strings; `coerce` says what each type stores."""
+    plugin = {
+        "name": "igv",
+        "settings": [
+            {"name": "show_legend", "type": "boolean", "value": "true"},
+            {"name": "width", "type": "integer", "value": "800"},
+            {"name": "ratio", "type": "float", "value": "1.5"},
+            {"name": "title", "type": "text", "value": "800"},
+        ],
+    }
+    published = {p["name"]: p["default"] for p in details(plugin)["settings"]}
+
+    assert published == {"show_legend": True, "width": 800, "ratio": 1.5, "title": "800"}
+
+
+def test_a_numeric_default_that_is_not_a_number_is_not_published():
+    """Stating one would contradict the `stores` published beside it."""
+    plugin = {"name": "igv", "settings": [{"name": "width", "type": "integer", "value": "wide"}]}
+
+    assert "default" not in details(plugin)["settings"][0]

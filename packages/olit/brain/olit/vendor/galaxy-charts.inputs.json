@@ -1,11 +1,12 @@
 {
-  "version": "0.1.15",
+  "version": "0.1.16",
   "types": {
     "boolean": {
       "stores": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "boolean"
-      }
+      },
+      "coerce": "boolean"
     },
     "color": {
       "stores": {
@@ -35,7 +36,8 @@
       "bounds": [
         "min",
         "max"
-      ]
+      ],
+      "coerce": "number"
     },
     "float": {
       "stores": {
@@ -45,7 +47,8 @@
       "bounds": [
         "min",
         "max"
-      ]
+      ],
+      "coerce": "number"
     },
     "select": {
       "stores": {
@@ -83,7 +86,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "extension": {
             "type": "string"
@@ -113,7 +117,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "columns": {
             "type": "array",
@@ -147,7 +152,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "name": {
             "type": "string"
