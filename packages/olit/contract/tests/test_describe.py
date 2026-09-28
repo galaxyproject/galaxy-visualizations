@@ -3,7 +3,7 @@
 import json
 import pathlib
 
-from olit import describe
+import describe
 from olit.drivers.loop import galaxy_tools
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -84,7 +84,7 @@ def test_describing_twice_gives_the_same_answer():
 def test_the_shell_contract_a_harness_stands_in_for_is_published():
     shell = described()["shell"]
     assert shell["max_auto_follow_ups"] == 3
-    assert shell["resume_prompt_from"] == "scripts/shell-contract.mjs"
+    assert shell["resume_prompt_from"] == "contract/shell.mjs"
 
 
 def test_a_handler_outside_galaxy_tools_still_carries_its_query():

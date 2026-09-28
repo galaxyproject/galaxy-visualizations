@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts/shell-contract.mjs"
+SCRIPT = ROOT / "contract/shell.mjs"
 COMPLETED = [{"kind": "job", "id": "j1", "label": "Galaxy job j1", "outcome": "completed"}]
 FAILED = [{"kind": "invocation", "id": "i1", "label": "Workflow invocation i1", "outcome": "failed"}]
 

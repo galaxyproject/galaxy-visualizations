@@ -6,15 +6,14 @@ check that reads it. A guard nothing reports cannot be seen in a trajectory.
 """
 
 import ast
-import pathlib
 
-from olit import describe
+import describe
 
 
 def guards_named_in_the_source():
     """Every `guard=` literal anywhere in the loop, found without consulting describe."""
     found = set()
-    root = pathlib.Path(describe.__file__).resolve().parent / "drivers" / "loop"
+    root = describe.package_root() / "drivers" / "loop"
     for path in root.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.keyword) and node.arg == "guard":

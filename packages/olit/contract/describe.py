@@ -4,7 +4,7 @@ Everything an outside evaluator needs to judge olit without reading its source: 
 the model is shown, the Galaxy queries they build, the guards that can refuse a call, the
 sampling and loop policy, the prompt symbols, and the vendored skills pin.
 
-    python3 -m olit.describe --root ..
+    python3 contract/describe.py --root .
 """
 
 import argparse
@@ -18,8 +18,11 @@ import shutil
 import subprocess
 import sys
 
-from olit import compaction, prompt
-from olit.drivers.loop import agent, galaxy_tools, paging
+# The brain is the sibling this reports on, not something this is part of.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "brain"))
+
+from olit import compaction, prompt  # noqa: E402
+from olit.drivers.loop import agent, galaxy_tools, paging  # noqa: E402
 
 SCHEMA = 1
 
@@ -27,7 +30,7 @@ SCHEMA = 1
 PROMPT_MODULE = "prompt.py"
 
 # The script that answers for the shell's follow-up contract, run from the checkout root.
-SHELL_CONTRACT = "scripts/shell-contract.mjs"
+SHELL_CONTRACT = "contract/shell.mjs"
 
 # Excluded from the symbol table: contracts owned elsewhere, and the vendored corpus.
 SKIPPED = ("vendor/", "registry/skills/")
