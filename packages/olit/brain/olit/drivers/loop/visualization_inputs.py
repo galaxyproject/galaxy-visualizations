@@ -250,11 +250,7 @@ def resolve_parameter(plugin, parameter, config=None):
 
 
 def option_bearing(entry, declared, types, path=()):
-    """Every value in a config whose input draws its options from a finite set.
-
-    Walks declaration and config together, taking a conditional's active case only, the way
-    `_check_level` does: a value under an unselected case is not part of this config.
-    """
+    """Every value in a config whose input draws its options from a finite set."""
     if not isinstance(entry, dict):
         return
     for param in declared or []:
@@ -269,18 +265,15 @@ def option_bearing(entry, declared, types, path=()):
             continue
         spec = types.get(param.get("type")) or {}
         kind = (spec.get("options") or {}).get("kind")
-        # `declared` options are the XML's own list, already enforced by the declaration; the
-        # kinds here are the ones a server resolves, where a value can be invented.
+        # `declared` options are the XML's own list; these kinds are resolved by a server.
         if kind and kind != "declared" and value is not None:
             yield ".".join((*path, name)), param, spec, value
 
 
 def is_offered(value, options, param, spec):
-    """Whether a value is one the input offers, or the value it holds when nothing is chosen.
+    """Whether a value is one the input offers, compared whole, or its effective default.
 
-    An option's value is compared whole and never interpreted: a `data_json` entry is an object
-    the plugin owns. A declared default need not appear among the options -- plotly's `y` offers
-    only real columns -- so it is accepted beside them.
+    A default need not appear among the options: plotly's `y` offers only real columns.
     """
     if any(value == option.get("value") for option in options or []):
         return True

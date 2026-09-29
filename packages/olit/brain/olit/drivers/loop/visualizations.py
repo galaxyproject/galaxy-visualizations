@@ -474,12 +474,10 @@ def _reject_undeclared(plugin, a):
 
 
 async def _reject_unoffered(charts, plugin, a, types):
-    """Refuse a value an input does not offer, for the inputs whose options are a finite set.
+    """Refuse a value the server does not offer, resolving the options again at the write.
 
-    The list comes from galaxy-charts, resolved again here rather than taken from what the
-    agent was shown: a value it wrote from memory is exactly what this catches. A lookup that
-    could not be made never blocks a save; a lookup that succeeded and offers nothing does,
-    because then no value is valid.
+    A lookup that could not be made never blocks a save; one that succeeded and offers
+    nothing does, because then no value is valid.
     """
     levels = [(a.get("settings"), plugin.get("settings"))]
     levels += [(track, plugin.get("tracks")) for track in a.get("tracks") or []]

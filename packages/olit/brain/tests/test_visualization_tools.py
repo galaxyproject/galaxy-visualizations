@@ -423,8 +423,6 @@ def test_a_case_that_has_options_says_nothing_about_its_siblings():
     assert "other_cases" not in out
 
 
-# The two mm10 records from a real session: the catalog's own entry, and the one the agent
-# wrote by analogy with the genepattern-hosted hg19/hg38 entries.
 OFFERED_MM10 = {
     "id": "mm10",
     "name": "Mouse (GRCm38/mm10)",
@@ -452,7 +450,6 @@ def test_a_genome_the_server_offers_is_saved():
 
 
 def test_a_genome_written_from_memory_is_refused():
-    """A complete-looking record whose urls are not the catalog's renders an unusable genome."""
     g = ConditionalGalaxy()
     out = refused(igv_genome(g, Charts([{"label": "mm10", "value": OFFERED_MM10}]), INVENTED_MM10))
 
@@ -462,7 +459,6 @@ def test_a_genome_written_from_memory_is_refused():
 
 
 def test_a_value_naming_the_right_entry_with_fewer_fields_is_refused_and_says_so():
-    """A live run sent an id-and-extension record for a dataset the server did offer whole."""
     g = ConditionalGalaxy()
     partial = {"id": OFFERED_MM10["id"], "name": OFFERED_MM10["name"]}
     out = refused(igv_genome(g, Charts([{"label": "mm10", "value": OFFERED_MM10}]), partial))
@@ -472,7 +468,7 @@ def test_a_value_naming_the_right_entry_with_fewer_fields_is_refused_and_says_so
 
 
 def test_a_case_that_offers_nothing_refuses_a_value_for_it():
-    """IGV's builtin genomes are a data table an admin may never have filled."""
+    """A data table an admin may never have filled offers nothing at all."""
     g = ConditionalGalaxy()
     out = refused(igv_genome(g, Charts([]), OFFERED_MM10))
 
@@ -480,7 +476,6 @@ def test_a_case_that_offers_nothing_refuses_a_value_for_it():
 
 
 def test_a_lookup_that_could_not_be_made_does_not_block_a_save():
-    """Refusing on a failed resolution would make a Galaxy hiccup look like a bad value."""
     g = ConditionalGalaxy()
     out = igv_genome(g, Charts([], success=False), INVENTED_MM10)
 
@@ -501,7 +496,6 @@ def test_the_value_an_input_holds_by_default_is_accepted():
 
 
 def test_the_guard_is_driven_by_the_type_contract_not_by_the_plugin():
-    """Any plugin whose input resolves its options is checked; nothing here knows the plugin."""
     plugin = {
         "name": "atlas",
         "settings": [{"name": "table", "type": "data_table", "tables": ["anything"]}],
@@ -523,7 +517,7 @@ def test_the_guard_is_driven_by_the_type_contract_not_by_the_plugin():
     assert offered.asked == ["table", "table"]
 
 
-# A conditional whose test parameter declares a default, as IGV's `origin` does.
+# A conditional whose test parameter declares a default.
 DEFAULTED = {
     "name": "atlas",
     "settings": [
