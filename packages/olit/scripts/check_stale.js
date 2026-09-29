@@ -45,7 +45,34 @@ async function galaxyMcp() {
         `           update: make galaxy-mcp-docs, then read the parity test's diff`;
 }
 
-const results = await Promise.allSettled([skills(), galaxyMcp()]);
+async function npmLatest(pkg) {
+  const res = await fetch(`https://registry.npmjs.org/${pkg}/latest`);
+  if (!res.ok) throw new Error(`npm ${res.status} for ${pkg}`);
+  return (await res.json()).version;
+}
+
+// The pin is a fork tarball, so "latest" upstream is not what olit runs. The useful question is
+// whether upstream has absorbed enough of the fork delta for the fork to shrink.
+async function galaxyOps() {
+  const spec = read("package.json").dependencies["@galaxyproject/galaxy-ops"];
+  const tag = (spec.match(/ops-v([\w.\-]+)\//) || [])[1] || spec;
+  const upstream = await npmLatest("@galaxyproject/galaxy-ops");
+  return (
+    `galaxy-ops pinned to the fork ${tag}; upstream npm publishes ${upstream}\n` +
+    `           the fork delta is in galaxy-mcp fixes.000; compare before assuming it is still needed`
+  );
+}
+
+async function galaxyCharts() {
+  const pinned = read("package.json").dependencies["galaxy-charts"].replace(/^[\^~]/, "");
+  const latest = await npmLatest("galaxy-charts");
+  return pinned === latest
+    ? `charts     up to date at ${pinned}`
+    : `charts     BEHIND: package.json wants ${pinned}, npm has ${latest}\n` +
+        `           update: bump it, then python3 scripts/check_vendored.py to re-read the input contract`;
+}
+
+const results = await Promise.allSettled([skills(), galaxyMcp(), galaxyOps(), galaxyCharts()]);
 for (const r of results) {
   console.log(r.status === "fulfilled" ? r.value : `(could not check: ${r.reason.message})`);
 }
