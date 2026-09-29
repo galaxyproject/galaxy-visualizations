@@ -482,13 +482,25 @@ async def _reject_unoffered(charts, plugin, a, types):
     levels = [(a.get("settings"), plugin.get("settings"))]
     levels += [(track, plugin.get("tracks")) for track in a.get("tracks") or []]
     for entry, declared in levels:
-        for path, param, spec, value in option_bearing(entry, declared, types):
+        for path, param, spec, value, case in option_bearing(entry, declared, types):
             envelope = await charts.get_options(param, {"datasetId": a.get("dataset_id")})
             if not envelope.get("success"):
                 continue
             offered = envelope.get("data") or []
             if is_offered(value, offered, param, spec):
                 continue
+            if not offered and case:
+                return {
+                    "saved": False,
+                    "error": f"Refused: this server lists no {path} for {case['test']}={case['value']!r}.",
+                    "other_cases": case["siblings"],
+                    "hint": (
+                        "The same parameter is declared for "
+                        + ", ".join(repr(s) for s in case["siblings"])
+                        + "; a value resolved under one of those does not become valid by "
+                        f"leaving {case['test']} as {case['value']!r}."
+                    ),
+                }
             names = ", ".join(repr(_identity(o.get("value"))) for o in offered[:MATCH_CAP])
             return {
                 "saved": False,

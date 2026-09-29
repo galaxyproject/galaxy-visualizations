@@ -467,12 +467,16 @@ def test_a_value_naming_the_right_entry_with_fewer_fields_is_refused_and_says_so
     assert "complete `value` unchanged" in out["hint"]
 
 
-def test_a_case_that_offers_nothing_refuses_a_value_for_it():
-    """A data table an admin may never have filled offers nothing at all."""
+def test_a_case_that_offers_nothing_names_the_cases_that_might():
+    """A live run held an igv-catalog genome under `builtin`, whose data table is empty here, and
+    resent it nine times: the refusal counted zero without saying which case it counted for."""
     g = ConditionalGalaxy()
     out = refused(igv_genome(g, Charts([]), OFFERED_MM10))
 
     assert out["saved"] is False and g.posted is None
+    assert "origin='igv'" in out["error"], "the case it resolved under"
+    assert "builtin" in out["hint"], "the case that might hold it instead"
+    assert out["other_cases"] == ["builtin"]
 
 
 def test_a_lookup_that_could_not_be_made_does_not_block_a_save():

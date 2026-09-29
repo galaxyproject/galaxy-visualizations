@@ -256,8 +256,12 @@ def resolve_parameter(plugin, parameter, config=None):
     return _resolve((plugin or {}).get(group), segments[1:], _state(config, group), [group])
 
 
-def option_bearing(entry, declared, types, path=()):
-    """Every value in a config whose input draws its options from a finite set."""
+def option_bearing(entry, declared, types, path=(), case=None):
+    """Every value in a config whose input draws its options from a finite set.
+
+    `case` carries the conditional branch the value sits under, since a branch that offers
+    nothing is a different answer from a value that is simply wrong.
+    """
     if not isinstance(entry, dict):
         return
     for param in declared or []:
@@ -268,13 +272,18 @@ def option_bearing(entry, declared, types, path=()):
         if param.get("type") == "conditional":
             active = active_case(param, entry)
             if active:
-                yield from option_bearing(value, active.get("inputs"), types, (*path, name))
+                under = {
+                    "test": (param.get("test_param") or {}).get("name"),
+                    "value": active.get("value"),
+                    "siblings": [c.get("value") for c in param.get("cases") or [] if c is not active],
+                }
+                yield from option_bearing(value, active.get("inputs"), types, (*path, name), under)
             continue
         spec = types.get(param.get("type")) or {}
         kind = (spec.get("options") or {}).get("kind")
         # `declared` options are the XML's own list; these kinds are resolved by a server.
         if kind and kind != "declared" and value is not None:
-            yield ".".join((*path, name)), param, spec, value
+            yield ".".join((*path, name)), param, spec, value, case
 
 
 def is_offered(value, options, param, spec):
