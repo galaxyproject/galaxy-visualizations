@@ -7,7 +7,7 @@ and any success cleared it, so four refusals never reached the limit of three.
 
 import asyncio
 
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeOps, FakeSubstrate
 

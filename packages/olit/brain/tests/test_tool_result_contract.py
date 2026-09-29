@@ -12,8 +12,8 @@ the repeated-failure guard never counted the refusal and the model retried it.
 import asyncio
 import json
 
-from olit.drivers.loop.outcome import rendered
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop.outcome import rendered
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeOps, FakeSubstrate
 

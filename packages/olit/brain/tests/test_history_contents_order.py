@@ -6,7 +6,7 @@ ignored outright, so the ordering the description documents did nothing for eith
 
 import asyncio
 
-from olit.drivers.loop.galaxy_tools import get_handler
+from olit.loop.galaxy_tools import get_handler
 
 
 class _Galaxy:

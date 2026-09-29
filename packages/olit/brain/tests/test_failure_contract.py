@@ -11,8 +11,8 @@ import asyncio
 import json
 import pathlib
 
-from olit.drivers.loop import galaxy_tools
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import galaxy_tools
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeOps, FakeSubstrate
 

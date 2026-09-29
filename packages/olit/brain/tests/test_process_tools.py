@@ -3,8 +3,8 @@
 import asyncio
 import json
 
-from olit.drivers.loop.tools import ToolSurface, _process_tool_schemas
-from olit.registry import ProcessRegistry
+from olit.loop.tools import ToolSurface, _process_tool_schemas
+from olit.processes import ProcessRegistry
 
 
 class FakeManifest:
@@ -50,10 +50,10 @@ def test_the_generic_runner_is_gone():
     assert "run_process" not in [t["function"]["name"] for t in _surface().schemas()]
 
 
-def test_vintent_requires_both_of_its_inputs():
-    fn = _schemas()["vintent_dataset"]
-    assert sorted(fn["parameters"]["required"]) == ["dataset_id", "request"]
-    assert set(fn["parameters"]["properties"]) == {"dataset_id", "request"}
+def test_a_process_requires_its_declared_inputs():
+    fn = _schemas()["organize_datasets"]
+    assert fn["parameters"]["required"] == ["history_id"]
+    assert "collection_name" in fn["parameters"]["properties"]
 
 
 def test_lineage_keeps_its_optional_numbers_optional():
@@ -83,9 +83,9 @@ def test_the_description_carries_when_to_use():
             assert process.when_to_use in fn["description"]
 
 
-def test_a_missing_required_input_is_refused_before_the_graph_runs():
-    outcome = asyncio.run(_surface().dispatch("vintent_dataset", {"dataset_id": "d1"}))
-    assert outcome.is_error and "request" in outcome.text
+def test_a_missing_required_input_is_refused_before_the_process_runs():
+    outcome = asyncio.run(_surface().dispatch("organize_datasets", {"collection_name": "c"}))
+    assert outcome.is_error and "history_id" in outcome.text
 
 
 def test_an_unknown_name_is_still_unknown():
@@ -100,7 +100,7 @@ def test_a_session_without_read_sees_no_processes():
 def test_a_read_only_session_does_not_see_the_writer():
     advertised = _advertised({"llm", "local", "read"})
     assert "organize_datasets" not in advertised
-    assert "vintent_dataset" in advertised and "lineage_report" in advertised
+    assert "lineage_report" in advertised
 
 
 def test_a_write_session_sees_every_process():
@@ -124,7 +124,7 @@ def test_per_input_help_reaches_the_model():
 
 def test_a_process_summarizes_its_own_state():
     """organize_datasets owns its summary; the tool surface only asks for one."""
-    from olit.registry.python.organize_datasets import organize_datasets, summarize_state
+    from olit.processes.organize_datasets import organize_datasets, summarize_state
 
     assert organize_datasets.summarize is summarize_state
     assert _processes().get("organize_datasets").summarize is summarize_state
@@ -155,7 +155,7 @@ def test_a_process_the_manifest_hides_is_refused_rather_than_run():
 def test_an_olit_tool_is_named_as_one_at_every_galaxy_tool_lookup():
     """`run_tool` said so; the read-only lookups handed back Galaxy's bare 404.
 
-    An agent searched the catalog nine times for `vintent_dataset`, called
+    An agent searched the catalog nine times for `organize_datasets`, called
     get_tool_details twice, and settled for a different route.
     """
     surface = _surface()
@@ -166,9 +166,11 @@ def test_an_olit_tool_is_named_as_one_at_every_galaxy_tool_lookup():
         "get_tool_run_examples",
         "get_tool_citations",
     ):
-        outcome = asyncio.run(surface.dispatch(name, {"tool_id": "vintent_dataset", "history_id": "h1", "inputs": {}}))
+        outcome = asyncio.run(
+            surface.dispatch(name, {"tool_id": "organize_datasets", "history_id": "h1", "inputs": {}})
+        )
         assert "is an Olit tool" in outcome.text, name
-        assert "Call vintent_dataset directly" in outcome.text, name
+        assert "Call organize_datasets directly" in outcome.text, name
 
 
 def test_a_python_process_can_refuse_and_the_loop_hears_it():

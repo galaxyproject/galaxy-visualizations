@@ -6,7 +6,7 @@ cannot paste one into a page. It writes a token instead and the dispatcher resol
 
 import json
 
-from olit.drivers.loop import artifacts
+from olit.loop import artifacts
 
 VEGA = {"kind": "vega-lite", "title": "Glucose by BMI", "spec": {"mark": "point"}}
 VIZ = {"kind": "visualization", "title": "atlas of d1", "visualization": "atlas", "dataset_id": "d1"}
@@ -106,7 +106,7 @@ def _dispatch(content, held):
     """update_page through the real dispatcher, with `held` already produced this session."""
     import asyncio
 
-    from olit.drivers.loop.tools import ToolSurface
+    from olit.loop.tools import ToolSurface
 
     seen = []
     surface = ToolSurface(_Substrate(seen), None)
@@ -139,7 +139,7 @@ def test_a_chart_from_an_earlier_turn_is_still_placeable():
     """
     import asyncio
 
-    from olit.drivers.loop.tools import ToolSurface
+    from olit.loop.tools import ToolSurface
 
     seen = []
     substrate = _Substrate(seen)
@@ -156,7 +156,7 @@ def test_a_chart_from_an_earlier_turn_is_still_placeable():
 
 def test_the_driver_keeps_nothing_between_turns():
     """A model or history switch rebuilds the session; state kept here would vanish with it."""
-    from olit.drivers.loop.agent import LoopDriver
+    from olit.loop.agent import LoopDriver
 
     class _Llm:
         target = None
@@ -175,6 +175,6 @@ def test_the_hint_at_production_names_the_token():
     The hint read "Describe what it shows and finish", so a record written a turn later
     held the prose and not the chart.
     """
-    from olit.drivers.loop.tools import ARTIFACT_HINT
+    from olit.loop.tools import ARTIFACT_HINT
 
     assert "{{artifact}}" in ARTIFACT_HINT

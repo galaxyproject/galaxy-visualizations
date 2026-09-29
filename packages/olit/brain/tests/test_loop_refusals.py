@@ -3,7 +3,7 @@
 import asyncio
 import json
 
-from olit.drivers.loop.agent import LoopDriver
+from olit.loop.agent import LoopDriver
 
 from .fakes import FakeSubstrate, ScriptedLlm, call, choice, tool_messages
 
@@ -112,7 +112,7 @@ def test_finish_alongside_real_work_does_not_end_the_turn():
 
 def test_exhausting_the_step_cap_is_reported():
     """Stopping mid-task without a word is the empty-turn defect again."""
-    from olit.drivers.loop import agent as agent_module
+    from olit.loop import agent as agent_module
 
     llm = ScriptedLlm(*[choice([call("run_python", '{"code": "x"}')])] * agent_module.MAX_STEPS)
     _, result = _run(llm)

@@ -1,6 +1,6 @@
 """A key the session holds must not ride a tool result into the transcript."""
 
-from olit.drivers.loop.secret_redaction import (
+from olit.loop.secret_redaction import (
     MIN_SECRET_LEN,
     REDACTED,
     collect_secret_values,

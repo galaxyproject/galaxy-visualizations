@@ -6,7 +6,7 @@ import json
 import pytest
 
 from olit import compaction
-from olit.drivers.loop.agent import LoopDriver
+from olit.loop.agent import LoopDriver
 from olit.substrate.llm import Reply
 
 from .fakes import FakeSubstrate

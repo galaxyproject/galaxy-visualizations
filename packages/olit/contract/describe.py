@@ -22,7 +22,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "brain"))
 
 from olit import compaction, prompt  # noqa: E402
-from olit.drivers.loop import agent, galaxy_tools, paging  # noqa: E402
+from olit.loop import agent, galaxy_tools, paging  # noqa: E402
 
 SCHEMA = 1
 
@@ -33,13 +33,13 @@ PROMPT_MODULE = "prompt.py"
 SHELL_CONTRACT = "contract/shell.mjs"
 
 # Excluded from the symbol table: contracts owned elsewhere, and the vendored corpus.
-SKIPPED = ("vendor/", "registry/skills/")
+SKIPPED = ("vendor/", "skills/")
 
 # Modules that name the guards able to refuse a call.
 # Where a guard can be named. Scanned rather than listed: a guard set in a module nobody
 # thought to list is invisible here, to the published policy and to the drift check that
 # reads it -- which is how `malformed-object-id` went unreported.
-GUARD_PACKAGES = ("drivers/loop",)
+GUARD_PACKAGES = ("loop",)
 
 _QUERY_PAIR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^&?{}\"']*)")
 
@@ -307,7 +307,7 @@ def shell(root):
 
 def skills(root):
     """The vendored skills pin, plus a hash per file when the corpus has been built."""
-    base = package_root() / "registry/skills/galaxy-skills"
+    base = package_root() / "skills/galaxy-skills"
     files = (
         {str(f.relative_to(base)): hashlib.sha256(f.read_bytes()).hexdigest()[:16] for f in sorted(base.rglob("*.md"))}
         if base.is_dir()

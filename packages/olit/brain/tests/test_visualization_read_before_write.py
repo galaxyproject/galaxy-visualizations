@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop.visualizations import _get_visualization
+from olit.loop.visualizations import _get_visualization
 
 from .fakes import refused
 

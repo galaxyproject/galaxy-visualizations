@@ -5,10 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from olit.drivers.loop import agent as loop_agent
-from olit.drivers.loop.tools import ToolSurface
-from olit.registry import SkillEntry, SkillRegistry, parse_frontmatter, select_skills
-from olit.registry.skills import SURFACE_ID
+from olit.loop import agent as loop_agent
+from olit.loop.tools import ToolSurface, _skills_fetch_schema
+from olit.skills import SURFACE_ID, SkillEntry, SkillRegistry, parse_frontmatter, select_skills
 
 SKILL = """---
 name: galaxy-transform-collection
@@ -23,7 +22,7 @@ metadata:
 Use Galaxy's native tools; never build collections ad hoc.
 """
 
-VENDORED = Path(__file__).resolve().parents[1] / "olit" / "registry" / "skills" / "galaxy-skills"
+VENDORED = Path(__file__).resolve().parents[1] / "olit" / "skills" / "galaxy-skills"
 needs_corpus = pytest.mark.skipif(not VENDORED.is_dir(), reason="galaxy-skills not vendored (run npm run build:skills)")
 
 
@@ -201,3 +200,33 @@ def test_a_real_skill_body_is_reachable_by_its_router_path():
 
     body = registry.fetch("galaxy-skills", entry.path)
     assert body and len(body) > 200
+
+
+@needs_corpus
+def test_the_tools_example_path_is_one_the_default_repo_answers():
+    """The example is a call written without a repo, so it has to work without one."""
+    registry = SkillRegistry().load_packaged()
+    described = _skills_fetch_schema(registry)["function"]["parameters"]["properties"]["path"]["description"]
+    quoted = described.split("'")[1]
+    assert registry.fetch(None, quoted), f"the schema offers {quoted!r}, which the default repo does not hold"
+
+
+@needs_corpus
+def test_a_path_from_another_repo_is_named_rather_than_dead_ended():
+    """Reaching for a galaxy-skills path without naming it says where it is."""
+    registry = SkillRegistry().load_packaged()
+    surface = ToolSurface(FakeSubstrate(), None, registry)
+
+    out = surface._skills_fetch({"path": "collection-manipulation/SKILL.md"})
+
+    assert out.is_error
+    assert "galaxy-skills" in out.content
+    assert registry.fetch("galaxy-skills", "collection-manipulation/SKILL.md")
+
+
+def test_a_path_no_repo_holds_still_points_at_the_router(tmp_path):
+    surface = ToolSurface(FakeSubstrate(), None, _corpus(tmp_path, {"a/SKILL.md": SKILL}))
+
+    out = surface._skills_fetch({"path": "nowhere/SKILL.md"})
+
+    assert out.is_error and "skills router" in out.content

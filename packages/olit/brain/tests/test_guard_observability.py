@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop.agent import LoopDriver
+from olit.loop.agent import LoopDriver
 
 from .fakes import FakeSubstrate, ScriptedLlm, call, choice
 

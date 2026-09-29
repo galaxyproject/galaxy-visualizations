@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from olit.drivers.loop.galaxy_tools import ToolParameterError, _run_tool
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop.galaxy_tools import ToolParameterError, _run_tool
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeOps, FakeSubstrate
 

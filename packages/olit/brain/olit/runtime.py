@@ -4,9 +4,10 @@ import logging
 
 from olit import config as config_module
 from olit import prompt
-from olit.drivers import LoopDriver
-from olit.drivers.loop import notebook
-from olit.registry import ProcessRegistry, SkillRegistry
+from olit.loop import notebook
+from olit.loop.agent import LoopDriver
+from olit.processes import ProcessRegistry
+from olit.skills import SkillRegistry
 from olit.substrate import Substrate, cancellation, confirm
 
 logging.basicConfig(level=logging.INFO)

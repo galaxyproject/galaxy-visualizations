@@ -13,7 +13,7 @@ import describe
 def guards_named_in_the_source():
     """Every `guard=` literal anywhere in the loop, found without consulting describe."""
     found = set()
-    root = describe.package_root() / "drivers" / "loop"
+    root = describe.package_root() / "loop"
     for path in root.rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.keyword) and node.arg == "guard":

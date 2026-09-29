@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from olit.drivers.loop import biocontainers
-from olit.drivers.loop.biocontainers import parse_packages, pick_tag, recommend
+from olit.loop import biocontainers
+from olit.loop.biocontainers import parse_packages, pick_tag, recommend
 
 # What galaxy-mcp's _shape_biocontainer_recommendation returns, so an agent reads the same
 # fields whichever server answered.

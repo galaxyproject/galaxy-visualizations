@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from olit.drivers.loop import confusables
-from olit.drivers.loop.tools import ToolSurface
-from olit.registry import ProcessRegistry
+from olit.loop import confusables
+from olit.loop.tools import ToolSurface
+from olit.processes import ProcessRegistry
 
 # `run_python` with a Cyrillic е (U+0435) and о (U+043E).
 SNEAKY = "run_pythоn"
@@ -42,6 +42,20 @@ class FakeSubstrate:
 
 
 # --- The fold ------------------------------------------------------------------
+
+
+def _python_process(name, capabilities=None, result=None):
+    """A process registered the only way there is now: a plain async function."""
+    processes = ProcessRegistry()
+
+    async def run(substrate):
+        return {"ok": 1} if result is None else result
+
+    run.__name__ = name
+    run.__doc__ = f"{name}, for the test."
+    run.capabilities = list(capabilities) if capabilities else None
+    processes.register_python(run)
+    return processes
 
 
 def test_the_table_maps_the_observed_lookalikes():
@@ -107,18 +121,7 @@ def test_folding_cannot_reach_a_tool_the_session_was_not_offered():
 
 def test_a_lookalike_process_name_still_reaches_its_process():
     """The fold applies to every advertised tool, processes included."""
-    processes = ProcessRegistry()
-    processes.register(
-        "p",
-        {
-            "version": 1,
-            "id": "p",
-            "kind": "agent_pipeline",
-            "start": "d",
-            "nodes": {"d": {"type": "terminal", "output": {"ok": 1}}},
-        },
-    )
-    surface = ToolSurface(FakeSubstrate(("local",)), processes)
+    surface = ToolSurface(FakeSubstrate(("local",)), _python_process("p"))
 
     out = json.loads(asyncio.run(surface.dispatch("р", {})).text)  # Cyrillic er
     assert out == {"ok": 1}

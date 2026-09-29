@@ -1,6 +1,6 @@
 """A plugin's config template: the shape to fill, as a Galaxy tool already gets one."""
 
-from olit.drivers.loop.visualization_inputs import build_visualization_template
+from olit.loop.visualization_inputs import build_visualization_template
 
 TYPES = {
     "text": {"stores": {"type": "string"}},

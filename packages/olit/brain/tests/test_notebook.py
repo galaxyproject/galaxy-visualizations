@@ -2,9 +2,9 @@
 
 import asyncio
 
-from olit.drivers.loop import notebook
-from olit.drivers.loop.outcome import ToolOutcome
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import notebook
+from olit.loop.outcome import ToolOutcome
+from olit.loop.tools import ToolSurface
 
 HISTORY = "f2db41e1fa331b3e"
 SESSION = "4f2a9c1b-7d3e-4a21-9f00-1b2c3d4e5f60"
@@ -292,7 +292,7 @@ def test_the_binding_block_survives_a_history_it_cannot_list():
 def test_page_source_prefers_the_editable_markdown_over_the_expanded_render():
     # Galaxy returns `content` embed-expanded and `content_editor` as the saved source.
     # Reading `content` and writing it back replaces the source with its own render.
-    from olit.drivers.loop.notebook import _page_source
+    from olit.loop.notebook import _page_source
 
     page = {"content": "<expanded render>", "content_editor": "## Record\n\nreal source"}
     assert _page_source(page) == "## Record\n\nreal source"

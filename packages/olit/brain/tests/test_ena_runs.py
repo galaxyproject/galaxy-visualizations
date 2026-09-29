@@ -3,8 +3,8 @@
 import asyncio
 import json
 
-from olit.drivers.loop import ena
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import ena
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeSubstrate, refused
 

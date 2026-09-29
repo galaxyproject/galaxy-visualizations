@@ -4,8 +4,8 @@ import asyncio
 
 from olit import config as config_module
 from olit import runtime
-from olit.drivers.loop.agent import LoopDriver
-from olit.registry import ProcessRegistry
+from olit.loop.agent import LoopDriver
+from olit.processes import ProcessRegistry
 from olit.substrate import Confirmation
 from olit.substrate.llm import Reply
 

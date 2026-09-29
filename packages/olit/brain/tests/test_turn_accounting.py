@@ -7,7 +7,7 @@ notice the production code changing.
 
 import pytest
 
-from olit.drivers.loop.agent import _add_usage
+from olit.loop.agent import _add_usage
 
 
 def _fold(*replies):

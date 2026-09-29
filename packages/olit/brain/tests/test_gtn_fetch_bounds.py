@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop import gtn
+from olit.loop import gtn
 
 from .fakes import refused
 

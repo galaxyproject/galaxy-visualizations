@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop.visualizations import _list_visualizations
+from olit.loop.visualizations import _list_visualizations
 
 COMPATIBLE = [
     {
@@ -53,14 +53,14 @@ def test_the_datatype_preference_is_marked_and_ranked_first():
 def test_a_dataset_without_numeric_columns_is_told_why_and_what_else_to_try():
     out = run({"extension": "tabular", "metadata_columns": 1, "metadata_column_types": ["list"]})
     assert "no numeric columns" in out["hint"]
-    assert "vintent_dataset" in out["hint"]
+    assert "vega_dataset" in out["hint"]
 
 
 def test_the_listing_answers_what_can_render_this_and_proposes_no_route():
     """Naming a route here contradicted a request that had already named a plugin.
 
     The listing sees only a dataset_id, so it cannot tell "chart this" from "chart this
-    with plotly"; proposing vintent_dataset against a named plugin misrouted one run in
+    with plotly"; proposing an inline chart against a named plugin misrouted one run in
     five. Ninety of 112 passing chart runs never read this answer at all.
     """
     out = run({"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]})
@@ -84,7 +84,7 @@ def test_it_answers_only_what_can_render_the_dataset():
     """Columns belong to get_dataset_details.
 
     Carrying them here made a column lookup double as a plugin advertisement, and tabular
-    charting drifted off vintent_dataset toward whichever plugin the listing surfaced.
+    charting drifted off the inline route toward whichever plugin the listing surfaced.
     """
     out = run({"extension": "tabular", "metadata_columns": 3, "metadata_column_types": ["int", "float", "str"]})
     assert "columns" not in out
@@ -95,8 +95,8 @@ def test_it_answers_only_what_can_render_the_dataset():
 def test_neither_olit_nor_the_standalone_vintent_plugin_is_offered():
     """Offering either routes a chart request away from the built-in.
 
-    `olit` is this agent. The `vintent` plugin is a frozen standalone duplicate of
-    vintent_dataset sharing its name, so an agent reaching for vintent found the plugin.
+    `olit` is this agent. The `vintent` plugin defers its chart to its own LLM at view time,
+    so offering either as a way to render a dataset points the agent back at itself.
     """
     out = run(
         {"extension": "tabular", "metadata_columns": 2, "metadata_column_types": ["int", "float"]},

@@ -17,7 +17,7 @@ if __name__ == "__main__":  # pragma: no cover - the script form the shell's sui
     here = pathlib.Path(__file__).resolve().parent
     sys.path[:0] = [str(here.parent), str(here)]
 
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop.tools import ToolSurface
 
 # What Galaxy answers each route with, trimmed to the fields a reader looks for.
 RUN_TOOL = {
