@@ -563,3 +563,34 @@ def test_a_value_outside_the_default_case_options_is_still_refused():
     )
 
     assert out["saved"] is False
+
+
+class ContextCharts(Charts):
+    """galaxy-charts as it answers a history-dataset input: nothing without a dataset to key on."""
+
+    async def get_options(self, declared_input, context=None):
+        self.asked.append((context or {}).get("datasetId"))
+        if not (context or {}).get("datasetId"):
+            return {"success": True, "data": []}
+        return {"success": True, "data": self.offered}
+
+
+def test_a_refusal_names_the_dataset_its_options_were_resolved_with():
+    """The asymmetry that looped a live run: the agent asked without a dataset_id, was answered
+    with an empty list, and could not produce the value the save demanded."""
+    offered = [{"label": "tracks.bed", "value": {"id": "d1", "name": "tracks.bed"}}]
+    charts = ContextCharts(offered)
+    plugin = {"name": "igv", "tracks": [{"name": "urlDataset", "type": "data"}]}
+
+    class G(DeclaringGalaxy):
+        async def get(self, path, **kwargs):
+            return plugin if path == "api/plugins/igv" else await super().get(path, **kwargs)
+
+    without = asyncio.run(charts.get_options({"name": "urlDataset", "type": "data"}, {}))
+    assert without["data"] == [], "the agent's own call, with no dataset_id, resolves nothing"
+
+    out = refused(save(G(), charts, visualization="igv", tracks=[{"urlDataset": {"id": "d1"}}]))
+
+    assert out["saved"] is False
+    assert "1 value(s) are offered" in out["hint"], "the save resolved them, keyed on its dataset"
+    assert "dataset_id='d1'" in out["hint"]

@@ -496,9 +496,11 @@ async def _reject_unoffered(charts, plugin, a, types):
                 "hint": (
                     f"{len(offered)} value(s) are offered"
                     + (f", including {names}" if names else " for this case")
-                    + ". Call get_visualization_options and store the option's complete `value` "
-                    "unchanged: a value that names the right entry but states different or fewer "
-                    "fields is not it."
+                    + ". These were resolved with "
+                    + (f"dataset_id={a['dataset_id']!r}" if a.get("dataset_id") else "no dataset")
+                    + "; call get_visualization_options the same way and store the option's "
+                    "complete `value` unchanged, since a value naming the right entry with "
+                    "different or fewer fields is not it."
                 ),
             }
     return None
