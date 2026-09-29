@@ -6,8 +6,8 @@ from datetime import date
 NO_LOCAL_SHELL = """## Execution: remote-only (Galaxy)
 
 This build has no local shell. All computation runs on Galaxy through your Galaxy
-tools -- there is no bash, conda, or local-pipeline path here. Route every step to
-Galaxy; do not propose local shell or conda steps. `run_python` is a browser-side
+tools -- there is no bash, conda, or local-pipeline path here. Tag every plan
+`[remote]`; do not propose local shell or conda steps. `run_python` is a browser-side
 scratchpad for inspecting and summarizing data, not a compute path: real work is a
 Galaxy job, which is also what makes it reproducible."""
 
@@ -24,7 +24,7 @@ GALAXY_TERMINOLOGY = """## Galaxy
   rather than inventing a workaround.
 - **Workflow invocation**: a single run of a Galaxy workflow on a history.
 - **IWC**: Intergalactic Workflow Commission -- registry of curated
-  workflows. See "Finding a community workflow" above."""
+  workflows. See "Finding a community workflow"."""
 
 # loom: buildGalaxyContextBlock(), "Getting data into a Galaxy history".
 GETTING_DATA_IN = """### Getting data into a Galaxy history
@@ -181,7 +181,7 @@ resources before deciding what runs where:
      a plan step. Reserve for work that doesn't belong in the durable
      record.
 3. Document routing in the plan section header and inline per-step:
-   `## Plan A: chrM Variant Calling [galaxy]`
+   `## Plan A: chrM Variant Calling [remote]`
    `Step 3: BWA alignment (Galaxy: bwa-mem2/2.2.1)`
    `Step 4: VCF filter (Galaxy UDT: vcf_min_depth)`
 
@@ -362,7 +362,7 @@ on **indented sub-bullets**: markdown collapses same-line continuation text into
 parent line, and the rendered plan becomes unreadable.
 
 ```plan
-## Plan A: chrM Variant Calling [galaxy]
+## Plan A: chrM Variant Calling [remote]
 
 Identify mitochondrial variants from 4 paired-end WGS samples using the IWC
 `bwa-mem-chrM` workflow. Output: chrM VCF + per-sample QC.
@@ -394,12 +394,12 @@ Identify mitochondrial variants from 4 paired-end WGS samples using the IWC
 Conventions:
 
 - The heading **must** be `## Plan <Letter>: <Title> [<routing>]`. Passing:
-  `## Plan A: RNA-seq DE [galaxy]`. Failing, and to be avoided: `## Plan: ...`
+  `## Plan A: RNA-seq DE [remote]`. Failing, and to be avoided: `## Plan: ...`
   (missing letter), `## Plan A: RNA-seq DE` (missing routing tag),
-  `## Plan A - Title [galaxy]` (dash instead of colon).
-- The routing tag is `[galaxy]`, literal, lowercase, no spaces inside the brackets.
+  `## Plan A - Title [remote]` (dash instead of colon).
+- The routing tag is `[remote]`, literal, lowercase, no spaces inside the brackets.
   There is no local execution in this build, so every step runs on Galaxy and no other
-  tag can describe anything.
+  tag can describe anything. Older records may say `[galaxy]`, which means `[remote]`.
 - Each step needs a **Verification** sub-bullet naming a concrete check -- inspect the
   dataset, parse the file, compare expected rows -- never a vague "looks good". For
   Galaxy work the check runs once the step finishes, not by waiting in the turn.
