@@ -461,6 +461,16 @@ def test_a_genome_written_from_memory_is_refused():
     assert "get_visualization_options" in out["hint"]
 
 
+def test_a_value_naming_the_right_entry_with_fewer_fields_is_refused_and_says_so():
+    """A live run sent an id-and-extension record for a dataset the server did offer whole."""
+    g = ConditionalGalaxy()
+    partial = {"id": OFFERED_MM10["id"], "name": OFFERED_MM10["name"]}
+    out = refused(igv_genome(g, Charts([{"label": "mm10", "value": OFFERED_MM10}]), partial))
+
+    assert "does not exactly match" in out["error"]
+    assert "complete `value` unchanged" in out["hint"]
+
+
 def test_a_case_that_offers_nothing_refuses_a_value_for_it():
     """IGV's builtin genomes are a data table an admin may never have filled."""
     g = ConditionalGalaxy()

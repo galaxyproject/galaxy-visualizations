@@ -494,12 +494,13 @@ async def _reject_unoffered(charts, plugin, a, types):
             names = ", ".join(repr(_identity(o.get("value"))) for o in offered[:MATCH_CAP])
             return {
                 "saved": False,
-                "error": f"Refused: {path} holds a value this server does not offer.",
+                "error": f"Refused: {path} does not exactly match a value this server offers.",
                 "hint": (
                     f"{len(offered)} value(s) are offered"
                     + (f", including {names}" if names else " for this case")
-                    + ". Call get_visualization_options and store an option's `value` as given; "
-                    "a value written from memory is not one of them."
+                    + ". Call get_visualization_options and store the option's complete `value` "
+                    "unchanged: a value that names the right entry but states different or fewer "
+                    "fields is not it."
                 ),
             }
     return None
