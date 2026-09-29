@@ -1,6 +1,6 @@
 /** What the brain's turn diagnostics say, and what the shell decides from them.
  *
- * loom refuses `/execute` when the newest plan is `[galaxy]` and `isGalaxyConnected()` is false
+ * loom refuses `/execute` when the newest plan is `[remote]` and `isGalaxyConnected()` is false
  * (init-gate, loom #104). olit has no slash commands; the plan card's Approve button is its only
  * structural "proceed toward execution" control.
  */
