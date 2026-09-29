@@ -617,12 +617,20 @@ async def _vega_dataset(g, charts, a):
             "error": "Refused: vega-lite rejects this spec: " + "; ".join(problems[:3]),
         }
     title = a.get("title") or details.get("name") or "Chart"
-    return {
+    result = {
         "charted": True,
         "title": title,
         "columns": vega.column_names(details),
         "artifact": {"kind": "vega-lite", "title": title, "spec": ready},
     }
+    suspect = vega.unsatisfiable_types(ready, details)
+    if suspect:
+        result["note"] = (
+            f"Galaxy types {', '.join(repr(f) for f in suspect)} as text, so a quantitative "
+            "encoding on it plots only the rows that parse as numbers, and none if it holds no "
+            "numbers at all. Check the chart says what you meant."
+        )
+    return result
 
 
 def register():

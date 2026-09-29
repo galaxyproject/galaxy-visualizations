@@ -20,6 +20,9 @@ SIZE_LIMIT = 25_000_000
 # Galaxy's column types that Vega should read as numbers rather than text.
 NUMERIC = ("int", "float")
 
+# The one state in which a dataset's content is final.
+READABLE = "ok"
+
 # What a transform invents when it is given no explicit `as`.
 TRANSFORM_DEFAULTS = {
     "density": ("value", "density"),
@@ -52,6 +55,20 @@ def unreferenceable(details):
     no comment lines parse exactly as Galaxy counts them, a csv's header row is consumed by
     `type: csv`, and gff3 and vcf turn their `##` preamble into data rows.
     """
+    name = details.get("name") or "this dataset"
+    if details.get("purged"):
+        return f"{name} is purged, so its content is gone and nothing can read it."
+    state = details.get("state")
+    if state != READABLE:
+        # Named before the metadata checks, which would otherwise blame the datatype for a
+        # dataset whose job has simply not finished.
+        if state == "error":
+            return f"{name} is in state 'error', so the job producing it failed and it holds nothing to chart."
+        return (
+            f"{name} is in state {state!r}, so it holds no readable content yet. A dataset reaches "
+            "'ok' when the job producing it finishes; wait for it and chart it again rather than "
+            "converting it or changing its datatype."
+        )
     columns = details.get("metadata_columns")
     if not isinstance(columns, int) or columns < 1:
         return "Galaxy reports no column count for this dataset, so Vega cannot be told how to read it."
@@ -168,6 +185,24 @@ def read_fields(node):
         for item in node:
             found |= read_fields(item)
     return found
+
+
+def unsatisfiable_types(spec, details):
+    """Quantitative encodings on columns Galaxy typed as text, which plot nothing.
+
+    Not a refusal: Galaxy types a column as text if any value in it is, so a numeric column
+    with missing values reads as text while the encoding is still right.
+    """
+    typed = dict(zip(column_names(details), details.get("metadata_column_types") or []))
+    suspect = []
+    for channel in (spec.get("encoding") or {}).values():
+        for entry in channel if isinstance(channel, list) else [channel]:
+            if not isinstance(entry, dict) or entry.get("type") != "quantitative":
+                continue
+            field = entry.get("field")
+            if field in typed and typed[field] not in NUMERIC:
+                suspect.append(field)
+    return sorted(set(suspect))
 
 
 def build(dataset_id, spec, details):

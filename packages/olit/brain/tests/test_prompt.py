@@ -9,7 +9,9 @@ import pytest
 from olit import prompt
 from olit.loop import galaxy_tools
 from olit.loop.galaxy_tool_docs import DOCS
+from olit.loop.tools import ToolSurface
 from olit.runtime import BEGIN, END, _inject_context
+from olit.skills import SkillRegistry
 
 
 def test_every_ported_block_is_composed():
@@ -634,3 +636,29 @@ def test_a_timed_out_submission_is_checked_before_it_is_sent_again():
 
     assert "never replay a submission blind" in text
     assert "may still have been accepted" in text
+
+
+class _ManifestOnly:
+    """The surface only consults the manifest to decide what to advertise."""
+
+    class manifest:
+        @staticmethod
+        def allows(capability):
+            return True
+
+
+def test_every_tool_the_manifest_names_is_one_the_agent_advertises():
+    """The manifest's ai_prompt is the system prompt, so a tool named there and absent from the
+    surface tells the agent to call something that does not exist."""
+    xml = Path(__file__).resolve().parents[2] / "public" / "olit.xml"
+    if not xml.is_file():
+        pytest.skip("olit.xml not present next to the brain package")
+
+    named = set(re.findall(r"^- ([a-z_]+)\(", xml.read_text(), re.M))
+    assert named, "the manifest names no tools; the pattern this reads has changed"
+
+    surface = ToolSurface(_ManifestOnly(), None, SkillRegistry().load_packaged())
+    advertised = {t["function"]["name"] for t in surface.schemas()}
+
+    missing = sorted(named - advertised)
+    assert not missing, f"named in the manifest but not advertised: {missing}"

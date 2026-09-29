@@ -61,15 +61,15 @@ async function waitFor(page, fn, ms, arg) {
     check("the approved turn was sent", afterAllowed > beforeAllowed,
           `${beforeAllowed} -> ${afterAllowed} provider calls`);
 
-    // Now take the graph route, which is what loads the catalog -- and it cannot load here.
+    // Now run a process, which is what loads the catalog -- and it cannot load here.
     // The approved turn above answered with another plan card, so count from what is on screen.
-    await fetch(`${STUB}/__script?name=plan-after-graph`);
+    await fetch(`${STUB}/__script?name=plan-after-process`);
     const cards = await page.locator(".plan-draft-approve").count();
-    await page.fill("#input", "Chart the seed dataset, then plan the rest.");
+    await page.fill("#input", "Organize the seed history, then plan the rest.");
     await page.click("#send-btn");
     const recarded = await waitFor(
         page, (n) => document.querySelectorAll(".plan-draft-approve").length > n, 180000, cards);
-    check("plan draft card offered after the graph route", recarded);
+    check("plan draft card offered after a process", recarded);
     if (!recarded) {
         console.log(logs.slice(-8).join("\n"));
         await browser.close();
