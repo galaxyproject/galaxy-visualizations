@@ -461,8 +461,10 @@ class ToolSurface:
         if delegated:
             return await self._run_delegated(name, args, delegated)
         if handler:
+            # Resolution belongs to galaxy-charts; the policy around it stays on this side.
+            extra = (self.substrate.charts,) if name in visualizations.NEEDS_CHARTS else ()
             try:
-                result = self._claim_artifact(await handler(self.substrate.galaxy, args))
+                result = self._claim_artifact(await handler(self.substrate.galaxy, *extra, args))
             except galaxy_tools.ToolParameterError as exc:
                 template = await self._tool_input_template(args.get("tool_id"))
                 return ToolOutcome(galaxy_tools.parameter_help(str(exc), template), is_error=True)

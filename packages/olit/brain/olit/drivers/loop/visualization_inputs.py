@@ -232,3 +232,47 @@ def resolve_parameter(plugin, parameter, config=None):
         )
     group = segments[0]
     return _resolve((plugin or {}).get(group), segments[1:], _state(config, group), [group])
+
+
+def option_bearing(entry, declared, types, path=()):
+    """Every value in a config whose input draws its options from a finite set.
+
+    Walks declaration and config together, taking a conditional's active case only, the way
+    `_check_level` does: a value under an unselected case is not part of this config.
+    """
+    if not isinstance(entry, dict):
+        return
+    for param in declared or []:
+        name = param.get("name") if isinstance(param, dict) else None
+        if not name or name not in entry:
+            continue
+        value = entry[name]
+        if param.get("type") == "conditional":
+            test = (param.get("test_param") or {}).get("name")
+            chosen = case_value(value.get(test) if isinstance(value, dict) else None)
+            active = next(
+                (c for c in param.get("cases") or [] if chosen is not None and case_value(c.get("value")) == chosen),
+                None,
+            )
+            if active:
+                yield from option_bearing(value, active.get("inputs"), types, (*path, name))
+            continue
+        spec = types.get(param.get("type")) or {}
+        kind = (spec.get("options") or {}).get("kind")
+        # `declared` options are the XML's own list, already enforced by the declaration; the
+        # kinds here are the ones a server resolves, where a value can be invented.
+        if kind and kind != "declared" and value is not None:
+            yield ".".join((*path, name)), param, spec, value
+
+
+def is_offered(value, options, param, spec):
+    """Whether a value is one the input offers, or the value it holds when nothing is chosen.
+
+    An option's value is compared whole and never interpreted: a `data_json` entry is an object
+    the plugin owns. A declared default need not appear among the options -- plotly's `y` offers
+    only real columns -- so it is accepted beside them.
+    """
+    if any(value == option.get("value") for option in options or []):
+        return True
+    default = effective_default(param, spec)
+    return default is not None and value == default

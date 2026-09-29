@@ -19,8 +19,13 @@ from .visualization_inputs import (
     case_value,
     declared_paths,
     effective_default,
+    is_offered,
+    option_bearing,
     resolve_parameter,
 )
+
+# Handlers that resolve options, so dispatch hands them the galaxy-charts surface as well.
+NEEDS_CHARTS = ("get_visualization_options", "save_visualization")
 
 
 async def a_visualization_named(g, query):
@@ -469,7 +474,39 @@ def _reject_undeclared(plugin, a):
     return None
 
 
-async def _save_visualization(g, a):
+async def _reject_unoffered(charts, plugin, a, types):
+    """Refuse a value an input does not offer, for the inputs whose options are a finite set.
+
+    The list comes from galaxy-charts, resolved again here rather than taken from what the
+    agent was shown: a value it wrote from memory is exactly what this catches. A lookup that
+    could not be made never blocks a save; a lookup that succeeded and offers nothing does,
+    because then no value is valid.
+    """
+    levels = [(a.get("settings"), plugin.get("settings"))]
+    levels += [(track, plugin.get("tracks")) for track in a.get("tracks") or []]
+    for entry, declared in levels:
+        for path, param, spec, value in option_bearing(entry, declared, types):
+            envelope = await charts.get_options(param, {"datasetId": a.get("dataset_id")})
+            if not envelope.get("success"):
+                continue
+            offered = envelope.get("data") or []
+            if is_offered(value, offered, param, spec):
+                continue
+            names = ", ".join(repr(_identity(o.get("value"))) for o in offered[:MATCH_CAP])
+            return {
+                "saved": False,
+                "error": f"Refused: {path} holds a value this server does not offer.",
+                "hint": (
+                    f"{len(offered)} value(s) are offered"
+                    + (f", including {names}" if names else " for this case")
+                    + ". Call get_visualization_options and store an option's `value` as given; "
+                    "a value written from memory is not one of them."
+                ),
+            }
+    return None
+
+
+async def _save_visualization(g, charts, a):
     dataset, refusal = await _resolve_visualization(g, a)
     if refusal:
         return {"saved": False, **refusal}
@@ -479,6 +516,10 @@ async def _save_visualization(g, a):
         undeclared = _reject_undeclared(plugin, a)
         if undeclared:
             return ToolOutcome(undeclared, is_error=True)
+        types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+        unoffered = await _reject_unoffered(charts, plugin, a, types)
+        if unoffered:
+            return ToolOutcome(unoffered, is_error=True)
 
     name = a["visualization"]
     title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"

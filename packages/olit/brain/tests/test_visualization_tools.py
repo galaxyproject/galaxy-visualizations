@@ -41,8 +41,8 @@ def show(g, **args):
     return asyncio.run(_show_visualization(g, {"dataset_id": "d1", **args}))
 
 
-def save(g, **args):
-    return asyncio.run(_save_visualization(g, {"dataset_id": "d1", **args}))
+def save(g, charts=None, **args):
+    return asyncio.run(_save_visualization(g, charts or Charts(), {"dataset_id": "d1", **args}))
 
 
 def query_of(result):
@@ -172,7 +172,8 @@ def test_a_track_key_the_plugin_does_not_declare_is_refused():
 
 def test_the_declared_track_key_is_accepted():
     g = DeclaringGalaxy()
-    out = save(g, visualization="igv", tracks=[{"urlDataset": {"id": "d1"}, "displayMode": "EXPANDED"}])
+    charts = Charts([{"label": "d1", "value": {"id": "d1"}}])
+    out = save(g, charts, visualization="igv", tracks=[{"urlDataset": {"id": "d1"}, "displayMode": "EXPANDED"}])
     assert out["saved"] is True and g.posted is not None
 
 
@@ -247,8 +248,12 @@ def test_a_conditionals_parameters_may_not_be_flattened_beside_it():
 
 def test_the_nested_form_is_accepted():
     g = ConditionalGalaxy()
+    charts = Charts([{"label": "hg38", "value": {"id": "hg38"}}])
     out = save(
-        g, visualization="igv", settings={"locus": "chr1:1-2", "source": {"origin": "igv", "genome": {"id": "hg38"}}}
+        g,
+        charts,
+        visualization="igv",
+        settings={"locus": "chr1:1-2", "source": {"origin": "igv", "genome": {"id": "hg38"}}},
     )
     assert out["saved"] is True
     assert g.posted[1]["config"]["settings"]["source"]["genome"] == {"id": "hg38"}
@@ -257,11 +262,12 @@ def test_the_nested_form_is_accepted():
 class Charts:
     """galaxy-charts, as far as the policy around it is concerned."""
 
-    def __init__(self, offered):
-        self.offered = offered
+    def __init__(self, offered=None, success=True):
+        self.offered, self.success, self.asked = offered or [], success, []
 
     async def get_options(self, declared_input, context=None):
-        return {"success": True, "data": self.offered}
+        self.asked.append(declared_input.get("name"))
+        return {"success": self.success, "data": self.offered}
 
 
 def test_a_case_parameter_is_only_valid_for_the_chosen_case():
@@ -323,8 +329,9 @@ def test_a_scalar_parameter_refuses_the_entry_it_was_chosen_from():
 
     assert refused(save(g, visualization="igv", tracks=[{"x": {"column": "col2", "src": "hda"}}]))["saved"] is False
 
-    # The value itself still saves.
-    assert save(g, visualization="igv", tracks=[{"type": "scatter", "x": "2"}])["saved"] is True
+    # The value itself still saves, for a column this dataset offers.
+    charts = Charts([{"label": "c2", "value": "2"}])
+    assert save(g, charts, visualization="igv", tracks=[{"type": "scatter", "x": "2"}])["saved"] is True
 
 
 def test_an_empty_case_names_the_siblings_that_might_not_be():
@@ -414,3 +421,70 @@ def test_a_case_that_has_options_says_nothing_about_its_siblings():
     )
     assert out["total"] == 1
     assert "other_cases" not in out
+
+
+# The two mm10 records from a real session: the catalog's own entry, and the one the agent
+# wrote by analogy with the genepattern-hosted hg19/hg38 entries.
+OFFERED_MM10 = {
+    "id": "mm10",
+    "name": "Mouse (GRCm38/mm10)",
+    "fastaURL": "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/mm10/mm10.fa",
+    "tracks": [{"name": "Refseq Genes", "format": "refgene"}],
+}
+INVENTED_MM10 = {
+    "id": "mm10",
+    "name": "Mouse (GRCm38/mm10)",
+    "fastaURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/mm10/mm10.fa",
+    "tracks": [],
+}
+
+
+def igv_genome(g, charts, genome):
+    return save(g, charts, visualization="igv", settings={"source": {"origin": "igv", "genome": genome}})
+
+
+def test_a_genome_the_server_offers_is_saved():
+    g = ConditionalGalaxy()
+    out = igv_genome(g, Charts([{"label": "mm10", "value": OFFERED_MM10}]), OFFERED_MM10)
+
+    assert out["saved"] is True
+    assert g.posted[1]["config"]["settings"]["source"]["genome"] == OFFERED_MM10
+
+
+def test_a_genome_written_from_memory_is_refused():
+    """A complete-looking record whose urls are not the catalog's renders an unusable genome."""
+    g = ConditionalGalaxy()
+    out = refused(igv_genome(g, Charts([{"label": "mm10", "value": OFFERED_MM10}]), INVENTED_MM10))
+
+    assert out["saved"] is False and g.posted is None
+    assert "source.genome" in out["error"]
+    assert "get_visualization_options" in out["hint"]
+
+
+def test_a_case_that_offers_nothing_refuses_a_value_for_it():
+    """IGV's builtin genomes are a data table an admin may never have filled."""
+    g = ConditionalGalaxy()
+    out = refused(igv_genome(g, Charts([]), OFFERED_MM10))
+
+    assert out["saved"] is False and g.posted is None
+
+
+def test_a_lookup_that_could_not_be_made_does_not_block_a_save():
+    """Refusing on a failed resolution would make a Galaxy hiccup look like a bad value."""
+    g = ConditionalGalaxy()
+    out = igv_genome(g, Charts([], success=False), INVENTED_MM10)
+
+    assert out["saved"] is True
+
+
+def test_the_value_an_input_holds_by_default_is_accepted():
+    """plotly's `y` offers only real columns, so a declared default is not among them."""
+    plugin = {"name": "igv", "tracks": [{"name": "x", "type": "data_column", "is_auto": "true"}]}
+
+    class G(DeclaringGalaxy):
+        async def get(self, path, **kwargs):
+            return plugin if path == "api/plugins/igv" else await super().get(path, **kwargs)
+
+    out = save(G(), Charts([{"label": "c1", "value": "1"}]), visualization="igv", tracks=[{"x": "auto"}])
+
+    assert out["saved"] is True
