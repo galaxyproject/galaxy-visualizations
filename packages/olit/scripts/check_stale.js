@@ -39,10 +39,20 @@ async function galaxyMcp() {
   const res = await fetch("https://pypi.org/pypi/galaxy-mcp/json");
   if (!res.ok) throw new Error(`PyPI ${res.status}`);
   const latest = (await res.json()).info.version;
-  return pinned === latest
-    ? `galaxy-mcp up to date at ${pinned}`
-    : `galaxy-mcp BEHIND: descriptions captured from ${pinned}, PyPI has ${latest}\n` +
-        `           update: make galaxy-mcp-docs, then read the parity test's diff`;
+  if (pinned === latest) {
+    return `galaxy-mcp up to date at ${pinned}`;
+  }
+  // A capture from a dev checkout is not behind a release; the two are not ordered.
+  if (/\d(a|b|rc|\.dev)/.test(pinned)) {
+    return (
+      `galaxy-mcp captured from ${pinned}, an unreleased build; PyPI publishes ${latest}\n` +
+      `           recapture from whichever galaxy-mcp olit is meant to follow: make galaxy-mcp-docs`
+    );
+  }
+  return (
+    `galaxy-mcp BEHIND: descriptions captured from ${pinned}, PyPI has ${latest}\n` +
+    `           update: make galaxy-mcp-docs, then read the parity test's diff`
+  );
 }
 
 async function npmLatest(pkg) {
