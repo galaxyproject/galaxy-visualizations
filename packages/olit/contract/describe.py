@@ -246,15 +246,23 @@ def guards():
 
 
 def llm_request():
-    """What an unconfigured request carries, so a new unconditional field shows up."""
+    """What an unconfigured request carries, so a new unconditional field shows up.
+
+    Reported twice, because some fields only appear once tools are attached: `tool_choice` is
+    invisible to a request built without them, and it is one an agent must leave to the
+    provider rather than announce for itself.
+    """
     from olit.substrate.llm import get_adapter
     from olit.substrate.llm.providers import Model, Provider, Target
 
     bare = Target(Provider(id="p", base_url="http://x"), Model("m"), "http://x", None, 128000, None, 30)
-    body = get_adapter("openai-completions").build_request(bare, [], None)
+    adapter = get_adapter("openai-completions")
+    body = adapter.build_request(bare, [], None)
+    with_tools = adapter.build_request(bare, [], [{"type": "function", "function": {"name": "finish"}}])
     return {
         "body_keys": sorted(k for k in body if k != "messages"),
         "sampling": {k: body.get(k) for k in ("max_tokens", "temperature", "tool_choice", "top_p")},
+        "with_tools": {"tool_choice": with_tools.get("tool_choice")},
     }
 
 

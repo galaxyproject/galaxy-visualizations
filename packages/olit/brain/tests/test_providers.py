@@ -141,6 +141,15 @@ def test_no_sampling_field_is_sent_unless_one_is_configured():
     assert "temperature" not in body and "top_p" not in body
 
 
+def test_which_tool_to_call_is_left_to_the_provider():
+    """pi reaches tool_choice only when a caller asks for one, and loom never asks."""
+    tools = [{"type": "function", "function": {"name": "finish"}}]
+    body = get_adapter("openai-completions").build_request(_target(Provider(id="p")), [], tools)
+
+    assert body["tools"] == tools
+    assert "tool_choice" not in body
+
+
 def test_a_provider_that_needs_a_sampling_setting_can_state_one():
     provider = Provider(id="q", compat={"temperature": 0.2, "sampling_params": {"top_p": 0.8}})
     body = get_adapter("openai-completions").build_request(_target(provider), [], None)

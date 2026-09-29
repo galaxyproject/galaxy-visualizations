@@ -15,12 +15,17 @@ from .outcome import ToolOutcome
 from .paging import ROW_CAP
 from .registry import _STR, _q, _tool
 from .visualization_inputs import (
+    active_case,
     build_visualization_template,
-    case_value,
     declared_paths,
     effective_default,
+    is_offered,
+    option_bearing,
     resolve_parameter,
 )
+
+# Handlers that resolve options, so dispatch hands them the galaxy-charts surface as well.
+NEEDS_CHARTS = ("get_visualization_options", "save_visualization")
 
 
 async def a_visualization_named(g, query):
@@ -387,8 +392,7 @@ def _check_level(entry, declared, types, where):
         if param.get("type") == "conditional":
             test = (param.get("test_param") or {}).get("name")
             cases = param.get("cases") or []
-            wanted = case_value(value.get(test) if isinstance(value, dict) else None)
-            active = next((c for c in cases if wanted is not None and case_value(c.get("value")) == wanted), None)
+            active = active_case(param, entry)
             if active is None:
                 labels = ", ".join(repr(c.get("value")) for c in cases)
                 return {
@@ -469,7 +473,52 @@ def _reject_undeclared(plugin, a):
     return None
 
 
-async def _save_visualization(g, a):
+async def _reject_unoffered(charts, plugin, a, types):
+    """Refuse a value the server does not offer, resolving the options again at the write.
+
+    A lookup that could not be made never blocks a save; one that succeeded and offers
+    nothing does, because then no value is valid.
+    """
+    levels = [(a.get("settings"), plugin.get("settings"))]
+    levels += [(track, plugin.get("tracks")) for track in a.get("tracks") or []]
+    for entry, declared in levels:
+        for path, param, spec, value, case in option_bearing(entry, declared, types):
+            envelope = await charts.get_options(param, {"datasetId": a.get("dataset_id")})
+            if not envelope.get("success"):
+                continue
+            offered = envelope.get("data") or []
+            if is_offered(value, offered, param, spec):
+                continue
+            if not offered and case:
+                return {
+                    "saved": False,
+                    "error": f"Refused: this server lists no {path} for {case['test']}={case['value']!r}.",
+                    "other_cases": case["siblings"],
+                    "hint": (
+                        "The same parameter is declared for "
+                        + ", ".join(repr(s) for s in case["siblings"])
+                        + "; a value resolved under one of those does not become valid by "
+                        f"leaving {case['test']} as {case['value']!r}."
+                    ),
+                }
+            names = ", ".join(repr(_identity(o.get("value"))) for o in offered[:MATCH_CAP])
+            return {
+                "saved": False,
+                "error": f"Refused: {path} does not exactly match a value this server offers.",
+                "hint": (
+                    f"{len(offered)} value(s) are offered"
+                    + (f", including {names}" if names else " for this case")
+                    + ". These were resolved with "
+                    + (f"dataset_id={a['dataset_id']!r}" if a.get("dataset_id") else "no dataset")
+                    + "; call get_visualization_options the same way and store the option's "
+                    "complete `value` unchanged, since a value naming the right entry with "
+                    "different or fewer fields is not it."
+                ),
+            }
+    return None
+
+
+async def _save_visualization(g, charts, a):
     dataset, refusal = await _resolve_visualization(g, a)
     if refusal:
         return {"saved": False, **refusal}
@@ -479,6 +528,10 @@ async def _save_visualization(g, a):
         undeclared = _reject_undeclared(plugin, a)
         if undeclared:
             return ToolOutcome(undeclared, is_error=True)
+        types = (vendor.galaxy_charts_inputs() or {}).get("types") or {}
+        unoffered = await _reject_unoffered(charts, plugin, a, types)
+        if unoffered:
+            return ToolOutcome(unoffered, is_error=True)
 
     name = a["visualization"]
     title = a.get("title") or f"{name} of {dataset.get('name') or a['dataset_id']}"

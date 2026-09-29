@@ -91,3 +91,38 @@ def test_the_samples_the_shell_reads_are_produced_by_this_surface():
         # notebook_resume is Olit's own tool and answers with its object; the rest are Galaxy's.
         if label != "notebook_resume":
             assert "data" in payload, f"{label} carries no data"
+
+
+def test_the_options_tool_refusal_crosses_the_boundary_as_a_refusal():
+    """It was dispatched by a special case that re-serialised its outcome, so a live session
+    read `ToolOutcome(...)` as prose and chose another branch instead of passing config."""
+
+    class Plugins(_Galaxy):
+        async def get(self, path, binary=False):
+            if path == "api/plugins/igv":
+                return {
+                    "name": "igv",
+                    "settings": [
+                        {
+                            "name": "source",
+                            "type": "conditional",
+                            "test_param": {
+                                "name": "origin",
+                                "data": [{"label": "IGV Remote Genome", "value": "igv"}],
+                            },
+                            "cases": [{"value": "igv", "inputs": [{"name": "genome", "type": "data_json"}]}],
+                        }
+                    ],
+                }
+            return await super().get(path, binary=binary)
+
+    substrate = FakeSubstrate(galaxy=Plugins(), capabilities=("llm", "local", "read"))
+    out = asyncio.run(
+        ToolSurface(substrate).dispatch(
+            "get_visualization_options", {"visualization": "igv", "parameter": "settings.source.genome"}
+        )
+    )
+
+    assert out.is_error
+    assert "ToolOutcome(" not in str(out.content)
+    assert "Refused" in str(out.content)

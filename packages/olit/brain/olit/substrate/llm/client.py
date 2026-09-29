@@ -61,22 +61,14 @@ class Llm:
         view.manifest = manifest
         return view
 
-    async def complete(
-        self,
-        messages,
-        tools=None,
-        tool_choice=None,
-        parallel_tools=True,
-        cancellation=None,
-        on_retry=None,
-    ):
+    async def complete(self, messages, tools=None, cancellation=None, on_retry=None):
         self.manifest.require("llm")
         oversized = self.adapter.oversized_tools(self.target, tools)
         if oversized:
             # This endpoint rejects the whole request, not the offending tool.
             names = ", ".join(f"{name} ({size} bytes)" for name, size in oversized)
             raise ValueError(f"Tool schema too large for {self.target.provider.name}: {names}")
-        body = self.adapter.build_request(self.target, messages, tools, tool_choice, parallel_tools)
+        body = self.adapter.build_request(self.target, messages, tools)
         for attempt in range(EMPTY_REPLY_ATTEMPTS):
             await self._limiter.acquire()
             payload = await http.request(

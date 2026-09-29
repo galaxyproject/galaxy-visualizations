@@ -146,19 +146,21 @@ def test_the_plan_template_teaches_the_rigid_heading():
     block = prompt.PLAN_CONVENTION
 
     assert "## Plan <Letter>: <Title> [<routing>]" in block
-    assert "## Plan A: chrM Variant Calling [galaxy]" in block
+    assert "## Plan A: chrM Variant Calling [remote]" in block
     # The failing forms are spelled out; the model reproduces them otherwise.
     assert "(missing letter)" in block and "(missing routing tag)" in block
 
 
 def test_only_one_routing_tag_is_taught_because_only_one_can_describe_anything():
-    """loom's four tags separate local from remote; this build runs everything on Galaxy, and the
+    """loom's tags separate local from remote; this build runs everything on Galaxy, and the
     block that defined the difference is deliberately not emitted, so a second tag names nothing."""
     block = prompt.PLAN_CONVENTION
 
-    assert "The routing tag is `[galaxy]`" in block
-    for absent in ("[remote]", "[local]", "[hybrid]"):
+    assert "The routing tag is `[remote]`" in block
+    for absent in ("[local]", "[hybrid]"):
         assert absent not in block, f"{absent} cannot describe a step in this build"
+    # loom retired `[galaxy]` for `[remote]`; a record written before that still reads.
+    assert "Older records may say `[galaxy]`" in block
 
 
 def test_the_chat_formatting_reason_is_one_the_renderer_really_has():

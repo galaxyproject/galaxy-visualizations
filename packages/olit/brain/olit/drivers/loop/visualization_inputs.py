@@ -163,6 +163,28 @@ def case_value(value):
     return None if value is None else str(value)
 
 
+def named_case(test, value):
+    """A case value with the label the form shows for it, where the test parameter declares one."""
+    labels = {d.get("value"): d.get("label") for d in (test or {}).get("data") or [] if isinstance(d, dict)}
+    label = labels.get(value)
+    return f"{value!r} ({label})" if label else repr(value)
+
+
+def selected_case(test, stated):
+    """The case label galaxy-charts compares: `result[testName] ?? test_param.value`."""
+    return case_value((test or {}).get("value") if stated is None else stated)
+
+
+def active_case(param, entry):
+    """The case a conditional selects, as `formatConditional` selects it."""
+    test = param.get("test_param") or {}
+    held = entry.get(param.get("name")) if isinstance(entry, dict) else None
+    chosen = selected_case(test, held.get(test.get("name")) if isinstance(held, dict) else None)
+    if chosen is None:
+        return None
+    return next((c for c in param.get("cases") or [] if case_value(c.get("value")) == chosen), None)
+
+
 def _shape(trail, test_name):
     """The config a caller has to send, written the way the template writes an unfilled value."""
     nested = {test_name: "<value>"}
@@ -199,10 +221,10 @@ def _resolve(params, segments, state, trail):
 
     # The config selects one case, exactly as the form does; the others are not in play.
     nested = state.get(name) if isinstance(state, dict) else None
-    chosen = case_value(nested.get(test.get("name")) if isinstance(nested, dict) else None)
+    chosen = selected_case(test, nested.get(test.get("name")) if isinstance(nested, dict) else None)
     active = next((c for c in cases if chosen is not None and case_value(c.get("value")) == chosen), None)
     if active is None:
-        offered = ", ".join(repr(c.get("value")) for c in cases)
+        offered = ", ".join(named_case(test, c.get("value")) for c in cases)
         return None, (
             f"{here!r} selects its inputs by {test.get('name')!r}. Pass "
             f"config={_shape(trail + [name], test.get('name'))} with {test.get('name')!r} as one of {offered}."
@@ -232,3 +254,44 @@ def resolve_parameter(plugin, parameter, config=None):
         )
     group = segments[0]
     return _resolve((plugin or {}).get(group), segments[1:], _state(config, group), [group])
+
+
+def option_bearing(entry, declared, types, path=(), case=None):
+    """Every value in a config whose input draws its options from a finite set.
+
+    `case` carries the conditional branch the value sits under, since a branch that offers
+    nothing is a different answer from a value that is simply wrong.
+    """
+    if not isinstance(entry, dict):
+        return
+    for param in declared or []:
+        name = param.get("name") if isinstance(param, dict) else None
+        if not name or name not in entry:
+            continue
+        value = entry[name]
+        if param.get("type") == "conditional":
+            active = active_case(param, entry)
+            if active:
+                under = {
+                    "test": (param.get("test_param") or {}).get("name"),
+                    "value": active.get("value"),
+                    "siblings": [c.get("value") for c in param.get("cases") or [] if c is not active],
+                }
+                yield from option_bearing(value, active.get("inputs"), types, (*path, name), under)
+            continue
+        spec = types.get(param.get("type")) or {}
+        kind = (spec.get("options") or {}).get("kind")
+        # `declared` options are the XML's own list; these kinds are resolved by a server.
+        if kind and kind != "declared" and value is not None:
+            yield ".".join((*path, name)), param, spec, value, case
+
+
+def is_offered(value, options, param, spec):
+    """Whether a value is one the input offers, compared whole, or its effective default.
+
+    A default need not appear among the options: plotly's `y` offers only real columns.
+    """
+    if any(value == option.get("value") for option in options or []):
+        return True
+    default = effective_default(param, spec)
+    return default is not None and value == default

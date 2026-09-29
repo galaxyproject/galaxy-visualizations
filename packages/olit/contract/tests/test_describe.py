@@ -87,6 +87,11 @@ def test_the_shell_contract_a_harness_stands_in_for_is_published():
     assert shell["resume_prompt_from"] == "contract/shell.mjs"
 
 
+def test_the_published_request_shows_that_tool_choice_is_left_to_the_provider():
+    """Invisible until the probe attached a tool, which is how an imposed default went unseen."""
+    assert described()["policy"]["llm_request"]["with_tools"] == {"tool_choice": None}
+
+
 def test_a_handler_outside_galaxy_tools_still_carries_its_query():
     """The visualization handlers live in their own module; their metadata has to follow them.
 

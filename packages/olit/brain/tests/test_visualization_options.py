@@ -160,6 +160,15 @@ def test_a_name_declared_in_several_cases_is_refused_rather_than_guessed():
     assert "'igv'" in out and "'builtin'" in out, "the cases it could not choose between"
 
 
+def test_the_refusal_names_each_case_as_the_form_names_it():
+    """A live run read three bare tokens, picked the one it could satisfy, and used a phage
+    genome for a human VCF. The labels are published; the refusal now carries them."""
+    out = refused(call(parameter="settings.source.genome"))
+
+    assert "'igv' (IGV)" in out
+    assert "'builtin' (Built in)" in out
+
+
 def test_the_refusal_shows_the_config_to_send_not_only_its_values():
     """A live run looped six times on this: naming the values does not say where they go."""
     out = refused(call(parameter="settings.source.genome"))
