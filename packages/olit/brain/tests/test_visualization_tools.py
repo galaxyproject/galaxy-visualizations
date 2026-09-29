@@ -488,3 +488,26 @@ def test_the_value_an_input_holds_by_default_is_accepted():
     out = save(G(), Charts([{"label": "c1", "value": "1"}]), visualization="igv", tracks=[{"x": "auto"}])
 
     assert out["saved"] is True
+
+
+def test_the_guard_is_driven_by_the_type_contract_not_by_the_plugin():
+    """Any plugin whose input resolves its options is checked; nothing here knows the plugin."""
+    plugin = {
+        "name": "atlas",
+        "settings": [{"name": "table", "type": "data_table", "tables": ["anything"]}],
+    }
+
+    class G(Galaxy):
+        async def get(self, path, **kwargs):
+            if path == "api/plugins/atlas":
+                return plugin
+            if path.startswith("api/plugins?"):
+                return [{"name": "atlas"}]
+            return await super().get(path, **kwargs)
+
+    offered = Charts([{"label": "a", "value": {"id": "a", "columns": ["path"]}}])
+    stored = {"table": {"id": "a", "columns": ["path"]}}
+    assert save(G(), offered, visualization="atlas", settings=stored)["saved"] is True
+    invented = refused(save(G(), offered, visualization="atlas", settings={"table": {"id": "b"}}))
+    assert invented["saved"] is False
+    assert offered.asked == ["table", "table"]

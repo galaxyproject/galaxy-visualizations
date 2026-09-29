@@ -15,8 +15,8 @@ from .outcome import ToolOutcome
 from .paging import ROW_CAP
 from .registry import _STR, _q, _tool
 from .visualization_inputs import (
+    active_case,
     build_visualization_template,
-    case_value,
     declared_paths,
     effective_default,
     is_offered,
@@ -392,8 +392,7 @@ def _check_level(entry, declared, types, where):
         if param.get("type") == "conditional":
             test = (param.get("test_param") or {}).get("name")
             cases = param.get("cases") or []
-            wanted = case_value(value.get(test) if isinstance(value, dict) else None)
-            active = next((c for c in cases if wanted is not None and case_value(c.get("value")) == wanted), None)
+            active = active_case(param, entry)
             if active is None:
                 labels = ", ".join(repr(c.get("value")) for c in cases)
                 return {

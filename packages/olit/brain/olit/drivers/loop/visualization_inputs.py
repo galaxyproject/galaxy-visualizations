@@ -163,6 +163,20 @@ def case_value(value):
     return None if value is None else str(value)
 
 
+def active_case(param, entry):
+    """The case a conditional's stored test parameter selects, as galaxy-charts selects it.
+
+    `formatConditional` falls back to the test parameter's declared value where a config sets
+    none; nothing selected here selects no case, which skips a check rather than reading one.
+    """
+    test = (param.get("test_param") or {}).get("name")
+    held = entry.get(param.get("name")) if isinstance(entry, dict) else None
+    chosen = case_value(held.get(test) if isinstance(held, dict) else None)
+    if chosen is None:
+        return None
+    return next((c for c in param.get("cases") or [] if case_value(c.get("value")) == chosen), None)
+
+
 def _shape(trail, test_name):
     """The config a caller has to send, written the way the template writes an unfilled value."""
     nested = {test_name: "<value>"}
@@ -248,12 +262,7 @@ def option_bearing(entry, declared, types, path=()):
             continue
         value = entry[name]
         if param.get("type") == "conditional":
-            test = (param.get("test_param") or {}).get("name")
-            chosen = case_value(value.get(test) if isinstance(value, dict) else None)
-            active = next(
-                (c for c in param.get("cases") or [] if chosen is not None and case_value(c.get("value")) == chosen),
-                None,
-            )
+            active = active_case(param, entry)
             if active:
                 yield from option_bearing(value, active.get("inputs"), types, (*path, name))
             continue
