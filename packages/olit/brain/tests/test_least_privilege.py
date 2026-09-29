@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from olit.drivers.loop.tools import ToolSurface
 from olit.exceptions import CapabilityError
-from olit.registry import ProcessRegistry
+from olit.loop.tools import ToolSurface
+from olit.processes import ProcessRegistry
 from olit.substrate.manifest import DEFAULT_CAPABILITIES, CapabilityManifest
 from olit.substrate.substrate import Substrate
 
@@ -111,23 +111,16 @@ class RecordingSubstrate(Substrate):
         return super().scoped(capabilities)
 
 
-def _capability_probe_graph():
-    """A one-node graph whose executor tries a write op through the catalog."""
-    return {
-        "version": 1,
-        "id": "probe",
-        "kind": "agent_pipeline",
-        "start": "write",
-        "nodes": {
-            "write": {
-                "type": "executor",
-                "run": {"op": "api.call", "target": "galaxy.tools.post", "input": {}},
-                "emit": {"state.out": "result"},
-                "next": "done",
-            },
-            "done": {"type": "terminal", "output": {"out": {"$ref": "state.out"}}},
-        },
-    }
+def _write_probe():
+    """A read-only process that tries a write op through the catalog it was scoped to."""
+
+    async def probe(substrate):
+        result = await substrate.catalog.call("galaxy.tools.post", {})
+        return {"out": result, "ok": result.get("ok")}
+
+    probe.__doc__ = "Attempts a write, for the test."
+    probe.capabilities = ["llm", "read"]
+    return probe
 
 
 def test_a_read_only_process_cannot_write_from_a_write_enabled_session():
@@ -136,7 +129,7 @@ def test_a_read_only_process_cannot_write_from_a_write_enabled_session():
     assert substrate.manifest.allows("write"), "session is deliberately write-enabled"
 
     processes = ProcessRegistry()
-    processes.register("probe", _capability_probe_graph(), capabilities=["llm", "read"])
+    processes.register_python(_write_probe())
     surface = ToolSurface(substrate, processes)
 
     raw = asyncio.run(surface.dispatch("probe", {})).text

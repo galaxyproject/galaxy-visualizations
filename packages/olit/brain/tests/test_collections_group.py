@@ -5,7 +5,7 @@ import zipfile
 
 import pytest
 
-from olit.registry.extensions.collections.bridge import group_datasets
+from olit.processes.dataset_grouping import group_datasets
 
 
 def ds(name, i=None):

@@ -2,8 +2,8 @@
 
 import asyncio
 
-from olit.drivers.loop import page_edit
-from olit.drivers.loop.galaxy_tools import _update_page
+from olit.loop import page_edit
+from olit.loop.galaxy_tools import _update_page
 
 DOC = "## Record\n\nintro\n\n## Methods\n\nold\n\n## Results\n\nfindings\n"
 

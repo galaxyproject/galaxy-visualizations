@@ -18,12 +18,10 @@ brain/olit/              the agent (Python, runs in Pyodide)
   config.py prompt.py compaction.py
   substrate/                the capability gate and everything behind it:
                             manifest, local python, Galaxy REST and catalog, LLM, http
-  drivers/loop/             the agent loop and its tools (galaxy_tools, notebook, gtn)
-  drivers/graph/            the graph engine that runs an agent.yml process
+  drivers/loop/             the agent loop and its tools (galaxy_tools, notebook, gtn, vega)
   registry/                 skills (SKILL.md routers) and processes:
-    processes/*.yml           graph processes (vintent_dataset)
-    python/*.py               plain async processes (lineage_report, organize_datasets)
-    extensions/               materializers a process can call, each behind a bridge.py
+    python/*.py               async processes (lineage_report, organize_datasets)
+    extensions/               helpers those processes build on
   vendor/                   contracts owned elsewhere, pinned (galaxy-charts input types)
 contract/                 what olit publishes about itself, for an outside evaluator
   describe.py               the brain: tools, queries, guards, policy, prompt symbols
@@ -72,7 +70,7 @@ The Orbit seam registry, which tracks what Olit's prompts and tools carry from O
 in the `agents` repo and reads what `npm run describe` publishes.
 
 Two Galaxy surfaces, one gate. The loop uses named tools over direct REST
-(`substrate/galaxy_http.py`), the surface galaxy-mcp defines; graph processes use the
+(`substrate/galaxy_http.py`), the surface galaxy-mcp defines; a process uses the
 OpenAPI catalog (`substrate/catalog.py`), scoped by prefix and method. Both pass the same
 `CapabilityManifest`: the session's grant comes from the manifest's `<capabilities>`, a
 process runs on the intersection of that with what it declares, and write is never a default.

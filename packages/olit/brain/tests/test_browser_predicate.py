@@ -33,7 +33,7 @@ def test_nothing_else_decides_it_for_itself():
 
 
 def test_the_callers_agree_with_it():
-    from olit.drivers.loop.galaxy_tools import DATA_DIR
+    from olit.loop.galaxy_tools import DATA_DIR
     from olit.substrate.http import BrowserHttpClient, http
 
     assert (DATA_DIR == "/data") is browser.in_browser()

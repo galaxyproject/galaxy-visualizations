@@ -1,15 +1,15 @@
 """Searching the Galaxy tool catalog for something that was never in it.
 
-A run asked for a plotly chart and searched for 'vintent', 'vintent_dataset', 'plotly'
+A run asked for a plotly chart and searched for 'organize', 'organize_datasets', 'plotly'
 and 'visualization' in turn. Each search was answered once, so no repeat guard fired;
 the catalog simply does not hold Olit tools or visualizations, and never said so.
 """
 
 import asyncio
 
-from olit.drivers.loop.galaxy_tools import catalog_miss_hint
-from olit.drivers.loop.tools import ToolSurface
-from olit.registry import ProcessRegistry
+from olit.loop.galaxy_tools import catalog_miss_hint
+from olit.loop.tools import ToolSurface
+from olit.processes import ProcessRegistry
 
 
 class _Manifest:
@@ -49,28 +49,28 @@ def _hint(query, tools=None, plugins=None, name="search_tools_by_name"):
 
 
 def test_searching_for_an_olit_tool_says_where_it_lives_without_directing_a_call():
-    """The directive form sent one run to vintent when the user had asked for plotly.
+    """The directive form sent one run to an Olit process when the user had asked for plotly.
 
     A search is the model orienting itself, so naming the tool is the answer; telling it to
     call the tool overrides whatever visualization the request actually named.
     """
-    outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "vintent_dataset"}))
+    outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "organize_datasets"}))
     assert outcome.is_error
     assert "is an Olit tool" in outcome.text
-    assert "Call vintent_dataset directly" not in outcome.text
+    assert "Call organize_datasets directly" not in outcome.text
 
 
 def test_asking_to_run_an_olit_tool_by_id_still_names_the_route():
     """A tool_id is the model trying to run that exact tool, so the directive belongs there."""
-    outcome = asyncio.run(_surface().dispatch("get_tool_details", {"tool_id": "vintent_dataset"}))
+    outcome = asyncio.run(_surface().dispatch("get_tool_details", {"tool_id": "organize_datasets"}))
     assert outcome.is_error
-    assert "Call vintent_dataset directly" in outcome.text
+    assert "Call organize_datasets directly" in outcome.text
 
 
 def test_a_partial_name_still_reaches_the_olit_tool():
-    """The run searched 'vintent' before it searched 'vintent_dataset'."""
-    outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "vintent"}))
-    assert outcome.is_error and "vintent_dataset" in outcome.text
+    """The run searched 'organize' before it searched 'organize_datasets'."""
+    outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "organize"}))
+    assert outcome.is_error and "organize_datasets" in outcome.text
     assert "directly" not in outcome.text
 
 
@@ -180,7 +180,7 @@ def test_an_unknown_tool_is_named_without_its_control_token():
 
 
 def test_a_body_keeps_its_words_while_losing_the_token():
-    from olit.drivers.loop.tools import without_control_tokens
+    from olit.loop.tools import without_control_tokens
 
     assert without_control_tokens("before<|channel|>final<|message|>after") == "beforefinalafter"
     assert without_control_tokens("nothing to strip") == "nothing to strip"
@@ -189,7 +189,7 @@ def test_a_body_keeps_its_words_while_losing_the_token():
 
 def test_the_tool_message_carries_neither_a_contaminated_name_nor_body():
     """The name field poisons the transcript as surely as the content does."""
-    from olit.drivers.loop.tools import plain_tool_name, without_control_tokens
+    from olit.loop.tools import plain_tool_name, without_control_tokens
 
     name, body = "get_page<|channel|>commentary", "Unknown tool: get_page<|channel|>commentary"
     message = {"role": "tool", "name": plain_tool_name(name), "content": without_control_tokens(body)}

@@ -7,7 +7,7 @@ against was serialization happening first: the helper alone passes either way.
 import asyncio
 import json
 
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop.tools import ToolSurface
 
 DATASET = "0f74b56904a59856"
 VIZ = "33b43b4e7093c91f"

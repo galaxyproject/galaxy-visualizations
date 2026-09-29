@@ -9,7 +9,7 @@ Galaxy is not involved: this is the half Olit controls.
 import asyncio
 import json
 
-from olit.registry.python.organize_datasets import BATCH, organize_datasets, summarize_state
+from olit.processes.organize_datasets import BATCH, organize_datasets, summarize_state
 
 
 class Catalog:

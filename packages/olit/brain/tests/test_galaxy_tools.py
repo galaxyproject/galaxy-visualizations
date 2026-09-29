@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop.tools import ToolSurface
 from olit.substrate.galaxy_ops import GalaxyOps
 
 

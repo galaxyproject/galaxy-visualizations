@@ -9,9 +9,9 @@ discards whatever still arrives too large.
 import asyncio
 import json
 
-from olit.drivers.loop.agent import MAX_TOOL_RESULT_BYTES, LoopDriver
-from olit.drivers.loop.galaxy_tools import _get_history_contents
-from olit.drivers.loop.paging import ROW_BYTES_CAP, ROW_CAP, server_page
+from olit.loop.agent import MAX_TOOL_RESULT_BYTES, LoopDriver
+from olit.loop.galaxy_tools import _get_history_contents
+from olit.loop.paging import ROW_BYTES_CAP, ROW_CAP, server_page
 from olit.substrate.llm import Reply
 
 from .fakes import FakeSubstrate, Local, ScriptedLlm

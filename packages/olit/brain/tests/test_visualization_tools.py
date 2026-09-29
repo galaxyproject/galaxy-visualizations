@@ -3,8 +3,8 @@
 import asyncio
 from urllib.parse import parse_qs, urlparse
 
-from olit.drivers.loop import artifacts
-from olit.drivers.loop.visualizations import (
+from olit.loop import artifacts
+from olit.loop.visualizations import (
     _save_visualization,
     _show_visualization,
     get_visualization_options,

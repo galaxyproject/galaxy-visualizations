@@ -9,9 +9,9 @@ import asyncio
 import json
 import pathlib
 
-from olit.drivers.loop import galaxy_tools
-from olit.drivers.loop.outcome import rendered
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import galaxy_tools
+from olit.loop.outcome import rendered
+from olit.loop.tools import ToolSurface
 from olit.substrate import galaxy_ops
 from olit.substrate.galaxy_ops import GalaxyOps, as_wire, camel
 

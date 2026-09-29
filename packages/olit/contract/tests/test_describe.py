@@ -4,7 +4,7 @@ import json
 import pathlib
 
 import describe
-from olit.drivers.loop import galaxy_tools
+from olit.loop import galaxy_tools
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -62,7 +62,7 @@ def test_prompt_blocks_are_symbols_the_prompt_module_defines():
 
 def test_the_symbol_table_covers_the_package_and_skips_vendored_contracts():
     symbols = described()["symbols"]
-    assert "olit/runtime.py" in symbols and "olit/drivers/loop/galaxy_tools.py" in symbols
+    assert "olit/runtime.py" in symbols and "olit/loop/galaxy_tools.py" in symbols
     assert not [m for m in symbols if m.startswith("olit/vendor/")]
 
 
@@ -108,7 +108,7 @@ def test_discovery_spans_every_module_that_defines_a_handler():
     """Named by the handlers themselves rather than a list that can go stale."""
     modules = {t["handler"].__module__ for t in galaxy_tools.TOOLS if t["handler"] is not None}
     assert len(modules) > 1, "the split put handlers in more than one module"
-    assert modules == {"olit.drivers.loop.galaxy_tools", "olit.drivers.loop.visualizations"}
+    assert modules == {"olit.loop.galaxy_tools", "olit.loop.visualizations"}
     assert len(describe._handler_trees()) == len(modules)
 
 

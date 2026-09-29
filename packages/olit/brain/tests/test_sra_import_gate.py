@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from olit.drivers.loop import sra_import_gate
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import sra_import_gate
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeSubstrate
 

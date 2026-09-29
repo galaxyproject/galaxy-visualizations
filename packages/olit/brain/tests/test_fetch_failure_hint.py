@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from olit.drivers.loop import fetch_failure_hint as hint
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import fetch_failure_hint as hint
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeOps, FakeSubstrate
 

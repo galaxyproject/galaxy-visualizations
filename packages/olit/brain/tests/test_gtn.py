@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from olit.drivers.loop import gtn
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import gtn
+from olit.loop.tools import ToolSurface
 
 from .fakes import refused
 

@@ -40,6 +40,16 @@ class GalaxyCharts:
     def available(self):
         return self._transport() is not None
 
+    async def compile_spec(self, spec):
+        """Whether Galaxy's own vega-lite accepts this spec, as an envelope either way."""
+        transport = self._transport()
+        if transport is None:
+            return failed("no galaxy-charts transport in this runtime")
+        try:
+            return await transport.run("compile", {"spec": spec})
+        except TransportUnavailable as exc:
+            return failed(str(exc))
+
     async def get_options(self, declared_input, context=None):
         """The values an input may hold, as an envelope whether or not it succeeded."""
         self.manifest.require("read")

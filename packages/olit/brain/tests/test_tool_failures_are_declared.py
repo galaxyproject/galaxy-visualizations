@@ -9,7 +9,7 @@ handler and this test holds the loop's handlers to that.
 import ast
 import pathlib
 
-from olit.drivers.loop import ena, galaxy_tools, gtn, notebook
+from olit.loop import ena, galaxy_tools, gtn, notebook
 
 LOOP = pathlib.Path(galaxy_tools.__file__).parent
 

@@ -2,8 +2,8 @@
 
 import asyncio
 
-from olit.drivers.loop.agent import MAX_TOOL_RESULT_BYTES
-from olit.drivers.loop.galaxy_tools import JOB_LOG_BYTES, _get_job_details
+from olit.loop.agent import MAX_TOOL_RESULT_BYTES
+from olit.loop.galaxy_tools import JOB_LOG_BYTES, _get_job_details
 
 
 class FakeGalaxy:

@@ -15,9 +15,9 @@ import shutil
 
 import pytest
 
-from olit.drivers.loop import galaxy_tools
-from olit.drivers.loop.galaxy_tool_docs import DOCS
-from olit.drivers.loop.galaxy_tools import TOOLS
+from olit.loop import galaxy_tools
+from olit.loop.galaxy_tool_docs import DOCS
+from olit.loop.galaxy_tools import TOOLS
 from olit.substrate.substrate import Substrate
 
 REFERENCE = pathlib.Path(__file__).parent / "data" / "galaxy-mcp-docs.json"

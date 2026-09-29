@@ -1,6 +1,6 @@
 """A read of a resource the watcher owns buys nothing until it can say something new."""
 
-from olit.drivers.loop.galaxy_poll_guard import COOLDOWN_SECONDS, GalaxyPollGuard
+from olit.loop.galaxy_poll_guard import COOLDOWN_SECONDS, GalaxyPollGuard
 
 WATCHED = [{"kind": "dataset", "id": "d1", "state": "running"}]
 

@@ -10,9 +10,9 @@ import ast
 import asyncio
 import pathlib
 
-from olit.drivers.loop import tools as tools_module
-from olit.drivers.loop.outcome import ToolOutcome
-from olit.drivers.loop.tools import ToolSurface
+from olit.loop import tools as tools_module
+from olit.loop.outcome import ToolOutcome
+from olit.loop.tools import ToolSurface
 
 from .fakes import FakeOps, FakeSubstrate
 

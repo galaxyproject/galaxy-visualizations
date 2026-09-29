@@ -30,7 +30,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const REPO = process.env.GALAXY_SKILLS_REPO || "galaxyproject/galaxy-skills";
-const DEST = join(process.cwd(), "brain", "olit", "registry", "skills", "galaxy-skills");
+const DEST = join(process.cwd(), "brain", "olit", "skills", "galaxy-skills");
 const STAMP = join(DEST, "VENDORED.json");
 const LOCK = join(process.cwd(), "skills.lock.json");
 

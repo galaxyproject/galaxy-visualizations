@@ -9,8 +9,8 @@ import os
 
 import pytest
 
-from olit.drivers.loop import galaxy_tools
-from olit.drivers.loop.galaxy_tools import (
+from olit.loop import galaxy_tools
+from olit.loop.galaxy_tools import (
     MAX_DOWNLOAD_BYTES,
     PREVIEW_LINES,
     _download_dataset,

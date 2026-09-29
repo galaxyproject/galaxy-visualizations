@@ -34,11 +34,11 @@ dev = [
 [tool.black]
 line-length = 120
 target-version = ["py312"]
-force-exclude = "olit/registry/skills/galaxy-skills/"
+force-exclude = "olit/skills/galaxy-skills/"
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["olit/registry/skills/galaxy-skills"]
+extend-exclude = ["olit/skills/galaxy-skills"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
@@ -47,24 +47,22 @@ select = ["E", "F", "I"]
 # them would rewrite what is sent rather than how it is laid out.
 [tool.ruff.lint.per-file-ignores]
 "olit/compaction.py" = ["E501"]
-"olit/drivers/graph/expressions.py" = ["E501"]
-"olit/drivers/loop/galaxy_tool_docs.py" = ["E501"]
-"olit/registry/extensions/vintent/modules/tools.py" = ["E501"]
+"olit/loop/galaxy_tool_docs.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = false
 # A process's parameter annotations are matched by identity to build the JSON schema the model
-# reads (registry/processes.py), so `str` cannot become `str | None` without changing the
+# reads (processes/__init__.py), so `str` cannot become `str | None` without changing the
 # advertised type. These signatures mean implicit Optional and have to keep saying so.
 no_implicit_optional = false
 # Vendored third-party scripts, run inside a skill rather than imported by olit.
-exclude = "^olit/registry/skills/"
+exclude = "^olit/skills/"
 
 [[tool.mypy.overrides]]
 # A process attaches its metadata to the function object and processes.py reads it back with
 # getattr, so neither side declares these attributes.
-module = ["olit.registry.python.*"]
+module = ["olit.processes.*"]
 disable_error_code = ["attr-defined"]
 
 [[tool.mypy.overrides]]
@@ -78,7 +76,7 @@ include = ["olit*"]
 [tool.setuptools.package-data]
 # Skills are nested corpora (skills/<repo>/<skill>/SKILL.md plus the reference and
 # example files a SKILL.md points at), so the glob has to recurse.
-"olit.registry" = ["processes/*.yml", "skills/**/*"]
+"olit.skills" = ["**/*"]
 "olit.vendor" = ["*.json"]
 # The node driver is how an installed brain reaches galaxy-ops outside the browser.
 "olit.substrate" = ["*.mjs"]

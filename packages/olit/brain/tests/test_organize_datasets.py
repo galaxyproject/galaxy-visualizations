@@ -2,9 +2,7 @@
 
 import asyncio
 
-from olit.registry import ProcessRegistry, load_primitives
-
-load_primitives()
+from olit.processes import ProcessRegistry
 
 SRA = [
     {"id": f"ds{i}", "name": f"SRR100{n}_{m}.fastq.gz", "history_content_type": "dataset"}
@@ -137,7 +135,7 @@ def test_a_caller_who_names_neither_structure_nor_collection_still_gets_pairs():
 
 def test_a_call_without_a_history_is_refused_before_galaxy_is_touched():
     """The guard is the generated schema, checked in dispatch, whichever kind the process is."""
-    from olit.drivers.loop.tools import ToolSurface
+    from olit.loop.tools import ToolSurface
 
     substrate = FakeSubstrate(SRA)
     surface = ToolSurface(substrate, ProcessRegistry().load_packaged())
@@ -228,7 +226,7 @@ def test_an_uncompressed_datatype_is_refused_for_gzipped_reads():
     An agent planning this work wrote `fastqsanger` three times and hedged with
     "or fastq depending on the server's default". Nothing checked the argument.
     """
-    from olit.registry.python.organize_datasets import summarize_state
+    from olit.processes.organize_datasets import summarize_state
 
     catalog, result = _run(SRA, datatype="fastqsanger")
     summary = summarize_state(result["state"])
@@ -253,7 +251,7 @@ def test_an_uncompressed_datatype_is_fine_for_uncompressed_files():
 
 def test_galaxys_own_detected_extension_counts_as_compressed():
     """The name may not end in .gz when Galaxy already typed it that way."""
-    from olit.registry.python.organize_datasets import compression_lost
+    from olit.processes.organize_datasets import compression_lost
 
     detected = [{"id": "d1", "name": "reads_1", "extension": "fastqsanger.gz"}]
     assert compression_lost("fastqsanger", detected) == ["reads_1"]

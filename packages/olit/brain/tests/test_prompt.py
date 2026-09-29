@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from olit import prompt
-from olit.drivers.loop import galaxy_tools
-from olit.drivers.loop.galaxy_tool_docs import DOCS
+from olit.loop import galaxy_tools
+from olit.loop.galaxy_tool_docs import DOCS
 from olit.runtime import BEGIN, END, _inject_context
 
 
@@ -553,7 +553,7 @@ def test_dataset_names_are_marked_as_data():
     """A name arrives from an uploaded file or an imported history, not from the user."""
     import asyncio
 
-    from olit.drivers.loop import notebook
+    from olit.loop import notebook
 
     class G:
         async def get(self, path, params=None, binary=False):

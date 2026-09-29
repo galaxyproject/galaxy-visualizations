@@ -4,6 +4,7 @@
 import { Console } from "node:console";
 
 import { getOptions } from "galaxy-charts/runtime";
+import { compile } from "vega-lite";
 
 import { noRedirect } from "./no_redirect.mjs";
 
@@ -47,7 +48,32 @@ export function unexpectedFailure(err) {
   return { success: false, errorKind: "unexpected", message: String(err?.message ?? err) };
 }
 
+// Galaxy's page renderer compiles with this same vega-lite, so its verdict is the page's.
+export function compiled(spec) {
+  const problems = [];
+  const logger = {
+    level: () => logger,
+    error: (...parts) => problems.push(parts.join(" ")),
+    warn: () => {},
+    info: () => {},
+    debug: () => {},
+  };
+  try {
+    compile(spec, { logger });
+  } catch (err) {
+    problems.push(String(err?.message ?? err));
+  }
+  return { compiles: problems.length === 0, problems };
+}
+
 export async function answer(request, options = getOptions) {
+  if (request.name === "compile") {
+    try {
+      return { success: true, data: compiled((request.args || {}).spec) };
+    } catch (err) {
+      return unexpectedFailure(err);
+    }
+  }
   if (request.name !== "get_options") {
     return noSuchCall(request.name);
   }

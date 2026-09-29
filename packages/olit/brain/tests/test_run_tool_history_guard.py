@@ -2,7 +2,7 @@
 
 import asyncio
 
-from olit.drivers.loop.galaxy_tools import _hda_inputs, _run_tool
+from olit.loop.galaxy_tools import _hda_inputs, _run_tool
 
 from .fakes import refused
 
@@ -102,7 +102,7 @@ def test_history_contents_offers_one_identifier():
     wrong one resolves to an unrelated object rather than failing."""
     import asyncio
 
-    from olit.drivers.loop.galaxy_tools import _get_history_contents
+    from olit.loop.galaxy_tools import _get_history_contents
 
     class G:
         async def get(self, path, **kwargs):

@@ -1,6 +1,6 @@
 """The lineage diagram survives what a dataset can be named."""
 
-from olit.registry.extensions.lineage.bridge import generate_mermaid
+from olit.processes.lineage_mermaid import generate_mermaid
 
 
 def test_a_quote_in_a_name_does_not_end_the_label():

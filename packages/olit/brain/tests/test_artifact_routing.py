@@ -3,10 +3,8 @@
 import asyncio
 import json
 
-from olit.drivers.loop.tools import ToolSurface
-from olit.registry import ProcessRegistry, load_primitives
-
-load_primitives()
+from olit.loop.tools import ToolSurface
+from olit.processes import ProcessRegistry
 
 
 class FakeManifest:
@@ -25,20 +23,17 @@ class FakeSubstrate:
         return self
 
 
-def _surface(graph):
+def _surface(output):
+    """A process that returns `output`, which is all these tests need it to do."""
     processes = ProcessRegistry()
-    processes.register("p", graph)
+
+    async def p(substrate):
+        return output
+
+    p.__doc__ = "A process, for the test."
+    p.capabilities = None
+    processes.register_python(p)
     return ToolSurface(FakeSubstrate(), processes)
-
-
-def _terminal_graph(output):
-    return {
-        "version": 1,
-        "id": "p",
-        "kind": "agent_pipeline",
-        "start": "done",
-        "nodes": {"done": {"type": "terminal", "output": output}},
-    }
 
 
 def _run(surface):
@@ -47,7 +42,7 @@ def _run(surface):
 
 def test_artifact_is_routed_out_of_band_and_reduced_to_a_reference():
     surface = _surface(
-        _terminal_graph(
+        (
             {
                 "artifact": {"kind": "mermaid", "title": "Dataset lineage", "diagram": "graph TD; A-->B"},
             }
@@ -66,7 +61,7 @@ def test_artifact_is_routed_out_of_band_and_reduced_to_a_reference():
 def test_sibling_output_fields_travel_with_the_artifact_reference():
     """The lineage_report shape: a narrative the model needs, plus a diagram it does not."""
     surface = _surface(
-        _terminal_graph(
+        (
             {
                 "summary": "Produced by bwa_mem then samtools_sort.",
                 "truncated": False,
@@ -84,7 +79,7 @@ def test_sibling_output_fields_travel_with_the_artifact_reference():
 
 
 def test_a_process_without_an_artifact_returns_its_output_unchanged():
-    surface = _surface(_terminal_graph({"answer": 42}))
+    surface = _surface(({"answer": 42}))
     assert _run(surface) == {"answer": 42}
     assert surface.artifacts == []
 
@@ -168,7 +163,7 @@ def test_lineage_report_asks_galaxy_to_walk_backward_from_the_seed():
 
 def test_the_lineage_diagram_reaches_the_shell_and_not_the_model():
     """End to end: the flowchart source must never enter the context."""
-    from olit.drivers.loop.tools import ToolSurface
+    from olit.loop.tools import ToolSurface
 
     substrate = _GraphSubstrate(GRAPH)
     surface = ToolSurface(substrate, ProcessRegistry().load_packaged())

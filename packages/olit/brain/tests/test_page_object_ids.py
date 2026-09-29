@@ -13,10 +13,10 @@ import asyncio
 
 import pytest
 
-from olit.drivers.loop import artifacts
-from olit.drivers.loop.galaxy_tools import _update_page
-from olit.drivers.loop.outcome import ToolOutcome
-from olit.drivers.loop.page_edit import malformed_object_ids
+from olit.loop import artifacts
+from olit.loop.galaxy_tools import _update_page
+from olit.loop.outcome import ToolOutcome
+from olit.loop.page_edit import malformed_object_ids
 
 REAL = "a8539f6d9115ffe7"
 ALSO_REAL = "0c97fda4aafcf418"

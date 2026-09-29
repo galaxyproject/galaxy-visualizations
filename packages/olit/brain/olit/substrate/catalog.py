@@ -1,7 +1,7 @@
 """The scoped, capability-gated Galaxy API surface.
 
 Loaded on first use, not at boot. The openapi document is ~2 MB and only the graph route and
-`registry/python/galaxy.py` call through it, so a session that never takes that route never
+`processes/galaxy.py` call through it, so a session that never takes that route never
 pays for it -- and a session whose catalog fails still runs every Galaxy tool, because those
 go through the Galaxy client and galaxy-ops instead.
 """
