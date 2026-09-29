@@ -163,6 +163,13 @@ def case_value(value):
     return None if value is None else str(value)
 
 
+def named_case(test, value):
+    """A case value with the label the form shows for it, where the test parameter declares one."""
+    labels = {d.get("value"): d.get("label") for d in (test or {}).get("data") or [] if isinstance(d, dict)}
+    label = labels.get(value)
+    return f"{value!r} ({label})" if label else repr(value)
+
+
 def selected_case(test, stated):
     """The case label galaxy-charts compares: `result[testName] ?? test_param.value`."""
     return case_value((test or {}).get("value") if stated is None else stated)
@@ -217,7 +224,7 @@ def _resolve(params, segments, state, trail):
     chosen = selected_case(test, nested.get(test.get("name")) if isinstance(nested, dict) else None)
     active = next((c for c in cases if chosen is not None and case_value(c.get("value")) == chosen), None)
     if active is None:
-        offered = ", ".join(repr(c.get("value")) for c in cases)
+        offered = ", ".join(named_case(test, c.get("value")) for c in cases)
         return None, (
             f"{here!r} selects its inputs by {test.get('name')!r}. Pass "
             f"config={_shape(trail + [name], test.get('name'))} with {test.get('name')!r} as one of {offered}."
