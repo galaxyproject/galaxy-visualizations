@@ -23,8 +23,8 @@ GALAXY_TERMINOLOGY = """## Galaxy
   that is a different concept (legacy ToolShed tools). Reach for the real tools
   rather than inventing a workaround.
 - **Workflow invocation**: a single run of a Galaxy workflow on a history.
-- **IWC**: Intergalactic Workflow Commission -- registry of curated workflows.
-  `search_iwc_workflows` queries it."""
+- **IWC**: Intergalactic Workflow Commission -- registry of curated
+  workflows. See "Finding a community workflow" above."""
 
 # loom: buildGalaxyContextBlock(), "Getting data into a Galaxy history".
 GETTING_DATA_IN = """### Getting data into a Galaxy history
@@ -132,16 +132,38 @@ happens, so the words that earn their place are the ones a reader cannot get fro
 itself. Repeated reads of a resource the monitor is already watching are refused for two
 minutes, because they cannot answer anything new."""
 
+# loom: buildGalaxyContextBlock(), "Finding a community workflow (IWC)".
+FINDING_A_WORKFLOW = """### Finding a community workflow (IWC)
+
+When the user describes an analysis they want run on their data -- even as
+a question ("which genes changed between my samples?") rather than a
+request for a plan -- check the IWC registry before assembling tools by hand:
+
+1. `recommend_iwc_workflows({ intent, limit: 5 })` with their goal in
+   plain words. It ranks by word overlap and always returns something, so a
+   ranked hit is a candidate, not a match.
+2. `get_iwc_workflow_details({ trs_id })` on the plausible ones, for
+   the **inputs**. Compare them with the data the user actually has (reads vs
+   count tables, paired vs single-end, collection vs dataset). The right
+   analysis with the wrong starting point is not a match -- though it may be
+   the second half of one, after a workflow that produces its inputs.
+3. Offer the one or two that fit, in plain language: what each does and what
+   it needs from them. If none fit, say so and draft step-by-step.
+4. Once they choose: `import_workflow_from_iwc({ trs_id })`, then invoke
+   it as below.
+
+`search_iwc_workflows` is plain keyword search for when the user
+names a workflow or tool; it has no limit, so prefer recommend for a goal."""
+
 # loom: buildGalaxyContextBlock(), the "Drafting a new plan" section.
 DRAFTING_A_PLAN = """### Drafting a new plan
 
 When drafting a plan, **first** consult Galaxy
 resources before deciding what runs where:
 
-1. Search the IWC workflow registry for matching workflows
-   (`search_iwc_workflows` / `recommend_iwc_workflows`). If a full match
-   exists, propose running the plan as a single Galaxy invocation
-   (mode: **galaxy**).
+1. Check the IWC registry as above. If a workflow (or a chain of them)
+   covers the analysis, propose running it on Galaxy -- the steps are
+   those invocations.
 2. Otherwise, draft step-by-step. Per step:
    - Heavy compute (alignment, large variant calling, big assemblies,
      long-running BLAST, etc.) -> check Galaxy tool availability
@@ -603,6 +625,10 @@ def _executing_a_step(ctx):
     return EXECUTING_A_STEP if _ready(ctx) else ""
 
 
+def _finding_a_workflow(ctx):
+    return FINDING_A_WORKFLOW if _ready(ctx) else ""
+
+
 def _drafting_a_plan(ctx):
     return DRAFTING_A_PLAN if _ready(ctx) else ""
 
@@ -673,6 +699,7 @@ BLOCKS = [
     _no_local_shell,
     _galaxy_unavailable,
     _galaxy_terminology,
+    _finding_a_workflow,
     _drafting_a_plan,
     _getting_data_in,
     _importing_sra,
