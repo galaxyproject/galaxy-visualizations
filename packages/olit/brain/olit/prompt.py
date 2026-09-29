@@ -330,7 +330,9 @@ variant calling on this data").
 
 ### Plan lifecycle -- the four-stage approval gate
 
-When the user **does** ask for a plan, follow this order strictly:
+When the user **does** ask for a plan, follow this order strictly. The order starts
+before the draft: call `recommend_iwc_workflows`, then check tool availability (see
+"Drafting a new plan").
 
 1. **Draft in chat.** Reply with a ```plan fenced block formatted as a plan section
    (template below). The interface renders ```plan fences as a card with
