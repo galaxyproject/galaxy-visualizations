@@ -511,3 +511,51 @@ def test_the_guard_is_driven_by_the_type_contract_not_by_the_plugin():
     invented = refused(save(G(), offered, visualization="atlas", settings={"table": {"id": "b"}}))
     assert invented["saved"] is False
     assert offered.asked == ["table", "table"]
+
+
+# A conditional whose test parameter declares a default, as IGV's `origin` does.
+DEFAULTED = {
+    "name": "atlas",
+    "settings": [
+        {
+            "name": "source",
+            "type": "conditional",
+            "test_param": {"name": "origin", "type": "select", "value": "hosted"},
+            "cases": [
+                {"value": "hosted", "inputs": [{"name": "entry", "type": "data_table", "tables": ["t"]}]},
+                {"value": "history", "inputs": [{"name": "entry", "type": "data", "tables": []}]},
+            ],
+        }
+    ],
+}
+
+
+class DefaultedGalaxy(Galaxy):
+    async def get(self, path, **kwargs):
+        if path == "api/plugins/atlas":
+            return DEFAULTED
+        if path.startswith("api/plugins?"):
+            return [{"name": "atlas"}]
+        return await super().get(path, **kwargs)
+
+
+def test_a_config_that_names_no_case_is_read_against_the_declared_default():
+    """`formatConditional` falls back to test_param.value, so the default case is in play."""
+    offered = Charts([{"label": "a", "value": {"id": "a"}}])
+    out = save(DefaultedGalaxy(), offered, visualization="atlas", settings={"source": {"entry": {"id": "a"}}})
+
+    assert out["saved"] is True
+    assert offered.asked == ["entry"]
+
+
+def test_a_value_outside_the_default_case_options_is_still_refused():
+    out = refused(
+        save(
+            DefaultedGalaxy(),
+            Charts([{"label": "a", "value": {"id": "a"}}]),
+            visualization="atlas",
+            settings={"source": {"entry": {"id": "b"}}},
+        )
+    )
+
+    assert out["saved"] is False

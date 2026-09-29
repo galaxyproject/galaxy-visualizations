@@ -163,15 +163,16 @@ def case_value(value):
     return None if value is None else str(value)
 
 
-def active_case(param, entry):
-    """The case a conditional's stored test parameter selects, as galaxy-charts selects it.
+def selected_case(test, stated):
+    """The case label galaxy-charts compares: `result[testName] ?? test_param.value`."""
+    return case_value((test or {}).get("value") if stated is None else stated)
 
-    `formatConditional` falls back to the test parameter's declared value where a config sets
-    none; nothing selected here selects no case, which skips a check rather than reading one.
-    """
-    test = (param.get("test_param") or {}).get("name")
+
+def active_case(param, entry):
+    """The case a conditional selects, as `formatConditional` selects it."""
+    test = param.get("test_param") or {}
     held = entry.get(param.get("name")) if isinstance(entry, dict) else None
-    chosen = case_value(held.get(test) if isinstance(held, dict) else None)
+    chosen = selected_case(test, held.get(test.get("name")) if isinstance(held, dict) else None)
     if chosen is None:
         return None
     return next((c for c in param.get("cases") or [] if case_value(c.get("value")) == chosen), None)
@@ -213,7 +214,7 @@ def _resolve(params, segments, state, trail):
 
     # The config selects one case, exactly as the form does; the others are not in play.
     nested = state.get(name) if isinstance(state, dict) else None
-    chosen = case_value(nested.get(test.get("name")) if isinstance(nested, dict) else None)
+    chosen = selected_case(test, nested.get(test.get("name")) if isinstance(nested, dict) else None)
     active = next((c for c in cases if chosen is not None and case_value(c.get("value")) == chosen), None)
     if active is None:
         offered = ", ".join(repr(c.get("value")) for c in cases)
