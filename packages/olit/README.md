@@ -20,6 +20,34 @@ A research question can become a multi-step Galaxy analysis. Olit can inspect th
 
 Scientific computation remains in Galaxy. Tools, parameters, inputs, outputs, and provenance remain part of the normal Galaxy research record rather than moving into a separate agent environment.
 
+flowchart TB
+    UI["Orbit's Chat Interface"]
+
+    subgraph Olit
+        UI
+        Brain["Olit's Pyodide Brain"]
+        Skill["Galaxy Skills"]
+        Ops["Galaxy MCP"]
+        State["State"]
+        BrowserState["Browser Storage"]
+        Notebook["Galaxy Notebook"]
+        Session["Visualization Session"]
+    end
+
+    Model["LLM Provider"]
+    GalaxyApi["Galaxy's API"]
+
+    UI --> Brain
+    Brain --> Skill
+    Brain --> Ops
+    Brain --> State
+    State --> BrowserState
+    State --> Notebook
+    State --> Session
+    Brain --> Model
+    Ops --> GalaxyApi
+
+
 ## Olit and Orbit
 
 [Orbit](https://github.com/galaxyproject/loom) is Galaxy's flagship AI environment and the main functional reference for Olit. Orbit pioneered the AI co-scientist model for Galaxy: an open-ended agent that can plan analyses, work with Galaxy tools and workflows, inspect results, and continue a research process over multiple steps.
