@@ -439,17 +439,6 @@ class ToolSurface:
             if isinstance(opened, dict) and opened.get("page_id"):
                 self.record["page_id"] = opened["page_id"]
             return ToolOutcome(self._claim_artifact(opened))
-        if name == "get_visualization_options":
-            # Resolution belongs to galaxy-charts; the policy around it stays on this side.
-            return ToolOutcome(
-                rendered(
-                    {
-                        "data": await visualizations.get_visualization_options(
-                            self.substrate.galaxy, self.substrate.charts, args
-                        )
-                    }
-                )
-            )
         delegated = galaxy_tools.delegated_to_ops(name)
         handler = galaxy_tools.get_handler(name)
         if delegated or handler:
