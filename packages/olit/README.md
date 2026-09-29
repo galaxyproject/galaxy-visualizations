@@ -20,6 +20,9 @@ A research question can become a multi-step Galaxy analysis. Olit can inspect th
 
 Scientific computation remains in Galaxy. Tools, parameters, inputs, outputs, and provenance remain part of the normal Galaxy research record rather than moving into a separate agent environment.
 
+## Architecture
+
+```mermaid
 flowchart TB
     UI["Orbit's Chat Interface"]
 
@@ -46,7 +49,7 @@ flowchart TB
     State --> Session
     Brain --> Model
     Ops --> GalaxyApi
-
+```
 
 ## Olit and Orbit
 
