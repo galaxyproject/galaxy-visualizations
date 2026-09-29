@@ -38,7 +38,7 @@ class OpenAICompletions:
         headers.update(target.compat("headers", {}))
         return headers
 
-    def build_request(self, target, messages, tools=None, tool_choice=None, parallel_tools=True):
+    def build_request(self, target, messages, tools=None):
         body = {"model": target.model.id, "messages": messages}
         # pi sends a sampling field only when one is configured, so an unconfigured run gets
         # the provider's own defaults. `sampling_params` is pi's `samplingParams` bag.
@@ -50,10 +50,7 @@ class OpenAICompletions:
         body.update(target.compat("sampling_params", {}) or {})
         if tools:
             body["tools"] = tools
-        if tool_choice:
-            body["tool_choice"] = tool_choice
-        elif tools:
-            body["tool_choice"] = "auto" if parallel_tools else _force_first(tools)
+        # Which tool to call is the provider's own default, as it is for pi.
         return body
 
     def parse_reply(self, payload):
@@ -86,10 +83,3 @@ class OpenAICompletions:
             if size > cap:
                 too_big.append((tool.get("function", {}).get("name", "?"), size))
         return too_big
-
-
-def _force_first(tools):
-    name = (tools[0].get("function") or {}).get("name")
-    if not name:
-        raise ValueError("Tool provided without a function name.")
-    return {"type": "function", "function": {"name": name}}
