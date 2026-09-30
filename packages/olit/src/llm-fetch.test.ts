@@ -45,4 +45,36 @@ describe("authorizedFetch", () => {
     expect(authorizedFetch(impl, { baseUrl: "https://llm.example/v1" })).toBe(impl);
     expect(authorizedFetch(impl, undefined)).toBe(impl);
   });
+  it.each([
+    ["a sibling host the base is a prefix of", "https://llm.example.evil.test/v1/chat/completions"],
+    ["a path outside the configured base", "https://llm.example/internal/metrics"],
+    ["a path the base only prefixes as text", "https://llm.example/v1beta/chat"],
+    ["http where the base is https", "http://llm.example/v1/chat/completions"],
+    ["another port on the same host", "https://llm.example:8443/v1/chat/completions"],
+  ])("does not sign %s", async (_name, url) => {
+    const { impl, calls } = capture();
+    const init = { method: "POST" };
+    await authorizedFetch(impl, LLM)(url, init);
+    expect(calls[0].init).toBe(init);
+  });
+
+  it("signs the base path itself and anything under it", async () => {
+    const { impl, calls } = capture();
+    await authorizedFetch(impl, LLM)("https://llm.example/v1", {});
+    await authorizedFetch(impl, LLM)("https://llm.example/v1/models", {});
+    expect(calls.map((c) => c.init.headers.Authorization)).toEqual([
+      "Bearer sk-secret",
+      "Bearer sk-secret",
+    ]);
+  });
+
+  it("treats a base with no path as the whole origin", async () => {
+    const { impl, calls } = capture();
+    const llm = { baseUrl: "https://my-llm.company.ai", apiKey: "sk-secret" };
+    await authorizedFetch(impl, llm)("https://my-llm.company.ai/v1/chat", {});
+    expect(calls[0].init.headers.Authorization).toBe("Bearer sk-secret");
+    const init = { method: "POST" };
+    await authorizedFetch(impl, llm)("https://my-llm.company.ai.evil.test/v1/chat", init);
+    expect(calls[1].init).toBe(init);
+  });
 });
