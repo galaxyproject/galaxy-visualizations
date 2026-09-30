@@ -2,9 +2,9 @@
 
 import json
 import pathlib
-import shutil
 import subprocess
 
+import describe
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -12,7 +12,9 @@ SCRIPT = ROOT / "contract/shell.mjs"
 COMPLETED = [{"kind": "job", "id": "j1", "label": "Galaxy job j1", "outcome": "completed"}]
 FAILED = [{"kind": "invocation", "id": "i1", "label": "Workflow invocation i1", "outcome": "failed"}]
 
-needs_node = pytest.mark.skipif(shutil.which("node") is None, reason="needs node: it runs the shell's own module")
+needs_node = pytest.mark.skipif(
+    not describe.strips_types(), reason="needs a node that reads TypeScript: it runs the shell's own module"
+)
 
 
 def _ask(runs=None):

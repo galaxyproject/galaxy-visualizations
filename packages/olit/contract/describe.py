@@ -280,6 +280,13 @@ def loop():
     }
 
 
+def strips_types():
+    """Whether this node can import the shell's TypeScript directly, which needs 22.6 or later."""
+    if shutil.which("node") is None:
+        return False
+    return subprocess.run(["node", "--experimental-strip-types", "-e", ""], capture_output=True).returncode == 0
+
+
 def shell(root):
     """What the shell around the brain does between turns, asked of the shell itself.
 
@@ -289,7 +296,8 @@ def shell(root):
     if root is None:
         return {}
     script = pathlib.Path(root) / SHELL_CONTRACT
-    if not script.is_file() or not shutil.which("node"):
+    # An older node cannot read the shell's module at all, which is the same as having none.
+    if not script.is_file() or not strips_types():
         return {}
     stated = subprocess.run(
         ["node", "--experimental-strip-types", str(script)],
