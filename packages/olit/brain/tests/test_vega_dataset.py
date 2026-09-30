@@ -12,6 +12,7 @@ from olit.loop import vega
 TABULAR = {
     "id": "d1",
     "name": "prices.tabular",
+    "state": "ok",
     "metadata_columns": 4,
     "metadata_column_names": [],
     "metadata_column_types": ["str", "str", "int", "str"],
@@ -223,3 +224,55 @@ def test_an_empty_spec_is_refused():
     for spec in ({}, None, [], "mark: point"):
         ready, refusal = built(spec)
         assert ready is None and "Vega-Lite specification" in refusal
+
+
+# --- the dataset has to be readable at all -----------------------------------
+
+
+def test_a_dataset_whose_job_has_not_finished_says_so_rather_than_blaming_its_datatype():
+    """The metadata checks would otherwise report an unmeasured file and invite a conversion."""
+    _, refusal = built(SCATTER, {**TABULAR, "state": "running", "metadata_data_lines": None})
+    assert "state 'running'" in refusal
+    assert "wait for it and chart it again" in refusal
+    assert "column count" not in refusal
+
+
+def test_a_failed_dataset_is_not_something_to_wait_for():
+    _, refusal = built(SCATTER, {**TABULAR, "state": "error", "metadata_data_lines": None})
+    assert "the job producing it failed" in refusal
+    assert "wait for it" not in refusal
+
+
+def test_a_purged_dataset_is_refused_before_anything_else():
+    _, refusal = built(SCATTER, {**TABULAR, "purged": True, "state": "ok"})
+    assert "purged" in refusal
+
+
+def test_the_state_is_named_before_the_metadata_is_questioned():
+    """A queued dataset has no measured metadata; the state is the cause worth reporting."""
+    queued = {**TABULAR, "state": "queued", "metadata_columns": None, "metadata_data_lines": None}
+    _, refusal = built(SCATTER, queued)
+    assert "state 'queued'" in refusal
+
+
+# --- an encoding the column cannot satisfy ------------------------------------
+
+
+def test_a_quantitative_encoding_on_a_text_column_is_reported_not_refused():
+    """Galaxy types a column as text if any value is, so the encoding may still be right."""
+    spec = {"mark": "point", "encoding": {"x": {"field": "col:1", "type": "quantitative"}}}
+    ready, refusal = built(spec)
+    assert refusal is None, "a numeric column with missing values reads as text; do not refuse"
+    assert vega.unsatisfiable_types(ready, TABULAR) == ["col:1"]
+
+
+def test_a_quantitative_encoding_on_a_numeric_column_is_not_reported():
+    spec = {"mark": "point", "encoding": {"x": {"field": "col:3", "type": "quantitative"}}}
+    ready, _ = built(spec)
+    assert vega.unsatisfiable_types(ready, TABULAR) == []
+
+
+def test_a_nominal_encoding_on_a_text_column_is_not_reported():
+    spec = {"mark": "bar", "encoding": {"x": {"field": "col:1", "type": "nominal"}}}
+    ready, _ = built(spec)
+    assert vega.unsatisfiable_types(ready, TABULAR) == []

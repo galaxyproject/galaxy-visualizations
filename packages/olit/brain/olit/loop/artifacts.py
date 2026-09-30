@@ -47,6 +47,25 @@ def render(artifact):
     return renderer(artifact) if renderer else None
 
 
+FENCE_LINE = re.compile(r"^ {0,3}(?P<mark>`{3,}|~{3,})(?P<info>.*)$")
+
+
+def _inside_fence(text, offset):
+    """Whether `offset` sits inside a fenced block."""
+    mark = None
+    position = 0
+    for line in text.splitlines(keepends=True):
+        if position >= offset:
+            break
+        found = FENCE_LINE.match(line.rstrip("\n"))
+        if found:
+            opener = found.group("mark")
+            closes = mark and opener[0] == mark[0] and len(opener) >= len(mark) and not found.group("info").strip()
+            mark = None if closes else (mark or opener)
+        position += len(line)
+    return mark is not None
+
+
 def _pick(title, artifacts):
     """The artifact a token names, most recent first."""
     if not title:
@@ -71,6 +90,12 @@ def resolve(text, artifacts):
 
     def substitute(match):
         nonlocal refusal
+        if _inside_fence(text, match.start()):
+            refusal = refusal or (
+                "A token expands to a complete fenced block, so write {{artifact}} on its own "
+                "line outside any fence."
+            )
+            return match.group(0)
         title = match.group("title")
         artifact = _pick(title, artifacts)
         if artifact is None:

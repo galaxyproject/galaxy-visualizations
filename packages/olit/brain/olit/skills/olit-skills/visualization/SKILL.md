@@ -25,16 +25,16 @@ only, so a saved visualization is the better answer whenever one fits.
 
 Choose by what the user asked for:
 
-- The user names a visualization, for example "make a Plotly chart" or "open this in IGV":
-  **`show_visualization`** with that name. Never substitute a different one silently. If it
-  cannot be used, say which one was asked for and why it cannot.
-- A named visualization that has to bind particular columns, settings or tracks:
-  **`get_visualization_details`** for its schema, then **`save_visualization`**. Galaxy renders a
-  displayed visualization from the dataset alone, so settings only survive in a saved config. To
-  change them afterwards, call it again with the `visualization_id` it returned; that revises the
-  one visualization instead of adding another.
-- No visualization named, and `list_visualizations` offers one that fits the request:
-  **`save_visualization`** with it, so the user keeps the chart.
+- The user asks to look at the dataset as an installed visualization renders it, for example
+  "open this in IGV" or "open it in a structure viewer": **`show_visualization`**. Naming a
+  visualization settles which one and it is never substituted silently; naming none makes it
+  `list_visualizations` first. Nothing is saved, which is what asking to look at something asks
+  for.
+- The user asks to keep, save, share or come back to the chart, or it has to bind particular
+  columns, settings or tracks: **`get_visualization_details`** for its schema, then
+  **`save_visualization`**. Galaxy renders a displayed visualization from the dataset alone, so
+  settings only survive in a saved config. To change them afterwards, call it again with the
+  `visualization_id` it returned; that revises the one visualization instead of adding another.
 - No installed visualization fits, or the chart belongs in the record rather than the history:
   **`vega_dataset`**, then `update_page` with `{{artifact}}` where the chart belongs.
 - A chart of something the dataset does not hold, such as a statistic Vega-Lite cannot express:

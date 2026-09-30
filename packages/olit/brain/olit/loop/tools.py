@@ -19,6 +19,7 @@ from . import (
     visualizations,
 )
 from .brief import brief
+from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome, rendered
 
 logger = logging.getLogger(__name__)
@@ -331,9 +332,13 @@ class ToolSurface:
     # Shorter than this is too weak a signal to read as a name.
     NAME_QUERY_MIN = 4
 
+    def _own_tools(self):
+        """The advertised tools galaxy-mcp does not document, which are the ones Olit added."""
+        return [t["function"]["name"] for t in self.schemas() if t["function"]["name"] not in DOCS]
+
     def _olit_tool_named(self, args):
         """The Olit tool these arguments name, and whether they ask to run it or to find it."""
-        names = (self.processes.names() or []) if self.processes else []
+        names = self._own_tools()
         if args.get("tool_id") in names:
             return args["tool_id"], True
         query = (args.get("query") or "").strip().lower()

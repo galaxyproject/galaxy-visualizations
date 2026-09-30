@@ -97,7 +97,7 @@ OPENROUTER = Provider(
 # Free for ACCESS accounts, hosted at IU; the Open WebUI proxy is the OpenAI-compatible path.
 JETSTREAM2 = Provider(
     id="jetstream2",
-    name="Jetstream2 LLM inference service",
+    name="Jetstream2",
     base_url="https://llm.jetstream-cloud.org/api",
     auth_env="JETSTREAM2_KEY",
     # First is the default the picker offers; gpt-oss-120b is what olit is evaluated on.

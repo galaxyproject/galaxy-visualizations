@@ -4,6 +4,7 @@ import json
 import pathlib
 
 import describe
+import pytest
 from olit.loop import galaxy_tools
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -81,6 +82,7 @@ def test_describing_twice_gives_the_same_answer():
     assert described() == described()
 
 
+@pytest.mark.skipif(not describe.strips_types(), reason="the shell contract needs a node that reads TypeScript")
 def test_the_shell_contract_a_harness_stands_in_for_is_published():
     shell = described()["shell"]
     assert shell["max_auto_follow_ups"] == 3

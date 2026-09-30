@@ -78,11 +78,11 @@ const delegatedOps = [
     { id: "call_5", type: "function", function: { name: "create_history", arguments: JSON.stringify({ history_name: "olit e2e ops" }) } },
 ];
 
-// The graph route: it reaches Galaxy through the openapi catalog, which this stub does not serve.
-const chartTheDataset = [{
+// A process: it reaches Galaxy through the openapi catalog, which this stub does not serve.
+const runAProcess = [{
     id: "call_1",
     type: "function",
-    function: { name: "vintent_dataset", arguments: JSON.stringify({ dataset_id: "__test__", request: "chart it" }) },
+    function: { name: "organize_datasets", arguments: JSON.stringify({ history_id: "__test__" }) },
 }];
 
 const createVisualization = [{
@@ -241,13 +241,13 @@ const server = http.createServer(async (req, res) => {
             await new Promise((r) => setTimeout(r, 60000));
             return json(res, 200, message("too late"));
         }
-        if (script === "plan" || script === "plan-after-graph") {
-            // The graph route is the only thing that loads the tool catalog, so a drive that
-            // needs the catalog asked for takes it before asking for a plan.
+        if (script === "plan" || script === "plan-after-process") {
+            // A process is the only thing that loads the tool catalog, so a drive that needs
+            // the catalog asked for takes it before asking for a plan.
             const msgs = body.messages || [];
             const asked = msgs.some((m) => m.role === "tool");
-            if (script === "plan-after-graph" && !asked) {
-                return json(res, 200, message("", chartTheDataset));
+            if (script === "plan-after-process" && !asked) {
+                return json(res, 200, message("", runAProcess));
             }
             // A plan card, so the driver has an Approve button to click.
             return json(res, 200, message(

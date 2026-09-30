@@ -195,3 +195,19 @@ def test_the_tool_message_carries_neither_a_contaminated_name_nor_body():
     message = {"role": "tool", "name": plain_tool_name(name), "content": without_control_tokens(body)}
     assert "<|" not in message["name"] and "<|" not in message["content"]
     assert message["name"] == "get_page"
+
+
+def test_a_tool_that_is_not_a_process_is_also_named_as_olit_s():
+    """vega-layered-spec searched the catalog for 'vega' ten times and never called the tool.
+
+    The redirect used to read the process registry, which vega_dataset is not in.
+    """
+    outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "vega"}))
+    assert outcome.is_error and "vega_dataset" in outcome.text
+    assert "already in your tool list" in outcome.text
+
+
+def test_a_galaxy_tool_name_still_reaches_galaxy():
+    """`upload` prefixes an Olit tool name, and Galaxy's own uploader is what was asked for."""
+    outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "upload"}))
+    assert "Olit tool" not in outcome.text
