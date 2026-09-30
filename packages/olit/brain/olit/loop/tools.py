@@ -333,12 +333,7 @@ class ToolSurface:
     NAME_QUERY_MIN = 4
 
     def _own_tools(self):
-        """The advertised tools galaxy-mcp does not document, which are the ones Olit added.
-
-        Derived rather than listed, so a tool added later is covered without being remembered.
-        The Galaxy tools carry galaxy-mcp's own docstrings and stay out: a search for `upload`
-        wants Galaxy's uploader, not ours.
-        """
+        """The advertised tools galaxy-mcp does not document, which are the ones Olit added."""
         return [t["function"]["name"] for t in self.schemas() if t["function"]["name"] not in DOCS]
 
     def _olit_tool_named(self, args):

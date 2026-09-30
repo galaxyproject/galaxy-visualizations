@@ -371,3 +371,15 @@ def test_a_delegated_result_carries_every_field_its_description_promises():
             if field not in data:
                 broken.append(f"{name}.{field}: promised by the description, absent from the result")
     assert not broken, "\n".join(broken)
+
+
+def test_a_tool_is_galaxy_mcp_s_or_olit_s_by_whether_upstream_documents_it():
+    """The ownership boundary the catalog redirect reads, stated once.
+
+    Sound because the two tests above pin DOCS to the capture in both directions: a ported tool
+    carries its upstream docstring, so an advertised tool without one is ours.
+    """
+    advertised = {t["name"] for t in TOOLS}
+
+    assert "run_tool" in advertised and "run_tool" in DOCS, "a port stays galaxy-mcp's"
+    assert "vega_dataset" in advertised and "vega_dataset" not in DOCS, "an addition stays ours"
