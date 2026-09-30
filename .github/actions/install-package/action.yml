@@ -1,0 +1,54 @@
+name: Install package
+description: Node, npm, the package's Python requirements when it has them, and its node modules.
+
+inputs:
+  package:
+    description: Directory name under packages/
+    required: true
+  node-version:
+    description: Node major to run on
+    required: true
+  python-version:
+    description: Python to use when the package has a requirements.txt
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    # Node 22 ships npm 10.9, whose peer resolution crashes with
+    # "Cannot read properties of null (reading 'edgesOut')" on a cold install.
+    - name: Use npm 11
+      shell: bash
+      run: npm install -g npm@11
+
+    # The download cache, not node_modules: npm verifies integrity on use, so a
+    # stale entry cannot produce a stale tree the way a cached node_modules can.
+    - name: Cache npm downloads
+      uses: actions/cache@v5
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-npm-${{ inputs.node-version }}-${{ hashFiles(format('packages/{0}/package.json', inputs.package)) }}
+        restore-keys: |
+          ${{ runner.os }}-npm-${{ inputs.node-version }}-
+
+    - uses: actions/setup-python@v6
+      if: hashFiles(format('packages/{0}/requirements.txt', inputs.package)) != ''
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+        cache-dependency-path: packages/${{ inputs.package }}/requirements.txt
+
+    - name: Install Python dependencies
+      if: hashFiles(format('packages/{0}/requirements.txt', inputs.package)) != ''
+      shell: bash
+      working-directory: packages/${{ inputs.package }}
+      run: pip install -r requirements.txt
+
+    - name: Install Node dependencies
+      shell: bash
+      working-directory: packages/${{ inputs.package }}
+      run: npm install
