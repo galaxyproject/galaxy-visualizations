@@ -47,5 +47,8 @@
         "cytoscape",
         "vue",
         "vite"
-    ]
+    ],
+    "overrides": {
+        "fsevents": "2.3.3"
+    }
 }

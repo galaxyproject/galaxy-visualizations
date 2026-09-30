@@ -48,7 +48,9 @@ runs:
       working-directory: packages/${{ inputs.package }}
       run: pip install -r requirements.txt
 
+    # npm ci installs the lockfile exactly and fails when it disagrees with
+    # package.json, so a green run means the dependency tree is the committed one.
     - name: Install Node dependencies
       shell: bash
       working-directory: packages/${{ inputs.package }}
-      run: npm install
+      run: npm ci
