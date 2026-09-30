@@ -6,6 +6,8 @@ cannot paste one into a page. It writes a token instead and the dispatcher resol
 
 import json
 
+import pytest
+
 from olit.loop import artifacts
 
 VEGA = {"kind": "vega-lite", "title": "Glucose by BMI", "spec": {"mark": "point"}}
@@ -178,3 +180,51 @@ def test_the_hint_at_production_names_the_token():
     from olit.loop.tools import ARTIFACT_HINT
 
     assert "{{artifact}}" in ARTIFACT_HINT
+
+
+def test_a_token_inside_a_fence_is_refused_rather_than_nested():
+    """A galaxy fence wrapped around the token."""
+    text, refusal = artifacts.resolve("### Chart\n\n```galaxy\n{{artifact}}\n```\n", [VEGA])
+    assert text == "### Chart\n\n```galaxy\n{{artifact}}\n```\n"
+    assert "on its own" in refusal and "fence" in refusal
+
+
+def test_a_token_after_a_closed_fence_still_resolves():
+    text, refusal = artifacts.resolve("```python\nprint(1)\n```\n\n{{artifact}}", [VEGA])
+    assert refusal is None
+    assert text.endswith('```vega\n{\n  "mark": "point"\n}\n```')
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "````galaxy\n{{artifact}}\n````\n",
+        "``````galaxy\n{{artifact}}\n``````\n",
+        "~~~galaxy\n{{artifact}}\n~~~\n",
+        "   ```galaxy\n{{artifact}}\n   ```\n",
+        "````galaxy\n```\n{{artifact}}\n````\n",
+        "```galaxy\r\n{{artifact}}\r\n```\r\n",
+    ],
+)
+def test_every_fence_the_renderer_accepts_holds_the_token_back(content):
+    """markdown-it is CommonMark, so a fence is three or more backticks or tildes."""
+    text, refusal = artifacts.resolve(content, [VEGA])
+    assert text == content
+    assert "on its own" in refusal
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "Use a ```vega fence.\n\n{{artifact}}\n",
+        "Write `` ``` `` first.\n\n{{artifact}}\n",
+        "```galaxy\na ```vega\n```\n\n{{artifact}}",
+        "    ```x\n\n{{artifact}}\n",
+        "```py\r\nx\r\n```\r\n\r\n{{artifact}}",
+    ],
+)
+def test_backticks_outside_a_fence_still_let_the_token_resolve(content):
+    """A closing fence carries no info string, and four spaces indent an ordinary code block."""
+    text, refusal = artifacts.resolve(content, [VEGA])
+    assert refusal is None
+    assert "```vega" in text
