@@ -7,6 +7,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: "22"
+
 jobs:
   discover:
     runs-on: ubuntu-latest
@@ -72,15 +75,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Node 22 ships npm 10.9, whose peer resolution crashes with
+      # "Cannot read properties of null (reading 'edgesOut')" on a cold install.
+      - name: Use npm 11
+        run: npm install -g npm@11
 
       - name: Cache dependencies
         uses: actions/cache@v5
         with:
           path: packages/${{ matrix.package }}/node_modules
-          key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
+          key: ${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ matrix.package }}-
+            ${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ matrix.package }}-
 
       - name: Check for requirements.txt
         id: check-python
@@ -128,15 +136,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Node 22 ships npm 10.9, whose peer resolution crashes with
+      # "Cannot read properties of null (reading 'edgesOut')" on a cold install.
+      - name: Use npm 11
+        run: npm install -g npm@11
 
       - name: Cache Node dependencies
         uses: actions/cache@v5
         with:
           path: packages/${{ matrix.package }}/node_modules
-          key: ${{ runner.os }}-node-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
+          key: ${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ matrix.package }}-${{ hashFiles(format('packages/{0}/package-lock.json', matrix.package)) }}
           restore-keys: |
-            ${{ runner.os }}-node-${{ matrix.package }}-
+            ${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ matrix.package }}-
 
       - name: Check for requirements.txt
         id: check-python
