@@ -331,9 +331,13 @@ class ToolSurface:
     # Shorter than this is too weak a signal to read as a name.
     NAME_QUERY_MIN = 4
 
+    # Olit's own capabilities, which Galaxy's tool catalog never holds. The Galaxy tools are
+    # named after galaxy-mcp's and are left out: a search for `upload` wants Galaxy's uploader.
+    OWN_TOOLS = ("run_python", "skills_fetch", "vega_dataset", "finish")
+
     def _olit_tool_named(self, args):
         """The Olit tool these arguments name, and whether they ask to run it or to find it."""
-        names = (self.processes.names() or []) if self.processes else []
+        names = list(self.OWN_TOOLS) + ((self.processes.names() or []) if self.processes else [])
         if args.get("tool_id") in names:
             return args["tool_id"], True
         query = (args.get("query") or "").strip().lower()
