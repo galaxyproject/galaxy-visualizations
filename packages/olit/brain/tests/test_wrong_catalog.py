@@ -211,3 +211,16 @@ def test_a_galaxy_tool_name_still_reaches_galaxy():
     """`upload` prefixes an Olit tool name, and Galaxy's own uploader is what was asked for."""
     outcome = asyncio.run(_surface().dispatch("search_tools_by_name", {"query": "upload"}))
     assert "Olit tool" not in outcome.text
+
+
+def test_the_redirect_covers_a_tool_nobody_remembered_to_list():
+    """Derived from the advertised surface, so a tool added later needs no second edit.
+
+    vega_dataset was missed because the source was the process registry, which it is not in.
+    """
+    surface = _surface()
+    own = set(surface._own_tools())
+
+    assert "vega_dataset" in own and "organize_datasets" in own
+    # The Galaxy tools carry galaxy-mcp's docstrings and are not ours to redirect.
+    assert not own & {"run_tool", "upload_file", "get_history_contents", "invoke_workflow"}

@@ -19,6 +19,7 @@ from . import (
     visualizations,
 )
 from .brief import brief
+from .galaxy_tool_docs import DOCS
 from .outcome import ToolOutcome, rendered
 
 logger = logging.getLogger(__name__)
@@ -331,13 +332,18 @@ class ToolSurface:
     # Shorter than this is too weak a signal to read as a name.
     NAME_QUERY_MIN = 4
 
-    # Olit's own capabilities, which Galaxy's tool catalog never holds. The Galaxy tools are
-    # named after galaxy-mcp's and are left out: a search for `upload` wants Galaxy's uploader.
-    OWN_TOOLS = ("run_python", "skills_fetch", "vega_dataset", "finish")
+    def _own_tools(self):
+        """The advertised tools galaxy-mcp does not document, which are the ones Olit added.
+
+        Derived rather than listed, so a tool added later is covered without being remembered.
+        The Galaxy tools carry galaxy-mcp's own docstrings and stay out: a search for `upload`
+        wants Galaxy's uploader, not ours.
+        """
+        return [t["function"]["name"] for t in self.schemas() if t["function"]["name"] not in DOCS]
 
     def _olit_tool_named(self, args):
         """The Olit tool these arguments name, and whether they ask to run it or to find it."""
-        names = list(self.OWN_TOOLS) + ((self.processes.names() or []) if self.processes else [])
+        names = self._own_tools()
         if args.get("tool_id") in names:
             return args["tool_id"], True
         query = (args.get("query") or "").strip().lower()
