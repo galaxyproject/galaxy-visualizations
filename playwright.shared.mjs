@@ -24,7 +24,9 @@ export function visualizationConfig({ port = DEFAULT_PORT, timeout = DEFAULT_TIM
         use: {
             // Specs navigate relatively, so the port only has to be right in one place.
             baseURL: `http://localhost:${resolvedPort}`,
-            headless: !!process.env.CI,
+            // Headless everywhere: a headed local run and a headless CI run are two
+            // different renderers, which screenshot baselines cannot straddle.
+            headless: true,
             ...use,
             launchOptions: {
                 executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
