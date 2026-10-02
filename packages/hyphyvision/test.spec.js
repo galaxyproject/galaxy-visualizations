@@ -20,7 +20,7 @@ test("basic", async ({ page }) => {
         const url = route.request().url();
         const match = url.match(/datasets\/([^/]+)\/display\?to_ext=json$/);
         const NAME = match ? match[1] : "UNKNOWN";
-        const DATASET_DETAILS = await import(`./test-data/1.${NAME}.json`, { assert: { type: "json" } });
+        const DATASET_DETAILS = await import(`./test-data/1.${NAME}.json`, { with: { type: "json" } });
         await route.fulfill({
             status: 200,
             contentType: "application/json",
