@@ -53,11 +53,11 @@ export function extractWatched(toolName: string, content: string): Watched[] {
   if (!payload) return [];
 
   const out: Watched[] = [];
-  if (toolName === "run_tool") {
-    // POST /api/tools answers with the jobs it queued.
+  if (toolName === "run_tool" || toolName === "run_user_tool") {
+    // POST /api/tools answers with the jobs it queued, for a user-defined tool too.
     for (const job of payload.jobs || []) {
       if (job && typeof job.id === "string") {
-        out.push({ kind: "job", id: job.id, label: "run_tool", state: job.state });
+        out.push({ kind: "job", id: job.id, label: toolName, state: job.state });
       }
     }
   } else if (toolName === "upload_file_from_url" || toolName === "upload_file") {
