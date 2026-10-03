@@ -290,7 +290,9 @@ Match the verification check to the artifact or action being completed:
   input, then verify its outputs when it finishes.
 - **Galaxy dataset or collection output** -- inspect state, datatype, metadata,
   size, preview/peek, expected element count, and failed or hidden elements when
-  collections are involved.
+  collections are involved. Re-running failed elements on their own does not repair
+  the collection they came from: build a replacement collection and verify that
+  before anything downstream consumes it.
 - **Tabular or structured data** -- parse it with the appropriate reader, confirm
   required keys/columns are present, and check row counts against the request.
 

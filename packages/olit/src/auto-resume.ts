@@ -85,9 +85,10 @@ export function createFollowUpDelivery(
     }
     timer = null;
   };
+  /** Whether the batch went out. A pause holds it rather than consuming it. */
   const sendNow = (texts: string[]) => {
     if (texts.length === 0) {
-      return;
+      return true;
     }
     if (stopped || consecutive >= max) {
       if (!pauseAnnounced) {
@@ -98,26 +99,28 @@ export function createFollowUpDelivery(
             : `Galaxy results are waiting -- automatic follow-up paused after ${consecutive} automatic turn(s). Say continue to resume.`,
         );
       }
-      return;
+      return false;
     }
     consecutive++;
     // Several held batches become one turn rather than several.
     send(texts.join("\n\n"));
+    return true;
   };
   const flush = () => {
     timer = null;
-    const batch = held;
-    held = [];
-    sendNow(batch);
+    // A pause keeps the batch: the watcher has already dropped these ids and will not
+    // report them again, so letting it go loses the results outright.
+    if (sendNow(held)) {
+      held = [];
+    }
   };
 
   return {
     deliver(text) {
-      if (!busy && !timer) {
-        sendNow([text]);
-        return;
-      }
       held.push(text);
+      if (!busy && !timer) {
+        flush();
+      }
     },
     agentStarted() {
       busy = true;
@@ -137,7 +140,6 @@ export function createFollowUpDelivery(
       pauseAnnounced = false;
     },
     aborted() {
-      held = [];
       cancelTimer();
       stopped = true;
     },
