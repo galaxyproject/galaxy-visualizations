@@ -24,6 +24,12 @@ describe("extractWatched", () => {
     expect(out).toEqual([{ kind: "job", id: "job1", label: "run_tool", state: "new" }]);
   });
 
+  it("takes queued job ids out of a run_user_tool result", () => {
+    const out = extractWatched("run_user_tool", runToolResult([{ id: "job2", state: "queued" }]));
+
+    expect(out).toEqual([{ kind: "job", id: "job2", label: "run_user_tool", state: "queued" }]);
+  });
+
   it("takes the invocation id out of an invoke_workflow result", () => {
     const out = extractWatched("invoke_workflow", galaxyResult({ id: "inv1", state: "new" }));
 

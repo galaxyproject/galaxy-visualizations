@@ -69,7 +69,7 @@ describe("createFollowUpDelivery", () => {
     expect(sent).toHaveLength(4);
   });
 
-  it("drops what is held and stays paused when the user stops a turn", () => {
+  it("stays paused when the user stops a turn", async () => {
     const sent: string[] = [];
     const onPaused = vi.fn();
     const d = delivery(sent, { onPaused });
@@ -78,8 +78,40 @@ describe("createFollowUpDelivery", () => {
     d.aborted();
     d.agentSettled();
     d.deliver("next");
+    await new Promise((r) => setTimeout(r, 5));
     expect(sent).toEqual([]);
     expect(onPaused.mock.calls[0][0]).toContain("since you stopped");
+  });
+
+  it("keeps the results a stop held back and delivers them once the user resumes", async () => {
+    const sent: string[] = [];
+    const d = delivery(sent);
+    d.agentStarted();
+    d.deliver("job j1 finished");
+    d.aborted();
+    d.agentSettled();
+    expect(sent).toEqual([]);
+
+    d.userInput();
+    d.agentStarted();
+    d.agentSettled();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(sent).toEqual(["job j1 finished"]);
+  });
+
+  it("keeps the results the turn cap held back", async () => {
+    const sent: string[] = [];
+    const d = delivery(sent);
+    for (let i = 0; i < 4; i++) {
+      d.deliver(`run ${i}`);
+    }
+    expect(sent).toHaveLength(3);
+
+    d.userInput();
+    d.agentStarted();
+    d.agentSettled();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(sent[3]).toBe("run 3");
   });
 });
 
