@@ -20,6 +20,10 @@ export class AgentClient {
     });
   }
 
+  confirm(id: number, approved: boolean): void {
+    this.worker.postMessage({ type: "confirmed", id, approved });
+  }
+
   abort(): void {
     this.worker.postMessage({ type: "abort" });
   }

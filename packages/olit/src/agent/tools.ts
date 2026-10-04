@@ -4,8 +4,23 @@ import {
   allOperations,
   describeOperation,
   runWithEnvelope,
+  spellParamNames,
+  type AnyOperation,
   type GalaxyContext,
 } from "@galaxyproject/galaxy-ops/browser";
+
+/** Operations Olit runs itself rather than through galaxy-ops. */
+const OLIT_OWNED = new Set([
+  "get_history_contents",
+  "get_invocations",
+  "get_job_details",
+  "get_page",
+  "run_tool",
+  "update_page",
+  "upload_file_from_url",
+]);
+
+const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
 const text = (value: string, isError = false): AgentToolResult<undefined> => ({
   content: [{ type: "text", text: value }],
@@ -13,20 +28,44 @@ const text = (value: string, isError = false): AgentToolResult<undefined> => ({
   isError,
 });
 
-/** galaxy-ops' read-only operations as agent tools. */
+/** galaxy-ops operations as agent tools, with top-level parameters in galaxy-mcp's snake_case. */
 export function galaxyTools(ctx: GalaxyContext): AgentTool[] {
-  return allOperations
-    .filter((op) => op.readOnly !== false)
-    .map((op) => ({
-      name: op.name,
-      label: op.name,
-      description: describeOperation(op),
-      parameters: z.toJSONSchema(z.object(op.input), { io: "input" }) as AgentTool["parameters"],
-      execute: async (_id, args) => {
-        const result = await runWithEnvelope(op, args as never, ctx);
-        return text(JSON.stringify(result), !result.success);
-      },
-    }));
+  return allOperations.filter((op) => !OLIT_OWNED.has(op.name)).map((op) => galaxyTool(op, ctx));
+}
+
+function galaxyTool(op: AnyOperation, ctx: GalaxyContext): AgentTool {
+  const spell = (value: string) => spellParamNames(value, op.input, snake);
+  const schema = z.toJSONSchema(z.strictObject(op.input), { io: "input" }) as {
+    properties?: Record<string, { description?: string }>;
+    required?: string[];
+  };
+  const toInput = new Map(Object.keys(op.input).map((key) => [snake(key), key]));
+  const properties = Object.fromEntries(
+    Object.entries(schema.properties ?? {}).map(([key, value]) => [
+      snake(key),
+      value.description ? { ...value, description: spell(value.description) } : value,
+    ]),
+  );
+  return {
+    name: op.name,
+    label: op.name,
+    description: spell(describeOperation(op)),
+    parameters: {
+      ...schema,
+      properties,
+      required: schema.required?.map(snake),
+    } as unknown as AgentTool["parameters"],
+    execute: async (_id, args) => {
+      const input = Object.fromEntries(
+        Object.entries(args as Record<string, unknown>).map(([key, value]) => [
+          toInput.get(key) ?? key,
+          value,
+        ]),
+      );
+      const result = await runWithEnvelope(op, input as never, ctx);
+      return text(JSON.stringify(result), !result.success);
+    },
+  };
 }
 
 export function runPythonTool(run: (code: string) => Promise<string>): AgentTool {

@@ -2,6 +2,7 @@ import "../orbit/styles.css";
 import "../olit.css";
 import { parseXML } from "galaxy-charts-xml-parser";
 
+import { createConfirm } from "../confirm-modal";
 import { mountLayout } from "../layout";
 import { ChatPanel } from "../orbit/chat/chat-panel";
 import { applyOrbitTheme } from "../orbit/theme";
@@ -26,6 +27,12 @@ async function main() {
     },
     pyodideURL: `${location.origin}/static/pyodide`,
     systemPrompt: plugin.specs?.ai_prompt || "",
+    interactive: true,
+  });
+  const confirm = createConfirm({
+    container,
+    respond: (id, approved) => agent.confirm(Number(id), approved),
+    note: (text) => chat.addInfoMessage(text),
   });
 
   let speaking = false;
@@ -43,7 +50,9 @@ async function main() {
       chat.finishAssistantMessage();
       speaking = false;
     }
-    if (event.type === "tool_start") {
+    if (event.type === "confirm") {
+      confirm(String(event.id), event);
+    } else if (event.type === "tool_start") {
       chat.hideThinking();
       chat.addToolCard(event.id, event.name);
     } else if (event.type === "tool_end") {

@@ -1,6 +1,7 @@
 import { Agent, type AgentEvent } from "@earendil-works/pi-agent-core";
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
+import { destructiveGate } from "./destructive";
 import { connect, type Endpoint } from "./model";
 import { localPython } from "./python";
 import { galaxyTools, runPythonTool } from "./tools";
@@ -10,15 +11,33 @@ export interface StartRequest {
   galaxy: { root: string; credentials?: RequestCredentials };
   pyodideURL: string;
   systemPrompt: string;
+  /** Whether a user is present to approve a destructive operation. */
+  interactive: boolean;
 }
 
 export type WorkerEvent =
   | { type: "text"; delta: string }
   | { type: "tool_start"; id: string; name: string }
   | { type: "tool_end"; id: string; name: string; content: string; isError: boolean }
+  | { type: "confirm"; id: number; title: string; message: string }
   | { type: "settled"; error?: string };
 
 let agent: Agent | undefined;
+const confirms = new Map<number, (approved: boolean) => void>();
+let confirmId = 0;
+
+function ask(title: string, message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const id = confirmId++;
+    confirms.set(id, resolve);
+    post({ type: "confirm", id, title, message });
+  });
+}
+
+function answer(id: number, approved: boolean) {
+  confirms.get(id)?.(approved);
+  confirms.delete(id);
+}
 
 /** Galaxy as the signed-in user: the session cookie, never an API key. */
 const galaxyFetch =
@@ -49,7 +68,7 @@ function forward(event: AgentEvent) {
   }
 }
 
-function start({ endpoint, galaxy, pyodideURL, systemPrompt }: StartRequest) {
+function start({ endpoint, galaxy, pyodideURL, systemPrompt, interactive }: StartRequest) {
   const { model, streamFn } = connect(endpoint);
   const ctx = createGalaxyContext({
     baseUrl: galaxy.root,
@@ -63,6 +82,7 @@ function start({ endpoint, galaxy, pyodideURL, systemPrompt }: StartRequest) {
       tools: [...galaxyTools(ctx), runPythonTool(localPython(pyodideURL))],
     },
     streamFn,
+    beforeToolCall: destructiveGate(interactive ? ask : undefined),
   });
   agent.subscribe(forward);
 }
@@ -84,7 +104,11 @@ self.onmessage = ({ data }) => {
     start(data.request);
   } else if (data.type === "prompt") {
     void prompt(data.text);
+  } else if (data.type === "confirmed") {
+    answer(data.id, data.approved === true);
   } else if (data.type === "abort") {
     agent?.abort();
+    confirms.forEach((resolve) => resolve(false));
+    confirms.clear();
   }
 };
