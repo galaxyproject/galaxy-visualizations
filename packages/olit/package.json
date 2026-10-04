@@ -36,12 +36,15 @@
     "typecheck:python": "cd brain && python -m mypy olit ../contract ../scripts"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "^1.0.2",
+    "@earendil-works/pi-ai": "^1.0.2",
     "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.3.0-fork.1/galaxyproject-galaxy-ops-0.3.0-fork.1.tgz",
     "galaxy-charts": "^0.1.16",
     "mermaid": "^11.16.1",
     "vega": "^5.30.0",
     "vega-embed": "^6.26.0",
-    "vega-lite": "^5.21.0"
+    "vega-lite": "^5.21.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",
