@@ -21,6 +21,7 @@ export interface RunRequest {
 export interface SettleResult {
   settled: Settled[];
   pending: number;
+  watching: Watched[];
   followUp?: string;
 }
 
@@ -63,22 +64,28 @@ function settleConfirms() {
   confirms.clear();
 }
 
-function sessionFor(config: SessionConfig): Promise<Session> {
+async function sessionFor({ config, watching }: Pick<RunRequest, "config" | "watching">) {
   const identity = JSON.stringify(
     Object.entries(config).filter(([key]) => !CONTEXT_FIELDS.has(key)),
   );
-  if (session?.identity !== identity) {
-    session = { identity, session: Session.create(config, python!) };
+  const fresh = session?.identity !== identity;
+  if (fresh) {
+    const created = Session.create(config, python!);
+    session = { identity, session: created };
+    created.catch(() => session?.session === created && (session = undefined));
   }
-  return session.session;
+  const current = await session!.session;
+  if (fresh) {
+    current.watch.add(watching);
+  }
+  current.rebind(config, watching);
+  return current;
 }
 
 async function run({ config, transcripts, artifacts, watching }: RunRequest): Promise<TurnResult> {
   controller = new AbortController();
   try {
-    const current = await sessionFor(config);
-    current.rebind(config);
-    current.watch.add(watching);
+    const current = await sessionFor({ config, watching });
     return await current.turn(transcripts, {
       onEvent: (event) => post({ type: "event", event }),
       artifacts,
@@ -104,11 +111,9 @@ self.onmessage = async ({ data }) => {
   } else if (data.type === "settle") {
     // Between turns or during one, and before the first turn of a reloaded page.
     const request = data.request as Pick<RunRequest, "config" | "watching">;
-    let result: SettleResult = { settled: [], pending: 0 };
+    let result: SettleResult = { settled: [], pending: 0, watching: request.watching };
     try {
-      const current = await sessionFor(request.config);
-      current.watch.add(request.watching);
-      result = await current.settle();
+      result = await (await sessionFor(request)).settle();
     } catch {
       // Nothing to report this pass; the next one reads again.
     }

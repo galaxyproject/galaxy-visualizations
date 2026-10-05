@@ -304,7 +304,7 @@ describe("a turn", () => {
     expect(tool.content).toContain("[redacted]");
   });
 
-  it("returns a failed provider call as an error with the transcript unchanged", async () => {
+  it("returns a failed provider call as an error, keeping the turn without the failed reply", async () => {
     vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
       const url = String(input instanceof Request ? input.url : input);
       return url.startsWith(LLM)
@@ -316,7 +316,18 @@ describe("a turn", () => {
     const session = await Session.create(config(), python);
     const result = await session.turn(start);
     expect(result.error?.message).toBeTruthy();
-    expect(result.messages).toEqual(start);
+    const asked = (messages: AgentMessage[]) =>
+      messages.filter((m) => m.role === "user").map((m) => (m as { content: unknown }).content);
+    expect(asked(result.messages)).toEqual(asked(start));
+    expect(result.messages.some((m) => m.role === "assistant")).toBe(false);
+  });
+
+  it("does not start a turn whose Stop came first", async () => {
+    server([{ calls: [{ name: "get_server_info", args: {} }] }]);
+    const session = await Session.create(config(), python);
+    const result = await session.turn(start, { signal: AbortSignal.abort() });
+    expect(result.aborted).toBe(true);
+    expect(result.steps).toBe(0);
   });
 
   it("sends max_tokens only when one is configured", async () => {

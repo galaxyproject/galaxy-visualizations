@@ -91,7 +91,7 @@ async function main() {
   const retryNotice = createRetryNotice({ addInfoMessage: info });
 
   // Ask for a provider/key before the worker starts.
-  const creds = await ensureCredentials(container);
+  let creds = await ensureCredentials(container);
   const config = buildConfig(incoming, creds);
   // Runtime context: where relative fetches resolve and what origin Galaxy calls hit.
   console.log("[olit] context", {
@@ -146,8 +146,18 @@ async function main() {
   el.input.addEventListener("input", () => autosize(el.input));
 
   // Naming the active model makes a misconfigured run obvious.
-  el.model.textContent = creds.model ? `${creds.provider} · ${creds.model}` : creds.provider;
-  el.model.addEventListener("click", () => void switchProvider(container));
+  const showModel = () =>
+    (el.model.textContent = creds.model ? `${creds.provider} · ${creds.model}` : creds.provider);
+  showModel();
+  el.model.addEventListener("click", async () => {
+    const picked = await switchProvider(container);
+    if (picked) {
+      creds = picked;
+      const { ai_base_url, ai_provider, ai_model } = buildConfig(incoming, picked);
+      Object.assign(config, { ai_base_url, ai_provider, ai_model });
+      showModel();
+    }
+  });
 
   // Saving is deliberate, as for any other Galaxy visualization: a revision then marks a
   // save the user asked for rather than a conversation turn.
@@ -236,18 +246,22 @@ async function main() {
 
   // The session watches submitted work; the page only asks it, now and then, what settled.
   let polling: ReturnType<typeof setInterval> | undefined;
+  let polled: Promise<void> | undefined;
   async function poll() {
     const {
       settled,
       pending,
+      watching,
       followUp: prompt,
     } = await agent.settle({
       config: workerConfig(),
       watching: sessionDoc.watching ?? [],
     });
     settled.forEach(settledOne);
-    const done = new Set(settled.map((s) => `${s.watched.kind}:${s.watched.id}`));
-    sessionDoc.watching = (sessionDoc.watching ?? []).filter((w) => !done.has(`${w.kind}:${w.id}`));
+    sessionDoc.watching = watching;
+    if (settled.length) {
+      await session.save(sessionDoc);
+    }
     // Continue without asking the user to relay the notification.
     if (prompt) {
       followUp.deliver(prompt);
@@ -258,7 +272,9 @@ async function main() {
     }
   }
   function watchGalaxy() {
-    polling ??= setInterval(() => void poll(), 10_000);
+    polling ??= setInterval(() => {
+      polled ??= poll().finally(() => (polled = undefined));
+    }, 10_000);
   }
 
   // Work a reloaded page had open is still worth hearing about.
@@ -370,17 +386,13 @@ async function main() {
     latest = reply.diagnostics || latest;
     chat.hideThinking();
     retryNotice.stop();
-    if (reply.error) {
-      // The agent returns a failed turn as data; the console keeps the detail.
-      console.error("[olit] turn failed", reply.error);
-      chat.addErrorMessage(describeError(reply.error));
-      return;
-    }
-
     // The agent names this turn's messages; compaction moves them, so no slicing.
     const spoke = renderMessages(chat, reply.new_messages || [], streamed, true);
     // Exactly one explanation for a quiet turn, most specific first.
-    if (reply.aborted) {
+    if (reply.error) {
+      console.error("[olit] turn failed", reply.error);
+      chat.addErrorMessage(describeError(reply.error));
+    } else if (reply.aborted) {
       info("Stopped.");
     } else if (reply.exhausted) {
       // Orbit has no step cap; olit's must not look like completion.

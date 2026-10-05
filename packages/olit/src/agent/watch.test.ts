@@ -27,6 +27,19 @@ describe("watchedFrom", () => {
     ]);
   });
 
+  it("names a tool run's outputs on its jobs, so reading one counts as polling", () => {
+    const data = { jobs: [{ id: "j1", state: "new" }], outputs: [{ id: "d1" }, { id: "d2" }] };
+    expect(watchedFrom("run_tool", data)[0].outputs).toEqual(["d1", "d2"]);
+  });
+
+  it("watches every invocation a batch expanded to", () => {
+    const batch = [
+      { id: "i1", state: "new" },
+      { id: "i2", state: "new" },
+    ];
+    expect(watchedFrom("invoke_workflow", batch).map((w) => w.id)).toEqual(["i1", "i2"]);
+  });
+
   it("watches every job a single tool run queued", () => {
     const jobs = [
       { id: "a", state: "new" },
@@ -165,6 +178,15 @@ const galaxy = (answers: Record<string, unknown>, asked: string[] = []) =>
       return answers[path];
     },
   }) as unknown as Galaxy;
+
+describe("Watch, polled twice at once", () => {
+  it("reports a settled item once", async () => {
+    const watch = new Watch(async () => "ok");
+    watch.add([{ kind: "job", id: "j1", label: "run_tool", state: "running" }]);
+    const [a, b] = await Promise.all([watch.poll(), watch.poll()]);
+    expect(a.length + b.length).toBe(1);
+  });
+});
 
 describe("stateReader", () => {
   it("reports a job's state as Galaxy gives it", async () => {

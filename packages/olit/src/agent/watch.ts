@@ -19,6 +19,7 @@ export interface Watched {
   /** What to call it in the UI: the tool that submitted it. */
   label: string;
   state?: string;
+  outputs?: string[];
 }
 
 /** Galaxy job states that will never change again, as galaxy-ops settles an invocation's jobs. */
@@ -67,18 +68,28 @@ const records = (value: unknown): Array<Record<string, unknown>> =>
 export function watchedFrom(toolName: string, data: unknown): Watched[] {
   const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const out: Watched[] = [];
-  const add = (kind: WatchKind, item: Record<string, unknown>) => {
+  const add = (kind: WatchKind, item: Record<string, unknown>, outputs?: string[]) => {
     if (typeof item.id === "string") {
-      out.push({ kind, id: item.id, label: toolName, state: item.state as string | undefined });
+      const state = item.state as string | undefined;
+      out.push({
+        kind,
+        id: item.id,
+        label: toolName,
+        state,
+        ...(outputs?.length ? { outputs } : {}),
+      });
     }
   };
   if (toolName === "run_tool" || toolName === "run_user_tool") {
-    records(payload.jobs).forEach((job) => add("job", job));
+    const outputs = records(payload.outputs)
+      .map((o) => o.id)
+      .filter((id): id is string => typeof id === "string");
+    records(payload.jobs).forEach((job) => add("job", job, outputs));
   } else if (toolName === "upload_file_from_url" || toolName === "upload_file") {
     // The receipt is not an outcome: the datasets it created are what to wait for.
     records(payload.outputs).forEach((output) => add("dataset", output));
   } else if (toolName === "invoke_workflow") {
-    add("invocation", payload);
+    (Array.isArray(data) ? records(data) : [payload]).forEach((i) => add("invocation", i));
   }
   return out.filter((w) => !isTerminal(w.kind, w.state));
 }
@@ -148,8 +159,7 @@ export class Watch {
       }
       if (!state) continue;
       w.state = state;
-      if (isTerminal(w.kind, state)) {
-        this.items.delete(key);
+      if (isTerminal(w.kind, state) && this.items.delete(key)) {
         settled.push({ watched: { ...w }, state, outcome: outcomeOf(w.kind, state) });
       }
     }

@@ -372,10 +372,10 @@ export class Session {
   }
 
   /** Point this session at a new turn's context, which names its session and record as given. */
-  rebind(config: Partial<SessionConfig>) {
+  rebind(config: Partial<SessionConfig>, restored: Watched[] = []) {
     if (config.session_id !== this.binding.sessionId) {
-      // Another conversation: what the last one submitted is the last one's to hear about.
       this.watch = new Watch(stateReader(this.galaxy));
+      this.watch.add(restored);
     }
     this.config = { ...this.config, ...config };
     this.binding.sessionId = config.session_id;
@@ -507,7 +507,12 @@ export class Session {
   }
 
   /** One pass over the unfinished work: what settled, and the follow-up turn it calls for. */
-  async settle(): Promise<{ settled: Settled[]; pending: number; followUp?: string }> {
+  async settle(): Promise<{
+    settled: Settled[];
+    pending: number;
+    watching: Watched[];
+    followUp?: string;
+  }> {
     const settled = await this.watch.poll();
     // loom's poller advances the notebook itself, without asking the model.
     await Promise.all(
@@ -517,7 +522,12 @@ export class Session {
         ),
       ),
     );
-    return { settled, pending: this.watch.pending, followUp: followUpPrompt(settled) };
+    return {
+      settled,
+      pending: this.watch.pending,
+      watching: this.watch.list(),
+      followUp: followUpPrompt(settled),
+    };
   }
 
   /** An edit of the record this session is bound to, if it has one yet. */
@@ -655,7 +665,9 @@ export class Session {
     const abort = () => agent.abort();
     options.signal?.addEventListener("abort", abort);
     try {
-      await agent.continue();
+      if (!options.signal?.aborted) {
+        await agent.continue();
+      }
     } finally {
       options.signal?.removeEventListener("abort", abort);
     }
@@ -699,12 +711,10 @@ export class Session {
     );
     const outcome: TurnResult = {
       logs,
-      messages: failed
-        ? transcripts
-        : compaction
-            .reduce(agent.state.messages)
-            .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
-      new_messages: failed ? [] : kept,
+      messages: compaction
+        .reduce(agent.state.messages)
+        .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
+      new_messages: kept,
       binding: reported(this.binding),
       watching: this.watch.list(),
       done,

@@ -195,18 +195,10 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
   });
 }
 
-/**
- * Reopen the picker so the provider can be changed after boot. The worker takes
- * its config at initialize, so the new choice is applied by reloading rather than
- * re-initializing a live agent. Conversation history lives in IndexedDB and is
- * restored on the way back up, so switching models does not discard it.
- */
-export async function switchProvider(container: HTMLElement): Promise<void> {
+export async function switchProvider(container: HTMLElement): Promise<Credentials | undefined> {
   const before = JSON.stringify(loadCredentials());
   const picked = await openPicker(container, true);
-  // Dismissed, or re-picked the same thing: nothing to apply, so do not reload.
-  if (!picked || JSON.stringify(picked) === before) return;
-  window.location.reload();
+  return picked && JSON.stringify(picked) !== before ? picked : undefined;
 }
 
 /** First-run entry point. Not dismissible: there is nothing to fall back to. */

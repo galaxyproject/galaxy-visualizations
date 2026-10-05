@@ -103,7 +103,10 @@ export function guards(options: GuardOptions) {
   const failures = new Map<string, number>();
   const settled = new Map<string, number>();
   const readAt = new Map<string, number>();
-  const states = () => new Map(options.watch.list().map((w) => [w.id, w.state]));
+  const states = () =>
+    new Map(
+      options.watch.list().flatMap((w) => [w.id, ...(w.outputs ?? [])].map((id) => [id, w.state])),
+    );
   const sra = new SraImportGate();
   const destructive = destructiveGate(
     options.ask,
