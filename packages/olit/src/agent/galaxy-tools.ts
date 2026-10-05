@@ -3,7 +3,8 @@ import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { segment, type Galaxy } from "./galaxy";
-import { catalogMissHint, fetchFailureHint } from "./hints";
+import { catalogMissHint, fetchFailureHint, iwcCandidatesHint } from "./hints";
+import { ELIDED } from "./notebook";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -32,10 +33,22 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
         : undefined;
     },
   },
+  update_history: { destructiveWhen: (args) => args.deleted === true },
+  get_dataset_details: { polls: "dataset_id" },
+  get_job_details: { polls: "dataset_id" },
+  get_invocations: { polls: "invocation_id" },
+  search_tools_by_keywords: { settled: true },
+  search_tools_by_name: { settled: true },
   // Every write to a page waits its turn in the session's record queue, so a marker written
   // between its read and its write is kept; a directive id galaxy-ops refuses is answered with
   // where the id the agent wanted comes from.
   update_page: {
+    check: async (args) =>
+      String(args.content ?? "").includes(ELIDED)
+        ? fail(
+            "Refused: this content still holds the record excerpt's elision marker, so it would delete the elided middle. Edit a section instead.",
+          )
+        : undefined,
     around: serialized,
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length
@@ -51,7 +64,9 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
 
 /** What Olit adds to a galaxy-ops result: where a missed search lives, or fetch-failure triage. */
 export const annotate: Annotate = async (name, args, data, ctx) =>
-  (await catalogMissHint(ctx.galaxy, name, args, data)) ?? fetchFailureHint(data);
+  iwcCandidatesHint(name) ??
+  (await catalogMissHint(ctx.galaxy, name, args, data)) ??
+  fetchFailureHint(data);
 
 type Row = Record<string, any>;
 
@@ -72,7 +87,7 @@ export function hdaInputs(inputs: unknown): [string, string, string][] {
     if (Array.isArray(value)) {
       value.forEach((item, index) => walk(`${name}[${index}]`, item));
     } else if (isRow(value)) {
-      if (value.src in HISTORY_SCOPED_SRCS && value.id) {
+      if (Object.hasOwn(HISTORY_SCOPED_SRCS, value.src) && value.id) {
         found.push([name, value.id, value.src]);
         return;
       }
@@ -89,7 +104,7 @@ export function hdaInputs(inputs: unknown): [string, string, string][] {
 async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string) {
   const foreign = [];
   for (const [name, objectId, src] of hdaInputs(inputs)) {
-    const detail = (await galaxy.get(`${HISTORY_SCOPED_SRCS[src]}/${objectId}`)) || {};
+    const detail = (await galaxy.get(`${HISTORY_SCOPED_SRCS[src]}/${segment(objectId)}`)) || {};
     const where = isRow(detail) ? detail.history_id : undefined;
     if (where && where !== historyId) {
       foreign.push({

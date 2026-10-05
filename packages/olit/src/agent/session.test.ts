@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import { contentText, type AssistantMessage } from "@earendil-works/pi-ai";
 
 import { toChat } from "./messages";
 import { connect } from "./model";
@@ -76,6 +77,9 @@ function server(replies: Reply[], galaxy: Record<string, unknown> = {}) {
     const path = url.pathname.replace(/^\//, "");
     const body =
       path in galaxy ? galaxy[path] : path === "api/version" ? { version_major: "26.1" } : {};
+    if (typeof body === "function") {
+      return body();
+    }
     return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
   });
   return { requests, hits };
@@ -109,6 +113,43 @@ async function turn(
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+const MISSING_HISTORY = {
+  "api/histories/h404/contents": () =>
+    new Response(JSON.stringify({ err_msg: "No such history" }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    }),
+};
+const failingRead = { name: "get_history_contents", args: { history_id: "h404", limit: "5" } };
+
+describe("the repeated-failure guard", () => {
+  it("refuses a model's fourth identical failing call, by the arguments pi validated", async () => {
+    const replies = Array.from({ length: 4 }, () => ({ calls: [failingRead] }));
+    const { result, events } = await turn(replies, { max_steps: 5 }, MISSING_HISTORY);
+    const ends = events.filter((e) => e.type === "tool_end");
+    expect(ends.slice(0, 3).every((e) => e.is_error && !e.refused)).toBe(true);
+    expect(ends[3]).toMatchObject({ refused: true, guard: "repeated-failure" });
+    expect(result.guards).toContainEqual({
+      guard: "repeated-failure",
+      tool: "get_history_contents",
+    });
+  });
+
+  it("refuses the same on model-free calls", async () => {
+    server([], MISSING_HISTORY);
+    const session = await Session.create(config(), python);
+    for (let i = 0; i < 3; i++) {
+      expect(await session.call(failingRead.name, failingRead.args)).toMatchObject({
+        is_error: true,
+      });
+    }
+    expect(await session.call(failingRead.name, failingRead.args)).toMatchObject({
+      is_error: true,
+      guard: "repeated-failure",
+    });
+  });
+});
 
 describe("a turn", () => {
   it("streams the reply and returns it in the transcript", async () => {
@@ -304,7 +345,7 @@ describe("a turn", () => {
     expect(tool.content).toContain("[redacted]");
   });
 
-  it("returns a failed provider call as an error with the transcript unchanged", async () => {
+  it("returns a failed provider call as an error, keeping the turn without the failed reply", async () => {
     vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
       const url = String(input instanceof Request ? input.url : input);
       return url.startsWith(LLM)
@@ -316,7 +357,24 @@ describe("a turn", () => {
     const session = await Session.create(config(), python);
     const result = await session.turn(start);
     expect(result.error?.message).toBeTruthy();
-    expect(result.messages).toEqual(start);
+    const asked = (messages: AgentMessage[]) =>
+      messages.filter((m) => m.role === "user").map((m) => (m as { content: unknown }).content);
+    expect(asked(result.messages)).toEqual(asked(start));
+    expect(result.messages.some((m) => m.role === "assistant")).toBe(false);
+  });
+
+  it("asks once more after a reply with neither text nor tool calls", async () => {
+    const { result } = await turn([{ text: "" }, { text: "The answer." }, { text: "unused" }]);
+    expect(result.steps).toBe(2);
+    expect(contentText((result.messages.at(-1) as AssistantMessage).content)).toBe("The answer.");
+  });
+
+  it("does not start a turn whose Stop came first", async () => {
+    server([{ calls: [{ name: "get_server_info", args: {} }] }]);
+    const session = await Session.create(config(), python);
+    const result = await session.turn(start, { signal: AbortSignal.abort() });
+    expect(result.aborted).toBe(true);
+    expect(result.steps).toBe(0);
   });
 
   it("sends max_tokens only when one is configured", async () => {

@@ -35,9 +35,9 @@ Three kinds of "tool" exist here and are easy to confuse:
   operations: list_visualizations, show_visualization and save_visualization. Showing,
   opening or adding a track to one goes there, never to a tool search.
 
-For curated multi-step analyses, prefer search_iwc_workflows to find a vetted
+For a multi-step analysis goal, call recommend_iwc_workflows first to find a vetted
 Intergalactic Workflow Commission (IWC) workflow, then import_workflow_from_iwc and
-invoke_workflow. User-defined tools (created via create_user_tool) are run with
+invoke_workflow; search_iwc_workflows is keyword search for a workflow the user names. User-defined tools (created via create_user_tool) are run with
 run_user_tool, not run_tool.
 
 Pages are Galaxy-flavored markdown documents: a history-attached page is a "Notebook",
@@ -62,7 +62,8 @@ awaiting approval, a parameter table, a short end-of-turn summary. Tools carry
 everything that touches Galaxy or runs code. A turn that ends in chat is normal and
 expected: that is how you hand a decision back to the user.
 
-When the task is complete, call finish with a one-line summary.
+When the task is complete, call finish; its summary is your closing reply, so state the
+result itself.
         ]]></ai_prompt>
     </specs>
     <help format="markdown"><![CDATA[

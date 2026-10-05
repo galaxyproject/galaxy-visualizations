@@ -93,6 +93,16 @@ describe("recognising a document", () => {
     expect(isSessionDocument(doc)).toBe(false);
   });
 
+  it("rejects a document missing what a turn updates, or naming a record by anything but an id", () => {
+    const doc = turn(newDocument({}), "a");
+    const { usage: _, ...noUsage } = doc.session;
+    expect(isSessionDocument({ ...doc, session: noUsage })).toBe(false);
+    expect(
+      isSessionDocument({ ...doc, session: { ...doc.session, recordPageId: "../users" } }),
+    ).toBe(false);
+    expect(isSessionDocument({ ...doc, watching: [{ kind: "job" }] })).toBe(false);
+  });
+
   it("rejects junk", () => {
     for (const value of [null, undefined, {}, [], "text", { olit_session: 1 }]) {
       expect(isSessionDocument(value)).toBe(false);

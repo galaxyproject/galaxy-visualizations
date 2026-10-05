@@ -22,9 +22,20 @@ export interface JobOutcome {
   outcome: Outcome;
 }
 
-/** The line index whose text mentions `id`, or -1. */
+const SUBMITTED = "submitted, awaiting completion";
+
+function unfencedLine(lines: string[], id: string): number {
+  let fenced = false;
+  return lines.findIndex((l) => {
+    if (l.trimStart().startsWith("```")) fenced = !fenced;
+    return !fenced && l.includes(id);
+  });
+}
+
+/** The session's own entry for `id`, else its first mention outside a fenced block, or -1. */
 function lineWithId(lines: string[], id: string): number {
-  return lines.findIndex((l) => l.includes(id));
+  const own = lines.findIndex((l) => l.includes(id) && l.includes(SUBMITTED));
+  return own >= 0 ? own : unfencedLine(lines, id);
 }
 
 /**
@@ -57,7 +68,7 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
     !lines[step].trimStart().startsWith(PENDING) &&
     !lines[step].trimStart().startsWith(DONE)
   ) {
-    step -= 1;
+    step = step < at && /^\s*($|#)/.test(lines[step]) ? -1 : step - 1;
   }
   // A cancelled step is neither verified nor failed, so its marker is left as the agent
   // wrote it and the status line below is what says the run was stopped.
@@ -103,9 +114,9 @@ export function noteSubmitted(
   content: string,
   w: { id: string; kind: "job" | "invocation" | "dataset" },
 ): string {
-  if (content.includes(w.id)) return content;
+  if (unfencedLine(content.split("\n"), w.id) >= 0) return content;
   const what = WHAT[w.kind];
-  const entry = `- [ ] ${what} \`${w.id}\` — submitted, awaiting completion`;
+  const entry = `- [ ] ${what} \`${w.id}\` — ${SUBMITTED}`;
   const lines = content.split("\n");
 
   // Keep the session block last; it is the session's own footer.

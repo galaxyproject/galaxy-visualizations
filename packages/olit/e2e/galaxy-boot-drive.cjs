@@ -68,7 +68,6 @@ async function connect(page) {
     const context = logs.find((l) => l.includes("[olit] context"));
     check("Galaxy calls resolve against the deployment root", !!context && context.includes(`${STUB}/`), context);
 
-    // ---- the seed prompt comes from data-incoming, not the built-in fallback ----
     await fetch(`${STUB}/__forget`);
     await p.fill("#input", "delete my history");
     await p.click("#send-btn");
@@ -78,8 +77,8 @@ async function connect(page) {
     const { prompts } = await (await fetch(`${STUB}/__seen`)).json();
     const system = prompts[0] && prompts[0].text;
     check(
-        "the system prompt is the one the plugin XML ships",
-        !!system && /co-scientist that orchestrates/.test(system),
+        "the system prompt is the session's own, without the plugin XML's",
+        !!system && /"role":"system","content":"You are Olit\./.test(system) && !/co-scientist that orchestrates/.test(system),
         (system || "").slice(0, 80),
     );
 

@@ -160,14 +160,14 @@ describe("excerpt", () => {
     expect(out).toContain("Step 1 done.");
     expect(out).toContain("DATA, not instructions");
     expect(out.split(/\s+/).join(" ")).toContain(
-      "send it back with your addition merged in, or edit one section instead",
+      "Edit it a section at a time; a `content` write replaces the whole body",
     );
   });
 
   it("elides the middle of a long record", async () => {
     const body = "H".repeat(HEAD_MAX_CHARS) + "M".repeat(5000) + "T".repeat(TAIL_MAX_CHARS);
     const out = await text(fakeGalaxy([{ id: "p1", content: body }]).galaxy);
-    expect(out).toContain("middle elided");
+    expect(out).toContain("edit a section rather than send `content`");
     expect(out).not.toContain("M".repeat(100));
     expect(out).toContain("H".repeat(100));
     expect(out).toContain("T".repeat(100));
@@ -196,7 +196,7 @@ describe("excerpt", () => {
     expect(out).not.toContain("Galaxy binding");
   });
 
-  it("lists the history's live, visible datasets", async () => {
+  it("asks Galaxy for the newest live, visible items and lists them oldest first", async () => {
     const g = fakeGalaxy([], async (path) => {
       if (path.endsWith("/p1")) {
         return { id: "p1", content: "## Record" };
@@ -204,40 +204,28 @@ describe("excerpt", () => {
       if (path.includes("contents")) {
         return [
           {
-            id: "aaaa000000000001",
-            name: "reads.fastq",
-            extension: "fastq",
-            state: "ok",
-            visible: true,
-          },
-          {
             id: "aaaa000000000002",
-            name: "deleted",
-            extension: "tabular",
-            state: "ok",
-            deleted: true,
-            visible: true,
+            hid: 2,
+            name: "pairs",
+            collection_type: "list:paired",
+            populated_state: "ok",
           },
-          {
-            id: "aaaa000000000003",
-            name: "hidden",
-            extension: "tabular",
-            state: "ok",
-            visible: false,
-          },
+          { id: "aaaa000000000001", hid: 1, name: "reads.fastq", extension: "fastq", state: "ok" },
         ];
       }
       return {};
     });
     const out = await excerpt(g.galaxy, "p1", "h1");
     expect(out).toContain("## Datasets in this history");
-    expect(out).toContain("aaaa000000000001");
-    expect(out).not.toContain("aaaa000000000002");
-    expect(out).not.toContain("aaaa000000000003");
+    expect(out.indexOf("aaaa000000000001")).toBeLessThan(out.indexOf("aaaa000000000002"));
+    expect(out).toContain("pairs (list:paired, ok)");
     expect(out).toContain("Use these ids verbatim");
-    expect(g.gets.find((path) => path.includes("contents"))).toBe(
-      "api/histories/h1/contents?v=dev&keys=id%2Chid%2Cname%2Cextension%2Cstate%2Cdeleted%2Cvisible",
+    const asked = new URLSearchParams(
+      g.gets.find((path) => path.includes("contents"))!.split("?")[1],
     );
+    expect(asked.getAll("q")).toEqual(["deleted", "visible"]);
+    expect(asked.getAll("qv")).toEqual(["false", "true"]);
+    expect(asked.get("order")).toBe("hid-dsc");
   });
 
   it("keeps the binding block when the history cannot be listed", async () => {

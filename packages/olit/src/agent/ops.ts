@@ -35,6 +35,9 @@ export interface OpPolicy {
   around?: <T>(call: () => Promise<T>) => Promise<T>;
   /** Olit's own answer to a refusal, when its policy has something to add to the message. */
   refused?: (message: string, args: Record<string, unknown>) => Outcome | undefined;
+  destructiveWhen?: (args: Record<string, unknown>) => boolean;
+  polls?: string;
+  settled?: boolean;
 }
 
 /** galaxy-ops operations under galaxy-mcp's names: snake_case at the top level, its docstrings. */
@@ -57,12 +60,10 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
     // galaxy-ops' own line, in snake_case, for an operation galaxy-mcp has not documented.
     description: UPSTREAM_DOCS[op.name] ?? spellParamNames(describeOperation(op), op.input, snake),
     capability: op.readOnly === false ? "write" : "read",
-    destructive: op.destructive === true,
-    destructiveWhen: op.destructiveWhen
-      ? (args) => op.destructiveWhen!(inputOf(args, toInput) as never)
-      : undefined,
-    polls: op.polls ? snake(op.polls.argument) : undefined,
-    settled: op.stableForSession === true,
+    destructive: op.destructive === true && !policy.destructiveWhen,
+    destructiveWhen: policy.destructiveWhen,
+    polls: policy.polls,
+    settled: policy.settled === true,
     parameters: {
       ...schema,
       properties: Object.fromEntries(

@@ -1,10 +1,11 @@
 import {
   Agent,
+  runToolCall,
   type AgentEvent,
   type AgentMessage,
   type AgentTool,
 } from "@earendil-works/pi-agent-core";
-import { contentText, normalizeContext } from "@earendil-works/pi-ai";
+import { contentText, normalizeContext, type JsonObject } from "@earendil-works/pi-ai";
 import { createGalaxyContext, type GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import { resolveArtifacts } from "./artifacts";
@@ -205,7 +206,9 @@ function finishTool(): AgentTool {
   return {
     name: "finish",
     label: "finish",
-    description: "Call when the task is complete, with a short summary.",
+    description:
+      "Call when the task is complete. The summary is your closing reply to the user: " +
+      "state the result itself, not where you wrote it.",
     parameters: {
       type: "object",
       properties: { summary: { type: "string" } },
@@ -354,6 +357,7 @@ export class Session {
         galaxyStatus: session.galaxyStatus,
         seedDataset: config.dataset_id,
         galaxyRoot: galaxy.root,
+        galaxyReads: session.capabilities.includes("read"),
       }),
       skills.routerText(),
     ]
@@ -369,10 +373,10 @@ export class Session {
   }
 
   /** Point this session at a new turn's context, which names its session and record as given. */
-  rebind(config: Partial<SessionConfig>) {
+  rebind(config: Partial<SessionConfig>, restored: Watched[] = []) {
     if (config.session_id !== this.binding.sessionId) {
-      // Another conversation: what the last one submitted is the last one's to hear about.
       this.watch = new Watch(stateReader(this.galaxy));
+      this.watch.add(restored);
     }
     this.config = { ...this.config, ...config };
     this.binding.sessionId = config.session_id;
@@ -393,49 +397,36 @@ export class Session {
     // The guards a turn would apply, kept across calls the way a turn keeps them across steps.
     const guard = (this.callGuards ??= fresh);
     const id = `call-${++this.calls}`;
-    const tool = tools.find((t) => t.name === name);
-    if (!tool) {
-      // Withheld by the grant: what the model would read in place of pi's "not found".
-      const [refused] = guard.convert([
-        {
-          role: "toolResult",
-          toolCallId: id,
-          toolName: name,
-          content: [{ type: "text", text: `Tool ${name} not found` }],
-          isError: true,
-          timestamp: Date.now(),
-        },
-      ]);
-      const content = contentText(
-        (refused as Extract<AgentMessage, { role: "toolResult" }>).content,
-      );
-      return { content, is_error: true, guard: guard.guardOf(id, name, true), artifacts: [] };
-    }
-    const toolCall = { type: "toolCall", id, name, arguments: args };
-    const blocked = await guard.beforeToolCall({
-      toolCall,
-      args,
-      assistantMessage: { role: "assistant", content: [toolCall] },
-    } as never);
-    if (blocked?.block) {
-      return {
-        content: blocked.reason ?? "",
-        is_error: true,
-        guard: guard.guardOf(id, name, false),
-        artifacts: [],
-      };
-    }
+    const toolCall = { type: "toolCall" as const, id, name, arguments: args as JsonObject };
     const watching = this.watching();
-    const raw = await tool.execute(id, args as never);
-    const after = await guard.afterToolCall({ toolCall, result: raw } as never);
-    const result = { ...raw, ...after };
-    if (result.isError) {
-      guard.noteFailure(name, args);
+    const outcome = await runToolCall(toolCall, {
+      tools,
+      assistantMessage: { role: "assistant", content: [toolCall] } as never,
+      context: { messages: [], tools },
+      beforeToolCall: guard.beforeToolCall,
+      afterToolCall: guard.afterToolCall,
+    });
+    const raw = contentText(outcome.result.content);
+    const [seen] = guard.convert([
+      {
+        role: "toolResult",
+        toolCallId: id,
+        toolName: name,
+        content: outcome.result.content,
+        isError: outcome.isError,
+        timestamp: Date.now(),
+      },
+    ]);
+    const guardName =
+      guard.guardOf(id, name, raw === `Tool ${name} not found`) ?? outcome.result.details?.guard;
+    if (outcome.isError && !(guardName && PRE_DISPATCH.has(guardName))) {
+      guard.noteFailure(name, id);
     }
     await Promise.all(this.recordSubmitted(watching).writes);
     return {
-      content: contentText(result.content),
-      is_error: result.isError,
+      content: contentText((seen as Extract<AgentMessage, { role: "toolResult" }>).content),
+      is_error: outcome.isError,
+      ...(guardName ? { guard: guardName } : {}),
       artifacts: ctx.artifacts.produced,
     };
   }
@@ -504,7 +495,12 @@ export class Session {
   }
 
   /** One pass over the unfinished work: what settled, and the follow-up turn it calls for. */
-  async settle(): Promise<{ settled: Settled[]; pending: number; followUp?: string }> {
+  async settle(): Promise<{
+    settled: Settled[];
+    pending: number;
+    watching: Watched[];
+    followUp?: string;
+  }> {
     const settled = await this.watch.poll();
     // loom's poller advances the notebook itself, without asking the model.
     await Promise.all(
@@ -514,7 +510,12 @@ export class Session {
         ),
       ),
     );
-    return { settled, pending: this.watch.pending, followUp: followUpPrompt(settled) };
+    return {
+      settled,
+      pending: this.watch.pending,
+      watching: this.watch.list(),
+      followUp: followUpPrompt(settled),
+    };
   }
 
   /** An edit of the record this session is bound to, if it has one yet. */
@@ -565,9 +566,9 @@ export class Session {
     const maxSteps = this.config.max_steps || MAX_STEPS;
     const produced: AgentMessage[] = [];
     const guardLog: TurnResult["guards"] = [];
-    const started = new Map<string, unknown>();
     let steps = 0;
     let exhausted = false;
+    let retried = false;
     let done = false;
     let overflowReported = false;
     let before = JSON.stringify(this.binding);
@@ -594,11 +595,16 @@ export class Session {
         }
         return compacted;
       },
-      finishTurn: () => {
+      finishTurn: (turn) => {
         steps += 1;
         if (steps >= maxSteps) {
           exhausted = true;
           return { action: "end" };
+        }
+        const silent = !turn.toolResults.length && !contentText(turn.message.content).trim();
+        if (silent && !retried) {
+          retried = true;
+          return { action: "continue" };
         }
         return undefined;
       },
@@ -612,7 +618,6 @@ export class Session {
       ) {
         produced.push(event.message);
       } else if (event.type === "tool_execution_start") {
-        started.set(event.toolCallId, event.args);
         before = JSON.stringify(this.binding);
         watchedBefore = this.watching();
         logs.push(`call ${event.toolName}(${brief(event.args)})`);
@@ -624,7 +629,7 @@ export class Session {
         const guardName =
           guard.guardOf(event.toolCallId, name, notFound) ?? event.result.details?.guard;
         if (event.isError && !(guardName && PRE_DISPATCH.has(guardName))) {
-          guard.noteFailure(name, started.get(event.toolCallId) ?? {});
+          guard.noteFailure(name, event.toolCallId);
         }
         if (guardName) {
           guardLog.push({ guard: guardName, tool: name });
@@ -652,7 +657,9 @@ export class Session {
     const abort = () => agent.abort();
     options.signal?.addEventListener("abort", abort);
     try {
-      await agent.continue();
+      if (!options.signal?.aborted) {
+        await agent.continue();
+      }
     } finally {
       options.signal?.removeEventListener("abort", abort);
     }
@@ -696,12 +703,10 @@ export class Session {
     );
     const outcome: TurnResult = {
       logs,
-      messages: failed
-        ? transcripts
-        : compaction
-            .reduce(agent.state.messages)
-            .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
-      new_messages: failed ? [] : kept,
+      messages: compaction
+        .reduce(agent.state.messages)
+        .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
+      new_messages: kept,
       binding: reported(this.binding),
       watching: this.watch.list(),
       done,

@@ -24,6 +24,16 @@ async function render(spec: object) {
 describe("renderVega", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it("keeps a spec's usermeta from replacing the embed options", async () => {
+    const spec = {
+      ...chart({ values: [{ a: 1 }] }),
+      usermeta: { embedOptions: { actions: true } },
+    };
+    const { container } = await render(spec);
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector(".vega-actions")).toBeNull();
+  });
+
   it("draws a chart with its expressions interpreted", async () => {
     const { container, warned } = await render(chart({ values: [{ a: 1 }, { a: 2 }] }));
     expect(container.querySelector("svg")).not.toBeNull();

@@ -11,6 +11,7 @@ import {
   MAX_DOWNLOAD_BYTES,
   PREVIEW_LINES,
 } from "./galaxy-tools";
+import { ELIDED } from "./notebook";
 import { olitTools } from "./session";
 import { Outcome, traitsOf, type Context, type Python } from "./tool";
 
@@ -59,7 +60,7 @@ describe("tool surface", () => {
     }
   });
 
-  it("reads what each tool says of itself off galaxy-ops and Olit's own tools", () => {
+  it("reads what each tool says of itself off galaxy-ops, Olit's policy and its own tools", () => {
     const tools = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
     const settledOnes = [...tools].filter(([, t]) => t.settled).map(([name]) => name);
     expect(settledOnes.sort()).toEqual([
@@ -398,5 +399,14 @@ describe("annotate", () => {
       misc_info: "Failed to fetch url https://example.org/x.fastq.gz. 404",
     };
     expect(await annotate("get_dataset_details", {}, failure, ctx)).toContain("from memory");
+  });
+});
+
+describe("update_page policy", () => {
+  it("refuses content built from an elided record excerpt", async () => {
+    const check = OPS_POLICY.update_page.check!;
+    const refused = await check({ page_id: "p1", content: `# A\n\n${ELIDED}\n\n# Z` }, {} as never);
+    expect(refused?.isError).toBe(true);
+    expect(await check({ page_id: "p1", content: "# A" }, {} as never)).toBeUndefined();
   });
 });

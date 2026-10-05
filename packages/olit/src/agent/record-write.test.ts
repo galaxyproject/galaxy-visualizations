@@ -7,6 +7,7 @@ import { writeSessionSummary } from "./session-summary";
 /** A Galaxy holding the session's record page p1 and nothing else, recording every write. */
 function galaxy(page: Record<string, unknown>, putOk = true) {
   const writes: string[] = [];
+  const sources: (string | undefined)[] = [];
   const client = {
     get: async (path: string) => {
       if (path !== "api/pages/p1") {
@@ -15,20 +16,27 @@ function galaxy(page: Record<string, unknown>, putOk = true) {
       }
       return page;
     },
-    put: async (_path: string, body: { content: string }) => {
+    put: async (_path: string, body: { content: string; edit_source?: string }) => {
       writes.push(body.content);
+      sources.push(body.edit_source);
       if (!putOk) {
         throw new HttpError("HTTP 500: refused", 500);
       }
       return {};
     },
   } as unknown as Galaxy;
-  return { client, writes };
+  return { client, writes, sources };
 }
 
 const target = (client: Galaxy) => ({ galaxy: client, pageId: "p1" });
 
 describe("editRecord", () => {
+  it("writes as the agent", async () => {
+    const { client, sources } = galaxy({ content_editor: "a" });
+    await editRecord(target(client), (c) => `${c}b`);
+    expect(sources).toEqual(["agent"]);
+  });
+
   it("edits the editable source, never the embed-expanded render", async () => {
     // Galaxy returns the directive in content_editor and its expansion in content;
     // writing the render back would replace the directive with a one-time value.

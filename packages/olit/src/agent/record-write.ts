@@ -70,7 +70,7 @@ export function editRecord(
         return true;
       }
       try {
-        await galaxy.put(path, { content: after });
+        await galaxy.put(path, { content: after, edit_source: "agent" });
         return true;
       } catch (e) {
         // A rejected write is re-read and reapplied rather than resent as it stands.

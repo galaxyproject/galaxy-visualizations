@@ -1,4 +1,5 @@
 import type { Galaxy } from "./galaxy";
+import { NOT_OFFERED } from "./visualizations";
 
 const FAILED_FETCH = /Failed to fetch url\s+(\S+)/;
 /** ENA and SRA read paths, whose sharding is not derivable from an accession. */
@@ -51,6 +52,19 @@ export function failedUrl(result: unknown): string | undefined {
 }
 
 /** The triage line this result earns, or undefined when nothing failed to fetch. */
+export const IWC_CANDIDATES_HINT =
+  "[olit] These are ranked by word overlap, not relevance. Before offering one, call " +
+  "`get_iwc_workflow_details` on the plausible candidates and check their inputs " +
+  "against the data the user actually has (reads vs count tables, paired vs single-end). " +
+  "A workflow that needs another's outputs first is half of a chain, not a match. If none " +
+  "fit, say so. If nothing came back, retry once with just the assay; if the query had no " +
+  "searchable terms, ask the user what they want to find out.";
+
+const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_workflows"]);
+
+export const iwcCandidatesHint = (name: string) =>
+  IWC_LISTINGS.has(name) ? IWC_CANDIDATES_HINT : undefined;
+
 export function fetchFailureHint(result: unknown): string | undefined {
   const url = failedUrl(result);
   if (url === undefined) {
@@ -63,7 +77,6 @@ export function fetchFailureHint(result: unknown): string | undefined {
 /** Searches over the tool catalog, which holds no visualizations. */
 const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
 /** Plugins never offered as a visualization: this agent and a standalone LLM plugin. */
-const NOT_OFFERED = new Set(["olit", "vintent"]);
 
 /** The installed visualization this query names. */
 async function visualizationNamed(galaxy: Galaxy, query: string): Promise<string | undefined> {

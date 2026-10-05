@@ -139,16 +139,32 @@ export function noteModel(
   document.session.models.push({ ...use, firstTurn: turn, lastTurn: turn });
 }
 
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+const ENCODED_ID = /^[0-9a-f]+$/;
+
 /** Is this a document we understand? A future schema is not ours to interpret. */
 export function isSessionDocument(value: unknown): value is SessionDocument {
-  const d = value as SessionDocument | undefined;
-  return Boolean(
-    d &&
-    typeof d === "object" &&
-    d.olit_session === SCHEMA &&
-    d.session &&
-    typeof d.session.id === "string" &&
-    Array.isArray(d.messages) &&
-    Array.isArray(d.artifacts),
+  if (!isObject(value) || value.olit_session !== SCHEMA || !isObject(value.session)) {
+    return false;
+  }
+  const { session, messages, artifacts, watching } = value;
+  return (
+    typeof session.id === "string" &&
+    typeof session.turn === "number" &&
+    Array.isArray(session.models) &&
+    isObject(session.usage) &&
+    (session.recordPageId === undefined ||
+      (typeof session.recordPageId === "string" && ENCODED_ID.test(session.recordPageId))) &&
+    Array.isArray(messages) &&
+    messages.every((m) => isObject(m) && typeof m.role === "string") &&
+    Array.isArray(artifacts) &&
+    artifacts.every((a) => isObject(a) && typeof a.kind === "string") &&
+    (watching === undefined ||
+      (Array.isArray(watching) &&
+        watching.every(
+          (w) => isObject(w) && typeof w.kind === "string" && typeof w.id === "string",
+        )))
   );
 }
