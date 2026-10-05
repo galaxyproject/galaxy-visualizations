@@ -30,7 +30,8 @@ function datasets(result: unknown): Row[] {
   if (!isRow(result)) {
     return [];
   }
-  const nested = ["outputs", "contents", "datasets"].flatMap((key) =>
+  // Not `contents`: a history listing is Galaxy's summary view, which has no misc_info to read.
+  const nested = ["outputs", "datasets"].flatMap((key) =>
     Array.isArray(result[key]) ? (result[key] as unknown[]).filter(isRow) : [],
   );
   return [result, ...nested];

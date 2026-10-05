@@ -58,7 +58,7 @@ describe("fetchFailureHint", () => {
     ).toBeUndefined();
   });
 
-  it.each(["outputs", "contents", "datasets"])("finds a dataset nested under %s", (key) => {
+  it.each(["outputs", "datasets"])("finds a dataset nested under %s", (key) => {
     expect(fetchFailureHint({ [key]: [RUNNING, ENA_FAILURE] })).toContain("ena_runs");
   });
 
