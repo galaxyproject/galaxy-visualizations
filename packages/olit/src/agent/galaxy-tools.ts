@@ -12,19 +12,6 @@ export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
-/** Top-level fields of `data` that a description tells the model to read. */
-export const PROMISED_FIELDS: Record<string, string[]> = {
-  get_tool_panel: ["entries"],
-  get_tool_citations: ["tool_name", "tool_version", "citations"],
-  get_tool_input_template: ["tool_id", "inputs_template", "parameters"],
-  get_tool_run_examples: ["tool_id", "requested_version", "test_cases"],
-  get_history_details: ["history", "contents_summary"],
-  get_collection_details: ["collection_id", "collection", "elements", "elements_truncated", "note"],
-  get_workflow_input_template: ["inputs_template", "guide", "warnings"],
-};
-
-export const promisedFields = (name: string) => PROMISED_FIELDS[name] ?? [];
-
 /**
  * Olit's policy over galaxy-ops operations it runs but does not own: a refusal of its own before
  * the call, a queue the call waits its turn in, or an answer to galaxy-ops' refusal.

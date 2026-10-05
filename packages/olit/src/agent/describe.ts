@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { allOperations } from "@galaxyproject/galaxy-ops/browser";
 
 import { KEEP_RECENT_TOKENS, RESERVE_TOKENS, TOOL_RESULT_MAX_CHARS } from "./compaction";
-import { PROMISED_FIELDS } from "./galaxy-tools";
 import { MAX_RESULT_BYTES } from "./guards";
 import { connect, keyVariable } from "./model";
 import { STARTER } from "./notebook";
@@ -80,6 +80,8 @@ function typeOf(spec: Record<string, any>): string {
 
 function tools() {
   const delegated = new Set(opsTools().map((t) => t.name));
+  // The result shape galaxy-ops declares for each operation and reads back in its own tests.
+  const declared = new Map(allOperations.map((op) => [op.name, op.result ?? null]));
   const out: Record<string, unknown> = {};
   for (const tool of olitTools()) {
     const params = tool.parameters as { properties?: Record<string, any>; required?: string[] };
@@ -98,7 +100,7 @@ function tools() {
           "\n",
         ),
       ),
-      promised_fields: PROMISED_FIELDS[tool.name] ?? [],
+      result: declared.get(tool.name) ?? null,
     };
   }
   return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
