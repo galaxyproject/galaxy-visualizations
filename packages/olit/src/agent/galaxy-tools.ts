@@ -375,18 +375,6 @@ async function recommendBiocontainer(args: Row) {
   }
 }
 
-async function getPage(args: Row, { galaxy }: Context) {
-  const page = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
-  if (!isRow(page)) {
-    return page;
-  }
-  const out: Row = { ...page, content_hash: djb2Hash(pageBody(page)) };
-  if (!args.include_rendered) {
-    delete out.content;
-  }
-  return out;
-}
-
 async function updatePage(args: Row, { galaxy }: Context) {
   const malformed = malformedObjectIds(args.content || args.section_content || "");
   if (malformed.length) {
@@ -515,7 +503,6 @@ export function galaxyTools(): OlitTool[] {
       ["packages"],
       recommendBiocontainer,
     ),
-    tool("get_page", "read", { page_id: STR, include_rendered: BOOL }, ["page_id"], getPage),
     tool(
       "update_page",
       "write",

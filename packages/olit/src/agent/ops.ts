@@ -19,7 +19,6 @@ export const OLIT_OWNED: Record<string, string> = {
   get_history_contents: "server-side paging, dataset_id left out, a byte budget",
   get_invocations: "the jobs_summary roll-up into an outcome",
   get_job_details: "full=true logs, trimmed at both ends",
-  get_page: "content_hash for expect_hash",
   update_page: "section edits, expect_hash, the malformed object-id refusal",
 };
 

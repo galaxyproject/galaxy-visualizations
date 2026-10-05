@@ -736,20 +736,6 @@ describe("update_page", () => {
   });
 });
 
-describe("get_page", () => {
-  it("adds the content hash and withholds the rendered content", async () => {
-    const ctx = context({
-      get: async () => ({ id: "p1", content_editor: "## A", content: "<h2>A</h2>" }),
-    });
-    const out = await run("get_page", { page_id: "p1" }, ctx);
-    expect(out.content_hash).toBe(djb2Hash("## A"));
-    expect(out).not.toHaveProperty("content");
-    expect((await run("get_page", { page_id: "p1", include_rendered: true }, ctx)).content).toBe(
-      "<h2>A</h2>",
-    );
-  });
-});
-
 describe("annotate", () => {
   it("prefers a catalog miss and falls back to fetch-failure triage", async () => {
     const ctx = context({ get: async () => [{ name: "plotly" }] });
