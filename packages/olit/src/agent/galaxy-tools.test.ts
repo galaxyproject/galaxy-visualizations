@@ -82,6 +82,16 @@ describe("get_history_contents", () => {
     return { paths, out: run("get_history_contents", { history_id: "h1", ...args }, ctx) };
   }
 
+  it("lists a dataset in an error state like any other", async () => {
+    // A tidy listing that hides the failure is a history the researcher does not have.
+    const rows = [
+      { id: "d1", hid: 1, state: "ok" },
+      { id: "d2", hid: 2, state: "error" },
+    ];
+    const got = JSON.parse(await contents({}, rows).out);
+    expect(got.data.map((i: { id: string }) => i.id)).toEqual(["d1", "d2"]);
+  });
+
   it("sends an order with what makes it count", async () => {
     const { paths, out } = contents({ order: "hid-dsc" });
     await out;
@@ -463,6 +473,14 @@ describe("dataset filesystem", () => {
     expect(out.path).toBe("/data/abc123.dat");
     expect(new TextDecoder().decode(d.fs.get(out.path))).toBe(TABLE);
     expect(out).not.toHaveProperty("content");
+  });
+
+  it("reads the whole file, however much the preview shows", async () => {
+    // A sum over the preview is quietly wrong; run_python has to see every row.
+    const d = dataset(TABLE, { size: encode(TABLE).length });
+    const out = await d.download("whole");
+    expect(new TextDecoder().decode(d.fs.get(out.path))).toBe(TABLE);
+    expect(out.partial).toBeFalsy();
   });
 
   it("caps the preview and says so", async () => {
