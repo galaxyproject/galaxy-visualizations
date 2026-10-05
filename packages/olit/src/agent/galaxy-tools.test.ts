@@ -14,7 +14,6 @@ import {
   settled,
 } from "./galaxy-tools";
 import { ROLLUP_LIMIT } from "./invocation-outcome";
-import { djb2Hash } from "./page-edit";
 import { Outcome, type Context, type Python } from "./tool";
 
 type Fake = Partial<
@@ -636,103 +635,6 @@ describe("recommend_biocontainer", () => {
     expect(refused(await run("recommend_biocontainer", { packages: [] }, context({})))).toContain(
       "at least one",
     );
-  });
-});
-
-describe("update_page", () => {
-  const DOC = "## Record\n\nintro\n\n## Methods\n\nold\n\n## Results\n\nfindings\n";
-  const ALSO_REAL = "0c97fda4aafcf418";
-
-  function page(content = DOC) {
-    const puts: any[] = [];
-    const ctx = context({
-      get: async () => ({ id: "p1", content_editor: content }),
-      put: async (_path, body) => {
-        puts.push(body);
-        return { id: "p1", content_editor: body.content ?? content };
-      },
-    });
-    return {
-      puts,
-      update: (args: Record<string, unknown>) =>
-        run("update_page", { page_id: "p1", ...args }, ctx),
-    };
-  }
-
-  it("leaves other sections alone in a section edit", async () => {
-    const p = page();
-    await p.update({ section_heading: "## Methods", section_content: "## Methods\n\nnew\n" });
-    expect(p.puts[0].content).toContain("new");
-    expect(p.puts[0].content).toContain("findings");
-    expect(p.puts[0].content).not.toContain("old");
-  });
-
-  it("refuses a write against a stale hash", async () => {
-    const p = page();
-    const out = await p.update({ content: "clobber", expect_hash: "deadbeef" });
-    expect(out.written).toBe(false);
-    expect(p.puts).toEqual([]);
-    expect(out.content_hash).toBe(djb2Hash(DOC));
-    expect(out.content).toBe(DOC);
-  });
-
-  it("allows a write against the current hash", async () => {
-    const p = page();
-    await p.update({ content: "fresh", expect_hash: djb2Hash(DOC) });
-    expect(p.puts[0].content).toBe("fresh");
-  });
-
-  it("reports the new hash", async () => {
-    expect((await page().update({ content: "fresh" })).content_hash).toBe(djb2Hash("fresh"));
-  });
-
-  it("hands back the source it wrote, not Galaxy's embed-expanded render", async () => {
-    const ctx = context({
-      get: async () => ({ id: "p1", content_editor: DOC }),
-      put: async (_path, body) => ({ id: "p1", content_editor: body.content, content: "<render>" }),
-    });
-    const out = (await run("update_page", { page_id: "p1", content: "fresh" }, ctx)) as any;
-    expect(out).not.toHaveProperty("content");
-    expect(out.content_editor).toBe("fresh");
-    expect(out.content_hash).toBe(djb2Hash("fresh"));
-  });
-
-  it("marks every write as an agent edit", async () => {
-    const p = page();
-    await p.update({ content: "x" });
-    expect(p.puts[0].edit_source).toBe("agent");
-  });
-
-  it("refuses a malformed id before Galaxy sees it, in prose that points at the artifact token", async () => {
-    const p = page("## Record\n");
-    const out = await p.update({
-      content: "```galaxy\nhistory_dataset_display(history_dataset_id=reads)\n```",
-    });
-    expect(out).toBeInstanceOf(Outcome);
-    expect(out.guard).toBe("malformed-object-id");
-    const text = refused(out);
-    expect(text.trimStart().startsWith("{")).toBe(false);
-    expect(text).toContain("{{artifact}}");
-    expect(text).toContain("history_dataset_id=reads");
-    expect(p.puts).toEqual([]);
-  });
-
-  it("accepts an encoded id written by hand", async () => {
-    const p = page("## Record\n");
-    const out = await p.update({
-      content: `\`\`\`galaxy\nhistory_dataset_display(history_dataset_id=${ALSO_REAL})\n\`\`\``,
-    });
-    expect(out).not.toBeInstanceOf(Outcome);
-    expect(p.puts[0].content.endsWith("```")).toBe(true);
-  });
-
-  it("checks a section edit too", async () => {
-    const out = await page().update({
-      content: null,
-      section_heading: "## Chart",
-      section_content: "visualization(history_dataset_id=reads)",
-    });
-    expect(out.guard).toBe("malformed-object-id");
   });
 });
 

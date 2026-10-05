@@ -19,7 +19,6 @@ export const OLIT_OWNED: Record<string, string> = {
   get_history_contents: "server-side paging, dataset_id left out, a byte budget",
   get_invocations: "the jobs_summary roll-up into an outcome",
   get_job_details: "full=true logs, trimmed at both ends",
-  update_page: "section edits, expect_hash, the malformed object-id refusal",
 };
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
@@ -42,6 +41,10 @@ export const UPSTREAM_DOCS = SNAPSHOT.docs as Record<string, string>;
 export interface OpPolicy {
   /** Olit's refusal before the operation runs, or undefined to let it run. */
   check?: (args: Record<string, unknown>, ctx: Context) => Promise<Outcome | undefined>;
+  /** Runs the call, for a queue the call has to wait its turn in. */
+  around?: <T>(call: () => Promise<T>) => Promise<T>;
+  /** Olit's own answer to a refusal, when its policy has something to add to the message. */
+  refused?: (message: string, args: Record<string, unknown>) => Outcome | undefined;
 }
 
 /** galaxy-ops operations under galaxy-mcp's names: snake_case at the top level, its docstrings. */
@@ -81,9 +84,13 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
       }
       const input = inputOf(args, toInput);
       const call = () => runWithEnvelope(op, input as never, ctx.ops);
-      const envelope = (await call()) as unknown as Record<string, unknown>;
+      const envelope = (await (policy.around ? policy.around(call) : call())) as unknown as Record<
+        string,
+        unknown
+      >;
       if (!envelope.success) {
-        return fail(String(envelope.message || `${op.name} failed`));
+        const message = String(envelope.message || `${op.name} failed`);
+        return policy.refused?.(message, args) ?? fail(message);
       }
       ctx.watch.add(watchedFrom(op.name, envelope.data));
       // Creating a history is the agent choosing where to work, even in a bound session.

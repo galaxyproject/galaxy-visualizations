@@ -13,6 +13,7 @@ import {
   type LoopEvent,
   type SessionConfig,
 } from "./session";
+import { serialized } from "./record-write";
 import type { Python } from "./tool";
 
 type Reply = {
@@ -544,5 +545,61 @@ describe("a model-free call", () => {
     const session = await Session.create(config({ record_page_id: "p1" }), python);
     await session.call("run_tool", { history_id: "h1", tool_id: "cat1", inputs: {} });
     expect(page).toContain("Galaxy job `j7` — submitted");
+  });
+});
+
+describe("Olit's policy over galaxy-ops' update_page", () => {
+  /** A Galaxy whose page PUTs are recorded, in the order they arrive. */
+  function pages() {
+    const puts: string[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      const path = new URL(request.url).pathname;
+      if (request.method === "PUT") {
+        puts.push(path);
+      }
+      const body = path.endsWith("/api/version")
+        ? { version_major: "26.1" }
+        : { id: "p1", content_editor: "# Record\n" };
+      return new Response(JSON.stringify(body), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    return puts;
+  }
+
+  it("answers a directive id galaxy-ops refuses with where the right id comes from", async () => {
+    const puts = pages();
+    const session = await Session.create(config(), python);
+    const out = await session.call("update_page", {
+      page_id: "p1",
+      content: "```galaxy\nhistory_dataset_display(history_dataset_id=reads)\n```\n",
+    });
+    expect(out).toMatchObject({ is_error: true });
+    expect(out.content).toContain("history_dataset_id=reads");
+    expect(out.content).toContain("{{artifact}}");
+    expect(puts).toEqual([]);
+  });
+
+  it("leaves a refusal Olit has nothing to add to as galaxy-ops said it", async () => {
+    pages();
+    const session = await Session.create(config(), python);
+    const out = await session.call("update_page", { page_id: "p1", section_heading: "## A" });
+    expect(out.is_error).toBe(true);
+    expect(out.content).not.toContain("{{artifact}}");
+  });
+
+  it("waits its turn in the session's record queue", async () => {
+    const puts = pages();
+    const session = await Session.create(config(), python);
+    let release!: () => void;
+    const held = serialized(() => new Promise<void>((resolve) => (release = resolve)));
+    const write = session.call("update_page", { page_id: "p1", content: "# Record\n\nmore" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(puts).toEqual([]);
+    release();
+    await held;
+    await write;
+    expect(puts).toEqual(["/api/pages/p1"]);
   });
 });

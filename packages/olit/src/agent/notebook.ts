@@ -1,5 +1,7 @@
 import { query, segment, type Galaxy } from "./galaxy";
-import { djb2Hash, pageBody } from "./page-edit";
+import { contentHash } from "@galaxyproject/galaxy-ops/browser";
+
+import { pageBody } from "./page-edit";
 import { fail, Outcome, type Capability, type Context, type OlitTool } from "./tool";
 
 export const STARTER = `## Record
@@ -150,7 +152,7 @@ export async function resume(
         page_id: existing.id,
         title: existing.title ?? null,
         content,
-        content_hash: djb2Hash(content),
+        content_hash: contentHash({ content_editor: content }),
       };
     }
   }

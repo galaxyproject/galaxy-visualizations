@@ -1,12 +1,12 @@
 import { quote } from "./quote";
-import { validatePagination } from "@galaxyproject/galaxy-ops/browser";
+import { malformedObjectIds, validatePagination } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
-import { applySectionEdit, djb2Hash, malformedObjectIds, pageBody } from "./page-edit";
+import { pageBody } from "./page-edit";
 import { serverPage } from "./paging";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -49,7 +49,10 @@ export const PROMISED_FIELDS: Record<string, string[]> = {
 
 export const promisedFields = (name: string) => PROMISED_FIELDS[name] ?? [];
 
-/** Olit's policy over galaxy-ops operations it runs but does not own. */
+/**
+ * Olit's policy over galaxy-ops operations it runs but does not own: a refusal of its own before
+ * the call, a queue the call waits its turn in, or an answer to galaxy-ops' refusal.
+ */
 export const OPS_POLICY: Record<string, OpPolicy> = {
   // Galaxy runs a tool on a dataset from another history, so galaxy-ops does too. An agent that
   // does so has nearly always copied the wrong id, and the job answers a question nobody asked.
@@ -65,6 +68,21 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
           )
         : undefined;
     },
+  },
+  // Every write to a page waits its turn in the session's record queue, so a marker written
+  // between its read and its write is kept; a directive id galaxy-ops refuses is answered with
+  // where the id the agent wanted comes from.
+  update_page: {
+    around: serialized,
+    refused: (message, args) =>
+      malformedObjectIds(String(args.section_content ?? args.content ?? "")).length
+        ? new Outcome(
+            `${message} For an artifact you just made, write {{artifact}} where it belongs and ` +
+              "the directive is built for you.",
+            true,
+            "malformed-object-id",
+          )
+        : undefined,
   },
 };
 
@@ -375,55 +393,6 @@ async function recommendBiocontainer(args: Row) {
   }
 }
 
-async function updatePage(args: Row, { galaxy }: Context) {
-  const malformed = malformedObjectIds(args.content || args.section_content || "");
-  if (malformed.length) {
-    return new Outcome(
-      `These name a Galaxy object by something that is not its encoded id: ` +
-        `${malformed.join(", ")}. Galaxy stores that and the embed renders nothing. ` +
-        "For an artifact you just made, write {{artifact}} where it belongs and the " +
-        "directive is built for you; otherwise use the encoded id a tool returned.",
-      true,
-      "malformed-object-id",
-    );
-  }
-  const payload: Row = {};
-  for (const key of ["title", "content"]) {
-    if (args[key] != null) {
-      payload[key] = args[key];
-    }
-  }
-  payload.edit_source = "agent";
-
-  const heading = args.section_heading;
-  const section = args.section_content;
-  const expect = args.expect_hash;
-  if (heading || section || expect) {
-    const current = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
-    const source = pageBody(current);
-    const actual = djb2Hash(source);
-    if (expect && expect !== actual) {
-      return {
-        written: false,
-        reason: "the page changed since you read it",
-        content_hash: actual,
-        content: source,
-      };
-    }
-    if (heading && section != null) {
-      payload.content = applySectionEdit(source, heading, section);
-    }
-  }
-
-  const written = await galaxy.put(`api/pages/${segment(args.page_id)}`, payload);
-  if (isRow(written)) {
-    written.content_hash = djb2Hash(pageBody(written));
-    // The embed-expanded render is not what was written, and galaxy-ops leaves it out too.
-    delete written.content;
-  }
-  return written;
-}
-
 type Run = (args: Row, ctx: Context) => Promise<unknown>;
 
 /**
@@ -502,31 +471,6 @@ export function galaxyTools(): OlitTool[] {
       { packages: { type: "array", items: { type: "string" } } },
       ["packages"],
       recommendBiocontainer,
-    ),
-    tool(
-      "update_page",
-      "write",
-      {
-        page_id: STR,
-        content: STR,
-        title: STR,
-        section_heading: {
-          type: "string",
-          description: "The exact heading line of the section to replace.",
-        },
-        section_content: {
-          type: "string",
-          description: "The section's new text, heading line included.",
-        },
-        expect_hash: {
-          type: "string",
-          description:
-            "content_hash from when the page was read; the write is refused if it changed.",
-        },
-      },
-      ["page_id"],
-      // In the session's record queue: a marker written between its read and write is kept.
-      (args, ctx) => serialized(() => updatePage(args, ctx)),
     ),
   ];
 }
