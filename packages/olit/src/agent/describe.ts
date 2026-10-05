@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
@@ -13,6 +12,7 @@ import { ROW_BYTES_CAP, ROW_CAP } from "./paging";
 import { PROVIDERS, resolve } from "./providers";
 import { MAX_STEPS, olitTools } from "./session";
 import { GUARDS } from "./tool";
+import { DEFAULT_MAX_AUTO_FOLLOW_UPS } from "./watch";
 
 const SCHEMA = 1;
 const SOURCE = "src/agent";
@@ -153,19 +153,9 @@ function loop() {
   };
 }
 
-function shell(root: string) {
-  const script = join(root, "contract/shell.mjs");
-  const stated = JSON.parse(
-    execFileSync("node", ["--experimental-strip-types", script], {
-      input: "",
-      encoding: "utf8",
-      stdio: "pipe",
-    }),
-  );
-  return {
-    max_auto_follow_ups: stated.max_auto_follow_ups,
-    resume_prompt_from: "contract/shell.mjs",
-  };
+/** The follow-up contract every driver shares: the session's settle step and its cap. */
+function followUps() {
+  return { max_auto_follow_ups: DEFAULT_MAX_AUTO_FOLLOW_UPS, settled_by: "session.settle" };
 }
 
 function skills(root: string) {
@@ -210,7 +200,7 @@ export async function describe(root: string) {
     tools: tools(),
     policy: { llm_request: await llmRequest(), loop: loop(), guards: [...GUARDS] },
     providers: providers(),
-    shell: shell(root),
+    follow_ups: followUps(),
     skills: skills(root),
     record: { starter: STARTER, resume_tool: "notebook_resume" },
   };

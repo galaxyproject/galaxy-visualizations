@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createFollowUpDelivery, buildResumePrompt, isResumableOutcome } from "./auto-resume";
+import { buildResumePrompt, isResumableOutcome } from "./agent/watch";
+import { createFollowUpDelivery } from "./auto-resume";
 
 const delivery = (sent: string[], opts = {}) =>
   createFollowUpDelivery((t) => sent.push(t), { graceMs: 0, ...opts });

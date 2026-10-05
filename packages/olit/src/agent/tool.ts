@@ -2,6 +2,7 @@ import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import type { Galaxy } from "./galaxy";
+import { watchedFrom, type Watch } from "./watch";
 
 export type Capability = "llm" | "local" | "read" | "write";
 
@@ -43,12 +44,6 @@ export interface Python {
   read(path: string): Promise<Uint8Array | undefined>;
 }
 
-export interface Watched {
-  kind: string;
-  id: string;
-  state?: string;
-}
-
 /** The session's identity in Galaxy: its id, its record page, the history it works in. */
 export interface Binding {
   sessionId?: string;
@@ -64,7 +59,8 @@ export interface Context {
   binding: Binding;
   /** Earlier turns' artifacts and this turn's, which a page may place. */
   artifacts: { prior: Artifact[]; produced: Artifact[] };
-  watching: Watched[];
+  /** The session's unfinished Galaxy work; a tool that submits some registers it here. */
+  watch: Watch;
 }
 
 export interface Details {
@@ -137,6 +133,9 @@ export function asAgentTool(
         value = await tool.run(args, ctx);
       } catch (err) {
         return result(`Tool '${tool.name}' raised: ${(err as Error)?.message ?? err}`, true);
+      }
+      if (!(value instanceof Outcome)) {
+        ctx.watch.add(watchedFrom(tool.name, value));
       }
       // Writing into a history is choosing it: an unbound session works there from now on.
       const named = (args as { history_id?: unknown }).history_id;

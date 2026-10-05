@@ -12,6 +12,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { contentText } from "@earendil-works/pi-ai";
 
 import type { Artifact } from "./artifacts";
+import type { Watched } from "./agent/watch";
 
 /** 2: pi's own messages. Earlier documents are not read. */
 export const SCHEMA = 2;
@@ -46,6 +47,8 @@ export interface SessionDocument {
   session: SessionMeta;
   messages: AgentMessage[];
   artifacts: Artifact[];
+  /** Galaxy work still unfinished, so a reloaded page keeps watching it. */
+  watching?: Watched[];
 }
 
 const textOf = (m: AgentMessage) =>

@@ -7,11 +7,12 @@ import { describe } from "./describe";
 import { localPython } from "./python";
 import { toChat } from "./messages";
 import { failedTurn, Session, type TurnResult } from "./session";
+import { DEFAULT_MAX_AUTO_FOLLOW_UPS } from "./watch";
 
-/** One session over JSON lines: `create`, `prepare`, `turn`, `close`; events stream before a turn's result. */
-const indexURL = pathToFileURL(
-  dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs")),
-).href;
+/** One session over JSON lines: `create`, `turn`, `settle`, `close`; events stream before a turn's result. */
+/** Where Pyodide lives, resolved only when a session needs it: `--describe` runs without it. */
+const pyodideURL = () =>
+  pathToFileURL(dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs"))).href;
 const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`);
 
 /** A turn as pi holds it, plus the OpenAI chat shape the harness grades. */
@@ -37,23 +38,25 @@ async function main() {
     const request = JSON.parse(line);
     try {
       if (request.op === "create") {
-        session = await Session.create(request.config, localPython(indexURL), process.env);
+        session = await Session.create(request.config, localPython(pyodideURL()), process.env);
         write({ result: {} });
-      } else if (request.op === "prepare") {
-        write({
-          result: await session!.prepare(
-            request.transcripts,
-            request.record_page_id,
-            request.history_id,
-          ),
-        });
       } else if (request.op === "turn") {
         const result = await session!.turn(request.messages, {
           onEvent: (event) => write({ event }),
           artifacts: request.artifacts,
-          watching: request.watching,
         });
         write({ result: graded(result) });
+      } else if (request.op === "settle") {
+        // The same pass the page makes between turns, with the same follow-up it would send.
+        const { settled, pending, followUp } = await session!.settle();
+        write({
+          result: {
+            settled,
+            pending,
+            follow_up: followUp ?? null,
+            max_auto_follow_ups: DEFAULT_MAX_AUTO_FOLLOW_UPS,
+          },
+        });
       } else if (request.op === "close") {
         break;
       }

@@ -8,7 +8,8 @@ import type {
 
 import { destructiveGate, type Ask } from "./destructive";
 import { SraImportGate } from "./sra-gate";
-import type { Guard, Watched } from "./tool";
+import type { Guard } from "./tool";
+import type { Watch } from "./watch";
 
 const FAILED_REPEAT_LIMIT = 3;
 const SETTLED_REPEAT_LIMIT = 3;
@@ -93,7 +94,8 @@ export const textOf = (content: Array<{ type: string; text?: string }>) =>
 
 export interface GuardOptions {
   settled: Set<string>;
-  watching: Watched[];
+  /** The session's unfinished work, read live: something submitted this turn counts too. */
+  watch: Watch;
   secrets: string[];
   /** Tools that exist but this session does not grant, with the capability each needs. */
   withheld: Map<string, string>;
@@ -110,7 +112,7 @@ export function guards(options: GuardOptions) {
   const failures = new Map<string, number>();
   const settled = new Map<string, number>();
   const readAt = new Map<string, number>();
-  const states = new Map(options.watching.map((w) => [w.id, w.state]));
+  const states = () => new Map(options.watch.list().map((w) => [w.id, w.state]));
   const sra = new SraImportGate();
   const destructive = destructiveGate(options.ask, options.destructive);
   const refused = new Map<string, Guard>();
@@ -142,13 +144,13 @@ export function guards(options: GuardOptions) {
       }
     }
     const resource = POLLED_ARGUMENT[name] ? String(args[POLLED_ARGUMENT[name]] ?? "") : "";
-    if (resource && states.has(resource)) {
+    if (resource && states().has(resource)) {
       const last = readAt.get(resource);
       if (last !== undefined && now() - last < COOLDOWN_MS) {
         const remaining = Math.floor((COOLDOWN_MS - (now() - last)) / 1000);
         return [
           "galaxy-poll",
-          `Refused: ${resource} was ${states.get(resource) || "unfinished"} when it was last read, and the ` +
+          `Refused: ${resource} was ${states().get(resource) || "unfinished"} when it was last read, and the ` +
             "background monitor is watching it -- you are told when it settles, without spending a call. " +
             `Reading it again cannot say anything new for another ${remaining}s.`,
         ];

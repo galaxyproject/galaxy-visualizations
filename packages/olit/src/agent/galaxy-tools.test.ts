@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
+import { Watch } from "./watch";
 
 import type { Galaxy } from "./galaxy";
 import {
@@ -38,7 +39,7 @@ function context(galaxy: Fake, extra: Partial<Context> = {}): Context {
     python: files(),
     binding: {},
     artifacts: { prior: [], produced: [] },
-    watching: [],
+    watch: new Watch(async () => undefined),
     ...extra,
   };
 }

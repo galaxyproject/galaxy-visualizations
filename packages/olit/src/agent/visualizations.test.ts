@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Watch } from "./watch";
 
 import { render } from "./artifacts";
 import type { Galaxy } from "./galaxy";
@@ -44,7 +45,12 @@ function fakeCharts(offered: unknown[] = [], { success = true, message = "" } = 
 }
 
 const context = (galaxy: unknown) =>
-  ({ galaxy: galaxy as Galaxy, artifacts: { prior: [], produced: [] } }) as unknown as Context;
+  ({
+    galaxy: galaxy as Galaxy,
+    artifacts: { prior: [], produced: [] },
+    binding: {},
+    watch: new Watch(async () => undefined),
+  }) as unknown as Context;
 
 function call(name: string, galaxy: unknown, args: Json, charts = fakeCharts()): Promise<any> {
   const tool = visualizationTools(charts).find((t) => t.name === name)!;

@@ -9,6 +9,7 @@ import {
 
 import SNAPSHOT from "./galaxy-mcp-docs.json";
 import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
+import { watchedFrom } from "./watch";
 
 /** Operations Olit runs itself rather than through galaxy-ops. */
 export const OLIT_OWNED = new Set([
@@ -72,6 +73,7 @@ function opsTool(op: AnyOperation, annotate?: Annotate): OlitTool {
       if (!envelope.success) {
         return fail(String(envelope.message || `${op.name} failed`));
       }
+      ctx.watch.add(watchedFrom(op.name, envelope.data));
       // Creating a history is the agent choosing where to work, even in a bound session.
       const created = (envelope.data as { id?: unknown } | undefined)?.id;
       if (op.name === "create_history" && typeof created === "string") {

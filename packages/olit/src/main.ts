@@ -3,7 +3,7 @@ import "./orbit/styles.css";
 import "./olit.css";
 import { editRecord } from "./record-write";
 import { describeSeedDataset, summarize } from "./seed-dataset";
-import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
+import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
@@ -26,8 +26,8 @@ import { AgentClient } from "./agent/client";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { LoopEvent, SessionBinding } from "./agent/session";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
-import { InvocationWatcher, galaxyStateReader, outcomeOf } from "./invocations";
-import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
+import { WHAT, type Settled, type Watched } from "./agent/watch";
+import { createFollowUpDelivery } from "./auto-resume";
 import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
 import { mountUsageBar } from "./usage-bar";
@@ -218,48 +218,73 @@ async function main() {
     });
   }
 
-  // Advances submitted Galaxy work between turns, so no turn blocks on a job.
-  const watcher = new InvocationWatcher({
-    readState: galaxyStateReader(config.galaxy_root, credentials),
-    // loom's agent calls galaxy_invocation_record so the poller owns the entry.
-    onSubmitted: (w) => {
-      void editRecord(
-        { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
-        (content) => noteSubmitted(content, w),
-      );
-    },
-    onSettled: (w, state) => {
-      const what = WHAT[w.kind];
-      const outcome = outcomeOf(w.kind, state);
-      const failed = outcome === "failed";
-      if (failed) {
-        chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
-      } else if (outcome === "cancelled") {
-        // The user asked for this; an alarm about it would be the loudest thing in the room.
-        info(`${what} ${w.id} was cancelled.`);
-      } else {
-        info(`${what} ${w.id} finished (${state}).`);
-      }
-      // Continue without asking the user to relay the notification.
-      if (isResumableOutcome(state, failed)) {
-        followUp.deliver(
-          buildResumePrompt([
-            {
-              kind: w.kind,
-              id: w.id,
-              label: `${what} ${w.id}`,
-              outcome: failed ? "failed" : "completed",
-            },
-          ]),
-        );
-      }
-      // loom's poller advances the notebook itself.
-      void editRecord(
-        { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
-        (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
-      );
-    },
-  });
+  /** What every request to the worker carries: the same config is the same session there. */
+  function workerConfig() {
+    return {
+      ...config,
+      ai_base_url: absolute(config.ai_base_url),
+      galaxy_root: absolute(config.galaxy_root),
+      ai_api_key: creds.apiKey,
+      credentials,
+    };
+  }
+
+  // loom's agent calls galaxy_invocation_record so the poller owns the entry.
+  function submitted(w: Watched) {
+    void editRecord(
+      { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
+      (content) => noteSubmitted(content, w),
+    );
+  }
+
+  function settledOne({ watched: w, state, outcome }: Settled) {
+    const what = WHAT[w.kind];
+    if (outcome === "failed") {
+      chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
+    } else if (outcome === "cancelled") {
+      // The user asked for this; an alarm about it would be the loudest thing in the room.
+      info(`${what} ${w.id} was cancelled.`);
+    } else {
+      info(`${what} ${w.id} finished (${state}).`);
+    }
+    // loom's poller advances the notebook itself.
+    void editRecord(
+      { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
+      (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
+    );
+  }
+
+  // The session watches submitted work; the page only asks it, now and then, what settled.
+  let polling: ReturnType<typeof setInterval> | undefined;
+  async function poll() {
+    const {
+      settled,
+      pending,
+      followUp: prompt,
+    } = await agent.settle({
+      config: workerConfig(),
+      watching: sessionDoc.watching ?? [],
+    });
+    settled.forEach(settledOne);
+    const done = new Set(settled.map((s) => `${s.watched.kind}:${s.watched.id}`));
+    sessionDoc.watching = (sessionDoc.watching ?? []).filter((w) => !done.has(`${w.kind}:${w.id}`));
+    // Continue without asking the user to relay the notification.
+    if (prompt) {
+      followUp.deliver(prompt);
+    }
+    if (!pending && polling) {
+      clearInterval(polling);
+      polling = undefined;
+    }
+  }
+  function watchGalaxy() {
+    polling ??= setInterval(() => void poll(), 10_000);
+  }
+
+  // Work a reloaded page had open is still worth hearing about.
+  if (sessionDoc.watching?.length) {
+    watchGalaxy();
+  }
 
   let busy = false;
 
@@ -325,8 +350,11 @@ async function main() {
         // The agent states the outcome; toolStatus only guesses at it.
         const status = ev.is_error ? "error" : toolStatus(ev.content);
         chat.updateToolCard(ev.id, status, ev.content);
-        // Galaxy returns the ids, so the model never has to register them.
-        watcher.ingest(ev.name, ev.content);
+        // The session registered what this call submitted; the page records and polls it.
+        if (ev.watch) {
+          ev.watch.forEach(submitted);
+          watchGalaxy();
+        }
         // The session says when a call moved it: a history the agent chose, a record it opened.
         if (ev.binding) {
           adopt(ev.binding);
@@ -345,16 +373,10 @@ async function main() {
     });
     const reply = await agent.run(
       {
-        config: {
-          ...config,
-          ai_base_url: absolute(config.ai_base_url),
-          galaxy_root: absolute(config.galaxy_root),
-          ai_api_key: creds.apiKey,
-          credentials,
-        },
+        config: workerConfig(),
         transcripts: convo,
         artifacts: produced,
-        watching: watcher.watched(),
+        watching: sessionDoc.watching ?? [],
       },
       liveEvents(streamed),
       confirm,
@@ -396,6 +418,7 @@ async function main() {
     if (reply.binding) {
       adopt(reply.binding);
     }
+    sessionDoc.watching = reply.watching ?? sessionDoc.watching;
 
     const artifacts = reply.artifacts || [];
     if (artifacts.length) {

@@ -313,7 +313,7 @@ describe("a turn", () => {
     const session = await Session.create(config(), python);
     const messages = [
       { role: "system", content: "You are olit.", timestamp: 0 },
-      { role: "system", content: "<!-- olit:record -->\nrecord", timestamp: 0 },
+      { role: "system", content: "A later instruction.", timestamp: 0 },
       { role: "user", content: "hi", timestamp: 0 },
     ] as AgentMessage[];
     await session.turn(messages);

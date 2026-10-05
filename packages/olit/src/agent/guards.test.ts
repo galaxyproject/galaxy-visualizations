@@ -1,6 +1,7 @@
 import type { AgentMessage, BeforeToolCallContext } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
+import { Watch, type Watched } from "./watch";
 
 import {
   guards,
@@ -20,11 +21,18 @@ const assistant = (calls: Call[]) =>
     content: calls.map((c) => ({ type: "toolCall", ...c })),
   }) as AssistantMessage;
 
+/** A session watch already holding these items. */
+function watchOf(items: Watched[]) {
+  const watch = new Watch(async () => undefined);
+  watch.add(items);
+  return watch;
+}
+
 function session(overrides: Partial<GuardOptions> = {}) {
   let clock = 1_000_000;
   const g = guards({
     settled: new Set(),
-    watching: [],
+    watch: new Watch(async () => undefined),
     secrets: [],
     withheld: new Map(),
     advertised: [],
@@ -182,16 +190,18 @@ describe("settled-question guard", () => {
 });
 
 describe("galaxy-poll guard", () => {
-  const WATCHED = [{ kind: "dataset", id: "d1", state: "running" }];
+  const WATCHED: Watched[] = [
+    { kind: "dataset", id: "d1", label: "upload_file", state: "running" },
+  ];
   const read = (name: string, args: Args) => ({ id: "c1", name, arguments: args });
 
   it("lets the first read of a watched resource through", async () => {
-    const s = session({ watching: WATCHED });
+    const s = session({ watch: watchOf(WATCHED) });
     expect(await s.before(read("get_dataset_details", { dataset_id: "d1" }))).toBeUndefined();
   });
 
   it("refuses a second read inside the cooldown", async () => {
-    const s = session({ watching: WATCHED });
+    const s = session({ watch: watchOf(WATCHED) });
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     const refusal = await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     expect(refusal?.block).toBe(true);
@@ -201,14 +211,14 @@ describe("galaxy-poll guard", () => {
   });
 
   it("lets the read through again once the cooldown expires", async () => {
-    const s = session({ watching: WATCHED });
+    const s = session({ watch: watchOf(WATCHED) });
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     s.tick(120_000);
     expect(await s.before(read("get_dataset_details", { dataset_id: "d1" }))).toBeUndefined();
   });
 
   it("never holds a resource the watcher is not following", async () => {
-    const s = session({ watching: WATCHED });
+    const s = session({ watch: watchOf(WATCHED) });
     for (let i = 0; i < 3; i++) {
       expect(
         await s.before(read("get_dataset_details", { dataset_id: "settled" })),
@@ -217,28 +227,47 @@ describe("galaxy-poll guard", () => {
   });
 
   it("cools each resource down on its own", async () => {
-    const s = session({ watching: [...WATCHED, { kind: "dataset", id: "d2", state: "queued" }] });
+    const s = session({
+      watch: watchOf([
+        ...WATCHED,
+        { kind: "dataset", id: "d2", label: "upload_file", state: "queued" },
+      ]),
+    });
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     expect(await s.before(read("get_dataset_details", { dataset_id: "d2" }))).toBeUndefined();
     expect(await s.before(read("get_dataset_details", { dataset_id: "d1" }))).toBeDefined();
   });
 
   it("leaves a call that reads no watched resource alone", async () => {
-    const s = session({ watching: WATCHED });
+    const s = session({ watch: watchOf(WATCHED) });
     expect(await s.before(read("get_history_contents", { history_id: "h1" }))).toBeUndefined();
     expect(await s.before(read("get_dataset_details", {}))).toBeUndefined();
   });
 
   it("cools the job behind a watched dataset down with it", async () => {
-    const s = session({ watching: WATCHED });
+    const s = session({ watch: watchOf(WATCHED) });
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     expect(await s.before(read("get_job_details", { dataset_id: "d1" }))).toBeDefined();
   });
 
   it("keys an invocation by its own argument", async () => {
-    const s = session({ watching: [{ kind: "invocation", id: "i1", state: "new" }] });
+    const s = session({
+      watch: watchOf([{ kind: "invocation", id: "i1", label: "invoke_workflow", state: "new" }]),
+    });
     await s.before(read("get_invocations", { invocation_id: "i1" }));
     expect(await s.before(read("get_invocations", { invocation_id: "i1" }))).toBeDefined();
+  });
+});
+
+describe("work submitted in the same turn", () => {
+  it("is watched as soon as it is submitted, not from the next turn", async () => {
+    const watch = new Watch(async () => undefined);
+    const s = session({ watch });
+    // The upload landed earlier in this turn and registered its dataset.
+    watch.add([{ kind: "dataset", id: "d5", label: "upload_file", state: "queued" }]);
+    const read = { id: "c1", name: "get_dataset_details", arguments: { dataset_id: "d5" } };
+    await s.before(read);
+    expect(await s.before(read)).toBeDefined();
   });
 });
 

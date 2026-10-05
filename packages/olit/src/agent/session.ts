@@ -34,8 +34,8 @@ import {
   type Context,
   type OlitTool,
   type Python,
-  type Watched,
 } from "./tool";
+import { followUpPrompt, stateReader, Watch, type Settled, type Watched } from "./watch";
 import { pythonTool } from "./python";
 import { visualizationTools } from "./visualizations";
 
@@ -81,6 +81,8 @@ export type LoopEvent =
       guard?: Guard;
       /** Present when this call changed what the session is bound to. */
       binding?: SessionBinding;
+      /** Galaxy work this call submitted, which the session now watches. */
+      watch?: Watched[];
     }
   | { type: "llm_retry"; status: number; wait: number; attempt: number; of: number }
   | { type: "compacted" }
@@ -89,7 +91,6 @@ export type LoopEvent =
 export interface TurnOptions {
   onEvent?: (event: LoopEvent) => void;
   artifacts?: Artifact[];
-  watching?: Watched[];
   /** Present when a user can approve a destructive operation. */
   ask?: Ask;
   signal?: AbortSignal;
@@ -116,6 +117,8 @@ export interface TurnResult {
   new_messages: AgentMessage[];
   /** What the session is bound to after the turn; absent when the turn could not run. */
   binding?: SessionBinding;
+  /** Galaxy work still unfinished after the turn, for a page that keeps it across a reload. */
+  watching?: Watched[];
   done: boolean;
   aborted: boolean;
   exhausted: boolean;
@@ -262,6 +265,8 @@ export class Session {
   private galaxyStatus: GalaxyStatus = GALAXY_UNREACHABLE;
   /** The model connection lives as long as the session: its rate limit spans turns. */
   private connection!: Awaited<ReturnType<typeof connect>>;
+  /** Galaxy work this session submitted and has not seen finish. */
+  watch: Watch;
   /** Where the running turn hears about a provider retry. */
   private onRetry?: (info: RetryInfo) => void;
 
@@ -273,6 +278,7 @@ export class Session {
     private target: ReturnType<typeof resolve>,
     private tools: OlitTool[],
   ) {
+    this.watch = new Watch(stateReader(galaxy));
     this.binding = {
       sessionId: config.session_id,
       pageId: config.record_page_id,
@@ -329,23 +335,32 @@ export class Session {
 
   /** Point this session at a new turn's context, which names its session and record as given. */
   rebind(config: Partial<SessionConfig>) {
+    if (config.session_id !== this.binding.sessionId) {
+      // Another conversation: what the last one submitted is the last one's to hear about.
+      this.watch = new Watch(stateReader(this.galaxy));
+    }
     this.config = { ...this.config, ...config };
     this.binding.sessionId = config.session_id;
     this.binding.pageId = config.record_page_id;
     this.binding.historyId = config.history_id;
   }
 
-  /** The transcript with the context block set and the record excerpt refreshed. */
-  async prepare(
-    transcripts: AgentMessage[],
-    recordPageId?: string,
-    historyId?: string,
-  ): Promise<AgentMessage[]> {
-    const withContext = injectContext(transcripts, this.context);
-    return injectRecord(withContext, await excerpt(this.galaxy, recordPageId, historyId));
+  /** One pass over the unfinished work: what settled, and the follow-up turn it calls for. */
+  async settle(): Promise<{ settled: Settled[]; pending: number; followUp?: string }> {
+    const settled = await this.watch.poll();
+    return { settled, pending: this.watch.pending, followUp: followUpPrompt(settled) };
   }
 
-  async turn(messages: AgentMessage[], options: TurnOptions = {}): Promise<TurnResult> {
+  /** The transcript with the context block set and the record excerpt refreshed. */
+  private async prepare(transcripts: AgentMessage[]): Promise<AgentMessage[]> {
+    const withContext = injectContext(transcripts, this.context);
+    const record = await excerpt(this.galaxy, this.binding.pageId, this.binding.historyId);
+    return injectRecord(withContext, record);
+  }
+
+  /** One turn, prepared here so every caller runs it on the same context. */
+  async turn(transcripts: AgentMessage[], options: TurnOptions = {}): Promise<TurnResult> {
+    const messages = await this.prepare(transcripts);
     const emit = (event: LoopEvent) => {
       try {
         options.onEvent?.(event);
@@ -363,7 +378,7 @@ export class Session {
       python: this.python,
       binding: this.binding,
       artifacts: { prior: options.artifacts ?? [], produced: [] },
-      watching: options.watching ?? [],
+      watch: this.watch,
     };
     const galaxyOptions = {
       root: this.galaxy.root,
@@ -389,7 +404,7 @@ export class Session {
     );
     const guard = guards({
       settled: SETTLED,
-      watching: ctx.watching,
+      watch: this.watch,
       secrets,
       withheld: new Map(this.tools.filter((t) => !allowed(t)).map((t) => [t.name, missing(t)!])),
       advertised: tools.map((t) => t.name),
@@ -427,6 +442,7 @@ export class Session {
     let done = false;
     let overflowReported = false;
     let before = JSON.stringify(this.binding);
+    let watchedBefore = new Set<string>();
 
     const agent = new Agent({
       // A message from a caller that does not stamp time (the eval harness) still sorts.
@@ -471,6 +487,7 @@ export class Session {
       } else if (event.type === "tool_execution_start") {
         started.set(event.toolCallId, event.args);
         before = JSON.stringify(this.binding);
+        watchedBefore = new Set(this.watch.list().map((w) => `${w.kind}:${w.id}`));
         logs.push(`call ${event.toolName}(${brief(event.args)})`);
         emit({ type: "tool_start", id: event.toolCallId, name: event.toolName });
       } else if (event.type === "tool_execution_end") {
@@ -490,6 +507,7 @@ export class Session {
         }
         done ||= name === "finish" && !event.isError;
         const changed = JSON.stringify(this.binding) !== before;
+        const submitted = this.watch.list().filter((w) => !watchedBefore.has(`${w.kind}:${w.id}`));
         emit({
           type: "tool_end",
           id: event.toolCallId,
@@ -499,6 +517,7 @@ export class Session {
           refused: !!guardName,
           guard: guardName,
           ...(changed ? { binding: reported(this.binding) } : {}),
+          ...(submitted.length ? { watch: submitted } : {}),
         });
       }
     });
@@ -538,12 +557,13 @@ export class Session {
     const outcome: TurnResult = {
       logs,
       messages: failed
-        ? messages
+        ? transcripts
         : compaction
             .reduce(agent.state.messages)
             .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
       new_messages: failed ? [] : kept,
       binding: reported(this.binding),
+      watching: this.watch.list(),
       done,
       aborted,
       exhausted,

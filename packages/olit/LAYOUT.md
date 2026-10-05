@@ -14,6 +14,7 @@ src/                      the shell (TypeScript)
 src/agent/               the agent: pi-agent-core's loop, in a worker in the browser
   worker.ts client.ts       the worker, and the page's handle on it
   node.ts                   the same session over JSON lines, for the eval harness
+  watch.ts                  submitted Galaxy work, settled between turns, and the follow-up it calls for
   session.ts                one session: tools, guards, compaction, a turn
   model.ts providers.ts retry.ts   the model endpoint, its registry, its resend policy
   galaxy.ts ops.ts galaxy-tools.ts   Galaxy REST, galaxy-ops' operations, the tools Olit keeps
@@ -23,8 +24,6 @@ src/agent/               the agent: pi-agent-core's loop, in a worker in the bro
   processes/                deterministic procedures (lineage_report, organize_datasets)
   skills/                   vendored corpora, galaxy-skills fetched at build time
   describe.ts               what Olit publishes about itself, for an outside evaluator
-contract/                 interfaces another repo runs by path
-  shell.mjs                 the shell: the follow-up cap and the message it builds
 e2e/                      Playwright drives against a stub, plus opt-in live drives
 scripts/                  tooling, one flat folder, each file named for what it does
   install_*                 what `npm run build` calls: pyodide, skills
@@ -44,7 +43,8 @@ through node.
 
 If another repo names a path, it is not tooling but an interface. The `agents` repo builds
 `dist/session.mjs` (`npm run build:session`) and drives it, asks it to `--describe` itself,
-and runs `contract/shell.mjs`; `src/agent/describe.test.ts` pins what those return.
+and asks the session to `settle` between turns as the page does; `src/agent/describe.test.ts`
+pins what `--describe` returns.
 
 ## Vendored integrity
 

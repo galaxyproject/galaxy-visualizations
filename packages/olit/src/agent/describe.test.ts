@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -102,8 +101,8 @@ describe("the description Olit publishes about itself", () => {
     });
   });
 
-  it("publishes the shell contract a harness stands in for", () => {
-    expect(doc.shell).toEqual({ max_auto_follow_ups: 3, resume_prompt_from: "contract/shell.mjs" });
+  it("publishes the follow-up contract every driver shares", () => {
+    expect(doc.follow_ups).toEqual({ max_auto_follow_ups: 3, settled_by: "session.settle" });
   });
 
   it("gives the same answer twice", async () => {
@@ -124,31 +123,5 @@ describe("the guard inventory", () => {
 
   it("includes the guard observed refusing live", () => {
     expect(GUARDS).toContain("malformed-object-id");
-  });
-});
-
-describe("the shell contract", () => {
-  const COMPLETED = [{ kind: "job", id: "j1", label: "Galaxy job j1", outcome: "completed" }];
-  const FAILED = [
-    { kind: "invocation", id: "i1", label: "Workflow invocation i1", outcome: "failed" },
-  ];
-  const ask = (runs?: unknown[]) =>
-    JSON.parse(
-      execFileSync("node", ["--experimental-strip-types", join(ROOT, "contract/shell.mjs")], {
-        input: runs ? JSON.stringify(runs) : "",
-        encoding: "utf8",
-        stdio: "pipe",
-      }),
-    );
-
-  it("names a settled run in the message it builds", () => {
-    const prompt = ask(COMPLETED).resume_prompt;
-    expect(prompt.startsWith("[Olit automatic Galaxy follow-up]")).toBe(true);
-    expect(prompt).toContain('"id": "j1"');
-  });
-
-  it("warns about a failed run and not about a completed one", () => {
-    expect(ask(FAILED).resume_prompt).toContain("still have jobs running");
-    expect(ask(COMPLETED).resume_prompt).not.toContain("still have jobs running");
   });
 });
