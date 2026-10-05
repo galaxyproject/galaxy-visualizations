@@ -1,6 +1,7 @@
 /** The agent's config, assembled from the Charts incoming contract and dev env vars. */
 import { parseIncoming } from "./incoming";
-import { providerById, type Credentials } from "./credentials";
+import { providerById } from "./agent/providers";
+import type { Credentials } from "./credentials";
 
 const PLUGIN_NAME = "olit";
 
@@ -16,7 +17,7 @@ export function buildConfig(
     ai_base_url:
       (process.env.llm_base_url as string) ||
       creds?.baseUrl?.trim() ||
-      picked?.base_url ||
+      picked?.baseUrl ||
       `${incoming.root}api/plugins/${PLUGIN_NAME}`,
     ai_provider: creds?.provider || (process.env.llm_provider as string) || "galaxy",
     ai_model: creds?.model || (process.env.llm_model as string) || undefined,

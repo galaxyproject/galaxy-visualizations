@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { providerById } from "./credentials";
+import { providerById } from "./agent/providers";
 import { discoverModels, discoveryError, modelIds, modelsUrl } from "./model-discovery";
 
 const OPENAI = providerById("openai")!;

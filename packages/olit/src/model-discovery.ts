@@ -1,6 +1,6 @@
 /** Ask an endpoint which models it serves, so a catalog we cannot know is not guessed. */
 
-import type { ProviderInfo } from "./credentials";
+import type { Provider } from "./agent/providers";
 
 export interface Discovery {
   models: string[];
@@ -45,13 +45,13 @@ export function discoveryError(status: number): string {
 
 export async function discoverModels(
   fetchImpl: typeof fetch,
-  provider: ProviderInfo,
+  provider: Provider,
   baseUrl: string,
   apiKey?: string,
 ): Promise<Discovery> {
   const headers: Record<string, string> = { ...(provider.headers || {}) };
   // Gemini's native API takes its key in its own header; everyone else takes a bearer token.
-  if (apiKey && provider.id === "google") headers["x-goog-api-key"] = apiKey;
+  if (apiKey && provider.api === "google-generative-ai") headers["x-goog-api-key"] = apiKey;
   else if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   try {
     const res = await fetchImpl(modelsUrl(baseUrl), { headers });

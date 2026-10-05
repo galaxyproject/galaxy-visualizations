@@ -45,8 +45,6 @@ export interface Provider {
   headers?: Record<string, string>;
   /** The server reports its own context window. */
   probeWindow?: boolean;
-  /** The model is typed rather than picked. */
-  freeModel?: boolean;
 }
 
 export const PROVIDERS: Provider[] = [
@@ -101,7 +99,6 @@ export const PROVIDERS: Provider[] = [
     baseUrl: "http://127.0.0.1:11434/v1",
     compat: SELF_HOSTED,
     probeWindow: true,
-    freeModel: true,
   },
   {
     id: "openai",
@@ -109,7 +106,6 @@ export const PROVIDERS: Provider[] = [
     baseUrl: "https://api.openai.com/v1",
     authEnv: "OPENAI_KEY",
     compat: { supportsMidConvoSystemMessages: true },
-    freeModel: true,
   },
   {
     id: "anthropic",
@@ -117,7 +113,6 @@ export const PROVIDERS: Provider[] = [
     baseUrl: "https://api.anthropic.com/v1",
     authEnv: "ANTHROPIC_KEY",
     compat: OPENAI_COMPATIBLE,
-    freeModel: true,
     headers: { "anthropic-dangerous-direct-browser-access": "true" },
   },
   {
@@ -126,7 +121,6 @@ export const PROVIDERS: Provider[] = [
     baseUrl: "https://api.groq.com/openai/v1",
     authEnv: "GROQ_KEY",
     compat: OPENAI_COMPATIBLE,
-    freeModel: true,
   },
   {
     id: "mistral",
@@ -134,7 +128,6 @@ export const PROVIDERS: Provider[] = [
     baseUrl: "https://api.mistral.ai/v1",
     authEnv: "MISTRAL_KEY",
     compat: { ...OPENAI_COMPATIBLE, maxTokensField: "max_tokens" },
-    freeModel: true,
   },
   {
     id: "xai",
@@ -143,9 +136,16 @@ export const PROVIDERS: Provider[] = [
     authEnv: "XAI_KEY",
     // pi already detects xAI as non-standard.
     compat: { supportsMidConvoSystemMessages: true },
-    freeModel: true,
   },
 ];
+
+export const providerById = (id: string) => PROVIDERS.find((p) => p.id === id);
+
+/** Whether a provider takes a key of the user's. */
+export const needsKey = (p: Provider) => !!p.authEnv;
+
+/** The Galaxy proxy picks its own model; every other endpoint is told which. */
+export const takesModel = (p: Provider) => p.id !== "galaxy";
 
 export interface LlmConfig {
   ai_provider?: string;
