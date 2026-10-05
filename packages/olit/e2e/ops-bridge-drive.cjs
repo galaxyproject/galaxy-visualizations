@@ -70,8 +70,8 @@ const waitFor = async (page, fn, ms) => {
     "the richer one carries what its semantics produce",
     /inputs_template/.test(body) && /repeat_key_hint/.test(body),
   );
-  check("a paged operation reports the total, not just the page", /"total"/.test(body));
-  check("the tool panel arrives summarized rather than whole", /"tool_count"/.test(body) && !/"elems"/.test(body));
+  check("a paged operation reports the total, not just the page", /"total_items"/.test(body));
+  check("the tool panel arrives as entries rather than the whole tree", /"entries"/.test(body) && !/"elems"/.test(body));
   check("a write reached Galaxy through the same bridge", /olit e2e ops/.test(body));
   // Matched against the envelope rather than the payload: a tool's own test cases carry
   // fields named expect_failure, which is data rather than a failure of this call.
