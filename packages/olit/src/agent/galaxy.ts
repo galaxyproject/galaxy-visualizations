@@ -1,4 +1,4 @@
-import { retryAfter } from "./retry";
+import { retryAfter, sleep } from "./retry";
 
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 const IDEMPOTENT = new Set(["GET", "HEAD", "PUT", "DELETE"]);
@@ -29,6 +29,8 @@ export interface GalaxyOptions {
   /** Headless only; in the browser the user's session authenticates. */
   key?: string;
   credentials?: RequestCredentials;
+  /** Ends every request, and any wait between retries, when it aborts. */
+  signal?: AbortSignal;
 }
 
 export interface Galaxy {
@@ -42,11 +44,9 @@ export interface Galaxy {
   fetch: typeof fetch;
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-export function galaxyFetch({ key, credentials = "include" }: GalaxyOptions): typeof fetch {
+export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOptions): typeof fetch {
   return (input, init) => {
-    const request = new Request(input, init);
+    const request = new Request(input, { ...init, signal: init?.signal ?? signal });
     const headers = new Headers(request.headers);
     headers.delete("x-api-key");
     if (key) {
@@ -77,7 +77,7 @@ export function connectGalaxy(options: GalaxyOptions): Galaxy {
         throw new HttpError(`HTTP ${response.status}: ${await response.text()}`, response.status);
       }
       // An absent header is not a stated zero: back off unless Galaxy named the wait.
-      await sleep((retryAfter(response.headers, "") ?? 2 ** attempt) * 1000);
+      await sleep((retryAfter(response.headers, "") ?? 2 ** attempt) * 1000, options.signal);
     }
   }
 

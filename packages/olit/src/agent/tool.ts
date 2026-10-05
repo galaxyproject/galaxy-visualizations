@@ -109,14 +109,19 @@ export function claim(value: unknown, ctx: Context, hint?: string): unknown {
   };
 }
 
-export function asAgentTool(tool: OlitTool, ctx: Context): AgentTool {
+/** A tool for pi. `contextFor` gives the call a context whose requests end when pi aborts it. */
+export function asAgentTool(
+  tool: OlitTool,
+  contextFor: (signal?: AbortSignal) => Context,
+): AgentTool {
   return {
     name: tool.name,
     label: tool.name,
     description: tool.description,
     parameters: tool.parameters as unknown as AgentTool["parameters"],
     executionMode: tool.sequential ? "sequential" : undefined,
-    execute: async (_id, args) => {
+    execute: async (_id, args, signal) => {
+      const ctx = contextFor(signal);
       let value: unknown;
       try {
         value = await tool.run(args, ctx);

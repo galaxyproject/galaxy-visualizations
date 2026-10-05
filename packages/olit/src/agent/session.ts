@@ -10,7 +10,7 @@ import { createGalaxyContext, type GalaxyContext } from "@galaxyproject/galaxy-o
 import { resolveArtifacts } from "./artifacts";
 import { compactionSettings, compactor } from "./compaction";
 import type { Ask } from "./destructive";
-import { connectGalaxy, galaxyFetch, type Galaxy } from "./galaxy";
+import { connectGalaxy, galaxyFetch, type Galaxy, type GalaxyOptions } from "./galaxy";
 import { annotate, galaxyTools, SETTLED } from "./galaxy-tools";
 import { enaTools } from "./ena";
 import { gtnTools } from "./gtn";
@@ -106,7 +106,8 @@ export interface TurnResult {
   steps: number;
   max_steps: number;
   guards: Array<{ guard: Guard; tool?: string; steps?: number }>;
-  diagnostics: { galaxy: GalaxyStatus; capabilities: Capability[] };
+  /** What the session found; absent from a turn that could not run, which observed nothing. */
+  diagnostics?: { galaxy: GalaxyStatus; capabilities: Capability[] };
   error?: { message: string };
 }
 
@@ -132,7 +133,6 @@ export function failedTurn(transcripts: AgentMessage[], err: unknown): TurnResul
     steps: 0,
     max_steps: 0,
     guards: [],
-    diagnostics: { galaxy: GALAXY_UNREACHABLE, capabilities: [] },
     error: { message: String((err as Error)?.message ?? err) },
   };
 }
@@ -229,6 +229,15 @@ export function olitTools(skills = skillRegistry()): OlitTool[] {
   ];
 }
 
+/** galaxy-ops over the same transport as Olit's own Galaxy client. */
+function galaxyOps(options: GalaxyOptions): GalaxyContext {
+  return createGalaxyContext({
+    baseUrl: options.root,
+    apiKey: options.key ?? "",
+    fetchImpl: galaxyFetch(options),
+  });
+}
+
 export class Session {
   readonly record: { sessionId?: string; pageId?: string };
   private galaxyStatus: GalaxyStatus = GALAXY_UNREACHABLE;
@@ -262,14 +271,10 @@ export class Session {
       key: config.galaxy_key,
       credentials: config.credentials,
     });
-    const ops = createGalaxyContext({
-      baseUrl: galaxy.root,
-      apiKey: config.galaxy_key ?? "",
-      fetchImpl: galaxyFetch({
-        root: galaxy.root,
-        key: config.galaxy_key,
-        credentials: config.credentials,
-      }),
+    const ops = galaxyOps({
+      root: galaxy.root,
+      key: config.galaxy_key,
+      credentials: config.credentials,
     });
     const skills = skillRegistry();
     const session = new Session(config, galaxy, ops, python, target, olitTools(skills));
@@ -299,11 +304,11 @@ export class Session {
     return this.config.capabilities ?? DEFAULT_CAPABILITIES;
   }
 
-  /** Point this session at a new turn's context. */
+  /** Point this session at a new turn's context, which names its session and record as given. */
   rebind(config: Partial<SessionConfig>) {
     this.config = { ...this.config, ...config };
-    this.record.sessionId = config.session_id || this.record.sessionId;
-    this.record.pageId = config.record_page_id || this.record.pageId;
+    this.record.sessionId = config.session_id;
+    this.record.pageId = config.record_page_id;
   }
 
   /** The transcript with the context block set and the record excerpt refreshed. */
@@ -336,7 +341,24 @@ export class Session {
       artifacts: { prior: options.artifacts ?? [], produced: [] },
       watching: options.watching ?? [],
     };
-    const tools = [...this.tools.filter(allowed).map((t) => asAgentTool(t, ctx)), finishTool()];
+    const galaxyOptions = {
+      root: this.galaxy.root,
+      key: this.config.galaxy_key,
+      credentials: this.config.credentials,
+    };
+    // Each call gets Galaxy clients bound to its own abort signal, sharing the turn's state.
+    const contextFor = (signal?: AbortSignal): Context =>
+      signal
+        ? {
+            ...ctx,
+            galaxy: connectGalaxy({ ...galaxyOptions, signal }),
+            ops: galaxyOps({ ...galaxyOptions, signal }),
+          }
+        : ctx;
+    const tools = [
+      ...this.tools.filter(allowed).map((t) => asAgentTool(t, contextFor)),
+      finishTool(),
+    ];
     // The resolved key, not the configured one: a headless run reads it from the environment.
     const secrets = [this.target.apiKey, this.config.galaxy_key].filter(
       (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
@@ -460,9 +482,13 @@ export class Session {
     }
 
     const last = agent.state.messages.at(-1);
-    const aborted = last?.role === "assistant" && last.stopReason === "aborted";
+    // A stop the user asked for is a stop, however pi labels the request it cut short.
+    const aborted =
+      !!options.signal?.aborted || (last?.role === "assistant" && last.stopReason === "aborted");
     const failed =
-      last?.role === "assistant" && last.stopReason === "error" ? last.errorMessage : undefined;
+      !aborted && last?.role === "assistant" && last.stopReason === "error"
+        ? last.errorMessage
+        : undefined;
     if (exhausted) {
       guardLog.push({ guard: "max-steps", steps });
       logs.push(`the step budget of ${maxSteps} was spent before the turn ended`);

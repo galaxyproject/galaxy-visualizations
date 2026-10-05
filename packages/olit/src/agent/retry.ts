@@ -64,7 +64,8 @@ export function retryAfter(headers: Headers, body: string): number | undefined {
   return stated === undefined ? undefined : Math.max(0, Math.min(stated, MAX_RETRY_AFTER_S));
 }
 
-function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
+/** A wait that ends early, rejecting, when the signal aborts. */
+export function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason);

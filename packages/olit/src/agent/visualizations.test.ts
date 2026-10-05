@@ -1243,7 +1243,7 @@ describe("artifact claim", () => {
   async function dispatch(name: string, args: Json) {
     const ctx = context(galaxy);
     const tool = visualizationTools(fakeCharts()).find((t) => t.name === name)!;
-    const result = await asAgentTool(tool, ctx).execute("1", args);
+    const result = await asAgentTool(tool, () => ctx).execute("1", args);
     const text = (result.content[0] as { text: string }).text;
     return { produced: ctx.artifacts.produced, data: JSON.parse(text).data };
   }

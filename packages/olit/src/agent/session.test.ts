@@ -4,6 +4,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
 import { toChat } from "./messages";
 import {
+  failedTurn,
   injectContext,
   injectRecord,
   Session,
@@ -195,6 +196,39 @@ describe("a turn", () => {
     expect(String(replayed.content)).not.toContain("PRIVATE-THOUGHT");
   });
 
+  it("stops a Galaxy request in flight when the turn is stopped", async () => {
+    let aborted = false;
+    const requests: unknown[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      const url = new URL(request.url);
+      if (url.href.startsWith(LLM)) {
+        requests.push(1);
+        return sse({ calls: [{ name: "get_history_details", args: { history_id: "f2c1" } }] });
+      }
+      if (url.pathname.endsWith("api/histories/f2c1")) {
+        // A Galaxy that never answers, until the request is abandoned.
+        return new Promise((_resolve, reject) =>
+          request.signal.addEventListener("abort", () => {
+            aborted = true;
+            reject(new DOMException("aborted", "AbortError"));
+          }),
+        );
+      }
+      return new Response("{}", { headers: { "content-type": "application/json" } });
+    });
+    const session = await Session.create(config(), python);
+    const controller = new AbortController();
+    const running = session.turn(start, { signal: controller.signal });
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 20));
+    controller.abort();
+    const result = await running;
+    expect(aborted).toBe(true);
+    expect(result.aborted).toBe(true);
+    expect(result.error).toBeUndefined();
+  });
+
   it("holds its rate limit across turns, not just within one", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
     try {
@@ -277,6 +311,26 @@ describe("a turn", () => {
       "system",
       "user",
     ]);
+  });
+});
+
+describe("failedTurn", () => {
+  it("claims nothing about Galaxy, so an unrelated error cannot block a plan", () => {
+    const result = failedTurn(start, new Error("worker crashed"));
+    expect(result.error?.message).toBe("worker crashed");
+    expect(result).not.toHaveProperty("diagnostics");
+  });
+});
+
+describe("rebind", () => {
+  it("takes the session and record it is given, so a new conversation drops the old record", async () => {
+    server([]);
+    const session = await Session.create(
+      config({ session_id: "s1", record_page_id: "p1" }),
+      python,
+    );
+    session.rebind({ session_id: "s2", record_page_id: undefined });
+    expect(session.record).toEqual({ sessionId: "s2", pageId: undefined });
   });
 });
 
