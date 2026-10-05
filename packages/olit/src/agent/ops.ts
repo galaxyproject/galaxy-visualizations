@@ -11,16 +11,19 @@ import SNAPSHOT from "./galaxy-mcp-docs.json";
 import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
 import { watchedFrom } from "./watch";
 
-/** Operations Olit runs itself rather than through galaxy-ops. */
-export const OLIT_OWNED = new Set([
-  "get_history_contents",
-  "get_invocations",
-  "get_job_details",
-  "get_page",
-  "run_tool",
-  "update_page",
-  "upload_file_from_url",
-]);
+/**
+ * Operations Olit runs itself rather than through galaxy-ops, and what galaxy-ops lacks for each.
+ * An entry goes when a galaxy-ops release covers it; nothing here is meant to stay.
+ */
+export const OLIT_OWNED: Record<string, string> = {
+  get_history_contents: "server-side paging, dataset_id left out, a byte budget",
+  get_invocations: "the jobs_summary roll-up into an outcome",
+  get_job_details: "full=true logs, trimmed at both ends",
+  get_page: "content_hash for expect_hash",
+  run_tool: "the foreign-input refusal; Galaxy's 500 input errors answered with the template",
+  update_page: "section edits, expect_hash, the malformed object-id refusal",
+  upload_file_from_url: "none any more: upload1 decompresses too; awaiting a live gz check",
+};
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
@@ -40,7 +43,7 @@ export const UPSTREAM_DOCS = SNAPSHOT.docs as Record<string, string>;
 
 /** galaxy-ops operations under galaxy-mcp's names: snake_case at the top level, its docstrings. */
 export function opsTools(annotate?: Annotate): OlitTool[] {
-  return allOperations.filter((op) => !OLIT_OWNED.has(op.name)).map((op) => opsTool(op, annotate));
+  return allOperations.filter((op) => !(op.name in OLIT_OWNED)).map((op) => opsTool(op, annotate));
 }
 
 function opsTool(op: AnyOperation, annotate?: Annotate): OlitTool {
