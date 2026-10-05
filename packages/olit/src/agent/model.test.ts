@@ -45,6 +45,24 @@ describe("connect", () => {
     expect(model.reasoning).toBe(true);
   });
 
+  it("asks an OpenAI-compatible endpoint for no output ceiling unless one is configured", async () => {
+    // pi's catalog lists 65536 for this model; OpenRouter reserves credit against what is asked.
+    const unset = await request({
+      ai_provider: "openrouter",
+      ai_model: "google/gemini-3.1-flash-lite",
+      ai_api_key: "k",
+    });
+    expect(unset.body).not.toHaveProperty("max_tokens");
+    expect(unset.body).not.toHaveProperty("max_completion_tokens");
+    const set = await request({
+      ai_provider: "openrouter",
+      ai_model: "google/gemini-3.1-flash-lite",
+      ai_api_key: "k",
+      ai_max_tokens: 512,
+    });
+    expect(JSON.stringify(set.body)).toContain("512");
+  });
+
   it("leaves out `store` for the OpenAI-compatible endpoints that never defined it", async () => {
     for (const provider of ["jetstream2", "openrouter", "ollama", "deepseek", "groq", "mistral"]) {
       expect(await body(provider), provider).not.toHaveProperty("store");

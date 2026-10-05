@@ -26,6 +26,9 @@ const APIS: Record<ProviderApi, () => ReturnType<typeof openAICompletionsApi>> =
   >,
 };
 
+/** The output ceiling for a model a native adapter reaches but pi's catalog does not list. */
+const DEFAULT_NATIVE_MAX_TOKENS = 8192;
+
 /** At most `perMinute` requests in any minute, spaced as a token bucket refills. */
 function rateLimiter(perMinute: number): () => Promise<void> {
   let tokens = perMinute;
@@ -72,7 +75,6 @@ export async function connect(
       reasoning: false,
       input: ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      // Zero leaves max_tokens out of the request, so the endpoint's own default applies.
       maxTokens: 0,
     }),
     id: target.model,
@@ -80,7 +82,12 @@ export async function connect(
     provider: provider.id,
     baseUrl,
     contextWindow: target.contextWindow,
-    ...(target.maxTokens ? { maxTokens: target.maxTokens } : {}),
+    // An OpenAI-compatible request gets no output ceiling unless one is configured, so the
+    // endpoint's own default applies: OpenRouter reserves credit against whatever is asked.
+    // pi's native adapters take the catalog's, as pi sends it.
+    maxTokens:
+      target.maxTokens ||
+      (api === "openai-completions" ? 0 : (known?.maxTokens ?? DEFAULT_NATIVE_MAX_TOKENS)),
     // A keyless endpoint (the Galaxy proxy) authenticates with the page's session instead.
     headers: { ...target.headers, ...(target.apiKey ? {} : { Authorization: null }) },
     compat: { ...(known as { compat?: object } | undefined)?.compat, ...provider.compat },
