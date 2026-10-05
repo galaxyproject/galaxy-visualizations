@@ -1,5 +1,9 @@
 import { quote } from "./quote";
-import { allOperations, runWithEnvelope } from "@galaxyproject/galaxy-ops/browser";
+import {
+  allOperations,
+  runWithEnvelope,
+  validatePagination,
+} from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { query, segment, type Galaxy } from "./galaxy";
@@ -80,8 +84,10 @@ function oneIdentifier(item: unknown): unknown {
 }
 
 async function getHistoryContents(args: Row, { galaxy }: Context) {
-  const limit = Math.trunc(args.limit || 100);
-  const offset = Math.max(0, Math.trunc(args.offset || 0));
+  const limit = Math.trunc(args.limit ?? 100);
+  const offset = Math.trunc(args.offset ?? 0);
+  // galaxy-ops' own window check, so a bad page fails here as it would there.
+  validatePagination(limit, offset);
   const wanted: [string, string][] = [];
   if (!args.deleted) {
     wanted.push(["deleted", "False"]);
@@ -103,8 +109,14 @@ async function getHistoryContents(args: Row, { galaxy }: Context) {
   if (!Array.isArray(items)) {
     return items;
   }
-  // galaxy-ops' envelope, as the description promises: rows under `data`, `pagination` beside.
-  return rendered(serverPage(items.map(oneIdentifier), offset, limit));
+  // The data both galaxy-ops and galaxy-mcp answer with, the window beside it.
+  const page = serverPage(items.map(oneIdentifier), offset, limit);
+  const payload = rendered({
+    data: { history_id: args.history_id, contents: page.data },
+    pagination: page.pagination,
+  });
+  const hint = fetchFailureHint(page.data);
+  return new Outcome(hint ? `${payload}\n\n${hint}` : payload);
 }
 
 /** Sources a history owns, and where each one answers its history_id. */

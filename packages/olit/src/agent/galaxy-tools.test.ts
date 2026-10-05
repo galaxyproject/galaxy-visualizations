@@ -79,7 +79,11 @@ describe("get_history_contents", () => {
         return rows;
       },
     });
-    return { paths, out: run("get_history_contents", { history_id: "h1", ...args }, ctx) };
+    // The text the model reads, whichever way the tool built it.
+    const out = run("get_history_contents", { history_id: "h1", ...args }, ctx).then((value) =>
+      value instanceof Outcome ? value.text : (value as string),
+    );
+    return { paths, out };
   }
 
   it("lists a dataset in an error state like any other", async () => {
@@ -89,7 +93,28 @@ describe("get_history_contents", () => {
       { id: "d2", hid: 2, state: "error" },
     ];
     const got = JSON.parse(await contents({}, rows).out);
-    expect(got.data.map((i: { id: string }) => i.id)).toEqual(["d1", "d2"]);
+    expect(got.data.contents.map((i: { id: string }) => i.id)).toEqual(["d1", "d2"]);
+  });
+
+  it("answers as galaxy-ops and galaxy-mcp do: the history, its rows, the window beside", async () => {
+    const got = JSON.parse(await contents({}).out);
+    expect(Object.keys(got.data).sort()).toEqual(["contents", "history_id"]);
+    expect(got.data.history_id).toBe("h1");
+    expect(got.pagination).toMatchObject({ offset: 0, returned_items: 1 });
+  });
+
+  it("says where a failed fetch went, as every other Galaxy result does", async () => {
+    const failed = [
+      { id: "d1", hid: 1, state: "error", misc_info: "Failed to fetch url https://x.org/a.fq" },
+    ];
+    const [, appended] = (await contents({}, failed).out).split("\n\n");
+    expect(appended).toContain("[olit]");
+  });
+
+  it("refuses a window galaxy-ops would refuse, before asking Galaxy", async () => {
+    const { paths, out } = contents({ limit: -1 });
+    await expect(out).rejects.toThrow();
+    expect(paths).toEqual([]);
   });
 
   it("sends an order with what makes it count", async () => {
@@ -136,7 +161,7 @@ describe("get_history_contents", () => {
     const { out } = contents({}, [
       { id: "hda1", dataset_id: "underlying1", name: "x.tabular", hid: 1 },
     ]);
-    const [item] = JSON.parse(await out).data;
+    const [item] = JSON.parse(await out).data.contents;
     expect(item).toEqual({ id: "hda1", name: "x.tabular", hid: 1 });
   });
 
@@ -145,7 +170,7 @@ describe("get_history_contents", () => {
     const { paths, out } = contents({}, rows);
     const got = JSON.parse(await out);
     expect(paths[0]).toContain("limit=101");
-    expect(got.data).toHaveLength(100);
+    expect(got.data.contents).toHaveLength(100);
     expect(got.pagination).toMatchObject({ has_next: true, next_offset: 100 });
   });
 
@@ -157,7 +182,7 @@ describe("get_history_contents", () => {
         "Failed to fetch url https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR390728/001/SRR390728_1.fastq.gz. 404",
     };
     const { out } = contents({}, failure);
-    const [payload, appended] = textOf(await out).split("\n\n");
+    const [payload, appended] = (await out).split("\n\n");
     expect(JSON.parse(payload).data.state).toBe("error");
     expect(appended).toContain("ena_runs");
   });
