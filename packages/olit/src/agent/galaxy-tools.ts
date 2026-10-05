@@ -3,7 +3,7 @@ import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { segment, type Galaxy } from "./galaxy";
-import { catalogMissHint, fetchFailureHint } from "./hints";
+import { catalogMissHint, fetchFailureHint, iwcCandidatesHint } from "./hints";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -57,7 +57,9 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
 
 /** What Olit adds to a galaxy-ops result: where a missed search lives, or fetch-failure triage. */
 export const annotate: Annotate = async (name, args, data, ctx) =>
-  (await catalogMissHint(ctx.galaxy, name, args, data)) ?? fetchFailureHint(data);
+  iwcCandidatesHint(name) ??
+  (await catalogMissHint(ctx.galaxy, name, args, data)) ??
+  fetchFailureHint(data);
 
 type Row = Record<string, any>;
 

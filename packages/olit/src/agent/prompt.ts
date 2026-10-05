@@ -19,7 +19,9 @@ export const GALAXY_TERMINOLOGY = `## Galaxy
   \`create_user_tool\`, \`list_user_tools\`, \`run_user_tool\`, \`delete_user_tool\`.
   **Do not generate old-style XML tool wrappers when the user asks for a UDT** --
   that is a different concept (legacy ToolShed tools). Reach for the real tools
-  rather than inventing a workaround.
+  rather than inventing a workaround. When authoring the UDT definition, fetch
+  the \`udt-authoring\` skill first (see Skills repositories below) rather
+  than writing the YAML from memory.
 - **Workflow invocation**: a single run of a Galaxy workflow on a history.
 - **IWC**: Intergalactic Workflow Commission -- registry of curated
   workflows. See "Finding a community workflow".`;
@@ -485,10 +487,8 @@ exploration as much as planned work** -- the approved plan, tools you ran and wh
 results showed, and what you concluded. Substantive work belongs there even when no plan
 was drafted and nobody asked you to write it down.
 
-- Call \`notebook_resume({ history_id })\` **once, before your first write**. It finds or
-  creates the one page for this history and returns its id and current content. The slug
-  is fixed per history, so a later session attaches to the same record rather than
-  starting a second one.
+- Call \`notebook_resume()\` **once, before your first write**. It opens this session's
+  record page and returns its id, current content and \`content_hash\`.
 - **Add to the record a section at a time.** \`update_page({ page_id, section_heading,
   section_content })\` replaces one section and leaves the rest of the page alone, which is
   what appending a finding or a step usually is.
@@ -597,23 +597,27 @@ export interface PromptOptions {
   galaxyStatus?: GalaxyStatus;
   seedDataset?: string;
   galaxyRoot?: string;
+  galaxyReads?: boolean;
 }
 
 function galaxyNotice(status: GalaxyStatus): string {
   return status === GALAXY_UNREACHABLE ? GALAXY_UNAVAILABLE : "";
 }
 
-/** The block text appended to the shell-seeded identity prompt. */
+export const IDENTITY = "You are Olit.";
+
 export function systemText({
   model,
   provider,
   galaxyStatus = GALAXY_READY,
   seedDataset,
   galaxyRoot,
+  galaxyReads = true,
 }: PromptOptions = {}): string {
-  const ready = galaxyStatus === GALAXY_READY;
+  const ready = galaxyStatus === GALAXY_READY && galaxyReads;
   const galaxy = (block: string) => (ready ? block : "");
   return [
+    IDENTITY,
     seedDatasetBlock(seedDataset),
     activeModelBlock(model, provider),
     NO_LOCAL_SHELL,

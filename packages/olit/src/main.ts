@@ -33,7 +33,6 @@ import { mountBuildStamp } from "./build-stamp";
 import { createRetryNotice } from "./retry-notice";
 
 const PLUGIN_NAME = "olit";
-const PROMPT_DEFAULT = "You are Olit. Communicate only by calling tools.";
 const MAX_INPUT_HEIGHT = 150;
 
 const isDev = () => (import.meta as any).env.DEV;
@@ -102,13 +101,7 @@ async function main() {
     galaxy_root: config.galaxy_root,
   });
 
-  // Regenerated from the plugin XML every load, so a prompt correction reaches a resumed
-  // conversation instead of being pinned to the text of the day it started.
-  const seed = {
-    role: "system",
-    content: incoming.specs.ai_prompt || PROMPT_DEFAULT,
-    timestamp: Date.now(),
-  } as AgentMessage;
+  const seed = { role: "system", content: "", timestamp: Date.now() } as AgentMessage;
   const convo: AgentMessage[] = [seed];
   // The shell owns what a turn produced, the way it owns the transcript: the agent session is
   // rebuilt whenever the config changes, so anything it held would not survive a model switch.

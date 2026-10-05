@@ -166,7 +166,13 @@ export async function resume(
   if (typeof created !== "object" || created === null || !created.id) {
     return fail(JSON.stringify({ error: "Could not create the record page." }));
   }
-  return { created: true, page_id: created.id, title: created.title ?? null, content: STARTER };
+  return {
+    created: true,
+    page_id: created.id,
+    title: created.title ?? null,
+    content: STARTER,
+    content_hash: contentHash({ content_editor: STARTER }),
+  };
 }
 
 /** `notebook_resume`: opens the session's record page, keeping its id on `ctx.binding`. */
@@ -180,7 +186,7 @@ export function notebookTools(): OlitTool[] {
         "executed, and what the results showed. Call this once, before writing " +
         "anything to the record. The session owns one record page and this returns " +
         "that one, so there is nothing to identify and no way to start a second. " +
-        "Write to it afterwards with update_page(page_id, content).",
+        "Write to it afterwards with update_page, a section at a time.",
       parameters: { type: "object", properties: {} },
       capability: CAPABILITY,
       run: async (_args, ctx: Context) => {

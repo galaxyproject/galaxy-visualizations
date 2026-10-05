@@ -51,6 +51,19 @@ export function failedUrl(result: unknown): string | undefined {
 }
 
 /** The triage line this result earns, or undefined when nothing failed to fetch. */
+export const IWC_CANDIDATES_HINT =
+  "[olit] These are ranked by word overlap, not relevance. Before offering one, call " +
+  "`get_iwc_workflow_details` on the plausible candidates and check their inputs " +
+  "against the data the user actually has (reads vs count tables, paired vs single-end). " +
+  "A workflow that needs another's outputs first is half of a chain, not a match. If none " +
+  "fit, say so. If nothing came back, retry once with just the assay; if the query had no " +
+  "searchable terms, ask the user what they want to find out.";
+
+const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_workflows"]);
+
+export const iwcCandidatesHint = (name: string) =>
+  IWC_LISTINGS.has(name) ? IWC_CANDIDATES_HINT : undefined;
+
 export function fetchFailureHint(result: unknown): string | undefined {
   const url = failedUrl(result);
   if (url === undefined) {

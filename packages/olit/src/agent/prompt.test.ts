@@ -165,8 +165,8 @@ describe("other blocks", () => {
     expect(squash(CHAT_FORMATTING)).toContain("single newline joins two");
   });
 
-  it("states the skill rule only where the skills are listed", () => {
-    expect(GALAXY_TERMINOLOGY).not.toContain("udt-authoring");
+  it("points UDT authoring at its skill, as loom does", () => {
+    expect(GALAXY_TERMINOLOGY).toContain("fetch\n  the `udt-authoring` skill first");
   });
 
   it("carries a real date", () => {
@@ -296,6 +296,12 @@ describe("galaxy readiness", () => {
       expect(up).toContain(heading);
       expect(down).not.toContain(heading);
     }
+  });
+
+  it("leaves the Galaxy guidance out when Galaxy reads are not granted", () => {
+    const withheld = systemText({ galaxyReads: false });
+    expect(withheld).not.toContain("### Drafting a new plan");
+    expect(withheld).not.toContain("## Galaxy: NOT AVAILABLE");
   });
 
   it("replaces the guidance with a notice", () => {

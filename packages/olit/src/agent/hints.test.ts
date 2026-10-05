@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Galaxy } from "./galaxy";
-import { catalogMissHint, fetchFailureHint } from "./hints";
+import { catalogMissHint, fetchFailureHint, iwcCandidatesHint } from "./hints";
 
 const ENA_FAILURE = {
   id: "d1",
@@ -118,5 +118,15 @@ describe("catalogMissHint", () => {
     const { galaxy, asked } = plugins([{ name: "plotly" }]);
     expect(await catalogMissHint(galaxy, "get_histories", { query: "plotly" }, [])).toBeUndefined();
     expect(asked).toEqual([]);
+  });
+});
+
+describe("iwcCandidatesHint", () => {
+  it("follows both IWC listings, as loom's iwc-candidates trigger does", () => {
+    expect(iwcCandidatesHint("recommend_iwc_workflows")).toContain("get_iwc_workflow_details");
+    expect(iwcCandidatesHint("search_iwc_workflows")).toBe(
+      iwcCandidatesHint("recommend_iwc_workflows"),
+    );
+    expect(iwcCandidatesHint("get_iwc_workflow_details")).toBeUndefined();
   });
 });

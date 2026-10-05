@@ -29,9 +29,9 @@ before doing anything, because it tells you what was already decided and run.
 
 ### Writing to it
 
-Write with `update_page(page_id, content)`. Galaxy replaces the whole body, so send
-the **full** document — the current content plus your additions, not just the new
-part. Keep the existing structure; append rather than rewrite, and never delete an
+Write a section at a time with `update_page(page_id, section_heading, section_content)`,
+passing the `content_hash` you read as `expect_hash`. `content` replaces the whole body:
+use it only to restructure, with the current content merged in, and never delete an
 earlier section to make room.
 
 Write to the record when:

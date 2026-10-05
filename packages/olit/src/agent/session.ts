@@ -205,7 +205,9 @@ function finishTool(): AgentTool {
   return {
     name: "finish",
     label: "finish",
-    description: "Call when the task is complete, with a short summary.",
+    description:
+      "Call when the task is complete. The summary is your closing reply to the user: " +
+      "state the result itself, not where you wrote it.",
     parameters: {
       type: "object",
       properties: { summary: { type: "string" } },
@@ -354,6 +356,7 @@ export class Session {
         galaxyStatus: session.galaxyStatus,
         seedDataset: config.dataset_id,
         galaxyRoot: galaxy.root,
+        galaxyReads: session.capabilities.includes("read"),
       }),
       skills.routerText(),
     ]
