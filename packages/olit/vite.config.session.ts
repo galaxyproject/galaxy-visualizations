@@ -7,7 +7,10 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: false,
     target: "node22",
-    rollupOptions: { output: { entryFileNames: "session.mjs" } },
+    // One file: a lazy chunk importing back from an entry that is still in its top-level
+    // await never resolves, and the entry awaits the chunk.
+    rollupOptions: { output: { entryFileNames: "session.mjs", inlineDynamicImports: true } },
   },
-  ssr: { noExternal: true, external: ["pyodide"] },
+  // vega's Node build calls require(), which an ES module bundle cannot; Node loads it itself.
+  ssr: { noExternal: true, external: ["pyodide", "vega", "vega-lite"] },
 });

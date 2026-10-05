@@ -7,11 +7,13 @@ import type { Target } from "./providers";
 import { retrying, type RetryInfo } from "./retry";
 
 /** Requests to a keyless endpoint carry the page's session instead of a bearer token. */
-const keyless: typeof fetch = (input, init) => {
-  const headers = new Headers(init?.headers);
-  headers.delete("authorization");
-  return fetch(input, { ...init, headers });
-};
+const keyless =
+  (send: typeof fetch): typeof fetch =>
+  (input, init) => {
+    const headers = new Headers(init?.headers);
+    headers.delete("authorization");
+    return send(input, { ...init, headers });
+  };
 
 /** At most `perMinute` requests in any minute, spaced as a token bucket refills. */
 function rateLimiter(perMinute: number): () => Promise<void> {
@@ -74,10 +76,13 @@ export function connect(
     }),
   );
   const acquire = rateLimiter(target.rateLimit);
-  // pi-ai's own retry is off by default and cannot say it is waiting; this one can.
-  const send = retrying(target.apiKey ? (input, init) => fetch(input, init) : keyless, onRetry);
   const streamFn: StreamFn = async (m, context, options) => {
     await acquire();
+    const base: typeof fetch =
+      (options as { fetch?: typeof fetch } | undefined)?.fetch ??
+      ((input, init) => fetch(input, init));
+    // pi-ai's own retry is off by default and cannot say it is waiting; this one can.
+    const send = retrying(target.apiKey ? base : keyless(base), onRetry);
     return models.streamSimple(m, context, { ...options, fetch: send });
   };
   return { model, streamFn };
