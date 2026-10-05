@@ -159,6 +159,55 @@ npm run dev
 
 Leave `LLM_PROVIDER` unset to use the provider picker. This is the production path: the model key remains in the browser worker.
 
+## Temporary galaxy-ops artifact
+
+Olit depends on galaxy-ops changes that are in review upstream and not yet in an npm release.
+Until they are, `package.json` pins an immutable candidate build attached to a pre-release on
+the `guerler/galaxy-mcp` fork. Nothing here is published to npm or to `galaxyproject/galaxy-mcp`.
+
+| | |
+| --- | --- |
+| package | `@galaxyproject/galaxy-ops` `0.3.2-ops.0` |
+| asset | https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.3.2-ops.0/galaxyproject-galaxy-ops-0.3.2-ops.0.tgz |
+| release | `ops-v0.3.2-ops.0` (pre-release on `guerler/galaxy-mcp`) |
+| built from | branch `ops-artifact.000` @ `ca7b84762ca3cbd8c42de9bfa1306412829b8080`: the PR branch `ops.000` @ `594ba16b54acf7f941e21619889ad7685307a88b` plus one version-bump commit |
+| upstream base | `galaxyproject/galaxy-mcp` `main` @ `72503b3` |
+| sha256 | `6a5743c365ef9a920523d38f6e0a718b982e0dff61a85bb5f9479bc3347bc8a1` |
+| npm integrity | `sha512-c/E5wjjIFf8YyehA5sn5RxcMlYyEon7SmKa7N677lZngU2GfogJNB2y1T/9FkWBCo/K8YHk/rpqQkiFrXPghZA==` (recorded in `package-lock.json`) |
+
+It carries these `ops.000` commits on top of the upstream base:
+
+```
+451c069 Type an operation's input as what a caller hands it
+3c8fae3 Declare what an operation's result is, and read it back
+e265c20 Compare the result shape the two surfaces state, and declare where it differs
+a0a782d Answer get_page with Galaxy's hash of the editable source, on both surfaces
+830d306 Let an operation say when it destroys, what it polls, and what stays put for a session
+738a2cc Let update_page replace one section and refuse a stale write, on both surfaces
+61e130f Read get_job_details in full and keep both ends of its logs, on both surfaces
+a6035e1 Let get_invocations say what a run amounted to from its jobs, on both surfaces
+b226b19 Let Galaxy page get_history_contents with its real total, a fixed order, the output budget and no dataset_id, on both surfaces
+0088629 Declare the result fields get_history_details, get_collection_details and get_workflow_input_template already answer with
+3d6ba55 Settle a job wait on skipped and stopped too, from the one settled-state list the invocation roll-up uses
+594ba16 Export the dataset and invocation terminal states from the browser entry
+```
+
+`npm ci` fetches the asset and checks it against the lockfile's integrity, so a clean checkout and
+CI install the same bytes and need no local galaxy-ops checkout. `npm run stale` reports the pin as
+temporary.
+
+The asset is immutable. If the candidate has to change, it becomes branch `ops-artifact.001` and
+release `ops-v0.3.2-ops.1`, never a replaced `.0`.
+
+**Replacing it** once an npm release of `@galaxyproject/galaxy-ops` contains the commits above:
+
+```bash
+npm install @galaxyproject/galaxy-ops@<that version>   # rewrites package.json and the lockfile
+npm test
+```
+
+then delete this section. It is a dependency-only change.
+
 ## Tests
 
 ```bash
