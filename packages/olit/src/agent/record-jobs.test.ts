@@ -129,3 +129,31 @@ describe("noteSubmitted", () => {
     expect(done).toContain("Status: finished (scheduled)");
   });
 });
+
+describe("anchoring", () => {
+  const record = [
+    "## Plan",
+    "",
+    "- [ ] Step 2: call variants",
+    "",
+    "## Results",
+    "",
+    "```galaxy",
+    "history_dataset_display(history_dataset_id=d1)",
+    "```",
+  ].join("\n");
+  const ok = { id: "d1", kind: "dataset", state: "ok", outcome: "completed" } as const;
+
+  it("leaves other plan steps and fenced embeds alone", () => {
+    expect(applyJobOutcome(record, ok)).toBe(record);
+  });
+
+  it("prefers the session's own entry for the id", () => {
+    const noted = noteSubmitted(record, { id: "d1", kind: "dataset" });
+    const updated = applyJobOutcome(noted, ok);
+    expect(updated).toContain("- [ ] Step 2: call variants");
+    expect(updated).toMatch(
+      /- \[x\] .*`d1` — submitted, awaiting completion\n- Status: finished \(ok\)/,
+    );
+  });
+});
