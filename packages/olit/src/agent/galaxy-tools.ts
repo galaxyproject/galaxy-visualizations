@@ -411,9 +411,10 @@ async function getInvocations(args: Row, { galaxy }: Context) {
     );
     return described(one, await jobStates(galaxy, args.invocation_id));
   }
+  // A blank filter is no filter, as galaxy-ops reads it, not a search for the empty id.
   const params = {
-    workflow_id: args.workflow_id,
-    history_id: args.history_id,
+    workflow_id: args.workflow_id || undefined,
+    history_id: args.history_id || undefined,
     limit: args.limit,
     view: args.view ?? "collection",
     step_details: args.step_details ?? false,

@@ -679,6 +679,13 @@ describe("get_invocations", () => {
     return { paths, ask: (args: Record<string, unknown>) => run("get_invocations", args, ctx) };
   }
 
+  it("reads a blank filter as no filter", async () => {
+    const { paths, ask } = invocations([]);
+    await ask({ history_id: "", workflow_id: "" });
+    expect(paths[0]).not.toContain("history_id=");
+    expect(paths[0]).not.toContain("workflow_id=");
+  });
+
   it("rolls up one invocation", async () => {
     const { paths, ask } = invocations();
     const out = await ask({ invocation_id: "i1" });
