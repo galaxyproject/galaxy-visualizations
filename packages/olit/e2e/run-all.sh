@@ -43,7 +43,7 @@ for d in confirm session unsaved-changes approval-gate ratelimit visualization-a
 done
 
 # The built bundle, served the way Galaxy serves it: the stub renders the host page and
-# the plugin static path, so these drivers get the credentials modal and the brain both.
+# the plugin static path, so these drivers get the credentials modal and the agent both.
 # The build must not carry the dev env, or LLM_PROVIDER suppresses the modal.
 env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tmp/olit-e2e-build.log 2>&1
 

@@ -1,8 +1,8 @@
-// The gap neither other tier can see: the artifact URL the brain emits, loaded against a real
+// The gap neither other tier can see: the artifact URL the agent emits, loaded against a real
 // Galaxy. The eval tier grades the saved object, the stub tier renders against a fake server,
 // so an address that Galaxy refuses to render passes both. Opt-in; needs a real Galaxy.
 //
-//   GALAXY_ROOT=... GALAXY_KEY=... DATASET_ID=... VISUALIZATION=molstar \
+//   npm run build:session && GALAXY_ROOT=... GALAXY_KEY=... DATASET_ID=... VISUALIZATION=molstar \
 //     node e2e/live-visualization-drive.cjs
 const { execFileSync } = require("child_process");
 const path = require("path");
@@ -19,42 +19,27 @@ const check = (name, ok, detail) => {
     console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  — " + detail : ""}`);
 };
 
-// Ask the brain for the addresses rather than rebuilding them, or the test would assert its
-// own idea of the contract instead of the one that ships.
+// Ask the agent for the addresses rather than rebuilding them, or the test would assert its
+// own idea of the contract instead of the one that ships: its built session runs the tools.
 function artifactUrls() {
-    const program = `
-import asyncio, json, os, urllib.request
-from olit.drivers.loop import galaxy_tools
-
-GALAXY, KEY = os.environ["GALAXY"], os.environ["KEY"]
-DATASET, VISUALIZATION = os.environ["DATASET"], os.environ["VISUALIZATION"]
-
-class Galaxy:
-    def _call(self, path, body=None):
-        sep = "&" if "?" in path else "?"
-        req = urllib.request.Request(f"{GALAXY}/{path}{sep}key={KEY}",
-                                     data=json.dumps(body).encode() if body else None,
-                                     headers={"Content-Type": "application/json"},
-                                     method="POST" if body is not None else "GET")
-        with urllib.request.urlopen(req, timeout=60) as r:
-            return json.loads(r.read())
-    async def get(self, path, **kw): return self._call(path)
-    async def post(self, path, body=None): return self._call(path, body or {})
-
-async def main():
-    g, args = Galaxy(), {"dataset_id": DATASET, "visualization": VISUALIZATION}
-    shown = await galaxy_tools._show_visualization(g, args)
-    saved = await galaxy_tools._save_visualization(g, dict(args, title="live drive"))
-    print(json.dumps({"shown": shown, "saved": saved}))
-
-asyncio.run(main())
-`;
-    const out = execFileSync("python3", ["-c", program], {
-        cwd: path.join(__dirname, "..", "brain"),
-        env: { ...process.env, GALAXY, KEY, DATASET, VISUALIZATION, PYTHONPATH: "." },
+    const requests = [
+        { op: "create", config: { galaxy_root: `${GALAXY}/`, galaxy_key: KEY, ai_provider: "galaxy" } },
+        { op: "call", name: "show_visualization", args: { dataset_id: DATASET, visualization: VISUALIZATION } },
+        {
+            op: "call",
+            name: "save_visualization",
+            args: { dataset_id: DATASET, visualization: VISUALIZATION, title: "live drive" },
+        },
+        { op: "close" },
+    ];
+    const out = execFileSync("node", [path.join(__dirname, "..", "dist", "session.mjs")], {
+        input: requests.map((r) => JSON.stringify(r)).join("\n") + "\n",
         encoding: "utf8",
     });
-    return JSON.parse(out.trim().split("\n").pop());
+    const [, shown, saved] = out.trim().split("\n").map((line) => JSON.parse(line).result);
+    // What the model reads, with the artifact the shell receives in place of its reference.
+    const read = (r) => ({ ...JSON.parse(r.content).data, artifact: r.artifacts[0] });
+    return { shown: read(shown), saved: read(saved) };
 }
 
 const manage = (id, action) =>

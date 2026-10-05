@@ -30,14 +30,14 @@ node e2e/run-python-drive.cjs
 it needs at the top.
 
 `LLM_PROVIDER` skips the credentials modal, which would otherwise block startup, and routes
-the brain through vite's `/llm` proxy.
+the agent through vite's `/llm` proxy.
 
 **Which tier a new driver belongs to: the dev tier for fast iteration on `src/`, the built
 tier for anything that has to hold in a deployment.** The dev tier bakes `LLM_PROVIDER` in
-and so never shows the credentials modal; the built tier shows it and reaches the brain
+and so never shows the credentials modal; the built tier shows it and reaches the agent
 through the same paths Galaxy uses.
 
-`run-python` is the only check that runs submitted Python in real Pyodide: the brain's own
+`run-python` is the only check that runs submitted Python in real Pyodide: the agent's own
 suite runs in CPython, where neither `eval_code_async` nor `pyfetch` exists. It asserts
 top-level `await` and a cross-origin `pyfetch` against the stub, so the CORS path is real.
 
@@ -47,7 +47,7 @@ new conversation every load, where Galaxy supplies one in production. Saving to 
 Visualization is deliberate and independent of this.
 
 `LLM_KEEP_RECENT_TOKENS` must be small enough that the short test transcript has something
-older than the kept tail; at 500 the brain correctly reports "nothing older to summarize"
+older than the kept tail; at 500 the agent correctly reports "nothing older to summarize"
 and the compaction checks fail. Compaction checks are skipped entirely unless
 `LLM_CONTEXT_WINDOW` is set.
 
@@ -70,11 +70,11 @@ node e2e/galaxy-boot-drive.cjs
 ```
 
 `galaxy-boot` connects a self-hosted endpoint through the modal and drives a full turn, so
-a built app whose brain fails to start, whose Pyodide path 404s, or whose prompt does not
+a built app whose agent fails to start, whose Pyodide path 404s, or whose prompt does not
 come from the plugin XML fails here.
 
 Drivers that name a real provider call `offline.cjs` first, which aborts every request off
-127.0.0.1: the brain boots on this tier and would otherwise reach the provider for real.
+127.0.0.1: the agent boots on this tier and would otherwise reach the provider for real.
 
 ## The stub
 

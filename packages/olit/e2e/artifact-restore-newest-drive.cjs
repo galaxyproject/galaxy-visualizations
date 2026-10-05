@@ -62,7 +62,7 @@ const titled = (page, title) =>
     await page.goto(APP, { waitUntil: "domcontentloaded" });
 
     const booted = await boot(page);
-    check("the brain boots", booted, booted ? "" : (await page.innerText("body")).slice(0, 200));
+    check("the agent boots", booted, booted ? "" : (await page.innerText("body")).slice(0, 200));
     if (!booted) {
         console.log(logs.slice(-20).join("\n"));
         await browser.close();
@@ -96,10 +96,10 @@ const titled = (page, title) =>
         kept.length === 2 && kept[0] === "First Chart" && kept[1] === "Second Chart",
         kept.join(", ") || "(none)");
 
-    // Reopening the saved session: the brain and every in-memory array are replaced, so the
+    // Reopening the saved session: the agent and every in-memory array are replaced, so the
     // pane is filled from the stored document alone.
     await page.goto(APP, { waitUntil: "domcontentloaded" });
-    check("the brain comes back after the reload", await boot(page));
+    check("the agent comes back after the reload", await boot(page));
 
     const restored = await titled(page, "Second Chart");
     const titles = await cardTitles(page);

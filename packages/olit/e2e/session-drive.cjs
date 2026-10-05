@@ -47,7 +47,7 @@ function check(name, ok, detail) {
     const before = await page.evaluate(() => document.body.innerText);
     check("the turn is on screen", before.includes(ASK));
 
-    // The reload is the whole point: a new document, a new worker, a new brain.
+    // The reload is the whole point: a new document, a new worker, a new agent session.
     await page.reload({ waitUntil: "domcontentloaded" });
     check("resumed after reload", await booted());
 

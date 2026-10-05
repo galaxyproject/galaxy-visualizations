@@ -87,7 +87,7 @@ async function waitFor(page, fn, ms, arg) {
           /nothing in this plan can run/i.test(failedBody) ? "refused after the process" : "approval proceeded");
     check("the approved turn was sent", after > before, `${before} -> ${after} provider calls`);
 
-    // Now the state the gate is actually for: Galaxy itself does not answer. The brain probes
+    // Now the state the gate is actually for: Galaxy itself does not answer. The agent probes
     // once per session, so this needs a fresh load.
     await fetch(`${STUB}/__galaxy?up=0`);
     await fetch(`${STUB}/__script?name=plan`);

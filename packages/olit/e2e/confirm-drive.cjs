@@ -58,7 +58,7 @@ async function ask(page, msg) {
 
     await p.goto(APP, { waitUntil: "domcontentloaded" });
     const ready = await waitFor(p, () => /olit ready/i.test(document.body.innerText), 240000);
-    check("page loads and the brain reports ready", ready);
+    check("page loads and the agent reports ready", ready);
     if (!ready) {
         console.log(logs.slice(-25).join("\n"));
         await b.close();

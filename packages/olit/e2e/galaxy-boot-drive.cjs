@@ -56,7 +56,7 @@ async function connect(page) {
     await connect(p);
 
     const ready = await waitFor(p, isReady, 300000);
-    check("the brain boots from the Galaxy deployment path", ready);
+    check("the agent boots from the Galaxy deployment path", ready);
     check("nothing under the plugin href 404s", missing.length === 0, missing.join(" | "));
     await p.screenshot({ path: `${OUT}/g1-ready.png` });
     if (!ready) {
