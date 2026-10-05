@@ -99,8 +99,6 @@ function tools() {
           "\n",
         ),
       ),
-      query: {},
-      passthrough: false,
       promised_fields: PROMISED_FIELDS[tool.name] ?? [],
     };
   }

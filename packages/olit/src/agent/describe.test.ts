@@ -44,24 +44,14 @@ describe("the description Olit publishes about itself", () => {
     const tool = doc.tools.get_job_details as Record<string, unknown>;
     expect(tool.capability).toBe("read");
     expect(Object.keys(tool).sort()).toEqual(
-      [
-        "capability",
-        "runner",
-        "signature",
-        "params",
-        "prose",
-        "query",
-        "passthrough",
-        "promised_fields",
-      ].sort(),
+      ["capability", "runner", "signature", "params", "prose", "promised_fields"].sort(),
     );
   });
 
   it("says which tools galaxy-ops runs and which Olit kept", () => {
-    const tools = doc.tools as Record<string, { runner: string; passthrough: boolean }>;
+    const tools = doc.tools as Record<string, { runner: string }>;
     expect(tools.get_histories.runner).toBe("galaxy-ops");
     expect(tools.get_history_contents.runner).toBe("olit");
-    expect(Object.values(tools).filter((t) => t.passthrough)).toEqual([]);
   });
 
   it("names prompt blocks the prompt module defines", () => {
