@@ -79,4 +79,14 @@ describe("messages", () => {
     expect(fromPi([user as AgentMessage])).toEqual([{ role: "user", content: "ab" }]);
   });
 
+  it("drops pi's tool declarations, so a transcript does not gain one every turn", () => {
+    const declared = {
+      role: "system",
+      content: "",
+      toolsAdded: [{ name: "finish" }],
+      timestamp: 0,
+    };
+    const transcript = [...toPi(TRANSCRIPT.slice(0, 2)), declared as unknown as AgentMessage];
+    expect(fromPi(transcript)).toEqual(TRANSCRIPT.slice(0, 2));
+  });
 });

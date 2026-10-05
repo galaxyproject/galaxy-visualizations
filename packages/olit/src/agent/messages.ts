@@ -116,6 +116,10 @@ export function fromPi(messages: AgentMessage[]): Message[] {
         { role: "tool", tool_call_id: m.toolCallId, name: m.toolName, content: textOf(m.content) },
       ];
     }
+    if (m.role === "system" && !textOf(m.content)) {
+      // pi's declaration of the tool set, which it re-derives every turn; Olit keeps no copy.
+      return [];
+    }
     if (m.role === "system" || m.role === "user") {
       return [{ role: m.role, content: textOf(m.content) }];
     }
