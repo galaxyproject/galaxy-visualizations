@@ -295,7 +295,7 @@ describe("a turn", () => {
     const session = await Session.create(
       config({ ai_provider: "openrouter", ai_api_key: undefined }),
       python,
-      { OPENROUTER_KEY: "or-env-secret-value" },
+      { OPENROUTER_API_KEY: "or-env-secret-value" },
     );
     const result = await session.turn(start);
     const tool = toChat(result.new_messages).find((m) => m.role === "tool")!;

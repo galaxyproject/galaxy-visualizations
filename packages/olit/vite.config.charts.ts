@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { defineConfig } from "vite";
 
-import { PROVIDERS } from "./src/agent/providers";
+import { defaultEndpoint, PROVIDERS } from "./src/agent/providers";
 
 const env = {
   GALAXY_KEY: "",
@@ -44,13 +44,16 @@ const proxyGalaxy = () => ({
   target: env.GALAXY_ROOT,
 });
 
-/** The /llm proxy's origin and path for each provider, from the agent's own registry. */
-function llmTargets(): Record<string, { root: string; path: string }> {
+/** The /llm proxy's origin and path for each provider: Olit's endpoint, or pi's for its own. */
+async function llmTargets(): Promise<Record<string, { root: string; path: string }>> {
+  const endpoints = await Promise.all(PROVIDERS.map(async (p) => [p.id, await defaultEndpoint(p)]));
   return Object.fromEntries(
-    PROVIDERS.filter((p) => p.baseUrl).map((p) => {
-      const url = new URL(p.baseUrl!);
-      return [p.id, { root: url.origin, path: url.pathname || "/v1" }];
-    }),
+    endpoints
+      .filter((entry): entry is [string, string] => !!entry[1])
+      .map(([id, endpoint]) => {
+        const url = new URL(endpoint);
+        return [id, { root: url.origin, path: url.pathname === "/" ? "/v1" : url.pathname }];
+      }),
   );
 }
 
@@ -63,7 +66,7 @@ function buildCommit(): string {
   }
 }
 
-const targets = llmTargets();
+const targets = await llmTargets();
 if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
   // Falling through to the local default here is the trap that answers with the wrong model.
   const known = Object.keys(targets).sort().join(", ") || "none readable";
@@ -114,7 +117,12 @@ export const viteConfigCharts = defineConfig({
         changeOrigin: true,
         target: llmRoot,
         rewrite: (path: string) => path.replace(/^\/llm/, llmPath),
-        headers: env.LLM_KEY ? { Authorization: `Bearer ${env.LLM_KEY}` } : undefined,
+        // Gemini's native API takes its key in its own header; the rest take a bearer token.
+        headers: !env.LLM_KEY
+          ? undefined
+          : env.LLM_PROVIDER === "google"
+            ? { "x-goog-api-key": env.LLM_KEY }
+            : { Authorization: `Bearer ${env.LLM_KEY}` },
       },
     },
   },

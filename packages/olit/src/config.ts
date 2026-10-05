@@ -10,16 +10,17 @@ export function buildConfig(
   creds?: Credentials | null,
 ) {
   const picked = creds ? providerById(creds.provider) : undefined;
+  const provider = creds?.provider || (process.env.llm_provider as string) || "galaxy";
   return {
-    // Dev routes through the vite proxy; a picked provider carries its own base URL;
-    // with neither, the Galaxy chat proxy answers.
+    // Dev routes through the vite proxy; a provider Olit defines carries its own base URL and
+    // one pi defines is reached at pi's; the Galaxy chat proxy answers at the plugin's route.
     // A typed endpoint wins over the provider's own: it is how a self-hosted server is reached.
     ai_base_url:
       (process.env.llm_base_url as string) ||
       creds?.baseUrl?.trim() ||
       picked?.baseUrl ||
-      `${incoming.root}api/plugins/${PLUGIN_NAME}`,
-    ai_provider: creds?.provider || (process.env.llm_provider as string) || "galaxy",
+      (provider === "galaxy" ? `${incoming.root}api/plugins/${PLUGIN_NAME}` : undefined),
+    ai_provider: provider,
     ai_model: creds?.model || (process.env.llm_model as string) || undefined,
     ai_context_window: Number(process.env.llm_context_window) || undefined,
     ai_keep_recent_tokens: Number(process.env.llm_keep_recent_tokens) || undefined,

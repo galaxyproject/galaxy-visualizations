@@ -1,6 +1,6 @@
 /** Ask an endpoint which models it serves, so a catalog we cannot know is not guessed. */
 
-import type { Provider } from "./agent/providers";
+import { piProvider, type Provider } from "./agent/providers";
 
 export interface Discovery {
   models: string[];
@@ -43,16 +43,22 @@ export function discoveryError(status: number): string {
   return `The endpoint answered ${status}.`;
 }
 
+/**
+ * The models a provider offers: pi's catalog for a provider pi defines and reaches at its own
+ * endpoint, otherwise what the endpoint lists.
+ */
 export async function discoverModels(
   fetchImpl: typeof fetch,
   provider: Provider,
-  baseUrl: string,
+  baseUrl: string | undefined,
   apiKey?: string,
 ): Promise<Discovery> {
-  const headers: Record<string, string> = { ...(provider.headers || {}) };
-  // Gemini's native API takes its key in its own header; everyone else takes a bearer token.
-  if (apiKey && provider.api === "google-generative-ai") headers["x-goog-api-key"] = apiKey;
-  else if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  if (!baseUrl) {
+    const pi = await piProvider(provider.id);
+    const ids = pi ? [...new Set(pi.getModels().map((m) => m.id))].sort() : [];
+    return ids.length ? { models: ids } : { models: [], error: "Type an endpoint to list from." };
+  }
+  const headers: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
   try {
     const res = await fetchImpl(modelsUrl(baseUrl), { headers });
     if (!res.ok) return { models: [], error: discoveryError(res.status) };

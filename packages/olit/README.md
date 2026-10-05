@@ -148,12 +148,12 @@ npm run dev
 GALAXY_ROOT=http://127.0.0.1:8080 \
 GALAXY_KEY=<galaxy-api-key> \
 LLM_PROVIDER=google \
-LLM_KEY="$GEMINI_KEY" \
+LLM_KEY="$GEMINI_API_KEY" \
 LLM_MODEL=gemini-3.7-flash \
 npm run dev
 ```
 
-`LLM_PROVIDER` names an entry in `src/agent/providers.ts`, which defines the endpoint, context window, and rate limit. Set `LLM_ROOT` and `LLM_PATH` for an endpoint the registry does not contain.
+`LLM_PROVIDER` names an entry in `src/agent/providers.ts`. A provider pi-ai defines (Gemini, DeepSeek, OpenRouter, OpenAI, Anthropic, Groq, Mistral, xAI) is pi's own: its endpoint, API, context windows and, headless, its key variable (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...). Olit defines only the Galaxy proxy, Jetstream2 and local servers. Set `LLM_ROOT` and `LLM_PATH` for an endpoint neither registry contains.
 
 `GALAXY_KEY` is needed during local development because Vite serves Olit outside Galaxy, where the Galaxy session cookie does not apply.
 

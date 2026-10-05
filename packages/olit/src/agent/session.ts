@@ -339,7 +339,7 @@ export class Session {
     });
     const skills = skillRegistry();
     const session = new Session(config, galaxy, ops, python, target, olitTools(skills));
-    session.connection = await connect(target, (info) => session.onRetry?.(info));
+    session.connection = await connect(target, (info) => session.onRetry?.(info), env);
     session.galaxyStatus = await galaxy
       .get("api/version")
       .then((): GalaxyStatus => GALAXY_READY)
@@ -474,7 +474,7 @@ export class Session {
       finishTool(),
     ];
     // The resolved key, not the configured one: a headless run reads it from the environment.
-    const secrets = [this.target.apiKey, this.config.galaxy_key].filter(
+    const secrets = [this.connection.apiKey, this.config.galaxy_key].filter(
       (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
     );
     const guard = guards({

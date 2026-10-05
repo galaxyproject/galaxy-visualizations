@@ -5,11 +5,11 @@ import { join, relative } from "node:path";
 import { KEEP_RECENT_TOKENS, RESERVE_TOKENS, TOOL_RESULT_MAX_CHARS } from "./compaction";
 import { PROMISED_FIELDS } from "./galaxy-tools";
 import { MAX_RESULT_BYTES } from "./guards";
-import { connect } from "./model";
+import { connect, keyVariable } from "./model";
 import { STARTER } from "./notebook";
 import { opsTools } from "./ops";
 import { ROW_BYTES_CAP, ROW_CAP } from "./paging";
-import { PROVIDERS, resolve } from "./providers";
+import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
 import { MAX_STEPS, olitTools } from "./session";
 import { GUARDS } from "./tool";
 import { DEFAULT_MAX_AUTO_FOLLOW_UPS } from "./watch";
@@ -182,9 +182,14 @@ function skills(root: string) {
 
 /** Where each named provider's requests go and which variable holds its key, for a harness
  * that records completions or supplies credentials without resolving them a second way. */
-function providers() {
+async function providers() {
   return Object.fromEntries(
-    PROVIDERS.map((p) => [p.id, { base_url: p.baseUrl ?? null, auth_env: p.authEnv ?? null }]),
+    await Promise.all(
+      PROVIDERS.map(async (p) => [
+        p.id,
+        { base_url: (await defaultEndpoint(p)) ?? null, auth_env: (await keyVariable(p)) ?? null },
+      ]),
+    ),
   );
 }
 
@@ -198,7 +203,7 @@ export async function describe(root: string) {
     prompt_blocks: promptBlocks(root),
     tools: tools(),
     policy: { llm_request: await llmRequest(), loop: loop(), guards: [...GUARDS] },
-    providers: providers(),
+    providers: await providers(),
     follow_ups: followUps(),
     skills: skills(root),
     record: { starter: STARTER, resume_tool: "notebook_resume" },

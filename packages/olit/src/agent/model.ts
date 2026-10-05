@@ -1,30 +1,16 @@
-import type { Api, Model } from "@earendil-works/pi-ai";
+import {
+  InMemoryCredentialStore,
+  type Api,
+  type AuthContext,
+  type Model,
+  type Provider as PiProvider,
+} from "@earendil-works/pi-ai";
 import { createModels, createProvider } from "@earendil-works/pi-ai/models";
-import { googleGenerativeAIApi } from "@earendil-works/pi-ai/api/google-generative-ai.lazy";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import type { StreamFn } from "@earendil-works/pi-agent-core";
 
-import type { ProviderApi, Target } from "./providers";
+import { piProvider, type Provider, type Target } from "./providers";
 import { retrying, type RetryInfo } from "./retry";
-
-/** pi's own description of the models it knows, by provider: reasoning, window, price. */
-const CATALOGS: Record<string, () => Promise<Record<string, Model<Api>>>> = {
-  google: () =>
-    import("@earendil-works/pi-ai/providers/google.models").then((m) => m.GOOGLE_MODELS),
-  deepseek: () =>
-    import("@earendil-works/pi-ai/providers/deepseek.models").then((m) => m.DEEPSEEK_MODELS),
-  openrouter: () =>
-    import("@earendil-works/pi-ai/providers/openrouter.models").then((m) => m.OPENROUTER_MODELS),
-  groq: () => import("@earendil-works/pi-ai/providers/groq.models").then((m) => m.GROQ_MODELS),
-  xai: () => import("@earendil-works/pi-ai/providers/xai.models").then((m) => m.XAI_MODELS),
-};
-
-const APIS: Record<ProviderApi, () => ReturnType<typeof openAICompletionsApi>> = {
-  "openai-completions": openAICompletionsApi,
-  "google-generative-ai": googleGenerativeAIApi as unknown as () => ReturnType<
-    typeof openAICompletionsApi
-  >,
-};
 
 /** The output ceiling for a model a native adapter reaches but pi's catalog does not list. */
 const DEFAULT_NATIVE_MAX_TOKENS = 8192;
@@ -54,68 +40,132 @@ function rateLimiter(perMinute: number): () => Promise<void> {
 
 /** pi's catalog entry for this model, whichever API pi itself would reach it through. */
 export async function catalogued(provider: string, id: string) {
-  const known = await CATALOGS[provider]?.().catch(() => undefined);
-  return known ? Object.values(known).find((m) => m.id === id) : undefined;
+  return (await piProvider(provider))?.getModels().find((m) => m.id === id);
 }
 
 /**
- * The model and stream for a target, under its real provider id, so pi-ai applies what it
- * knows about that provider: its compat detection, its catalog, and its own adapter.
+ * A model pi's catalog does not list, reached through the provider's OpenAI-compatible API when
+ * it has one (OpenRouter serves most models there), else through the API its models use.
+ */
+function unlisted(id: string, provider: PiProvider<Api>): Model<Api> {
+  const listed = provider.getModels();
+  const api = listed.some((m) => m.api === "openai-completions")
+    ? "openai-completions"
+    : (listed[0]?.api ?? "openai-completions");
+  const like = listed.find((m) => m.api === api);
+  return {
+    id,
+    name: id,
+    api,
+    provider: provider.id,
+    baseUrl: like?.baseUrl ?? provider.baseUrl ?? "",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: DEFAULT_CONTEXT_WINDOW,
+    maxTokens: DEFAULT_NATIVE_MAX_TOKENS,
+  } as Model<Api>;
+}
+
+/**
+ * The variable a headless run puts this provider's key in: Olit's own for a provider it
+ * defines, else the API-key variable pi reads, learned by asking pi rather than copied.
+ */
+export async function keyVariable(provider: Provider): Promise<string | undefined> {
+  const pi = await piProvider(provider.id);
+  if (!pi) {
+    return provider.authEnv;
+  }
+  const asked: string[] = [];
+  const models = createModels({
+    authContext: { env: async (name) => void asked.push(name), fileExists: async () => false },
+  });
+  models.setProvider(pi);
+  await models.getAuth(provider.id).catch(() => undefined);
+  return asked.find((name) => name.endsWith("_API_KEY")) ?? asked[0];
+}
+
+/** The environment a headless run reads keys from; a browser has none. */
+const authContext = (env: Record<string, string | undefined>): AuthContext => ({
+  env: async (name) => env[name],
+  fileExists: async () => false,
+});
+
+/**
+ * The model and stream for a target. A provider pi defines is pi's own: its endpoint, wire API,
+ * compat, catalog and key variable, with the user's key handed over as a stored credential.
+ * A provider Olit defines is described to pi under its real id, so pi applies what it can.
  */
 export async function connect(
   target: Target,
   onRetry?: (info: RetryInfo) => void,
-): Promise<{ model: Model<Api>; streamFn: StreamFn }> {
+  env: Record<string, string | undefined> = {},
+): Promise<{ model: Model<Api>; streamFn: StreamFn; apiKey?: string }> {
   const provider = target.provider;
-  const api = provider.api ?? "openai-completions";
-  const entry = await catalogued(provider.id, target.model);
-  // The window is the model's own; the rest of an entry holds only for the API pi uses.
-  const known = entry?.api === api ? entry : undefined;
-  const baseUrl = target.baseUrl ?? known?.baseUrl ?? "";
-  const model = {
-    ...(known ?? {
+  const pi = await piProvider(provider.id);
+  const credentials = new InMemoryCredentialStore();
+  const store = (key: string) =>
+    credentials.modify(provider.id, async () => ({ type: "api_key", key }));
+  if (target.apiKey) {
+    await store(target.apiKey);
+  }
+  const models = createModels({ credentials, authContext: authContext(env) });
+  let model: Model<Api>;
+  if (pi) {
+    const known = pi.getModels().find((m) => m.id === target.model);
+    const base = known ?? unlisted(target.model, pi);
+    model = {
+      ...base,
+      baseUrl: target.baseUrl ?? base.baseUrl,
+      contextWindow: target.contextWindow ?? base.contextWindow,
+      maxTokens: ceiling(target, base),
+    };
+    models.setProvider(pi);
+  } else {
+    model = {
+      id: target.model,
       name: target.model,
+      api: "openai-completions",
+      provider: provider.id,
+      baseUrl: target.baseUrl ?? "",
       reasoning: false,
       input: ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      maxTokens: 0,
-    }),
-    id: target.model,
-    api,
-    provider: provider.id,
-    baseUrl,
-    contextWindow: target.contextWindow ?? entry?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
-    // An OpenAI-compatible request gets no output ceiling unless one is configured, so the
-    // endpoint's own default applies: OpenRouter reserves credit against whatever is asked.
-    // pi's native adapters take the catalog's, as pi sends it.
-    maxTokens:
-      target.maxTokens ||
-      (api === "openai-completions" ? 0 : (known?.maxTokens ?? DEFAULT_NATIVE_MAX_TOKENS)),
-    // A keyless endpoint (the Galaxy proxy) authenticates with the page's session instead.
-    headers: { ...target.headers, ...(target.apiKey ? {} : { Authorization: null }) },
-    compat: { ...(known as { compat?: object } | undefined)?.compat, ...provider.compat },
-  } as unknown as Model<Api>;
-  const models = createModels();
-  models.setProvider(
-    createProvider({
-      id: provider.id,
-      name: provider.name,
-      baseUrl,
-      auth: {
-        apiKey: {
-          name: provider.name,
-          resolve: async () => ({ auth: { apiKey: target.apiKey || "none" } }),
+      contextWindow: target.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
+      maxTokens: target.maxTokens || 0,
+      // A keyless endpoint (the Galaxy proxy) authenticates with the page's session instead.
+      headers: target.apiKey ? {} : { Authorization: null },
+      compat: provider.compat,
+    } as unknown as Model<Api>;
+    models.setProvider(
+      createProvider({
+        id: provider.id,
+        name: provider.name,
+        baseUrl: model.baseUrl,
+        auth: {
+          apiKey: {
+            name: provider.name,
+            resolve: async () => ({ auth: { apiKey: target.apiKey || "none" } }),
+          },
         },
-      },
-      models: [model],
-      api: APIS[api](),
-    }),
-  );
+        models: [model],
+        api: openAICompletionsApi(),
+      }),
+    );
+  }
+  // The key pi will send, wherever it came from, so the session can keep it out of results.
+  let resolved = await models.getAuth(model).catch(() => undefined);
+  if (!resolved && pi && target.baseUrl) {
+    // An endpoint typed or proxied in front of the provider (vite's /llm) brings its own auth.
+    await store("none");
+    resolved = await models.getAuth(model).catch(() => undefined);
+  }
+  const apiKey = target.apiKey ?? resolved?.auth.apiKey;
   const acquire = rateLimiter(target.rateLimit);
   const streamFn: StreamFn = async (m, context, options) => {
     await acquire();
-    if (api !== "openai-completions") {
-      // pi's native adapters bring their own transport and retry; they refuse a custom fetch.
+    if (m.api !== "openai-completions") {
+      // pi's other adapters bring their own transport and retry; they refuse a custom fetch.
       return models.streamSimple(m, context, { maxRetries: 3, ...options } as never);
     }
     const base: typeof fetch =
@@ -124,5 +174,14 @@ export async function connect(
     // pi-ai's retry cannot honour a stated delay and report the wait; this one can.
     return models.streamSimple(m, context, { ...options, fetch: retrying(base, onRetry) } as never);
   };
-  return { model, streamFn };
+  return { model, streamFn, apiKey };
+}
+
+/**
+ * An OpenAI-compatible request gets no output ceiling unless one is configured, so the
+ * endpoint's own default applies: OpenRouter reserves credit against whatever is asked. pi's
+ * other adapters take the catalog's, as pi sends it.
+ */
+function ceiling(target: Target, model: Model<Api>): number {
+  return target.maxTokens || (model.api === "openai-completions" ? 0 : model.maxTokens);
 }

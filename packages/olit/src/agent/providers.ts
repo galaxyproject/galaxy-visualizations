@@ -1,3 +1,5 @@
+import type { Api, Provider as PiProvider } from "@earendil-works/pi-ai";
+
 const DEFAULT_RATE_LIMIT = 30;
 
 export interface ProviderModel {
@@ -6,12 +8,10 @@ export interface ProviderModel {
   contextWindow?: number;
 }
 
-/** The pi-ai API a provider is reached through; pi's own adapter for each. */
-export type ProviderApi = "openai-completions" | "google-generative-ai";
-
 /**
  * Overrides of pi-ai's openai-completions compat detection, which keys on provider id and
- * host. Each one names something an endpoint was seen to reject or require.
+ * host, for the endpoints Olit defines itself. Each one names something such an endpoint was
+ * seen to reject or require.
  */
 export interface ProviderCompat {
   /** pi sends `store` to any host it does not list as non-standard; only OpenAI defines it. */
@@ -21,28 +21,50 @@ export interface ProviderCompat {
   supportsMidConvoSystemMessages?: boolean;
 }
 
-/** What an OpenAI-compatible endpoint other than OpenAI itself has been seen to accept. */
-const OPENAI_COMPATIBLE: ProviderCompat = {
+/** OpenAI-compatible servers that read only the older `max_tokens` (Galaxy, vLLM, llama.cpp). */
+const SELF_HOSTED: ProviderCompat = {
   supportsStore: false,
   supportsMidConvoSystemMessages: true,
+  maxTokensField: "max_tokens",
 };
-/** The same, for servers that only read the older `max_tokens` (Galaxy, vLLM, llama.cpp). */
-const SELF_HOSTED: ProviderCompat = { ...OPENAI_COMPATIBLE, maxTokensField: "max_tokens" };
+
+/**
+ * pi-ai's own definition of each provider it knows: its endpoint, wire API, key variable,
+ * compat and catalog are pi's, loaded when a session or a page needs them.
+ */
+const PI: Record<string, () => Promise<PiProvider<Api>>> = {
+  google: () => import("@earendil-works/pi-ai/providers/google").then((m) => m.googleProvider()),
+  deepseek: () =>
+    import("@earendil-works/pi-ai/providers/deepseek").then((m) => m.deepseekProvider()),
+  openrouter: () =>
+    import("@earendil-works/pi-ai/providers/openrouter").then((m) => m.openrouterProvider()),
+  openai: () => import("@earendil-works/pi-ai/providers/openai").then((m) => m.openaiProvider()),
+  anthropic: () =>
+    import("@earendil-works/pi-ai/providers/anthropic").then((m) => m.anthropicProvider()),
+  groq: () => import("@earendil-works/pi-ai/providers/groq").then((m) => m.groqProvider()),
+  mistral: () => import("@earendil-works/pi-ai/providers/mistral").then((m) => m.mistralProvider()),
+  xai: () => import("@earendil-works/pi-ai/providers/xai").then((m) => m.xaiProvider()),
+};
+
+/** pi's definition of a provider, or undefined for one Olit defines itself. */
+export const piProvider = (id: string) => PI[id]?.();
+
+/** Whether pi defines this provider, so Olit sets nothing of its wire behaviour. */
+export const isPiProvider = (id: string) => id in PI;
 
 export interface Provider {
   id: string;
   name: string;
-  /** Defaults to openai-completions. */
-  api?: ProviderApi;
+  /** Suggestions for the picker; pi's catalog describes them. */
+  models?: ProviderModel[];
+  rateLimit?: number;
+  /** Below, only for a provider Olit defines itself. */
   compat?: ProviderCompat;
   baseUrl?: string;
   /** The environment variable a headless run reads the key from; none means no user key. */
   authEnv?: string;
-  models?: ProviderModel[];
   /** Galaxy's own ceiling on max_tokens. */
   maxTokens?: number;
-  rateLimit?: number;
-  headers?: Record<string, string>;
   /** The server reports its own context window. */
   probeWindow?: boolean;
 }
@@ -52,28 +74,17 @@ export const PROVIDERS: Provider[] = [
   {
     id: "google",
     name: "Google Gemini",
-    // pi's own Gemini adapter: it keeps thought signatures and sends only what Gemini defines.
-    api: "google-generative-ai",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    authEnv: "GEMINI_KEY",
     rateLimit: 5,
     models: [{ id: "gemini-3.7-flash" }, { id: "gemini-3.1-flash-lite" }],
   },
   {
     id: "deepseek",
     name: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    authEnv: "DEEPSEEK_KEY",
-    // pi already detects DeepSeek as non-standard.
-    compat: { supportsMidConvoSystemMessages: true },
     models: [{ id: "deepseek-v4-flash", contextWindow: 1_000_000 }],
   },
   {
     id: "openrouter",
     name: "OpenRouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    authEnv: "OPENROUTER_KEY",
-    compat: OPENAI_COMPATIBLE,
     models: [
       { id: "anthropic/claude-sonnet-5" },
       { id: "openai/gpt-5.6-terra" },
@@ -100,52 +111,25 @@ export const PROVIDERS: Provider[] = [
     compat: SELF_HOSTED,
     probeWindow: true,
   },
-  {
-    id: "openai",
-    name: "OpenAI",
-    baseUrl: "https://api.openai.com/v1",
-    authEnv: "OPENAI_KEY",
-    compat: { supportsMidConvoSystemMessages: true },
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    baseUrl: "https://api.anthropic.com/v1",
-    authEnv: "ANTHROPIC_KEY",
-    compat: OPENAI_COMPATIBLE,
-    headers: { "anthropic-dangerous-direct-browser-access": "true" },
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    baseUrl: "https://api.groq.com/openai/v1",
-    authEnv: "GROQ_KEY",
-    compat: OPENAI_COMPATIBLE,
-  },
-  {
-    id: "mistral",
-    name: "Mistral",
-    baseUrl: "https://api.mistral.ai/v1",
-    authEnv: "MISTRAL_KEY",
-    compat: { ...OPENAI_COMPATIBLE, maxTokensField: "max_tokens" },
-  },
-  {
-    id: "xai",
-    name: "xAI",
-    baseUrl: "https://api.x.ai/v1",
-    authEnv: "XAI_KEY",
-    // pi already detects xAI as non-standard.
-    compat: { supportsMidConvoSystemMessages: true },
-  },
+  { id: "openai", name: "OpenAI" },
+  { id: "anthropic", name: "Anthropic" },
+  { id: "groq", name: "Groq" },
+  { id: "mistral", name: "Mistral" },
+  { id: "xai", name: "xAI" },
 ];
 
 export const providerById = (id: string) => PROVIDERS.find((p) => p.id === id);
 
 /** Whether a provider takes a key of the user's. */
-export const needsKey = (p: Provider) => !!p.authEnv;
+export const needsKey = (p: Provider) => isPiProvider(p.id) || !!p.authEnv;
 
 /** The Galaxy proxy picks its own model; every other endpoint is told which. */
 export const takesModel = (p: Provider) => p.id !== "galaxy";
+
+/** Where a provider's requests go unless an endpoint is typed: pi's for a provider pi defines. */
+export async function defaultEndpoint(p: Provider): Promise<string | undefined> {
+  return p.baseUrl ?? (await piProvider(p.id))?.baseUrl;
+}
 
 export interface LlmConfig {
   ai_provider?: string;
@@ -160,13 +144,14 @@ export interface LlmConfig {
 export interface Target {
   provider: Provider;
   model: string;
+  /** A typed or proxied endpoint, or an Olit-defined provider's; pi's own otherwise. */
   baseUrl?: string;
+  /** The configured key, or for an Olit-defined provider the one its variable holds. */
   apiKey?: string;
   /** Configured, probed, or listed here; otherwise pi's catalog or a default decides. */
   contextWindow?: number;
   maxTokens?: number;
   rateLimit: number;
-  headers: Record<string, string>;
 }
 
 /** The endpoint a config points at: named provider, else a custom one, else Galaxy. */
@@ -204,7 +189,6 @@ export function resolve(config: LlmConfig, env: Record<string, string | undefine
       config.ai_context_window || provider.models?.find((m) => m.id === model)?.contextWindow,
     maxTokens: asked && ceiling ? Math.min(asked, ceiling) : asked || ceiling,
     rateLimit: config.ai_rate_limit || provider.rateLimit || DEFAULT_RATE_LIMIT,
-    headers: provider.headers ?? {},
   };
 }
 

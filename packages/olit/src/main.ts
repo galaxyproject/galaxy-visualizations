@@ -220,7 +220,7 @@ async function main() {
   function workerConfig() {
     return {
       ...config,
-      ai_base_url: absolute(config.ai_base_url),
+      ai_base_url: config.ai_base_url && absolute(config.ai_base_url),
       galaxy_root: absolute(config.galaxy_root),
       ai_api_key: creds.apiKey,
       credentials,

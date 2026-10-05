@@ -1,6 +1,6 @@
 /** Provider/model/key picker. Mirrors Orbit's BYO-key overlay behaviour. */
 
-import { needsKey, providerById, PROVIDERS, takesModel } from "./agent/providers";
+import { defaultEndpoint, needsKey, providerById, PROVIDERS, takesModel } from "./agent/providers";
 import { discoverModels } from "./model-discovery";
 import {
   clearCredentials,
@@ -101,6 +101,9 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
     modelInput.value = remembered || p.models?.[0]?.id || "";
     endpointField.classList.toggle("hidden", !takesModel(p));
     endpointInput.placeholder = p.baseUrl || "";
+    void defaultEndpoint(p).then((url) => {
+      if (providerSel.value === p.id) endpointInput.placeholder = url || "";
+    });
     if (stored?.provider === p.id && stored.baseUrl) endpointInput.value = stored.baseUrl;
   }
   providerSel.addEventListener("change", syncFields);
@@ -162,7 +165,7 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
     discoverBtn.addEventListener("click", async () => {
       const p = providerById(providerSel.value);
       const endpoint = endpointInput.value.trim() || p?.baseUrl;
-      if (!p || !endpoint) return;
+      if (!p) return;
       discoverBtn.disabled = true;
       discoverBtn.textContent = "Listing...";
       const found = await discoverModels(fetch, p, endpoint, key());
