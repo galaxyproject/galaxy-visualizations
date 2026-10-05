@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import { contentText, type AssistantMessage } from "@earendil-works/pi-ai";
 
 import { toChat } from "./messages";
 import { connect } from "./model";
@@ -320,6 +321,12 @@ describe("a turn", () => {
       messages.filter((m) => m.role === "user").map((m) => (m as { content: unknown }).content);
     expect(asked(result.messages)).toEqual(asked(start));
     expect(result.messages.some((m) => m.role === "assistant")).toBe(false);
+  });
+
+  it("asks once more after a reply with neither text nor tool calls", async () => {
+    const { result } = await turn([{ text: "" }, { text: "The answer." }, { text: "unused" }]);
+    expect(result.steps).toBe(2);
+    expect(contentText((result.messages.at(-1) as AssistantMessage).content)).toBe("The answer.");
   });
 
   it("does not start a turn whose Stop came first", async () => {

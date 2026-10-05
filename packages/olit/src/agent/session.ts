@@ -581,6 +581,7 @@ export class Session {
     const started = new Map<string, unknown>();
     let steps = 0;
     let exhausted = false;
+    let retried = false;
     let done = false;
     let overflowReported = false;
     let before = JSON.stringify(this.binding);
@@ -607,11 +608,16 @@ export class Session {
         }
         return compacted;
       },
-      finishTurn: () => {
+      finishTurn: (turn) => {
         steps += 1;
         if (steps >= maxSteps) {
           exhausted = true;
           return { action: "end" };
+        }
+        const silent = !turn.toolResults.length && !contentText(turn.message.content).trim();
+        if (silent && !retried) {
+          retried = true;
+          return { action: "continue" };
         }
         return undefined;
       },
