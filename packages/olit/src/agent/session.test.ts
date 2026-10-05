@@ -161,6 +161,14 @@ describe("a turn", () => {
     expect(names).not.toContain("run_python");
   });
 
+  it("withholds a process unless the grant covers every capability it declares", async () => {
+    // organize_datasets declares read and write; write alone used to be enough.
+    const { requests } = await turn([{ text: "ok" }], { capabilities: ["llm", "write"] });
+    const names = requests[0].tools.map((t: { function: { name: string } }) => t.function.name);
+    expect(names).toContain("create_history");
+    expect(names).not.toContain("organize_datasets");
+  });
+
   it("keeps the session's keys out of tool results", async () => {
     const { result } = await turn(
       [{ calls: [{ name: "get_history_details", args: { history_id: "f2c1" } }] }, { text: "ok" }],
@@ -169,6 +177,22 @@ describe("a turn", () => {
     );
     const tool = result.new_messages.find((m) => m.role === "tool")!;
     expect(tool.content).not.toContain("sk-test-secret-value");
+    expect(tool.content).toContain("[redacted]");
+  });
+
+  it("keeps a key read from the environment out of tool results too", async () => {
+    server(
+      [{ calls: [{ name: "get_history_details", args: { history_id: "f2c1" } }] }, { text: "ok" }],
+      { "api/histories/f2c1": { id: "f2c1", annotation: "key or-env-secret-value" } },
+    );
+    const session = await Session.create(
+      config({ ai_provider: "openrouter", ai_api_key: undefined }),
+      python,
+      { OPENROUTER_KEY: "or-env-secret-value" },
+    );
+    const result = await session.turn(start);
+    const tool = result.new_messages.find((m) => m.role === "tool")!;
+    expect(tool.content).not.toContain("or-env-secret-value");
     expect(tool.content).toContain("[redacted]");
   });
 

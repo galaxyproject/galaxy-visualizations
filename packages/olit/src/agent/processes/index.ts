@@ -62,6 +62,8 @@ export function processTools(processes: Process[] = PROCESSES): OlitTool[] {
         : process.description,
       parameters: parameters(process),
       capability: strongest(process.capabilities),
+      // A process runs only when the grant covers everything it declares, not just the top.
+      requires: process.capabilities,
       run: async (args, ctx) => {
         const state = await process.run(ctx.galaxy, withDefaults(process, args));
         const summary = process.summarize?.(state);

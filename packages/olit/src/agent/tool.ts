@@ -69,6 +69,8 @@ export interface OlitTool {
   description: string;
   parameters: Record<string, unknown>;
   capability?: Capability;
+  /** Every capability the tool needs, when it is more than `capability` alone. */
+  requires?: Capability[];
   /** Run in call order with the rest of its batch. */
   sequential?: boolean;
   run(args: any, ctx: Context): Promise<unknown>;

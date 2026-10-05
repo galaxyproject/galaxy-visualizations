@@ -305,7 +305,9 @@ export class Session {
       }
     };
     const granted = new Set(this.capabilities);
-    const allowed = (t: OlitTool) => !t.capability || granted.has(t.capability);
+    const missing = (t: OlitTool) =>
+      [t.capability, ...(t.requires ?? [])].find((c) => c !== undefined && !granted.has(c));
+    const allowed = (t: OlitTool) => missing(t) === undefined;
     const ctx: Context = {
       galaxy: this.galaxy,
       ops: this.ops,
@@ -315,14 +317,15 @@ export class Session {
       watching: options.watching ?? [],
     };
     const tools = [...this.tools.filter(allowed).map((t) => asAgentTool(t, ctx)), finishTool()];
-    const secrets = [this.config.ai_api_key, this.config.galaxy_key].filter(
+    // The resolved key, not the configured one: a headless run reads it from the environment.
+    const secrets = [this.target.apiKey, this.config.galaxy_key].filter(
       (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
     );
     const guard = guards({
       settled: SETTLED,
       watching: ctx.watching,
       secrets,
-      withheld: new Map(this.tools.filter((t) => !allowed(t)).map((t) => [t.name, t.capability!])),
+      withheld: new Map(this.tools.filter((t) => !allowed(t)).map((t) => [t.name, missing(t)!])),
       advertised: tools.map((t) => t.name),
       ask: options.ask,
     });
