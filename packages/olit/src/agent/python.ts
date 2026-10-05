@@ -52,7 +52,7 @@ export function realmPython(
         if (channel === c) {
           channel = undefined;
         }
-        const stopped = new Error(`Python stopped (${reason}); its state was reset.`);
+        const stopped = new Error(`Python ${reason}; its state was reset.`);
         pending.forEach(({ reject }) => reject(stopped));
         pending.clear();
       },
@@ -69,8 +69,17 @@ export function realmPython(
     });
 
   return {
-    async run(code) {
-      const value = await request({ op: "run", code });
+    async run(code, signal) {
+      signal?.throwIfAborted();
+      // Python cannot be interrupted, only ended: Stop takes the realm and its state with it.
+      const stop = () => channel?.close();
+      signal?.addEventListener("abort", stop, { once: true });
+      let value: unknown;
+      try {
+        value = await request({ op: "run", code });
+      } finally {
+        signal?.removeEventListener("abort", stop);
+      }
       if (typeof value !== "string") {
         throw new Error("Python sent back something that is not its output.");
       }
@@ -110,7 +119,7 @@ export function browserPython(pyodideURL: string): Python {
       },
       close: () => {
         worker.terminate();
-        exit("stopped");
+        exit("was stopped");
       },
     };
   };

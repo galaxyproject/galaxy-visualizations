@@ -478,6 +478,7 @@ export class Session {
             ...ctx,
             galaxy: connectGalaxy({ ...galaxyOptions, signal }),
             ops: galaxyOps({ ...galaxyOptions, signal }),
+            python: { ...this.python, run: (code) => this.python.run(code, signal) },
           }
         : ctx;
     const tools = [

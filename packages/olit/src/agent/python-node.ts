@@ -40,15 +40,21 @@ export function nodePython(dir = pyodideDir()): Python {
       moduleURL: pathToFileURL(join(dir, "pyodide.mjs")).href,
       packageCacheDir,
     });
+    let stopping = false;
     // The realm must not outlive its session.
     process.once("exit", () => child.kill());
     return {
       send: (message) => child.send(message as object),
       listen: (onMessage, onExit) => {
         child.on("message", onMessage);
-        child.on("exit", (code, signal) => onExit(signal ?? `exit ${code}`));
+        child.on("exit", (code, signal) =>
+          onExit(stopping ? "was stopped" : `exited (${signal ?? code})`),
+        );
       },
-      close: () => child.kill(),
+      close: () => {
+        stopping = true;
+        child.kill();
+      },
     };
   };
   return realmPython(open);

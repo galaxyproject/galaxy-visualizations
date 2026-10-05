@@ -18,7 +18,7 @@ function fakeRealm() {
         receive = onMessage;
         exit = onExit;
       },
-      close: () => exit("stopped"),
+      close: () => exit("was stopped"),
     };
   };
   return {
@@ -66,9 +66,22 @@ describe("realmPython", () => {
     const realm = fakeRealm();
     const python = realmPython(realm.open);
     const out = python.run("while True: pass");
-    realm.exit("exit 1");
-    await expect(out).rejects.toThrow(/Python stopped \(exit 1\); its state was reset/);
+    realm.exit("exited (1)");
+    await expect(out).rejects.toThrow(/Python exited \(1\); its state was reset/);
     void python.run("1");
+    expect(realm.opened()).toBe(2);
+  });
+
+  it("ends the realm when the run is aborted, and starts a fresh one next", async () => {
+    const realm = fakeRealm();
+    const python = realmPython(realm.open);
+    const controller = new AbortController();
+    const out = python.run("while True: pass", controller.signal);
+    controller.abort();
+    await expect(out).rejects.toThrow(/Python was stopped; its state was reset/);
+    void python.run("1");
+    expect(realm.opened()).toBe(2);
+    await expect(python.run("1", controller.signal)).rejects.toThrow();
     expect(realm.opened()).toBe(2);
   });
 

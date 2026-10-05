@@ -107,6 +107,12 @@ const runIsolationProbe = [{
     function: { name: "run_python", arguments: JSON.stringify({ code: ISOLATION_PROBE }) },
 }];
 
+const runForever = [{
+    id: "call_1",
+    type: "function",
+    function: { name: "run_python", arguments: JSON.stringify({ code: "while True: pass" }) },
+}];
+
 const runPython = [{
     id: "call_1",
     type: "function",
@@ -322,6 +328,10 @@ const server = http.createServer(async (req, res) => {
             return answer(tail.role === "tool"
                 ? message(`python returned ${tail.content}`)
                 : message("", runIsolationProbe));
+        }
+        if (script === "python-forever") {
+            const tail = (body.messages || []).slice(-1)[0] || {};
+            return answer(tail.role === "tool" ? message(`python returned ${tail.content}`) : message("", runForever));
         }
         if (script === "python") {
             const msgs = body.messages || [];

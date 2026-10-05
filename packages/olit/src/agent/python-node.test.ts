@@ -59,4 +59,12 @@ describe("nodePython", () => {
     expect(new TextDecoder().decode(await python.read("/data/out.txt"))).toBe("ABC");
     expect(await python.read("/data/missing")).toBeUndefined();
   });
+
+  it("ends a run that never returns when it is aborted, and starts afresh", async () => {
+    const controller = new AbortController();
+    const out = python.run("while True: pass", controller.signal);
+    setTimeout(() => controller.abort(), 500);
+    await expect(out).rejects.toThrow(/Python was stopped; its state was reset/);
+    expect(await python.run("1 + 1")).toBe("2");
+  }, 60_000);
 });
