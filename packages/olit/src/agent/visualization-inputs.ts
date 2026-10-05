@@ -1,3 +1,4 @@
+import { parseValues, selectCase, type InputElementType } from "galaxy-charts/runtime";
 import { quote } from "./quote";
 type Json = Record<string, any>;
 
@@ -26,42 +27,13 @@ function declaredValues(param: Json, spec: Json | undefined): unknown[] {
     .map((v) => v.value);
 }
 
-/** galaxy-charts `toBoolean`. */
-const truthy = (value: unknown) => String(value).toLowerCase() === "true";
+/** What an input holds when no config sets it, as galaxy-charts resolves it; null for nothing. */
+export const resolvedDefault = (param: Json): unknown =>
+  parseValues([param as InputElementType], {})[param.name] ?? null;
 
-/** A declared numeric literal, or null when it states no number. */
-function numericLiteral(value: unknown): number | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(String(value));
-  } catch {
-    return null;
-  }
-  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
-}
-
-/** What an input holds when no config sets it, read through the coercion its type declares. */
-export function effectiveDefault(param: Json, spec: Json | undefined): unknown {
-  let value = param.value ?? null;
-  if (value === null) {
-    const fallback = spec?.fallback || {};
-    const requires = fallback.requires;
-    if (Object.keys(fallback).length && (!requires || truthy(param[requires]))) {
-      value = fallback.value ?? null;
-    }
-  }
-  if (value === null) {
-    return null;
-  }
-  const coerce = spec?.coerce;
-  if (coerce === "boolean") {
-    return truthy(value);
-  }
-  if (coerce === "number") {
-    return numericLiteral(value);
-  }
-  return value;
-}
+/** The case a conditional's stored values select, as galaxy-charts selects it. */
+const caseFor = (param: Json, values: unknown) =>
+  selectCase(param as InputElementType, isObject(values) ? values : {});
 
 function placeholder(param: Json, types: Types): unknown {
   const spec = types[param.type] || {};
@@ -69,7 +41,7 @@ function placeholder(param: Json, types: Types): unknown {
   if (stores.type === "object") {
     return { "<from get_visualization_options>": true };
   }
-  const fallback = effectiveDefault(param, spec);
+  const fallback = resolvedDefault(param);
   if (fallback !== null) {
     return fallback;
   }
@@ -91,13 +63,14 @@ function fill(param: Json, types: Types, out: Json) {
   }
   const test = param.test_param || {};
   const cases: Json[] = param.cases || [];
-  const wanted = caseValue(test.value);
-  const chosen = cases.find((c) => caseValue(c.value) === wanted) || cases[0] || {};
+  // The case the test parameter's default selects. When it selects none, galaxy-charts expands
+  // none, so the template leaves the choice open instead of inventing one.
+  const chosen = caseFor(param, {});
   const nested: Json = {};
   if (test.name) {
-    nested[test.name] = "value" in chosen ? chosen.value : "<choice>";
+    nested[test.name] = chosen ? chosen.value : `<one of: ${cases.map((c) => c.value).join(", ")}>`;
   }
-  for (const child of chosen.inputs || []) {
+  for (const child of chosen?.inputs || []) {
     fill(child, types, nested);
   }
   out[name] = nested;
@@ -158,14 +131,6 @@ function state(config: Json | undefined, group: string): Json {
   return isObject(held) ? held : {};
 }
 
-/** A case value as the form compares it, where a boolean stringifies to `"true"`. */
-export function caseValue(value: unknown): string | null {
-  if (typeof value === "boolean") {
-    return value ? "true" : "false";
-  }
-  return value === null || value === undefined ? null : String(value);
-}
-
 /** A case value with the label the form shows for it, where the test parameter declares one. */
 export function namedCase(test: Json | undefined, value: unknown): string {
   const labels = new Map<unknown, unknown>();
@@ -176,22 +141,6 @@ export function namedCase(test: Json | undefined, value: unknown): string {
   }
   const label = labels.get(value);
   return label ? `${quote(value)} (${label})` : quote(value);
-}
-
-/** The case label galaxy-charts compares: `result[testName] ?? test_param.value`. */
-export function selectedCase(test: Json | undefined, stated: unknown): string | null {
-  return caseValue(stated === null || stated === undefined ? test?.value : stated);
-}
-
-/** The case a conditional selects, as `formatConditional` selects it. */
-export function activeCase(param: Json, entry: unknown): Json | undefined {
-  const test = param.test_param || {};
-  const held = isObject(entry) ? entry[param.name] : undefined;
-  const chosen = selectedCase(test, isObject(held) ? held[test.name] : undefined);
-  if (chosen === null) {
-    return undefined;
-  }
-  return ((param.cases as Json[]) || []).find((c) => caseValue(c.value) === chosen);
 }
 
 /** The config a caller has to send, written the way the template writes an unfilled value. */
@@ -254,8 +203,7 @@ function resolve(params: unknown, segments: string[], held: unknown, trail: stri
   }
 
   const nested = isObject(held) ? held[name] : undefined;
-  const chosen = selectedCase(test, isObject(nested) ? nested[test.name] : undefined);
-  const active = cases.find((c) => chosen !== null && caseValue(c.value) === chosen);
+  const active = caseFor(param, nested);
   if (!active) {
     const offered = cases.map((c) => namedCase(test, c.value)).join(", ");
     return problem(
@@ -267,11 +215,7 @@ function resolve(params: unknown, segments: string[], held: unknown, trail: stri
   if (found.hit && found.hit.case === undefined) {
     found.hit.case = active.value;
     found.hit.otherCases = cases
-      .filter(
-        (c) =>
-          caseValue(c.value) !== chosen &&
-          ((c.inputs as Json[]) || []).some((i) => i.name === rest[0]),
-      )
+      .filter((c) => c !== active && ((c.inputs as Json[]) || []).some((i) => i.name === rest[0]))
       .map((c) => c.value);
   }
   return found;
@@ -328,7 +272,7 @@ export function* optionBearing(
     }
     const value = entry[name];
     if (param.type === "conditional") {
-      const active = activeCase(param, entry);
+      const active = caseFor(param, value);
       if (active) {
         const under: Branch = {
           test: param.test_param?.name,
@@ -362,16 +306,11 @@ export function same(a: unknown, b: unknown): boolean {
   return false;
 }
 
-/** Whether a value is one the input offers, compared whole, or its effective default. */
-export function isOffered(
-  value: unknown,
-  options: Json[] | undefined,
-  param: Json,
-  spec: Json,
-): boolean {
+/** Whether a value is one the input offers, compared whole, or its default. */
+export function isOffered(value: unknown, options: Json[] | undefined, param: Json): boolean {
   if ((options || []).some((option) => same(value, option.value))) {
     return true;
   }
-  const fallback = effectiveDefault(param, spec);
+  const fallback = resolvedDefault(param);
   return fallback !== null && same(value, fallback);
 }

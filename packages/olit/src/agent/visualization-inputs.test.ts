@@ -62,7 +62,8 @@ describe("a visualization config template", () => {
   });
 
   it("nests a conditional's case rather than flattening it", () => {
-    const { settings } = buildVisualizationTemplate(IGV, TYPES);
+    const plugin = { settings: [{ ...SOURCE, test_param: { name: "origin", value: "builtin" } }] };
+    const { settings } = buildVisualizationTemplate(plugin, TYPES);
     expect(settings.source.origin).toBe("builtin");
     expect(settings.source.genome).toEqual(ENTRY);
     expect(settings).not.toHaveProperty(["source.origin"]);
@@ -80,8 +81,15 @@ describe("a visualization config template", () => {
     expect(source.genome).toEqual(ENTRY);
   });
 
-  it("lets case order decide only when nothing is declared", () => {
-    expect(buildVisualizationTemplate(IGV, TYPES).settings.source.origin).toBe("builtin");
+  // galaxy-charts expands no case when the test default selects none, so neither does the template.
+  it("leaves the case open when the declared default selects none", () => {
+    expect(buildVisualizationTemplate(IGV, TYPES).settings.source).toEqual({
+      origin: "<one of: builtin, igv>",
+    });
+    const plugin = { settings: [{ ...SOURCE, test_param: { name: "origin", value: "neither" } }] };
+    expect(buildVisualizationTemplate(plugin, TYPES).settings.source).toEqual({
+      origin: "<one of: builtin, igv>",
+    });
   });
 });
 
