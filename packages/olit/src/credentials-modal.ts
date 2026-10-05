@@ -135,11 +135,15 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
         if (e.target === overlay) close(null);
       });
     }
+    // A key typed for one provider stays in the hidden box after switching to one that takes
+    // none; sending it would hand that provider's key to an endpoint it was never meant for.
+    const key = () =>
+      providerById(providerSel.value)?.needs_key ? keyInput.value.trim() || undefined : undefined;
     const submit = () => {
       const creds: Credentials = {
         provider: providerSel.value,
         model: modelInput.value.trim() || undefined,
-        apiKey: keyInput.value.trim() || undefined,
+        apiKey: key(),
         baseUrl: endpointInput.value.trim() || undefined,
       };
       const problem = credentialProblem(creds);
@@ -160,7 +164,7 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
       if (!p || !endpoint) return;
       discoverBtn.disabled = true;
       discoverBtn.textContent = "Listing...";
-      const found = await discoverModels(fetch, p, endpoint, keyInput.value.trim() || undefined);
+      const found = await discoverModels(fetch, p, endpoint, key());
       discoverBtn.disabled = false;
       discoverBtn.textContent = "List models";
       errorEl.textContent = found.error || "";
