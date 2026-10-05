@@ -3,7 +3,7 @@
  * galaxy-poller. The session owns it, so the browser and the eval harness see one behaviour.
  */
 import { segment, type Galaxy } from "./galaxy";
-import { invocationOutcome } from "@galaxyproject/galaxy-ops/browser";
+import { invocationOutcome, JOB_SETTLED_STATES } from "@galaxyproject/galaxy-ops/browser";
 
 export type WatchKind = "job" | "invocation" | "dataset";
 
@@ -15,9 +15,8 @@ export interface Watched {
   state?: string;
 }
 
-/** Galaxy job states that will never change again. */
-const JOB_FAILED = new Set(["error", "failed", "deleted"]);
-const JOB_TERMINAL = new Set(["ok", "discarded", "skipped", "stopped", ...JOB_FAILED]);
+/** Galaxy job states that will never change again, as galaxy-ops settles an invocation's jobs. */
+const JOB_TERMINAL = new Set<string>(JOB_SETTLED_STATES);
 /** Terminal invocation states. `scheduled` only means every step was scheduled. */
 const INVOCATION_TERMINAL = new Set(["cancelled", "failed", "completed"]);
 /** Dataset states that will never change again. */
