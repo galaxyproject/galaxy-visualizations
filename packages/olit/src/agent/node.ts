@@ -1,7 +1,6 @@
 import { createInterface } from "node:readline";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { describe } from "./describe";
 import { localPython } from "./python";
@@ -10,10 +9,15 @@ import { failedTurn, Session, type TurnResult } from "./session";
 import { DEFAULT_MAX_AUTO_FOLLOW_UPS } from "./watch";
 
 /** One session over JSON lines: `create`, `turn`, `settle`, `call`, `close`; a turn's events stream before its result. */
-/** Where Pyodide lives, resolved only when a session needs it: `--describe` runs without it. */
-const pyodideURL = () =>
-  pathToFileURL(dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs"))).href;
+/**
+ * Where Pyodide lives, resolved only when a session needs it: `--describe` runs without it. A
+ * directory path, not a file: URL -- under Node Pyodide reads its index as a path, and a URL
+ * there resolves against the working directory.
+ */
+const pyodideDir = () => dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs"));
 const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`);
+// stdout carries the protocol and nothing else.
+console.log = console.info = (...parts: unknown[]) => console.error(...parts);
 
 /** A turn as pi holds it, plus the OpenAI chat shape the harness grades. */
 const graded = (result: TurnResult) => ({
@@ -38,7 +42,7 @@ async function main() {
     const request = JSON.parse(line);
     try {
       if (request.op === "create") {
-        session = await Session.create(request.config, localPython(pyodideURL()), process.env);
+        session = await Session.create(request.config, localPython(pyodideDir()), process.env);
         write({ result: {} });
       } else if (request.op === "turn") {
         const result = await session!.turn(request.messages, {
