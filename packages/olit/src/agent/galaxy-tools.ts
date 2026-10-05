@@ -4,6 +4,7 @@ import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 import * as biocontainers from "./biocontainers";
 import { segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint, iwcCandidatesHint } from "./hints";
+import { ELIDED } from "./notebook";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -42,6 +43,12 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   // between its read and its write is kept; a directive id galaxy-ops refuses is answered with
   // where the id the agent wanted comes from.
   update_page: {
+    check: async (args) =>
+      String(args.content ?? "").includes(ELIDED)
+        ? fail(
+            "Refused: this content still holds the record excerpt's elision marker, so it would delete the elided middle. Edit a section instead.",
+          )
+        : undefined,
     around: serialized,
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length

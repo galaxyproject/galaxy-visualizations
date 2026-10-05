@@ -41,7 +41,7 @@ export function generateMermaid(
 
 /** A quote in its entity form, so it stays label text. */
 function mermaidLabel(text: string): string {
-  return text.replaceAll('"', "#quot;");
+  return text.replace(/[\s`]+/g, " ").replaceAll('"', "#quot;");
 }
 
 /** A Mermaid-safe identifier; src keeps hda and hdca ids from colliding. */

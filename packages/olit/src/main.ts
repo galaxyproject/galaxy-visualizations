@@ -116,8 +116,10 @@ async function main() {
   const saved = savedSessions(galaxy);
   // Opening a saved visualization opens that session. Otherwise IndexedDB continues the
   // last conversation in this history, which is reload convenience, not a second authority.
-  let savedId = incoming.visualizationId;
-  const fromGalaxy = savedId ? await saved.load(savedId).catch(() => null) : null;
+  const fromGalaxy = incoming.visualizationId
+    ? await saved.load(incoming.visualizationId).catch(() => null)
+    : null;
+  let savedId = fromGalaxy ? incoming.visualizationId : undefined;
   const localId = await session.current(config.history_id);
   const fromBrowser = !fromGalaxy && localId ? await session.load(localId) : null;
   // A history is a workspace, not a conversation: several sessions can run against one.

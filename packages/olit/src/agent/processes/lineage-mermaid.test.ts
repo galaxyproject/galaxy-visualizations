@@ -12,6 +12,12 @@ it("keeps a quote in a name from ending the label", () => {
   expect(diagram.split('"').length - 1).toBe(2);
 });
 
+it("keeps a name on one line and out of reach of the fence", () => {
+  const diagram = generateMermaid([{ src: "hda", id: "d1", name: "a\n```\n# b" }], [], "d1");
+  expect(diagram).toContain('hda_d1["*a # b"]');
+  expect(diagram).not.toContain("`");
+});
+
 it("gives jobs and datasets their shapes and edges", () => {
   const nodes = [
     { src: "hda", id: "a", name: "in" },

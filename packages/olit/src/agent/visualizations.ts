@@ -33,7 +33,7 @@ export type ResolveOptions = (
 const TYPES: Types = (inputs as { types: Types }).types;
 
 /** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
-const NOT_OFFERED = new Set(["olit", "vintent"]);
+export const NOT_OFFERED = new Set(["olit", "vintent"]);
 
 const NUMERIC_COLUMNS = new Set(["int", "float"]);
 const MATCH_CAP = 5;
@@ -178,7 +178,7 @@ async function resolveVisualization(
   const name = a.visualization;
   const datasetId = a.dataset_id;
   const installed: Json[] = (await galaxy.get("api/plugins")) || [];
-  if (!installed.some((p) => p.name === name)) {
+  if (NOT_OFFERED.has(name) || !installed.some((p) => p.name === name)) {
     return {
       refusal: {
         error: `Refused: ${quote(name)} is not an installed visualization.`,
@@ -623,6 +623,14 @@ async function saveVisualization(
 
   let visualizationId = a.visualization_id;
   if (visualizationId) {
+    const existing: Json =
+      (await galaxy.get(`api/visualizations/${segment(visualizationId)}`)) || {};
+    if (existing.type !== name) {
+      return fail(
+        `Refused: visualization ${quote(visualizationId)} is a ${quote(existing.type)}, not a ` +
+          `${quote(name)}. Leave visualization_id out to save a new one.`,
+      );
+    }
     await galaxy.put(`api/visualizations/${segment(visualizationId)}`, { title, config });
   } else {
     const created = await galaxy.post("api/visualizations", { type: name, title, config });

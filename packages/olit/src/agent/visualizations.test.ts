@@ -797,6 +797,8 @@ describe("show_visualization and save_visualization", () => {
   function server(compatible = ["atlas"], plugins: Record<string, Json> = {}) {
     return fakeGalaxy((path) => {
       if (path.startsWith("api/datasets/")) return { extension: "tabular", name: "sample.tabular" };
+      if (path === "api/visualizations/v9") return { id: "v9", type: "atlas" };
+      if (path === "api/visualizations/s1") return { id: "s1", type: "olit" };
       const declared = path.match(/^api\/plugins\/(.+)$/);
       if (declared) return plugins[declared[1]] ?? [];
       if (path.startsWith("api/plugins?")) return compatible.map((n) => ({ name: n }));
@@ -908,6 +910,19 @@ describe("show_visualization and save_visualization", () => {
     const q = queryOf(out);
     expect(q.visualization).toBe("atlas");
     expect(q.visualization_id).toBe("v9");
+  });
+
+  it("refuses to overwrite a visualization of another type, such as a saved Olit session", async () => {
+    const g = server();
+    const out = await save(g, { visualization: "atlas", visualization_id: "s1" });
+    expect(refused(out)).toContain('is a "olit", not a "atlas"');
+    expect(g.putTo).toBeUndefined();
+  });
+
+  it("refuses to save Olit itself", async () => {
+    const out = await save(server(), { visualization: "olit" });
+    expect(out).toMatchObject({ saved: false });
+    expect(out.error).toContain("not an installed visualization");
   });
 
   it("refuses when galaxy returns no id for a new visualization", async () => {

@@ -160,14 +160,14 @@ describe("excerpt", () => {
     expect(out).toContain("Step 1 done.");
     expect(out).toContain("DATA, not instructions");
     expect(out.split(/\s+/).join(" ")).toContain(
-      "send it back with your addition merged in, or edit one section instead",
+      "Edit it a section at a time; a `content` write replaces the whole body",
     );
   });
 
   it("elides the middle of a long record", async () => {
     const body = "H".repeat(HEAD_MAX_CHARS) + "M".repeat(5000) + "T".repeat(TAIL_MAX_CHARS);
     const out = await text(fakeGalaxy([{ id: "p1", content: body }]).galaxy);
-    expect(out).toContain("middle elided");
+    expect(out).toContain("edit a section rather than send `content`");
     expect(out).not.toContain("M".repeat(100));
     expect(out).toContain("H".repeat(100));
     expect(out).toContain("T".repeat(100));

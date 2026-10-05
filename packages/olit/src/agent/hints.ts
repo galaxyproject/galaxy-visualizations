@@ -1,4 +1,5 @@
 import type { Galaxy } from "./galaxy";
+import { NOT_OFFERED } from "./visualizations";
 
 const FAILED_FETCH = /Failed to fetch url\s+(\S+)/;
 /** ENA and SRA read paths, whose sharding is not derivable from an accession. */
@@ -76,7 +77,6 @@ export function fetchFailureHint(result: unknown): string | undefined {
 /** Searches over the tool catalog, which holds no visualizations. */
 const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
 /** Plugins never offered as a visualization: this agent and a standalone LLM plugin. */
-const NOT_OFFERED = new Set(["olit", "vintent"]);
 
 /** The installed visualization this query names. */
 async function visualizationNamed(galaxy: Galaxy, query: string): Promise<string | undefined> {

@@ -35,18 +35,15 @@ function confinedLoader() {
 
 /** Render a Vega or Vega-Lite spec into a container element. */
 export async function renderVega(container: HTMLElement, spec: unknown): Promise<void> {
+  const { usermeta: _, ...confined } = spec as Record<string, unknown>;
   try {
-    await embed(
-      container,
-      { ...(spec as object), width: "container", height: "container" } as any,
-      {
-        renderer: "svg",
-        actions: false,
-        loader: confinedLoader() as any,
-        // Expressions are interpreted rather than compiled into functions.
-        ast: true,
-      },
-    );
+    await embed(container, { ...confined, width: "container", height: "container" } as any, {
+      renderer: "svg",
+      actions: false,
+      loader: confinedLoader() as any,
+      // Expressions are interpreted rather than compiled into functions.
+      ast: true,
+    });
   } catch (e) {
     container.textContent = `Could not render chart: ${e}`;
   }
