@@ -5,12 +5,15 @@ import {
   compactionSettings,
   compactor,
   contextTokens,
-  estimateTokens,
   findCutIndex,
   serialize,
   type CompactionSettings,
 } from "./compaction";
+import { estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
 import type { ChatMessage as Message } from "./messages";
+
+/** pi's estimate for a chat-shaped fixture. */
+const estimateTokens = (m: Message) => estimateMessageTokens(toPi([m])[0] as never);
 
 /** Chat-shaped fixtures as pi messages. */
 const toPi = (messages: Message[]): AgentMessage[] =>
@@ -20,7 +23,9 @@ const toPi = (messages: Message[]): AgentMessage[] =>
         ? {
             role: "assistant",
             content: [
-              ...(m.reasoning_content ? [{ type: "thinking", thinking: m.reasoning_content }] : []),
+              ...(m.reasoning_content || m.reasoning
+                ? [{ type: "thinking", thinking: m.reasoning_content || m.reasoning }]
+                : []),
               ...(m.content ? [{ type: "text", text: m.content }] : []),
               ...(m.tool_calls ?? []).map((c) => ({
                 type: "toolCall",
@@ -30,6 +35,7 @@ const toPi = (messages: Message[]): AgentMessage[] =>
               })),
             ],
             stopReason: m.tool_calls?.length ? "toolUse" : "stop",
+            usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 },
             timestamp: 0,
           }
         : m.role === "tool"

@@ -89,46 +89,17 @@ export function getPackageNames(repoRoot) {
   return installPackages;
 }
 
-/* Place the pyodide runtime and every wheel where the page will load them. */
-export function copyRuntime(nodePath, tempDir, destDir, fileNames) {
-  fs.mkdirSync(destDir, { recursive: true });
-  for (const fileName of fileNames) {
-    const from = path.join(tempDir, fileName);
-    const to = path.join(destDir, fileName);
-    if (fs.existsSync(from)) {
-      fs.mkdirSync(path.dirname(to), { recursive: true });
-      fs.copyFileSync(from, to);
-    }
-  }
-  // The interpreter itself ships from node_modules, not the CDN.
-  for (const entry of fs.readdirSync(nodePath)) {
-    if (entry.endsWith(".whl") || entry === "package.json" || entry.startsWith("pyodide-lock")) {
-      continue;
-    }
-    const from = path.join(nodePath, entry);
-    if (fs.statSync(from).isFile()) {
-      fs.copyFileSync(from, path.join(destDir, entry));
-    }
-  }
-  fs.copyFileSync(
-    path.join(nodePath, "pyodide-lock.json"),
-    path.join(destDir, "pyodide-lock.json"),
-  );
-}
-
 /** Installs pyodide and packages */
 async function main() {
   const repoRoot = path.join(__dirname, "..");
-  const destDir = path.join(repoRoot, "static", "pyodide");
   const nodePath = path.join(repoRoot, "node_modules", "pyodide");
   const tempDir = path.join(repoRoot, "temp", "pyodide");
   const version = getInstalledVersion(repoRoot);
   console.log(`Installed version: ${version}.`);
   const files = getPackageFiles(nodePath, getPackageNames(repoRoot));
+  // The download cache; the build's static-copy step (vite.config.js) places the runtime and
+  // these wheels in static/pyodide, after emptying static/.
   await downloadFiles(tempDir, files, version);
-  // The browser loads from static/pyodide, so the wheels have to land there; the
-  // temp dir is only a download cache.
-  copyRuntime(nodePath, tempDir, destDir, [...files.keys()]);
   console.log("Done.");
 }
 

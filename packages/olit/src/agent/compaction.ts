@@ -1,3 +1,4 @@
+import { estimateContextTokens, estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
 import { toChat, type ChatMessage } from "./messages";
@@ -107,27 +108,9 @@ export function compactionSettings(options: {
   };
 }
 
-export function estimateTokens(message: ChatMessage): number {
-  let chars =
-    (message.content ?? "").length +
-    (message.reasoning_content ?? "").length +
-    (message.reasoning ?? "").length;
-  for (const call of message.tool_calls ?? []) {
-    chars += call.function.name.length + call.function.arguments.length;
-  }
-  return Math.ceil(chars / 4);
-}
-
-/** Tokens the next request carries: the last reported usage plus an estimate of what followed. */
+/** Tokens the next request carries: pi's count, from the last reported usage plus what followed. */
 export function contextTokens(messages: AgentMessage[]): number {
-  const index = messages.findLastIndex(
-    (m) => m.role === "assistant" && (m.usage?.totalTokens ?? 0) > 0,
-  );
-  const measured =
-    index >= 0 ? (messages[index] as { usage: { totalTokens: number } }).usage.totalTokens : 0;
-  return (
-    measured + toChat(messages.slice(index + 1)).reduce((sum, m) => sum + estimateTokens(m), 0)
-  );
+  return estimateContextTokens(messages as never).tokens;
 }
 
 const validCut = (m: AgentMessage) => m.role === "user" || m.role === "assistant";
@@ -142,7 +125,7 @@ export function findCutIndex(
   }
   let accumulated = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
-    const tokens = toChat([messages[i]]).reduce((sum, m) => sum + estimateTokens(m), 0);
+    const tokens = estimateMessageTokens(messages[i] as never);
     if (!tokens) {
       continue;
     }
