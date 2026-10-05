@@ -17,7 +17,6 @@ const NOT_GALAXY: Record<string, string> = {
   "agent/galaxy.ts": "the transport itself",
   "agent/python.ts": "Pyodide's own static files for the realm, without credentials",
   "agent/visualizations.ts": "a data_json option list at a URL the plugin's XML declares",
-  "agent/model.ts": "the model provider",
   "agent/providers.ts": "a local model server's /props",
 };
 

@@ -9,7 +9,8 @@
  * is appended, and only once.
  */
 
-import { WHAT, type Outcome } from "./watch";
+import { WHAT } from "./markers";
+import type { Outcome } from "./watch";
 
 const DONE = "- [x]";
 const PENDING = "- [ ]";

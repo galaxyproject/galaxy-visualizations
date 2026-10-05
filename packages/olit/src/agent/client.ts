@@ -1,59 +1,68 @@
-import type { LoopEvent, TurnResult } from "./session";
-import type { RunRequest, SettleResult, WorkerMessage } from "./worker";
+import type { OpenRequest, PageMessage, WorkerMessage } from "./worker";
 
-/** The agent worker as the page sees it: one turn at a time, events and approvals on the side. */
+/** The agent worker as the page sees it: requests in, the conversation's state and events out. */
 export class AgentClient {
   private worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-  private turn?: {
-    onEvent: (event: LoopEvent) => void;
-    onConfirm: (id: number, request: { title: string; message: string }) => void;
-    resolve: (result: TurnResult) => void;
-  };
-  private settles = new Map<number, (result: SettleResult) => void>();
-  private settleId = 0;
+  private replies = new Map<
+    number,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void }
+  >();
+  private nextId = 0;
 
-  constructor(pyodideURL: string) {
+  constructor(listen: (message: WorkerMessage) => void) {
     this.worker.onmessage = ({ data }: MessageEvent<WorkerMessage>) => {
-      if (data.type === "settled") {
-        this.settles.get(data.id)?.(data.result);
-        this.settles.delete(data.id);
-      } else if (data.type === "event") {
-        this.turn?.onEvent(data.event);
-      } else if (data.type === "confirm") {
-        this.turn?.onConfirm(data.id, data);
-      } else {
-        this.turn?.resolve(data.result);
-        this.turn = undefined;
+      if (data.type === "reply") {
+        const waiting = this.replies.get(data.id);
+        this.replies.delete(data.id);
+        if (data.error !== undefined) waiting?.reject(new Error(data.error));
+        else waiting?.resolve(data.value);
+        return;
       }
+      listen(data);
     };
-    this.worker.postMessage({ type: "initialize", pyodideURL });
   }
 
-  run(
-    request: RunRequest,
-    onEvent: (event: LoopEvent) => void,
-    onConfirm: (id: number, request: { title: string; message: string }) => void,
-  ): Promise<TurnResult> {
-    return new Promise((resolve) => {
-      this.turn = { onEvent, onConfirm, resolve };
-      this.worker.postMessage({ type: "run", request });
+  private send(message: PageMessage) {
+    this.worker.postMessage(message);
+  }
+
+  private request<T>(message: (id: number) => PageMessage): Promise<T> {
+    const id = this.nextId++;
+    return new Promise<T>((resolve, reject) => {
+      this.replies.set(id, { resolve: resolve as (v: unknown) => void, reject });
+      this.send(message(id));
     });
   }
 
-  /** One pass over the session's unfinished Galaxy work. */
-  settle(request: Pick<RunRequest, "config" | "watching">): Promise<SettleResult> {
-    return new Promise((resolve) => {
-      const id = this.settleId++;
-      this.settles.set(id, resolve);
-      this.worker.postMessage({ type: "settle", id, request });
-    });
+  open(request: OpenRequest) {
+    this.send({ type: "open", request });
   }
 
-  confirm(id: number, approved: boolean): void {
-    this.worker.postMessage({ type: "confirmed", id, approved });
+  submit(text: string) {
+    this.send({ type: "submit", text });
   }
 
-  abort(): void {
-    this.worker.postMessage({ type: "abort" });
+  stop() {
+    this.send({ type: "stop" });
+  }
+
+  confirm(id: number, approved: boolean) {
+    this.send({ type: "confirmed", id, approved });
+  }
+
+  reset() {
+    this.send({ type: "reset" });
+  }
+
+  switchModel(config: Extract<PageMessage, { type: "switch" }>["config"]) {
+    return this.request<void>((id) => ({ type: "switch", id, config }));
+  }
+
+  export(title: string) {
+    return this.request<import("./saved").SessionDocument>((id) => ({ type: "export", id, title }));
+  }
+
+  saved(savedId: string, document: import("./saved").SessionDocument) {
+    return this.request<void>((id) => ({ type: "saved", id, savedId, document }));
   }
 }

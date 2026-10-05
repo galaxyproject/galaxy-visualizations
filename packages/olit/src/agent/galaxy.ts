@@ -1,8 +1,38 @@
-import { retryAfter, sleep } from "./retry";
-
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 const IDEMPOTENT = new Set(["GET", "HEAD", "PUT", "DELETE"]);
 const ATTEMPTS = 3;
+const MAX_RETRY_AFTER_S = 60;
+
+/** RFC 9110 `Retry-After` in seconds: delta-seconds or an HTTP-date. */
+function retryAfter(headers: Headers): number | undefined {
+  const raw = headers.get("retry-after")?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  const seconds = Number.isFinite(Number(raw))
+    ? Number(raw)
+    : (Date.parse(raw) - Date.now()) / 1000;
+  return Number.isFinite(seconds) ? Math.max(0, Math.min(seconds, MAX_RETRY_AFTER_S)) : undefined;
+}
+
+/** A wait that ends early, rejecting, when the signal aborts. */
+function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal!.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
 
 /** A value placed in a Galaxy path, encoded: an id the model wrote must not add a segment,
  * a query or a fragment to the request it names. Encoding leaves dots alone, and a URL reads
@@ -72,7 +102,7 @@ export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOpti
         return response;
       }
       // An absent header is not a stated zero: back off unless Galaxy named the wait.
-      await sleep((retryAfter(response.headers, "") ?? 2 ** attempt) * 1000, request.signal);
+      await sleep((retryAfter(response.headers) ?? 2 ** attempt) * 1000, request.signal);
     }
   };
 }

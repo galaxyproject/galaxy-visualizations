@@ -1,5 +1,3 @@
-import type { BeforeToolCallContext, BeforeToolCallResult } from "@earendil-works/pi-agent-core";
-
 export type Ask = (title: string, message: string) => Promise<boolean>;
 
 /**
@@ -25,29 +23,24 @@ export function classify(
   return `Run ${name} with ${JSON.stringify(args)}, which deletes or cancels and cannot be undone.`;
 }
 
-/** Asks when someone can answer, refuses when nobody can; never cached. */
+/** Asks when someone can answer, refuses when nobody can; never cached. Returns the refusal. */
 export function destructiveGate(
   ask?: Ask,
   destroys: (name: string, args: Record<string, unknown>) => boolean = () => false,
 ) {
-  return async ({
-    toolCall,
-    args,
-  }: BeforeToolCallContext): Promise<BeforeToolCallResult | undefined> => {
-    const headline = classify(toolCall.name, (args ?? {}) as Record<string, unknown>, destroys);
+  return async (name: string, args: Record<string, unknown>): Promise<string | undefined> => {
+    const headline = classify(name, args, destroys);
     if (!headline) {
       return undefined;
     }
     if (!ask) {
-      return {
-        block: true,
-        reason:
-          `Refused: ${headline} There is no interactive session to approve it. ` +
-          "Tell the user what you wanted to do and let them do it in the Galaxy interface.",
-      };
+      return (
+        `Refused: ${headline} There is no interactive session to approve it. ` +
+        "Tell the user what you wanted to do and let them do it in the Galaxy interface."
+      );
     }
     if (!(await ask("Confirm destructive operation", headline).catch(() => false))) {
-      return { block: true, reason: `Refused: ${headline} The user declined.` };
+      return `Refused: ${headline} The user declined.`;
     }
     return undefined;
   };

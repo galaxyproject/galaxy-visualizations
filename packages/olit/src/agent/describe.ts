@@ -4,15 +4,16 @@ import { join, relative } from "node:path";
 import * as galaxyOps from "@galaxyproject/galaxy-ops/browser";
 import { allOperations } from "@galaxyproject/galaxy-ops/browser";
 
-import { KEEP_RECENT_TOKENS, RESERVE_TOKENS, TOOL_RESULT_MAX_CHARS } from "./compaction";
-import { MAX_RESULT_BYTES } from "./guards";
+import { DEFAULT_COMPACTION_POLICY } from "@earendil-works/pi-durable";
+
+import { MAX_AUTO_FOLLOW_UPS } from "./documents";
+import { MAX_STEPS } from "./extension";
 import { connect, keyVariable } from "./model";
 import { STARTER } from "./notebook";
 import { opsTools } from "./ops";
 import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
-import { MAX_STEPS, olitTools } from "./session";
 import { GUARDS } from "./tool";
-import { DEFAULT_MAX_AUTO_FOLLOW_UPS } from "./watch";
+import { olitTools } from "./tools";
 
 const SCHEMA = 1;
 const SOURCE = "src/agent";
@@ -119,11 +120,11 @@ function tools() {
 
 /** What an unconfigured request carries, with and without tools, read off the real request. */
 async function llmRequest() {
-  const { model, streamFn } = await connect(resolve({ ai_base_url: "http://x/v1", ai_model: "m" }));
+  const { models, model } = await connect(resolve({ ai_base_url: "http://x/v1", ai_model: "m" }));
   const capture = async (tools: unknown[]) => {
     let body: Record<string, unknown> = {};
-    const stream = await streamFn(
-      model,
+    const stream = models.streamSimple(
+      models.getModel(model.provider as never, model.modelId)!,
       { messages: [{ role: "user", content: "hi", timestamp: 0 }], tools } as never,
       {
         fetch: async () =>
@@ -153,18 +154,16 @@ async function llmRequest() {
 
 function loop() {
   return {
-    keep_recent_tokens: KEEP_RECENT_TOKENS,
+    keep_recent_tokens: DEFAULT_COMPACTION_POLICY.keepRecentTokens,
     max_steps: MAX_STEPS,
-    max_tool_result_bytes: MAX_RESULT_BYTES,
-    reserve_tokens: RESERVE_TOKENS,
+    reserve_tokens: DEFAULT_COMPACTION_POLICY.reserveTokens,
     tool_execution: "sequential",
-    tool_result_max_chars: TOOL_RESULT_MAX_CHARS,
   };
 }
 
-/** The follow-up contract every driver shares: the session's settle step and its cap. */
+/** The follow-up contract every driver shares: the runtime delivers them, up to a cap. */
 function followUps() {
-  return { max_auto_follow_ups: DEFAULT_MAX_AUTO_FOLLOW_UPS, settled_by: "session.settle" };
+  return { max_auto_follow_ups: MAX_AUTO_FOLLOW_UPS, settled_by: "runtime" };
 }
 
 function skills(root: string) {

@@ -1,68 +1,213 @@
-/** Turning the agent's messages and errors into what the chat panel shows. */
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { contentText } from "@earendil-works/pi-ai";
+/** Turning the conversation's entries and events into what the chat panel shows. */
+import { contentText, type AssistantMessage, type Message } from "@earendil-works/pi-ai";
+import type { AgentEvent, EntryRecord } from "@earendil-works/pi-durable";
 
-import { ChatPanel } from "./orbit/chat/chat-panel";
+import type { Artifact } from "./artifacts";
 
-const textOf = (content: unknown) => contentText(content as Parameters<typeof contentText>[0]);
+import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./agent/markers";
+import type { ChatPanel } from "./orbit/chat/chat-panel";
 
-/** Render the turn's messages; returns whether any assistant prose was shown. */
-export function renderMessages(
-  chat: ChatPanel,
-  messages: AgentMessage[],
-  streamed: Set<string> = new Set(),
-  textStreamed = false,
-): boolean {
-  let spoke = false;
-  for (const m of messages) {
-    if (m.role === "toolResult") {
-      const text = textOf(m.content);
-      // `finish` puts the model's closing words in a tool argument, not in content.
-      if (m.toolName === "finish" && !m.isError && text) {
-        spoke = true;
-        say(chat, text);
-      } else if (!streamed.has(m.toolCallId)) {
-        chat.updateToolCard(m.toolCallId, m.isError ? "error" : "done", text);
-      }
-    } else if (m.role === "assistant") {
-      const text = m.content
+type Chat = Pick<
+  ChatPanel,
+  | "addUserMessage"
+  | "addToolCard"
+  | "updateToolCard"
+  | "startAssistantMessage"
+  | "appendDelta"
+  | "finishAssistantMessage"
+  | "hideThinking"
+  | "showThinking"
+  | "clear"
+>;
+
+/** How the run that just ended went, for the one line that explains a quiet ending. */
+export interface RunOutcome {
+  spoke: boolean;
+  done: boolean;
+  aborted: boolean;
+  /** The run spent its turns before it answered. */
+  exhausted: boolean;
+  error?: string;
+}
+
+export interface ViewHooks {
+  info(text: string): void;
+  /** Artifacts results carried: all of them on a snapshot, else what one result just made. */
+  artifacts(artifacts: Artifact[], restored: boolean): void;
+  /** A run ended, and how. */
+  ended(outcome: RunOutcome): void;
+  busy(running: boolean): void;
+  usage(totals: { input: number; output: number; cost: number | null }): void;
+  retry(errorMessage: string, at: number, attempt: number): void;
+  retried(): void;
+}
+
+const textOf = (message: Message) =>
+  message.role === "assistant"
+    ? message.content
         .filter((c) => c.type === "text")
         .map((c) => (c as { text: string }).text)
-        .join("");
-      if (text) {
-        spoke = true;
-        if (!textStreamed) {
-          say(chat, text);
+        .join("")
+    : contentText((message as { content: Parameters<typeof contentText>[0] }).content);
+
+/** The chat as a conversation's events draw it. */
+export class ChatView {
+  private speaking = false;
+  private cards = new Set<string>();
+  private run: RunOutcome = { spoke: false, done: false, aborted: false, exhausted: false };
+  private restoring = false;
+  /** What the user has written in the conversation shown. */
+  turns = 0;
+
+  constructor(
+    private readonly chat: Chat,
+    private readonly hooks: ViewHooks,
+  ) {}
+
+  /** How the latest run went. */
+  get outcome(): RunOutcome {
+    return this.run;
+  }
+
+  apply(events: readonly AgentEvent[]) {
+    let ended = false;
+    for (const event of events) {
+      if (event.type === "snapshot") {
+        this.chat.clear();
+        this.speaking = false;
+        this.cards.clear();
+        this.turns = 0;
+        this.restoring = true;
+        for (const entry of event.entries) this.entry(entry);
+        this.restoring = false;
+        this.hooks.artifacts(event.entries.flatMap(artifactsOf), true);
+        const partial = event.generation?.message;
+        if (partial) this.stream(textOf(partial));
+        this.hooks.busy(event.run !== undefined);
+        const totals = Object.values(event.usage.models ?? {});
+        this.hooks.usage(sum(totals));
+      } else if (event.type === "run_start") {
+        this.run = { spoke: false, done: false, aborted: false, exhausted: false };
+        this.hooks.busy(true);
+        this.chat.showThinking();
+      } else if (event.type === "run_end") {
+        this.close();
+        this.chat.hideThinking();
+        this.hooks.busy(false);
+        ended = true;
+      } else if (event.type === "submission" && event.record.status === "unanswered") {
+        const reason = (event.record as { reason?: string }).reason;
+        if (reason === "aborted") this.run.aborted = true;
+        if (reason === "turn_limit") this.run.exhausted = true;
+      } else if (event.type === "message_update") {
+        for (const change of event.changes) {
+          if (change.type === "text_delta") this.stream(change.delta);
         }
-      }
-      for (const c of m.content) {
-        if (c.type === "toolCall" && !streamed.has(c.id)) {
-          chat.addToolCard(c.id, c.name || "tool");
-        }
+      } else if (event.type === "message_end") {
+        this.entry(event.entry);
+      } else if (event.type === "tool_execution_start") {
+        this.card(event.toolCallId, event.toolName);
+      } else if (event.type === "auto_retry_start") {
+        this.hooks.retry(event.errorMessage, event.at, event.attempt);
+      } else if (event.type === "auto_retry_end") {
+        this.hooks.retried();
+      } else if (event.type === "compaction_end") {
+        this.hooks.info("Summarized the earlier conversation to make room.");
+      } else if (event.type === "usage_changed") {
+        this.hooks.usage(sum(Object.values(event.usage.models ?? {})));
       }
     }
+    if (ended) this.hooks.ended(this.run);
   }
-  return spoke;
-}
 
-/** Repaint a stored transcript into the panel; loom: session-replay.js on `--continue`. */
-export function replayMessages(chat: ChatPanel, messages: AgentMessage[]) {
-  for (const m of messages) {
-    if (m.role === "compactionSummary") {
-      // Said the way it was said live, rather than shown as something the user wrote.
-      chat.addInfoMessage("Summarized the earlier conversation to make room.");
-    } else if (m.role === "user") {
-      chat.addUserMessage(textOf(m.content));
-    } else if (m.role !== "system") {
-      renderMessages(chat, [m]);
+  private stream(delta: string) {
+    if (!delta) return;
+    this.chat.hideThinking();
+    if (!this.speaking) {
+      this.chat.startAssistantMessage();
+      this.speaking = true;
+    }
+    this.chat.appendDelta(delta);
+    this.run.spoke = true;
+  }
+
+  private close() {
+    if (this.speaking) {
+      this.chat.finishAssistantMessage();
+      this.speaking = false;
+    }
+  }
+
+  private card(id: string, name: string) {
+    if (this.cards.has(id)) return;
+    this.cards.add(id);
+    this.close();
+    this.chat.hideThinking();
+    this.chat.addToolCard(id, name || "tool");
+  }
+
+  private say(text: string) {
+    this.close();
+    this.chat.startAssistantMessage();
+    this.chat.appendDelta(text);
+    this.chat.finishAssistantMessage();
+    this.run.spoke = true;
+  }
+
+  private entry(entry: EntryRecord) {
+    const message = entry.model?.[0];
+    if (!message || entry.kind === "pi.system") return;
+    if (entry.kind === "pi.compaction") {
+      this.hooks.info("Summarized the earlier conversation to make room.");
+    } else if (message.role === "user") {
+      const text = textOf(message);
+      if (text.startsWith(FOLLOW_UP_MARK)) {
+        this.hooks.info("Checking the Galaxy results that just landed.");
+      } else if (text !== EMPTY_REPLY) {
+        this.turns += 1;
+        this.chat.addUserMessage(text);
+      }
+    } else if (message.role === "assistant") {
+      const answer = message as AssistantMessage;
+      const text = textOf(answer);
+      if (this.speaking) this.close();
+      else if (text) this.say(text);
+      if (answer.stopReason === "error") this.run.error = answer.errorMessage;
+      if (answer.stopReason === "aborted") this.run.aborted = true;
+      for (const c of answer.content) {
+        if (c.type === "toolCall") this.card(c.id, c.name);
+      }
+    } else if (message.role === "toolResult") {
+      const text = textOf(message);
+      // `finish` puts the model's closing words in a tool argument, not in content.
+      if (message.toolName === "finish" && !message.isError && text) {
+        this.run.done = true;
+        this.say(text);
+      } else {
+        this.card(message.toolCallId, message.toolName);
+        this.chat.updateToolCard(message.toolCallId, message.isError ? "error" : "done", text);
+      }
+      const made = artifactsOf(entry);
+      if (made.length && !this.restoring) this.hooks.artifacts(made, false);
     }
   }
 }
 
-function say(chat: ChatPanel, text: string) {
-  chat.startAssistantMessage();
-  chat.appendDelta(text);
-  chat.finishAssistantMessage();
+/** The artifacts a tool result carried in its details. */
+function artifactsOf(entry: EntryRecord): Artifact[] {
+  const message = entry.model?.[0] as
+    { role?: string; details?: { artifacts?: Artifact[] } } | undefined;
+  return message?.role === "toolResult" ? (message.details?.artifacts ?? []) : [];
+}
+
+function sum(totals: Array<{ input?: number; output?: number; cost?: { total?: number } }>) {
+  return {
+    input: totals.reduce((n, u) => n + (u.input ?? 0), 0),
+    output: totals.reduce((n, u) => n + (u.output ?? 0), 0),
+    cost: totals.some((u) => u.cost?.total)
+      ? totals.reduce((n, u) => n + (u.cost?.total ?? 0), 0)
+      : null,
+  };
 }
 
 /** The last meaningful line of a Python traceback, which is the actual error. */

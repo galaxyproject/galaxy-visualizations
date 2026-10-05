@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { describe as describeOlit } from "./describe";
 import { PROVIDERS } from "./providers";
-import { olitTools } from "./session";
+import { olitTools } from "./tools";
 import { GUARDS } from "./tool";
 
 const ROOT = process.cwd();
@@ -62,14 +62,13 @@ describe("the description Olit publishes about itself", () => {
   });
 
   it("covers the agent's modules and skips the vendored skills", () => {
-    expect(doc.symbols).toHaveProperty(["src/agent/session.ts"]);
+    expect(doc.symbols).toHaveProperty(["src/agent/runtime.ts"]);
     expect(doc.symbols).toHaveProperty(["src/agent/galaxy-tools.ts"]);
     expect(Object.keys(doc.symbols).filter((m) => m.includes("/skills/"))).toEqual([]);
   });
 
   it("reports the loop bounds and the guards that refuse", () => {
     expect(doc.policy.loop.max_steps).toBeGreaterThan(0);
-    expect(doc.policy.loop.max_tool_result_bytes).toBeGreaterThan(0);
     expect(doc.policy.guards).toEqual([...new Set(doc.policy.guards)].sort());
     expect(doc.policy.llm_request.sampling).toHaveProperty("max_tokens");
   });
@@ -94,7 +93,7 @@ describe("the description Olit publishes about itself", () => {
   });
 
   it("publishes the follow-up contract every driver shares", () => {
-    expect(doc.follow_ups).toEqual({ max_auto_follow_ups: 3, settled_by: "session.settle" });
+    expect(doc.follow_ups).toEqual({ max_auto_follow_ups: 3, settled_by: "runtime" });
   });
 
   it("gives the same answer twice", async () => {

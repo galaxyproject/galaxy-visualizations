@@ -52,5 +52,10 @@ export default defineConfig(({ command }) => ({
   },
   worker: {
     format: "es",
+    // One file: WebKit runs a worker's entry module again when a chunk imports from it, and
+    // the second copy takes over the worker's messages without its state.
+    rollupOptions: { output: { inlineDynamicImports: true } },
   },
+  // The optimizer moves SQLite's module away from the .wasm it loads beside itself.
+  optimizeDeps: { exclude: ["@sqlite.org/sqlite-wasm"] },
 }));

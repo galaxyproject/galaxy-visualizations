@@ -1,125 +1,209 @@
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { browserPython } from "./python";
 import {
-  failedTurn,
-  Session,
-  type LoopEvent,
-  type SessionConfig,
-  type TurnResult,
-} from "./session";
-import type { Artifact, Python } from "./tool";
-import type { Settled, Watched } from "./watch";
+  InboxDoc,
+  LiveDoc,
+  watchEvents,
+  type AgentEvent,
+  type Conversation,
+  type TaskId,
+} from "@earendil-works/pi-durable";
 
-export interface RunRequest {
-  config: SessionConfig;
-  transcripts: AgentMessage[];
-  artifacts: Artifact[];
-  /** Work a reloaded page had open; the session watches it again. */
-  watching: Watched[];
+import { Binding, FollowUps, MAX_AUTO_FOLLOW_UPS } from "./documents";
+import { connectGalaxy } from "./galaxy";
+import type { GalaxyStatus } from "./prompt";
+import { browserPython } from "./python";
+import { context, Runtime, type Placement, type RuntimeConfig } from "./runtime";
+import type { SessionDocument } from "./saved";
+import { holdStorage, openStorage } from "./storage";
+import { WATCH_TASK, type Settled } from "./watch";
+
+export interface OpenRequest {
+  pyodideURL: string;
+  config: RuntimeConfig;
+  placement: Placement;
+  /** A saved session the page was opened on. */
+  saved?: { id: string; document: SessionDocument };
+  /** Take the conversation over from the tab that has it open. */
+  steal?: boolean;
 }
 
-export interface SettleResult {
-  settled: Settled[];
-  pending: number;
-  watching: Watched[];
-  followUp?: string;
-}
+/** Why follow-ups are waiting for the user, when they are. */
+export type Waiting = "stopped" | "capped" | undefined;
 
 export type WorkerMessage =
-  | { type: "event"; event: LoopEvent }
+  /** Another tab has this conversation open. */
+  | { type: "waiting" }
+  /** Another tab took the conversation over. */
+  | { type: "lost" }
+  | { type: "ready"; durable: boolean; galaxy: GalaxyStatus }
+  | { type: "events"; events: readonly AgentEvent[] }
+  /** Galaxy work the conversation watched has settled. */
+  | { type: "settled"; settled: Settled }
+  | { type: "held"; held: Waiting }
   | { type: "confirm"; id: number; title: string; message: string }
-  | { type: "result"; result: TurnResult }
-  | { type: "settled"; id: number; result: SettleResult };
+  | { type: "reply"; id: number; value?: unknown; error?: string }
+  | { type: "failed"; message: string };
 
-const CONTEXT_FIELDS = new Set([
-  "history_id",
-  "dataset_id",
-  "session_id",
-  "record_page_id",
-  "session_started_at",
-]);
-
-let python: Python | undefined;
-let session: { identity: string; session: Promise<Session> } | undefined;
-let controller: AbortController | undefined;
-const confirms = new Map<number, (approved: boolean) => void>();
-let confirmId = 0;
+export type PageMessage =
+  | { type: "open"; request: OpenRequest }
+  | { type: "submit"; text: string }
+  | { type: "stop" }
+  | { type: "confirmed"; id: number; approved: boolean }
+  | { type: "reset" }
+  | { type: "switch"; id: number; config: Partial<RuntimeConfig> }
+  | { type: "export"; id: number; title: string }
+  | { type: "saved"; id: number; savedId: string; document: SessionDocument };
 
 const post = (message: WorkerMessage) => self.postMessage(message);
 
+const confirms = new Map<number, (approved: boolean) => void>();
+let confirmId = 0;
+let runtime: Runtime | undefined;
+let conversation: Conversation | undefined;
+let detach: (() => Promise<unknown>) | undefined;
+let held: Waiting;
+
 function ask(title: string, message: string): Promise<boolean> {
   return new Promise((resolve) => {
-    if (controller?.signal.aborted) {
-      resolve(false);
-      return;
-    }
     const id = confirmId++;
     confirms.set(id, resolve);
     post({ type: "confirm", id, title, message });
   });
 }
 
-function settleConfirms() {
+function declineAll() {
   confirms.forEach((resolve) => resolve(false));
   confirms.clear();
 }
 
-async function sessionFor({ config, watching }: Pick<RunRequest, "config" | "watching">) {
-  const identity = JSON.stringify(
-    Object.entries(config).filter(([key]) => !CONTEXT_FIELDS.has(key)),
-  );
-  const fresh = session?.identity !== identity;
-  if (fresh) {
-    const created = Session.create(config, python!);
-    session = { identity, session: created };
-    created.catch(() => session?.session === created && (session = undefined));
-  }
-  const current = await session!.session;
-  if (fresh) {
-    current.watch.add(watching);
-  }
-  current.rebind(config, watching);
-  return current;
-}
-
-async function run({ config, transcripts, artifacts, watching }: RunRequest): Promise<TurnResult> {
-  controller = new AbortController();
-  try {
-    const current = await sessionFor({ config, watching });
-    return await current.turn(transcripts, {
-      onEvent: (event) => post({ type: "event", event }),
-      artifacts,
-      ask,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    return failedTurn(transcripts, err);
-  } finally {
-    controller = undefined;
-    settleConfirms();
+/** Follow-ups queued for the user while the conversation is idle, and why. */
+async function postHeld() {
+  if (!runtime || !conversation) return;
+  const id = conversation.id;
+  const [policy, inbox, live] = await Promise.all([
+    runtime.harness.snapshot(FollowUps, id, context),
+    runtime.harness.snapshot(InboxDoc, id, context),
+    runtime.harness.snapshot(LiveDoc, id, context),
+  ]);
+  const queued = !live?.run && (inbox?.items ?? []).some((item) => item.mode !== "write");
+  const next: Waiting = !queued
+    ? undefined
+    : policy?.paused
+      ? "stopped"
+      : (policy?.automatic ?? 0) >= MAX_AUTO_FOLLOW_UPS
+        ? "capped"
+        : undefined;
+  if (next !== held) {
+    held = next;
+    post({ type: "held", held });
   }
 }
 
-self.onmessage = async ({ data }) => {
-  if (data.type === "initialize") {
-    python = browserPython(data.pyodideURL);
-  } else if (data.type === "run") {
-    post({ type: "result", result: await run(data.request) });
-  } else if (data.type === "confirmed") {
-    confirms.get(data.id)?.(data.approved === true);
-    confirms.delete(data.id);
-  } else if (data.type === "settle") {
-    // Between turns or during one, and before the first turn of a reloaded page.
-    const request = data.request as Pick<RunRequest, "config" | "watching">;
-    let result: SettleResult = { settled: [], pending: 0, watching: request.watching };
-    try {
-      result = await (await sessionFor(request)).settle();
-    } catch {
-      // Nothing to report this pass; the next one reads again.
+/** Show `next` on the page: its events from a snapshot on, and the Galaxy work that settles. */
+async function attach(next: Conversation) {
+  await detach?.();
+  conversation = next;
+  held = undefined;
+  const harness = runtime!.harness;
+  const stream = await watchEvents(harness, next.id, context);
+  post({ type: "events", events: [stream.snapshot] });
+  stream.start(async (events) => {
+    post({ type: "events", events });
+    if (events.some((e) => e.type === "run_end")) {
+      declineAll();
+      await runtime!.summarize(next).catch(() => undefined);
     }
-    post({ type: "settled", id: data.id, result });
-  } else if (data.type === "abort") {
-    controller?.abort();
-    settleConfirms();
+    await postHeld();
+  });
+  const graph = await harness.watchTaskGraph(context);
+  const watched = (tasks: typeof graph.value.tasks) =>
+    Object.values(tasks)
+      .filter((t) => t.kind === WATCH_TASK && t.conversationId === next.id)
+      .map((t) => t.id);
+  let known = new Set<TaskId>(watched(graph.value.tasks));
+  graph.start(async (value) => {
+    const now = new Set<TaskId>(watched(value.tasks));
+    for (const id of known) {
+      if (now.has(id)) continue;
+      const outcome = (await harness.getTask(id, context))?.state;
+      if (outcome?.status === "terminal" && outcome.outcome.status === "completed") {
+        post({ type: "settled", settled: outcome.outcome.result as unknown as Settled });
+      }
+    }
+    known = now;
+  });
+  await postHeld();
+  detach = async () => {
+    await stream.stop();
+    await graph.stop();
+  };
+}
+
+async function open(request: OpenRequest) {
+  const galaxy = connectGalaxy({
+    root: request.config.galaxy_root,
+    credentials: request.config.credentials,
+  });
+  const user = await galaxy
+    .get("api/users/current")
+    .then((body) => (typeof body?.id === "string" && body.id ? body.id : "anon"))
+    .catch(() => "anon");
+  const name = `olit-${user}`;
+  await holdStorage(name, {
+    steal: request.steal,
+    waiting: () => post({ type: "waiting" }),
+    // Ending the worker lets go of the files it holds open, which the other tab needs.
+    lost: () => {
+      post({ type: "lost" });
+      self.close();
+    },
+  });
+  const { storage, durable } = await openStorage(name);
+  runtime = await Runtime.open({
+    storage,
+    config: request.config,
+    python: browserPython(request.pyodideURL),
+    ask,
+  });
+  const next = request.saved
+    ? await runtime.open(request.saved.document, request.saved.id)
+    : await runtime.continuing(request.placement);
+  await attach(next);
+  post({ type: "ready", durable, galaxy: runtime.galaxyStatus });
+}
+
+async function reply(id: number, work: () => Promise<unknown>) {
+  try {
+    post({ type: "reply", id, value: await work() });
+  } catch (err) {
+    post({ type: "reply", id, error: String((err as Error)?.message ?? err) });
+  }
+}
+
+self.onmessage = async ({ data }: MessageEvent<PageMessage>) => {
+  try {
+    if (data.type === "open") {
+      await open(data.request);
+    } else if (data.type === "submit") {
+      await runtime!.submit(conversation!, data.text);
+    } else if (data.type === "stop") {
+      declineAll();
+      await runtime!.stop(conversation!);
+    } else if (data.type === "confirmed") {
+      confirms.get(data.id)?.(data.approved === true);
+      confirms.delete(data.id);
+    } else if (data.type === "reset") {
+      const bound = await runtime!.harness.snapshot(Binding, conversation!.id, context);
+      await attach(
+        await runtime!.create({ historyId: bound?.historyId, datasetId: bound?.datasetId }),
+      );
+    } else if (data.type === "switch") {
+      await reply(data.id, () => runtime!.switchModel(conversation!, data.config));
+    } else if (data.type === "export") {
+      await reply(data.id, () => runtime!.export(conversation!, data.title));
+    } else if (data.type === "saved") {
+      await reply(data.id, () => runtime!.saved(conversation!, data.savedId, data.document));
+    }
+  } catch (err) {
+    post({ type: "failed", message: String((err as Error)?.message ?? err) });
   }
 };

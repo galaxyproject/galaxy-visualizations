@@ -1,21 +1,11 @@
-import { contentText } from "@earendil-works/pi-ai";
-import type {
-  AfterToolCallContext,
-  AfterToolCallResult,
-  AgentMessage,
-  BeforeToolCallContext,
-  BeforeToolCallResult,
-} from "@earendil-works/pi-agent-core";
-
 import { destructiveGate, type Ask } from "./destructive";
 import { SraImportGate } from "./sra-gate";
 import type { Guard, ToolTraits } from "./tool";
-import type { Watch } from "./watch";
+import type { Watched } from "./watch";
 
 const FAILED_REPEAT_LIMIT = 3;
 const SETTLED_REPEAT_LIMIT = 3;
 const COOLDOWN_MS = 120_000;
-export const MAX_RESULT_BYTES = 256 * 1024;
 const MIN_SECRET_LENGTH = 8;
 const HARMONY_MARKER = "<|";
 
@@ -87,8 +77,6 @@ const key = (name: string, args: unknown) => `${name} ${JSON.stringify(args)}`;
 export interface GuardOptions {
   /** What each tool says of itself: settled, what it polls, whether a call destroys. */
   tools: ReadonlyMap<string, ToolTraits>;
-  /** The session's unfinished work, read live: something submitted this turn counts too. */
-  watch: Watch;
   secrets: string[];
   /** Tools that exist but this session does not grant, with the capability each needs. */
   withheld: Map<string, string>;
@@ -97,29 +85,31 @@ export interface GuardOptions {
   now?: () => number;
 }
 
-/** Olit's guards on pi's hooks; one instance per turn. */
+export interface Call {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+/** Olit's guards over one run's calls. */
 export function guards(options: GuardOptions) {
   const now = options.now ?? Date.now;
   const failures = new Map<string, number>();
   const checked = new Map<string, Record<string, unknown>>();
   const settled = new Map<string, number>();
   const readAt = new Map<string, number>();
-  const states = () =>
-    new Map(
-      options.watch.list().flatMap((w) => [w.id, ...(w.outputs ?? [])].map((id) => [id, w.state])),
-    );
   const sra = new SraImportGate();
   const destructive = destructiveGate(
     options.ask,
     (name, args) => options.tools.get(name)?.destroys(args) === true,
   );
   const refused = new Map<string, Guard>();
-  let observed: unknown;
 
   function refusal(
     name: string,
     args: Record<string, unknown>,
     id: string,
+    watched: Watched[],
   ): [Guard, string] | undefined {
     const count = failures.get(key(name, args)) ?? 0;
     if (count >= FAILED_REPEAT_LIMIT) {
@@ -143,13 +133,16 @@ export function guards(options: GuardOptions) {
       }
     }
     const resource = traits?.polls ? String(args[traits.polls] ?? "") : "";
-    if (resource && states().has(resource)) {
+    const states = new Map(
+      watched.flatMap((w) => [w.id, ...(w.outputs ?? [])].map((id) => [id, w.state])),
+    );
+    if (resource && states.has(resource)) {
       const last = readAt.get(resource);
       if (last !== undefined && now() - last < COOLDOWN_MS) {
         const remaining = Math.floor((COOLDOWN_MS - (now() - last)) / 1000);
         return [
           "galaxy-poll",
-          `Refused: ${resource} was ${states().get(resource) || "unfinished"} when it was last read, and the ` +
+          `Refused: ${resource} was ${states.get(resource) || "unfinished"} when it was last read, and the ` +
             "background monitor is watching it -- you are told when it settles, without spending a call. " +
             `Reading it again cannot say anything new for another ${remaining}s.`,
         ];
@@ -160,54 +153,46 @@ export function guards(options: GuardOptions) {
     return fannedOut ? ["sra-fan-out", fannedOut] : undefined;
   }
 
-  async function beforeToolCall(
-    context: BeforeToolCallContext,
-  ): Promise<BeforeToolCallResult | undefined> {
-    if (observed !== context.assistantMessage) {
-      observed = context.assistantMessage;
-      sra.observe(
-        context.assistantMessage.content.flatMap((c) =>
-          c.type === "toolCall" ? [{ id: c.id, name: c.name, arguments: c.arguments }] : [],
-        ),
-      );
-    }
-    const { id, name } = context.toolCall;
-    const args = (context.args ?? {}) as Record<string, unknown>;
-    checked.set(id, args);
-    const hit = refusal(name, args, id);
-    if (hit) {
-      refused.set(id, hit[0]);
-      return { block: true, reason: hit[1] };
-    }
-    const gated = await destructive(context);
-    if (gated?.block) {
-      refused.set(id, "destructive-declined");
-    }
-    return gated;
+  /** One answer's calls, read together so the SRA gate sees the batch. */
+  function observe(calls: Call[]) {
+    sra.observe(calls);
   }
 
-  async function afterToolCall({
-    toolCall,
-    result,
-  }: AfterToolCallContext): Promise<AfterToolCallResult | undefined> {
-    const text = contentText(result.content);
-    const size = new TextEncoder().encode(text).length;
-    if (size > MAX_RESULT_BYTES) {
+  /** The refusal of a call about to run; `watched` is the conversation's unfinished work. */
+  async function check(call: Call, watched: Watched[]): Promise<string | undefined> {
+    checked.set(call.id, call.arguments);
+    const hit = refusal(call.name, call.arguments, call.id, watched);
+    if (hit) {
+      refused.set(call.id, hit[0]);
+      return hit[1];
+    }
+    const declined = await destructive(call.name, call.arguments);
+    if (declined) {
+      refused.set(call.id, "destructive-declined");
+    }
+    return declined;
+  }
+
+  /** A result as the model may read it: secrets and control tokens out. */
+  function screened(text: string): string | undefined {
+    const clean = withoutControlTokens(redact(text, options.secrets));
+    return clean === text ? undefined : clean;
+  }
+
+  /** What the model reads for a call to a tool it was not offered, and the guard behind it. */
+  function unoffered(name: string): { text: string; guard?: Guard } | undefined {
+    const plain = plainToolName(name);
+    const capability = options.withheld.get(plain);
+    if (capability) {
       return {
-        content: [
-          {
-            type: "text",
-            text:
-              `Tool call "${toolCall.name}" returned ${Math.floor(size / 1024)} KB, over the ${MAX_RESULT_BYTES / 1024} KB limit for a ` +
-              "single result, so it was discarded. Ask for less of it: check this tool's parameters for a way to " +
-              "narrow the request, or use a more specific tool.",
-          },
-        ],
-        isError: true,
+        text:
+          `Refused: '${plain}' needs the '${capability}' capability, which is not granted in this session. ` +
+          "Tell the user, and stay within the tools you are offered.",
+        guard: "capability",
       };
     }
-    const clean = withoutControlTokens(redact(text, options.secrets));
-    return clean === text ? undefined : { content: [{ type: "text", text: clean }] };
+    const hint = notFoundHint(name, options.advertised);
+    return hint ? { text: withoutControlTokens(`Tool ${name} not found\n\n${hint}`) } : undefined;
   }
 
   /** Count a failed call by the arguments it was checked with, so an unchanged repeat meets the guard. */
@@ -218,38 +203,8 @@ export function guards(options: GuardOptions) {
     failures.set(key(name, args), (failures.get(key(name, args)) ?? 0) + 1);
   }
 
-  /** The guard that refused this call, including pi's own "not found" for a withheld tool. */
-  function guardOf(id: string, name: string, notFound: boolean): Guard | undefined {
-    if (refused.has(id)) {
-      return refused.get(id);
-    }
-    return notFound && options.withheld.has(name) ? "capability" : undefined;
-  }
+  /** The guard that refused this call before it ran, if one did. */
+  const guardOf = (id: string): Guard | undefined => refused.get(id);
 
-  /** What the model reads in place of pi's bare "not found". */
-  function convert(messages: AgentMessage[]): AgentMessage[] {
-    return messages.map((m) => {
-      if (m.role !== "toolResult" || !m.isError) {
-        return m;
-      }
-      const text = contentText(m.content);
-      if (text !== `Tool ${m.toolName} not found`) {
-        return m;
-      }
-      const name = plainToolName(m.toolName);
-      const capability = options.withheld.get(name);
-      const hint = notFoundHint(m.toolName, options.advertised);
-      const replaced = capability
-        ? `Refused: '${name}' needs the '${capability}' capability, which is not granted in this session. ` +
-          "Tell the user, and stay within the tools you are offered."
-        : hint && `${text}\n\n${hint}`;
-      return {
-        ...m,
-        toolName: plainToolName(m.toolName),
-        content: [{ type: "text", text: withoutControlTokens(replaced ?? text) }],
-      };
-    });
-  }
-
-  return { beforeToolCall, afterToolCall, noteFailure, guardOf, convert };
+  return { observe, check, screened, unoffered, noteFailure, guardOf };
 }

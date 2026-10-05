@@ -1,13 +1,13 @@
-/** Session token usage, accumulated across turns as Orbit does. */
+/** The conversation's token usage, as Orbit shows it. */
 
-export interface TurnUsage {
-  input?: number;
-  output?: number;
-  cost?: number | null;
+export interface Usage {
+  input: number;
+  output: number;
+  cost: number | null;
 }
 
 export interface UsageBar {
-  add(turn: TurnUsage | undefined): void;
+  set(totals: Usage): void;
 }
 
 function formatTokens(n: number): string {
@@ -20,7 +20,7 @@ export function mountUsageBar(container: HTMLElement): UsageBar {
   const bar = container.querySelector<HTMLElement>("#usage-bar")!;
   const tokensEl = container.querySelector<HTMLElement>("#usage-tokens")!;
   const costEl = container.querySelector<HTMLElement>("#usage-cost")!;
-  const session = { input: 0, output: 0, cost: null as number | null };
+  let session: Usage = { input: 0, output: 0, cost: null };
 
   const render = () => {
     const total = session.input + session.output;
@@ -45,15 +45,8 @@ export function mountUsageBar(container: HTMLElement): UsageBar {
   };
 
   return {
-    add(turn) {
-      if (!turn) {
-        return;
-      }
-      session.input += turn.input || 0;
-      session.output += turn.output || 0;
-      if (turn.cost != null) {
-        session.cost = (session.cost || 0) + turn.cost;
-      }
+    set(totals) {
+      session = totals;
       render();
     },
   };

@@ -5,7 +5,7 @@
  */
 
 import { segment, type Galaxy } from "./agent/galaxy";
-import { isSessionDocument, type SessionDocument } from "./session-document";
+import { isSessionDocument, title, type SessionDocument } from "./agent/saved";
 
 export const PLUGIN_TYPE = "olit";
 
@@ -40,10 +40,4 @@ export function savedSessions(galaxy: Galaxy): SavedSessions {
 /** Tells the Galaxy host whether this session is stored on the server. */
 export function reportSavedState(saved: boolean) {
   window.parent?.postMessage({ from: "galaxy-visualization", visualization_saved: saved }, "*");
-}
-
-/** Galaxy requires at least three characters and shows this in the user's visualization list. */
-export function title(document: SessionDocument): string {
-  const given = (document.session.title || "").trim();
-  return given.length >= 3 ? given : `Olit Session (${document.session.id.slice(0, 8)})`;
 }
