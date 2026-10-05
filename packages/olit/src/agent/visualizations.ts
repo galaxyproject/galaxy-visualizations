@@ -1,18 +1,21 @@
 import { quote } from "./quote";
 import inputs from "galaxy-charts/galaxy-charts.inputs.json";
-import { getOptions } from "galaxy-charts/runtime";
-import { Value } from "typebox/value";
+import {
+  getOptions,
+  validateValues,
+  type InputElementType,
+  type ValueIssueType,
+} from "galaxy-charts/runtime";
 
 import { query, segment, type Galaxy } from "./galaxy";
 import { fail, type OlitTool } from "./tool";
 import * as vega from "./vega";
 import {
-  activeCase,
   buildVisualizationTemplate,
   declaredPaths,
-  effectiveDefault,
   isOffered,
   optionBearing,
+  resolvedDefault,
   resolveParameter,
   type Types,
 } from "./visualization-inputs";
@@ -21,12 +24,10 @@ type Json = Record<string, any>;
 
 export type Envelope = { success: true; data: any } | { success: false; message: string };
 
-/** galaxy-charts' option resolution for one declared input. */
+/** galaxy-charts' option resolution for one tool call: built once per call, then asked per input. */
 export type ResolveOptions = (
   galaxy: Galaxy,
-  input: Json,
-  context: { datasetId?: string },
-) => Promise<Envelope>;
+) => (input: Json, context: { datasetId?: string }) => Promise<Envelope>;
 
 /** What each galaxy-charts input type stores, and where its options come from. */
 const TYPES: Types = (inputs as { types: Types }).types;
@@ -65,8 +66,12 @@ function pyType(value: unknown): string {
   return { string: "str", boolean: "bool" }[typeof value as string] ?? "dict";
 }
 
-/** galaxy-charts `getOptions`, reaching Galaxy through the session's client. */
-export const chartOptions: ResolveOptions = async (galaxy, input, context) => {
+/**
+ * galaxy-charts `getOptions`, reaching Galaxy through the session's client. galaxy-charts caches
+ * what a client fetched for as long as that client lives, so one client per tool call shares a
+ * dataset between the inputs of one save and never carries it into the next call.
+ */
+export const chartOptions: ResolveOptions = (galaxy) => {
   const client = {
     api: (path: string) => galaxy.get(path),
     url: async (target: string) => {
@@ -77,11 +82,16 @@ export const chartOptions: ResolveOptions = async (galaxy, input, context) => {
       return await response.json();
     },
   };
-  try {
-    return { success: true, data: await getOptions(input || {}, { ...context, client }) };
-  } catch (err) {
-    return { success: false, message: String((err as Error)?.message ?? err) };
-  }
+  return async (input, context) => {
+    try {
+      return {
+        success: true,
+        data: await getOptions((input || {}) as InputElementType, { ...context, client }),
+      };
+    } catch (err) {
+      return { success: false, message: String((err as Error)?.message ?? err) };
+    }
+  };
 };
 
 /** The installed visualization this query names, if the tool catalog is the wrong one. */
@@ -215,7 +225,7 @@ function describeParameter(param: Json, types: Types, path: string[] = []): Json
       described[key] = param[key];
     }
   }
-  const fallback = effectiveDefault(param, spec);
+  const fallback = resolvedDefault(param);
   if (fallback !== null) {
     described.default = fallback;
   }
@@ -323,7 +333,7 @@ async function getVisualizationOptions(
   const kind = TYPES[declared.type]?.options?.kind;
   const search = a.search;
 
-  const envelope = await resolveOptions(galaxy, declared, { datasetId: a.dataset_id });
+  const envelope = await resolveOptions(galaxy)(declared, { datasetId: a.dataset_id });
   if (!envelope.success) {
     return fail(`Could not resolve ${quote(wanted)}: ${envelope.message || "the lookup failed"}.`);
   }
@@ -416,106 +426,84 @@ async function showVisualization(galaxy: Galaxy, a: Json): Promise<Json> {
   };
 }
 
-/** Names valid at this level; a conditional contributes its own name, not its inputs. */
-function levelNames(declared: unknown): Set<string> {
-  return new Set(
-    ((declared as unknown[]) || [])
-      .filter((p) => isObject(p) && p.name)
-      .map((p) => (p as Json).name),
-  );
+/** The value at a dotted path under `entry`, as `validateValues` names it. */
+function valueAt(entry: unknown, path: string): unknown {
+  return path
+    .split(".")
+    .filter(Boolean)
+    .reduce((held: unknown, step) => (isObject(held) ? held[step] : undefined), entry);
 }
 
-/** Validate one object against the inputs declared for it, as galaxy-charts `parseValues` reads it. */
-export function checkLevel(
-  entry: unknown,
-  declared: unknown,
-  types: Types,
-  where: string,
-): Json | null {
-  const allowed = levelNames(declared);
-  if (!allowed.size) {
-    return null;
+/** The bounds a number has to fall within, in words. */
+function range(min?: number, max?: number): string {
+  if (min !== undefined && max !== undefined) {
+    return `a number from ${min} to ${max}`;
   }
-  const sortedAllowed = [...allowed].sort();
-  if (!isObject(entry)) {
-    return {
-      error: `Refused: ${where} is an object keyed by parameter name; got ${pyType(entry)}.`,
-      declared: sortedAllowed,
-    };
-  }
-  const unknown = Object.keys(entry)
-    .filter((k) => !allowed.has(k))
-    .sort();
-  if (unknown.length) {
-    return {
-      error: `Refused: ${where} declares no parameter ${quote(unknown[0])}.`,
-      declared: sortedAllowed,
-      hint:
-        "Parameters inside a conditional belong in that conditional's object, " +
-        "not beside it. get_visualization_details shows the nesting.",
-    };
-  }
-
-  for (const param of (declared as unknown[]) || []) {
-    if (!isObject(param) || !Object.hasOwn(entry, param.name)) {
-      continue;
-    }
-    const value = entry[param.name];
-    if (param.type === "conditional") {
-      const test = param.test_param?.name;
-      const cases: Json[] = param.cases || [];
-      const active = activeCase(param, entry);
-      if (!active) {
-        const labels = cases.map((c) => quote(c.value)).join(", ");
-        return {
-          error: `Refused: ${param.name}.${test} selects the case, so it takes one of ${labels}.`,
-          declared: sortedAllowed,
-        };
-      }
-      const nested = checkLevel(
-        value,
-        [{ name: test }, ...(active.inputs || [])],
-        types,
-        param.name,
-      );
-      if (nested) {
-        return nested;
-      }
-      continue;
-    }
-    const bad = wrongShape(param.name, value, types[param.type]?.stores);
-    if (bad) {
-      return bad;
-    }
-  }
-  return null;
+  return min !== undefined ? `a number of at least ${min}` : `a number of at most ${max}`;
 }
 
-/** The value against the schema galaxy-charts publishes for the input's type. */
-function wrongShape(name: string, value: unknown, spec: Json | undefined): Json | null {
-  if (!present(spec) || value === null || value === undefined) {
-    return null;
+/** One departure galaxy-charts reports, in the wording the model is refused with. */
+function issueRefusal(issue: ValueIssueType, entry: unknown, where: string): Json {
+  const steps = issue.path.split(".").filter(Boolean);
+  const value = valueAt(entry, issue.path);
+  // The object the issue sits in: the level itself, or the conditional it names.
+  const level = (depth: number) => (depth > 0 ? steps[depth - 1] : where);
+  switch (issue.code) {
+    case "not_object":
+      return {
+        error: `Refused: ${level(steps.length)} is an object keyed by parameter name; got ${pyType(value)}.`,
+        declared: issue.declared,
+      };
+    case "undeclared":
+      return {
+        error: `Refused: ${level(steps.length - 1)} declares no parameter ${quote(issue.name)}.`,
+        declared: issue.declared,
+        hint:
+          "Parameters inside a conditional belong in that conditional's object, " +
+          "not beside it. get_visualization_details shows the nesting.",
+      };
+    case "no_case":
+      return {
+        error:
+          `Refused: ${issue.path} selects the case, so it takes one of ` +
+          `${issue.cases.map(quote).join(", ")}.`,
+      };
+    case "wrong_shape": {
+      const wanted = (issue.stores as Json)?.type;
+      let error: string;
+      if (wanted === "object") {
+        error = `Refused: ${quote(issue.name)} takes the whole entry it was chosen from, not ${quote(value)}.`;
+      } else if (typeof value === "object") {
+        error = `Refused: ${quote(issue.name)} stores ${wanted}, not the entry it was chosen from.`;
+      } else {
+        error = `Refused: ${quote(issue.name)} stores ${wanted}: ${issue.message}`;
+      }
+      return {
+        error,
+        expected: issue.stores,
+        hint:
+          "Call get_visualization_options with `search`: it returns the value to store, " +
+          "whole for an input that takes an entry and bare for one that takes a string.",
+      };
+    }
+    case "not_offered":
+      return {
+        error:
+          `Refused: ${quote(issue.name)} takes one of ${issue.offered.map(quote).join(", ")}, ` +
+          `not ${quote(value)}.`,
+        hint: "get_visualization_details lists the values a select declares.",
+      };
+    case "out_of_bounds":
+      return {
+        error: `Refused: ${quote(issue.name)} takes ${range(issue.min, issue.max)}; got ${quote(value)}.`,
+      };
   }
-  const failure = Value.Errors(spec!, value)[0];
-  if (!failure) {
-    return null;
-  }
-  const wanted = spec!.type;
-  let error: string;
-  if (wanted === "object") {
-    error = `Refused: ${quote(name)} takes the whole entry it was chosen from, not ${quote(value)}.`;
-  } else if (typeof value === "object") {
-    error = `Refused: ${quote(name)} stores ${wanted}, not the entry it was chosen from.`;
-  } else {
-    error = `Refused: ${quote(name)} stores ${wanted}: ${failure.message}`;
-  }
-  return {
-    error,
-    expected: spec,
-    hint:
-      "Call get_visualization_options with `search`: it returns the value to store, " +
-      "whole for an input that takes an entry and bare for one that takes a string.",
-  };
+}
+
+/** The first way one object departs from what galaxy-charts' form writes for `declared`. */
+export function checkLevel(entry: unknown, declared: unknown, where: string): Json | null {
+  const [issue] = validateValues(declared as InputElementType[] | undefined, entry);
+  return issue ? issueRefusal(issue, entry, where) : null;
 }
 
 /** Refuse a config the plugin would not produce, naming what it declares. */
@@ -540,13 +528,13 @@ function rejectUndeclared(plugin: unknown, a: Json): Json | null {
     };
   }
   if (settings !== null) {
-    const bad = checkLevel(settings, plugin.settings, TYPES, "settings");
+    const bad = checkLevel(settings, plugin.settings, "settings");
     if (bad) {
       return { saved: false, ...bad };
     }
   }
   for (const track of tracks || []) {
-    const bad = checkLevel(track, plugin.tracks, TYPES, "a track");
+    const bad = checkLevel(track, plugin.tracks, "a track");
     if (bad) {
       return { saved: false, ...bad };
     }
@@ -556,8 +544,7 @@ function rejectUndeclared(plugin: unknown, a: Json): Json | null {
 
 /** Refuse a value the server does not offer, resolving the options again at the write. */
 async function rejectUnoffered(
-  galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  lookup: ReturnType<ResolveOptions>,
   plugin: Json,
   a: Json,
 ): Promise<Json | null> {
@@ -566,13 +553,13 @@ async function rejectUnoffered(
     ...((a.tracks as unknown[]) || []).map((track): [unknown, unknown] => [track, plugin.tracks]),
   ];
   for (const [entry, declared] of levels) {
-    for (const { path, param, spec, value, branch } of optionBearing(entry, declared, TYPES)) {
-      const envelope = await resolveOptions(galaxy, param, { datasetId: a.dataset_id });
+    for (const { path, param, value, branch } of optionBearing(entry, declared, TYPES)) {
+      const envelope = await lookup(param, { datasetId: a.dataset_id });
       if (!envelope.success) {
         continue;
       }
       const offered: Json[] = envelope.data || [];
-      if (isOffered(value, offered, param, spec)) {
+      if (isOffered(value, offered, param)) {
         continue;
       }
       if (!offered.length && branch) {
@@ -624,7 +611,7 @@ async function saveVisualization(
     if (undeclared) {
       return fail(JSON.stringify(undeclared));
     }
-    const unoffered = await rejectUnoffered(galaxy, resolveOptions, plugin, a);
+    const unoffered = await rejectUnoffered(resolveOptions(galaxy), plugin, a);
     if (unoffered) {
       return fail(JSON.stringify(unoffered));
     }

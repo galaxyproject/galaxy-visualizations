@@ -35,7 +35,7 @@ function fakeGalaxy(get: (path: string) => unknown) {
 /** galaxy-charts, as far as the policy around it is concerned. */
 function fakeCharts(offered: unknown[] = [], { success = true, message = "" } = {}) {
   const asked: { input: Json; context: Json }[] = [];
-  const resolve: ResolveOptions = async (_galaxy, input, context) => {
+  const resolve: ResolveOptions = () => async (input, context) => {
     asked.push({ input, context });
     return success && !message
       ? { success: true, data: offered }
@@ -293,6 +293,11 @@ describe("get_visualization_details", () => {
       (await details(plugin)).settings.map((p: Json) => [p.name, p.default]),
     );
     expect(published).toEqual({ show_legend: true, width: 800, ratio: 1.5, title: "800" });
+  });
+
+  it("publishes an unset switch as off, as galaxy-charts reads it", async () => {
+    const plugin = { name: "igv", settings: [{ name: "legend", type: "boolean" }] };
+    expect((await details(plugin)).settings[0].default).toBe(false);
   });
 
   it("does not publish a numeric default that is not a number", async () => {
@@ -722,18 +727,18 @@ describe("get_visualization_options", () => {
     const { hit, problem } = resolveParameter(BOOLEAN, "settings.mode.depth", { settings: entry });
     expect(hit).toBeTruthy();
     expect(problem).toBeNull();
-    expect(checkLevel(entry, [BOOLEAN_CASE], TYPES, "settings")).toBeNull();
+    expect(checkLevel(entry, [BOOLEAN_CASE], "settings")).toBeNull();
   });
 
   it("validates a test parameter as a case label", () => {
     for (const stored of ["true", true, "false"]) {
       const entry = { mode: { advanced: stored, ...(stored !== "false" ? { depth: "d" } : {}) } };
-      expect(checkLevel(entry, [BOOLEAN_CASE], TYPES, "settings")).toBeNull();
+      expect(checkLevel(entry, [BOOLEAN_CASE], "settings")).toBeNull();
     }
   });
 
   it("refuses a test parameter holding no declared label", () => {
-    const bad = checkLevel({ mode: { advanced: "maybe" } }, [BOOLEAN_CASE], TYPES, "settings");
+    const bad = checkLevel({ mode: { advanced: "maybe" } }, [BOOLEAN_CASE], "settings");
     expect(bad?.error).toContain("selects the case");
     expect(bad?.error).toContain('"true"');
     expect(bad?.error).toContain('"false"');
@@ -1080,6 +1085,45 @@ describe("show_visualization and save_visualization", () => {
     expect(out.error).toContain('"x" stores string:');
   });
 
+  it("refuses a select value the plugin does not declare", async () => {
+    const g = igv({
+      name: "igv",
+      tracks: [{ name: "type", type: "select", data: [{ label: "Bar", value: "bar" }] }],
+    });
+    const out = refused(await save(g, { visualization: "igv", tracks: [{ type: "scatter" }] }));
+    expect(out.error).toBe('Refused: "type" takes one of "bar", not "scatter".');
+    expect(g.posted).toBeUndefined();
+    expect((await save(g, { visualization: "igv", tracks: [{ type: "bar" }] })).saved).toBe(true);
+  });
+
+  it("refuses a number outside the bounds the plugin declares", async () => {
+    const g = igv({
+      name: "igv",
+      settings: [{ name: "width", type: "integer", min: "1", max: "9" }],
+    });
+    const out = refused(await save(g, { visualization: "igv", settings: { width: 12 } }));
+    expect(out.error).toBe('Refused: "width" takes a number from 1 to 9; got 12.');
+    expect((await save(g, { visualization: "igv", settings: { width: 9 } })).saved).toBe(true);
+  });
+
+  it("names the conditional a misplaced parameter belongs beside", async () => {
+    const g = igv({
+      name: "igv",
+      settings: [
+        {
+          name: "mode",
+          type: "conditional",
+          test_param: { name: "kind", type: "select", value: "a" },
+          cases: [{ value: "a", inputs: [] }],
+        },
+      ],
+    });
+    const out = refused(
+      await save(g, { visualization: "igv", settings: { mode: { kind: "a", depth: 1 } } }),
+    );
+    expect(out.error).toBe('Refused: mode declares no parameter "depth".');
+  });
+
   const OFFERED_MM10 = {
     id: "mm10",
     name: "Mouse (GRCm38/mm10)",
@@ -1217,7 +1261,7 @@ describe("show_visualization and save_visualization", () => {
   it("names the dataset a refusal's options were resolved with", async () => {
     const offered = [{ label: "tracks.bed", value: { id: "d1", name: "tracks.bed" } }];
     const asked: unknown[] = [];
-    const charts: ResolveOptions = async (_g, _input, ctx) => {
+    const charts: ResolveOptions = () => async (_input, ctx) => {
       asked.push(ctx.datasetId);
       return { success: true, data: ctx.datasetId ? offered : [] };
     };
@@ -1342,8 +1386,7 @@ describe("galaxy-charts option resolution", () => {
       seen.push(path);
       return { columns: ["name", "value"], fields: [["hg38", "hg38.fa"]] };
     });
-    const out = await chartOptions(
-      g as unknown as Galaxy,
+    const out = await chartOptions(g as unknown as Galaxy)(
       { type: "data_table", tables: ["t1"] },
       {},
     );
@@ -1356,8 +1399,22 @@ describe("galaxy-charts option resolution", () => {
 
   it("reports a request that could not be read", async () => {
     const g = fakeGalaxy(() => ({ history_id: null }));
-    const out = await chartOptions(g as unknown as Galaxy, { type: "data" }, { datasetId: "d9" });
+    const out = await chartOptions(g as unknown as Galaxy)({ type: "data" }, { datasetId: "d9" });
     expect(out.success).toBe(false);
     expect(!out.success && out.message).toContain("d9");
+  });
+
+  it("reads a dataset once per tool call, and again in the next call", async () => {
+    let reads = 0;
+    const g = fakeGalaxy(() => {
+      reads += 1;
+      return { metadata_column_types: { 0: "int" } };
+    });
+    const call = chartOptions(g as unknown as Galaxy);
+    await call({ type: "data_column" }, { datasetId: "d9" });
+    await call({ type: "data_column", is_number: "true" }, { datasetId: "d9" });
+    expect(reads).toBe(1);
+    await chartOptions(g as unknown as Galaxy)({ type: "data_column" }, { datasetId: "d9" });
+    expect(reads).toBe(2);
   });
 });
