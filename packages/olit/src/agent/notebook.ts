@@ -37,27 +37,27 @@ async function datasetManifest(galaxy: Galaxy, historyId: string): Promise<strin
   let items: unknown;
   try {
     items = await galaxy.get(
-      `api/histories/${segment(historyId)}/contents${query({ v: "dev", keys: "id,hid,name,extension,state,deleted,visible" })}`,
+      `api/histories/${segment(historyId)}/contents${query({
+        v: "dev",
+        keys: "id,hid,name,extension,state,collection_type,populated_state",
+        q: ["deleted", "visible"],
+        qv: ["false", "true"],
+        order: "hid-dsc",
+        limit: MANIFEST_MAX + 1,
+      })}`,
     );
   } catch {
     return "";
   }
-  if (!Array.isArray(items)) {
+  if (!Array.isArray(items) || !items.length) {
     return "";
   }
-  const rows = items.filter(
-    (d): d is Page => typeof d === "object" && d !== null && !d.deleted && (d.visible ?? true),
+  const rows = (items as Page[]).slice(0, MANIFEST_MAX).reverse();
+  const lines = rows.map(
+    (d) =>
+      `- **${d.hid}**: ${d.name} (${d.extension ?? d.collection_type}, ${d.state ?? d.populated_state}) -- id \`${d.id}\``,
   );
-  if (!rows.length) {
-    return "";
-  }
-  const lines = rows
-    .slice(-MANIFEST_MAX)
-    .map((d) => `- **${d.hid}**: ${d.name} (${d.extension}, ${d.state}) -- id \`${d.id}\``);
-  const more =
-    rows.length <= MANIFEST_MAX
-      ? ""
-      : `\n_(showing the ${MANIFEST_MAX} most recent of ${rows.length})_`;
+  const more = items.length > MANIFEST_MAX ? `\n_(showing the ${MANIFEST_MAX} most recent)_` : "";
   return (
     "## Datasets in this history\n\n" +
     "These are the current contents of the bound history, listed fresh this turn. " +
