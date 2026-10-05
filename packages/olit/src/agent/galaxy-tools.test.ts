@@ -766,6 +766,17 @@ describe("update_page", () => {
     expect((await page().update({ content: "fresh" })).content_hash).toBe(djb2Hash("fresh"));
   });
 
+  it("hands back the source it wrote, not Galaxy's embed-expanded render", async () => {
+    const ctx = context({
+      get: async () => ({ id: "p1", content_editor: DOC }),
+      put: async (_path, body) => ({ id: "p1", content_editor: body.content, content: "<render>" }),
+    });
+    const out = (await run("update_page", { page_id: "p1", content: "fresh" }, ctx)) as any;
+    expect(out).not.toHaveProperty("content");
+    expect(out.content_editor).toBe("fresh");
+    expect(out.content_hash).toBe(djb2Hash("fresh"));
+  });
+
   it("marks every write as an agent edit", async () => {
     const p = page();
     await p.update({ content: "x" });

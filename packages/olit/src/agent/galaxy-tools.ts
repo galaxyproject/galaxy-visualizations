@@ -495,6 +495,8 @@ async function updatePage(args: Row, { galaxy }: Context) {
   const written = await galaxy.put(`api/pages/${segment(args.page_id)}`, payload);
   if (isRow(written)) {
     written.content_hash = djb2Hash(pageBody(written));
+    // The embed-expanded render is not what was written, and galaxy-ops leaves it out too.
+    delete written.content;
   }
   return written;
 }
