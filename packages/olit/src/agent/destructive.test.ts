@@ -2,6 +2,13 @@ import type { BeforeToolCallContext } from "@earendil-works/pi-agent-core";
 import { describe, expect, it } from "vitest";
 
 import { classify, destructiveGate, type Ask } from "./destructive";
+import { olitTools } from "./session";
+import { traitsOf } from "./tool";
+
+/** Whether a call destroys, as the real tools say: galaxy-ops' flags and destructiveWhen. */
+const TRAITS = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+const DESTROYS = (name: string, args: Record<string, unknown>) =>
+  TRAITS.get(name)?.destroys(args) === true;
 
 const context = (name: string, args: Record<string, unknown>) =>
   ({
@@ -20,35 +27,33 @@ function asked(answer: boolean) {
 }
 
 const gate = (name: string, args: Record<string, unknown>, ask?: Ask) =>
-  destructiveGate(ask, FLAGGED)(context(name, args));
-
-const FLAGGED = new Set(["cancel_workflow_invocation", "delete_user_tool"]);
+  destructiveGate(ask, DESTROYS)(context(name, args));
 
 describe("classify", () => {
   it("treats only an explicit true as a history delete", () => {
-    expect(classify("update_history", { deleted: false })).toBeUndefined();
-    expect(classify("update_history", {})).toBeUndefined();
+    expect(classify("update_history", { deleted: false }, DESTROYS)).toBeUndefined();
+    expect(classify("update_history", {}, DESTROYS)).toBeUndefined();
   });
 
   it("says a history delete covers the whole history and is recoverable", () => {
-    expect(classify("update_history", { history_id: "h1", deleted: true })).toBe(
+    expect(classify("update_history", { history_id: "h1", deleted: true }, DESTROYS)).toBe(
       "Mark the entire history (h1) as deleted — not just specific datasets. " +
         "Recoverable via Undelete on most Galaxy servers, but it affects the whole history.",
     );
-    expect(classify("update_history", { history_id: 7, deleted: true })).toContain(
+    expect(classify("update_history", { history_id: 7, deleted: true }, DESTROYS)).toContain(
       "Mark the entire history as deleted",
     );
   });
 
   it("classifies every operation galaxy-ops flags as destructive", () => {
-    const headline = classify("delete_user_tool", { uuid: "u1" }, FLAGGED);
+    const headline = classify("delete_user_tool", { uuid: "u1" }, DESTROYS);
     expect(headline).toContain("delete_user_tool");
     expect(headline).toContain("cannot be undone");
   });
 
   it("does not classify unrelated tools", () => {
-    expect(classify("create_history", { history_name: "x" }, FLAGGED)).toBeUndefined();
-    expect(classify("run_tool", { deleted: true }, FLAGGED)).toBeUndefined();
+    expect(classify("create_history", { history_name: "x" }, DESTROYS)).toBeUndefined();
+    expect(classify("run_tool", { deleted: true }, DESTROYS)).toBeUndefined();
   });
 });
 
@@ -105,7 +110,7 @@ describe("destructiveGate", () => {
 
   it("never remembers an approval between calls", async () => {
     const user = asked(true);
-    const check = destructiveGate(user.ask, FLAGGED);
+    const check = destructiveGate(user.ask, DESTROYS);
     for (let i = 0; i < 3; i++) {
       await check(context("update_history", { history_id: "h1", deleted: true }));
     }

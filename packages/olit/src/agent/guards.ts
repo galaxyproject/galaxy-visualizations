@@ -9,7 +9,7 @@ import type {
 
 import { destructiveGate, type Ask } from "./destructive";
 import { SraImportGate } from "./sra-gate";
-import type { Guard } from "./tool";
+import type { Guard, ToolTraits } from "./tool";
 import type { Watch } from "./watch";
 
 const FAILED_REPEAT_LIMIT = 3;
@@ -18,12 +18,6 @@ const COOLDOWN_MS = 120_000;
 export const MAX_RESULT_BYTES = 256 * 1024;
 const MIN_SECRET_LENGTH = 8;
 const HARMONY_MARKER = "<|";
-
-const POLLED_ARGUMENT: Record<string, string> = {
-  get_dataset_details: "dataset_id",
-  get_job_details: "dataset_id",
-  get_invocations: "invocation_id",
-};
 
 const CONFUSABLES: Record<string, string> = {
   а: "a",
@@ -91,15 +85,14 @@ export function redact(text: string, secrets: string[]): string {
 const key = (name: string, args: unknown) => `${name} ${JSON.stringify(args)}`;
 
 export interface GuardOptions {
-  settled: Set<string>;
+  /** What each tool says of itself: settled, what it polls, whether a call destroys. */
+  tools: ReadonlyMap<string, ToolTraits>;
   /** The session's unfinished work, read live: something submitted this turn counts too. */
   watch: Watch;
   secrets: string[];
   /** Tools that exist but this session does not grant, with the capability each needs. */
   withheld: Map<string, string>;
   advertised: string[];
-  /** Tools galaxy-ops marks destructive, which always ask first. */
-  destructive?: ReadonlySet<string>;
   ask?: Ask;
   now?: () => number;
 }
@@ -112,7 +105,10 @@ export function guards(options: GuardOptions) {
   const readAt = new Map<string, number>();
   const states = () => new Map(options.watch.list().map((w) => [w.id, w.state]));
   const sra = new SraImportGate();
-  const destructive = destructiveGate(options.ask, options.destructive);
+  const destructive = destructiveGate(
+    options.ask,
+    (name, args) => options.tools.get(name)?.destroys(args) === true,
+  );
   const refused = new Map<string, Guard>();
   let observed: unknown;
 
@@ -130,7 +126,8 @@ export function guards(options: GuardOptions) {
           "Change the arguments or the approach; resending the same call cannot succeed.",
       ];
     }
-    if (options.settled.has(name)) {
+    const traits = options.tools.get(name);
+    if (traits?.settled) {
       const asked = (settled.get(key(name, args)) ?? 0) + 1;
       settled.set(key(name, args), asked);
       if (asked >= SETTLED_REPEAT_LIMIT) {
@@ -141,7 +138,7 @@ export function guards(options: GuardOptions) {
         ];
       }
     }
-    const resource = POLLED_ARGUMENT[name] ? String(args[POLLED_ARGUMENT[name]] ?? "") : "";
+    const resource = traits?.polls ? String(args[traits.polls] ?? "") : "";
     if (resource && states().has(resource)) {
       const last = readAt.get(resource);
       if (last !== undefined && now() - last < COOLDOWN_MS) {

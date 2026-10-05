@@ -1,6 +1,8 @@
 import type { AgentMessage, BeforeToolCallContext } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
+import { olitTools } from "./session";
+import { traitsOf } from "./tool";
 import { Watch, type Watched } from "./watch";
 
 import {
@@ -22,6 +24,9 @@ const assistant = (calls: Call[]) =>
   }) as AssistantMessage;
 
 /** A session watch already holding these items. */
+/** What each of Olit's tools says of itself, read off the real tool set. */
+const TRAITS = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+
 function watchOf(items: Watched[]) {
   const watch = new Watch(async () => undefined);
   watch.add(items);
@@ -31,7 +36,7 @@ function watchOf(items: Watched[]) {
 function session(overrides: Partial<GuardOptions> = {}) {
   let clock = 1_000_000;
   const g = guards({
-    settled: new Set(),
+    tools: TRAITS,
     watch: new Watch(async () => undefined),
     secrets: [],
     withheld: new Map(),
@@ -153,10 +158,8 @@ describe("repeated-failure guard", () => {
 });
 
 describe("settled-question guard", () => {
-  const settled = new Set(["search_tools_by_name"]);
-
   it("refuses a settled lookup on the third asking", async () => {
-    const s = session({ settled });
+    const s = session();
     const call = { id: "c1", name: "search_tools_by_name", arguments: { query: "set datatype" } };
     expect(await s.before(call)).toBeUndefined();
     expect(await s.before(call)).toBeUndefined();
@@ -168,7 +171,7 @@ describe("settled-question guard", () => {
   });
 
   it("treats a different query as its own question", async () => {
-    const s = session({ settled });
+    const s = session();
     for (const query of ["alpha", "beta", "gamma"]) {
       expect(
         await s.before({ id: query, name: "search_tools_by_name", arguments: { query } }),
@@ -177,7 +180,7 @@ describe("settled-question guard", () => {
   });
 
   it("never refuses a call whose answer can change", async () => {
-    const s = session({ settled });
+    const s = session();
     for (let i = 0; i < 12; i++) {
       expect(
         await s.before({ id: `j${i}`, name: "get_job_details", arguments: { dataset_id: "d1" } }),

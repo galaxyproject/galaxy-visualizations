@@ -15,27 +15,6 @@ export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
-/** The log fields Galaxy adds to a job under `full=true`. */
-export const JOB_LOG_FIELDS = [
-  "tool_stdout",
-  "tool_stderr",
-  "job_stdout",
-  "job_stderr",
-  "stdout",
-  "stderr",
-];
-export const JOB_LOG_BYTES = 4 * 1024;
-
-/** Lookups over data Galaxy holds still for a session: the same question returns the same answer. */
-export const SETTLED = new Set([
-  "search_tools_by_name",
-  "search_tools_by_keywords",
-  "get_visualization_details",
-]);
-
-/** Whether repeating this call with the same arguments can produce anything new. */
-export const settled = (name: string) => SETTLED.has(name);
-
 /** Top-level fields of `data` that a description tells the model to read. */
 export const PROMISED_FIELDS: Record<string, string[]> = {
   get_tool_panel: ["entries"],
@@ -194,44 +173,6 @@ async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string)
     }
   }
   return foreign;
-}
-
-/** Keep both ends of a log: the cause is usually at the end, the context at the start. */
-export function ends(text: string, cap: number): string {
-  const data = new TextEncoder().encode(text);
-  if (data.length <= cap) {
-    return text;
-  }
-  const half = Math.floor(cap / 2);
-  const front = data.subarray(0, half);
-  const back = data.subarray(data.length - half);
-  const cut = front.lastIndexOf(10);
-  const head = cut < 0 ? front : front.subarray(0, cut);
-  const start = back.indexOf(10);
-  const tail = start < 0 ? back : back.subarray(start + 1);
-  const dropped = data.length - head.length - tail.length;
-  const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
-  return `${decode(head)}\n[... ${dropped} of ${data.length} bytes omitted ...]\n${decode(tail)}`;
-}
-
-async function getJobDetails(args: Row, { galaxy }: Context) {
-  const dataset = (await galaxy.get(`api/datasets/${segment(args.dataset_id)}`)) || {};
-  const jobId = dataset.creating_job;
-  if (!jobId) {
-    return fail(`No creating job for dataset ${args.dataset_id}.`);
-  }
-  const job = await galaxy.get(`api/jobs/${segment(jobId)}${query({ full: true })}`);
-  if (!isRow(job)) {
-    return job;
-  }
-  const out: Row = { ...job };
-  for (const field of JOB_LOG_FIELDS) {
-    if (typeof out[field] === "string") {
-      out[field] = ends(out[field], JOB_LOG_BYTES);
-    }
-  }
-  // The data galaxy-ops and galaxy-mcp answer with, and the description promises.
-  return { job: out, dataset_id: args.dataset_id, job_id: jobId };
 }
 
 /** Python's `str.splitlines`. */
@@ -436,13 +377,6 @@ export function galaxyTools(): OlitTool[] {
       ["history_id"],
       getHistoryContents,
     ),
-    tool(
-      "get_job_details",
-      "read",
-      { dataset_id: STR, history_id: STR },
-      ["dataset_id"],
-      getJobDetails,
-    ),
     tool("download_dataset", "read", { dataset_id: STR }, ["dataset_id"], downloadDataset),
     tool(
       "upload_file",
@@ -451,20 +385,24 @@ export function galaxyTools(): OlitTool[] {
       ["path"],
       uploadFile,
     ),
-    tool(
-      "get_invocations",
-      "read",
-      {
-        invocation_id: STR,
-        workflow_id: STR,
-        history_id: STR,
-        limit: INT,
-        view: STR,
-        step_details: BOOL,
-      },
-      [],
-      getInvocations,
-    ),
+    {
+      // Watched by its id, as galaxy-ops says of its own get_invocations.
+      ...tool(
+        "get_invocations",
+        "read",
+        {
+          invocation_id: STR,
+          workflow_id: STR,
+          history_id: STR,
+          limit: INT,
+          view: STR,
+          step_details: BOOL,
+        },
+        [],
+        getInvocations,
+      ),
+      polls: "invocation_id",
+    },
     tool(
       "recommend_biocontainer",
       "read",

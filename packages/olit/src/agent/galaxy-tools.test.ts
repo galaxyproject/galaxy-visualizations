@@ -8,13 +8,12 @@ import {
   OPS_POLICY,
   galaxyTools,
   hdaInputs,
-  JOB_LOG_BYTES,
   MAX_DOWNLOAD_BYTES,
   PREVIEW_LINES,
-  settled,
 } from "./galaxy-tools";
 import { ROLLUP_LIMIT } from "./invocation-outcome";
-import { Outcome, type Context, type Python } from "./tool";
+import { olitTools } from "./session";
+import { Outcome, traitsOf, type Context, type Python } from "./tool";
 
 type Fake = Partial<
   Record<"get" | "post" | "put" | "bytes", (path: string, body?: any) => Promise<any>>
@@ -63,10 +62,20 @@ describe("tool surface", () => {
     }
   });
 
-  it("treats only catalog lookups as settled", () => {
-    expect(settled("search_tools_by_name")).toBe(true);
-    expect(settled("get_job_details")).toBe(false);
-    expect(settled("update_page")).toBe(false);
+  it("reads what each tool says of itself off galaxy-ops and Olit's own tools", () => {
+    const tools = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+    const settledOnes = [...tools].filter(([, t]) => t.settled).map(([name]) => name);
+    expect(settledOnes.sort()).toEqual([
+      "get_visualization_details",
+      "search_tools_by_keywords",
+      "search_tools_by_name",
+    ]);
+    expect(tools.get("get_job_details")?.polls).toBe("dataset_id");
+    expect(tools.get("get_dataset_details")?.polls).toBe("dataset_id");
+    expect(tools.get("get_invocations")?.polls).toBe("invocation_id");
+    expect(tools.get("update_history")?.destroys({ history_id: "h1", deleted: true })).toBe(true);
+    expect(tools.get("update_history")?.destroys({ history_id: "h1", name: "x" })).toBe(false);
+    expect(tools.get("delete_user_tool")?.destroys({ uuid: "u1" })).toBe(true);
   });
 });
 
@@ -272,77 +281,6 @@ describe("run_tool history guard", () => {
       ld: { src: "ld", id: "l2" },
     });
     expect(found.map(([, id, src]) => [id, src])).toEqual([["c1", "hdca"]]);
-  });
-});
-
-describe("get_job_details", () => {
-  function job(record: Record<string, unknown>) {
-    const paths: string[] = [];
-    const ctx = context({
-      get: async (path) => {
-        paths.push(path);
-        return path.startsWith("api/datasets/") ? { id: "d1", creating_job: "j1" } : record;
-      },
-    });
-    return { paths, out: run("get_job_details", { dataset_id: "d1" }, ctx) };
-  }
-
-  it("answers with the job, the dataset and the job id, as galaxy-ops and galaxy-mcp do", async () => {
-    const out = await job({ id: "j1", state: "ok" }).out;
-    expect(out).toEqual({ job: { id: "j1", state: "ok" }, dataset_id: "d1", job_id: "j1" });
-  });
-
-  it("keeps a chatty job under the result cap", async () => {
-    const noisy = Array.from({ length: 30000 }, (_, i) => `line ${i} of warnings`).join("\n");
-    const out = await job({ id: "j1", state: "error", tool_stderr: noisy, stderr: noisy }).out;
-    expect(new TextEncoder().encode(JSON.stringify(out)).length).toBeLessThan(
-      MAX_TOOL_RESULT_BYTES,
-    );
-  });
-
-  it("keeps the first line through a flood of warnings", async () => {
-    const noise = Array(600)
-      .fill("Invalid bed line (skipped): @SQ SN:chr1 LN:248956422")
-      .join("\n");
-    const out = await job({
-      id: "j1",
-      tool_stderr: "Reading reference bed file: ref.dat\n" + noise,
-    }).out;
-    expect(out.job.tool_stderr.startsWith("Reading reference bed file: ref.dat")).toBe(true);
-    expect(out.job.tool_stderr).toContain("bytes omitted");
-  });
-
-  it("keeps the end of the log", async () => {
-    const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
-    const out = await job({ id: "j1", tool_stderr: noisy + "\nRuntimeError: the real cause" }).out;
-    expect(out.job.tool_stderr.endsWith("RuntimeError: the real cause")).toBe(true);
-    expect(new TextEncoder().encode(out.job.tool_stderr).length).toBeLessThanOrEqual(
-      JOB_LOG_BYTES + "[... x of y bytes omitted ...]\n".length,
-    );
-  });
-
-  it("keeps whole lines at both cuts", async () => {
-    const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
-    const out = await job({ id: "j1", tool_stderr: noisy }).out;
-    const lines: string[] = out.job.tool_stderr.split("\n");
-    expect(lines[0]).toBe("warning number 0");
-    expect(lines[lines.length - 1]).toBe("warning number 1999");
-    expect(lines.find((line) => line.includes("omitted"))).toMatch(
-      new RegExp(`of ${noisy.length} bytes omitted \\.\\.\\.\\]$`),
-    );
-  });
-
-  it("returns a short log whole", async () => {
-    const out = await job({ id: "j1", tool_stderr: "Traceback: boom" }).out;
-    expect(out.job.tool_stderr).toBe("Traceback: boom");
-  });
-
-  it("leaves the rest of the job untouched", async () => {
-    const { paths, out } = job({ id: "j1", state: "error", params: { input: "d0" } });
-    const got = await out;
-    expect(got.job.params).toEqual({ input: "d0" });
-    expect(got.job.state).toBe("error");
-    expect(paths[paths.length - 1]).toBe("api/jobs/j1?full=true");
   });
 });
 

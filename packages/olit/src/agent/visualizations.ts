@@ -750,6 +750,8 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
     {
       name: "get_visualization_details",
       capability: "read",
+      // A plugin's parameters change only when an administrator installs another version.
+      settled: true,
       description:
         "Get one visualization's parameters, including the schema its settings and tracks must " +
         "match. Call before binding settings or tracks.",

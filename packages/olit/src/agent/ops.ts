@@ -18,7 +18,6 @@ import { watchedFrom } from "./watch";
 export const OLIT_OWNED: Record<string, string> = {
   get_history_contents: "server-side paging, dataset_id left out, a byte budget",
   get_invocations: "the jobs_summary roll-up into an outcome",
-  get_job_details: "full=true logs, trimmed at both ends",
 };
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
@@ -70,6 +69,11 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
     description: UPSTREAM_DOCS[op.name] ?? spellParamNames(describeOperation(op), op.input, snake),
     capability: op.readOnly === false ? "write" : "read",
     destructive: op.destructive === true,
+    destructiveWhen: op.destructiveWhen
+      ? (args) => op.destructiveWhen!(inputOf(args, toInput) as never)
+      : undefined,
+    polls: op.polls ? snake(op.polls.argument) : undefined,
+    settled: op.stableForSession === true,
     parameters: {
       ...schema,
       properties: Object.fromEntries(

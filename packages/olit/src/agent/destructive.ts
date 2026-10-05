@@ -4,34 +4,37 @@ export type Ask = (title: string, message: string) => Promise<boolean>;
 
 /**
  * What a call would destroy, in words for the person approving it, or undefined when it
- * destroys nothing. galaxy-ops flags its delete and cancel operations; deleting a whole
- * history is an ordinary update galaxy-ops cannot flag, so it is recognised here as loom does.
+ * destroys nothing. Whether it destroys is the tool's to say (galaxy-ops' `destructive` and
+ * `destructiveWhen`); the words are Olit's, and a whole history gets its own, as loom gives it.
  */
 export function classify(
   name: string,
   args: Record<string, unknown>,
-  flagged: ReadonlySet<string> = new Set(),
+  destroys: (name: string, args: Record<string, unknown>) => boolean = () => false,
 ): string | undefined {
-  if (name === "update_history" && args.deleted === true) {
+  if (!destroys(name, args)) {
+    return undefined;
+  }
+  if (name === "update_history") {
     const suffix = typeof args.history_id === "string" ? ` (${args.history_id})` : "";
     return (
       `Mark the entire history${suffix} as deleted — not just specific datasets. ` +
       "Recoverable via Undelete on most Galaxy servers, but it affects the whole history."
     );
   }
-  if (flagged.has(name)) {
-    return `Run ${name} with ${JSON.stringify(args)}, which deletes or cancels and cannot be undone.`;
-  }
-  return undefined;
+  return `Run ${name} with ${JSON.stringify(args)}, which deletes or cancels and cannot be undone.`;
 }
 
 /** Asks when someone can answer, refuses when nobody can; never cached. */
-export function destructiveGate(ask?: Ask, flagged: ReadonlySet<string> = new Set()) {
+export function destructiveGate(
+  ask?: Ask,
+  destroys: (name: string, args: Record<string, unknown>) => boolean = () => false,
+) {
   return async ({
     toolCall,
     args,
   }: BeforeToolCallContext): Promise<BeforeToolCallResult | undefined> => {
-    const headline = classify(toolCall.name, (args ?? {}) as Record<string, unknown>, flagged);
+    const headline = classify(toolCall.name, (args ?? {}) as Record<string, unknown>, destroys);
     if (!headline) {
       return undefined;
     }

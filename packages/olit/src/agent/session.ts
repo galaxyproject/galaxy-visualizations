@@ -11,7 +11,7 @@ import { resolveArtifacts } from "./artifacts";
 import { compactionSettings, compactor } from "./compaction";
 import type { Ask } from "./destructive";
 import { connectGalaxy, galaxyFetch, type Galaxy, type GalaxyOptions } from "./galaxy";
-import { annotate, galaxyTools, OPS_POLICY, SETTLED } from "./galaxy-tools";
+import { annotate, galaxyTools, OPS_POLICY } from "./galaxy-tools";
 import { enaTools } from "./ena";
 import { gtnTools } from "./gtn";
 import { guards } from "./guards";
@@ -34,6 +34,7 @@ import {
   type Context,
   type OlitTool,
   type Python,
+  traitsOf,
 } from "./tool";
 import { CONTEXT_SECTION, isRecordUpdate, RECORD_SECTION, sectionsOf } from "./sections";
 import { followUpPrompt, stateReader, Watch, type Settled, type Watched } from "./watch";
@@ -480,12 +481,11 @@ export class Session {
       (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
     );
     const guard = guards({
-      settled: SETTLED,
+      tools: new Map(this.tools.map((t) => [t.name, traitsOf(t)])),
       watch: this.watch,
       secrets,
       withheld: new Map(this.tools.filter((t) => !allowed(t)).map((t) => [t.name, missing(t)!])),
       advertised: tools.map((t) => t.name),
-      destructive: new Set(this.tools.filter((t) => t.destructive).map((t) => t.name)),
       ask: ask,
     });
     return { ctx, tools, guard };
