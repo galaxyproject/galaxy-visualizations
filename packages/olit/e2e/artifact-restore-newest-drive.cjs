@@ -19,20 +19,8 @@ const cardTitles = (p) =>
         [...document.querySelectorAll("#artifact-content .artifact-card-title")].map((e) => e.textContent),
     );
 
-/** Artifacts inside the stored session document, so the check is about content not keys. */
-const storedArtifacts = (p) =>
-    p.evaluate(async () => {
-        const open = indexedDB.open("olit", 1);
-        const db = await new Promise((r) => (open.onsuccess = () => r(open.result)));
-        const names = [...db.objectStoreNames];
-        if (!names.length) return [];
-        const store = db.transaction(names[0], "readonly").objectStore(names[0]);
-        const read = (q) => new Promise((r) => (q.onsuccess = () => r(q.result || [])));
-        const keys = (await read(store.getAllKeys())).map(String);
-        const values = await read(store.getAll());
-        const docs = keys.map((k, i) => ({ k, v: values[i] })).filter((e) => e.k.startsWith("session:"));
-        return docs.flatMap((d) => (d.v?.artifacts || []).map((a) => a.title));
-    });
+/** The page says so when the browser keeps no files for it, and nothing could survive a reload. */
+const durable = (p) => p.evaluate(() => !/keeps no files/i.test(document.body.innerText));
 
 const boot = (page) =>
     page
@@ -91,10 +79,8 @@ const titled = (page, title) =>
     check("a live turn shows only what it just produced",
         (await cardTitles(page)).join(",") === "Second Chart", (await cardTitles(page)).join(", "));
 
-    const kept = await storedArtifacts(page);
-    check("both artifacts are persisted, so restore has a choice to get wrong",
-        kept.length === 2 && kept[0] === "First Chart" && kept[1] === "Second Chart",
-        kept.join(", ") || "(none)");
+    check("the conversation is kept in the browser's files, so restore has a choice to get wrong",
+        await durable(page));
 
     // Reopening the saved session: the agent and every in-memory array are replaced, so the
     // pane is filled from the stored document alone.

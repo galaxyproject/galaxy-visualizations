@@ -1,5 +1,5 @@
 // Switching provider after boot must not require clearing browser storage by hand,
-// and must not discard the conversation (session memory lives in IndexedDB).
+// and must not discard the conversation, which lives in the browser's files (OPFS).
 const { chromium } = require("playwright");
 const offline = require("./offline.cjs");
 const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olit";
