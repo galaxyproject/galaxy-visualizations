@@ -22,7 +22,6 @@ export const OLIT_OWNED: Record<string, string> = {
   get_page: "content_hash for expect_hash",
   run_tool: "the foreign-input refusal; Galaxy's 500 input errors answered with the template",
   update_page: "section edits, expect_hash, the malformed object-id refusal",
-  upload_file_from_url: "none any more: upload1 decompresses too; awaiting a live gz check",
 };
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();

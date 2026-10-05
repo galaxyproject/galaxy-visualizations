@@ -358,20 +358,6 @@ function fetchPayload(element: Row, historyId: string | undefined) {
   return payload;
 }
 
-async function uploadFileFromUrl(args: Row, { galaxy }: Context) {
-  const element: Row = {
-    src: "url",
-    url: args.url,
-    ext: args.file_type ?? "auto",
-    dbkey: args.dbkey ?? "?",
-    auto_decompress: true,
-  };
-  if (args.file_name) {
-    element.name = args.file_name;
-  }
-  return galaxy.post("api/tools/fetch", fetchPayload(element, args.history_id));
-}
-
 async function uploadFile(args: Row, { galaxy, python }: Context) {
   const path: string = args.path;
   const raw = await python.read(path);
@@ -560,13 +546,6 @@ export function galaxyTools(): OlitTool[] {
       getJobDetails,
     ),
     tool("download_dataset", "read", { dataset_id: STR }, ["dataset_id"], downloadDataset),
-    tool(
-      "upload_file_from_url",
-      "write",
-      { url: STR, history_id: STR, file_type: STR, dbkey: STR, file_name: STR },
-      ["url"],
-      uploadFileFromUrl,
-    ),
     tool(
       "upload_file",
       "write",
