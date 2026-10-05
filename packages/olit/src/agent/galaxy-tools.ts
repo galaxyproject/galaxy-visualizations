@@ -4,7 +4,6 @@ import { malformedObjectIds, validatePagination } from "@galaxyproject/galaxy-op
 import * as biocontainers from "./biocontainers";
 import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
-import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { pageBody } from "./page-edit";
 import { serverPage } from "./paging";
@@ -288,44 +287,6 @@ async function uploadFile(args: Row, { galaxy, python }: Context) {
   return galaxy.post("api/tools/fetch", fetchPayload(element, args.history_id));
 }
 
-async function jobStates(galaxy: Galaxy, invocationId: string): Promise<JobStates> {
-  try {
-    const summary = await galaxy.get(`api/invocations/${segment(invocationId)}/jobs_summary`);
-    return summary?.states || {};
-  } catch {
-    return {};
-  }
-}
-
-async function getInvocations(args: Row, { galaxy }: Context) {
-  if (args.invocation_id) {
-    const one = await galaxy.get(
-      `api/invocations/${segment(args.invocation_id)}${query({ step_details: args.step_details ?? false })}`,
-    );
-    return described(one, await jobStates(galaxy, args.invocation_id));
-  }
-  // A blank filter is no filter, as galaxy-ops reads it, not a search for the empty id.
-  const params = {
-    workflow_id: args.workflow_id || undefined,
-    history_id: args.history_id || undefined,
-    limit: args.limit,
-    view: args.view ?? "collection",
-    step_details: args.step_details ?? false,
-  };
-  const listed = await galaxy.get(`api/invocations${query(params)}`);
-  if (!Array.isArray(listed)) {
-    return listed;
-  }
-  const out = [];
-  for (const [index, invocation] of listed.entries()) {
-    const id = isRow(invocation) ? invocation.id : undefined;
-    out.push(
-      id && index < ROLLUP_LIMIT ? described(invocation, await jobStates(galaxy, id)) : invocation,
-    );
-  }
-  return out;
-}
-
 async function recommendBiocontainer(args: Row) {
   try {
     return await biocontainers.recommend(args.packages || []);
@@ -385,24 +346,6 @@ export function galaxyTools(): OlitTool[] {
       ["path"],
       uploadFile,
     ),
-    {
-      // Watched by its id, as galaxy-ops says of its own get_invocations.
-      ...tool(
-        "get_invocations",
-        "read",
-        {
-          invocation_id: STR,
-          workflow_id: STR,
-          history_id: STR,
-          limit: INT,
-          view: STR,
-          step_details: BOOL,
-        },
-        [],
-        getInvocations,
-      ),
-      polls: "invocation_id",
-    },
     tool(
       "recommend_biocontainer",
       "read",

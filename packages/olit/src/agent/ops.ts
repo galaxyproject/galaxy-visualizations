@@ -17,7 +17,6 @@ import { watchedFrom } from "./watch";
  */
 export const OLIT_OWNED: Record<string, string> = {
   get_history_contents: "server-side paging, dataset_id left out, a byte budget",
-  get_invocations: "the jobs_summary roll-up into an outcome",
 };
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();

@@ -11,7 +11,6 @@ import {
   MAX_DOWNLOAD_BYTES,
   PREVIEW_LINES,
 } from "./galaxy-tools";
-import { ROLLUP_LIMIT } from "./invocation-outcome";
 import { olitTools } from "./session";
 import { Outcome, traitsOf, type Context, type Python } from "./tool";
 
@@ -503,68 +502,6 @@ describe("dataset filesystem", () => {
     const out = await dataset(TABLE).download("abc123");
     expect(out.path).toBe("/data/abc123.dat");
     expect(out.lines).toBe(120);
-  });
-});
-
-describe("get_invocations", () => {
-  const SCHEDULED = { id: "i1", state: "completed", history_id: "h1" };
-
-  function invocations(listed?: unknown[], failing = false) {
-    const paths: string[] = [];
-    const ctx = context({
-      get: async (path) => {
-        paths.push(path);
-        if (path.endsWith("jobs_summary")) {
-          if (failing) {
-            throw new Error("HTTP 500");
-          }
-          return { states: { error: 1, ok: 1 } };
-        }
-        if (listed && path.startsWith("api/invocations?")) {
-          return listed;
-        }
-        return { ...SCHEDULED };
-      },
-    });
-    return { paths, ask: (args: Record<string, unknown>) => run("get_invocations", args, ctx) };
-  }
-
-  it("reads a blank filter as no filter", async () => {
-    const { paths, ask } = invocations([]);
-    await ask({ history_id: "", workflow_id: "" });
-    expect(paths[0]).not.toContain("history_id=");
-    expect(paths[0]).not.toContain("workflow_id=");
-  });
-
-  it("rolls up one invocation", async () => {
-    const { paths, ask } = invocations();
-    const out = await ask({ invocation_id: "i1" });
-    expect(out.outcome).toBe("failed");
-    expect(paths.some((p) => p.endsWith("jobs_summary"))).toBe(true);
-  });
-
-  it("rolls up a listing too", async () => {
-    const out = await invocations([{ ...SCHEDULED }, { ...SCHEDULED, id: "i2" }]).ask({
-      history_id: "h1",
-    });
-    expect(out.map((i: any) => i.outcome)).toEqual(["failed", "failed"]);
-  });
-
-  it("stops rolling up a long listing", async () => {
-    const many = Array.from({ length: ROLLUP_LIMIT + 3 }, (_, n) => ({
-      ...SCHEDULED,
-      id: `i${n}`,
-    }));
-    const { paths, ask } = invocations(many);
-    const out = await ask({ history_id: "h1" });
-    expect(out.filter((i: any) => "outcome" in i)).toHaveLength(ROLLUP_LIMIT);
-    expect(paths.filter((p) => p.endsWith("jobs_summary"))).toHaveLength(ROLLUP_LIMIT);
-  });
-
-  it("survives a jobs summary that fails", async () => {
-    const out = await invocations(undefined, true).ask({ invocation_id: "i1" });
-    expect(out.outcome).toBe("completed");
-    expect(out.job_states).toEqual({});
   });
 });
 

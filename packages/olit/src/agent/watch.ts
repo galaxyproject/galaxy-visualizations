@@ -3,7 +3,7 @@
  * galaxy-poller. The session owns it, so the browser and the eval harness see one behaviour.
  */
 import { segment, type Galaxy } from "./galaxy";
-import { settle } from "./invocation-outcome";
+import { invocationOutcome } from "@galaxyproject/galaxy-ops/browser";
 
 export type WatchKind = "job" | "invocation" | "dataset";
 
@@ -91,7 +91,7 @@ export function stateReader(galaxy: Galaxy) {
     const state = stateOf(await galaxy.get(`api/invocations/${segment(w.id)}`));
     if (state !== "scheduled" && state !== "completed") return state;
     const summary = await galaxy.get(`api/invocations/${segment(w.id)}/jobs_summary`);
-    return settle(state, summary?.states);
+    return invocationOutcome(state, summary?.states);
   };
 }
 
