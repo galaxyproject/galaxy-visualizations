@@ -83,6 +83,33 @@ describe("terminal states", () => {
     expect(isFailure("job", "ok")).toBe(false);
   });
 
+  it("stops watching a dataset at every state Galaxy calls terminal", () => {
+    for (const state of ["ok", "empty", "error", "deferred", "discarded", "failed_metadata"]) {
+      expect(isTerminal("dataset", state), state).toBe(true);
+    }
+  });
+
+  it("stops at a paused dataset, which only the user can move on", () => {
+    expect(isTerminal("dataset", "paused")).toBe(true);
+    expect(isFailure("dataset", "paused")).toBe(false);
+  });
+
+  it("calls a dataset a failure exactly where Galaxy does", () => {
+    for (const state of ["error", "discarded", "failed_metadata"]) {
+      expect(isFailure("dataset", state), state).toBe(true);
+    }
+    for (const state of ["ok", "empty", "deferred"]) {
+      expect(isFailure("dataset", state), state).toBe(false);
+    }
+  });
+
+  it("reports a failed or deleted job as failed, not completed", () => {
+    for (const state of ["error", "failed", "deleted"]) {
+      expect(outcomeOf("job", state), state).toBe("failed");
+    }
+    expect(outcomeOf("job", "skipped")).toBe("completed");
+  });
+
   it("answers cancelled as itself, because a stop the user asked for is not a failure", () => {
     expect(outcomeOf("invocation", "cancelled")).toBe("cancelled");
     expect(outcomeOf("job", "error")).toBe("failed");
