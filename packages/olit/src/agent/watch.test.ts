@@ -184,6 +184,21 @@ describe("stateReader", () => {
     );
   });
 
+  it("settles a run failed once only the jobs Galaxy paused behind the failure remain", async () => {
+    const read = stateReader(
+      galaxy({
+        "api/invocations/i1": { state: "scheduled" },
+        "api/invocations/i1/jobs_summary": { states: { ok: 2, error: 1, paused: 3 } },
+      }),
+    );
+    expect(await read({ kind: "invocation", id: "i1", label: "invoke_workflow" })).toBe("failed");
+  });
+
+  it("gives no state while the jobs summary cannot be read, so the next poll asks again", async () => {
+    const read = stateReader(galaxy({ "api/invocations/i1": { state: "completed" } }));
+    expect(await read({ kind: "invocation", id: "i1", label: "invoke_workflow" })).toBeUndefined();
+  });
+
   it("keeps a cancelled invocation as cancelled without asking about jobs", async () => {
     const asked: string[] = [];
     const read = stateReader(galaxy({ "api/invocations/i1": { state: "cancelled" } }, asked));

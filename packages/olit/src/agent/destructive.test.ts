@@ -5,7 +5,6 @@ import { classify, destructiveGate, type Ask } from "./destructive";
 import { olitTools } from "./session";
 import { traitsOf } from "./tool";
 
-/** Whether a call destroys, as the real tools say: galaxy-ops' flags and destructiveWhen. */
 const TRAITS = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
 const DESTROYS = (name: string, args: Record<string, unknown>) =>
   TRAITS.get(name)?.destroys(args) === true;

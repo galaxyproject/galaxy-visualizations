@@ -32,6 +32,12 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
         : undefined;
     },
   },
+  update_history: { destructiveWhen: (args) => args.deleted === true },
+  get_dataset_details: { polls: "dataset_id" },
+  get_job_details: { polls: "dataset_id" },
+  get_invocations: { polls: "invocation_id" },
+  search_tools_by_keywords: { settled: true },
+  search_tools_by_name: { settled: true },
   // Every write to a page waits its turn in the session's record queue, so a marker written
   // between its read and its write is kept; a directive id galaxy-ops refuses is answered with
   // where the id the agent wanted comes from.

@@ -102,7 +102,9 @@ export function stateReader(galaxy: Galaxy) {
     const state = stateOf(await galaxy.get(`api/invocations/${segment(w.id)}`));
     if (state !== "scheduled" && state !== "completed") return state;
     const summary = await galaxy.get(`api/invocations/${segment(w.id)}/jobs_summary`);
-    return invocationOutcome(state, summary?.states);
+    const states = summary?.states;
+    if (!states || typeof states !== "object") return undefined;
+    return invocationOutcome(state, states);
   };
 }
 

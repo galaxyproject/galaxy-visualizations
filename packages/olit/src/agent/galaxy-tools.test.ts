@@ -59,7 +59,7 @@ describe("tool surface", () => {
     }
   });
 
-  it("reads what each tool says of itself off galaxy-ops and Olit's own tools", () => {
+  it("reads what each tool says of itself off galaxy-ops, Olit's policy and its own tools", () => {
     const tools = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
     const settledOnes = [...tools].filter(([, t]) => t.settled).map(([name]) => name);
     expect(settledOnes.sort()).toEqual([
