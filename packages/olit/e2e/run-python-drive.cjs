@@ -1,5 +1,5 @@
-// run_python in real Pyodide: top-level await, and a cross-origin fetch the browser
-// actually performs. The Python suite runs in CPython, so only this proves the shipped path.
+// run_python in real Pyodide, in its isolated realm: top-level await, and a cross-origin fetch
+// the browser actually performs. python-isolation-drive proves what the realm cannot reach.
 const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";

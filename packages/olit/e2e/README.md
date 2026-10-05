@@ -37,9 +37,13 @@ tier for anything that has to hold in a deployment.** The dev tier bakes `LLM_PR
 and so never shows the credentials modal; the built tier shows it and reaches the agent
 through the same paths Galaxy uses.
 
-`run-python` is the only check that runs submitted Python in real Pyodide: the agent's own
-suite runs in CPython, where neither `eval_code_async` nor `pyfetch` exists. It asserts
-top-level `await` and a cross-origin `pyfetch` against the stub, so the CORS path is real.
+`run-python` runs submitted Python in real Pyodide, in its isolated realm, through the dev
+server: top-level `await` and a cross-origin `pyfetch` against the stub, so the CORS path is
+real. `python-isolation` (built tier) proves the realm's boundary from the Galaxy origin: Python
+still reads a CORS-enabled endpoint, and its requests carry no Galaxy session, it has no storage,
+and it cannot see the agent's worker or the model key. `run-all.sh` runs it in Chromium, Firefox
+and WebKit, because only the last two attach Galaxy's SameSite-less cookie where the realm's
+credential lock has to stop it. `src/agent/python-node.test.ts` covers the headless realm.
 
 **Anything about persistence needs `?history_id=`.** IndexedDB continuity is keyed by the
 session the history last pointed at, so without a history in the URL the dev page starts a
@@ -67,6 +71,7 @@ node e2e/credentials-drive.cjs
 node e2e/artifact-pane-drive.cjs
 node e2e/provider-switch-drive.cjs
 node e2e/galaxy-boot-drive.cjs
+node e2e/python-isolation-drive.cjs                   # BROWSER=firefox|webkit for the others
 ```
 
 `galaxy-boot` connects a self-hosted endpoint through the modal and drives a full turn, so

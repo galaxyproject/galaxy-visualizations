@@ -47,12 +47,22 @@ done
 # The build must not carry the dev env, or LLM_PROVIDER suppresses the modal.
 env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tmp/olit-e2e-build.log 2>&1
 
-for d in credentials artifact-pane provider-switch galaxy-boot; do
+for d in credentials artifact-pane provider-switch galaxy-boot python-isolation; do
     ran="$ran $d"
     if node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
         echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1
+    fi
+done
+
+# The credential lock in run_python's realm only shows in Firefox and WebKit, which attach
+# Galaxy's SameSite-less cookie to a credentialed request from an opaque origin.
+for browser in firefox webkit; do
+    if BROWSER=$browser node e2e/python-isolation-drive.cjs > "/tmp/olit-e2e-python-isolation-$browser.log" 2>&1; then
+        echo "PASS  python-isolation ($browser)"
+    else
+        echo "FAIL  python-isolation ($browser)  (/tmp/olit-e2e-python-isolation-$browser.log)"; fail=1
     fi
 done
 
