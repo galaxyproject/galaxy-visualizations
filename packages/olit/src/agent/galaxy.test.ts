@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { connectGalaxy, segment } from "./galaxy";
+import { connectGalaxy, galaxyFetch, segment } from "./galaxy";
 
 describe("segment", () => {
   it("keeps an id from adding a segment, a query or a fragment", () => {
@@ -12,6 +12,44 @@ describe("segment", () => {
     for (const value of ["", ".", "..", "%2e%2e", "%2E.", ".%2e"]) {
       expect(() => segment(value)).toThrow(/is not a Galaxy id/);
     }
+  });
+});
+
+describe("galaxyFetch", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  /** A Galaxy that answers 503 once, then 200, counting what it was sent. */
+  function flaky() {
+    const methods: string[] = [];
+    vi.stubGlobal("fetch", async (request: Request) => {
+      methods.push(request.method);
+      return methods.length === 1
+        ? new Response("busy", { status: 503 })
+        : new Response("{}", { status: 200 });
+    });
+    return methods;
+  }
+
+  it("resends a refused read for galaxy-ops' client too, which has no retry of its own", async () => {
+    vi.useFakeTimers();
+    const methods = flaky();
+    const pending = galaxyFetch({ root: "http://galaxy.test/" })("http://galaxy.test/api/version");
+    await vi.advanceTimersByTimeAsync(1100);
+    expect((await pending).status).toBe(200);
+    expect(methods).toEqual(["GET", "GET"]);
+  });
+
+  it("never resends a write Galaxy may already have applied", async () => {
+    const methods = flaky();
+    const response = await galaxyFetch({ root: "http://galaxy.test/" })(
+      "http://galaxy.test/api/tools",
+      { method: "POST", body: "{}" },
+    );
+    expect(response.status).toBe(503);
+    expect(methods).toEqual(["POST"]);
   });
 });
 

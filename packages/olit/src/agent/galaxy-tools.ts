@@ -101,7 +101,8 @@ async function getHistoryContents(args: Row, { galaxy }: Context) {
   if (!Array.isArray(items)) {
     return items;
   }
-  return serverPage(items.map(oneIdentifier), offset, limit);
+  // galaxy-ops' envelope, as the description promises: rows under `data`, `pagination` beside.
+  return rendered(serverPage(items.map(oneIdentifier), offset, limit));
 }
 
 /** Sources a history owns, and where each one answers its history_id. */

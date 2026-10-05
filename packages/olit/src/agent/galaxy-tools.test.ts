@@ -126,18 +126,17 @@ describe("get_history_contents", () => {
     const { out } = contents({}, [
       { id: "hda1", dataset_id: "underlying1", name: "x.tabular", hid: 1 },
     ]);
-    const [item] = (await out).items;
+    const [item] = JSON.parse(await out).data;
     expect(item).toEqual({ id: "hda1", name: "x.tabular", hid: 1 });
   });
 
   it("says that more exist beyond a bounded page", async () => {
     const rows = Array.from({ length: 101 }, (_, i) => ({ id: `d${i}`, hid: i }));
     const { paths, out } = contents({}, rows);
-    const got = await out;
+    const got = JSON.parse(await out);
     expect(paths[0]).toContain("limit=101");
-    expect(got.shown).toBe(100);
-    expect(got.truncated).toBe(true);
-    expect(got.next_offset).toBe(100);
+    expect(got.data).toHaveLength(100);
+    expect(got.pagination).toMatchObject({ has_next: true, next_offset: 100 });
   });
 
   it("appends fetch-failure triage to a result it produced itself", async () => {

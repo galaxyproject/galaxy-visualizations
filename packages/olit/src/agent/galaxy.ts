@@ -44,15 +44,36 @@ export interface Galaxy {
   fetch: typeof fetch;
 }
 
+/**
+ * The one transport every Galaxy request takes, Olit's own and galaxy-ops' alike: the user's
+ * session or key, never a cached answer, and a refused request resent while that is safe.
+ */
 export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOptions): typeof fetch {
-  return (input, init) => {
+  return async (input, init) => {
     const request = new Request(input, { ...init, signal: init?.signal ?? signal });
     const headers = new Headers(request.headers);
     headers.delete("x-api-key");
     if (key) {
       headers.set("x-api-key", key);
     }
-    return fetch(new Request(request, { headers, credentials: key ? "omit" : credentials }));
+    const method = request.method.toUpperCase();
+    for (let attempt = 0; ; attempt++) {
+      const response = await fetch(
+        new Request(request.clone(), {
+          headers,
+          credentials: key ? "omit" : credentials,
+          cache: "no-store",
+        }),
+      );
+      // A POST Galaxy already applied would run twice; a rate limit applied nothing.
+      const retryable =
+        response.status === 429 || (IDEMPOTENT.has(method) && RETRY_STATUS.has(response.status));
+      if (response.ok || !retryable || attempt === ATTEMPTS - 1) {
+        return response;
+      }
+      // An absent header is not a stated zero: back off unless Galaxy named the wait.
+      await sleep((retryAfter(response.headers, "") ?? 2 ** attempt) * 1000, request.signal);
+    }
   };
 }
 
@@ -61,24 +82,16 @@ export function connectGalaxy(options: GalaxyOptions): Galaxy {
   const send = galaxyFetch(options);
 
   async function request(method: string, path: string, body?: unknown): Promise<Response> {
-    const init: RequestInit = { method, cache: "no-store" };
+    const init: RequestInit = { method };
     if (body !== undefined) {
       init.body = JSON.stringify(body);
       init.headers = { "Content-Type": "application/json" };
     }
-    for (let attempt = 0; ; attempt++) {
-      const response = await send(`${root}${path.replace(/^\//, "")}`, init);
-      if (response.ok) {
-        return response;
-      }
-      const retryable =
-        response.status === 429 || (IDEMPOTENT.has(method) && RETRY_STATUS.has(response.status));
-      if (!retryable || attempt === ATTEMPTS - 1) {
-        throw new HttpError(`HTTP ${response.status}: ${await response.text()}`, response.status);
-      }
-      // An absent header is not a stated zero: back off unless Galaxy named the wait.
-      await sleep((retryAfter(response.headers, "") ?? 2 ** attempt) * 1000, options.signal);
+    const response = await send(`${root}${path.replace(/^\//, "")}`, init);
+    if (!response.ok) {
+      throw new HttpError(`HTTP ${response.status}: ${await response.text()}`, response.status);
     }
+    return response;
   }
 
   async function json(method: string, path: string, body?: unknown) {
