@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import * as galaxyOps from "@galaxyproject/galaxy-ops/browser";
 import { allOperations } from "@galaxyproject/galaxy-ops/browser";
 
 import { KEEP_RECENT_TOKENS, RESERVE_TOKENS, TOOL_RESULT_MAX_CHARS } from "./compaction";
@@ -31,6 +32,9 @@ function walk(dir: string): string[] {
   });
 }
 
+/** The galaxy-ops entry Olit imports, keyed as a module beside Olit's own. */
+const GALAXY_OPS = "@galaxyproject/galaxy-ops/browser";
+
 /** Every name a module exports, by module. */
 function symbols(root: string): Record<string, string[]> {
   const base = join(root, SOURCE);
@@ -53,6 +57,8 @@ function symbols(root: string): Record<string, string[]> {
       out[`${SOURCE}/${rel}`] = [...new Set(names.map((m) => m[1]))].sort();
     }
   }
+  // What Olit links against in galaxy-ops, so a seam can name where moved behaviour lives now.
+  out[GALAXY_OPS] = Object.keys(galaxyOps).sort();
   return out;
 }
 
