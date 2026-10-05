@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Message } from "./messages";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+
+import { toChat } from "./messages";
 import {
   injectContext,
   injectRecord,
@@ -10,13 +12,20 @@ import {
 } from "./session";
 import type { Python } from "./tool";
 
-type Reply = { text?: string; calls?: Array<{ name: string; args: Record<string, unknown> }> };
+type Reply = {
+  text?: string;
+  reasoning?: string;
+  calls?: Array<{ name: string; args: Record<string, unknown> }>;
+};
 
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";
 
 function sse(reply: Reply): Response {
   const chunks: unknown[] = [];
+  if (reply.reasoning) {
+    chunks.push({ choices: [{ index: 0, delta: { reasoning_content: reply.reasoning } }] });
+  }
   if (reply.text) {
     for (const part of reply.text.match(/.{1,4}/gs) ?? []) {
       chunks.push({ choices: [{ index: 0, delta: { content: part } }] });
@@ -78,10 +87,10 @@ const config = (over: Partial<SessionConfig> = {}): SessionConfig => ({
   ...over,
 });
 
-const start: Message[] = [
-  { role: "system", content: "You are olit." },
-  { role: "user", content: "hi" },
-];
+const start = [
+  { role: "system", content: "You are olit.", timestamp: 0 },
+  { role: "user", content: "hi", timestamp: 0 },
+] as AgentMessage[];
 
 async function turn(
   replies: Reply[],
@@ -101,8 +110,8 @@ describe("a turn", () => {
   it("streams the reply and returns it in the transcript", async () => {
     const { result, events } = await turn([{ text: "Hello there." }]);
     expect(events.filter((e) => e.type === "text").length).toBeGreaterThan(1);
-    expect(result.new_messages).toEqual([{ role: "assistant", content: "Hello there." }]);
-    expect(result.messages.at(-1)).toEqual({ role: "assistant", content: "Hello there." });
+    expect(toChat(result.new_messages)).toEqual([{ role: "assistant", content: "Hello there." }]);
+    expect(toChat(result.messages).at(-1)).toEqual({ role: "assistant", content: "Hello there." });
     expect(result.usage).toEqual({ input: 10, output: 5, cost: null });
     expect(result.steps).toBe(1);
   });
@@ -122,7 +131,11 @@ describe("a turn", () => {
       { type: "tool_end" }
     >;
     expect(end).toMatchObject({ name: "get_history_details", is_error: false, refused: false });
-    expect(result.new_messages.map((m) => m.role)).toEqual(["assistant", "tool", "assistant"]);
+    expect(result.new_messages.map((m) => m.role)).toEqual([
+      "assistant",
+      "toolResult",
+      "assistant",
+    ]);
   });
 
   it("ends when finish runs, and says so", async () => {
@@ -169,6 +182,19 @@ describe("a turn", () => {
     expect(names).not.toContain("organize_datasets");
   });
 
+  it("does not replay an earlier turn's reasoning as something the model said", async () => {
+    const { requests } = server([{ reasoning: "PRIVATE-THOUGHT", text: "Hello." }, { text: "ok" }]);
+    const session = await Session.create(config(), python);
+    const first = await session.turn(start);
+    await session.turn([
+      ...first.messages,
+      { role: "user", content: "again", timestamp: 0 } as AgentMessage,
+    ]);
+    const replayed = requests[1].messages.find((m: { role: string }) => m.role === "assistant");
+    expect(replayed.content).toBe("Hello.");
+    expect(String(replayed.content)).not.toContain("PRIVATE-THOUGHT");
+  });
+
   it("holds its rate limit across turns, not just within one", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
     try {
@@ -194,7 +220,7 @@ describe("a turn", () => {
       {},
       { "api/histories/f2c1": { id: "f2c1", annotation: "key sk-test-secret-value" } },
     );
-    const tool = result.new_messages.find((m) => m.role === "tool")!;
+    const tool = toChat(result.new_messages).find((m) => m.role === "tool")!;
     expect(tool.content).not.toContain("sk-test-secret-value");
     expect(tool.content).toContain("[redacted]");
   });
@@ -210,7 +236,7 @@ describe("a turn", () => {
       { OPENROUTER_KEY: "or-env-secret-value" },
     );
     const result = await session.turn(start);
-    const tool = result.new_messages.find((m) => m.role === "tool")!;
+    const tool = toChat(result.new_messages).find((m) => m.role === "tool")!;
     expect(tool.content).not.toContain("or-env-secret-value");
     expect(tool.content).toContain("[redacted]");
   });
@@ -240,11 +266,11 @@ describe("a turn", () => {
   it("keeps a mid-conversation system message in place", async () => {
     const wire = server([{ text: "ok" }]);
     const session = await Session.create(config(), python);
-    const messages: Message[] = [
-      { role: "system", content: "You are olit." },
-      { role: "system", content: "<!-- olit:record -->\nrecord" },
-      { role: "user", content: "hi" },
-    ];
+    const messages = [
+      { role: "system", content: "You are olit.", timestamp: 0 },
+      { role: "system", content: "<!-- olit:record -->\nrecord", timestamp: 0 },
+      { role: "user", content: "hi", timestamp: 0 },
+    ] as AgentMessage[];
     await session.turn(messages);
     expect(wire.requests[0].messages.map((m: { role: string }) => m.role)).toEqual([
       "system",
@@ -265,9 +291,15 @@ describe("prepare", () => {
 
   it("refreshes the record excerpt just before the last user turn", () => {
     const first = injectRecord(start, "one");
-    const second = injectRecord(
-      [...first, { role: "assistant", content: "a" }, { role: "user", content: "again" }],
-      "two",
+    const second = toChat(
+      injectRecord(
+        [
+          ...first,
+          { role: "assistant", content: [{ type: "text", text: "a" }], timestamp: 0 },
+          { role: "user", content: "again", timestamp: 0 },
+        ] as AgentMessage[],
+        "two",
+      ),
     );
     expect(second.filter((m) => (m.content ?? "").includes("olit:record"))).toHaveLength(1);
     expect(second.at(-2)).toEqual({ role: "system", content: "<!-- olit:record -->\ntwo" });

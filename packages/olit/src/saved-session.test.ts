@@ -9,12 +9,17 @@ import {
   type SessionDocument,
 } from "./session-document";
 import { SessionStore, type Store } from "./session";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
-const SEED = { role: "system", content: "You are Olit. Version one." };
+const SEED = {
+  role: "system",
+  content: "You are Olit. Version one.",
+  timestamp: 0,
+} as AgentMessage;
 
 function turn(d: SessionDocument, text: string, artifacts: any[] = []) {
   return advance(d, {
-    messages: [SEED, ...d.messages, { role: "user", content: text }],
+    messages: [SEED, ...d.messages, { role: "user", content: text, timestamp: 0 }],
     artifacts: [...d.artifacts, ...artifacts],
   });
 }
@@ -108,7 +113,11 @@ describe("a saved Olit visualization is a restorable session", () => {
     const galaxy = savedSessions("http://galaxy/", "include");
 
     const id = await galaxy.save(turn(newDocument({}), "hello"));
-    const corrected = { role: "system", content: "You are Olit. Version two." };
+    const corrected = {
+      role: "system",
+      content: "You are Olit. Version two.",
+      timestamp: 0,
+    } as AgentMessage;
 
     expect(restoreMessages((await galaxy.load(id))!, corrected)[0]).toEqual(corrected);
     vi.unstubAllGlobals();

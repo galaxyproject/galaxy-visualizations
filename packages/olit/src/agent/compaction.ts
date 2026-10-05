@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
-import { fromPi, toPi, type Message } from "./messages";
+import { toChat, type ChatMessage } from "./messages";
 
 export const RESERVE_TOKENS = 16384;
 export const KEEP_RECENT_TOKENS = 20000;
@@ -107,7 +107,7 @@ export function compactionSettings(options: {
   };
 }
 
-export function estimateTokens(message: Message): number {
+export function estimateTokens(message: ChatMessage): number {
   let chars =
     (message.content ?? "").length +
     (message.reasoning_content ?? "").length +
@@ -126,7 +126,7 @@ export function contextTokens(messages: AgentMessage[]): number {
   const measured =
     index >= 0 ? (messages[index] as { usage: { totalTokens: number } }).usage.totalTokens : 0;
   return (
-    measured + fromPi(messages.slice(index + 1)).reduce((sum, m) => sum + estimateTokens(m), 0)
+    measured + toChat(messages.slice(index + 1)).reduce((sum, m) => sum + estimateTokens(m), 0)
   );
 }
 
@@ -142,7 +142,7 @@ export function findCutIndex(
   }
   let accumulated = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
-    const tokens = fromPi([messages[i]]).reduce((sum, m) => sum + estimateTokens(m), 0);
+    const tokens = toChat([messages[i]]).reduce((sum, m) => sum + estimateTokens(m), 0);
     if (!tokens) {
       continue;
     }
@@ -159,7 +159,7 @@ const truncate = (text: string, max: number) =>
     ? text
     : `${text.slice(0, max)}\n\n[... ${text.length - max} more characters truncated]`;
 
-export function serialize(messages: Message[]): string {
+export function serialize(messages: ChatMessage[]): string {
   const parts: string[] = [];
   for (const m of messages) {
     const content = m.content ?? "";
@@ -180,7 +180,7 @@ export function serialize(messages: Message[]): string {
   return parts.join("\n\n");
 }
 
-function previousSummary(messages: Message[]): string | undefined {
+function previousSummary(messages: ChatMessage[]): string | undefined {
   const found = messages.find(
     (m) => m.role === "user" && (m.content ?? "").startsWith(SUMMARY_PREFIX),
   );
@@ -191,7 +191,7 @@ function previousSummary(messages: Message[]): string | undefined {
   return body.endsWith(SUMMARY_SUFFIX) ? body.slice(0, -SUMMARY_SUFFIX.length) : body;
 }
 
-function buildPrompt(older: Message[], prior?: string): string {
+function buildPrompt(older: ChatMessage[], prior?: string): string {
   let text = `<conversation>\n${serialize(older)}\n</conversation>\n\n`;
   if (prior) {
     text += `<previous-summary>\n${prior}\n</previous-summary>\n\n`;
@@ -207,13 +207,17 @@ export type CompactionStatus = "not_needed" | "compacted" | "impossible";
 export function compactor(settings: CompactionSettings, summarize: Summarize) {
   let kept: { first: AgentMessage; summary: AgentMessage } | undefined;
 
+  /**
+   * The summary in place of what it covers. System messages stay: besides the prompt they carry
+   * pi's record of which tools exist, and a transcript without it offers the model none.
+   */
   function reduce(messages: AgentMessage[]): AgentMessage[] {
     const index = kept ? messages.indexOf(kept.first) : -1;
     if (index < 0) {
       return messages;
     }
-    const leading = messages[0]?.role === "system" ? 1 : 0;
-    return [...messages.slice(0, leading), kept!.summary, ...messages.slice(index)];
+    const held = messages.slice(0, index).filter((m) => m.role === "system");
+    return [...held, kept!.summary, ...messages.slice(index)];
   }
 
   async function compact(
@@ -233,7 +237,7 @@ export function compactor(settings: CompactionSettings, summarize: Summarize) {
     if (!cut) {
       return { messages: current, status: "impossible" };
     }
-    const older = fromPi(rest.slice(0, cut));
+    const older = toChat(rest.slice(0, cut).filter((m) => m.role !== "system"));
     const summary = await summarize(
       SUMMARIZATION_SYSTEM_PROMPT,
       buildPrompt(older, previousSummary(older)),
@@ -244,7 +248,11 @@ export function compactor(settings: CompactionSettings, summarize: Summarize) {
     }
     kept = {
       first: rest[cut],
-      summary: toPi([{ role: "user", content: SUMMARY_PREFIX + summary + SUMMARY_SUFFIX }])[0],
+      summary: {
+        role: "user",
+        content: SUMMARY_PREFIX + summary + SUMMARY_SUFFIX,
+        timestamp: Date.now(),
+      },
     };
     return { messages: reduce(messages), status: "compacted" };
   }

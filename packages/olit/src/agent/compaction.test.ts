@@ -10,7 +10,39 @@ import {
   serialize,
   type CompactionSettings,
 } from "./compaction";
-import { toPi, type Message } from "./messages";
+import type { ChatMessage as Message } from "./messages";
+
+/** Chat-shaped fixtures as pi messages. */
+const toPi = (messages: Message[]): AgentMessage[] =>
+  messages.map(
+    (m) =>
+      (m.role === "assistant"
+        ? {
+            role: "assistant",
+            content: [
+              ...(m.reasoning_content ? [{ type: "thinking", thinking: m.reasoning_content }] : []),
+              ...(m.content ? [{ type: "text", text: m.content }] : []),
+              ...(m.tool_calls ?? []).map((c) => ({
+                type: "toolCall",
+                id: c.id,
+                name: c.function.name,
+                arguments: JSON.parse(c.function.arguments || "{}"),
+              })),
+            ],
+            stopReason: m.tool_calls?.length ? "toolUse" : "stop",
+            timestamp: 0,
+          }
+        : m.role === "tool"
+          ? {
+              role: "toolResult",
+              toolCallId: m.tool_call_id ?? "",
+              toolName: m.name ?? "",
+              content: [{ type: "text", text: m.content ?? "" }],
+              isError: false,
+              timestamp: 0,
+            }
+          : { role: m.role, content: m.content ?? "", timestamp: 0 }) as unknown as AgentMessage,
+  );
 
 const SUMMARY_PREFIX =
   "The conversation history before this point was compacted into the following summary:";
@@ -219,6 +251,24 @@ describe("compact", () => {
     const { messages } = await compactor(settings(), llm.summarize).compact(conversation());
     expect(textOf(messages[0])).toBe("identity");
     expect(llm.prompts[0].prompt).not.toContain("identity");
+  });
+
+  it("keeps pi's record of the tools, wherever it sits in what is summarized", async () => {
+    const declared = {
+      role: "system",
+      content: "",
+      toolsAdded: [{ name: "get_histories", description: "", parameters: {} }],
+      timestamp: 0,
+    } as unknown as AgentMessage;
+    const [identity, ...rest] = conversation();
+    const { messages, status } = await compactor(settings(), summarizer().summarize).compact([
+      identity,
+      declared,
+      ...rest,
+    ]);
+    expect(status).toBe("compacted");
+    // Without it pi offers the model no tools on the next request.
+    expect(messages).toContain(declared);
   });
 
   it("uses the initial prompt the first time", async () => {

@@ -4,7 +4,7 @@ import {
   type AgentMessage,
   type AgentTool,
 } from "@earendil-works/pi-agent-core";
-import { normalizeContext } from "@earendil-works/pi-ai";
+import { contentText, normalizeContext } from "@earendil-works/pi-ai";
 import { createGalaxyContext, type GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import { resolveArtifacts } from "./artifacts";
@@ -15,7 +15,6 @@ import { annotate, galaxyTools, SETTLED } from "./galaxy-tools";
 import { enaTools } from "./ena";
 import { gtnTools } from "./gtn";
 import { guards, textOf } from "./guards";
-import { fromPi, toPi, type Message } from "./messages";
 import { connect } from "./model";
 import { excerpt, notebookTools } from "./notebook";
 import { opsTools } from "./ops";
@@ -95,8 +94,10 @@ export interface TurnOptions {
 
 export interface TurnResult {
   logs: string[];
-  messages: Message[];
-  new_messages: Message[];
+  /** The whole transcript, as pi holds it: what the next turn starts from. */
+  messages: AgentMessage[];
+  /** What this turn added. */
+  new_messages: AgentMessage[];
   done: boolean;
   aborted: boolean;
   exhausted: boolean;
@@ -109,13 +110,16 @@ export interface TurnResult {
   error?: { message: string };
 }
 
+const stamped = (m: AgentMessage): AgentMessage =>
+  "timestamp" in m && m.timestamp ? m : ({ ...m, timestamp: Date.now() } as AgentMessage);
+
 const brief = (value: unknown, limit = 300) => {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   return text.length <= limit ? text : `${text.slice(0, limit)}…`;
 };
 
 /** A turn that could not run, as a result rather than an exception. */
-export function failedTurn(transcripts: Message[], err: unknown): TurnResult {
+export function failedTurn(transcripts: AgentMessage[], err: unknown): TurnResult {
   return {
     logs: [],
     messages: transcripts,
@@ -133,33 +137,43 @@ export function failedTurn(transcripts: Message[], err: unknown): TurnResult {
   };
 }
 
-/** The brain's context block in the system message, replacing an earlier copy. */
-export function injectContext(transcripts: Message[], text: string): Message[] {
+/** pi's message text, whatever form its content takes. */
+const textIn = (m: AgentMessage) =>
+  "content" in m ? contentText((m.content ?? "") as Parameters<typeof contentText>[0]) : "";
+
+const system = (content: string): AgentMessage =>
+  ({ role: "system", content, timestamp: Date.now() }) as AgentMessage;
+
+/** The session's context block in the system message, replacing an earlier copy. */
+export function injectContext(transcripts: AgentMessage[], text: string): AgentMessage[] {
   if (!text || !transcripts.length) {
     return transcripts;
   }
   const block = `${BEGIN}\n${text}\n${END}`;
   const [first, ...rest] = transcripts;
   if (first.role !== "system") {
-    return [{ role: "system", content: block }, ...transcripts];
+    return [system(block), ...transcripts];
   }
-  let content = first.content ?? "";
+  let content = textIn(first);
   const start = content.indexOf(BEGIN);
   const stop = content.indexOf(END);
   content =
     start !== -1 && stop > start
       ? content.slice(0, start) + block + content.slice(stop + END.length)
       : `${content}\n\n${block}`;
-  return [{ ...first, content: content.trim() }, ...rest];
+  return [{ ...first, content: content.trim() } as AgentMessage, ...rest];
 }
 
 /** The record excerpt as its own message just before the last user turn, replacing an earlier copy. */
-export function injectRecord(transcripts: Message[], text: string | undefined): Message[] {
-  const kept = transcripts.filter((m) => !(m.content ?? "").includes(RECORD_MARKER));
+export function injectRecord(
+  transcripts: AgentMessage[],
+  text: string | undefined,
+): AgentMessage[] {
+  const kept = transcripts.filter((m) => !textIn(m).includes(RECORD_MARKER));
   if (!text) {
     return kept;
   }
-  const message: Message = { role: "system", content: `${RECORD_MARKER}\n${text}` };
+  const message = system(`${RECORD_MARKER}\n${text}`);
   const lastUser = kept.findLastIndex((m) => m.role === "user");
   return lastUser < 0
     ? [...kept, message]
@@ -294,15 +308,15 @@ export class Session {
 
   /** The transcript with the context block set and the record excerpt refreshed. */
   async prepare(
-    transcripts: Message[],
+    transcripts: AgentMessage[],
     recordPageId?: string,
     historyId?: string,
-  ): Promise<Message[]> {
+  ): Promise<AgentMessage[]> {
     const withContext = injectContext(transcripts, this.context);
     return injectRecord(withContext, await excerpt(this.galaxy, recordPageId, historyId));
   }
 
-  async turn(messages: Message[], options: TurnOptions = {}): Promise<TurnResult> {
+  async turn(messages: AgentMessage[], options: TurnOptions = {}): Promise<TurnResult> {
     const emit = (event: LoopEvent) => {
       try {
         options.onEvent?.(event);
@@ -348,10 +362,10 @@ export class Session {
         reserveTokens: this.config.ai_reserve_tokens || this.target.maxTokens,
         keepRecentTokens: this.config.ai_keep_recent_tokens,
       }),
-      async (system, prompt, signal) => {
+      async (instructions, prompt, signal) => {
         const request = normalizeContext({
-          systemPrompt: system,
-          messages: toPi([{ role: "user", content: prompt }]) as never,
+          systemPrompt: instructions,
+          messages: [{ role: "user", content: prompt, timestamp: Date.now() }],
         });
         const stream = await streamFn(model, request, { signal });
         return textOf((await stream.result()).content as Array<{ type: string; text?: string }>);
@@ -367,7 +381,8 @@ export class Session {
     let overflowReported = false;
 
     const agent = new Agent({
-      initialState: { model, tools, messages: toPi(messages) },
+      // A message from a caller that does not stamp time (the eval harness) still sorts.
+      initialState: { model, tools, messages: messages.map(stamped) },
       streamFn,
       toolExecution: "sequential",
       beforeToolCall: guard.beforeToolCall,
@@ -469,12 +484,10 @@ export class Session {
       logs,
       messages: failed
         ? messages
-        : fromPi(
-            compaction
-              .reduce(agent.state.messages)
-              .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
-          ),
-      new_messages: failed ? [] : fromPi(kept),
+        : compaction
+            .reduce(agent.state.messages)
+            .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
+      new_messages: failed ? [] : kept,
       done,
       aborted,
       exhausted,

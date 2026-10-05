@@ -1,4 +1,4 @@
-import type { Message } from "./messages";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { localPython } from "./python";
 import {
   failedTurn,
@@ -11,7 +11,7 @@ import type { Artifact, Watched } from "./tool";
 
 export interface RunRequest {
   config: SessionConfig;
-  transcripts: Message[];
+  transcripts: AgentMessage[];
   artifacts: Artifact[];
   watching: Watched[];
 }

@@ -24,7 +24,7 @@ import { writeSessionSummary } from "./session-summary";
 import { historyFromResult, recordPageFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
 import { AgentClient } from "./agent/client";
-import type { Message } from "./agent/messages";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { LoopEvent } from "./agent/session";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, outcomeOf } from "./invocations";
@@ -107,8 +107,12 @@ async function main() {
 
   // Regenerated from the plugin XML every load, so a prompt correction reaches a resumed
   // conversation instead of being pinned to the text of the day it started.
-  const seed = { role: "system", content: incoming.specs.ai_prompt || PROMPT_DEFAULT };
-  const convo: Message[] = [seed];
+  const seed = {
+    role: "system",
+    content: incoming.specs.ai_prompt || PROMPT_DEFAULT,
+    timestamp: Date.now(),
+  } as AgentMessage;
+  const convo: AgentMessage[] = [seed];
   // The shell owns what a turn produced, the way it owns the transcript: the brain is
   // rebuilt whenever the config changes, so anything it held would not survive a model switch.
   const produced: Artifact[] = [];
@@ -179,14 +183,12 @@ async function main() {
   // Switching provider reloads, so what earlier turns produced comes back from storage
   // rather than from memory: without this a chart cannot be placed after a model switch.
   produced.push(...sessionDoc.artifacts);
-  // A restored session renders a failed step the way the live one did.
-  const toolErrors = new Set<string>(sessionDoc.toolErrors || []);
   const restored = restoreMessages(sessionDoc, seed);
   const resumed = restored.length > 1;
   if (resumed) {
     convo.length = 0;
     convo.push(...restored);
-    replayMessages(chat, restored, toolErrors);
+    replayMessages(chat, restored);
     el.reset.classList.remove("hidden");
   }
   if (fromGalaxy) {
@@ -314,11 +316,8 @@ async function main() {
             "cannot free enough room. Start a new conversation, or configure a larger window.",
         );
       } else if (ev.type === "tool_end") {
-        // The brain states the outcome; toolStatus only guesses at it.
+        // The agent states the outcome; toolStatus only guesses at it.
         const status = ev.is_error ? "error" : toolStatus(ev.content);
-        if (ev.is_error) {
-          toolErrors.add(ev.id);
-        }
         chat.updateToolCard(ev.id, status, ev.content);
         // Galaxy returns the ids, so the model never has to register them.
         watcher.ingest(ev.name, ev.content);
@@ -382,7 +381,7 @@ async function main() {
     }
 
     // The brain names this turn's messages; compaction moves them, so no slicing.
-    const spoke = renderMessages(chat, reply.new_messages || [], streamed, new Set(), true);
+    const spoke = renderMessages(chat, reply.new_messages || [], streamed, true);
     // Exactly one explanation for a quiet turn, most specific first.
     if (reply.aborted) {
       info("Stopped.");
@@ -415,7 +414,6 @@ async function main() {
       messages: convo,
       artifacts: produced,
       usage: reply.usage,
-      toolErrors,
     });
     noteModel(sessionDoc, { provider: config.ai_provider, model: config.ai_model });
     void session.save(sessionDoc);
@@ -449,7 +447,7 @@ async function main() {
     followUp.agentStarted();
     chat.addUserMessage(text);
     chat.showThinking();
-    convo.push({ role: "user", content: text });
+    convo.push({ role: "user", content: text, timestamp: Date.now() });
     try {
       await runTurn(text);
     } catch (e) {
@@ -479,7 +477,7 @@ async function main() {
     el.abort.classList.remove("hidden");
     info("Checking the Galaxy results that just landed.");
     chat.showThinking();
-    convo.push({ role: "user", content: text });
+    convo.push({ role: "user", content: text, timestamp: Date.now() });
     try {
       await runTurn(text);
     } catch (e) {

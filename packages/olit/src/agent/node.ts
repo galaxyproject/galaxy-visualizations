@@ -5,13 +5,21 @@ import { pathToFileURL } from "node:url";
 
 import { describe } from "./describe";
 import { localPython } from "./python";
-import { failedTurn, Session } from "./session";
+import { toChat } from "./messages";
+import { failedTurn, Session, type TurnResult } from "./session";
 
 /** One session over JSON lines: `create`, `prepare`, `turn`, `close`; events stream before a turn's result. */
 const indexURL = pathToFileURL(
   dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs")),
 ).href;
 const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`);
+
+/** A turn as pi holds it, plus the OpenAI chat shape the harness grades. */
+const graded = (result: TurnResult) => ({
+  ...result,
+  transcript: toChat(result.messages),
+  new_transcript: toChat(result.new_messages),
+});
 let session: Session | undefined;
 
 /** Not top-level await: a lazily imported provider is declared after this module's body, so
@@ -45,14 +53,14 @@ async function main() {
           artifacts: request.artifacts,
           watching: request.watching,
         });
-        write({ result });
+        write({ result: graded(result) });
       } else if (request.op === "close") {
         break;
       }
     } catch (err) {
       write(
         request.op === "turn"
-          ? { result: failedTurn(request.messages, err) }
+          ? { result: graded(failedTurn(request.messages, err)) }
           : { error: String(err) },
       );
     }

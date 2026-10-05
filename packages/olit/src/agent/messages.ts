@@ -1,8 +1,8 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { AssistantMessage, JsonObject, ThinkingContent } from "@earendil-works/pi-ai";
+import type { ThinkingContent } from "@earendil-works/pi-ai";
 
-/** A message in the OpenAI chat format, which sessions store and evaluations read. */
-export interface Message {
+/** A message in the OpenAI chat format. Olit keeps pi's own messages; the harness grades this. */
+export interface ChatMessage {
   role: string;
   content: string | null;
   tool_calls?: Array<{ id: string; type?: string; function: { name: string; arguments: string } }>;
@@ -14,24 +14,6 @@ export interface Message {
 
 const REASONING_KEYS = ["reasoning_content", "reasoning"] as const;
 
-const EMPTY_USAGE = {
-  input: 0,
-  output: 0,
-  cacheRead: 0,
-  cacheWrite: 0,
-  totalTokens: 0,
-  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-};
-
-function parsed(text: string): JsonObject {
-  try {
-    const value = JSON.parse(text || "{}");
-    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  } catch {
-    return {};
-  }
-}
-
 const textOf = (content: unknown): string =>
   typeof content === "string"
     ? content
@@ -41,58 +23,11 @@ const textOf = (content: unknown): string =>
           .join("")
       : "";
 
-export function toPi(messages: Message[]): AgentMessage[] {
-  const timestamp = Date.now();
-  return messages.map((m): AgentMessage => {
+/** pi's messages in the OpenAI chat shape the evaluation harness grades. */
+export function toChat(messages: AgentMessage[]): ChatMessage[] {
+  return messages.flatMap((m): ChatMessage[] => {
     if (m.role === "assistant") {
-      const key = REASONING_KEYS.find((k) => m[k]);
-      const content: AssistantMessage["content"] = [];
-      if (key) {
-        content.push({ type: "thinking", thinking: m[key]!, thinkingSignature: key });
-      }
-      if (m.content) {
-        content.push({ type: "text", text: m.content });
-      }
-      for (const call of m.tool_calls ?? []) {
-        content.push({
-          type: "toolCall",
-          id: call.id,
-          name: call.function.name,
-          arguments: parsed(call.function.arguments),
-        });
-      }
-      return {
-        role: "assistant",
-        content,
-        api: "openai-completions",
-        provider: "olit",
-        model: "",
-        usage: EMPTY_USAGE,
-        stopReason: m.tool_calls?.length ? "toolUse" : "stop",
-        timestamp,
-      } as AssistantMessage;
-    }
-    if (m.role === "tool") {
-      return {
-        role: "toolResult",
-        toolCallId: m.tool_call_id ?? "",
-        toolName: m.name ?? "",
-        content: [{ type: "text", text: m.content ?? "" }],
-        isError: false,
-        timestamp,
-      };
-    }
-    if (m.role === "system") {
-      return { role: "system", content: m.content ?? "", timestamp } as AgentMessage;
-    }
-    return { role: "user", content: m.content ?? "", timestamp };
-  });
-}
-
-export function fromPi(messages: AgentMessage[]): Message[] {
-  return messages.flatMap((m): Message[] => {
-    if (m.role === "assistant") {
-      const out: Message = { role: "assistant", content: textOf(m.content) || null };
+      const out: ChatMessage = { role: "assistant", content: textOf(m.content) || null };
       const calls = m.content.filter((c) => c.type === "toolCall");
       if (calls.length) {
         out.tool_calls = calls.map((c) => ({

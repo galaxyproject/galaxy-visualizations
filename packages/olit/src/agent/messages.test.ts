@@ -1,70 +1,60 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { describe, expect, it } from "vitest";
 
-import { fromPi, toPi, type Message } from "./messages";
+import { toChat } from "./messages";
 
-const TRANSCRIPT: Message[] = [
-  { role: "system", content: "identity" },
-  { role: "user", content: "list my histories" },
+const TRANSCRIPT = [
+  { role: "system", content: "identity", timestamp: 0 },
+  { role: "user", content: "list my histories", timestamp: 0 },
   {
     role: "assistant",
-    content: "Looking.",
-    reasoning_content: "The user wants histories.",
-    tool_calls: [
-      { id: "c1", type: "function", function: { name: "get_histories", arguments: '{"limit":5}' } },
-      { id: "c2", type: "function", function: { name: "get_user", arguments: "{}" } },
+    content: [
+      { type: "text", text: "Looking." },
+      { type: "toolCall", id: "c1", name: "get_histories", arguments: { limit: 5 } },
     ],
+    timestamp: 0,
   },
-  { role: "tool", tool_call_id: "c1", name: "get_histories", content: '{"data":[]}' },
-  { role: "tool", tool_call_id: "c2", name: "get_user", content: '{"data":{}}' },
-  { role: "assistant", content: "You have none." },
-];
+  {
+    role: "toolResult",
+    toolCallId: "c1",
+    toolName: "get_histories",
+    content: [{ type: "text", text: '{"data":[]}' }],
+    isError: false,
+    timestamp: 0,
+  },
+  { role: "assistant", content: [{ type: "text", text: "You have none." }], timestamp: 0 },
+] as unknown as AgentMessage[];
 
-describe("messages", () => {
-  it("round-trips a transcript", () => {
-    expect(fromPi(toPi(TRANSCRIPT))).toEqual(TRANSCRIPT);
-  });
-
-  it("maps an assistant turn onto pi's content blocks", () => {
-    const [, , turn, result] = toPi(TRANSCRIPT);
-    expect(turn.role).toBe("assistant");
-    const content = (turn as Extract<AgentMessage, { role: "assistant" }>).content;
-    expect(content.map((c) => c.type)).toEqual(["thinking", "text", "toolCall", "toolCall"]);
-    expect(content[2]).toMatchObject({ id: "c1", name: "get_histories", arguments: { limit: 5 } });
-    expect((turn as { stopReason: string }).stopReason).toBe("toolUse");
-    expect(result).toMatchObject({
-      role: "toolResult",
-      toolCallId: "c1",
-      toolName: "get_histories",
-      isError: false,
-    });
+describe("toChat", () => {
+  it("exports pi's messages in the chat shape the harness grades", () => {
+    expect(toChat(TRANSCRIPT)).toEqual([
+      { role: "system", content: "identity" },
+      { role: "user", content: "list my histories" },
+      {
+        role: "assistant",
+        content: "Looking.",
+        tool_calls: [
+          {
+            id: "c1",
+            type: "function",
+            function: { name: "get_histories", arguments: '{"limit":5}' },
+          },
+        ],
+      },
+      { role: "tool", tool_call_id: "c1", name: "get_histories", content: '{"data":[]}' },
+      { role: "assistant", content: "You have none." },
+    ]);
   });
 
   it("keeps the reasoning key a provider used", () => {
-    const message: Message = { role: "assistant", content: null, reasoning: "thinking aloud" };
-    expect(fromPi(toPi([message]))).toEqual([message]);
-  });
-
-  it("writes an assistant turn without text as null content", () => {
-    const message: Message = {
+    const turn = {
       role: "assistant",
-      content: null,
-      tool_calls: [{ id: "c1", type: "function", function: { name: "get_user", arguments: "{}" } }],
-    };
-    expect(fromPi(toPi([message]))).toEqual([message]);
-  });
-
-  it("reads unparsable arguments as an empty object", () => {
-    const [turn] = toPi([
-      {
-        role: "assistant",
-        content: null,
-        tool_calls: [{ id: "c1", function: { name: "run_tool", arguments: "{broken" } }],
-      },
+      content: [{ type: "thinking", thinking: "thinking aloud", thinkingSignature: "reasoning" }],
+      timestamp: 0,
+    } as unknown as AgentMessage;
+    expect(toChat([turn])).toEqual([
+      { role: "assistant", content: null, reasoning: "thinking aloud" },
     ]);
-    expect((turn as Extract<AgentMessage, { role: "assistant" }>).content[0]).toMatchObject({
-      arguments: {},
-    });
   });
 
   it("flattens pi's content arrays to text", () => {
@@ -76,17 +66,19 @@ describe("messages", () => {
       ],
       timestamp: 0,
     };
-    expect(fromPi([user as AgentMessage])).toEqual([{ role: "user", content: "ab" }]);
+    expect(toChat([user as AgentMessage])).toEqual([{ role: "user", content: "ab" }]);
   });
 
-  it("drops pi's tool declarations, so a transcript does not gain one every turn", () => {
+  it("leaves out pi's tool declarations, which say nothing a grader reads", () => {
     const declared = {
       role: "system",
       content: "",
       toolsAdded: [{ name: "finish" }],
       timestamp: 0,
     };
-    const transcript = [...toPi(TRANSCRIPT.slice(0, 2)), declared as unknown as AgentMessage];
-    expect(fromPi(transcript)).toEqual(TRANSCRIPT.slice(0, 2));
+    expect(toChat([...TRANSCRIPT.slice(0, 2), declared as unknown as AgentMessage])).toEqual([
+      { role: "system", content: "identity" },
+      { role: "user", content: "list my histories" },
+    ]);
   });
 });
