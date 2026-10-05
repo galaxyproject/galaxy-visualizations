@@ -2,7 +2,7 @@ import inputs from "galaxy-charts/galaxy-charts.inputs.json";
 import { getOptions } from "galaxy-charts/runtime";
 import { Value } from "typebox/value";
 
-import { type Galaxy, query } from "./galaxy";
+import { query, segment, type Galaxy } from "./galaxy";
 import { fail, type OlitTool } from "./tool";
 import * as vega from "./vega";
 import {
@@ -125,12 +125,13 @@ async function preferredVisualizations(galaxy: Galaxy, extension: unknown): Prom
   if (!extension) {
     return new Set();
   }
-  const mappings: unknown[] = (await galaxy.get(`api/datatypes/${extension}/visualizations`)) || [];
+  const mappings: unknown[] =
+    (await galaxy.get(`api/datatypes/${segment(extension)}/visualizations`)) || [];
   return new Set(mappings.filter(isObject).map((m) => m.visualization));
 }
 
 async function listVisualizations(galaxy: Galaxy, a: Json): Promise<Json> {
-  const dataset: Json = (await galaxy.get(`api/datasets/${a.dataset_id}`)) || {};
+  const dataset: Json = (await galaxy.get(`api/datasets/${segment(a.dataset_id)}`)) || {};
   const extension = dataset.extension;
   const numeric = ((dataset.metadata_column_types as string[]) || []).filter((t) =>
     NUMERIC_COLUMNS.has(t),
@@ -176,7 +177,7 @@ async function resolveVisualization(
       },
     };
   }
-  const dataset: Json = (await galaxy.get(`api/datasets/${datasetId}`)) || {};
+  const dataset: Json = (await galaxy.get(`api/datasets/${segment(datasetId)}`)) || {};
   const compatible: Json[] =
     (await galaxy.get(`api/plugins${query({ dataset_id: datasetId })}`)) || [];
   if (!compatible.some((p) => p.name === name)) {
@@ -261,7 +262,7 @@ function describeParameter(param: Json, types: Types, path: string[] = []): Json
 
 async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown> {
   const name = a.visualization;
-  const plugin: Json = (await galaxy.get(`api/plugins/${name}`)) || {};
+  const plugin: Json = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
   if (!plugin.name) {
     return fail(
       `Refused: ${repr(name)} is not an installed visualization. Call list_visualizations ` +
@@ -305,7 +306,7 @@ async function getVisualizationOptions(
 ): Promise<unknown> {
   const name = a.visualization;
   const asked = a.parameter;
-  const plugin = (await galaxy.get(`api/plugins/${name}`)) || {};
+  const plugin = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
   if (!isObject(plugin) || !plugin.name) {
     return fail(`Refused: ${repr(name)} is not an installed visualization.`);
   }
@@ -366,7 +367,7 @@ async function getVisualizationOptions(
 }
 
 async function getVisualization(galaxy: Galaxy, a: Json): Promise<unknown> {
-  const saved: Json = (await galaxy.get(`api/visualizations/${a.visualization_id}`)) || {};
+  const saved: Json = (await galaxy.get(`api/visualizations/${segment(a.visualization_id)}`)) || {};
   if (!saved.id) {
     return fail(
       `No saved visualization ${repr(a.visualization_id)}. Pass the visualization_id ` +
@@ -617,7 +618,7 @@ async function saveVisualization(
   }
 
   if (present(a.settings) || present(a.tracks)) {
-    const plugin: Json = (await galaxy.get(`api/plugins/${a.visualization}`)) || {};
+    const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
     const undeclared = rejectUndeclared(plugin, a);
     if (undeclared) {
       return fail(JSON.stringify(undeclared));
@@ -634,7 +635,7 @@ async function saveVisualization(
 
   let visualizationId = a.visualization_id;
   if (visualizationId) {
-    await galaxy.put(`api/visualizations/${visualizationId}`, { title, config });
+    await galaxy.put(`api/visualizations/${segment(visualizationId)}`, { title, config });
   } else {
     const created = await galaxy.post("api/visualizations", { type: name, title, config });
     visualizationId = created?.id;
@@ -677,7 +678,7 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
   if (!datasetId) {
     return { charted: false, error: "dataset_id is required." };
   }
-  const details: Json = (await galaxy.get(`api/datasets/${datasetId}`)) || {};
+  const details: Json = (await galaxy.get(`api/datasets/${segment(datasetId)}`)) || {};
   if (!details.id) {
     return { charted: false, error: `No dataset ${repr(datasetId)} is readable.` };
   }

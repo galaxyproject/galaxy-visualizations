@@ -1,4 +1,4 @@
-import { query } from "../galaxy";
+import { query, segment } from "../galaxy";
 import { generateMermaid } from "./lineage-mermaid";
 import type { Process } from "./process";
 
@@ -28,7 +28,7 @@ export const lineageReport: Process = {
   },
   async run(galaxy, { history_id, dataset_id, depth, limit, src }) {
     const graph = await galaxy.get(
-      `api/histories/${history_id}/graph${query({
+      `api/histories/${segment(history_id)}/graph${query({
         seed_src: src,
         seed_id: dataset_id,
         direction: "backward",

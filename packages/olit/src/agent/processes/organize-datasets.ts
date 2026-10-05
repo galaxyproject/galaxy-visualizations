@@ -1,4 +1,4 @@
-import { query, type Galaxy } from "../galaxy";
+import { query, segment, type Galaxy } from "../galaxy";
 import { chunkItems, groupDatasets, type Grouping } from "./dataset-grouping";
 import { repr, type Process, type State } from "./process";
 
@@ -30,7 +30,11 @@ function bulk(
   items: unknown[],
   params: unknown,
 ) {
-  return galaxy.put(`api/histories/${historyId}/contents/bulk`, { operation, items, params });
+  return galaxy.put(`api/histories/${segment(historyId)}/contents/bulk`, {
+    operation,
+    items,
+    params,
+  });
 }
 
 function collection(
@@ -63,7 +67,7 @@ async function organize(
 ): Promise<State> {
   // This endpoint filters through q/qv; a plain `visible` or `deleted` is ignored.
   const contents: Dataset[] = await galaxy.get(
-    `api/histories/${history_id}/contents${query({ v: "dev", q: ["visible", "deleted"], qv: ["True", "False"] })}`,
+    `api/histories/${segment(history_id)}/contents${query({ v: "dev", q: ["visible", "deleted"], qv: ["True", "False"] })}`,
   );
   const grouping = groupDatasets({
     datasets: contents,

@@ -1,7 +1,7 @@
 import { allOperations, runWithEnvelope } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
-import { query, type Galaxy } from "./galaxy";
+import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
 import type { Annotate } from "./ops";
@@ -96,7 +96,9 @@ async function getHistoryContents(args: Row, { galaxy }: Context) {
     q: wanted.map(([field]) => field),
     qv: wanted.map(([, value]) => value),
   };
-  const items = await galaxy.get(`api/histories/${args.history_id}/contents${query(params)}`);
+  const items = await galaxy.get(
+    `api/histories/${segment(args.history_id)}/contents${query(params)}`,
+  );
   if (!Array.isArray(items)) {
     return items;
   }
@@ -231,12 +233,12 @@ export function ends(text: string, cap: number): string {
 }
 
 async function getJobDetails(args: Row, { galaxy }: Context) {
-  const dataset = (await galaxy.get(`api/datasets/${args.dataset_id}`)) || {};
+  const dataset = (await galaxy.get(`api/datasets/${segment(args.dataset_id)}`)) || {};
   const jobId = dataset.creating_job;
   if (!jobId) {
     return fail(`No creating job for dataset ${args.dataset_id}.`);
   }
-  const job = await galaxy.get(`api/jobs/${jobId}${query({ full: true })}`);
+  const job = await galaxy.get(`api/jobs/${segment(jobId)}${query({ full: true })}`);
   if (!isRow(job)) {
     return job;
   }
@@ -269,7 +271,9 @@ function decodeUtf8(bytes: Uint8Array): string | undefined {
 /** A line-aligned prefix, or undefined if the datatype cannot be chunked. */
 async function chunk(galaxy: Galaxy, datasetId: string, size: number): Promise<string | undefined> {
   try {
-    const got = await galaxy.get(`api/datasets/${datasetId}/display?offset=0&ck_size=${size}`);
+    const got = await galaxy.get(
+      `api/datasets/${segment(datasetId)}/display?offset=0&ck_size=${segment(size)}`,
+    );
     return isRow(got) ? (got.ck_data ?? undefined) : undefined;
   } catch {
     return undefined;
@@ -277,7 +281,7 @@ async function chunk(galaxy: Galaxy, datasetId: string, size: number): Promise<s
 }
 
 async function downloadDataset(args: Row, { galaxy, python }: Context) {
-  const details = (await galaxy.get(`api/datasets/${args.dataset_id}`)) || {};
+  const details = (await galaxy.get(`api/datasets/${segment(args.dataset_id)}`)) || {};
   const state = isRow(details) ? details.state : undefined;
   if (state !== "ok") {
     return fail(
@@ -298,7 +302,7 @@ async function downloadDataset(args: Row, { galaxy, python }: Context) {
     data = new TextEncoder().encode(prefix);
     partial = true;
   } else {
-    data = await galaxy.bytes(`api/datasets/${args.dataset_id}/display`);
+    data = await galaxy.bytes(`api/datasets/${segment(args.dataset_id)}/display`);
   }
   const path = `${DATA_DIR}/${args.dataset_id}.dat`;
   await python.write(path, data);
@@ -376,7 +380,7 @@ async function uploadFile(args: Row, { galaxy, python }: Context) {
 
 async function jobStates(galaxy: Galaxy, invocationId: string): Promise<JobStates> {
   try {
-    const summary = await galaxy.get(`api/invocations/${invocationId}/jobs_summary`);
+    const summary = await galaxy.get(`api/invocations/${segment(invocationId)}/jobs_summary`);
     return summary?.states || {};
   } catch {
     return {};
@@ -386,7 +390,7 @@ async function jobStates(galaxy: Galaxy, invocationId: string): Promise<JobState
 async function getInvocations(args: Row, { galaxy }: Context) {
   if (args.invocation_id) {
     const one = await galaxy.get(
-      `api/invocations/${args.invocation_id}${query({ step_details: args.step_details ?? false })}`,
+      `api/invocations/${segment(args.invocation_id)}${query({ step_details: args.step_details ?? false })}`,
     );
     return described(one, await jobStates(galaxy, args.invocation_id));
   }
@@ -422,7 +426,7 @@ async function recommendBiocontainer(args: Row) {
 const pageBody = (page: Row) => page.content_editor || page.content || "";
 
 async function getPage(args: Row, { galaxy }: Context) {
-  const page = (await galaxy.get(`api/pages/${args.page_id}`)) || {};
+  const page = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
   if (!isRow(page)) {
     return page;
   }
@@ -457,7 +461,7 @@ async function updatePage(args: Row, { galaxy }: Context) {
   const section = args.section_content;
   const expect = args.expect_hash;
   if (heading || section || expect) {
-    const current = (await galaxy.get(`api/pages/${args.page_id}`)) || {};
+    const current = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
     const source = pageBody(current);
     const actual = djb2Hash(source);
     if (expect && expect !== actual) {
@@ -473,7 +477,7 @@ async function updatePage(args: Row, { galaxy }: Context) {
     }
   }
 
-  const written = await galaxy.put(`api/pages/${args.page_id}`, payload);
+  const written = await galaxy.put(`api/pages/${segment(args.page_id)}`, payload);
   if (isRow(written)) {
     written.content_hash = djb2Hash(pageBody(written));
   }

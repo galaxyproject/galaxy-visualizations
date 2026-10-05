@@ -1,3 +1,4 @@
+import { segment } from "./agent/galaxy";
 /** Background watcher for submitted Galaxy work; the analogue of loom's galaxy-poller. */
 import { galaxyObject } from "./tool-result";
 
@@ -183,14 +184,14 @@ export function galaxyStateReader(galaxyRoot: string, credentials: RequestCreden
   const stateOf = (body: any) => (typeof body?.state === "string" ? body.state : undefined);
   return async (w: Watched): Promise<string | undefined> => {
     if (w.kind === "job") {
-      return stateOf(await read(`api/jobs/${w.id}`));
+      return stateOf(await read(`api/jobs/${segment(w.id)}`));
     }
     if (w.kind === "dataset") {
-      return stateOf(await read(`api/datasets/${w.id}`));
+      return stateOf(await read(`api/datasets/${segment(w.id)}`));
     }
-    const state = stateOf(await read(`api/invocations/${w.id}`));
+    const state = stateOf(await read(`api/invocations/${segment(w.id)}`));
     if (state !== "scheduled" && state !== "completed") return state;
-    const summary = await read(`api/invocations/${w.id}/jobs_summary`);
+    const summary = await read(`api/invocations/${segment(w.id)}/jobs_summary`);
     return settleInvocation(state, summary?.states);
   };
 }

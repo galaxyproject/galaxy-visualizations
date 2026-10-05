@@ -1,7 +1,19 @@
+import { retryAfter } from "./retry";
+
 const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 const IDEMPOTENT = new Set(["GET", "HEAD", "PUT", "DELETE"]);
 const ATTEMPTS = 3;
-const MAX_RETRY_AFTER_S = 60;
+
+/** A value placed in a Galaxy path, encoded: an id the model wrote must not add a segment,
+ * a query or a fragment to the request it names. Encoding leaves dots alone, and a URL reads
+ * `..` (or `%2e%2e`) as the parent, so those are refused outright. */
+export function segment(value: unknown): string {
+  const text = String(value);
+  if (/^(\.|%2e){0,2}$/i.test(text)) {
+    throw new Error(`${JSON.stringify(text)} is not a Galaxy id`);
+  }
+  return encodeURIComponent(text);
+}
 
 export class HttpError extends Error {
   constructor(
@@ -31,13 +43,6 @@ export interface Galaxy {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function retryAfter(response: Response): number | undefined {
-  const seconds = Number(response.headers.get("retry-after"));
-  return Number.isFinite(seconds) && seconds >= 0
-    ? Math.min(seconds, MAX_RETRY_AFTER_S)
-    : undefined;
-}
 
 export function galaxyFetch({ key, credentials = "include" }: GalaxyOptions): typeof fetch {
   return (input, init) => {
@@ -71,7 +76,8 @@ export function connectGalaxy(options: GalaxyOptions): Galaxy {
       if (!retryable || attempt === ATTEMPTS - 1) {
         throw new HttpError(`HTTP ${response.status}: ${await response.text()}`, response.status);
       }
-      await sleep((retryAfter(response) ?? 2 ** attempt) * 1000);
+      // An absent header is not a stated zero: back off unless Galaxy named the wait.
+      await sleep((retryAfter(response.headers, "") ?? 2 ** attempt) * 1000);
     }
   }
 

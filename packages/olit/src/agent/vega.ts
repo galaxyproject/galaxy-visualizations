@@ -1,3 +1,4 @@
+import { segment } from "./galaxy";
 import { compile } from "vega-lite";
 
 import { repr } from "./visualization-inputs";
@@ -8,7 +9,7 @@ type Json = Record<string, any>;
 export const SCHEMA = "https://vega.github.io/schema/vega-lite/v5.json";
 export const SIZE_LIMIT = 25_000_000;
 
-const displayUrl = (datasetId: string) => `/api/datasets/${datasetId}/display`;
+const displayUrl = (datasetId: string) => `/api/datasets/${segment(datasetId)}/display`;
 
 /** Galaxy column types Vega reads as numbers. */
 const NUMERIC = ["int", "float"];
