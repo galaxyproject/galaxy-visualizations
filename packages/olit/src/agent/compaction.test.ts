@@ -277,6 +277,23 @@ describe("compact", () => {
     expect(messages).toContain(declared);
   });
 
+  it("summarizes nothing when the prompt alone overflows, and says it cannot help", async () => {
+    const llm = summarizer();
+    const messages = toPi([
+      system("x".repeat(4000 * 4)),
+      user("hi"),
+      assistant("ok"),
+      user("again"),
+    ]);
+    const { messages: out, status } = await compactor(
+      settings({ contextWindow: 4000, reserveTokens: 100 }),
+      llm.summarize,
+    ).compact(messages);
+    expect(status).toBe("impossible");
+    expect(out).toEqual(messages);
+    expect(llm.prompts).toHaveLength(0);
+  });
+
   it("uses the initial prompt the first time", async () => {
     const llm = summarizer();
     await compactor(settings(), llm.summarize).compact(conversation());

@@ -214,6 +214,14 @@ export function compactor(settings: CompactionSettings, summarize: Summarize) {
     ) {
       return { messages: current, status: "not_needed" };
     }
+    // The prompt and the tool declarations are never summarized; when they alone overflow,
+    // summarizing the conversation would only lose it.
+    const fixed = current
+      .filter((m) => m.role === "system")
+      .reduce((sum, m) => sum + estimateMessageTokens(m as never), 0);
+    if (fixed >= settings.contextWindow - settings.reserveTokens) {
+      return { messages: current, status: "impossible" };
+    }
     const leading = current[0]?.role === "system" ? 1 : 0;
     const rest = current.slice(leading);
     const cut = findCutIndex(rest, settings.keepRecentTokens);

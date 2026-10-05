@@ -28,14 +28,14 @@ for _ in $(seq 20); do curl -sf -o /dev/null http://127.0.0.1:8099/__seen && bre
 
 GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=ollama LLM_ROOT=http://127.0.0.1:8099 \
   LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
-  LLM_CONTEXT_WINDOW=40000 LLM_KEEP_RECENT_TOKENS=50 \
+  LLM_CONTEXT_WINDOW=64000 LLM_KEEP_RECENT_TOKENS=50 \
   npm run dev > /tmp/olit-e2e-dev.log 2>&1 & pids+=($!)
 for _ in $(seq 40); do curl -sf -o /dev/null http://localhost:5173/ && break; sleep 1; done
 
 ran=""
 for d in confirm session unsaved-changes approval-gate ratelimit visualization-artifact artifact-survives-switch artifact-restore-newest run-python; do
     ran="$ran $d"
-    if LLM_CONTEXT_WINDOW=40000 node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
+    if LLM_CONTEXT_WINDOW=64000 node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
         echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1

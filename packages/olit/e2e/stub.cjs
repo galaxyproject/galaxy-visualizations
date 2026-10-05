@@ -52,7 +52,7 @@ function sse(res, completion) {
 }
 
 // A realistic `usage` is what lets the compaction scenario trigger.
-const message = (content, tool_calls, promptTokens = 30000) => ({
+const message = (content, tool_calls, promptTokens = 50000) => ({
     choices: [{ finish_reason: tool_calls ? "tool_calls" : "stop", message: { role: "assistant", content, tool_calls } }],
     usage: { prompt_tokens: promptTokens, completion_tokens: 20, total_tokens: promptTokens + 20 },
 });
