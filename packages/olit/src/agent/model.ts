@@ -5,6 +5,7 @@ import type { StreamFn } from "@earendil-works/pi-agent-core";
 
 import type { Target } from "./providers";
 import { retrying, type RetryInfo } from "./retry";
+import { recordingSignatures, replaySignatures } from "./signatures";
 
 /** Requests to a keyless endpoint carry the page's session instead of a bearer token. */
 const keyless =
@@ -57,7 +58,13 @@ export function connect(
     // Zero leaves max_tokens out of the request, so the endpoint's own default applies.
     maxTokens: target.maxTokens ?? 0,
     headers: target.headers,
-    compat: { maxTokensField: "max_tokens", supportsMidConvoSystemMessages: true },
+    compat: {
+      maxTokensField: "max_tokens",
+      supportsMidConvoSystemMessages: true,
+      // pi-ai detects `store` support by provider, and every endpoint here is provider "olit".
+      // Only OpenAI defines the field; Gemini rejects the whole request over it.
+      supportsStore: baseUrl.includes("api.openai.com"),
+    },
   };
   const models = createModels();
   models.setProvider(
@@ -82,8 +89,14 @@ export function connect(
       (options as { fetch?: typeof fetch } | undefined)?.fetch ??
       ((input, init) => fetch(input, init));
     // pi-ai's own retry is off by default and cannot say it is waiting; this one can.
-    const send = retrying(target.apiKey ? base : keyless(base), onRetry);
-    return models.streamSimple(m, context, { ...options, fetch: send });
+    const send = recordingSignatures(retrying(target.apiKey ? base : keyless(base), onRetry));
+    const caller = (options as { onPayload?: (p: unknown, m: unknown) => unknown } | undefined)
+      ?.onPayload;
+    const onPayload = async (payload: unknown, model: unknown) => {
+      const signed = await replaySignatures(payload);
+      return (await caller?.(signed, model)) ?? signed;
+    };
+    return models.streamSimple(m, context, { ...options, fetch: send, onPayload } as never);
   };
   return { model, streamFn };
 }
