@@ -224,9 +224,8 @@ async function main() {
     readState: galaxyStateReader(config.galaxy_root, credentials),
     // loom's agent calls galaxy_invocation_record so the poller owns the entry.
     onSubmitted: (w) => {
-      if (!config.history_id) return;
       void editRecord(
-        { root: config.galaxy_root, credentials, historyId: config.history_id },
+        { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
         (content) => noteSubmitted(content, w),
       );
     },
@@ -256,12 +255,10 @@ async function main() {
         );
       }
       // loom's poller advances the notebook itself.
-      if (config.history_id) {
-        void editRecord(
-          { root: config.galaxy_root, credentials, historyId: config.history_id },
-          (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
-        );
-      }
+      void editRecord(
+        { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
+        (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
+      );
     },
   });
 
@@ -421,7 +418,7 @@ async function main() {
     reportSavedState(false);
     // loom writes a session block into the notebook itself. The id is the persisted
     // session's, so a reload updates its block instead of appending another.
-    void writeSessionSummary(config.galaxy_root, credentials, config.history_id, {
+    void writeSessionSummary(config.galaxy_root, credentials, sessionDoc.session.recordPageId, {
       id: sessionDoc.session.id,
       startedAt: sessionDoc.session.createdAt,
       endedAt: new Date().toISOString(),
@@ -522,6 +519,9 @@ async function main() {
     // saved stays saved, which is the point of a session having an identity of its own
     // rather than being whatever happens to be attached to the history.
     sessionDoc = newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
+    // A new conversation is a new session with no record yet; the old record stays the old one's.
+    config.session_id = sessionDoc.session.id;
+    config.record_page_id = undefined;
     savedId = undefined;
     reportSavedState(true);
     await session.save(sessionDoc);

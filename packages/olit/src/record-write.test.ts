@@ -5,19 +5,19 @@ import { writeSessionSummary } from "./session-summary";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const TARGET = { root: "/", credentials: "include" as RequestCredentials, historyId: "h1" };
-const RECORD = { id: "p1", slug: "olit-h1" };
+const TARGET = { root: "/", credentials: "include" as RequestCredentials, pageId: "p1" };
 
-/** A Galaxy whose page holds `source`, recording every write it receives. */
+/** A Galaxy holding the session's record page p1 and nothing else, recording every write. */
 function galaxy(page: Record<string, unknown>, putOk = true) {
   const writes: string[] = [];
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    if (!url.endsWith("api/pages/p1")) {
+      // The record is named by the session, never looked up.
+      return { ok: false, json: async () => ({}) };
+    }
     if (init?.method === "PUT") {
       writes.push(JSON.parse(String(init.body)).content);
       return { ok: putOk, json: async () => ({}) };
-    }
-    if (url.includes("api/pages?")) {
-      return { ok: true, json: async () => [RECORD] };
     }
     return { ok: true, json: async () => page };
   });
@@ -75,9 +75,6 @@ describe("concurrent record writers", () => {
         stored = written;
         return { ok: true, json: async () => ({}) };
       }
-      if (url.includes("api/pages?")) {
-        return { ok: true, json: async () => [RECORD] };
-      }
       await roundTrip();
       return { ok: true, json: async () => ({ content_editor: stored }) };
     });
@@ -97,7 +94,7 @@ describe("writeSessionSummary", () => {
       content_editor: "${galaxy history_dataset_name(history_dataset_id=d1)}",
       content: "tracks.bed",
     });
-    await writeSessionSummary("/", "include", "h1", {
+    await writeSessionSummary("/", "include", "p1", {
       id: "s1",
       startedAt: "2026-01-01T00:00:00Z",
       endedAt: "2026-01-01T00:01:00Z",
@@ -108,7 +105,7 @@ describe("writeSessionSummary", () => {
     expect(writes[0]).toContain("record: p1");
   });
 
-  it("does nothing without a history to key on", async () => {
+  it("does nothing before the session has a record page", async () => {
     const writes = galaxy({ content_editor: "" });
     expect(
       await writeSessionSummary("/", "include", undefined, {
