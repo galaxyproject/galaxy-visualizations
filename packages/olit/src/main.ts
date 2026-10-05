@@ -96,7 +96,6 @@ async function main() {
     origin: window.location.origin,
     isIframe: window.top !== window.self,
     galaxy_root: config.galaxy_root,
-    openapi_url: `${config.galaxy_root}openapi.json`,
   });
 
   // Regenerated from the plugin XML every load, so a prompt correction reaches a resumed

@@ -89,7 +89,7 @@ const delegatedOps = [
     { id: "call_5", type: "function", function: { name: "create_history", arguments: JSON.stringify({ history_name: "olit e2e ops" }) } },
 ];
 
-// A process: it reaches Galaxy through the openapi catalog, which this stub does not serve.
+// A process that fails here: the stub answers history contents with a history, not a list.
 const runAProcess = [{
     id: "call_1",
     type: "function",
@@ -254,8 +254,7 @@ const server = http.createServer(async (req, res) => {
             return answer(message("too late"));
         }
         if (script === "plan" || script === "plan-after-process") {
-            // A process is the only thing that loads the tool catalog, so a drive that needs
-            // the catalog asked for takes it before asking for a plan.
+            // A drive that needs a process to have failed takes it before asking for a plan.
             const msgs = body.messages || [];
             const asked = msgs.some((m) => m.role === "tool");
             if (script === "plan-after-process" && !asked) {
