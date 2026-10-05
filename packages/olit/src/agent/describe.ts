@@ -8,7 +8,6 @@ import { MAX_RESULT_BYTES } from "./guards";
 import { connect, keyVariable } from "./model";
 import { STARTER } from "./notebook";
 import { opsTools } from "./ops";
-import { ROW_BYTES_CAP, ROW_CAP } from "./paging";
 import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
 import { MAX_STEPS, olitTools } from "./session";
 import { GUARDS } from "./tool";
@@ -145,8 +144,6 @@ function loop() {
     max_steps: MAX_STEPS,
     max_tool_result_bytes: MAX_RESULT_BYTES,
     reserve_tokens: RESERVE_TOKENS,
-    row_bytes_cap: ROW_BYTES_CAP,
-    row_cap: ROW_CAP,
     tool_execution: "sequential",
     tool_result_max_chars: TOOL_RESULT_MAX_CHARS,
   };

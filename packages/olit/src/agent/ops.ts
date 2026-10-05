@@ -11,14 +11,6 @@ import SNAPSHOT from "./galaxy-mcp-docs.json";
 import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
 import { watchedFrom } from "./watch";
 
-/**
- * Operations Olit runs itself rather than through galaxy-ops, and what galaxy-ops lacks for each.
- * An entry goes when a galaxy-ops release covers it; nothing here is meant to stay.
- */
-export const OLIT_OWNED: Record<string, string> = {
-  get_history_contents: "server-side paging, dataset_id left out, a byte budget",
-};
-
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
 /** What Olit adds to a Galaxy result before the model reads it. */
@@ -47,9 +39,7 @@ export interface OpPolicy {
 
 /** galaxy-ops operations under galaxy-mcp's names: snake_case at the top level, its docstrings. */
 export function opsTools(annotate?: Annotate, policies: Record<string, OpPolicy> = {}): OlitTool[] {
-  return allOperations
-    .filter((op) => !(op.name in OLIT_OWNED))
-    .map((op) => opsTool(op, annotate, policies[op.name] ?? {}));
+  return allOperations.map((op) => opsTool(op, annotate, policies[op.name] ?? {}));
 }
 
 /** The model's snake_case arguments under the names galaxy-ops' input takes. */

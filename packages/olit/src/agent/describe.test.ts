@@ -51,7 +51,8 @@ describe("the description Olit publishes about itself", () => {
   it("says which tools galaxy-ops runs and which Olit kept", () => {
     const tools = doc.tools as Record<string, { runner: string }>;
     expect(tools.get_histories.runner).toBe("galaxy-ops");
-    expect(tools.get_history_contents.runner).toBe("olit");
+    expect(tools.get_history_contents.runner).toBe("galaxy-ops");
+    expect(tools.download_dataset.runner).toBe("olit");
   });
 
   it("names prompt blocks the prompt module defines", () => {

@@ -1,12 +1,10 @@
 import { quote } from "./quote";
-import { malformedObjectIds, validatePagination } from "@galaxyproject/galaxy-ops/browser";
+import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
-import { query, segment, type Galaxy } from "./galaxy";
+import { segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
-import { pageBody } from "./page-edit";
-import { serverPage } from "./paging";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
@@ -74,62 +72,6 @@ const isRow = (value: unknown): value is Row =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
 const STR = { type: "string" };
-const INT = { type: "integer" };
-const BOOL = { type: "boolean" };
-const LIMIT = {
-  type: "integer",
-  description: "Rows per page; the reply names next_offset when more remain.",
-};
-const OFFSET = {
-  type: "integer",
-  description: "Rows to skip, from a previous reply's next_offset.",
-};
-
-/** A dataset row with only the id a dataset-taking tool accepts. */
-function oneIdentifier(item: unknown): unknown {
-  if (!isRow(item)) {
-    return item;
-  }
-  const { dataset_id: _, ...rest } = item;
-  return rest;
-}
-
-async function getHistoryContents(args: Row, { galaxy }: Context) {
-  const limit = Math.trunc(args.limit ?? 100);
-  const offset = Math.trunc(args.offset ?? 0);
-  // galaxy-ops' own window check, so a bad page fails here as it would there.
-  validatePagination(limit, offset);
-  const wanted: [string, string][] = [];
-  if (!args.deleted) {
-    wanted.push(["deleted", "False"]);
-  }
-  if (args.visible ?? true) {
-    wanted.push(["visible", "True"]);
-  }
-  const params = {
-    limit: limit + 1,
-    offset,
-    order: args.order ?? "hid-asc",
-    v: "dev",
-    q: wanted.map(([field]) => field),
-    qv: wanted.map(([, value]) => value),
-  };
-  const items = await galaxy.get(
-    `api/histories/${segment(args.history_id)}/contents${query(params)}`,
-  );
-  if (!Array.isArray(items)) {
-    return items;
-  }
-  // The data both galaxy-ops and galaxy-mcp answer with, the window beside it.
-  const page = serverPage(items.map(oneIdentifier), offset, limit);
-  const payload = rendered({
-    data: { history_id: args.history_id, contents: page.data },
-    pagination: page.pagination,
-  });
-  const hint = fetchFailureHint(page.data);
-  return new Outcome(hint ? `${payload}\n\n${hint}` : payload);
-}
-
 /** Sources a history owns, and where each one answers its history_id. */
 const HISTORY_SCOPED_SRCS: Record<string, string> = {
   hda: "api/datasets",
@@ -331,13 +273,6 @@ function tool(
 
 export function galaxyTools(): OlitTool[] {
   return [
-    tool(
-      "get_history_contents",
-      "read",
-      { history_id: STR, limit: LIMIT, offset: OFFSET, deleted: BOOL, visible: BOOL, order: STR },
-      ["history_id"],
-      getHistoryContents,
-    ),
     tool("download_dataset", "read", { dataset_id: STR }, ["dataset_id"], downloadDataset),
     tool(
       "upload_file",
