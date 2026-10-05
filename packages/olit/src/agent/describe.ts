@@ -78,7 +78,12 @@ function identityPrompt(root: string) {
 }
 
 function typeOf(spec: Record<string, any>): string {
-  const kind = Array.isArray(spec.type) ? spec.type.join("|") : spec.type || "any";
+  // zod writes a nullable field with constraints on it as anyOf rather than a type list.
+  const kind = Array.isArray(spec.anyOf)
+    ? spec.anyOf.map((branch: Record<string, any>) => typeOf(branch)).join("|")
+    : Array.isArray(spec.type)
+      ? spec.type.join("|")
+      : spec.type || "any";
   const enumerated = spec.enum ? `(${spec.enum.join("|")})` : "";
   const fallback = "default" in spec ? `=${spec.default}` : "";
   return kind + enumerated + fallback;
