@@ -15,26 +15,6 @@ const staticCopyPlugin = viteStaticCopy({
       dest: "pyodide",
       overwrite: true,
     },
-    {
-      src: "src/pyodide/pyodide-worker.js",
-      dest: "pyodide",
-      overwrite: true,
-    },
-    {
-      src: "src/pyodide/llm-fetch.js",
-      dest: "pyodide",
-      overwrite: true,
-    },
-    {
-      src: "brain/dist/olit-*.whl",
-      dest: "pyodide",
-      overwrite: true,
-    },
-    {
-      src: "temp/pyodide/galaxy-*.js",
-      dest: "pyodide",
-      overwrite: true,
-    },
   ],
 });
 

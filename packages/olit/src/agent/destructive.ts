@@ -9,7 +9,12 @@ export type Ask = (title: string, message: string) => Promise<boolean>;
 
 /** The structured half of loom's classifier. */
 export function classify(name: string, args: Record<string, unknown>): Destructive | undefined {
-  if (name.toLowerCase().replace(/^galaxy_/, "") !== "update_history") {
+  if (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/^galaxy_/, "") !== "update_history"
+  ) {
     return undefined;
   }
   if (args.purged !== true && args.deleted !== true) {
@@ -50,7 +55,7 @@ export function destructiveGate(ask?: Ask) {
           "Tell the user what you wanted to do and let them do it in the Galaxy interface.",
       };
     }
-    if (!(await ask("Confirm destructive operation", headline))) {
+    if (!(await ask("Confirm destructive operation", headline).catch(() => false))) {
       return { block: true, reason: `Refused: ${headline} The user declined.` };
     }
     return undefined;

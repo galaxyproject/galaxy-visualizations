@@ -27,7 +27,7 @@ NODE_MODULES = ROOT / "node_modules"
 
 # The skills corpus is gitignored and fetched by scripts/install_skills.js, which stamps each
 # file's git blob id. Recomputing them catches an edit made after vendoring.
-SKILLS = ROOT / "brain" / "olit" / "registry" / "skills" / "galaxy-skills"
+SKILLS = ROOT / "src" / "agent" / "skills" / "galaxy-skills"
 SKILLS_STAMP = SKILLS / "VENDORED.json"
 
 TRACKED = [

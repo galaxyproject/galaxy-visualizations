@@ -7,7 +7,7 @@ import {
   restoreMessages,
   storableMessages,
 } from "./session-document";
-import type { Message } from "./pyodide-runner";
+import type { Message } from "./agent/messages";
 
 const SEED: Message = { role: "system", content: "You are Olit. Version one." };
 const turn = (d: ReturnType<typeof newDocument>, text: string) =>

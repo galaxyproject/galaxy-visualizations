@@ -1,6 +1,6 @@
 /** Provider/model/key selection, held on the client and never sent to Galaxy. */
 
-import PROVIDERS from "./providers.generated.json";
+import { PROVIDERS } from "./agent/providers";
 
 export interface ProviderInfo {
   id: string;
@@ -25,7 +25,17 @@ export interface Credentials {
 // never written to the plugin specs, which Galaxy persists server-side.
 const STORE_KEY = "olit.credentials";
 
-export const providers: ProviderInfo[] = PROVIDERS as ProviderInfo[];
+export const providers: ProviderInfo[] = PROVIDERS.map((p) => ({
+  id: p.id,
+  name: p.name,
+  needs_key: !!p.authEnv,
+  base_url: p.baseUrl ?? null,
+  models: (p.models ?? []).map((m) => ({ id: m.id, context_window: m.contextWindow ?? null })),
+  free_model: !!p.freeModel,
+  // Galaxy's proxy picks its own model.
+  takes_model: p.id !== "galaxy",
+  headers: p.headers ?? {},
+}));
 
 export function providerById(id: string): ProviderInfo | undefined {
   return providers.find((p) => p.id === id);

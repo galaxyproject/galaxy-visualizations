@@ -1,114 +1,94 @@
-import { Agent, type AgentEvent } from "@earendil-works/pi-agent-core";
-import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
-
-import { destructiveGate } from "./destructive";
-import { connect, type Endpoint } from "./model";
+import type { Message } from "./messages";
 import { localPython } from "./python";
-import { galaxyTools, runPythonTool } from "./tools";
+import {
+  failedTurn,
+  Session,
+  type LoopEvent,
+  type SessionConfig,
+  type TurnResult,
+} from "./session";
+import type { Artifact, Watched } from "./tool";
 
-export interface StartRequest {
-  endpoint: Endpoint;
-  galaxy: { root: string; credentials?: RequestCredentials };
-  pyodideURL: string;
-  systemPrompt: string;
-  /** Whether a user is present to approve a destructive operation. */
-  interactive: boolean;
+export interface RunRequest {
+  config: SessionConfig;
+  transcripts: Message[];
+  artifacts: Artifact[];
+  watching: Watched[];
 }
 
-export type WorkerEvent =
-  | { type: "text"; delta: string }
-  | { type: "tool_start"; id: string; name: string }
-  | { type: "tool_end"; id: string; name: string; content: string; isError: boolean }
+export type WorkerMessage =
+  | { type: "event"; event: LoopEvent }
   | { type: "confirm"; id: number; title: string; message: string }
-  | { type: "settled"; error?: string };
+  | { type: "result"; result: TurnResult };
 
-let agent: Agent | undefined;
+const CONTEXT_FIELDS = new Set(["history_id", "dataset_id", "session_id", "record_page_id"]);
+
+let python: ReturnType<typeof localPython> | undefined;
+let session: { identity: string; session: Promise<Session> } | undefined;
+let controller: AbortController | undefined;
 const confirms = new Map<number, (approved: boolean) => void>();
 let confirmId = 0;
 
+const post = (message: WorkerMessage) => self.postMessage(message);
+
 function ask(title: string, message: string): Promise<boolean> {
   return new Promise((resolve) => {
+    if (controller?.signal.aborted) {
+      resolve(false);
+      return;
+    }
     const id = confirmId++;
     confirms.set(id, resolve);
     post({ type: "confirm", id, title, message });
   });
 }
 
-function answer(id: number, approved: boolean) {
-  confirms.get(id)?.(approved);
-  confirms.delete(id);
+function settleConfirms() {
+  confirms.forEach((resolve) => resolve(false));
+  confirms.clear();
 }
 
-/** Galaxy as the signed-in user: the session cookie, never an API key. */
-const galaxyFetch =
-  (credentials: RequestCredentials = "include"): typeof fetch =>
-  (input, init) => {
-    const request = new Request(input, init);
-    const headers = new Headers(request.headers);
-    headers.delete("x-api-key");
-    return fetch(new Request(request, { headers, credentials }));
-  };
-
-const post = (event: WorkerEvent) => self.postMessage(event);
-
-function forward(event: AgentEvent) {
-  if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-    post({ type: "text", delta: event.assistantMessageEvent.delta });
-  } else if (event.type === "tool_execution_start") {
-    post({ type: "tool_start", id: event.toolCallId, name: event.toolName });
-  } else if (event.type === "tool_execution_end") {
-    const content = event.result.content.map((c: { text?: string }) => c.text ?? "").join("\n");
-    post({
-      type: "tool_end",
-      id: event.toolCallId,
-      name: event.toolName,
-      content,
-      isError: event.isError,
-    });
+function sessionFor(config: SessionConfig): Promise<Session> {
+  const identity = JSON.stringify(
+    Object.entries(config).filter(([key]) => !CONTEXT_FIELDS.has(key)),
+  );
+  if (session?.identity !== identity) {
+    session = { identity, session: Session.create(config, python!) };
   }
+  return session.session;
 }
 
-function start({ endpoint, galaxy, pyodideURL, systemPrompt, interactive }: StartRequest) {
-  const { model, streamFn } = connect(endpoint);
-  const ctx = createGalaxyContext({
-    baseUrl: galaxy.root,
-    apiKey: "",
-    fetchImpl: galaxyFetch(galaxy.credentials),
-  });
-  agent = new Agent({
-    initialState: {
-      systemPrompt,
-      model,
-      tools: [...galaxyTools(ctx), runPythonTool(localPython(pyodideURL))],
-    },
-    streamFn,
-    beforeToolCall: destructiveGate(interactive ? ask : undefined),
-  });
-  agent.subscribe(forward);
-}
-
-async function prompt(text: string) {
+async function run({ config, transcripts, artifacts, watching }: RunRequest): Promise<TurnResult> {
+  controller = new AbortController();
   try {
-    await agent!.prompt(text);
-    const last = agent!.state.messages.at(-1);
-    const error =
-      last?.role === "assistant" && last.stopReason === "error" ? last.errorMessage : undefined;
-    post({ type: "settled", error });
+    const current = await sessionFor(config);
+    current.rebind(config);
+    const prepared = await current.prepare(transcripts, config.record_page_id, config.history_id);
+    return await current.turn(prepared, {
+      onEvent: (event) => post({ type: "event", event }),
+      artifacts,
+      watching,
+      ask,
+      signal: controller.signal,
+    });
   } catch (err) {
-    post({ type: "settled", error: String(err) });
+    return failedTurn(transcripts, err);
+  } finally {
+    controller = undefined;
+    settleConfirms();
   }
 }
 
-self.onmessage = ({ data }) => {
-  if (data.type === "start") {
-    start(data.request);
-  } else if (data.type === "prompt") {
-    void prompt(data.text);
+self.onmessage = async ({ data }) => {
+  if (data.type === "initialize") {
+    python = localPython(data.pyodideURL);
+  } else if (data.type === "run") {
+    post({ type: "result", result: await run(data.request) });
   } else if (data.type === "confirmed") {
-    answer(data.id, data.approved === true);
+    confirms.get(data.id)?.(data.approved === true);
+    confirms.delete(data.id);
   } else if (data.type === "abort") {
-    agent?.abort();
-    confirms.forEach((resolve) => resolve(false));
-    confirms.clear();
+    controller?.abort();
+    settleConfirms();
   }
 };

@@ -16,7 +16,7 @@ import sys
 import textwrap
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
-OUT = HERE / "brain" / "tests" / "data" / "galaxy-mcp-docs.json"
+OUT = HERE / "src" / "agent" / "galaxy-mcp-docs.json"
 
 
 def registered(tree):

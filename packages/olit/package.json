@@ -1,39 +1,30 @@
 {
   "name": "@galaxyproject/olit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "license": "MIT",
   "files": [
     "static"
   ],
   "scripts": {
-    "build": "npm run build:pyodide && npm run build:skills && npm run build:providers && npm run build:ops && npm run build:olit && vite build",
-    "build:olit": "cd brain && rm -rf build dist olit.egg-info && SOURCE_DATE_EPOCH=315532800 python -m build --wheel && cd .. && node scripts/stamp_wheel.js && mkdir -p static/pyodide && rm -f static/pyodide/olit-*.whl && cp brain/dist/olit-*.whl static/pyodide/",
-    "build:ops": "node scripts/install_ops.js",
-    "build:providers": "python3 scripts/dump_providers.py",
+    "build": "npm run build:pyodide && npm run build:skills && vite build",
     "build:pyodide": "node scripts/install_pyodide.js",
     "build:skills": "node scripts/install_skills.js",
-    "describe": "python3 contract/describe.py --root .",
     "dev": "npm run build && vite",
     "galaxy-mcp-docs": "python3 scripts/capture_galaxy_mcp_docs.py",
     "lint:js": "prettier --config ./prettier.config.js --check './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
-    "lint:contract": "python3 -m black --check --config brain/pyproject.toml contract && ruff check --config brain/pyproject.toml contract",
-    "lint:scripts": "python3 -m black --check --config brain/pyproject.toml scripts && ruff check --config brain/pyproject.toml scripts",
-    "lint:python": "cd brain && python -m black --check . && ruff check .",
+    "lint:scripts": "python3 -m black --check --line-length 120 scripts && ruff check --line-length 120 scripts",
     "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,json,css}'",
     "preview": "vite preview",
     "stale": "node scripts/check_stale.js",
-    "test": "npm run test:unit && npm run test:python && npm run test:contract && npm run lint:python && npm run lint:contract && npm run lint:scripts && npm run lint:js && npm run typecheck && npm run typecheck:python && npm run vendored && npm run test:e2e",
+    "test": "npm run test:unit && npm run lint:scripts && npm run lint:js && npm run typecheck && npm run vendored && npm run test:e2e",
     "test:e2e": "bash e2e/run-all.sh",
-    "test:contract": "python3 -m pytest contract/tests -v -r s --import-mode=importlib",
-    "test:python": "cd brain && python -m pytest tests/ -v -r s --import-mode=importlib",
     "test:ui": "vitest --ui",
     "test:unit": "vitest run",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
     "vendored": "python3 scripts/check_vendored.py",
-    "galaxy-ops-registry": "node scripts/capture_galaxy_ops_registry.mjs",
-    "typecheck:python": "cd brain && python -m mypy olit ../contract ../scripts"
+    "build:session": "vite build --config vite.config.session.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^1.0.2",
@@ -41,9 +32,11 @@
     "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.3.0-fork.1/galaxyproject-galaxy-ops-0.3.0-fork.1.tgz",
     "galaxy-charts": "^0.1.16",
     "mermaid": "^11.16.1",
+    "typebox": "^1.3.27",
     "vega": "^5.30.0",
     "vega-embed": "^6.26.0",
     "vega-lite": "^5.21.0",
+    "yaml": "^2.9.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

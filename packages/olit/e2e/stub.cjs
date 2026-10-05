@@ -40,6 +40,17 @@ function json(res, code, body) {
     res.end(text);
 }
 
+// A completion as the server-sent events a streaming request reads.
+function sse(res, completion) {
+    const { message: m, finish_reason } = completion.choices[0];
+    const chunks = [];
+    if (m.content) chunks.push({ choices: [{ index: 0, delta: { content: m.content } }] });
+    (m.tool_calls || []).forEach((call, index) => chunks.push({ choices: [{ index: 0, delta: { tool_calls: [{ index, ...call }] } }] }));
+    chunks.push({ choices: [{ index: 0, delta: {}, finish_reason }], usage: completion.usage });
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Access-Control-Allow-Origin": "*" });
+    res.end(chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n");
+}
+
 // A realistic `usage` is what lets the compaction scenario trigger.
 const message = (content, tool_calls, promptTokens = 30000) => ({
     choices: [{ finish_reason: tool_calls ? "tool_calls" : "stop", message: { role: "assistant", content, tool_calls } }],
@@ -216,10 +227,11 @@ const server = http.createServer(async (req, res) => {
             toolResults: (body.messages || []).filter((m) => m.role === "tool").map((m) => String(m.content)),
             text: JSON.stringify(body.messages || []).slice(0, 4000),
         });
+        const answer = (completion) => (body.stream ? sse(res, completion) : json(res, 200, completion));
         // A summarization request is the one with no tools, whatever the scenario.
         const isSummarization = !prompts[prompts.length - 1].hasTools;
         if (isSummarization) {
-            return json(res, 200, message("## Goal\nthe summarized goal"));
+            return answer(message("## Goal\nthe summarized goal"));
         }
         if (script === "ratelimit") {
             // First call 429s with a stated delay, as Gemini does; then succeed.
@@ -234,12 +246,12 @@ const server = http.createServer(async (req, res) => {
                     },
                 }]));
             }
-            return json(res, 200, message("recovered after the wait"));
+            return answer(message("recovered after the wait"));
         }
         if (script === "slow") {
             // Long enough that Stop lands while the request is in flight.
             await new Promise((r) => setTimeout(r, 60000));
-            return json(res, 200, message("too late"));
+            return answer(message("too late"));
         }
         if (script === "plan" || script === "plan-after-process") {
             // A process is the only thing that loads the tool catalog, so a drive that needs
@@ -247,10 +259,10 @@ const server = http.createServer(async (req, res) => {
             const msgs = body.messages || [];
             const asked = msgs.some((m) => m.role === "tool");
             if (script === "plan-after-process" && !asked) {
-                return json(res, 200, message("", runAProcess));
+                return answer(message("", runAProcess));
             }
             // A plan card, so the driver has an Approve button to click.
-            return json(res, 200, message(
+            return answer(message(
                 "```plan\n## Plan A: Stub Plan [galaxy]\n\n" +
                 "Draft used only to render an approvable card.\n\n### Steps\n\n" +
                 "- [ ] 1. **Concatenate the inputs** -- join the two datasets\n" +
@@ -259,19 +271,19 @@ const server = http.createServer(async (req, res) => {
             ));
         }
         if (script === "compact") {
-            return json(res, 200, message("ok"));
+            return answer(message("ok"));
         }
         if (script === "ops-bridge") {
             const msgs = body.messages || [];
             const tail = msgs[msgs.length - 1] || {};
-            return json(res, 200, tail.role === "tool"
+            return answer(tail.role === "tool"
                 ? message("operations answered")
                 : message("", delegatedOps));
         }
         if (script === "python") {
             const msgs = body.messages || [];
             const tail = msgs[msgs.length - 1] || {};
-            return json(res, 200, tail.role === "tool"
+            return answer(tail.role === "tool"
                 ? message(`python returned ${tail.content}`)
                 : message("", runPython));
         }
@@ -280,16 +292,16 @@ const server = http.createServer(async (req, res) => {
         const last = messages[messages.length - 1] || {};
         if (script === "two-artifacts") {
             const turns = messages.filter((m) => m.role === "user").length;
-            return json(res, 200, last.role === "tool"
+            return answer(last.role === "tool"
                 ? message(`Chart ${turns} is open.`)
                 : message("", showTitled(turns < 2 ? "First Chart" : "Second Chart")));
         }
         if (script === "visualization") {
-            return json(res, 200, last.role === "tool"
+            return answer(last.role === "tool"
                 ? message("The structure is open in the viewer.")
                 : message("", createVisualization));
         }
-        return json(res, 200, last.role === "tool" ? message("Done.") : message("", deleteHistory));
+        return answer(last.role === "tool" ? message("Done.") : message("", deleteHistory));
     }
 
     // Everything else is Galaxy; record it so tests can assert on the PUT.

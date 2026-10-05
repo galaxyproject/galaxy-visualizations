@@ -1,6 +1,6 @@
 /** Turning the brain's messages and errors into what the chat panel shows. */
 import { ChatPanel } from "./orbit/chat/chat-panel";
-import type { Message } from "./pyodide-runner";
+import type { Message } from "./agent/messages";
 
 /** Render the turn's messages; returns whether any assistant prose was shown. */
 export function renderMessages(
@@ -8,6 +8,7 @@ export function renderMessages(
   messages: Message[],
   streamed: Set<string> = new Set(),
   failed: Set<string> = new Set(),
+  textStreamed = false,
 ): boolean {
   let spoke = false;
   for (const m of messages) {
@@ -20,7 +21,9 @@ export function renderMessages(
     if (m.role === "assistant") {
       if (m.content) {
         spoke = true;
-        say(chat, m.content);
+        if (!textStreamed) {
+          say(chat, m.content);
+        }
       }
       for (const tc of m.tool_calls || []) {
         if (!streamed.has(tc.id)) {
