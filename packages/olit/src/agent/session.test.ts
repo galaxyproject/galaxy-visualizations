@@ -167,6 +167,17 @@ describe("a turn", () => {
     expect(result.guards).toContainEqual({ guard: "capability", tool: "create_history" });
   });
 
+  it("refuses a destructive galaxy-ops operation nobody can approve", async () => {
+    const { result } = await turn([
+      { calls: [{ name: "cancel_workflow_invocation", args: { invocation_id: "i1" } }] },
+      { text: "ok" },
+    ]);
+    expect(result.guards).toContainEqual({
+      guard: "destructive-declined",
+      tool: "cancel_workflow_invocation",
+    });
+  });
+
   it("does not advertise a withheld tool", async () => {
     const { requests } = await turn([{ text: "ok" }], { capabilities: ["llm", "read"] });
     const names = requests[0].tools.map((t: { function: { name: string } }) => t.function.name);

@@ -1,52 +1,40 @@
 import type { BeforeToolCallContext, BeforeToolCallResult } from "@earendil-works/pi-agent-core";
 
-interface Destructive {
-  irreversible: boolean;
-  historyId?: string;
-}
-
 export type Ask = (title: string, message: string) => Promise<boolean>;
 
-/** The structured half of loom's classifier. */
-export function classify(name: string, args: Record<string, unknown>): Destructive | undefined {
-  if (
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/^galaxy_/, "") !== "update_history"
-  ) {
-    return undefined;
+/**
+ * What a call would destroy, in words for the person approving it, or undefined when it
+ * destroys nothing. galaxy-ops flags its delete and cancel operations; deleting a whole
+ * history is an ordinary update galaxy-ops cannot flag, so it is recognised here as loom does.
+ */
+export function classify(
+  name: string,
+  args: Record<string, unknown>,
+  flagged: ReadonlySet<string> = new Set(),
+): string | undefined {
+  if (name === "update_history" && args.deleted === true) {
+    const suffix = typeof args.history_id === "string" ? ` (${args.history_id})` : "";
+    return (
+      `Mark the entire history${suffix} as deleted — not just specific datasets. ` +
+      "Recoverable via Undelete on most Galaxy servers, but it affects the whole history."
+    );
   }
-  if (args.purged !== true && args.deleted !== true) {
-    return undefined;
+  if (flagged.has(name)) {
+    return `Run ${name} with ${JSON.stringify(args)}, which deletes or cancels and cannot be undone.`;
   }
-  const historyId = typeof args.history_id === "string" ? args.history_id : undefined;
-  return { irreversible: args.purged === true, historyId };
-}
-
-export function describe({ irreversible, historyId }: Destructive): string {
-  if (irreversible) {
-    const target = historyId ? `history ${historyId}` : "the entire history";
-    return `Permanently PURGE ${target} — this deletes all of its datasets and cannot be undone.`;
-  }
-  const suffix = historyId ? ` (${historyId})` : "";
-  return (
-    `Mark the entire history${suffix} as deleted — not just specific datasets. ` +
-    "Recoverable via Undelete on most Galaxy servers, but it affects the whole history."
-  );
+  return undefined;
 }
 
 /** Asks when someone can answer, refuses when nobody can; never cached. */
-export function destructiveGate(ask?: Ask) {
+export function destructiveGate(ask?: Ask, flagged: ReadonlySet<string> = new Set()) {
   return async ({
     toolCall,
     args,
   }: BeforeToolCallContext): Promise<BeforeToolCallResult | undefined> => {
-    const op = classify(toolCall.name, (args ?? {}) as Record<string, unknown>);
-    if (!op) {
+    const headline = classify(toolCall.name, (args ?? {}) as Record<string, unknown>, flagged);
+    if (!headline) {
       return undefined;
     }
-    const headline = describe(op);
     if (!ask) {
       return {
         block: true,

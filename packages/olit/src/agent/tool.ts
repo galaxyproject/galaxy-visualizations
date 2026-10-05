@@ -77,6 +77,8 @@ export interface OlitTool {
   description: string;
   parameters: Record<string, unknown>;
   capability?: Capability;
+  /** Deletes or cancels something that cannot be brought back: the user is asked first. */
+  destructive?: boolean;
   /** Every capability the tool needs, when it is more than `capability` alone. */
   requires?: Capability[];
   /** Run in call order with the rest of its batch. */

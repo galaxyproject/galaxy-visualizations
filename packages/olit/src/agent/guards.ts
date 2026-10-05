@@ -98,6 +98,8 @@ export interface GuardOptions {
   /** Tools that exist but this session does not grant, with the capability each needs. */
   withheld: Map<string, string>;
   advertised: string[];
+  /** Tools galaxy-ops marks destructive, which always ask first. */
+  destructive?: ReadonlySet<string>;
   ask?: Ask;
   now?: () => number;
 }
@@ -110,7 +112,7 @@ export function guards(options: GuardOptions) {
   const readAt = new Map<string, number>();
   const states = new Map(options.watching.map((w) => [w.id, w.state]));
   const sra = new SraImportGate();
-  const destructive = destructiveGate(options.ask);
+  const destructive = destructiveGate(options.ask, options.destructive);
   const refused = new Map<string, Guard>();
   let observed: unknown;
 

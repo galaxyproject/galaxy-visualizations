@@ -393,6 +393,7 @@ export class Session {
       secrets,
       withheld: new Map(this.tools.filter((t) => !allowed(t)).map((t) => [t.name, missing(t)!])),
       advertised: tools.map((t) => t.name),
+      destructive: new Set(this.tools.filter((t) => t.destructive).map((t) => t.name)),
       ask: options.ask,
     });
     const logs: string[] = [];
