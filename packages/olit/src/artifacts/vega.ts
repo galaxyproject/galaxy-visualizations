@@ -4,7 +4,7 @@ import embed from "vega-embed";
 /** The one thing a chart may load: a dataset's display route, on this origin. */
 export function loadable(uri: string): boolean {
   try {
-    const url = new URL(uri, window.location.href);
+    const url = new URL(uri, document.baseURI);
     return (
       url.origin === window.location.origin &&
       /^\/api\/datasets\/[^/]+\/display$/.test(url.pathname)

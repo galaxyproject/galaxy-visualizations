@@ -6,7 +6,7 @@ export function displayable(url: unknown): url is string {
   try {
     // A restored session is a document anyone could have written, so `javascript:` or another
     // host must not reach the iframe.
-    const resolved = new URL(url, window.location.href);
+    const resolved = new URL(url, document.baseURI);
     return (
       resolved.origin === window.location.origin &&
       resolved.pathname.endsWith("/visualizations/display")
@@ -24,7 +24,7 @@ export function renderVisualization(body: HTMLElement, url: unknown): void {
   }
 
   const frame = document.createElement("iframe");
-  frame.src = url;
+  frame.src = new URL(url, document.baseURI).href;
   frame.title = "Galaxy visualization";
   frame.style.cssText = "width:100%;height:100%;min-height:320px;border:0;";
   frame.setAttribute("loading", "lazy");

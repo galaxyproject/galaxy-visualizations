@@ -39,7 +39,7 @@ const MAX_INPUT_HEIGHT = 150;
 const isDev = () => (import.meta as any).env.DEV;
 
 /** A url the worker can use: resolved against the page. */
-const absolute = (url: string) => new URL(url, window.location.href).href;
+const absolute = (url: string) => new URL(url, document.baseURI).href;
 
 /** Dev-only: synthesize data-incoming from the plugin XML (no framework host). */
 async function seedDevIncoming(container: HTMLElement): Promise<void> {

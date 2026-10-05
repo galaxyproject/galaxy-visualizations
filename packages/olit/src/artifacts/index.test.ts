@@ -60,7 +60,9 @@ describe("renderArtifact", () => {
 
     expect(renderVega).not.toHaveBeenCalled();
     expect(renderMermaid).not.toHaveBeenCalled();
-    expect(content.querySelector("iframe")?.getAttribute("src")).toBe(url);
+    expect(content.querySelector("iframe")?.getAttribute("src")).toBe(
+      new URL(url, document.baseURI).href,
+    );
   });
 });
 
