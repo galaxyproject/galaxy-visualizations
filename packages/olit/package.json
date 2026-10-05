@@ -24,7 +24,7 @@
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
     "vendored": "python3 scripts/check_vendored.py",
-    "build:session": "vite build --config vite.config.session.ts"
+    "build:session": "npm run build:skills && vite build --config vite.config.session.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^1.0.2",
