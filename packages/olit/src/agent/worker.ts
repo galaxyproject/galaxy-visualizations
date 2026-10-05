@@ -1,5 +1,5 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { localPython } from "./python";
+import { browserPython } from "./python";
 import {
   failedTurn,
   Session,
@@ -7,7 +7,7 @@ import {
   type SessionConfig,
   type TurnResult,
 } from "./session";
-import type { Artifact } from "./tool";
+import type { Artifact, Python } from "./tool";
 import type { Settled, Watched } from "./watch";
 
 export interface RunRequest {
@@ -30,9 +30,15 @@ export type WorkerMessage =
   | { type: "result"; result: TurnResult }
   | { type: "settled"; id: number; result: SettleResult };
 
-const CONTEXT_FIELDS = new Set(["history_id", "dataset_id", "session_id", "record_page_id"]);
+const CONTEXT_FIELDS = new Set([
+  "history_id",
+  "dataset_id",
+  "session_id",
+  "record_page_id",
+  "session_started_at",
+]);
 
-let python: ReturnType<typeof localPython> | undefined;
+let python: Python | undefined;
 let session: { identity: string; session: Promise<Session> } | undefined;
 let controller: AbortController | undefined;
 const confirms = new Map<number, (approved: boolean) => void>();
@@ -89,7 +95,7 @@ async function run({ config, transcripts, artifacts, watching }: RunRequest): Pr
 
 self.onmessage = async ({ data }) => {
   if (data.type === "initialize") {
-    python = localPython(data.pyodideURL);
+    python = browserPython(data.pyodideURL);
   } else if (data.type === "run") {
     post({ type: "result", result: await run(data.request) });
   } else if (data.type === "confirmed") {

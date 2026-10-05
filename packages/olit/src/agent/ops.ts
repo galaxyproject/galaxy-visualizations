@@ -11,16 +11,17 @@ import SNAPSHOT from "./galaxy-mcp-docs.json";
 import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
 import { watchedFrom } from "./watch";
 
-/** Operations Olit runs itself rather than through galaxy-ops. */
-export const OLIT_OWNED = new Set([
-  "get_history_contents",
-  "get_invocations",
-  "get_job_details",
-  "get_page",
-  "run_tool",
-  "update_page",
-  "upload_file_from_url",
-]);
+/**
+ * Operations Olit runs itself rather than through galaxy-ops, and what galaxy-ops lacks for each.
+ * An entry goes when a galaxy-ops release covers it; nothing here is meant to stay.
+ */
+export const OLIT_OWNED: Record<string, string> = {
+  get_history_contents: "server-side paging, dataset_id left out, a byte budget",
+  get_invocations: "the jobs_summary roll-up into an outcome",
+  get_job_details: "full=true logs, trimmed at both ends",
+  get_page: "content_hash for expect_hash",
+  update_page: "section edits, expect_hash, the malformed object-id refusal",
+};
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
@@ -38,12 +39,24 @@ export type Annotate = (
  */
 export const UPSTREAM_DOCS = SNAPSHOT.docs as Record<string, string>;
 
-/** galaxy-ops operations under galaxy-mcp's names: snake_case at the top level, its docstrings. */
-export function opsTools(annotate?: Annotate): OlitTool[] {
-  return allOperations.filter((op) => !OLIT_OWNED.has(op.name)).map((op) => opsTool(op, annotate));
+/** What Olit layers on a galaxy-ops operation it does not own: policy, not behaviour. */
+export interface OpPolicy {
+  /** Olit's refusal before the operation runs, or undefined to let it run. */
+  check?: (args: Record<string, unknown>, ctx: Context) => Promise<Outcome | undefined>;
 }
 
-function opsTool(op: AnyOperation, annotate?: Annotate): OlitTool {
+/** galaxy-ops operations under galaxy-mcp's names: snake_case at the top level, its docstrings. */
+export function opsTools(annotate?: Annotate, policies: Record<string, OpPolicy> = {}): OlitTool[] {
+  return allOperations
+    .filter((op) => !(op.name in OLIT_OWNED))
+    .map((op) => opsTool(op, annotate, policies[op.name] ?? {}));
+}
+
+/** The model's snake_case arguments under the names galaxy-ops' input takes. */
+const inputOf = (args: Record<string, unknown>, toInput: Map<string, string>) =>
+  Object.fromEntries(Object.entries(args).map(([k, v]) => [toInput.get(k) ?? k, v]));
+
+function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPolicy): OlitTool {
   const schema = z.toJSONSchema(z.strictObject(op.input), { io: "input" }) as {
     properties?: Record<string, unknown>;
     required?: string[];
@@ -63,13 +76,13 @@ function opsTool(op: AnyOperation, annotate?: Annotate): OlitTool {
       required: schema.required?.map(snake),
     },
     run: async (args: Record<string, unknown>, ctx: Context) => {
-      const input = Object.fromEntries(
-        Object.entries(args).map(([k, v]) => [toInput.get(k) ?? k, v]),
-      );
-      const envelope = (await runWithEnvelope(op, input as never, ctx.ops)) as unknown as Record<
-        string,
-        unknown
-      >;
+      const refused = await policy.check?.(args, ctx);
+      if (refused) {
+        return refused;
+      }
+      const input = inputOf(args, toInput);
+      const call = () => runWithEnvelope(op, input as never, ctx.ops);
+      const envelope = (await call()) as unknown as Record<string, unknown>;
       if (!envelope.success) {
         return fail(String(envelope.message || `${op.name} failed`));
       }

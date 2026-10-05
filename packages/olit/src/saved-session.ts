@@ -4,6 +4,7 @@
  * save the user asked for rather than a conversation turn.
  */
 
+import { segment, type Galaxy } from "./agent/galaxy";
 import { isSessionDocument, type SessionDocument } from "./session-document";
 
 export const PLUGIN_TYPE = "olit";
@@ -15,21 +16,10 @@ export interface SavedSessions {
   save(document: SessionDocument, id?: string): Promise<string>;
 }
 
-export function savedSessions(root: string, credentials: RequestCredentials): SavedSessions {
-  const call = async (path: string, init?: RequestInit) => {
-    const res = await fetch(`${root}api/visualizations${path}`, {
-      credentials,
-      headers: { "Content-Type": "application/json" },
-      ...init,
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${await res.text()}`);
-    }
-    return res.json();
-  };
+export function savedSessions(galaxy: Galaxy): SavedSessions {
   return {
     async load(id) {
-      const body = await call(`/${id}`);
+      const body = await galaxy.get(`api/visualizations/${segment(id)}`);
       const config = body?.latest_revision?.config;
       return isSessionDocument(config) ? config : null;
     },
@@ -38,13 +28,10 @@ export function savedSessions(root: string, credentials: RequestCredentials): Sa
       // config does, so `importable`, `published` and `slug` are never set here.
       const payload = { title: title(document), config: document };
       if (id) {
-        await call(`/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+        await galaxy.put(`api/visualizations/${segment(id)}`, payload);
         return id;
       }
-      const created = await call("", {
-        method: "POST",
-        body: JSON.stringify({ ...payload, type: PLUGIN_TYPE }),
-      });
+      const created = await galaxy.post("api/visualizations", { ...payload, type: PLUGIN_TYPE });
       return created.id;
     },
   };

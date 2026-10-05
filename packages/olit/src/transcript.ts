@@ -22,7 +22,7 @@ export function renderMessages(
         spoke = true;
         say(chat, text);
       } else if (!streamed.has(m.toolCallId)) {
-        chat.updateToolCard(m.toolCallId, m.isError ? "error" : toolStatus(text), text);
+        chat.updateToolCard(m.toolCallId, m.isError ? "error" : "done", text);
       }
     } else if (m.role === "assistant") {
       const text = m.content
@@ -48,7 +48,10 @@ export function renderMessages(
 /** Repaint a stored transcript into the panel; loom: session-replay.js on `--continue`. */
 export function replayMessages(chat: ChatPanel, messages: AgentMessage[]) {
   for (const m of messages) {
-    if (m.role === "user") {
+    if (m.role === "compactionSummary") {
+      // Said the way it was said live, rather than shown as something the user wrote.
+      chat.addInfoMessage("Summarized the earlier conversation to make room.");
+    } else if (m.role === "user") {
       chat.addUserMessage(textOf(m.content));
     } else if (m.role !== "system") {
       renderMessages(chat, [m]);
@@ -81,16 +84,4 @@ export function describeError(err: { message?: string; status_code?: number }): 
     return "The model provider rejected the API key. Enter another with the Model button.";
   }
   return lastLine(err.message || "The turn failed.");
-}
-
-export function toolStatus(content: string): "done" | "error" {
-  try {
-    const parsed = JSON.parse(content);
-    if (parsed && parsed.ok === false) {
-      return "error";
-    }
-  } catch {
-    // non-JSON tool output (e.g. run_python) is a success
-  }
-  return "done";
 }

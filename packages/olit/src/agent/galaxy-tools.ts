@@ -1,13 +1,14 @@
 import { quote } from "./quote";
-import { allOperations, runWithEnvelope } from "@galaxyproject/galaxy-ops/browser";
+import { validatePagination } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
-import { UPSTREAM_DOCS, type Annotate } from "./ops";
-import { applySectionEdit, djb2Hash, malformedObjectIds } from "./page-edit";
+import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
+import { applySectionEdit, djb2Hash, malformedObjectIds, pageBody } from "./page-edit";
 import { serverPage } from "./paging";
+import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
 export const DATA_DIR = "/data";
@@ -37,7 +38,7 @@ export const settled = (name: string) => SETTLED.has(name);
 
 /** Top-level fields of `data` that a description tells the model to read. */
 export const PROMISED_FIELDS: Record<string, string[]> = {
-  get_tool_panel: ["tool_count", "section_count"],
+  get_tool_panel: ["entries"],
   get_tool_citations: ["tool_name", "tool_version", "citations"],
   get_tool_input_template: ["tool_id", "inputs_template", "parameters"],
   get_tool_run_examples: ["tool_id", "requested_version", "test_cases"],
@@ -47,6 +48,25 @@ export const PROMISED_FIELDS: Record<string, string[]> = {
 };
 
 export const promisedFields = (name: string) => PROMISED_FIELDS[name] ?? [];
+
+/** Olit's policy over galaxy-ops operations it runs but does not own. */
+export const OPS_POLICY: Record<string, OpPolicy> = {
+  // Galaxy runs a tool on a dataset from another history, so galaxy-ops does too. An agent that
+  // does so has nearly always copied the wrong id, and the job answers a question nobody asked.
+  run_tool: {
+    check: async (args, ctx) => {
+      const foreign = await foreignInputs(ctx.galaxy, args.inputs, String(args.history_id));
+      return foreign.length
+        ? fail(
+            `Refused: these inputs do not identify a dataset in history ${args.history_id}: ` +
+              `${JSON.stringify(foreign)}. Use the \`id\` field of a dataset returned by ` +
+              `get_history_contents for this history. To use data from elsewhere, copy it into ` +
+              `this history first.`,
+          )
+        : undefined;
+    },
+  },
+};
 
 /** What Olit adds to a galaxy-ops result: where a missed search lives, or fetch-failure triage. */
 export const annotate: Annotate = async (name, args, data, ctx) =>
@@ -79,8 +99,10 @@ function oneIdentifier(item: unknown): unknown {
 }
 
 async function getHistoryContents(args: Row, { galaxy }: Context) {
-  const limit = Math.trunc(args.limit || 100);
-  const offset = Math.max(0, Math.trunc(args.offset || 0));
+  const limit = Math.trunc(args.limit ?? 100);
+  const offset = Math.trunc(args.offset ?? 0);
+  // galaxy-ops' own window check, so a bad page fails here as it would there.
+  validatePagination(limit, offset);
   const wanted: [string, string][] = [];
   if (!args.deleted) {
     wanted.push(["deleted", "False"]);
@@ -102,8 +124,14 @@ async function getHistoryContents(args: Row, { galaxy }: Context) {
   if (!Array.isArray(items)) {
     return items;
   }
-  // galaxy-ops' envelope, as the description promises: rows under `data`, `pagination` beside.
-  return rendered(serverPage(items.map(oneIdentifier), offset, limit));
+  // The data both galaxy-ops and galaxy-mcp answer with, the window beside it.
+  const page = serverPage(items.map(oneIdentifier), offset, limit);
+  const payload = rendered({
+    data: { history_id: args.history_id, contents: page.data },
+    pagination: page.pagination,
+  });
+  const hint = fetchFailureHint(page.data);
+  return new Outcome(hint ? `${payload}\n\n${hint}` : payload);
 }
 
 /** Sources a history owns, and where each one answers its history_id. */
@@ -150,73 +178,6 @@ async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string)
   return foreign;
 }
 
-/** What the model is told when a tool rejects its inputs. */
-export function parameterHelp(detail: string, template: unknown): string {
-  if (!template || (isRow(template) && !Object.keys(template).length)) {
-    return detail;
-  }
-  return (
-    `${detail}\nThe tool accepts these input keys. Fill this template and resend:\n` +
-    JSON.stringify(template, null, 1)
-  );
-}
-
-/** Galaxy's prose on the paths that answer 500 instead of rejecting the request. */
-const PARAMETER_ERROR_PHRASES = ["invalid key structure", "has no attribute"];
-
-/** Whether the tool rejected the inputs, which is when its template is worth attaching. */
-function isParameterError(error: unknown): boolean {
-  if ((error as { status?: number })?.status === 400) {
-    return true;
-  }
-  return PARAMETER_ERROR_PHRASES.some((phrase) =>
-    String((error as Error)?.message ?? error).includes(phrase),
-  );
-}
-
-/** The shape a tool accepts, built by galaxy-ops, or undefined. */
-async function toolInputTemplate(toolId: string | undefined, ctx: Context): Promise<unknown> {
-  const op = allOperations.find((o) => o.name === "get_tool_input_template");
-  if (!toolId || !op) {
-    return undefined;
-  }
-  try {
-    const envelope = await runWithEnvelope(op, { toolId } as never, ctx.ops);
-    return envelope.success ? (envelope.data as Row | undefined)?.inputs_template : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function runTool(args: Row, ctx: Context) {
-  const historyId = args.history_id;
-  const inputs = args.inputs || {};
-  const foreign = await foreignInputs(ctx.galaxy, inputs, historyId);
-  if (foreign.length) {
-    return fail(
-      `Refused: these inputs do not identify a dataset in history ${historyId}: ` +
-        `${JSON.stringify(foreign)}. Use the \`id\` field of a dataset returned by ` +
-        `get_history_contents for this history. To use data from elsewhere, copy it into ` +
-        `this history first.`,
-    );
-  }
-  try {
-    return await ctx.galaxy.post("api/tools", {
-      history_id: historyId,
-      tool_id: args.tool_id,
-      inputs,
-      // A request, not a guarantee: Galaxy falls back to an installed version.
-      ...(args.tool_version ? { tool_version: args.tool_version } : {}),
-    });
-  } catch (error) {
-    if (!isParameterError(error)) {
-      throw error;
-    }
-    const detail = String((error as Error)?.message ?? error);
-    return fail(parameterHelp(detail, await toolInputTemplate(args.tool_id, ctx)));
-  }
-}
-
 /** Keep both ends of a log: the cause is usually at the end, the context at the start. */
 export function ends(text: string, cap: number): string {
   const data = new TextEncoder().encode(text);
@@ -251,7 +212,8 @@ async function getJobDetails(args: Row, { galaxy }: Context) {
       out[field] = ends(out[field], JOB_LOG_BYTES);
     }
   }
-  return out;
+  // The data galaxy-ops and galaxy-mcp answer with, and the description promises.
+  return { job: out, dataset_id: args.dataset_id, job_id: jobId };
 }
 
 /** Python's `str.splitlines`. */
@@ -344,20 +306,6 @@ function fetchPayload(element: Row, historyId: string | undefined) {
   return payload;
 }
 
-async function uploadFileFromUrl(args: Row, { galaxy }: Context) {
-  const element: Row = {
-    src: "url",
-    url: args.url,
-    ext: args.file_type ?? "auto",
-    dbkey: args.dbkey ?? "?",
-    auto_decompress: true,
-  };
-  if (args.file_name) {
-    element.name = args.file_name;
-  }
-  return galaxy.post("api/tools/fetch", fetchPayload(element, args.history_id));
-}
-
 async function uploadFile(args: Row, { galaxy, python }: Context) {
   const path: string = args.path;
   const raw = await python.read(path);
@@ -397,9 +345,10 @@ async function getInvocations(args: Row, { galaxy }: Context) {
     );
     return described(one, await jobStates(galaxy, args.invocation_id));
   }
+  // A blank filter is no filter, as galaxy-ops reads it, not a search for the empty id.
   const params = {
-    workflow_id: args.workflow_id,
-    history_id: args.history_id,
+    workflow_id: args.workflow_id || undefined,
+    history_id: args.history_id || undefined,
     limit: args.limit,
     view: args.view ?? "collection",
     step_details: args.step_details ?? false,
@@ -425,8 +374,6 @@ async function recommendBiocontainer(args: Row) {
     return fail((error as Error).message);
   }
 }
-
-const pageBody = (page: Row) => page.content_editor || page.content || "";
 
 async function getPage(args: Row, { galaxy }: Context) {
   const page = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
@@ -483,6 +430,8 @@ async function updatePage(args: Row, { galaxy }: Context) {
   const written = await galaxy.put(`api/pages/${segment(args.page_id)}`, payload);
   if (isRow(written)) {
     written.content_hash = djb2Hash(pageBody(written));
+    // The embed-expanded render is not what was written, and galaxy-ops leaves it out too.
+    delete written.content;
   }
   return written;
 }
@@ -531,13 +480,6 @@ export function galaxyTools(): OlitTool[] {
       getHistoryContents,
     ),
     tool(
-      "run_tool",
-      "write",
-      { history_id: STR, tool_id: STR, inputs: { type: "object" }, tool_version: STR },
-      ["history_id", "tool_id", "inputs"],
-      runTool,
-    ),
-    tool(
       "get_job_details",
       "read",
       { dataset_id: STR, history_id: STR },
@@ -545,13 +487,6 @@ export function galaxyTools(): OlitTool[] {
       getJobDetails,
     ),
     tool("download_dataset", "read", { dataset_id: STR }, ["dataset_id"], downloadDataset),
-    tool(
-      "upload_file_from_url",
-      "write",
-      { url: STR, history_id: STR, file_type: STR, dbkey: STR, file_name: STR },
-      ["url"],
-      uploadFileFromUrl,
-    ),
     tool(
       "upload_file",
       "write",
@@ -603,7 +538,8 @@ export function galaxyTools(): OlitTool[] {
         },
       },
       ["page_id"],
-      updatePage,
+      // In the session's record queue: a marker written between its read and write is kept.
+      (args, ctx) => serialized(() => updatePage(args, ctx)),
     ),
   ];
 }

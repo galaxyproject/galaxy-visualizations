@@ -1,5 +1,6 @@
 /** Session persistence: pi keeps session.jsonl per analysis directory; the browser gets IndexedDB. */
 
+import type { Galaxy } from "./agent/galaxy";
 import { isSessionDocument, type SessionDocument } from "./session-document";
 
 const DB_NAME = "olit";
@@ -50,16 +51,9 @@ export function indexedDbStore(
 }
 
 /** Who the store is keyed for: pi's sessions sit in the OS user's home, so scope by Galaxy user. */
-export async function galaxyUserId(
-  galaxyRoot: string,
-  credentials: RequestCredentials,
-): Promise<string | undefined> {
+export async function galaxyUserId(galaxy: Galaxy): Promise<string | undefined> {
   try {
-    const res = await fetch(`${galaxyRoot}api/users/current`, { credentials });
-    if (!res.ok) {
-      return undefined;
-    }
-    const body = await res.json();
+    const body = await galaxy.get("api/users/current");
     return typeof body?.id === "string" && body.id ? body.id : undefined;
   } catch {
     return undefined;

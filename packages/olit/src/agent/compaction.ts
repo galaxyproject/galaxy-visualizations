@@ -1,15 +1,11 @@
 import { estimateContextTokens, estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
-import { toChat, type ChatMessage } from "./messages";
+import { isCompactionSummary, toChat, toLlm, type ChatMessage } from "./messages";
 
 export const RESERVE_TOKENS = 16384;
 export const KEEP_RECENT_TOKENS = 20000;
 export const TOOL_RESULT_MAX_CHARS = 2000;
-
-const SUMMARY_PREFIX =
-  "The conversation history before this point was compacted into the following summary:\n\n<summary>\n";
-const SUMMARY_SUFFIX = "\n</summary>";
 
 const SUMMARIZATION_SYSTEM_PROMPT = `You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.
 
@@ -110,8 +106,12 @@ export function compactionSettings(options: {
 
 /** Tokens the next request carries: pi's count, from the last reported usage plus what followed. */
 export function contextTokens(messages: AgentMessage[]): number {
-  return estimateContextTokens(messages as never).tokens;
+  return estimateContextTokens(toLlm(messages) as never).tokens;
 }
+
+/** pi's estimate of one message, as the model will read it. */
+const messageTokens = (m: AgentMessage) =>
+  toLlm([m]).reduce((sum, llm) => sum + estimateMessageTokens(llm as never), 0);
 
 const validCut = (m: AgentMessage) => m.role === "user" || m.role === "assistant";
 
@@ -125,7 +125,7 @@ export function findCutIndex(
   }
   let accumulated = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
-    const tokens = estimateMessageTokens(messages[i] as never);
+    const tokens = messageTokens(messages[i]);
     if (!tokens) {
       continue;
     }
@@ -161,17 +161,6 @@ export function serialize(messages: ChatMessage[]): string {
     }
   }
   return parts.join("\n\n");
-}
-
-function previousSummary(messages: ChatMessage[]): string | undefined {
-  const found = messages.find(
-    (m) => m.role === "user" && (m.content ?? "").startsWith(SUMMARY_PREFIX),
-  );
-  if (!found) {
-    return undefined;
-  }
-  const body = found.content!.slice(SUMMARY_PREFIX.length);
-  return body.endsWith(SUMMARY_SUFFIX) ? body.slice(0, -SUMMARY_SUFFIX.length) : body;
 }
 
 function buildPrompt(older: ChatMessage[], prior?: string): string {
@@ -218,7 +207,7 @@ export function compactor(settings: CompactionSettings, summarize: Summarize) {
     // summarizing the conversation would only lose it.
     const fixed = current
       .filter((m) => m.role === "system")
-      .reduce((sum, m) => sum + estimateMessageTokens(m as never), 0);
+      .reduce((sum, m) => sum + messageTokens(m), 0);
     if (fixed >= settings.contextWindow - settings.reserveTokens) {
       return { messages: current, status: "impossible" };
     }
@@ -228,22 +217,17 @@ export function compactor(settings: CompactionSettings, summarize: Summarize) {
     if (!cut) {
       return { messages: current, status: "impossible" };
     }
-    const older = toChat(rest.slice(0, cut).filter((m) => m.role !== "system"));
-    const summary = await summarize(
-      SUMMARIZATION_SYSTEM_PROMPT,
-      buildPrompt(older, previousSummary(older)),
-      signal,
-    );
+    const covered = rest.slice(0, cut);
+    // A summary an earlier turn left is updated, not summarized again as conversation.
+    const prior = covered.find(isCompactionSummary)?.summary;
+    const older = toChat(covered.filter((m) => m.role !== "system" && !isCompactionSummary(m)));
+    const summary = await summarize(SUMMARIZATION_SYSTEM_PROMPT, buildPrompt(older, prior), signal);
     if (!summary.trim()) {
       return { messages: current, status: "impossible" };
     }
     kept = {
       first: rest[cut],
-      summary: {
-        role: "user",
-        content: SUMMARY_PREFIX + summary + SUMMARY_SUFFIX,
-        timestamp: Date.now(),
-      },
+      summary: { role: "compactionSummary", summary, timestamp: Date.now() },
     };
     return { messages: reduce(messages), status: "compacted" };
   }

@@ -1,5 +1,5 @@
 import { query, segment, type Galaxy } from "./galaxy";
-import { djb2Hash } from "./page-edit";
+import { djb2Hash, pageBody } from "./page-edit";
 import { fail, Outcome, type Capability, type Context, type OlitTool } from "./tool";
 
 export const STARTER = `## Record
@@ -16,9 +16,6 @@ export const MANIFEST_MAX = 40;
 export const CAPABILITY: Capability = "write";
 
 type Page = Record<string, any>;
-
-/** The editable markdown; `content` is the embed-expanded render. */
-export const pageSource = (page: Page) => page.content_editor || page.content || "";
 
 export const titleForSession = (sessionId: string) => `Olit Notebook (${sessionId.slice(0, 8)})`;
 
@@ -87,7 +84,7 @@ export async function excerpt(
   if (pageId) {
     try {
       const full = await usable(galaxy, pageId);
-      content = (full ? pageSource(full) : "") || "";
+      content = (full ? pageBody(full) : "") || "";
     } catch {
       content = "";
     }
@@ -147,7 +144,7 @@ export async function resume(
   if (pageId) {
     const existing = await usable(galaxy, pageId);
     if (existing) {
-      const content = pageSource(existing);
+      const content = pageBody(existing);
       return {
         created: false,
         page_id: existing.id,

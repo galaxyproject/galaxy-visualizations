@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { credentialProblem, providerById, providers } from "./credentials";
+import { PROVIDERS as providers, providerById, takesModel } from "./agent/providers";
+import { credentialProblem } from "./credentials";
 
 describe("credentialProblem", () => {
   it("asks for a provider when nothing is chosen", () => {
@@ -31,7 +32,7 @@ describe("credentialProblem", () => {
   });
 
   it("lets a local server name its own model", () => {
-    expect(providerById("ollama")?.free_model).toBe(true);
+    expect(takesModel(providerById("ollama")!)).toBe(true);
     expect(credentialProblem({ provider: "ollama" })).toBeNull();
   });
 });
@@ -57,13 +58,12 @@ describe("reaching the models an Orbit user already has", () => {
 
   it("lets a hosted provider's model be typed, since its catalog is not ours to bundle", () => {
     for (const id of ["openai", "anthropic", "groq", "mistral", "xai"]) {
-      expect(providerById(id)!.free_model).toBe(true);
-      expect(providerById(id)!.takes_model).toBe(true);
+      expect(takesModel(providerById(id)!)).toBe(true);
     }
   });
 
   it("asks the Galaxy proxy for no model at all", () => {
-    expect(providerById("galaxy")!.takes_model).toBe(false);
+    expect(takesModel(providerById("galaxy")!)).toBe(false);
   });
 
   it("accepts a model outside the bundled suggestions", () => {

@@ -61,16 +61,13 @@ async function npmLatest(pkg) {
   return (await res.json()).version;
 }
 
-// The pin is a fork tarball, so "latest" upstream is not what olit runs. The useful question is
-// whether upstream has absorbed enough of the fork delta for the fork to shrink.
 async function galaxyOps() {
-  const spec = read("package.json").dependencies["@galaxyproject/galaxy-ops"];
-  const tag = (spec.match(/ops-v([\w.\-]+)\//) || [])[1] || spec;
-  const upstream = await npmLatest("@galaxyproject/galaxy-ops");
-  return (
-    `galaxy-ops pinned to the fork ${tag}; upstream npm publishes ${upstream}\n` +
-    `           the fork delta is in galaxy-mcp fixes.000; compare before assuming it is still needed`
-  );
+  const pinned = read("package.json").dependencies["@galaxyproject/galaxy-ops"].replace(/^[\^~]/, "");
+  const latest = await npmLatest("@galaxyproject/galaxy-ops");
+  return pinned === latest
+    ? `galaxy-ops up to date at ${pinned}`
+    : `galaxy-ops BEHIND: package.json wants ${pinned}, npm has ${latest}\n` +
+        `           update: bump it and run npm test; ops.ts runs its operations directly`;
 }
 
 async function galaxyCharts() {

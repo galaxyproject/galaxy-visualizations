@@ -6,8 +6,6 @@ src/                      the shell (TypeScript)
   main.ts                   boots the agent worker, wires the chat, runs a turn
   layout.ts artifact-pane.ts usage-bar.ts retry-notice.ts   the pane's parts
   config.ts incoming.ts credentials*.ts   what the agent is handed, and by whom
-  invocations.ts            watches submitted jobs and workflows between turns
-  record-write.ts record-jobs.ts session-summary.ts   shell-side edits to the record page
   session.ts                the conversation, in IndexedDB per user and history
   transcript.ts artifacts/  rendering messages, charts and Galaxy visualizations
   orbit/                    vendored from Orbit, byte-identical (scripts/check_vendored.py)
@@ -15,12 +13,14 @@ src/agent/               the agent: pi-agent-core's loop, in a worker in the bro
   worker.ts client.ts       the worker, and the page's handle on it
   node.ts                   the same session over JSON lines, for the eval harness
   watch.ts                  submitted Galaxy work, settled between turns, and the follow-up it calls for
+  record-write.ts record-jobs.ts session-summary.ts   the session's own edits to the record page
   session.ts                one session: tools, guards, compaction, a turn
   model.ts providers.ts retry.ts   the model endpoint, its registry, its resend policy
   galaxy.ts ops.ts galaxy-tools.ts   Galaxy REST, galaxy-ops' operations, the tools Olit keeps
   guards.ts destructive.ts sra-gate.ts   what can refuse a call
   prompt.ts skills.ts notebook.ts   the system prompt, SKILL.md routers, the record page
-  python.ts                 Pyodide behind `run_python`, loaded on first use
+  python.ts python-realm.js python-node.ts   `run_python`: the trusted side, the isolated realm
+                            Pyodide runs in, and that realm's headless host
   processes/                deterministic procedures (lineage_report, organize_datasets)
   skills/                   vendored corpora, galaxy-skills fetched at build time
   describe.ts               what Olit publishes about itself, for an outside evaluator

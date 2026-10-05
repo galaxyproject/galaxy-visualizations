@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig } from "vite";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
@@ -18,9 +20,31 @@ const staticCopyPlugin = viteStaticCopy({
   ],
 });
 
+/** Pyodide's files as they are, as Galaxy serves them: the dev server would transform its scripts. */
+const servePyodide = {
+  name: "olit-pyodide",
+  configureServer(server) {
+    const root = path.resolve("static/pyodide");
+    server.middlewares.use("/static/pyodide", (req, res, next) => {
+      const file = path.join(root, decodeURIComponent((req.url || "").split("?")[0]));
+      if (!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+        return next();
+      }
+      const types = {
+        ".js": "text/javascript",
+        ".mjs": "text/javascript",
+        ".wasm": "application/wasm",
+        ".json": "application/json",
+      };
+      res.setHeader("Content-Type", types[path.extname(file)] || "application/octet-stream");
+      fs.createReadStream(file).pipe(res);
+    });
+  },
+};
+
 export default defineConfig(({ command }) => ({
   ...viteConfigCharts,
-  plugins: [...(command === "build" ? [staticCopyPlugin] : [])],
+  plugins: command === "build" ? [staticCopyPlugin] : [servePyodide],
   test: {
     environment: "happy-dom",
     globals: true,

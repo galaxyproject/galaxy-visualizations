@@ -10,7 +10,7 @@ import {
   type CompactionSettings,
 } from "./compaction";
 import { estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
-import type { ChatMessage as Message } from "./messages";
+import { toChat, toLlm, type ChatMessage as Message } from "./messages";
 
 /** pi's estimate for a chat-shaped fixture. */
 const estimateTokens = (m: Message) => estimateMessageTokens(toPi([m])[0] as never);
@@ -246,10 +246,32 @@ describe("compact", () => {
     const { messages, status } = await compactor(settings(), llm.summarize).compact(conversation());
     expect(status).toBe("compacted");
     expect(messages[0].role).toBe("system");
-    expect(messages[1].role).toBe("user");
-    expect(textOf(messages[1]).startsWith(SUMMARY_PREFIX)).toBe(true);
-    expect(textOf(messages[1])).toContain("finish the analysis");
+    expect(messages[1]).toMatchObject({
+      role: "compactionSummary",
+      summary: "## Goal\nfinish the analysis",
+    });
     expect(messages.length).toBeLessThan(31);
+    // The model reads it as the user turn that carries it.
+    const [read] = toLlm([messages[1]]);
+    expect(read.role).toBe("user");
+    expect(textOf(read as AgentMessage).startsWith(SUMMARY_PREFIX)).toBe(true);
+    expect(toChat([messages[1]])[0]).toMatchObject({ role: "user" });
+  });
+
+  it("updates a summary an earlier turn left, which it finds by kind, not by wording", async () => {
+    // Each turn compacts with a compactor of its own: the transcript is all that carries over.
+    const first = await compactor(settings(), summarizer().summarize).compact(conversation());
+    const later = summarizer("## Goal\nnext");
+    const { status } = await compactor(settings(), later.summarize).compact([
+      ...first.messages,
+      ...toPi(longUsers(30)),
+    ]);
+    expect(status).toBe("compacted");
+    expect(later.prompts[0].prompt).toContain(
+      "<previous-summary>\n## Goal\nfinish the analysis\n</previous-summary>",
+    );
+    // Updated once, not also summarized as though someone had said it.
+    expect(later.prompts[0].prompt).not.toContain("[User]: The conversation history");
   });
 
   it("never summarizes the system message", async () => {

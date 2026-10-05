@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { providerById } from "./credentials";
+import { providerById } from "./agent/providers";
 import { discoverModels, discoveryError, modelIds, modelsUrl } from "./model-discovery";
 
 const OPENAI = providerById("openai")!;
-const ANTHROPIC = providerById("anthropic")!;
+const OPENROUTER = providerById("openrouter")!;
+const OLLAMA = providerById("ollama")!;
 
 function answer(body: unknown, ok = true, status = 200) {
   return vi.fn(async () => ({ ok, status, json: async () => body }) as unknown as Response);
@@ -23,13 +24,18 @@ describe("model discovery", () => {
     expect(out.error).toBeUndefined();
   });
 
-  it("sends the key and whatever else the provider needs to be reachable", async () => {
+  it("sends the key to an endpoint it asks", async () => {
     const fetchImpl = answer({ data: [] });
-    await discoverModels(fetchImpl as never, ANTHROPIC, "https://api.anthropic.com/v1", "k");
+    await discoverModels(fetchImpl as never, OLLAMA, "http://127.0.0.1:11434/v1", "k");
     const headers = (fetchImpl.mock.calls[0] as never[])[1] as { headers: Record<string, string> };
     expect(headers.headers.Authorization).toBe("Bearer k");
-    // Without this Anthropic sends no CORS header and the browser blocks the reply.
-    expect(headers.headers["anthropic-dangerous-direct-browser-access"]).toBe("true");
+  });
+
+  it("lists pi's catalog for a provider pi defines, asking no endpoint", async () => {
+    const fetchImpl = answer({ data: [] });
+    const out = await discoverModels(fetchImpl as never, OPENROUTER, undefined, "k");
+    expect(out.models).toContain("google/gemini-3.7-flash");
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("ignores entries that carry no id rather than listing undefined", () => {

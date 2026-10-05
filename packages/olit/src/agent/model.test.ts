@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { connect } from "./model";
-import { resolve, type LlmConfig } from "./providers";
+import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable } from "./model";
+import { piProvider, providerById, PROVIDERS, resolve, type LlmConfig } from "./providers";
 
 /** The body and headers a request would carry, read off the real request. */
 async function request(config: LlmConfig) {
@@ -45,6 +45,33 @@ describe("connect", () => {
     expect(model.reasoning).toBe(true);
   });
 
+  it("takes a listed model's window from pi's catalog, where a copy here would drift", async () => {
+    const { model } = await connect(
+      resolve({ ai_provider: "openrouter", ai_model: "deepseek/deepseek-v4-flash-0731" }),
+    );
+    expect(model.contextWindow).toBe(
+      (await catalogued("openrouter", "deepseek/deepseek-v4-flash-0731"))!.contextWindow,
+    );
+  });
+
+  it("lets a configured window override pi's, and falls back when nobody knows", async () => {
+    const configured = await connect(
+      resolve({ ai_provider: "google", ai_model: "gemini-3.7-flash", ai_context_window: 4096 }),
+    );
+    expect(configured.model.contextWindow).toBe(4096);
+    const unknown = await connect(resolve({ ai_provider: "openai", ai_model: "unlisted" }));
+    expect(unknown.model.contextWindow).toBe(DEFAULT_CONTEXT_WINDOW);
+  });
+
+  it("lists a window only for a model pi's catalog does not know", async () => {
+    for (const provider of PROVIDERS) {
+      for (const m of provider.models ?? []) {
+        const known = await catalogued(provider.id, m.id);
+        expect(!!known && m.contextWindow !== undefined, `${provider.id} ${m.id}`).toBe(false);
+      }
+    }
+  });
+
   it("asks an OpenAI-compatible endpoint for no output ceiling unless one is configured", async () => {
     // pi's catalog lists 65536 for this model; OpenRouter reserves credit against what is asked.
     const unset = await request({
@@ -63,14 +90,35 @@ describe("connect", () => {
     expect(JSON.stringify(set.body)).toContain("512");
   });
 
-  it("leaves out `store` for the OpenAI-compatible endpoints that never defined it", async () => {
-    for (const provider of ["jetstream2", "openrouter", "ollama", "deepseek", "groq", "mistral"]) {
+  it("leaves out `store` for the endpoints Olit defines, which never defined it", async () => {
+    for (const provider of ["jetstream2", "ollama"]) {
       expect(await body(provider), provider).not.toHaveProperty("store");
     }
   });
 
-  it("still sends `store: false` to OpenAI, which keeps completions otherwise", async () => {
-    expect(await body("openai")).toHaveProperty("store", false);
+  it("reaches a provider pi defines through pi's own API, with nothing of Olit's on top", async () => {
+    const reached = async (provider: string, model: string) =>
+      (await connect(resolve({ ai_provider: provider, ai_model: model, ai_api_key: "k" }))).model;
+    expect((await reached("openai", "gpt-unlisted")).api).toBe("openai-responses");
+    expect((await reached("anthropic", "claude-unlisted")).api).toBe("anthropic-messages");
+    expect((await reached("mistral", "mistral-unlisted")).api).toBe("mistral-conversations");
+    // OpenRouter lists Anthropic models under Anthropic's API, but serves the rest OpenAI's way.
+    expect((await reached("openrouter", "some/unlisted")).api).toBe("openai-completions");
+    const deepseek = await reached("deepseek", "deepseek-v4-flash");
+    expect(deepseek.baseUrl).toBe((await piProvider("deepseek"))!.baseUrl);
+  });
+
+  it("reads a key from pi's own variable for a provider pi defines", async () => {
+    const { apiKey } = await connect(resolve({ ai_provider: "groq", ai_model: "m" }), undefined, {
+      GROQ_API_KEY: "gsk-from-env",
+    });
+    expect(apiKey).toBe("gsk-from-env");
+  });
+
+  it("names the variable a harness puts each key in, Olit's or pi's", async () => {
+    expect(await keyVariable(providerById("jetstream2")!)).toBe("JETSTREAM2_KEY");
+    expect(await keyVariable(providerById("google")!)).toBe("GEMINI_API_KEY");
+    expect(await keyVariable(providerById("anthropic")!)).toBe("ANTHROPIC_API_KEY");
   });
 
   it("sends no bearer token to a keyless endpoint, which reads the page's session", async () => {

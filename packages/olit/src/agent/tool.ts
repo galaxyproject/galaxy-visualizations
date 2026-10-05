@@ -39,7 +39,8 @@ export interface Artifact {
 }
 
 export interface Python {
-  run(code: string): Promise<string>;
+  /** An abort ends the run and the realm with it; the next call starts afresh. */
+  run(code: string, signal?: AbortSignal): Promise<string>;
   write(path: string, data: Uint8Array): Promise<void>;
   read(path: string): Promise<Uint8Array | undefined>;
 }

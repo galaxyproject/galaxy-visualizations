@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { Galaxy } from "./galaxy";
+import { pageBody } from "./page-edit";
 import {
   excerpt,
   HEAD_MAX_CHARS,
   notebookTools,
-  pageSource,
   resume,
   slugForSession,
   TAIL_MAX_CHARS,
@@ -256,10 +256,10 @@ describe("excerpt", () => {
 describe("page identity", () => {
   it("prefers the editable markdown over the expanded render", () => {
     expect(
-      pageSource({ content: "<expanded render>", content_editor: "## Record\n\nreal source" }),
+      pageBody({ content: "<expanded render>", content_editor: "## Record\n\nreal source" }),
     ).toBe("## Record\n\nreal source");
-    expect(pageSource({ content: "<p>html page</p>" })).toBe("<p>html page</p>");
-    expect(pageSource({})).toBe("");
+    expect(pageBody({ content: "<p>html page</p>" })).toBe("<p>html page</p>");
+    expect(pageBody({})).toBe("");
   });
 
   it("names the notebook after its session", () => {

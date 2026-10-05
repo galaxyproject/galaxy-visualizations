@@ -1,5 +1,6 @@
-/** Shell-written proof a session happened; loom: session-lifecycle.ts + notebook-writer.ts. */
+/** Session-written proof a session happened; loom: session-lifecycle.ts + notebook-writer.ts. */
 
+import type { Galaxy } from "./galaxy";
 import { editRecord } from "./record-write";
 
 const FENCE_OPEN = "```olit-session";
@@ -94,13 +95,12 @@ export function upsertSessionSummary(content: string, s: SessionSummary): string
  * reliable end event, so olit upserts after each turn and the latest write wins.
  */
 export async function writeSessionSummary(
-  root: string,
-  credentials: RequestCredentials,
+  galaxy: Galaxy,
   pageId: string | undefined,
   summary: Omit<SessionSummary, "record">,
 ): Promise<boolean> {
   if (!pageId) return false;
-  return editRecord({ root, credentials, pageId }, (content, recordId) =>
+  return editRecord({ galaxy, pageId }, (content, recordId) =>
     upsertSessionSummary(content, { ...summary, record: recordId }),
   );
 }

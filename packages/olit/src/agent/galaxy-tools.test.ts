@@ -5,6 +5,7 @@ import { Watch } from "./watch";
 import type { Galaxy } from "./galaxy";
 import {
   annotate,
+  OPS_POLICY,
   galaxyTools,
   hdaInputs,
   JOB_LOG_BYTES,
@@ -79,7 +80,11 @@ describe("get_history_contents", () => {
         return rows;
       },
     });
-    return { paths, out: run("get_history_contents", { history_id: "h1", ...args }, ctx) };
+    // The text the model reads, whichever way the tool built it.
+    const out = run("get_history_contents", { history_id: "h1", ...args }, ctx).then((value) =>
+      value instanceof Outcome ? value.text : (value as string),
+    );
+    return { paths, out };
   }
 
   it("lists a dataset in an error state like any other", async () => {
@@ -89,7 +94,28 @@ describe("get_history_contents", () => {
       { id: "d2", hid: 2, state: "error" },
     ];
     const got = JSON.parse(await contents({}, rows).out);
-    expect(got.data.map((i: { id: string }) => i.id)).toEqual(["d1", "d2"]);
+    expect(got.data.contents.map((i: { id: string }) => i.id)).toEqual(["d1", "d2"]);
+  });
+
+  it("answers as galaxy-ops and galaxy-mcp do: the history, its rows, the window beside", async () => {
+    const got = JSON.parse(await contents({}).out);
+    expect(Object.keys(got.data).sort()).toEqual(["contents", "history_id"]);
+    expect(got.data.history_id).toBe("h1");
+    expect(got.pagination).toMatchObject({ offset: 0, returned_items: 1 });
+  });
+
+  it("says where a failed fetch went, as every other Galaxy result does", async () => {
+    const failed = [
+      { id: "d1", hid: 1, state: "error", misc_info: "Failed to fetch url https://x.org/a.fq" },
+    ];
+    const [, appended] = (await contents({}, failed).out).split("\n\n");
+    expect(appended).toContain("[olit]");
+  });
+
+  it("refuses a window galaxy-ops would refuse, before asking Galaxy", async () => {
+    const { paths, out } = contents({ limit: -1 });
+    await expect(out).rejects.toThrow();
+    expect(paths).toEqual([]);
   });
 
   it("sends an order with what makes it count", async () => {
@@ -136,7 +162,7 @@ describe("get_history_contents", () => {
     const { out } = contents({}, [
       { id: "hda1", dataset_id: "underlying1", name: "x.tabular", hid: 1 },
     ]);
-    const [item] = JSON.parse(await out).data;
+    const [item] = JSON.parse(await out).data.contents;
     expect(item).toEqual({ id: "hda1", name: "x.tabular", hid: 1 });
   });
 
@@ -145,7 +171,7 @@ describe("get_history_contents", () => {
     const { paths, out } = contents({}, rows);
     const got = JSON.parse(await out);
     expect(paths[0]).toContain("limit=101");
-    expect(got.data).toHaveLength(100);
+    expect(got.data.contents).toHaveLength(100);
     expect(got.pagination).toMatchObject({ has_next: true, next_offset: 100 });
   });
 
@@ -157,7 +183,7 @@ describe("get_history_contents", () => {
         "Failed to fetch url https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR390728/001/SRR390728_1.fastq.gz. 404",
     };
     const { out } = contents({}, failure);
-    const [payload, appended] = textOf(await out).split("\n\n");
+    const [payload, appended] = (await out).split("\n\n");
     expect(JSON.parse(payload).data.state).toBe("error");
     expect(appended).toContain("ena_runs");
   });
@@ -173,53 +199,25 @@ describe("run_tool history guard", () => {
   const HERE = "aaaaaaaaaaaaaaaa";
   const ELSEWHERE = "bbbbbbbbbbbbbbbb";
 
+  /** Olit's check over galaxy-ops' run_tool, against datasets owned as `owners` says. */
   function owned(owners: Record<string, string>) {
-    const posted: any[] = [];
     const ctx = context({
       get: async (path) => {
         const id = path.split("/").pop()!;
         return { id, name: `ds-${id}`, history_id: owners[id] };
       },
-      post: async (_path, body) => {
-        posted.push(body);
-        return { jobs: [{ id: "j1", state: "new" }] };
-      },
     });
-    const submit = (historyId: string, inputs: unknown) =>
-      run("run_tool", { history_id: historyId, tool_id: "cat1", inputs }, ctx);
-    return { posted, submit };
+    return (historyId: string, inputs: unknown) =>
+      OPS_POLICY.run_tool.check!({ history_id: historyId, tool_id: "cat1", inputs }, ctx);
   }
 
   it("allows a dataset in the target history", async () => {
-    const { posted, submit } = owned({ d1: HERE });
-    const out = await submit(HERE, { input: { src: "hda", id: "d1" } });
-    expect(posted).toHaveLength(1);
-    expect(out.jobs[0].state).toBe("new");
+    expect(await owned({ d1: HERE })(HERE, { input: { src: "hda", id: "d1" } })).toBeUndefined();
   });
 
-  it("asks Galaxy for the tool version the model named, and only then", async () => {
-    const { posted } = owned({ d1: HERE });
-    const ctx = context({
-      get: async () => ({ id: "d1", history_id: HERE }),
-      post: async (_path, body) => {
-        posted.push(body);
-        return { jobs: [] };
-      },
-    });
-    await run(
-      "run_tool",
-      { history_id: HERE, tool_id: "cat1", inputs: {}, tool_version: "1.1" },
-      ctx,
-    );
-    await run("run_tool", { history_id: HERE, tool_id: "cat1", inputs: {} }, ctx);
-    expect(posted[0].tool_version).toBe("1.1");
-    expect(posted[1]).not.toHaveProperty("tool_version");
-  });
-
-  it("refuses a dataset from another history before submission", async () => {
-    const { posted, submit } = owned({ d1: ELSEWHERE });
-    const out = refused(await submit(HERE, { input: { src: "hda", id: "d1" } }));
-    expect(posted).toEqual([]);
+  it("refuses a dataset from another history", async () => {
+    const out = refused(await owned({ d1: ELSEWHERE })(HERE, { input: { src: "hda", id: "d1" } }));
+    expect(out).toContain("do not identify a dataset in history");
     expect(out).toContain("d1");
     expect(out).toContain(ELSEWHERE);
     expect(out).toContain(HERE);
@@ -227,39 +225,36 @@ describe("run_tool history guard", () => {
 
   it("allows working in a newly created history", async () => {
     const fresh = "cccccccccccccccc";
-    const { posted, submit } = owned({ d1: fresh });
-    await submit(fresh, { input: { src: "hda", id: "d1" } });
-    expect(posted).toHaveLength(1);
+    expect(await owned({ d1: fresh })(fresh, { input: { src: "hda", id: "d1" } })).toBeUndefined();
   });
 
   it("refuses the whole submission for one bad input among several", async () => {
-    const { posted, submit } = owned({ d1: HERE, d2: ELSEWHERE, d3: HERE });
+    const check = owned({ d1: HERE, d2: ELSEWHERE, d3: HERE });
     const out = refused(
-      await submit(HERE, {
+      await check(HERE, {
         a: { src: "hda", id: "d1" },
         b: { src: "hda", id: "d2" },
         c: { src: "hda", id: "d3" },
       }),
     );
-    expect(posted).toEqual([]);
     expect(out).toContain("d2");
   });
 
   it("inspects nested and repeated inputs", async () => {
-    const { posted, submit } = owned({ d1: HERE, d2: ELSEWHERE });
+    const check = owned({ d1: HERE, d2: ELSEWHERE });
     const out = refused(
-      await submit(HERE, {
+      await check(HERE, {
         queries: [{ input2: { src: "hda", id: "d1" } }, { input2: { src: "hda", id: "d2" } }],
       }),
     );
-    expect(posted).toEqual([]);
     expect(out).toContain("d2");
   });
 
   it("leaves non-dataset parameters alone", async () => {
-    const { posted, submit } = owned({ d1: HERE });
-    await submit(HERE, { input: { src: "hda", id: "d1" }, cond: 'c3=="Gold"', lines: 5 });
-    expect(posted[0].inputs.cond).toBe('c3=="Gold"');
+    const check = owned({ d1: HERE });
+    expect(
+      await check(HERE, { input: { src: "hda", id: "d1" }, cond: 'c3=="Gold"', lines: 5 }),
+    ).toBeUndefined();
   });
 
   it("finds references in nested structures", () => {
@@ -281,63 +276,6 @@ describe("run_tool history guard", () => {
   });
 });
 
-describe("run_tool parameter help", () => {
-  const REJECTION = 'HTTP 400: Parameter "0|other_column" has an invalid key structure.';
-
-  function rejecting(error: Error, toolAnswer?: unknown) {
-    const asked: string[] = [];
-    const fetchImpl: typeof fetch = async (input, init) => {
-      const url = new URL(
-        (input instanceof Request ? input : new Request(String(input), init)).url,
-      );
-      asked.push(url.pathname);
-      if (url.pathname.endsWith("/version")) {
-        return Response.json({ version_major: "26.1", version_minor: "0" });
-      }
-      return toolAnswer === undefined
-        ? new Response("no such tool", { status: 404 })
-        : Response.json(toolAnswer);
-    };
-    const ctx = context(
-      {
-        get: async () => ({}),
-        post: async () => {
-          throw error;
-        },
-      },
-      { ops: createGalaxyContext({ baseUrl: "http://galaxy.test/", apiKey: "", fetchImpl }) },
-    );
-    return { asked, out: run("run_tool", { history_id: "h1", tool_id: "sort1", inputs: {} }, ctx) };
-  }
-
-  const TOOL = { id: "sort1", inputs: [{ name: "column", type: "text", value: "" }] };
-
-  it("attaches the template galaxy-ops builds", async () => {
-    const out = refused(await rejecting(new Error(REJECTION), TOOL).out);
-    expect(out).toContain("invalid key structure");
-    expect(out).toContain("Fill this template");
-    expect(out).toContain('"column"');
-  });
-
-  it("still reports the rejection without a template", async () => {
-    const out = refused(await rejecting(new Error(REJECTION)).out);
-    expect(out).toContain("invalid key structure");
-    expect(out).not.toContain("Fill this template");
-  });
-
-  it("asks for the template of the tool that was rejected", async () => {
-    const { asked, out } = rejecting(new Error(REJECTION), TOOL);
-    await out;
-    expect(asked).toContain("/api/tools/sort1");
-  });
-
-  it("leaves an unrelated failure alone", async () => {
-    await expect(rejecting(new Error("HTTP 500: upstream exploded")).out).rejects.toThrow(
-      "upstream exploded",
-    );
-  });
-});
-
 describe("get_job_details", () => {
   function job(record: Record<string, unknown>) {
     const paths: string[] = [];
@@ -349,6 +287,11 @@ describe("get_job_details", () => {
     });
     return { paths, out: run("get_job_details", { dataset_id: "d1" }, ctx) };
   }
+
+  it("answers with the job, the dataset and the job id, as galaxy-ops and galaxy-mcp do", async () => {
+    const out = await job({ id: "j1", state: "ok" }).out;
+    expect(out).toEqual({ job: { id: "j1", state: "ok" }, dataset_id: "d1", job_id: "j1" });
+  });
 
   it("keeps a chatty job under the result cap", async () => {
     const noisy = Array.from({ length: 30000 }, (_, i) => `line ${i} of warnings`).join("\n");
@@ -366,15 +309,15 @@ describe("get_job_details", () => {
       id: "j1",
       tool_stderr: "Reading reference bed file: ref.dat\n" + noise,
     }).out;
-    expect(out.tool_stderr.startsWith("Reading reference bed file: ref.dat")).toBe(true);
-    expect(out.tool_stderr).toContain("bytes omitted");
+    expect(out.job.tool_stderr.startsWith("Reading reference bed file: ref.dat")).toBe(true);
+    expect(out.job.tool_stderr).toContain("bytes omitted");
   });
 
   it("keeps the end of the log", async () => {
     const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
     const out = await job({ id: "j1", tool_stderr: noisy + "\nRuntimeError: the real cause" }).out;
-    expect(out.tool_stderr.endsWith("RuntimeError: the real cause")).toBe(true);
-    expect(new TextEncoder().encode(out.tool_stderr).length).toBeLessThanOrEqual(
+    expect(out.job.tool_stderr.endsWith("RuntimeError: the real cause")).toBe(true);
+    expect(new TextEncoder().encode(out.job.tool_stderr).length).toBeLessThanOrEqual(
       JOB_LOG_BYTES + "[... x of y bytes omitted ...]\n".length,
     );
   });
@@ -382,7 +325,7 @@ describe("get_job_details", () => {
   it("keeps whole lines at both cuts", async () => {
     const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
     const out = await job({ id: "j1", tool_stderr: noisy }).out;
-    const lines: string[] = out.tool_stderr.split("\n");
+    const lines: string[] = out.job.tool_stderr.split("\n");
     expect(lines[0]).toBe("warning number 0");
     expect(lines[lines.length - 1]).toBe("warning number 1999");
     expect(lines.find((line) => line.includes("omitted"))).toMatch(
@@ -392,14 +335,14 @@ describe("get_job_details", () => {
 
   it("returns a short log whole", async () => {
     const out = await job({ id: "j1", tool_stderr: "Traceback: boom" }).out;
-    expect(out.tool_stderr).toBe("Traceback: boom");
+    expect(out.job.tool_stderr).toBe("Traceback: boom");
   });
 
   it("leaves the rest of the job untouched", async () => {
     const { paths, out } = job({ id: "j1", state: "error", params: { input: "d0" } });
     const got = await out;
-    expect(got.params).toEqual({ input: "d0" });
-    expect(got.state).toBe("error");
+    expect(got.job.params).toEqual({ input: "d0" });
+    expect(got.job.state).toBe("error");
     expect(paths[paths.length - 1]).toBe("api/jobs/j1?full=true");
   });
 });
@@ -649,6 +592,13 @@ describe("get_invocations", () => {
     return { paths, ask: (args: Record<string, unknown>) => run("get_invocations", args, ctx) };
   }
 
+  it("reads a blank filter as no filter", async () => {
+    const { paths, ask } = invocations([]);
+    await ask({ history_id: "", workflow_id: "" });
+    expect(paths[0]).not.toContain("history_id=");
+    expect(paths[0]).not.toContain("workflow_id=");
+  });
+
   it("rolls up one invocation", async () => {
     const { paths, ask } = invocations();
     const out = await ask({ invocation_id: "i1" });
@@ -734,6 +684,17 @@ describe("update_page", () => {
 
   it("reports the new hash", async () => {
     expect((await page().update({ content: "fresh" })).content_hash).toBe(djb2Hash("fresh"));
+  });
+
+  it("hands back the source it wrote, not Galaxy's embed-expanded render", async () => {
+    const ctx = context({
+      get: async () => ({ id: "p1", content_editor: DOC }),
+      put: async (_path, body) => ({ id: "p1", content_editor: body.content, content: "<render>" }),
+    });
+    const out = (await run("update_page", { page_id: "p1", content: "fresh" }, ctx)) as any;
+    expect(out).not.toHaveProperty("content");
+    expect(out.content_editor).toBe("fresh");
+    expect(out.content_hash).toBe(djb2Hash("fresh"));
   });
 
   it("marks every write as an agent edit", async () => {

@@ -1,16 +1,14 @@
 /** olit shell: mounts Orbit's ChatPanel, starts the agent worker, drives the chat. */
 import "./orbit/styles.css";
 import "./olit.css";
-import { editRecord } from "./record-write";
 import { describeSeedDataset, summarize } from "./seed-dataset";
-import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
 import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
-import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
+import { describeError, lastLine, renderMessages, replayMessages } from "./transcript";
 import { SessionStore, galaxyUserId, indexedDbStore } from "./session";
 import {
   advance,
@@ -20,9 +18,9 @@ import {
   type SessionDocument,
 } from "./session-document";
 import { reportSavedState, savedSessions } from "./saved-session";
-import { writeSessionSummary } from "./session-summary";
 import { createConfirm } from "./confirm-modal";
 import { AgentClient } from "./agent/client";
+import { connectGalaxy } from "./agent/galaxy";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { LoopEvent, SessionBinding } from "./agent/session";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
@@ -119,11 +117,10 @@ async function main() {
   const ARTIFACT_LIMIT = 20;
 
   const credentials = (process.env.credentials as RequestCredentials) || "include";
-  const session = new SessionStore(
-    indexedDbStore(),
-    await galaxyUserId(config.galaxy_root, credentials),
-  );
-  const saved = savedSessions(config.galaxy_root, credentials);
+  // The page's own Galaxy requests take the transport the agent's do.
+  const galaxy = connectGalaxy({ root: config.galaxy_root, credentials });
+  const session = new SessionStore(indexedDbStore(), await galaxyUserId(galaxy));
+  const saved = savedSessions(galaxy);
   // Opening a saved visualization opens that session. Otherwise IndexedDB continues the
   // last conversation in this history, which is reload convenience, not a second authority.
   let savedId = incoming.visualizationId;
@@ -140,6 +137,7 @@ async function main() {
   // The record page is named, never discovered: the session owns one and says which.
   config.session_id = sessionDoc.session.id;
   config.record_page_id = sessionDoc.session.recordPageId;
+  config.session_started_at = sessionDoc.session.createdAt;
 
   const usage = mountUsageBar(container);
   mountBuildStamp(container, {
@@ -211,7 +209,7 @@ async function main() {
   );
   // Its own message: being ready and having a dataset to start from are separate facts.
   if (config.dataset_id) {
-    void describeSeedDataset(config.galaxy_root, credentials, config.dataset_id).then((found) => {
+    void describeSeedDataset(galaxy, config.dataset_id).then((found) => {
       if (found) {
         info(summarize(found));
       }
@@ -222,19 +220,11 @@ async function main() {
   function workerConfig() {
     return {
       ...config,
-      ai_base_url: absolute(config.ai_base_url),
+      ai_base_url: config.ai_base_url && absolute(config.ai_base_url),
       galaxy_root: absolute(config.galaxy_root),
       ai_api_key: creds.apiKey,
       credentials,
     };
-  }
-
-  // loom's agent calls galaxy_invocation_record so the poller owns the entry.
-  function submitted(w: Watched) {
-    void editRecord(
-      { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
-      (content) => noteSubmitted(content, w),
-    );
   }
 
   function settledOne({ watched: w, state, outcome }: Settled) {
@@ -247,11 +237,6 @@ async function main() {
     } else {
       info(`${what} ${w.id} finished (${state}).`);
     }
-    // loom's poller advances the notebook itself.
-    void editRecord(
-      { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
-      (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
-    );
   }
 
   // The session watches submitted work; the page only asks it, now and then, what settled.
@@ -347,12 +332,9 @@ async function main() {
             "cannot free enough room. Start a new conversation, or configure a larger window.",
         );
       } else if (ev.type === "tool_end") {
-        // The agent states the outcome; toolStatus only guesses at it.
-        const status = ev.is_error ? "error" : toolStatus(ev.content);
-        chat.updateToolCard(ev.id, status, ev.content);
-        // The session registered what this call submitted; the page records and polls it.
+        chat.updateToolCard(ev.id, ev.is_error ? "error" : "done", ev.content);
+        // The session registered and recorded what this call submitted; the page polls it.
         if (ev.watch) {
-          ev.watch.forEach(submitted);
           watchGalaxy();
         }
         // The session says when a call moved it: a history the agent chose, a record it opened.
@@ -443,14 +425,6 @@ async function main() {
     void session.save(sessionDoc);
     el.save.textContent = "Save";
     reportSavedState(false);
-    // loom writes a session block into the notebook itself. The id is the persisted
-    // session's, so a reload updates its block instead of appending another.
-    void writeSessionSummary(config.galaxy_root, credentials, sessionDoc.session.recordPageId, {
-      id: sessionDoc.session.id,
-      startedAt: sessionDoc.session.createdAt,
-      endedAt: new Date().toISOString(),
-      orphanedActiveSteps: 0,
-    });
     el.reset.classList.toggle("hidden", !session.enabled);
     usage.add(reply.usage);
   }
@@ -549,6 +523,7 @@ async function main() {
     // A new conversation is a new session with no record yet; the old record stays the old one's.
     config.session_id = sessionDoc.session.id;
     config.record_page_id = undefined;
+    config.session_started_at = sessionDoc.session.createdAt;
     savedId = undefined;
     reportSavedState(true);
     await session.save(sessionDoc);

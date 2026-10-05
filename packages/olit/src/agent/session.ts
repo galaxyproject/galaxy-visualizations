@@ -11,7 +11,7 @@ import { resolveArtifacts } from "./artifacts";
 import { compactionSettings, compactor } from "./compaction";
 import type { Ask } from "./destructive";
 import { connectGalaxy, galaxyFetch, type Galaxy, type GalaxyOptions } from "./galaxy";
-import { annotate, galaxyTools, SETTLED } from "./galaxy-tools";
+import { annotate, galaxyTools, OPS_POLICY, SETTLED } from "./galaxy-tools";
 import { enaTools } from "./ena";
 import { gtnTools } from "./gtn";
 import { guards } from "./guards";
@@ -37,7 +37,11 @@ import {
 } from "./tool";
 import { CONTEXT_SECTION, isRecordUpdate, RECORD_SECTION, sectionsOf } from "./sections";
 import { followUpPrompt, stateReader, Watch, type Settled, type Watched } from "./watch";
+import { toLlm } from "./messages";
 import { pythonTool } from "./python";
+import { applyJobOutcome, noteSubmitted } from "./record-jobs";
+import { editRecord } from "./record-write";
+import { writeSessionSummary } from "./session-summary";
 import { visualizationTools } from "./visualizations";
 
 export const MAX_STEPS = 100;
@@ -59,6 +63,8 @@ export interface SessionConfig extends LlmConfig {
   dataset_id?: string;
   session_id?: string;
   record_page_id?: string;
+  /** When the conversation began, for the record's session block; else this session's start. */
+  session_started_at?: string;
   ai_reserve_tokens?: number;
   ai_keep_recent_tokens?: number;
   ai_compaction?: boolean;
@@ -232,26 +238,20 @@ function placingArtifacts(tool: OlitTool): OlitTool {
 
 /** Every tool Olit can offer, before a session filters them by capability. */
 export function olitTools(skills = skillRegistry()): OlitTool[] {
-  const own = [
-    pythonTool(),
-    ...visualizationTools(),
+  const python = pythonTool();
+  const visualizations = visualizationTools();
+  const rest = [
     ...notebookTools(),
     ...gtnTools(),
     ...enaTools(),
     skillsTool(skills),
     ...processTools(),
   ];
-  const ownNames = new Set(own.map((t) => t.name));
-  const galaxy = [...opsTools(annotate), ...galaxyTools()].map((t) => misrouted(t, ownNames));
-  return [
-    pythonTool(),
-    ...[...galaxy, ...visualizationTools()].map(placingArtifacts),
-    ...notebookTools(),
-    ...gtnTools(),
-    ...enaTools(),
-    skillsTool(skills),
-    ...processTools(),
-  ];
+  const own = new Set([python, ...visualizations, ...rest].map((t) => t.name));
+  const galaxy = [...opsTools(annotate, OPS_POLICY), ...galaxyTools()].map((t) =>
+    misrouted(t, own),
+  );
+  return [python, ...[...galaxy, ...visualizations].map(placingArtifacts), ...rest];
 }
 
 /**
@@ -302,6 +302,7 @@ export class Session {
   private calls = 0;
   /** Where the running turn hears about a provider retry. */
   private onRetry?: (info: RetryInfo) => void;
+  private readonly started = new Date().toISOString();
 
   private constructor(
     private config: SessionConfig,
@@ -340,7 +341,7 @@ export class Session {
     });
     const skills = skillRegistry();
     const session = new Session(config, galaxy, ops, python, target, olitTools(skills));
-    session.connection = await connect(target, (info) => session.onRetry?.(info));
+    session.connection = await connect(target, (info) => session.onRetry?.(info), env);
     session.galaxyStatus = await galaxy
       .get("api/version")
       .then((): GalaxyStatus => GALAXY_READY)
@@ -384,46 +385,53 @@ export class Session {
    * would receive.
    */
   async call(name: string, args: Record<string, unknown>) {
-    const tool = this.tools.find((t) => t.name === name);
-    if (!tool) {
+    if (!this.tools.some((t) => t.name === name) && name !== "finish") {
       throw new Error(`no tool named ${name}`);
     }
-    const ctx: Context = {
-      galaxy: this.galaxy,
-      ops: this.ops,
-      python: this.python,
-      binding: this.binding,
-      artifacts: { prior: [], produced: [] },
-      watch: this.watch,
-    };
+    const { ctx, tools, guard: fresh } = this.toolset({});
     // The guards a turn would apply, kept across calls the way a turn keeps them across steps.
-    this.callGuards ??= guards({
-      settled: SETTLED,
-      watch: this.watch,
-      secrets: [this.target.apiKey, this.config.galaxy_key].filter(
-        (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
-      ),
-      withheld: new Map(),
-      advertised: this.tools.map((t) => t.name),
-      destructive: new Set(this.tools.filter((t) => t.destructive).map((t) => t.name)),
-    });
+    const guard = (this.callGuards ??= fresh);
     const id = `call-${++this.calls}`;
+    const tool = tools.find((t) => t.name === name);
+    if (!tool) {
+      // Withheld by the grant: what the model would read in place of pi's "not found".
+      const [refused] = guard.convert([
+        {
+          role: "toolResult",
+          toolCallId: id,
+          toolName: name,
+          content: [{ type: "text", text: `Tool ${name} not found` }],
+          isError: true,
+          timestamp: Date.now(),
+        },
+      ]);
+      const content = contentText(
+        (refused as Extract<AgentMessage, { role: "toolResult" }>).content,
+      );
+      return { content, is_error: true, guard: guard.guardOf(id, name, true), artifacts: [] };
+    }
     const toolCall = { type: "toolCall", id, name, arguments: args };
-    const blocked = await this.callGuards.beforeToolCall({
+    const blocked = await guard.beforeToolCall({
       toolCall,
       args,
       assistantMessage: { role: "assistant", content: [toolCall] },
     } as never);
     if (blocked?.block) {
-      const guard = this.callGuards.guardOf(id, name, false);
-      return { content: blocked.reason ?? "", is_error: true, guard, artifacts: [] };
+      return {
+        content: blocked.reason ?? "",
+        is_error: true,
+        guard: guard.guardOf(id, name, false),
+        artifacts: [],
+      };
     }
-    const raw = await asAgentTool(tool, () => ctx).execute(id, args as never);
-    const after = await this.callGuards.afterToolCall({ toolCall, result: raw } as never);
+    const watching = this.watching();
+    const raw = await tool.execute(id, args as never);
+    const after = await guard.afterToolCall({ toolCall, result: raw } as never);
     const result = { ...raw, ...after };
     if (result.isError) {
-      this.callGuards.noteFailure(name, args);
+      guard.noteFailure(name, args);
     }
+    await Promise.all(this.recordSubmitted(watching).writes);
     return {
       content: contentText(result.content),
       is_error: result.isError,
@@ -431,10 +439,87 @@ export class Session {
     };
   }
 
+  /**
+   * What a turn and a model-free call share: the tools the grant allows, with `finish`, the
+   * guards over them, and the context their calls run in.
+   */
+  private toolset({ artifacts = [], ask }: { artifacts?: Artifact[]; ask?: Ask }) {
+    const granted = new Set(this.capabilities);
+    const missing = (t: OlitTool) =>
+      [t.capability, ...(t.requires ?? [])].find((c) => c !== undefined && !granted.has(c));
+    const allowed = (t: OlitTool) => missing(t) === undefined;
+    const ctx: Context = {
+      galaxy: this.galaxy,
+      ops: this.ops,
+      python: this.python,
+      binding: this.binding,
+      artifacts: { prior: artifacts, produced: [] },
+      watch: this.watch,
+    };
+    const galaxyOptions = {
+      root: this.galaxy.root,
+      key: this.config.galaxy_key,
+      credentials: this.config.credentials,
+    };
+    // Each call gets Galaxy clients bound to its own abort signal, sharing the turn's state.
+    const contextFor = (signal?: AbortSignal): Context =>
+      signal
+        ? {
+            ...ctx,
+            galaxy: connectGalaxy({ ...galaxyOptions, signal }),
+            ops: galaxyOps({ ...galaxyOptions, signal }),
+            python: { ...this.python, run: (code) => this.python.run(code, signal) },
+          }
+        : ctx;
+    const tools = [
+      ...this.tools.filter(allowed).map((t) => asAgentTool(t, contextFor)),
+      finishTool(),
+    ];
+    // The resolved key, not the configured one: a headless run reads it from the environment.
+    const secrets = [this.connection.apiKey, this.config.galaxy_key].filter(
+      (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
+    );
+    const guard = guards({
+      settled: SETTLED,
+      watch: this.watch,
+      secrets,
+      withheld: new Map(this.tools.filter((t) => !allowed(t)).map((t) => [t.name, missing(t)!])),
+      advertised: tools.map((t) => t.name),
+      destructive: new Set(this.tools.filter((t) => t.destructive).map((t) => t.name)),
+      ask: ask,
+    });
+    return { ctx, tools, guard };
+  }
+
+  /** The work this session watches now, to tell what a call adds to it. */
+  private watching() {
+    return new Set(this.watch.list().map((w) => `${w.kind}:${w.id}`));
+  }
+
+  /** What a call submitted since `before`, each noted in the record as loom's agent hands it over. */
+  private recordSubmitted(before: Set<string>) {
+    const submitted = this.watch.list().filter((w) => !before.has(`${w.kind}:${w.id}`));
+    const writes = submitted.map((w) => this.editRecord((c) => noteSubmitted(c, w)));
+    return { submitted, writes };
+  }
+
   /** One pass over the unfinished work: what settled, and the follow-up turn it calls for. */
   async settle(): Promise<{ settled: Settled[]; pending: number; followUp?: string }> {
     const settled = await this.watch.poll();
+    // loom's poller advances the notebook itself, without asking the model.
+    await Promise.all(
+      settled.map(({ watched, state, outcome }) =>
+        this.editRecord((content) =>
+          applyJobOutcome(content, { id: watched.id, kind: watched.kind, state, outcome }),
+        ),
+      ),
+    );
     return { settled, pending: this.watch.pending, followUp: followUpPrompt(settled) };
+  }
+
+  /** An edit of the record this session is bound to, if it has one yet. */
+  private editRecord(edit: (content: string) => string) {
+    return editRecord({ galaxy: this.galaxy, pageId: this.binding.pageId }, edit);
   }
 
   /** The transcript with the context block set and the record excerpt refreshed. */
@@ -454,49 +539,7 @@ export class Session {
         // A listener must not break the turn.
       }
     };
-    const granted = new Set(this.capabilities);
-    const missing = (t: OlitTool) =>
-      [t.capability, ...(t.requires ?? [])].find((c) => c !== undefined && !granted.has(c));
-    const allowed = (t: OlitTool) => missing(t) === undefined;
-    const ctx: Context = {
-      galaxy: this.galaxy,
-      ops: this.ops,
-      python: this.python,
-      binding: this.binding,
-      artifacts: { prior: options.artifacts ?? [], produced: [] },
-      watch: this.watch,
-    };
-    const galaxyOptions = {
-      root: this.galaxy.root,
-      key: this.config.galaxy_key,
-      credentials: this.config.credentials,
-    };
-    // Each call gets Galaxy clients bound to its own abort signal, sharing the turn's state.
-    const contextFor = (signal?: AbortSignal): Context =>
-      signal
-        ? {
-            ...ctx,
-            galaxy: connectGalaxy({ ...galaxyOptions, signal }),
-            ops: galaxyOps({ ...galaxyOptions, signal }),
-          }
-        : ctx;
-    const tools = [
-      ...this.tools.filter(allowed).map((t) => asAgentTool(t, contextFor)),
-      finishTool(),
-    ];
-    // The resolved key, not the configured one: a headless run reads it from the environment.
-    const secrets = [this.target.apiKey, this.config.galaxy_key].filter(
-      (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
-    );
-    const guard = guards({
-      settled: SETTLED,
-      watch: this.watch,
-      secrets,
-      withheld: new Map(this.tools.filter((t) => !allowed(t)).map((t) => [t.name, missing(t)!])),
-      advertised: tools.map((t) => t.name),
-      destructive: new Set(this.tools.filter((t) => t.destructive).map((t) => t.name)),
-      ask: options.ask,
-    });
+    const { ctx, tools, guard } = this.toolset({ artifacts: options.artifacts, ask: options.ask });
     const logs: string[] = [];
     const { model, streamFn } = this.connection;
     this.onRetry = (info) => {
@@ -506,7 +549,7 @@ export class Session {
     const compaction = compactor(
       compactionSettings({
         enabled: this.config.ai_compaction,
-        contextWindow: this.target.contextWindow,
+        contextWindow: this.connection.model.contextWindow,
         reserveTokens: this.config.ai_reserve_tokens || this.target.maxTokens,
         keepRecentTokens: this.config.ai_keep_recent_tokens,
       }),
@@ -528,7 +571,8 @@ export class Session {
     let done = false;
     let overflowReported = false;
     let before = JSON.stringify(this.binding);
-    let watchedBefore = new Set<string>();
+    let watchedBefore = this.watching();
+    const recordWrites: Promise<boolean>[] = [];
 
     const agent = new Agent({
       // A message from a caller that does not stamp time (the eval harness) still sorts.
@@ -537,10 +581,7 @@ export class Session {
       toolExecution: "sequential",
       beforeToolCall: guard.beforeToolCall,
       afterToolCall: guard.afterToolCall,
-      convertToLlm: (all) =>
-        guard.convert(
-          all.filter((m) => ["system", "user", "assistant", "toolResult"].includes(m.role)),
-        ) as never,
+      convertToLlm: (all) => guard.convert(toLlm(all)) as never,
       transformContext: async (all, signal) => {
         const { messages: compacted, status } = await compaction.compact(all, signal);
         if (status === "compacted") {
@@ -573,7 +614,7 @@ export class Session {
       } else if (event.type === "tool_execution_start") {
         started.set(event.toolCallId, event.args);
         before = JSON.stringify(this.binding);
-        watchedBefore = new Set(this.watch.list().map((w) => `${w.kind}:${w.id}`));
+        watchedBefore = this.watching();
         logs.push(`call ${event.toolName}(${brief(event.args)})`);
         emit({ type: "tool_start", id: event.toolCallId, name: event.toolName });
       } else if (event.type === "tool_execution_end") {
@@ -593,7 +634,8 @@ export class Session {
         }
         done ||= name === "finish" && !event.isError;
         const changed = JSON.stringify(this.binding) !== before;
-        const submitted = this.watch.list().filter((w) => !watchedBefore.has(`${w.kind}:${w.id}`));
+        const { submitted, writes } = this.recordSubmitted(watchedBefore);
+        recordWrites.push(...writes);
         emit({
           type: "tool_end",
           id: event.toolCallId,
@@ -627,6 +669,18 @@ export class Session {
       guardLog.push({ guard: "max-steps", steps });
       logs.push(`the step budget of ${maxSteps} was spent before the turn ended`);
     }
+    if (!failed && this.binding.sessionId) {
+      // loom writes its session block at session end; a tab has none, so every turn upserts it.
+      recordWrites.push(
+        writeSessionSummary(this.galaxy, this.binding.pageId, {
+          id: this.binding.sessionId,
+          startedAt: this.config.session_started_at ?? this.started,
+          endedAt: new Date().toISOString(),
+          orphanedActiveSteps: 0,
+        }),
+      );
+    }
+    await Promise.all(recordWrites);
     const usage = { input: 0, output: 0, cost: null as number | null };
     for (const m of produced) {
       if (m.role === "assistant") {

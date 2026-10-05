@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { connectGalaxy } from "./agent/galaxy";
 import { PLUGIN_TYPE, reportSavedState, savedSessions, title } from "./saved-session";
 import {
   advance,
@@ -28,25 +29,22 @@ function turn(d: SessionDocument, text: string, artifacts: any[] = []) {
 function fakeGalaxy() {
   const rows = new Map<string, { title: string; config: unknown; type?: string }>();
   let next = 1;
-  const fetchMock = vi.fn(async (url: string, init: RequestInit = {}) => {
-    const id = url.split("/api/visualizations/")[1];
-    if (!init.method || init.method === "GET") {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const fetchMock = vi.fn(async (request: Request) => {
+    const id = request.url.split("/api/visualizations/")[1];
+    if (request.method === "GET") {
       const row = rows.get(id!);
-      return {
-        ok: Boolean(row),
-        status: row ? 200 : 404,
-        text: async () => "not found",
-        json: async () => ({ latest_revision: { config: row?.config } }),
-      } as Response;
+      return row ? json({ latest_revision: { config: row.config } }) : json("not found", 404);
     }
-    const body = JSON.parse(String(init.body));
-    if (init.method === "POST") {
+    const body = JSON.parse(await request.text());
+    if (request.method === "POST") {
       const created = `v${next++}`;
       rows.set(created, body);
-      return { ok: true, json: async () => ({ id: created }) } as Response;
+      return json({ id: created });
     }
     rows.set(id!, { ...rows.get(id!), ...body });
-    return { ok: true, json: async () => ({}) } as Response;
+    return json({});
   });
   return { rows, fetchMock };
 }
@@ -71,7 +69,7 @@ describe("a saved Olit visualization is a restorable session", () => {
   it("comes back whole on another machine", async () => {
     const { fetchMock } = fakeGalaxy();
     vi.stubGlobal("fetch", fetchMock);
-    const galaxy = savedSessions("http://galaxy/", "include");
+    const galaxy = savedSessions(connectGalaxy({ root: "http://galaxy/" }));
 
     // Machine one: a conversation with an artifact, then an explicit save.
     let doc = turn(newDocument({ historyId: "h1" }), "run fastqc", [
@@ -87,14 +85,16 @@ describe("a saved Olit visualization is a restorable session", () => {
     expect(reopened!.session.id).toBe(doc.session.id);
     expect(reopened!.history_id).toBe("h1");
     expect(reopened!.artifacts).toEqual(doc.artifacts);
-    expect(restoreMessages(reopened!, SEED).map((m) => m.content)).toContain("run fastqc");
+    expect(
+      restoreMessages(reopened!, SEED).map((m) => ("content" in m ? m.content : undefined)),
+    ).toContain("run fastqc");
     vi.unstubAllGlobals();
   });
 
   it("continues on the second machine and saves back to the same visualization", async () => {
     const { rows, fetchMock } = fakeGalaxy();
     vi.stubGlobal("fetch", fetchMock);
-    const galaxy = savedSessions("http://galaxy/", "include");
+    const galaxy = savedSessions(connectGalaxy({ root: "http://galaxy/" }));
 
     const id = await galaxy.save(turn(newDocument({ historyId: "h1" }), "first"));
     const continued = turn((await galaxy.load(id))!, "second");
@@ -103,14 +103,17 @@ describe("a saved Olit visualization is a restorable session", () => {
     expect(rows.size).toBe(1);
     const stored = (await galaxy.load(id))!;
     expect(stored.session.turn).toBe(2);
-    expect(stored.messages.map((m) => m.content)).toEqual(["first", "second"]);
+    expect(stored.messages.map((m) => ("content" in m ? m.content : undefined))).toEqual([
+      "first",
+      "second",
+    ]);
     vi.unstubAllGlobals();
   });
 
   it("restores under the prompt the plugin ships today, not the one it started on", async () => {
     const { fetchMock } = fakeGalaxy();
     vi.stubGlobal("fetch", fetchMock);
-    const galaxy = savedSessions("http://galaxy/", "include");
+    const galaxy = savedSessions(connectGalaxy({ root: "http://galaxy/" }));
 
     const id = await galaxy.save(turn(newDocument({}), "hello"));
     const corrected = {
@@ -127,7 +130,9 @@ describe("a saved Olit visualization is a restorable session", () => {
     const { rows, fetchMock } = fakeGalaxy();
     vi.stubGlobal("fetch", fetchMock);
 
-    const id = await savedSessions("http://galaxy/", "include").save(turn(newDocument({}), "a"));
+    const id = await savedSessions(connectGalaxy({ root: "http://galaxy/" })).save(
+      turn(newDocument({}), "a"),
+    );
     const row = rows.get(id)! as any;
 
     expect(row.type).toBe(PLUGIN_TYPE);
@@ -146,12 +151,14 @@ describe("a saved Olit visualization is a restorable session", () => {
   it("refuses a visualization that is not an Olit session", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ latest_revision: { config: { settings: {}, tracks: [] } } }),
-      })),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ latest_revision: { config: { settings: {}, tracks: [] } } }),
+          ),
+      ),
     );
-    expect(await savedSessions("http://galaxy/", "include").load("v1")).toBeNull();
+    expect(await savedSessions(connectGalaxy({ root: "http://galaxy/" })).load("v1")).toBeNull();
     vi.unstubAllGlobals();
   });
 
@@ -179,11 +186,11 @@ describe("a saved Olit visualization is a restorable session", () => {
   it("surfaces a failed save instead of pretending it worked", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => ({ ok: false, status: 500, text: async () => "boom" })),
+      vi.fn(async () => new Response("boom", { status: 500 })),
     );
-    await expect(savedSessions("http://galaxy/", "include").save(newDocument({}))).rejects.toThrow(
-      /500/,
-    );
+    await expect(
+      savedSessions(connectGalaxy({ root: "http://galaxy/" })).save(newDocument({})),
+    ).rejects.toThrow(/500/);
     vi.unstubAllGlobals();
   });
 });
@@ -192,7 +199,7 @@ describe("new conversation", () => {
   it("starts a fresh session without touching one already saved", async () => {
     const { rows, fetchMock } = fakeGalaxy();
     vi.stubGlobal("fetch", fetchMock);
-    const galaxy = savedSessions("http://galaxy/", "include");
+    const galaxy = savedSessions(connectGalaxy({ root: "http://galaxy/" }));
     const store = memoryStore();
     const local = new SessionStore(store, "u1");
 
@@ -241,7 +248,7 @@ describe("local continuity", () => {
   it("is a convenience, not an authority: a saved session opens as saved", async () => {
     const { fetchMock } = fakeGalaxy();
     vi.stubGlobal("fetch", fetchMock);
-    const galaxy = savedSessions("http://galaxy/", "include");
+    const galaxy = savedSessions(connectGalaxy({ root: "http://galaxy/" }));
     const store = memoryStore();
     const local = new SessionStore(store, "u1");
 
@@ -252,7 +259,9 @@ describe("local continuity", () => {
 
     // Opening the saved visualization opens what was saved, with no merge and no prompt.
     const opened = await galaxy.load(id);
-    expect(opened!.messages.map((m) => m.content)).toEqual(["saved state"]);
+    expect(opened!.messages.map((m) => ("content" in m ? m.content : undefined))).toEqual([
+      "saved state",
+    ]);
     expect(isSessionDocument(opened)).toBe(true);
     vi.unstubAllGlobals();
   });
