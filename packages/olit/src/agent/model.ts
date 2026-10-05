@@ -4,6 +4,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import type { StreamFn } from "@earendil-works/pi-agent-core";
 
 import type { Target } from "./providers";
+import { retrying, type RetryInfo } from "./retry";
 
 /** Requests to a keyless endpoint carry the page's session instead of a bearer token. */
 const keyless: typeof fetch = (input, init) => {
@@ -33,7 +34,10 @@ function rateLimiter(perMinute: number): () => Promise<void> {
     }));
 }
 
-export function connect(target: Target): {
+export function connect(
+  target: Target,
+  onRetry?: (info: RetryInfo) => void,
+): {
   model: Model<"openai-completions">;
   streamFn: StreamFn;
 } {
@@ -70,13 +74,11 @@ export function connect(target: Target): {
     }),
   );
   const acquire = rateLimiter(target.rateLimit);
+  // pi-ai's own retry is off by default and cannot say it is waiting; this one can.
+  const send = retrying(target.apiKey ? (input, init) => fetch(input, init) : keyless, onRetry);
   const streamFn: StreamFn = async (m, context, options) => {
     await acquire();
-    return models.streamSimple(
-      m,
-      context,
-      target.apiKey ? options : { ...options, fetch: keyless },
-    );
+    return models.streamSimple(m, context, { ...options, fetch: send });
   };
   return { model, streamFn };
 }

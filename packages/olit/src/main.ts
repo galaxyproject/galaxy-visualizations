@@ -33,6 +33,7 @@ import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
 import { mountUsageBar } from "./usage-bar";
 import { mountBuildStamp } from "./build-stamp";
+import { createRetryNotice } from "./retry-notice";
 
 const PLUGIN_NAME = "olit";
 const PROMPT_DEFAULT = "You are Olit. Communicate only by calling tools.";
@@ -84,6 +85,7 @@ async function main() {
   const el = mountLayout(container);
   const artifactPane = mountArtifactPane(container);
   const chat = new ChatPanel(el.messages);
+  const retryNotice = createRetryNotice(chat);
 
   // Ask for a provider/key before the worker starts.
   const creds = await ensureCredentials(container);
@@ -293,6 +295,9 @@ async function main() {
         streamed.add(ev.id);
         chat.hideThinking();
         chat.addToolCard(ev.id, ev.name);
+      } else if (ev.type === "llm_retry") {
+        // A rate limit means a long silent wait; count it down instead.
+        retryNotice.start(ev.status, ev.wait, ev.attempt, ev.of);
       } else if (ev.type === "compacted") {
         // Never let history disappear without saying so.
         chat.addInfoMessage("Summarized the earlier conversation to make room.");
@@ -362,6 +367,7 @@ async function main() {
 
     latest = reply.diagnostics || latest;
     chat.hideThinking();
+    retryNotice.stop();
     if (reply.error) {
       // The brain returns a failed turn as data; the console keeps the detail.
       console.error("[olit] turn failed", reply.error);
@@ -445,6 +451,7 @@ async function main() {
     } catch (e) {
       console.error("[olit] turn failed", e);
       chat.hideThinking();
+      retryNotice.stop();
       chat.addErrorMessage(lastLine(String(e)));
     } finally {
       // One place the composer comes back, whichever way the turn ended.
@@ -474,6 +481,7 @@ async function main() {
     } catch (e) {
       console.error("[olit] automatic follow-up failed", e);
       chat.hideThinking();
+      retryNotice.stop();
       chat.addErrorMessage(lastLine(String(e)));
     } finally {
       el.abort.classList.add("hidden");

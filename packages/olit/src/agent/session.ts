@@ -79,6 +79,7 @@ export type LoopEvent =
       refused: boolean;
       guard?: Guard;
     }
+  | { type: "llm_retry"; status: number; wait: number; attempt: number; of: number }
   | { type: "compacted" }
   | { type: "context_overflow" };
 
@@ -325,7 +326,11 @@ export class Session {
       advertised: tools.map((t) => t.name),
       ask: options.ask,
     });
-    const { model, streamFn } = connect(this.target);
+    const logs: string[] = [];
+    const { model, streamFn } = connect(this.target, (info) => {
+      logs.push(`provider answered ${info.status}, retrying in ${info.wait}s`);
+      emit({ type: "llm_retry", ...info });
+    });
     const compaction = compactor(
       compactionSettings({
         enabled: this.config.ai_compaction,
@@ -343,7 +348,6 @@ export class Session {
       },
     );
     const maxSteps = this.config.max_steps || MAX_STEPS;
-    const logs: string[] = [];
     const produced: AgentMessage[] = [];
     const guardLog: TurnResult["guards"] = [];
     const started = new Map<string, unknown>();
