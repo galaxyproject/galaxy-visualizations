@@ -1,10 +1,11 @@
 import {
   Agent,
+  runToolCall,
   type AgentEvent,
   type AgentMessage,
   type AgentTool,
 } from "@earendil-works/pi-agent-core";
-import { contentText, normalizeContext } from "@earendil-works/pi-ai";
+import { contentText, normalizeContext, type JsonObject } from "@earendil-works/pi-ai";
 import { createGalaxyContext, type GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import { resolveArtifacts } from "./artifacts";
@@ -396,49 +397,36 @@ export class Session {
     // The guards a turn would apply, kept across calls the way a turn keeps them across steps.
     const guard = (this.callGuards ??= fresh);
     const id = `call-${++this.calls}`;
-    const tool = tools.find((t) => t.name === name);
-    if (!tool) {
-      // Withheld by the grant: what the model would read in place of pi's "not found".
-      const [refused] = guard.convert([
-        {
-          role: "toolResult",
-          toolCallId: id,
-          toolName: name,
-          content: [{ type: "text", text: `Tool ${name} not found` }],
-          isError: true,
-          timestamp: Date.now(),
-        },
-      ]);
-      const content = contentText(
-        (refused as Extract<AgentMessage, { role: "toolResult" }>).content,
-      );
-      return { content, is_error: true, guard: guard.guardOf(id, name, true), artifacts: [] };
-    }
-    const toolCall = { type: "toolCall", id, name, arguments: args };
-    const blocked = await guard.beforeToolCall({
-      toolCall,
-      args,
-      assistantMessage: { role: "assistant", content: [toolCall] },
-    } as never);
-    if (blocked?.block) {
-      return {
-        content: blocked.reason ?? "",
-        is_error: true,
-        guard: guard.guardOf(id, name, false),
-        artifacts: [],
-      };
-    }
+    const toolCall = { type: "toolCall" as const, id, name, arguments: args as JsonObject };
     const watching = this.watching();
-    const raw = await tool.execute(id, args as never);
-    const after = await guard.afterToolCall({ toolCall, result: raw } as never);
-    const result = { ...raw, ...after };
-    if (result.isError) {
+    const outcome = await runToolCall(toolCall, {
+      tools,
+      assistantMessage: { role: "assistant", content: [toolCall] } as never,
+      context: { messages: [], tools },
+      beforeToolCall: guard.beforeToolCall,
+      afterToolCall: guard.afterToolCall,
+    });
+    const raw = contentText(outcome.result.content);
+    const [seen] = guard.convert([
+      {
+        role: "toolResult",
+        toolCallId: id,
+        toolName: name,
+        content: outcome.result.content,
+        isError: outcome.isError,
+        timestamp: Date.now(),
+      },
+    ]);
+    const guardName =
+      guard.guardOf(id, name, raw === `Tool ${name} not found`) ?? outcome.result.details?.guard;
+    if (outcome.isError && !(guardName && PRE_DISPATCH.has(guardName))) {
       guard.noteFailure(name, id);
     }
     await Promise.all(this.recordSubmitted(watching).writes);
     return {
-      content: contentText(result.content),
-      is_error: result.isError,
+      content: contentText((seen as Extract<AgentMessage, { role: "toolResult" }>).content),
+      is_error: outcome.isError,
+      ...(guardName ? { guard: guardName } : {}),
       artifacts: ctx.artifacts.produced,
     };
   }
