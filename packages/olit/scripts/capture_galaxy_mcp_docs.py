@@ -12,6 +12,7 @@ recommend_biocontainer went unnoticed until an eval scenario flipped.
 import ast
 import json
 import pathlib
+import subprocess
 import sys
 import textwrap
 
@@ -49,7 +50,7 @@ def parameters(node):
 
 def main(argv):
     if not argv:
-        sys.exit("usage: galaxy-mcp-docs.py <path to galaxy_mcp/server.py> [version]")
+        sys.exit("usage: npm run galaxy-mcp-docs -- <path to galaxy_mcp/server.py> [version]")
     source = pathlib.Path(argv[0])
     version = argv[1] if len(argv) > 1 else json.loads(OUT.read_text())["version"]
     tree = ast.parse(source.read_text())
@@ -66,6 +67,8 @@ def main(argv):
         sys.exit(f"registered without a docstring, so nothing to compare: {missing}")
     payload = {"version": version, "docs": docs, "params": params}
     OUT.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n")
+    # The snapshot sits in src/, where `npm test` holds every JSON file to prettier.
+    subprocess.run(["npx", "prettier", "--config", "prettier.config.js", "--write", str(OUT)], cwd=HERE, check=True)
     print(f"{OUT.relative_to(HERE)}: {len(docs)} tools from galaxy-mcp {version}")
 
 

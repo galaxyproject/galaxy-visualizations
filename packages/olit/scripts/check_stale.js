@@ -79,7 +79,7 @@ async function galaxyCharts() {
   return pinned === latest
     ? `charts     up to date at ${pinned}`
     : `charts     BEHIND: package.json wants ${pinned}, npm has ${latest}\n` +
-        `           update: bump it, then python3 scripts/check_vendored.py to re-read the input contract`;
+        `           update: bump it and run npm test; visualizations.ts imports its input contract directly`;
 }
 
 const results = await Promise.allSettled([skills(), galaxyMcp(), galaxyOps(), galaxyCharts()]);
