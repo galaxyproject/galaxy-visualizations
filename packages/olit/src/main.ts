@@ -93,6 +93,7 @@ async function main() {
   // Ask for a provider/key before the worker starts.
   let creds = await ensureCredentials(container);
   const config = buildConfig(incoming, creds);
+  const rootPath = new URL(config.galaxy_root, document.baseURI).pathname;
   // Runtime context: where relative fetches resolve and what origin Galaxy calls hit.
   console.log("[olit] context", {
     href: window.location.href,
@@ -199,7 +200,7 @@ async function main() {
   // Replayed like the transcript: a resumed session that can still place a chart but shows
   // an empty pane is telling the user it lost something it did not.
   for (const artifact of paneArtifacts(produced)) {
-    await renderArtifact(el.artifactContent, artifact);
+    await renderArtifact(el.artifactContent, artifact, rootPath);
   }
 
   const base = isDev() ? "" : `static/plugins/visualizations/${PLUGIN_NAME}/`;
@@ -415,7 +416,7 @@ async function main() {
       produced.splice(0, produced.length - ARTIFACT_LIMIT);
       el.artifactContent.innerHTML = "";
       for (const a of artifacts) {
-        await renderArtifact(el.artifactContent, a);
+        await renderArtifact(el.artifactContent, a, rootPath);
       }
       // After filling, so the pane opens on something rather than on an empty frame.
       artifactPane.reveal();

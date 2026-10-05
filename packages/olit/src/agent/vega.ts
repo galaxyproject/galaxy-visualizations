@@ -8,7 +8,8 @@ type Json = Record<string, any>;
 export const SCHEMA = "https://vega.github.io/schema/vega-lite/v5.json";
 export const SIZE_LIMIT = 25_000_000;
 
-const displayUrl = (datasetId: string) => `/api/datasets/${segment(datasetId)}/display`;
+const displayUrl = (datasetId: string, root: string) =>
+  `${root}api/datasets/${segment(datasetId)}/display`;
 
 /** Galaxy column types Vega reads as numbers. */
 const NUMERIC = ["int", "float"];
@@ -96,7 +97,7 @@ export function unreferenceable(details: Json): string | null {
 }
 
 /** The one data source a spec gets: this dataset's bytes, described from its metadata. */
-export function dataBlock(datasetId: string, details: Json): Json {
+export function dataBlock(datasetId: string, details: Json, root = "/"): Json {
   const format: Json = named(details).length
     ? { type: "csv" }
     : {
@@ -114,7 +115,7 @@ export function dataBlock(datasetId: string, details: Json): Json {
   if (Object.keys(parse).length) {
     format.parse = parse;
   }
-  return { url: displayUrl(datasetId), format };
+  return { url: displayUrl(datasetId, root), format };
 }
 
 /** Every place a spec names data of its own. */
@@ -240,6 +241,7 @@ export function build(
   datasetId: string,
   spec: unknown,
   details: Json,
+  root = "/",
 ): { ready: Json | null; refusal: string | null } {
   if (!isObject(spec) || !Object.keys(spec).length) {
     return { ready: null, refusal: "`spec` has to be a Vega-Lite specification object." };
@@ -275,7 +277,7 @@ export function build(
   }
   const { $schema: _, ...rest } = spec;
   return {
-    ready: { $schema: SCHEMA, ...rest, data: dataBlock(datasetId, details) },
+    ready: { $schema: SCHEMA, ...rest, data: dataBlock(datasetId, details, root) },
     refusal: null,
   };
 }

@@ -28,6 +28,11 @@ describe("renderArtifact", () => {
     expect(renderMermaid).not.toHaveBeenCalled();
   });
 
+  it("hands the chart renderer Galaxy's root path", async () => {
+    await renderArtifact(content, { kind: "vega-lite", spec: {} }, "/galaxy/");
+    expect(renderVega.mock.calls[0][2]).toBe("/galaxy/");
+  });
+
   it("routes a mermaid artifact to the mermaid renderer with its diagram", async () => {
     const diagram = "graph TD; A-->B";
     await renderArtifact(content, { kind: "mermaid", title: "Dataset lineage", diagram });

@@ -21,7 +21,11 @@ export function paneArtifacts(artifacts: Artifact[]): Artifact[] {
   return artifacts.length ? [artifacts[artifacts.length - 1]] : [];
 }
 
-export async function renderArtifact(content: HTMLElement, artifact: Artifact): Promise<void> {
+export async function renderArtifact(
+  content: HTMLElement,
+  artifact: Artifact,
+  root = "/",
+): Promise<void> {
   const card = document.createElement("div");
   card.className = "artifact-card";
   card.style.cssText =
@@ -41,11 +45,11 @@ export async function renderArtifact(content: HTMLElement, artifact: Artifact): 
   content.appendChild(card);
 
   if (artifact.kind === "vega-lite" || artifact.kind === "vega") {
-    await renderVega(body, artifact.spec);
+    await renderVega(body, artifact.spec, root);
   } else if (artifact.kind === "mermaid") {
     await renderMermaid(body, artifact.diagram);
   } else if (artifact.kind === "visualization") {
-    renderVisualization(body, artifact.url);
+    renderVisualization(body, artifact.url, root);
   } else {
     body.textContent = `Unsupported artifact type: ${artifact.kind}`;
   }

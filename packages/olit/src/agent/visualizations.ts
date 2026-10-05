@@ -33,6 +33,8 @@ export type ResolveOptions = (
 const TYPES: Types = (inputs as { types: Types }).types;
 
 /** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
+const rootPath = (galaxy: Galaxy) => new URL(galaxy.root || "/", "http://localhost").pathname;
+
 export const NOT_OFFERED = new Set(["olit", "vintent"]);
 
 const NUMERIC_COLUMNS = new Set(["int", "float"]);
@@ -416,7 +418,7 @@ async function showVisualization(galaxy: Galaxy, a: Json): Promise<Json> {
       title,
       visualization: name,
       dataset_id: a.dataset_id,
-      url: `/visualizations/display${query(params)}`,
+      url: `${rootPath(galaxy)}visualizations/display${query(params)}`,
     },
     hint:
       "The visualization is displayed to the user. Nothing was added to Galaxy, so " +
@@ -648,7 +650,7 @@ async function saveVisualization(
     title,
     visualization: name,
     dataset_id: a.dataset_id,
-    url: `/visualizations/display${query(params)}`,
+    url: `${rootPath(galaxy)}visualizations/display${query(params)}`,
   };
   for (const key of ["settings", "tracks"]) {
     if (present(a[key])) {
@@ -678,7 +680,7 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
   if (!details.id) {
     return { charted: false, error: `No dataset ${quote(datasetId)} is readable.` };
   }
-  const { ready, refusal } = vega.build(datasetId, a.spec, details);
+  const { ready, refusal } = vega.build(datasetId, a.spec, details, rootPath(galaxy));
   if (refusal || !ready) {
     return { charted: false, error: `Refused: ${refusal}` };
   }

@@ -1,5 +1,5 @@
 /** The only address a visualization artifact may name: Galaxy's display route, on this origin. */
-export function displayable(url: unknown): url is string {
+export function displayable(url: unknown, root = "/"): url is string {
   if (typeof url !== "string" || !url) {
     return false;
   }
@@ -9,7 +9,7 @@ export function displayable(url: unknown): url is string {
     const resolved = new URL(url, document.baseURI);
     return (
       resolved.origin === window.location.origin &&
-      resolved.pathname.endsWith("/visualizations/display")
+      resolved.pathname === `${root}visualizations/display`
     );
   } catch {
     return false;
@@ -17,8 +17,8 @@ export function displayable(url: unknown): url is string {
 }
 
 /** Render a Galaxy visualization in place, on the Galaxy origin that serves olit. */
-export function renderVisualization(body: HTMLElement, url: unknown): void {
-  if (!displayable(url)) {
+export function renderVisualization(body: HTMLElement, url: unknown, root = "/"): void {
+  if (!displayable(url, root)) {
     body.textContent = "The visualization has no address to display.";
     return;
   }

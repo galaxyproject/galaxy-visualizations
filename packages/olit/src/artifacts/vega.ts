@@ -1,13 +1,14 @@
 import { loader as vegaLoader } from "vega";
 import embed from "vega-embed";
 
-/** The one thing a chart may load: a dataset's display route, on this origin. */
-export function loadable(uri: string): boolean {
+/** The one thing a chart may load: a dataset's display route, under Galaxy's root on this origin. */
+export function loadable(uri: string, root = "/"): boolean {
   try {
     const url = new URL(uri, document.baseURI);
     return (
       url.origin === window.location.origin &&
-      /^\/api\/datasets\/[^/]+\/display$/.test(url.pathname)
+      url.pathname.startsWith(root) &&
+      /^api\/datasets\/[^/]+\/display$/.test(url.pathname.slice(root.length))
     );
   } catch {
     return false;
@@ -19,13 +20,13 @@ export function loadable(uri: string): boolean {
  * and links are confined to dataset displays, so a chart cannot read another Galaxy API with the
  * user's session or carry values to another host.
  */
-function confinedLoader() {
+function confinedLoader(root: string) {
   // Over http, against this page's origin, whichever build of vega is running.
   const base = vegaLoader({ mode: "http", baseURL: window.location.origin });
   return {
     ...base,
     async sanitize(uri: string, options: Parameters<typeof base.sanitize>[1]) {
-      if (!loadable(uri)) {
+      if (!loadable(uri, root)) {
         throw new Error(`a chart may only load a dataset's display, not ${uri}`);
       }
       return base.sanitize(uri, options);
@@ -34,13 +35,13 @@ function confinedLoader() {
 }
 
 /** Render a Vega or Vega-Lite spec into a container element. */
-export async function renderVega(container: HTMLElement, spec: unknown): Promise<void> {
+export async function renderVega(container: HTMLElement, spec: unknown, root = "/"): Promise<void> {
   const { usermeta: _, ...confined } = spec as Record<string, unknown>;
   try {
     await embed(container, { ...confined, width: "container", height: "container" } as any, {
       renderer: "svg",
       actions: false,
-      loader: confinedLoader() as any,
+      loader: confinedLoader(root) as any,
       // Expressions are interpreted rather than compiled into functions.
       ast: true,
     });

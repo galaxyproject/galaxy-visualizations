@@ -925,6 +925,12 @@ describe("show_visualization and save_visualization", () => {
     expect(out.error).toContain("not an installed visualization");
   });
 
+  it("addresses the display under Galaxy's own root path", async () => {
+    const g = Object.assign(server(), { root: "https://host.test/galaxy/" });
+    const out = await save(g, { visualization: "atlas" });
+    expect(out.artifact.url).toMatch(/^\/galaxy\/visualizations\/display\?/);
+  });
+
   it("refuses when galaxy returns no id for a new visualization", async () => {
     const g = server();
     g.post = async () => ({});
