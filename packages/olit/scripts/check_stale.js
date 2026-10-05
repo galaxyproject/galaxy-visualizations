@@ -61,7 +61,7 @@ async function npmLatest(pkg) {
   return (await res.json()).version;
 }
 
-/** A pin to a release asset rather than a version: the temporary candidate build README.md names. */
+/** A pin to a release asset rather than a version: a temporary candidate build of galaxy-ops. */
 const ARTIFACT = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases\/download\/([^/]+)\//;
 
 async function galaxyOps() {
@@ -73,7 +73,7 @@ async function galaxyOps() {
       read("package-lock.json").packages["node_modules/@galaxyproject/galaxy-ops"].version;
     return (
       `galaxy-ops TEMPORARY: pinned to candidate ${built} (${artifact[1]} release ${artifact[2]}); npm has ${latest}\n` +
-      `           replace with the first npm release that contains it: see "Temporary galaxy-ops artifact" in README.md`
+      `           replace it with the first npm release that contains it: npm install @galaxyproject/galaxy-ops@<version>, then npm test`
     );
   }
   const pinned = spec.replace(/^[\^~]/, "");
