@@ -1,6 +1,24 @@
+/** The only address a visualization artifact may name: Galaxy's display route, on this origin. */
+export function displayable(url: unknown): url is string {
+  if (typeof url !== "string" || !url) {
+    return false;
+  }
+  try {
+    // A restored session is a document anyone could have written, so `javascript:` or another
+    // host must not reach the iframe.
+    const resolved = new URL(url, window.location.href);
+    return (
+      resolved.origin === window.location.origin &&
+      resolved.pathname.endsWith("/visualizations/display")
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Render a Galaxy visualization in place, on the Galaxy origin that serves olit. */
 export function renderVisualization(body: HTMLElement, url: unknown): void {
-  if (typeof url !== "string" || !url) {
+  if (!displayable(url)) {
     body.textContent = "The visualization has no address to display.";
     return;
   }

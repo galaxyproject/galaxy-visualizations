@@ -264,7 +264,7 @@ describe("structure names", () => {
 
   it("refuses an unknown structure rather than quietly flattening", () => {
     expect(() => groupDatasets({ datasets: [], structure: "nonsense" })).toThrow(
-      "structure must be 'auto', 'paired' or 'list', not 'nonsense'",
+      'structure must be "auto", "paired" or "list", not "nonsense"',
     );
   });
 });

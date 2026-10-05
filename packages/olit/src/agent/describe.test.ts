@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -45,24 +44,14 @@ describe("the description Olit publishes about itself", () => {
     const tool = doc.tools.get_job_details as Record<string, unknown>;
     expect(tool.capability).toBe("read");
     expect(Object.keys(tool).sort()).toEqual(
-      [
-        "capability",
-        "runner",
-        "signature",
-        "params",
-        "prose",
-        "query",
-        "passthrough",
-        "promised_fields",
-      ].sort(),
+      ["capability", "runner", "signature", "params", "prose", "promised_fields"].sort(),
     );
   });
 
   it("says which tools galaxy-ops runs and which Olit kept", () => {
-    const tools = doc.tools as Record<string, { runner: string; passthrough: boolean }>;
+    const tools = doc.tools as Record<string, { runner: string }>;
     expect(tools.get_histories.runner).toBe("galaxy-ops");
     expect(tools.get_history_contents.runner).toBe("olit");
-    expect(Object.values(tools).filter((t) => t.passthrough)).toEqual([]);
   });
 
   it("names prompt blocks the prompt module defines", () => {
@@ -92,6 +81,7 @@ describe("the description Olit publishes about itself", () => {
 
   it("reads the identity prompt from the plugin manifest", () => {
     expect(doc.identity_prompt.fingerprint).toMatch(/^[0-9a-f]{16}$/);
+    expect(doc.identity_prompt.text).toContain("You both talk and act.");
   });
 
   it("publishes every provider's endpoint and key variable", () => {
@@ -102,8 +92,8 @@ describe("the description Olit publishes about itself", () => {
     });
   });
 
-  it("publishes the shell contract a harness stands in for", () => {
-    expect(doc.shell).toEqual({ max_auto_follow_ups: 3, resume_prompt_from: "contract/shell.mjs" });
+  it("publishes the follow-up contract every driver shares", () => {
+    expect(doc.follow_ups).toEqual({ max_auto_follow_ups: 3, settled_by: "session.settle" });
   });
 
   it("gives the same answer twice", async () => {
@@ -124,31 +114,5 @@ describe("the guard inventory", () => {
 
   it("includes the guard observed refusing live", () => {
     expect(GUARDS).toContain("malformed-object-id");
-  });
-});
-
-describe("the shell contract", () => {
-  const COMPLETED = [{ kind: "job", id: "j1", label: "Galaxy job j1", outcome: "completed" }];
-  const FAILED = [
-    { kind: "invocation", id: "i1", label: "Workflow invocation i1", outcome: "failed" },
-  ];
-  const ask = (runs?: unknown[]) =>
-    JSON.parse(
-      execFileSync("node", ["--experimental-strip-types", join(ROOT, "contract/shell.mjs")], {
-        input: runs ? JSON.stringify(runs) : "",
-        encoding: "utf8",
-        stdio: "pipe",
-      }),
-    );
-
-  it("names a settled run in the message it builds", () => {
-    const prompt = ask(COMPLETED).resume_prompt;
-    expect(prompt.startsWith("[Olit automatic Galaxy follow-up]")).toBe(true);
-    expect(prompt).toContain('"id": "j1"');
-  });
-
-  it("warns about a failed run and not about a completed one", () => {
-    expect(ask(FAILED).resume_prompt).toContain("still have jobs running");
-    expect(ask(COMPLETED).resume_prompt).not.toContain("still have jobs running");
   });
 });

@@ -3,26 +3,35 @@ import { describe, expect, it } from "vitest";
 import { ROW_BYTES_CAP, ROW_CAP, serverPage } from "./paging";
 
 describe("serverPage", () => {
-  it("carries the offset to continue from", () => {
+  it("says where the next page starts, in galaxy-ops' pagination envelope", () => {
     const got = serverPage(Array.from({ length: ROW_CAP + 1 }, (_, i) => ({ i })));
-    expect(got.shown).toBe(ROW_CAP);
-    expect(got.truncated).toBe(true);
-    expect(got.next_offset).toBe(ROW_CAP);
+    expect(got.data).toHaveLength(ROW_CAP);
+    expect(got.pagination).toMatchObject({
+      returned_items: ROW_CAP,
+      has_next: true,
+      next_offset: ROW_CAP,
+      total_items: null,
+    });
   });
 
   it("bounds fat rows by bytes, not by count", () => {
     const got = serverPage(Array.from({ length: ROW_CAP }, () => ({ pad: "x".repeat(5000) })));
-    expect(got.shown).toBeLessThan(ROW_CAP);
-    expect(JSON.stringify(got.items).length).toBeLessThanOrEqual(ROW_BYTES_CAP + 5000);
+    expect(got.data.length).toBeLessThan(ROW_CAP);
+    expect(JSON.stringify(got.data).length).toBeLessThanOrEqual(ROW_BYTES_CAP + 5000);
+    expect(got.pagination.has_next).toBe(true);
   });
 
   it("still returns one oversized row", () => {
-    expect(serverPage([{ pad: "x".repeat(ROW_BYTES_CAP * 2) }]).shown).toBe(1);
+    expect(serverPage([{ pad: "x".repeat(ROW_BYTES_CAP * 2) }]).data).toHaveLength(1);
   });
 
-  it("does not mark a complete page truncated", () => {
-    const got = serverPage([{ i: 0 }, { i: 1 }, { i: 2 }]);
-    expect(got).not.toHaveProperty("truncated");
-    expect(got).not.toHaveProperty("next_offset");
+  it("counts the whole set on the last page", () => {
+    const got = serverPage([{ i: 0 }, { i: 1 }, { i: 2 }], 4);
+    expect(got.pagination).toMatchObject({
+      total_items: 7,
+      has_next: false,
+      next_offset: null,
+      has_previous: true,
+    });
   });
 });

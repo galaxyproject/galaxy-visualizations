@@ -1,6 +1,7 @@
+import { estimateContextTokens, estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
-import { fromPi, toPi, type Message } from "./messages";
+import { toChat, type ChatMessage } from "./messages";
 
 export const RESERVE_TOKENS = 16384;
 export const KEEP_RECENT_TOKENS = 20000;
@@ -107,27 +108,9 @@ export function compactionSettings(options: {
   };
 }
 
-export function estimateTokens(message: Message): number {
-  let chars =
-    (message.content ?? "").length +
-    (message.reasoning_content ?? "").length +
-    (message.reasoning ?? "").length;
-  for (const call of message.tool_calls ?? []) {
-    chars += call.function.name.length + call.function.arguments.length;
-  }
-  return Math.ceil(chars / 4);
-}
-
-/** Tokens the next request carries: the last reported usage plus an estimate of what followed. */
+/** Tokens the next request carries: pi's count, from the last reported usage plus what followed. */
 export function contextTokens(messages: AgentMessage[]): number {
-  const index = messages.findLastIndex(
-    (m) => m.role === "assistant" && (m.usage?.totalTokens ?? 0) > 0,
-  );
-  const measured =
-    index >= 0 ? (messages[index] as { usage: { totalTokens: number } }).usage.totalTokens : 0;
-  return (
-    measured + fromPi(messages.slice(index + 1)).reduce((sum, m) => sum + estimateTokens(m), 0)
-  );
+  return estimateContextTokens(messages as never).tokens;
 }
 
 const validCut = (m: AgentMessage) => m.role === "user" || m.role === "assistant";
@@ -142,7 +125,7 @@ export function findCutIndex(
   }
   let accumulated = 0;
   for (let i = messages.length - 1; i >= 0; i--) {
-    const tokens = fromPi([messages[i]]).reduce((sum, m) => sum + estimateTokens(m), 0);
+    const tokens = estimateMessageTokens(messages[i] as never);
     if (!tokens) {
       continue;
     }
@@ -159,7 +142,7 @@ const truncate = (text: string, max: number) =>
     ? text
     : `${text.slice(0, max)}\n\n[... ${text.length - max} more characters truncated]`;
 
-export function serialize(messages: Message[]): string {
+export function serialize(messages: ChatMessage[]): string {
   const parts: string[] = [];
   for (const m of messages) {
     const content = m.content ?? "";
@@ -180,7 +163,7 @@ export function serialize(messages: Message[]): string {
   return parts.join("\n\n");
 }
 
-function previousSummary(messages: Message[]): string | undefined {
+function previousSummary(messages: ChatMessage[]): string | undefined {
   const found = messages.find(
     (m) => m.role === "user" && (m.content ?? "").startsWith(SUMMARY_PREFIX),
   );
@@ -191,7 +174,7 @@ function previousSummary(messages: Message[]): string | undefined {
   return body.endsWith(SUMMARY_SUFFIX) ? body.slice(0, -SUMMARY_SUFFIX.length) : body;
 }
 
-function buildPrompt(older: Message[], prior?: string): string {
+function buildPrompt(older: ChatMessage[], prior?: string): string {
   let text = `<conversation>\n${serialize(older)}\n</conversation>\n\n`;
   if (prior) {
     text += `<previous-summary>\n${prior}\n</previous-summary>\n\n`;
@@ -207,13 +190,17 @@ export type CompactionStatus = "not_needed" | "compacted" | "impossible";
 export function compactor(settings: CompactionSettings, summarize: Summarize) {
   let kept: { first: AgentMessage; summary: AgentMessage } | undefined;
 
+  /**
+   * The summary in place of what it covers. System messages stay: besides the prompt they carry
+   * pi's record of which tools exist, and a transcript without it offers the model none.
+   */
   function reduce(messages: AgentMessage[]): AgentMessage[] {
     const index = kept ? messages.indexOf(kept.first) : -1;
     if (index < 0) {
       return messages;
     }
-    const leading = messages[0]?.role === "system" ? 1 : 0;
-    return [...messages.slice(0, leading), kept!.summary, ...messages.slice(index)];
+    const held = messages.slice(0, index).filter((m) => m.role === "system");
+    return [...held, kept!.summary, ...messages.slice(index)];
   }
 
   async function compact(
@@ -227,13 +214,21 @@ export function compactor(settings: CompactionSettings, summarize: Summarize) {
     ) {
       return { messages: current, status: "not_needed" };
     }
+    // The prompt and the tool declarations are never summarized; when they alone overflow,
+    // summarizing the conversation would only lose it.
+    const fixed = current
+      .filter((m) => m.role === "system")
+      .reduce((sum, m) => sum + estimateMessageTokens(m as never), 0);
+    if (fixed >= settings.contextWindow - settings.reserveTokens) {
+      return { messages: current, status: "impossible" };
+    }
     const leading = current[0]?.role === "system" ? 1 : 0;
     const rest = current.slice(leading);
     const cut = findCutIndex(rest, settings.keepRecentTokens);
     if (!cut) {
       return { messages: current, status: "impossible" };
     }
-    const older = fromPi(rest.slice(0, cut));
+    const older = toChat(rest.slice(0, cut).filter((m) => m.role !== "system"));
     const summary = await summarize(
       SUMMARIZATION_SYSTEM_PROMPT,
       buildPrompt(older, previousSummary(older)),
@@ -244,7 +239,11 @@ export function compactor(settings: CompactionSettings, summarize: Summarize) {
     }
     kept = {
       first: rest[cut],
-      summary: toPi([{ role: "user", content: SUMMARY_PREFIX + summary + SUMMARY_SUFFIX }])[0],
+      summary: {
+        role: "user",
+        content: SUMMARY_PREFIX + summary + SUMMARY_SUFFIX,
+        timestamp: Date.now(),
+      },
     };
     return { messages: reduce(messages), status: "compacted" };
   }

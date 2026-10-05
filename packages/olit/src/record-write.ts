@@ -31,20 +31,8 @@ function inTurn<T>(work: () => Promise<T>): Promise<T> {
 export interface RecordTarget {
   root: string;
   credentials: RequestCredentials;
-  historyId: string;
-}
-
-/** Find this history's record by its deterministic slug, the way the brain does. */
-export async function findRecord(t: RecordTarget): Promise<{ id: string } | null> {
-  const slug = `olit-${t.historyId}`;
-  // Narrow by slug rather than listing every page. The search matches substrings, so the
-  // exact slug is still picked out below.
-  const query = `search=${encodeURIComponent(`slug:${slug}`)}&limit=50`;
-  const res = await fetch(`${t.root}api/pages?${query}`, { credentials: t.credentials });
-  if (!res.ok) return null;
-  const pages = await res.json();
-  if (!Array.isArray(pages)) return null;
-  return pages.find((p: any) => p && p.slug === slug) || null;
+  /** The session's record page, which the agent created and named; none yet means no edit. */
+  pageId?: string;
 }
 
 /**
@@ -61,17 +49,17 @@ export function editRecord(
   return inTurn(async () => {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
-        const found = await findRecord(t);
-        if (!found) return false;
-        const res = await fetch(`${t.root}api/pages/${found.id}`, { credentials: t.credentials });
+        if (!t.pageId) return false;
+        const id = encodeURIComponent(t.pageId);
+        const res = await fetch(`${t.root}api/pages/${id}`, { credentials: t.credentials });
         if (!res.ok) return false;
         const page = (await res.json()) || {};
         // `content` is the embed-expanded render; `content_editor` is the saved source.
         const before = page.content_editor || page.content || "";
-        const after = edit(before, found.id);
+        const after = edit(before, t.pageId);
         if (after === before) return true;
 
-        const put = await fetch(`${t.root}api/pages/${found.id}`, {
+        const put = await fetch(`${t.root}api/pages/${id}`, {
           method: "PUT",
           credentials: t.credentials,
           headers: { "Content-Type": "application/json" },

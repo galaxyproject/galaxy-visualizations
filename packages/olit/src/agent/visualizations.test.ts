@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Watch } from "./watch";
 
 import { render } from "./artifacts";
 import type { Galaxy } from "./galaxy";
@@ -44,7 +45,12 @@ function fakeCharts(offered: unknown[] = [], { success = true, message = "" } = 
 }
 
 const context = (galaxy: unknown) =>
-  ({ galaxy: galaxy as Galaxy, artifacts: { prior: [], produced: [] } }) as unknown as Context;
+  ({
+    galaxy: galaxy as Galaxy,
+    artifacts: { prior: [], produced: [] },
+    binding: {},
+    watch: new Watch(async () => undefined),
+  }) as unknown as Context;
 
 function call(name: string, galaxy: unknown, args: Json, charts = fakeCharts()): Promise<any> {
   const tool = visualizationTools(charts).find((t) => t.name === name)!;
@@ -417,20 +423,20 @@ describe("get_visualization_options", () => {
 
   it("refuses a name declared in several cases rather than guessing", async () => {
     const out = refused(await options({ parameter: "settings.source.genome" }));
-    expect(out).toContain("'settings.source' selects its inputs by 'origin'");
-    expect(out).toContain("'igv'");
-    expect(out).toContain("'builtin'");
+    expect(out).toContain('"settings.source" selects its inputs by "origin"');
+    expect(out).toContain('"igv"');
+    expect(out).toContain('"builtin"');
   });
 
   it("names each case as the form names it", async () => {
     const out = refused(await options({ parameter: "settings.source.genome" }));
-    expect(out).toContain("'igv' (IGV)");
-    expect(out).toContain("'builtin' (Built in)");
+    expect(out).toContain('"igv" (IGV)');
+    expect(out).toContain('"builtin" (Built in)');
   });
 
   it("shows the config to send, not only its values", async () => {
     const out = refused(await options({ parameter: "settings.source.genome" }));
-    expect(out).toContain('config={"settings": {"source": {"origin": "<value>"}}}');
+    expect(out).toContain('config={"settings":{"source":{"origin":"<value>"}}}');
   });
 
   it("names a path once however many cases declare it", async () => {
@@ -573,9 +579,9 @@ describe("get_visualization_options", () => {
         NESTED,
       ),
     );
-    expect(out).toContain("'settings.outer.middle' selects its inputs by 'middle_mode'");
-    expect(out).toContain("'m'");
-    expect(out).toContain("'n'");
+    expect(out).toContain('"settings.outer.middle" selects its inputs by "middle_mode"');
+    expect(out).toContain('"m"');
+    expect(out).toContain('"n"');
   });
 
   it("resolves three conditional levels by the same recursion", async () => {
@@ -607,9 +613,9 @@ describe("get_visualization_options", () => {
         NESTED,
       ),
     );
-    expect(out).toContain("'settings.outer.middle.inner' selects its inputs by 'inner_mode'");
-    expect(out).toContain("'p'");
-    expect(out).toContain("'q'");
+    expect(out).toContain('"settings.outer.middle.inner" selects its inputs by "inner_mode"');
+    expect(out).toContain('"p"');
+    expect(out).toContain('"q"');
   });
 
   it("reaches a deep test parameter", async () => {
@@ -641,7 +647,7 @@ describe("get_visualization_options", () => {
 
   it("refuses a path naming an input the group lacks", async () => {
     expect(refused(await options({ parameter: "settings.nonsense" }))).toContain(
-      "declares nothing named 'nonsense'",
+      'declares nothing named "nonsense"',
     );
   });
 
@@ -729,8 +735,8 @@ describe("get_visualization_options", () => {
   it("refuses a test parameter holding no declared label", () => {
     const bad = checkLevel({ mode: { advanced: "maybe" } }, [BOOLEAN_CASE], TYPES, "settings");
     expect(bad?.error).toContain("selects the case");
-    expect(bad?.error).toContain("'true'");
-    expect(bad?.error).toContain("'false'");
+    expect(bad?.error).toContain('"true"');
+    expect(bad?.error).toContain('"false"');
   });
 });
 
@@ -1027,8 +1033,8 @@ describe("show_visualization and save_visualization", () => {
     );
     expect(out.saved).toBe(false);
     expect(out.error).toContain("selects the case");
-    expect(out.error).toContain("'igv'");
-    expect(out.error).toContain("'builtin'");
+    expect(out.error).toContain('"igv"');
+    expect(out.error).toContain('"builtin"');
   });
 
   it("hands back an artifact that embeds the plugin and dataset from both tools", async () => {
@@ -1071,7 +1077,7 @@ describe("show_visualization and save_visualization", () => {
   it("refuses a column value outside the pattern its type stores", async () => {
     const g = igv({ name: "igv", tracks: [{ name: "x", type: "data_column" }] });
     const out = refused(await save(g, { visualization: "igv", tracks: [{ x: "col2" }] }));
-    expect(out.error).toContain("'x' stores string:");
+    expect(out.error).toContain('"x" stores string:');
   });
 
   const OFFERED_MM10 = {
@@ -1130,7 +1136,7 @@ describe("show_visualization and save_visualization", () => {
     const out = refused(await igvGenome(g, fakeCharts([]), OFFERED_MM10));
     expect(out.saved).toBe(false);
     expect(g.posted).toBeUndefined();
-    expect(out.error).toContain("origin='igv'");
+    expect(out.error).toContain('origin="igv"');
     expect(out.hint).toContain("builtin");
     expect(out.other_cases).toEqual(["builtin"]);
   });
@@ -1227,7 +1233,7 @@ describe("show_visualization and save_visualization", () => {
     expect(asked).toEqual(["d1"]);
     expect(out.saved).toBe(false);
     expect(out.hint).toContain("1 value(s) are offered");
-    expect(out.hint).toContain("dataset_id='d1'");
+    expect(out.hint).toContain('dataset_id="d1"');
   });
 });
 
@@ -1243,7 +1249,7 @@ describe("artifact claim", () => {
   async function dispatch(name: string, args: Json) {
     const ctx = context(galaxy);
     const tool = visualizationTools(fakeCharts()).find((t) => t.name === name)!;
-    const result = await asAgentTool(tool, ctx).execute("1", args);
+    const result = await asAgentTool(tool, () => ctx).execute("1", args);
     const text = (result.content[0] as { text: string }).text;
     return { produced: ctx.artifacts.produced, data: JSON.parse(text).data };
   }
@@ -1320,12 +1326,12 @@ describe("vega_dataset", () => {
       encoding: { x: { field: "col:1", type: "quantitative" } },
     });
     expect(out.charted).toBe(true);
-    expect(out.note).toContain("Galaxy types 'col:1' as text");
+    expect(out.note).toContain('Galaxy types "col:1" as text');
   });
 
   it("refuses a dataset galaxy cannot read", async () => {
     const out = await chart({ mark: "point" }, {});
-    expect(out).toEqual({ charted: false, error: "No dataset 'd1' is readable." });
+    expect(out).toEqual({ charted: false, error: 'No dataset "d1" is readable.' });
   });
 });
 

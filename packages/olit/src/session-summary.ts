@@ -96,11 +96,11 @@ export function upsertSessionSummary(content: string, s: SessionSummary): string
 export async function writeSessionSummary(
   root: string,
   credentials: RequestCredentials,
-  historyId: string | undefined,
+  pageId: string | undefined,
   summary: Omit<SessionSummary, "record">,
 ): Promise<boolean> {
-  if (!historyId) return false;
-  return editRecord({ root, credentials, historyId }, (content, recordId) =>
+  if (!pageId) return false;
+  return editRecord({ root, credentials, pageId }, (content, recordId) =>
     upsertSessionSummary(content, { ...summary, record: recordId }),
   );
 }

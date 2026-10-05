@@ -1,12 +1,12 @@
+import { quote } from "./quote";
 import type { Artifact } from "./tool";
 import { fence } from "./vega";
-import { repr } from "./visualization-inputs";
 
 const TOKEN = /\{\{\s*artifact\s*(?::\s*([^{}]*?)\s*)?\}\}/g;
 
 const fenced = (label: string, body: string) => "```" + label + "\n" + body + "\n```";
 
-const str = (value: unknown) => String(value ?? "None");
+const str = (value: unknown) => String(value ?? "null");
 
 /** Page markdown per artifact kind. */
 export const RENDERERS: Record<string, (artifact: Artifact) => string> = {
@@ -81,7 +81,7 @@ export function resolveArtifacts<T>(
     if (!artifact) {
       if (refusal === null) {
         refusal = title
-          ? `No artifact titled ${repr(title)} in this session.`
+          ? `No artifact titled ${quote(title)} in this session.`
           : "No artifact has been produced in this session yet.";
       }
       if (titles(artifacts).length) {
@@ -92,7 +92,7 @@ export function resolveArtifacts<T>(
     const markdown = render(artifact);
     if (markdown === null) {
       refusal ??=
-        `A ${repr(artifact.kind)} artifact cannot be written into a Galaxy page; ` +
+        `A ${quote(artifact.kind)} artifact cannot be written into a Galaxy page; ` +
         `a page holds ${Object.keys(RENDERERS).sort().join(", ")}.`;
       return match;
     }

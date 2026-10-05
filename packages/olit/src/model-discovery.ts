@@ -12,14 +12,23 @@ export function modelsUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/models`;
 }
 
-/** Ids out of an OpenAI-shaped `{data:[{id}]}` body, sorted and deduplicated. */
+/**
+ * Ids out of a model list, sorted and deduplicated: OpenAI's `{data:[{id}]}`, or Gemini's
+ * native `{models:[{name:"models/<id>"}]}`.
+ */
 export function modelIds(body: unknown): string[] {
-  const data = (body as { data?: unknown })?.data;
-  if (!Array.isArray(data)) return [];
-  const ids = data
-    .map((m) => (m as { id?: unknown })?.id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
-  return [...new Set(ids)].sort();
+  const { data, models } = (body ?? {}) as { data?: unknown; models?: unknown };
+  const ids = Array.isArray(data)
+    ? data.map((m) => (m as { id?: unknown })?.id)
+    : Array.isArray(models)
+      ? models.map((m) => {
+          const name = (m as { name?: unknown })?.name;
+          return typeof name === "string" ? name.replace(/^models\//, "") : undefined;
+        })
+      : [];
+  return [
+    ...new Set(ids.filter((id): id is string => typeof id === "string" && id.length > 0)),
+  ].sort();
 }
 
 /**
@@ -41,7 +50,9 @@ export async function discoverModels(
   apiKey?: string,
 ): Promise<Discovery> {
   const headers: Record<string, string> = { ...(provider.headers || {}) };
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  // Gemini's native API takes its key in its own header; everyone else takes a bearer token.
+  if (apiKey && provider.id === "google") headers["x-goog-api-key"] = apiKey;
+  else if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   try {
     const res = await fetchImpl(modelsUrl(baseUrl), { headers });
     if (!res.ok) return { models: [], error: discoveryError(res.status) };

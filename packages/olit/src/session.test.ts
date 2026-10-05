@@ -24,7 +24,7 @@ function memoryStore(
 }
 
 const turn = (d: SessionDocument, text: string) =>
-  advance(d, { messages: [{ role: "user", content: text }], artifacts: [] });
+  advance(d, { messages: [{ role: "user", content: text, timestamp: 0 }], artifacts: [] });
 
 const started = () => turn(newDocument({ historyId: HISTORY }), "run fastqc");
 

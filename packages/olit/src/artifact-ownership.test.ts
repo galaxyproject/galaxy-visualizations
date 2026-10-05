@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Artifact } from "./artifacts";
 
 /**
- * The shell owns what turns produce. The brain is rebuilt whenever the session config
+ * The shell owns what turns produce. The agent session is rebuilt whenever the session config
  * changes -- a model or history switch -- so artifacts it held would vanish exactly when a
  * user switches models mid-conversation and then asks for the chart to go in the record.
  */

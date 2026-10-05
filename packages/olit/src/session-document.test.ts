@@ -7,32 +7,39 @@ import {
   restoreMessages,
   storableMessages,
 } from "./session-document";
-import type { Message } from "./agent/messages";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
-const SEED: Message = { role: "system", content: "You are Olit. Version one." };
+const message = (role: "system" | "user", content: string) =>
+  ({ role, content, timestamp: 0 }) as AgentMessage;
+const SEED = message("system", "You are Olit. Version one.");
 const turn = (d: ReturnType<typeof newDocument>, text: string) =>
-  advance(d, { messages: [SEED, { role: "user", content: text }], artifacts: [] });
+  advance(d, { messages: [SEED, message("user", text)], artifacts: [] });
 
 describe("what the document stores", () => {
   it("drops the seed prompt, so a resumed session runs on today's prompt", () => {
-    const stored = storableMessages([SEED, { role: "user", content: "hi" }]);
-    expect(stored).toEqual([{ role: "user", content: "hi" }]);
+    const stored = storableMessages([SEED, message("user", "hi")]);
+    expect(stored).toEqual([message("user", "hi")]);
   });
 
   it("re-seeds a restored conversation with the prompt the plugin ships now", () => {
     const doc = turn(newDocument({ historyId: "h1" }), "hi");
-    const newer: Message = { role: "system", content: "You are Olit. Version two." };
+    const newer = message("system", "You are Olit. Version two.");
 
     expect(restoreMessages(doc, newer)[0]).toEqual(newer);
   });
 
-  it("drops the record block the brain refreshes every turn", () => {
+  it("drops the record section the session refreshes every turn", () => {
     const stored = storableMessages([
       SEED,
-      { role: "user", content: "hi" },
-      { role: "system", content: "<!-- olit:record -->\nstale dataset names" },
+      message("user", "hi"),
+      {
+        role: "system",
+        content: "",
+        sections: { record: "stale dataset names" },
+        timestamp: 0,
+      } as unknown as AgentMessage,
     ]);
-    expect(stored.some((m) => (m.content || "").includes("olit:record"))).toBe(false);
+    expect(JSON.stringify(stored)).not.toContain("stale dataset names");
   });
 
   it("keeps a stable session id across turns", () => {

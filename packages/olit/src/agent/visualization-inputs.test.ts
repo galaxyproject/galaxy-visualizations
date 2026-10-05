@@ -1,6 +1,7 @@
+import { quote } from "./quote";
 import { describe, expect, it } from "vitest";
 
-import { buildVisualizationTemplate, pyJson, repr } from "./visualization-inputs";
+import { buildVisualizationTemplate } from "./visualization-inputs";
 
 const TYPES = {
   text: { stores: { type: "string" } },
@@ -84,18 +85,12 @@ describe("a visualization config template", () => {
   });
 });
 
-describe("python spellings", () => {
-  it("writes values as repr does", () => {
-    expect(repr("a")).toBe("'a'");
-    expect(repr("it's")).toBe(`"it's"`);
-    expect(repr("\t")).toBe("'\\t'");
-    expect(repr(null)).toBe("None");
-    expect(repr({ id: "a", n: [1, true] })).toBe("{'id': 'a', 'n': [1, True]}");
-  });
-
-  it("writes json as json.dumps does", () => {
-    expect(pyJson({ settings: { source: { origin: "<value>" } }, n: [1, 2] })).toBe(
-      '{"settings": {"source": {"origin": "<value>"}}, "n": [1, 2]}',
-    );
+describe("quote", () => {
+  it("spells values as JSON does, the way every tool result reads", () => {
+    expect(quote("a")).toBe('"a"');
+    expect(quote("it's")).toBe('"it\'s"');
+    expect(quote(null)).toBe("null");
+    expect(quote(undefined)).toBe("null");
+    expect(quote({ id: "a", n: [1, true] })).toBe('{"id":"a","n":[1,true]}');
   });
 });

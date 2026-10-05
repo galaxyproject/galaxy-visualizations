@@ -8,12 +8,14 @@
  * level, because `parseIncoming` looks for them there when Galaxy reopens a saved session.
  */
 
-import type { Artifact } from "./artifacts";
-import type { Message } from "./agent/messages";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
-export const SCHEMA = 1;
-/** The record block the brain refreshes each turn: stale the moment it is stored. */
-const RECORD_MARKER = "<!-- olit:record -->";
+import type { Artifact } from "./artifacts";
+import { isRecordUpdate } from "./agent/sections";
+import type { Watched } from "./agent/watch";
+
+/** 2: pi's own messages. Earlier documents are not read. */
+export const SCHEMA = 2;
 
 export interface SessionMeta {
   /** Stable across reloads and saves. Owns this session's block in the record Page. */
@@ -41,10 +43,10 @@ export interface SessionDocument {
   history_id?: string;
   dataset_id?: string;
   session: SessionMeta;
-  messages: Message[];
+  messages: AgentMessage[];
   artifacts: Artifact[];
-  /** tool_call_ids that failed; the transcript carries no field for it. */
-  toolErrors?: string[];
+  /** Galaxy work still unfinished, so a reloaded page keeps watching it. */
+  watching?: Watched[];
 }
 
 const uuid = () => globalThis.crypto?.randomUUID?.() || `s-${Date.now()}-${Math.random()}`;
@@ -74,21 +76,22 @@ export function newDocument(options: {
   };
 }
 
-/** The seed prompt and the brain's refreshed blocks are regenerated, never stored.
+/** The seed prompt and the session's refreshed sections are regenerated, never stored.
  *
  * Storing the seed would pin a restored conversation to the prompt text of the day it
  * started, so a prompt correction would never reach it.
  */
-export function storableMessages(messages: Message[]): Message[] {
+export function storableMessages(messages: AgentMessage[]): AgentMessage[] {
   return messages.filter(
     (m, i) =>
       !(i === 0 && m.role === "system") &&
-      !(m.role === "system" && (m.content || "").includes(RECORD_MARKER)),
+      // The record section the session refreshes each turn: stale the moment it is stored.
+      !isRecordUpdate(m),
   );
 }
 
 /** The stored conversation under the seed the plugin ships today. */
-export function restoreMessages(document: SessionDocument, seed: Message): Message[] {
+export function restoreMessages(document: SessionDocument, seed: AgentMessage): AgentMessage[] {
   return [seed, ...storableMessages(document.messages || [])];
 }
 
@@ -96,16 +99,14 @@ export function restoreMessages(document: SessionDocument, seed: Message): Messa
 export function advance(
   document: SessionDocument,
   changes: {
-    messages: Message[];
+    messages: AgentMessage[];
     artifacts: Artifact[];
     usage?: Partial<SessionMeta["usage"]>;
-    toolErrors?: Iterable<string>;
   },
 ): SessionDocument {
   const previous = document.session;
   return {
     ...document,
-    toolErrors: changes.toolErrors ? [...changes.toolErrors] : document.toolErrors,
     session: {
       ...previous,
       turn: previous.turn + 1,

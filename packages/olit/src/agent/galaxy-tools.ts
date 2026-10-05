@@ -1,13 +1,13 @@
+import { quote } from "./quote";
 import { allOperations, runWithEnvelope } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
-import { query, type Galaxy } from "./galaxy";
+import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
-import type { Annotate } from "./ops";
+import { UPSTREAM_DOCS, type Annotate } from "./ops";
 import { applySectionEdit, djb2Hash, malformedObjectIds } from "./page-edit";
 import { serverPage } from "./paging";
-import DOCS from "./tool-docs.json";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
 export const DATA_DIR = "/data";
@@ -96,11 +96,14 @@ async function getHistoryContents(args: Row, { galaxy }: Context) {
     q: wanted.map(([field]) => field),
     qv: wanted.map(([, value]) => value),
   };
-  const items = await galaxy.get(`api/histories/${args.history_id}/contents${query(params)}`);
+  const items = await galaxy.get(
+    `api/histories/${segment(args.history_id)}/contents${query(params)}`,
+  );
   if (!Array.isArray(items)) {
     return items;
   }
-  return serverPage(items.map(oneIdentifier), offset, limit);
+  // galaxy-ops' envelope, as the description promises: rows under `data`, `pagination` beside.
+  return rendered(serverPage(items.map(oneIdentifier), offset, limit));
 }
 
 /** Sources a history owns, and where each one answers its history_id. */
@@ -202,6 +205,8 @@ async function runTool(args: Row, ctx: Context) {
       history_id: historyId,
       tool_id: args.tool_id,
       inputs,
+      // A request, not a guarantee: Galaxy falls back to an installed version.
+      ...(args.tool_version ? { tool_version: args.tool_version } : {}),
     });
   } catch (error) {
     if (!isParameterError(error)) {
@@ -231,12 +236,12 @@ export function ends(text: string, cap: number): string {
 }
 
 async function getJobDetails(args: Row, { galaxy }: Context) {
-  const dataset = (await galaxy.get(`api/datasets/${args.dataset_id}`)) || {};
+  const dataset = (await galaxy.get(`api/datasets/${segment(args.dataset_id)}`)) || {};
   const jobId = dataset.creating_job;
   if (!jobId) {
     return fail(`No creating job for dataset ${args.dataset_id}.`);
   }
-  const job = await galaxy.get(`api/jobs/${jobId}${query({ full: true })}`);
+  const job = await galaxy.get(`api/jobs/${segment(jobId)}${query({ full: true })}`);
   if (!isRow(job)) {
     return job;
   }
@@ -269,7 +274,9 @@ function decodeUtf8(bytes: Uint8Array): string | undefined {
 /** A line-aligned prefix, or undefined if the datatype cannot be chunked. */
 async function chunk(galaxy: Galaxy, datasetId: string, size: number): Promise<string | undefined> {
   try {
-    const got = await galaxy.get(`api/datasets/${datasetId}/display?offset=0&ck_size=${size}`);
+    const got = await galaxy.get(
+      `api/datasets/${segment(datasetId)}/display?offset=0&ck_size=${segment(size)}`,
+    );
     return isRow(got) ? (got.ck_data ?? undefined) : undefined;
   } catch {
     return undefined;
@@ -277,11 +284,11 @@ async function chunk(galaxy: Galaxy, datasetId: string, size: number): Promise<s
 }
 
 async function downloadDataset(args: Row, { galaxy, python }: Context) {
-  const details = (await galaxy.get(`api/datasets/${args.dataset_id}`)) || {};
+  const details = (await galaxy.get(`api/datasets/${segment(args.dataset_id)}`)) || {};
   const state = isRow(details) ? details.state : undefined;
   if (state !== "ok") {
     return fail(
-      `Dataset is in state ${state == null ? "None" : `'${state}'`}, not 'ok', so it holds nothing to read yet. ` +
+      `Dataset is in state ${quote(state)}, not "ok", so it holds nothing to read yet. ` +
         "Wait for the job producing it to finish and download it again.",
     );
   }
@@ -298,7 +305,7 @@ async function downloadDataset(args: Row, { galaxy, python }: Context) {
     data = new TextEncoder().encode(prefix);
     partial = true;
   } else {
-    data = await galaxy.bytes(`api/datasets/${args.dataset_id}/display`);
+    data = await galaxy.bytes(`api/datasets/${segment(args.dataset_id)}/display`);
   }
   const path = `${DATA_DIR}/${args.dataset_id}.dat`;
   await python.write(path, data);
@@ -376,7 +383,7 @@ async function uploadFile(args: Row, { galaxy, python }: Context) {
 
 async function jobStates(galaxy: Galaxy, invocationId: string): Promise<JobStates> {
   try {
-    const summary = await galaxy.get(`api/invocations/${invocationId}/jobs_summary`);
+    const summary = await galaxy.get(`api/invocations/${segment(invocationId)}/jobs_summary`);
     return summary?.states || {};
   } catch {
     return {};
@@ -386,7 +393,7 @@ async function jobStates(galaxy: Galaxy, invocationId: string): Promise<JobState
 async function getInvocations(args: Row, { galaxy }: Context) {
   if (args.invocation_id) {
     const one = await galaxy.get(
-      `api/invocations/${args.invocation_id}${query({ step_details: args.step_details ?? false })}`,
+      `api/invocations/${segment(args.invocation_id)}${query({ step_details: args.step_details ?? false })}`,
     );
     return described(one, await jobStates(galaxy, args.invocation_id));
   }
@@ -422,7 +429,7 @@ async function recommendBiocontainer(args: Row) {
 const pageBody = (page: Row) => page.content_editor || page.content || "";
 
 async function getPage(args: Row, { galaxy }: Context) {
-  const page = (await galaxy.get(`api/pages/${args.page_id}`)) || {};
+  const page = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
   if (!isRow(page)) {
     return page;
   }
@@ -457,7 +464,7 @@ async function updatePage(args: Row, { galaxy }: Context) {
   const section = args.section_content;
   const expect = args.expect_hash;
   if (heading || section || expect) {
-    const current = (await galaxy.get(`api/pages/${args.page_id}`)) || {};
+    const current = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
     const source = pageBody(current);
     const actual = djb2Hash(source);
     if (expect && expect !== actual) {
@@ -473,7 +480,7 @@ async function updatePage(args: Row, { galaxy }: Context) {
     }
   }
 
-  const written = await galaxy.put(`api/pages/${args.page_id}`, payload);
+  const written = await galaxy.put(`api/pages/${segment(args.page_id)}`, payload);
   if (isRow(written)) {
     written.content_hash = djb2Hash(pageBody(written));
   }
@@ -481,6 +488,17 @@ async function updatePage(args: Row, { galaxy }: Context) {
 }
 
 type Run = (args: Row, ctx: Context) => Promise<unknown>;
+
+/**
+ * What Olit says of the two tools that work on the browser's in-memory filesystem, which
+ * galaxy-mcp's docstrings describe as the server's own disk.
+ */
+const LOCAL_DOCS: Record<string, string> = {
+  download_dataset:
+    "Save a Galaxy dataset to the local filesystem.\n\nReturns `path`, `bytes`, `binary`, and for text data `lines`, a `preview` of the first 50 lines and `truncated`. Fetched as raw bytes, so BAM/HDF5/gzip arrive intact. The file lives in the browser's in-memory filesystem, which persists for the session, so read it with run_python -- text with `pandas.read_csv(path, sep='\\t')`, binary with `open(path, 'rb')` or a suitable library. Do not paste the preview into code: it is a sample, and re-emitting file content as a string breaks on tabs and newlines.",
+  upload_file:
+    "Upload a file from the local filesystem to a Galaxy history.\n\nReads the path from the browser's in-memory filesystem, so it pairs with run_python: write a result to a file, then upload it. Sent to Galaxy as pasted content. Use upload_file_from_url to ingest directly from a URL instead.\n\nAn upload is a Galaxy job: the dataset comes back before it is readable. Wait for it to reach 'ok' (check its state with get_dataset_details) before running a tool on it or charting it.",
+};
 
 /** A tool Olit runs itself, under galaxy-mcp's description, with fetch-failure triage appended. */
 function tool(
@@ -492,7 +510,7 @@ function tool(
 ): OlitTool {
   return {
     name,
-    description: (DOCS as Record<string, string>)[name],
+    description: LOCAL_DOCS[name] ?? UPSTREAM_DOCS[name],
     capability,
     parameters: { type: "object", properties, required },
     run: async (args, ctx) => {
@@ -515,7 +533,7 @@ export function galaxyTools(): OlitTool[] {
     tool(
       "run_tool",
       "write",
-      { history_id: STR, tool_id: STR, inputs: { type: "object" } },
+      { history_id: STR, tool_id: STR, inputs: { type: "object" }, tool_version: STR },
       ["history_id", "tool_id", "inputs"],
       runTool,
     ),

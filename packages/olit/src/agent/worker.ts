@@ -1,4 +1,4 @@
-import type { Message } from "./messages";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { localPython } from "./python";
 import {
   failedTurn,
@@ -7,19 +7,28 @@ import {
   type SessionConfig,
   type TurnResult,
 } from "./session";
-import type { Artifact, Watched } from "./tool";
+import type { Artifact } from "./tool";
+import type { Settled, Watched } from "./watch";
 
 export interface RunRequest {
   config: SessionConfig;
-  transcripts: Message[];
+  transcripts: AgentMessage[];
   artifacts: Artifact[];
+  /** Work a reloaded page had open; the session watches it again. */
   watching: Watched[];
+}
+
+export interface SettleResult {
+  settled: Settled[];
+  pending: number;
+  followUp?: string;
 }
 
 export type WorkerMessage =
   | { type: "event"; event: LoopEvent }
   | { type: "confirm"; id: number; title: string; message: string }
-  | { type: "result"; result: TurnResult };
+  | { type: "result"; result: TurnResult }
+  | { type: "settled"; id: number; result: SettleResult };
 
 const CONTEXT_FIELDS = new Set(["history_id", "dataset_id", "session_id", "record_page_id"]);
 
@@ -63,11 +72,10 @@ async function run({ config, transcripts, artifacts, watching }: RunRequest): Pr
   try {
     const current = await sessionFor(config);
     current.rebind(config);
-    const prepared = await current.prepare(transcripts, config.record_page_id, config.history_id);
-    return await current.turn(prepared, {
+    current.watch.add(watching);
+    return await current.turn(transcripts, {
       onEvent: (event) => post({ type: "event", event }),
       artifacts,
-      watching,
       ask,
       signal: controller.signal,
     });
@@ -87,6 +95,18 @@ self.onmessage = async ({ data }) => {
   } else if (data.type === "confirmed") {
     confirms.get(data.id)?.(data.approved === true);
     confirms.delete(data.id);
+  } else if (data.type === "settle") {
+    // Between turns or during one, and before the first turn of a reloaded page.
+    const request = data.request as Pick<RunRequest, "config" | "watching">;
+    let result: SettleResult = { settled: [], pending: 0 };
+    try {
+      const current = await sessionFor(request.config);
+      current.watch.add(request.watching);
+      result = await current.settle();
+    } catch {
+      // Nothing to report this pass; the next one reads again.
+    }
+    post({ type: "settled", id: data.id, result });
   } else if (data.type === "abort") {
     controller?.abort();
     settleConfirms();

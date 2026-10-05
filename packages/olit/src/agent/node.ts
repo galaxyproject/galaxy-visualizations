@@ -1,17 +1,30 @@
 import { createInterface } from "node:readline";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { describe } from "./describe";
 import { localPython } from "./python";
-import { failedTurn, Session } from "./session";
+import { toChat } from "./messages";
+import { failedTurn, Session, type TurnResult } from "./session";
+import { DEFAULT_MAX_AUTO_FOLLOW_UPS } from "./watch";
 
-/** One session over JSON lines: `create`, `prepare`, `turn`, `close`; events stream before a turn's result. */
-const indexURL = pathToFileURL(
-  dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs")),
-).href;
+/** One session over JSON lines: `create`, `turn`, `settle`, `call`, `close`; a turn's events stream before its result. */
+/**
+ * Where Pyodide lives, resolved only when a session needs it: `--describe` runs without it. A
+ * directory path, not a file: URL -- under Node Pyodide reads its index as a path, and a URL
+ * there resolves against the working directory.
+ */
+const pyodideDir = () => dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs"));
 const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`);
+// stdout carries the protocol and nothing else.
+console.log = console.info = (...parts: unknown[]) => console.error(...parts);
+
+/** A turn as pi holds it, plus the OpenAI chat shape the harness grades. */
+const graded = (result: TurnResult) => ({
+  ...result,
+  transcript: toChat(result.messages),
+  new_transcript: toChat(result.new_messages),
+});
 let session: Session | undefined;
 
 /** Not top-level await: a lazily imported provider is declared after this module's body, so
@@ -29,30 +42,35 @@ async function main() {
     const request = JSON.parse(line);
     try {
       if (request.op === "create") {
-        session = await Session.create(request.config, localPython(indexURL), process.env);
+        session = await Session.create(request.config, localPython(pyodideDir()), process.env);
         write({ result: {} });
-      } else if (request.op === "prepare") {
-        write({
-          result: await session!.prepare(
-            request.transcripts,
-            request.record_page_id,
-            request.history_id,
-          ),
-        });
       } else if (request.op === "turn") {
         const result = await session!.turn(request.messages, {
           onEvent: (event) => write({ event }),
           artifacts: request.artifacts,
-          watching: request.watching,
         });
-        write({ result });
+        write({ result: graded(result) });
+      } else if (request.op === "call") {
+        // One tool without a model, for a drive that checks it against a real Galaxy.
+        write({ result: await session!.call(request.name, request.args ?? {}) });
+      } else if (request.op === "settle") {
+        // The same pass the page makes between turns, with the same follow-up it would send.
+        const { settled, pending, followUp } = await session!.settle();
+        write({
+          result: {
+            settled,
+            pending,
+            follow_up: followUp ?? null,
+            max_auto_follow_ups: DEFAULT_MAX_AUTO_FOLLOW_UPS,
+          },
+        });
       } else if (request.op === "close") {
         break;
       }
     } catch (err) {
       write(
         request.op === "turn"
-          ? { result: failedTurn(request.messages, err) }
+          ? { result: graded(failedTurn(request.messages, err)) }
           : { error: String(err) },
       );
     }

@@ -1,4 +1,4 @@
-import { query, type Galaxy } from "./galaxy";
+import { query, segment, type Galaxy } from "./galaxy";
 import { djb2Hash } from "./page-edit";
 import { fail, Outcome, type Capability, type Context, type OlitTool } from "./tool";
 
@@ -26,7 +26,7 @@ export const slugForSession = (sessionId: string) => `olit-${sessionId}`;
 
 /** The page at `pageId`, or undefined when Galaxy reports it gone; throws when unknown. */
 async function usable(galaxy: Galaxy, pageId: string): Promise<Page | undefined> {
-  const page = await galaxy.get(`api/pages/${pageId}`);
+  const page = await galaxy.get(`api/pages/${segment(pageId)}`);
   if (typeof page !== "object" || page === null || Array.isArray(page) || !page.id) {
     return undefined;
   }
@@ -38,7 +38,7 @@ async function datasetManifest(galaxy: Galaxy, historyId: string): Promise<strin
   let items: unknown;
   try {
     items = await galaxy.get(
-      `api/histories/${historyId}/contents${query({ v: "dev", keys: "id,hid,name,extension,state,deleted,visible" })}`,
+      `api/histories/${segment(historyId)}/contents${query({ v: "dev", keys: "id,hid,name,extension,state,deleted,visible" })}`,
     );
   } catch {
     return "";
@@ -170,7 +170,7 @@ export async function resume(
   return { created: true, page_id: created.id, title: created.title ?? null, content: STARTER };
 }
 
-/** `notebook_resume`: opens the session's record page, keeping its id on `ctx.record`. */
+/** `notebook_resume`: opens the session's record page, keeping its id on `ctx.binding`. */
 export function notebookTools(): OlitTool[] {
   return [
     {
@@ -185,11 +185,11 @@ export function notebookTools(): OlitTool[] {
       parameters: { type: "object", properties: {} },
       capability: CAPABILITY,
       run: async (_args, ctx: Context) => {
-        const opened = await resume(ctx.galaxy, ctx.record.sessionId, ctx.record.pageId);
+        const opened = await resume(ctx.galaxy, ctx.binding.sessionId, ctx.binding.pageId);
         if (opened instanceof Outcome) {
           return opened;
         }
-        ctx.record.pageId = opened.page_id;
+        ctx.binding.pageId = opened.page_id;
         return new Outcome(JSON.stringify(opened));
       },
     },

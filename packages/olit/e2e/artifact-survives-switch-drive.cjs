@@ -1,8 +1,8 @@
 // The invariant the ownership rule exists for: an artifact made before a config change is
 // still there after it. Switching provider or model applies the new choice by reloading
-// (credentials-modal.ts), so the brain and the shell's memory are both replaced and only
+// (credentials-modal.ts), so the agent and the shell's memory are both replaced and only
 // what was persisted comes back. The reload is driven directly here rather than through the
-// picker: this tier boots the brain only against the dev server, where a configured provider
+// picker: this tier boots the agent only against the dev server, where a configured provider
 // suppresses the picker. provider-switch-drive covers the picker half against the built app.
 const { chromium } = require("playwright");
 // A history is what the session is keyed on, as Galaxy supplies in production: without one
@@ -42,7 +42,7 @@ const stored = (p) =>
     const booted = await page.waitForFunction(
         () => /olit ready/i.test(document.body.innerText), null, { timeout: 120000 })
         .then(() => true).catch(() => false);
-    check("the brain boots", booted, booted ? "" : (await page.innerText("body")).slice(0, 200));
+    check("the agent boots", booted, booted ? "" : (await page.innerText("body")).slice(0, 200));
     if (!booted) {
         console.log(logs.slice(-20).join("\n"));
         await browser.close();
@@ -73,13 +73,13 @@ const stored = (p) =>
         entries.some((e) => e.key.startsWith("current:") && typeof e.value === "string"),
         entries.map((e) => e.key).join(", ") || "(no keys)");
 
-    // What a config change does: the page reloads, so the brain and every in-memory array
+    // What a config change does: the page reloads, so the agent and every in-memory array
     // in the shell are replaced. Anything that survives survived because it was persisted.
     await page.goto(APP, { waitUntil: "domcontentloaded" });
     const rebooted = await page.waitForFunction(
         () => /olit ready/i.test(document.body.innerText), null, { timeout: 120000 })
         .then(() => true).catch(() => false);
-    check("the brain comes back after the reload", rebooted);
+    check("the agent comes back after the reload", rebooted);
     const survived = await page.waitForFunction(
         () => document.querySelectorAll("#artifact-content iframe").length > 0,
         null, { timeout: 30000 }).then(() => true).catch(() => false);

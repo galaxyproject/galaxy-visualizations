@@ -28,14 +28,14 @@ for _ in $(seq 20); do curl -sf -o /dev/null http://127.0.0.1:8099/__seen && bre
 
 GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=ollama LLM_ROOT=http://127.0.0.1:8099 \
   LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
-  LLM_CONTEXT_WINDOW=40000 LLM_KEEP_RECENT_TOKENS=50 \
+  LLM_CONTEXT_WINDOW=64000 LLM_KEEP_RECENT_TOKENS=50 \
   npm run dev > /tmp/olit-e2e-dev.log 2>&1 & pids+=($!)
 for _ in $(seq 40); do curl -sf -o /dev/null http://localhost:5173/ && break; sleep 1; done
 
 ran=""
 for d in confirm session unsaved-changes approval-gate ratelimit visualization-artifact artifact-survives-switch artifact-restore-newest run-python; do
     ran="$ran $d"
-    if LLM_CONTEXT_WINDOW=40000 node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
+    if LLM_CONTEXT_WINDOW=64000 node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
         echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1
@@ -43,7 +43,7 @@ for d in confirm session unsaved-changes approval-gate ratelimit visualization-a
 done
 
 # The built bundle, served the way Galaxy serves it: the stub renders the host page and
-# the plugin static path, so these drivers get the credentials modal and the brain both.
+# the plugin static path, so these drivers get the credentials modal and the agent both.
 # The build must not carry the dev env, or LLM_PROVIDER suppresses the modal.
 env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tmp/olit-e2e-build.log 2>&1
 

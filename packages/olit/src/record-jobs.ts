@@ -9,7 +9,7 @@
  * is appended, and only once.
  */
 
-import type { Outcome } from "./invocations";
+import { WHAT, type Outcome } from "./agent/watch";
 
 const DONE = "- [x]";
 const PENDING = "- [ ]";
@@ -99,13 +99,6 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
  * where Galaxy's `id` was needed, which left the record unmatchable and the poller unable to
  * advance anything.
  */
-/** What to call each kind in the record and the chat. */
-export const WHAT = {
-  job: "Galaxy job",
-  invocation: "Workflow invocation",
-  dataset: "Galaxy dataset",
-} as const;
-
 export function noteSubmitted(
   content: string,
   w: { id: string; kind: "job" | "invocation" | "dataset" },

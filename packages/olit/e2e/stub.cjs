@@ -23,11 +23,11 @@ const TYPES = {
 };
 
 let script = "confirm";     // confirm | slow | compact | ratelimit | plan | plan-after-graph
-let galaxyUp = true;        // /api/version answers, which is what the brain probes for reachability
+let galaxyUp = true;        // /api/version answers, which is what the agent probes for reachability
 let rateLimited = 0;
 let calls = 0;
-const seen = [];            // every Galaxy request the brain actually made
-const prompts = [];         // what the brain sent us, so compaction can be checked
+const seen = [];            // every Galaxy request the agent actually made
+const prompts = [];         // what the agent sent us, so compaction can be checked
 
 function json(res, code, body) {
     const text = JSON.stringify(body);
@@ -52,7 +52,7 @@ function sse(res, completion) {
 }
 
 // A realistic `usage` is what lets the compaction scenario trigger.
-const message = (content, tool_calls, promptTokens = 30000) => ({
+const message = (content, tool_calls, promptTokens = 50000) => ({
     choices: [{ finish_reason: tool_calls ? "tool_calls" : "stop", message: { role: "assistant", content, tool_calls } }],
     usage: { prompt_tokens: promptTokens, completion_tokens: 20, total_tokens: promptTokens + 20 },
 });
@@ -191,7 +191,7 @@ const server = http.createServer(async (req, res) => {
     }
     // Drives that assert on what the model was sent need the record to start empty;
     // `/__script` deliberately keeps it, because a drive may switch scripts mid-turn.
-    // The brain probes /api/version once per session; a drive needs Galaxy down before it boots.
+    // The agent probes /api/version once per session; a drive needs Galaxy down before it boots.
     if (url.startsWith("/__galaxy")) {
         galaxyUp = new URL(url, "http://x").searchParams.get("up") !== "0";
         return json(res, 200, { galaxyUp });

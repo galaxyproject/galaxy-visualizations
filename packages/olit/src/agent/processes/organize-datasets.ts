@@ -1,6 +1,7 @@
-import { query, type Galaxy } from "../galaxy";
+import { quote } from "../quote";
+import { query, segment, type Galaxy } from "../galaxy";
 import { chunkItems, groupDatasets, type Grouping } from "./dataset-grouping";
-import { repr, type Process, type State } from "./process";
+import { type Process, type State } from "./process";
 
 export const BATCH = 1000;
 const NAME_SAMPLE = 10;
@@ -30,7 +31,11 @@ function bulk(
   items: unknown[],
   params: unknown,
 ) {
-  return galaxy.put(`api/histories/${historyId}/contents/bulk`, { operation, items, params });
+  return galaxy.put(`api/histories/${segment(historyId)}/contents/bulk`, {
+    operation,
+    items,
+    params,
+  });
 }
 
 function collection(
@@ -63,7 +68,7 @@ async function organize(
 ): Promise<State> {
   // This endpoint filters through q/qv; a plain `visible` or `deleted` is ignored.
   const contents: Dataset[] = await galaxy.get(
-    `api/histories/${history_id}/contents${query({ v: "dev", q: ["visible", "deleted"], qv: ["True", "False"] })}`,
+    `api/histories/${segment(history_id)}/contents${query({ v: "dev", q: ["visible", "deleted"], qv: ["True", "False"] })}`,
   );
   const grouping = groupDatasets({
     datasets: contents,
@@ -145,7 +150,7 @@ export function summarizeState(state: State): State | null {
     return {
       ok: false,
       error:
-        `Refused: ${repr(lost.datatype)} would relabel ` +
+        `Refused: ${quote(lost.datatype)} would relabel ` +
         `${lost.names.length} compressed dataset(s) as uncompressed.`,
       use: `${lost.datatype}.gz`,
       datasets: lost.names.slice(0, NAME_SAMPLE),
@@ -193,8 +198,8 @@ export const organizeDatasets: Process = {
       type: "string",
       default: "auto",
       help:
-        "'auto' pairs on evidence, 'paired' (or Galaxy's own 'list:paired') forces pairing, " +
-        "'list' forces a flat list.",
+        '"auto" pairs on evidence, "paired" (or Galaxy\'s own "list:paired") forces pairing, ' +
+        '"list" forces a flat list.',
     },
     datatype: {
       type: "string",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
+import { Watch } from "./watch";
 
 import type { Galaxy } from "./galaxy";
 import {
@@ -36,9 +37,9 @@ function context(galaxy: Fake, extra: Partial<Context> = {}): Context {
     galaxy: galaxy as unknown as Galaxy,
     ops: createGalaxyContext({ baseUrl: "http://galaxy.test/", apiKey: "" }),
     python: files(),
-    record: {},
+    binding: {},
     artifacts: { prior: [], produced: [] },
-    watching: [],
+    watch: new Watch(async () => undefined),
     ...extra,
   };
 }
@@ -80,6 +81,16 @@ describe("get_history_contents", () => {
     });
     return { paths, out: run("get_history_contents", { history_id: "h1", ...args }, ctx) };
   }
+
+  it("lists a dataset in an error state like any other", async () => {
+    // A tidy listing that hides the failure is a history the researcher does not have.
+    const rows = [
+      { id: "d1", hid: 1, state: "ok" },
+      { id: "d2", hid: 2, state: "error" },
+    ];
+    const got = JSON.parse(await contents({}, rows).out);
+    expect(got.data.map((i: { id: string }) => i.id)).toEqual(["d1", "d2"]);
+  });
 
   it("sends an order with what makes it count", async () => {
     const { paths, out } = contents({ order: "hid-dsc" });
@@ -125,18 +136,17 @@ describe("get_history_contents", () => {
     const { out } = contents({}, [
       { id: "hda1", dataset_id: "underlying1", name: "x.tabular", hid: 1 },
     ]);
-    const [item] = (await out).items;
+    const [item] = JSON.parse(await out).data;
     expect(item).toEqual({ id: "hda1", name: "x.tabular", hid: 1 });
   });
 
   it("says that more exist beyond a bounded page", async () => {
     const rows = Array.from({ length: 101 }, (_, i) => ({ id: `d${i}`, hid: i }));
     const { paths, out } = contents({}, rows);
-    const got = await out;
+    const got = JSON.parse(await out);
     expect(paths[0]).toContain("limit=101");
-    expect(got.shown).toBe(100);
-    expect(got.truncated).toBe(true);
-    expect(got.next_offset).toBe(100);
+    expect(got.data).toHaveLength(100);
+    expect(got.pagination).toMatchObject({ has_next: true, next_offset: 100 });
   });
 
   it("appends fetch-failure triage to a result it produced itself", async () => {
@@ -187,6 +197,25 @@ describe("run_tool history guard", () => {
     expect(out.jobs[0].state).toBe("new");
   });
 
+  it("asks Galaxy for the tool version the model named, and only then", async () => {
+    const { posted } = owned({ d1: HERE });
+    const ctx = context({
+      get: async () => ({ id: "d1", history_id: HERE }),
+      post: async (_path, body) => {
+        posted.push(body);
+        return { jobs: [] };
+      },
+    });
+    await run(
+      "run_tool",
+      { history_id: HERE, tool_id: "cat1", inputs: {}, tool_version: "1.1" },
+      ctx,
+    );
+    await run("run_tool", { history_id: HERE, tool_id: "cat1", inputs: {} }, ctx);
+    expect(posted[0].tool_version).toBe("1.1");
+    expect(posted[1]).not.toHaveProperty("tool_version");
+  });
+
   it("refuses a dataset from another history before submission", async () => {
     const { posted, submit } = owned({ d1: ELSEWHERE });
     const out = refused(await submit(HERE, { input: { src: "hda", id: "d1" } }));
@@ -229,8 +258,8 @@ describe("run_tool history guard", () => {
 
   it("leaves non-dataset parameters alone", async () => {
     const { posted, submit } = owned({ d1: HERE });
-    await submit(HERE, { input: { src: "hda", id: "d1" }, cond: "c3=='Gold'", lines: 5 });
-    expect(posted[0].inputs.cond).toBe("c3=='Gold'");
+    await submit(HERE, { input: { src: "hda", id: "d1" }, cond: 'c3=="Gold"', lines: 5 });
+    expect(posted[0].inputs.cond).toBe('c3=="Gold"');
   });
 
   it("finds references in nested structures", () => {
@@ -253,7 +282,7 @@ describe("run_tool history guard", () => {
 });
 
 describe("run_tool parameter help", () => {
-  const REJECTION = "HTTP 400: Parameter '0|other_column' has an invalid key structure.";
+  const REJECTION = 'HTTP 400: Parameter "0|other_column" has an invalid key structure.';
 
   function rejecting(error: Error, toolAnswer?: unknown) {
     const asked: string[] = [];
@@ -446,6 +475,14 @@ describe("dataset filesystem", () => {
     expect(out).not.toHaveProperty("content");
   });
 
+  it("reads the whole file, however much the preview shows", async () => {
+    // A sum over the preview is quietly wrong; run_python has to see every row.
+    const d = dataset(TABLE, { size: encode(TABLE).length });
+    const out = await d.download("whole");
+    expect(new TextDecoder().decode(d.fs.get(out.path))).toBe(TABLE);
+    expect(out.partial).toBeFalsy();
+  });
+
   it("caps the preview and says so", async () => {
     const out = await dataset(TABLE).download("capped");
     expect(out.preview.split("\n")).toHaveLength(PREVIEW_LINES);
@@ -565,20 +602,20 @@ describe("dataset filesystem", () => {
   it("refuses a dataset still running rather than reading it", async () => {
     const d = dataset(TABLE, { state: "running" });
     const out = refused(await d.download("abc123"));
-    expect(out).toContain("not 'ok'");
+    expect(out).toContain('not "ok"');
     expect(out).toContain("running");
     expect(d.fs.size).toBe(0);
   });
 
   it("refuses an errored dataset", async () => {
     expect(refused(await dataset(TABLE, { state: "error" }).download("abc123"))).toContain(
-      "not 'ok'",
+      'not "ok"',
     );
   });
 
   it("refuses a dataset that states no state", async () => {
     expect(refused(await dataset(TABLE, { state: null }).download("abc123"))).toContain(
-      "state None",
+      "state null",
     );
   });
 

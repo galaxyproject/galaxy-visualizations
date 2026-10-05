@@ -3,7 +3,7 @@ import "./orbit/styles.css";
 import "./olit.css";
 import { editRecord } from "./record-write";
 import { describeSeedDataset, summarize } from "./seed-dataset";
-import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
+import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
@@ -21,14 +21,13 @@ import {
 } from "./session-document";
 import { reportSavedState, savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
-import { historyFromResult, recordPageFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
 import { AgentClient } from "./agent/client";
-import type { Message } from "./agent/messages";
-import type { LoopEvent } from "./agent/session";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { LoopEvent, SessionBinding } from "./agent/session";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
-import { InvocationWatcher, galaxyStateReader, outcomeOf } from "./invocations";
-import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
+import { WHAT, type Settled, type Watched } from "./agent/watch";
+import { createFollowUpDelivery } from "./auto-resume";
 import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
 import { mountUsageBar } from "./usage-bar";
@@ -85,7 +84,14 @@ async function main() {
   const el = mountLayout(container);
   const artifactPane = mountArtifactPane(container);
   const chat = new ChatPanel(el.messages);
-  const retryNotice = createRetryNotice(chat);
+  /** An info line as text: the vendored panel parses it as HTML, and dataset names, ids and
+   * approval prompts reach it. */
+  const info = (text: string) => {
+    const line = chat.addInfoMessage("");
+    line.textContent = text;
+    return line;
+  };
+  const retryNotice = createRetryNotice({ addInfoMessage: info });
 
   // Ask for a provider/key before the worker starts.
   const creds = await ensureCredentials(container);
@@ -100,9 +106,13 @@ async function main() {
 
   // Regenerated from the plugin XML every load, so a prompt correction reaches a resumed
   // conversation instead of being pinned to the text of the day it started.
-  const seed = { role: "system", content: incoming.specs.ai_prompt || PROMPT_DEFAULT };
-  const convo: Message[] = [seed];
-  // The shell owns what a turn produced, the way it owns the transcript: the brain is
+  const seed = {
+    role: "system",
+    content: incoming.specs.ai_prompt || PROMPT_DEFAULT,
+    timestamp: Date.now(),
+  } as AgentMessage;
+  const convo: AgentMessage[] = [seed];
+  // The shell owns what a turn produced, the way it owns the transcript: the agent session is
   // rebuilt whenever the config changes, so anything it held would not survive a model switch.
   const produced: Artifact[] = [];
   // A vega spec carries its rows, so a long session keeps only its most recent artifacts.
@@ -155,7 +165,7 @@ async function main() {
       savedId = await saved.save(sessionDoc, savedId);
       el.save.textContent = "Saved";
       reportSavedState(true);
-      chat.addInfoMessage(
+      info(
         "Saved this conversation. Open it again from Galaxy's visualizations to continue it anywhere.",
       );
     } catch (e) {
@@ -172,18 +182,16 @@ async function main() {
   // Switching provider reloads, so what earlier turns produced comes back from storage
   // rather than from memory: without this a chart cannot be placed after a model switch.
   produced.push(...sessionDoc.artifacts);
-  // A restored session renders a failed step the way the live one did.
-  const toolErrors = new Set<string>(sessionDoc.toolErrors || []);
   const restored = restoreMessages(sessionDoc, seed);
   const resumed = restored.length > 1;
   if (resumed) {
     convo.length = 0;
     convo.push(...restored);
-    replayMessages(chat, restored, toolErrors);
+    replayMessages(chat, restored);
     el.reset.classList.remove("hidden");
   }
   if (fromGalaxy) {
-    chat.addInfoMessage("Opened a saved Olit session.");
+    info("Opened a saved Olit session.");
   }
   // Replayed like the transcript: a resumed session that can still place a chart but shows
   // an empty pane is telling the user it lost something it did not.
@@ -196,7 +204,7 @@ async function main() {
     new URL(`${incoming.root}${base}static/pyodide`, window.location.href).href,
   );
   const ready = true;
-  chat.addInfoMessage(
+  info(
     resumed
       ? "Resumed this history's conversation. Olit ready."
       : "Olit ready. Ask me to run something.",
@@ -205,56 +213,78 @@ async function main() {
   if (config.dataset_id) {
     void describeSeedDataset(config.galaxy_root, credentials, config.dataset_id).then((found) => {
       if (found) {
-        chat.addInfoMessage(summarize(found));
+        info(summarize(found));
       }
     });
   }
 
-  // Advances submitted Galaxy work between turns, so no turn blocks on a job.
-  const watcher = new InvocationWatcher({
-    readState: galaxyStateReader(config.galaxy_root, credentials),
-    // loom's agent calls galaxy_invocation_record so the poller owns the entry.
-    onSubmitted: (w) => {
-      if (!config.history_id) return;
-      void editRecord(
-        { root: config.galaxy_root, credentials, historyId: config.history_id },
-        (content) => noteSubmitted(content, w),
-      );
-    },
-    onSettled: (w, state) => {
-      const what = WHAT[w.kind];
-      const outcome = outcomeOf(w.kind, state);
-      const failed = outcome === "failed";
-      if (failed) {
-        chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
-      } else if (outcome === "cancelled") {
-        // The user asked for this; an alarm about it would be the loudest thing in the room.
-        chat.addInfoMessage(`${what} ${w.id} was cancelled.`);
-      } else {
-        chat.addInfoMessage(`${what} ${w.id} finished (${state}).`);
-      }
-      // Continue without asking the user to relay the notification.
-      if (isResumableOutcome(state, failed)) {
-        followUp.deliver(
-          buildResumePrompt([
-            {
-              kind: w.kind,
-              id: w.id,
-              label: `${what} ${w.id}`,
-              outcome: failed ? "failed" : "completed",
-            },
-          ]),
-        );
-      }
-      // loom's poller advances the notebook itself.
-      if (config.history_id) {
-        void editRecord(
-          { root: config.galaxy_root, credentials, historyId: config.history_id },
-          (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
-        );
-      }
-    },
-  });
+  /** What every request to the worker carries: the same config is the same session there. */
+  function workerConfig() {
+    return {
+      ...config,
+      ai_base_url: absolute(config.ai_base_url),
+      galaxy_root: absolute(config.galaxy_root),
+      ai_api_key: creds.apiKey,
+      credentials,
+    };
+  }
+
+  // loom's agent calls galaxy_invocation_record so the poller owns the entry.
+  function submitted(w: Watched) {
+    void editRecord(
+      { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
+      (content) => noteSubmitted(content, w),
+    );
+  }
+
+  function settledOne({ watched: w, state, outcome }: Settled) {
+    const what = WHAT[w.kind];
+    if (outcome === "failed") {
+      chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
+    } else if (outcome === "cancelled") {
+      // The user asked for this; an alarm about it would be the loudest thing in the room.
+      info(`${what} ${w.id} was cancelled.`);
+    } else {
+      info(`${what} ${w.id} finished (${state}).`);
+    }
+    // loom's poller advances the notebook itself.
+    void editRecord(
+      { root: config.galaxy_root, credentials, pageId: sessionDoc.session.recordPageId },
+      (content) => applyJobOutcome(content, { id: w.id, kind: w.kind, state, outcome }),
+    );
+  }
+
+  // The session watches submitted work; the page only asks it, now and then, what settled.
+  let polling: ReturnType<typeof setInterval> | undefined;
+  async function poll() {
+    const {
+      settled,
+      pending,
+      followUp: prompt,
+    } = await agent.settle({
+      config: workerConfig(),
+      watching: sessionDoc.watching ?? [],
+    });
+    settled.forEach(settledOne);
+    const done = new Set(settled.map((s) => `${s.watched.kind}:${s.watched.id}`));
+    sessionDoc.watching = (sessionDoc.watching ?? []).filter((w) => !done.has(`${w.kind}:${w.id}`));
+    // Continue without asking the user to relay the notification.
+    if (prompt) {
+      followUp.deliver(prompt);
+    }
+    if (!pending && polling) {
+      clearInterval(polling);
+      polling = undefined;
+    }
+  }
+  function watchGalaxy() {
+    polling ??= setInterval(() => void poll(), 10_000);
+  }
+
+  // Work a reloaded page had open is still worth hearing about.
+  if (sessionDoc.watching?.length) {
+    watchGalaxy();
+  }
 
   let busy = false;
 
@@ -266,13 +296,23 @@ async function main() {
   refreshSave();
   // Bounded automatic continuation, so an unattended tab cannot keep itself busy.
   const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
-    onPaused: (text) => chat.addInfoMessage(text),
+    onPaused: (text) => info(text),
   });
-  // Last diagnostics the brain reported; undefined until the first turn returns.
+  // Last diagnostics the agent reported; undefined until the first turn returns.
   let latest: import("./diagnostics").Diagnostics | undefined;
 
   // Whether streamed text is open in an assistant message.
   let speaking = false;
+
+  /** What the agent session reports it is bound to; it owns these, the page records them. */
+  function adopt(binding: SessionBinding) {
+    if (binding.history_id) {
+      sessionDoc.history_id = binding.history_id;
+      config.history_id = binding.history_id;
+    }
+    sessionDoc.session.recordPageId = binding.record_page_id;
+    config.record_page_id = binding.record_page_id;
+  }
 
   /** Cards and text rendered live from loop events; the final reconcile skips these. */
   function liveEvents(streamed: Set<string>) {
@@ -299,7 +339,7 @@ async function main() {
         retryNotice.start(ev.status, ev.wait, ev.attempt, ev.of);
       } else if (ev.type === "compacted") {
         // Never let history disappear without saying so.
-        chat.addInfoMessage("Summarized the earlier conversation to make room.");
+        info("Summarized the earlier conversation to make room.");
       } else if (ev.type === "context_overflow") {
         // Compaction was needed and could not help; say so before the provider does.
         chat.addErrorMessage(
@@ -307,31 +347,23 @@ async function main() {
             "cannot free enough room. Start a new conversation, or configure a larger window.",
         );
       } else if (ev.type === "tool_end") {
-        // The brain states the outcome; toolStatus only guesses at it.
+        // The agent states the outcome; toolStatus only guesses at it.
         const status = ev.is_error ? "error" : toolStatus(ev.content);
-        if (ev.is_error) {
-          toolErrors.add(ev.id);
-        }
         chat.updateToolCard(ev.id, status, ev.content);
-        // Galaxy returns the ids, so the model never has to register them.
-        watcher.ingest(ev.name, ev.content);
-        // A session opened without a history still ends up in one the agent chose.
-        const worked = historyFromResult(ev.name, ev.content);
-        if (worked) {
-          sessionDoc.history_id = worked;
-          config.history_id = worked;
+        // The session registered what this call submitted; the page records and polls it.
+        if (ev.watch) {
+          ev.watch.forEach(submitted);
+          watchGalaxy();
         }
-        // A record page the brain created or replaced; the session owns it from here.
-        const page = recordPageFromResult(ev.name, ev.content);
-        if (page) {
-          sessionDoc.session.recordPageId = page;
-          config.record_page_id = page;
+        // The session says when a call moved it: a history the agent chose, a record it opened.
+        if (ev.binding) {
+          adopt(ev.binding);
         }
       }
     };
   }
 
-  /** One turn: the request, what the brain said, and whatever it produced. */
+  /** One turn: the request, what the agent said, and whatever it produced. */
   async function runTurn(text: string): Promise<void> {
     const streamed = new Set<string>();
     console.groupCollapsed("[olit] turn");
@@ -341,16 +373,10 @@ async function main() {
     });
     const reply = await agent.run(
       {
-        config: {
-          ...config,
-          ai_base_url: absolute(config.ai_base_url),
-          galaxy_root: absolute(config.galaxy_root),
-          ai_api_key: creds.apiKey,
-          credentials,
-        },
+        config: workerConfig(),
         transcripts: convo,
         artifacts: produced,
-        watching: watcher.watched(),
+        watching: sessionDoc.watching ?? [],
       },
       liveEvents(streamed),
       confirm,
@@ -368,29 +394,31 @@ async function main() {
     chat.hideThinking();
     retryNotice.stop();
     if (reply.error) {
-      // The brain returns a failed turn as data; the console keeps the detail.
+      // The agent returns a failed turn as data; the console keeps the detail.
       console.error("[olit] turn failed", reply.error);
       chat.addErrorMessage(describeError(reply.error));
       return;
     }
 
-    // The brain names this turn's messages; compaction moves them, so no slicing.
-    const spoke = renderMessages(chat, reply.new_messages || [], streamed, new Set(), true);
+    // The agent names this turn's messages; compaction moves them, so no slicing.
+    const spoke = renderMessages(chat, reply.new_messages || [], streamed, true);
     // Exactly one explanation for a quiet turn, most specific first.
     if (reply.aborted) {
-      chat.addInfoMessage("Stopped.");
+      info("Stopped.");
     } else if (reply.exhausted) {
       // Orbit has no step cap; olit's must not look like completion.
-      chat.addInfoMessage(
-        'I ran out of steps for one turn while still working. Say "continue" to pick it up.',
-      );
+      info('I ran out of steps for one turn while still working. Say "continue" to pick it up.');
     } else if (!spoke && !reply.done) {
       // A reply with no tool calls ends the loop; `done` means finish was called.
-      chat.addInfoMessage("The model ended the turn without a reply. Ask again, or rephrase.");
+      info("The model ended the turn without a reply. Ask again, or rephrase.");
     }
 
     convo.length = 0;
     convo.push(...(reply.messages || []));
+    if (reply.binding) {
+      adopt(reply.binding);
+    }
+    sessionDoc.watching = reply.watching ?? sessionDoc.watching;
 
     const artifacts = reply.artifacts || [];
     if (artifacts.length) {
@@ -410,7 +438,6 @@ async function main() {
       messages: convo,
       artifacts: produced,
       usage: reply.usage,
-      toolErrors,
     });
     noteModel(sessionDoc, { provider: config.ai_provider, model: config.ai_model });
     void session.save(sessionDoc);
@@ -418,7 +445,7 @@ async function main() {
     reportSavedState(false);
     // loom writes a session block into the notebook itself. The id is the persisted
     // session's, so a reload updates its block instead of appending another.
-    void writeSessionSummary(config.galaxy_root, credentials, config.history_id, {
+    void writeSessionSummary(config.galaxy_root, credentials, sessionDoc.session.recordPageId, {
       id: sessionDoc.session.id,
       startedAt: sessionDoc.session.createdAt,
       endedAt: new Date().toISOString(),
@@ -444,7 +471,7 @@ async function main() {
     followUp.agentStarted();
     chat.addUserMessage(text);
     chat.showThinking();
-    convo.push({ role: "user", content: text });
+    convo.push({ role: "user", content: text, timestamp: Date.now() });
     try {
       await runTurn(text);
     } catch (e) {
@@ -472,9 +499,9 @@ async function main() {
     followUp.agentStarted();
     el.send.classList.add("hidden");
     el.abort.classList.remove("hidden");
-    chat.addInfoMessage("Checking the Galaxy results that just landed.");
+    info("Checking the Galaxy results that just landed.");
     chat.showThinking();
-    convo.push({ role: "user", content: text });
+    convo.push({ role: "user", content: text, timestamp: Date.now() });
     try {
       await runTurn(text);
     } catch (e) {
@@ -502,7 +529,7 @@ async function main() {
   const showConfirm = createConfirm({
     container,
     respond: (id, approved) => agent.confirm(Number(id), approved),
-    note: (text) => chat.addInfoMessage(text),
+    note: (text) => info(text),
   });
   function confirm(id: number, request: { title: string; message: string }) {
     showConfirm(String(id), request);
@@ -519,6 +546,9 @@ async function main() {
     // saved stays saved, which is the point of a session having an identity of its own
     // rather than being whatever happens to be attached to the history.
     sessionDoc = newDocument({ historyId: config.history_id, datasetId: config.dataset_id });
+    // A new conversation is a new session with no record yet; the old record stays the old one's.
+    config.session_id = sessionDoc.session.id;
+    config.record_page_id = undefined;
     savedId = undefined;
     reportSavedState(true);
     await session.save(sessionDoc);
@@ -529,7 +559,7 @@ async function main() {
     produced.length = 0;
     el.artifactContent.innerHTML = "";
     el.reset.classList.add("hidden");
-    chat.addInfoMessage(
+    info(
       "Started a new conversation. The previous one is saved, and the record on Galaxy is untouched.",
     );
   });
@@ -574,6 +604,6 @@ async function main() {
   });
 }
 
-// No window here: the brain compacts, and trimming on top would delete the summary.
+// No window here: the agent compacts, and trimming on top would delete the summary.
 
 void main();

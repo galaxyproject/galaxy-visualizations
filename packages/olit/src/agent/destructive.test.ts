@@ -1,7 +1,7 @@
 import type { BeforeToolCallContext } from "@earendil-works/pi-agent-core";
 import { describe, expect, it } from "vitest";
 
-import { classify, describe as headline, destructiveGate, type Ask } from "./destructive";
+import { classify, destructiveGate, type Ask } from "./destructive";
 
 const context = (name: string, args: Record<string, unknown>) =>
   ({
@@ -20,50 +20,35 @@ function asked(answer: boolean) {
 }
 
 const gate = (name: string, args: Record<string, unknown>, ask?: Ask) =>
-  destructiveGate(ask)(context(name, args));
+  destructiveGate(ask, FLAGGED)(context(name, args));
+
+const FLAGGED = new Set(["cancel_workflow_invocation", "delete_user_tool"]);
 
 describe("classify", () => {
-  it("treats only an explicit true as destructive", () => {
+  it("treats only an explicit true as a history delete", () => {
     expect(classify("update_history", { deleted: false })).toBeUndefined();
     expect(classify("update_history", {})).toBeUndefined();
   });
 
-  it("normalizes the galaxy prefix", () => {
-    expect(classify("galaxy_update_history", { deleted: true })).toEqual({
-      irreversible: false,
-      historyId: undefined,
-    });
-  });
-
-  it("ranks purge over delete when both are set", () => {
-    expect(classify("update_history", { deleted: true, purged: true })?.irreversible).toBe(true);
-  });
-
-  it("does not classify unrelated tools", () => {
-    expect(classify("create_history", { history_name: "x" })).toBeUndefined();
-    expect(classify("run_tool", { deleted: true })).toBeUndefined();
-  });
-
-  it("carries a string history id only", () => {
-    expect(classify("update_history", { history_id: "h1", deleted: true })?.historyId).toBe("h1");
-    expect(classify("update_history", { history_id: 7, deleted: true })?.historyId).toBeUndefined();
-  });
-});
-
-describe("describe", () => {
-  it("names the purged history, or the entire history", () => {
-    expect(headline({ irreversible: true, historyId: "h1" })).toBe(
-      "Permanently PURGE history h1 — this deletes all of its datasets and cannot be undone.",
-    );
-    expect(headline({ irreversible: true })).toContain("PURGE the entire history");
-  });
-
-  it("says a delete is whole-history and recoverable", () => {
-    expect(headline({ irreversible: false, historyId: "h1" })).toBe(
+  it("says a history delete covers the whole history and is recoverable", () => {
+    expect(classify("update_history", { history_id: "h1", deleted: true })).toBe(
       "Mark the entire history (h1) as deleted — not just specific datasets. " +
         "Recoverable via Undelete on most Galaxy servers, but it affects the whole history.",
     );
-    expect(headline({ irreversible: false })).toContain("Mark the entire history as deleted");
+    expect(classify("update_history", { history_id: 7, deleted: true })).toContain(
+      "Mark the entire history as deleted",
+    );
+  });
+
+  it("classifies every operation galaxy-ops flags as destructive", () => {
+    const headline = classify("delete_user_tool", { uuid: "u1" }, FLAGGED);
+    expect(headline).toContain("delete_user_tool");
+    expect(headline).toContain("cannot be undone");
+  });
+
+  it("does not classify unrelated tools", () => {
+    expect(classify("create_history", { history_name: "x" }, FLAGGED)).toBeUndefined();
+    expect(classify("run_tool", { deleted: true }, FLAGGED)).toBeUndefined();
   });
 });
 
@@ -75,10 +60,11 @@ describe("destructiveGate", () => {
     expect(result?.reason).toContain("h1");
   });
 
-  it("says a purge cannot be undone", async () => {
-    expect((await gate("update_history", { history_id: "h1", purged: true }))?.reason).toContain(
-      "cannot be undone",
-    );
+  it("asks before cancelling an invocation, which galaxy-ops flags", async () => {
+    const user = asked(false);
+    const result = await gate("cancel_workflow_invocation", { invocation_id: "i1" }, user.ask);
+    expect(user.questions).toHaveLength(1);
+    expect(result?.block).toBe(true);
   });
 
   it("says a delete covers the whole history and is recoverable", async () => {
@@ -111,7 +97,7 @@ describe("destructiveGate", () => {
 
   it("asks with the honest headline", async () => {
     const user = asked(false);
-    await gate("update_history", { history_id: "h1", purged: true }, user.ask);
+    await gate("delete_user_tool", { uuid: "u1" }, user.ask);
     expect(user.questions).toHaveLength(1);
     expect(user.questions[0].message).toContain("cannot be undone");
     expect(user.questions[0].title).toBeTruthy();
@@ -119,7 +105,7 @@ describe("destructiveGate", () => {
 
   it("never remembers an approval between calls", async () => {
     const user = asked(true);
-    const check = destructiveGate(user.ask);
+    const check = destructiveGate(user.ask, FLAGGED);
     for (let i = 0; i < 3; i++) {
       await check(context("update_history", { history_id: "h1", deleted: true }));
     }

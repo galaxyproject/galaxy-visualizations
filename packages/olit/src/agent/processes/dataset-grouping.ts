@@ -1,4 +1,4 @@
-import { repr } from "./process";
+import { quote } from "../quote";
 
 type Dataset = Record<string, any>;
 type Mate = "forward" | "reverse";
@@ -207,7 +207,7 @@ export function groupDatasets({
 }: GroupOptions = {}): Grouping {
   const shape = structure === "list:paired" ? "paired" : structure || "auto";
   if (!["auto", "paired", "list"].includes(shape)) {
-    throw new Error(`structure must be 'auto', 'paired' or 'list', not ${repr(structure)}`);
+    throw new Error(`structure must be "auto", "paired" or "list", not ${quote(structure)}`);
   }
   const rows = identify(datasets || [], nameField, compile(sampleRegex ?? undefined));
 

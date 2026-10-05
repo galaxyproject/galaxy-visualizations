@@ -11,7 +11,7 @@ const incoming = (specs: Record<string, unknown>) => ({
 });
 
 describe("buildConfig", () => {
-  it("never hands the brain the API key", () => {
+  it("never hands the agent the API key", () => {
     const config = buildConfig(incoming({}), { provider: "openrouter", apiKey: "sk-secret" });
     expect(JSON.stringify(config)).not.toContain("sk-secret");
     expect("ai_api_key" in config).toBe(false);

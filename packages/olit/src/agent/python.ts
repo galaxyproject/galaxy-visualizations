@@ -27,7 +27,11 @@ export function localPython(indexURL: string): Python {
   return {
     async run(code) {
       const { py, run } = await boot();
-      await py.loadPackagesFromImports(code);
+      // Package-loading chatter is noise to the user and the model; a failure is not.
+      await py.loadPackagesFromImports(code, {
+        messageCallback: () => undefined,
+        errorCallback: (message: string) => console.warn(message),
+      });
       const out: string[] = [];
       py.setStdout({ batched: (line) => out.push(line) });
       try {
@@ -63,7 +67,6 @@ export function pythonTool(): OlitTool {
       "cannot import galaxy, and real compute belongs in a Galaxy job.",
     parameters: { type: "object", properties: { code: { type: "string" } }, required: ["code"] },
     capability: "local",
-    sequential: true,
     run: async ({ code }: { code: string }, ctx) => {
       try {
         return new Outcome(await ctx.python.run(code ?? ""));

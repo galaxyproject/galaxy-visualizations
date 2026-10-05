@@ -18,20 +18,25 @@ function panel() {
   };
 }
 
-describe("a restored session renders a failed step as failed", () => {
-  const stored = [
-    { role: "tool", tool_call_id: "c1", name: "get_tool_details", content: DISCARDED },
-  ];
+const result = (isError: boolean) => ({
+  role: "toolResult",
+  toolCallId: "c1",
+  toolName: "get_tool_details",
+  content: [{ type: "text", text: DISCARDED }],
+  isError,
+  timestamp: 0,
+});
 
-  it("uses the recorded outcome", () => {
+describe("a restored session renders a step the way it ended", () => {
+  it("shows a failed step as failed, from the outcome the message records", () => {
     const chat = panel();
-    replayMessages(chat as never, stored as never, new Set(["c1"]));
+    replayMessages(chat as never, [result(true)] as never);
     expect(chat.updateToolCard).toHaveBeenCalledWith("c1", "error", DISCARDED);
   });
 
-  it("without it the same step reads as success, which is the bug", () => {
+  it("shows a step that succeeded as done, whatever its prose sounds like", () => {
     const chat = panel();
-    replayMessages(chat as never, stored as never);
+    replayMessages(chat as never, [result(false)] as never);
     expect(chat.updateToolCard).toHaveBeenCalledWith("c1", "done", DISCARDED);
   });
 });

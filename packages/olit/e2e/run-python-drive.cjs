@@ -31,7 +31,7 @@ const toolResults = async () =>
 
     await p.goto(APP, { waitUntil: "domcontentloaded" });
     const ready = await waitFor(p, () => /olit ready/i.test(document.body.innerText), 240000);
-    check("the brain is up", ready);
+    check("the agent is up", ready);
     if (!ready) {
         console.log(logs.slice(-20).join("\n"));
         await b.close();

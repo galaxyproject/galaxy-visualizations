@@ -54,12 +54,12 @@ const MARKUP = `
 
 /**
  * Resolve with usable credentials, showing the overlay only when what we have
- * cannot work. Rejecting up front beats starting a brain that dies on its first
+ * cannot work. Rejecting up front beats starting an agent that dies on its first
  * request, and the overlay stays up on a bad entry rather than stranding the
  * user in front of an agent that never connected.
  *
  * `cancellable` is only safe when a working selection already exists to fall back
- * on: dismissing the first-run picker would leave the brain with no key at all.
+ * on: dismissing the first-run picker would leave the agent with no key at all.
  * Resolves null when dismissed.
  */
 function openPicker(container: HTMLElement, cancellable: boolean): Promise<Credentials | null> {
@@ -135,11 +135,15 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
         if (e.target === overlay) close(null);
       });
     }
+    // A key typed for one provider stays in the hidden box after switching to one that takes
+    // none; sending it would hand that provider's key to an endpoint it was never meant for.
+    const key = () =>
+      providerById(providerSel.value)?.needs_key ? keyInput.value.trim() || undefined : undefined;
     const submit = () => {
       const creds: Credentials = {
         provider: providerSel.value,
         model: modelInput.value.trim() || undefined,
-        apiKey: keyInput.value.trim() || undefined,
+        apiKey: key(),
         baseUrl: endpointInput.value.trim() || undefined,
       };
       const problem = credentialProblem(creds);
@@ -160,7 +164,7 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
       if (!p || !endpoint) return;
       discoverBtn.disabled = true;
       discoverBtn.textContent = "Listing...";
-      const found = await discoverModels(fetch, p, endpoint, keyInput.value.trim() || undefined);
+      const found = await discoverModels(fetch, p, endpoint, key());
       discoverBtn.disabled = false;
       discoverBtn.textContent = "List models";
       errorEl.textContent = found.error || "";
@@ -190,7 +194,7 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
 /**
  * Reopen the picker so the provider can be changed after boot. The worker takes
  * its config at initialize, so the new choice is applied by reloading rather than
- * re-initializing a live brain. Conversation history lives in IndexedDB and is
+ * re-initializing a live agent. Conversation history lives in IndexedDB and is
  * restored on the way back up, so switching models does not discard it.
  */
 export async function switchProvider(container: HTMLElement): Promise<void> {

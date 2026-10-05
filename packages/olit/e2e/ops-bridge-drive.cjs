@@ -7,7 +7,7 @@
 //   node e2e/stub.cjs &
 //   GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=<key> LLM_PROVIDER=ollama \
 //     LLM_ROOT=http://127.0.0.1:8099 LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
-//     LLM_CONTEXT_WINDOW=40000 npx vite &
+//     LLM_CONTEXT_WINDOW=64000 npx vite &
 //   node e2e/ops-bridge-drive.cjs
 const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
@@ -38,7 +38,7 @@ const waitFor = async (page, fn, ms) => {
 
   await p.goto(APP, { waitUntil: "domcontentloaded" });
   const ready = await waitFor(p, () => /olit ready/i.test(document.body.innerText), 300000);
-  check("the brain boots with the galaxy-ops module loaded", ready);
+  check("the agent boots with the galaxy-ops module loaded", ready);
   if (!ready) {
     console.log(logs.slice(-25).join("\n"));
     await b.close();

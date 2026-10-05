@@ -21,6 +21,3 @@ export interface Process {
   /** How this process reduces its own state for the model. */
   summarize?(state: State): State | null;
 }
-
-/** A value as Python's repr writes it. */
-export const repr = (value: unknown) => (typeof value === "string" ? `'${value}'` : String(value));
