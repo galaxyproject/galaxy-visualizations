@@ -20,6 +20,7 @@ import {
 import { reportSavedState, savedSessions } from "./saved-session";
 import { createConfirm } from "./confirm-modal";
 import { AgentClient } from "./agent/client";
+import { connectGalaxy } from "./agent/galaxy";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { LoopEvent, SessionBinding } from "./agent/session";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
@@ -116,11 +117,10 @@ async function main() {
   const ARTIFACT_LIMIT = 20;
 
   const credentials = (process.env.credentials as RequestCredentials) || "include";
-  const session = new SessionStore(
-    indexedDbStore(),
-    await galaxyUserId(config.galaxy_root, credentials),
-  );
-  const saved = savedSessions(config.galaxy_root, credentials);
+  // The page's own Galaxy requests take the transport the agent's do.
+  const galaxy = connectGalaxy({ root: config.galaxy_root, credentials });
+  const session = new SessionStore(indexedDbStore(), await galaxyUserId(galaxy));
+  const saved = savedSessions(galaxy);
   // Opening a saved visualization opens that session. Otherwise IndexedDB continues the
   // last conversation in this history, which is reload convenience, not a second authority.
   let savedId = incoming.visualizationId;
@@ -209,7 +209,7 @@ async function main() {
   );
   // Its own message: being ready and having a dataset to start from are separate facts.
   if (config.dataset_id) {
-    void describeSeedDataset(config.galaxy_root, credentials, config.dataset_id).then((found) => {
+    void describeSeedDataset(galaxy, config.dataset_id).then((found) => {
       if (found) {
         info(summarize(found));
       }

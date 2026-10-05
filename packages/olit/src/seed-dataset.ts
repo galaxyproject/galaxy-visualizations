@@ -4,6 +4,8 @@
  * turn spent on it would cost tokens and a step to say what Galaxy already knows.
  */
 
+import { segment, type Galaxy } from "./agent/galaxy";
+
 export interface SeedDataset {
   name: string;
   extension?: string;
@@ -13,16 +15,11 @@ export interface SeedDataset {
 
 /** A one-line summary of the dataset olit was opened on, or null if there is nothing to say. */
 export async function describeSeedDataset(
-  root: string,
-  credentials: RequestCredentials,
+  galaxy: Galaxy,
   datasetId: string,
 ): Promise<SeedDataset | null> {
   try {
-    const res = await fetch(`${root}api/datasets/${datasetId}`, { credentials });
-    if (!res.ok) {
-      return null;
-    }
-    const d = await res.json();
+    const d = await galaxy.get(`api/datasets/${segment(datasetId)}`);
     if (!d || typeof d.name !== "string") {
       return null;
     }
