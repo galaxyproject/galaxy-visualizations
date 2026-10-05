@@ -85,7 +85,9 @@ describe("a saved Olit visualization is a restorable session", () => {
     expect(reopened!.session.id).toBe(doc.session.id);
     expect(reopened!.history_id).toBe("h1");
     expect(reopened!.artifacts).toEqual(doc.artifacts);
-    expect(restoreMessages(reopened!, SEED).map((m) => m.content)).toContain("run fastqc");
+    expect(
+      restoreMessages(reopened!, SEED).map((m) => ("content" in m ? m.content : undefined)),
+    ).toContain("run fastqc");
     vi.unstubAllGlobals();
   });
 
@@ -101,7 +103,10 @@ describe("a saved Olit visualization is a restorable session", () => {
     expect(rows.size).toBe(1);
     const stored = (await galaxy.load(id))!;
     expect(stored.session.turn).toBe(2);
-    expect(stored.messages.map((m) => m.content)).toEqual(["first", "second"]);
+    expect(stored.messages.map((m) => ("content" in m ? m.content : undefined))).toEqual([
+      "first",
+      "second",
+    ]);
     vi.unstubAllGlobals();
   });
 
@@ -254,7 +259,9 @@ describe("local continuity", () => {
 
     // Opening the saved visualization opens what was saved, with no merge and no prompt.
     const opened = await galaxy.load(id);
-    expect(opened!.messages.map((m) => m.content)).toEqual(["saved state"]);
+    expect(opened!.messages.map((m) => ("content" in m ? m.content : undefined))).toEqual([
+      "saved state",
+    ]);
     expect(isSessionDocument(opened)).toBe(true);
     vi.unstubAllGlobals();
   });

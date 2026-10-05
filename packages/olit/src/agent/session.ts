@@ -37,6 +37,7 @@ import {
 } from "./tool";
 import { CONTEXT_SECTION, isRecordUpdate, RECORD_SECTION, sectionsOf } from "./sections";
 import { followUpPrompt, stateReader, Watch, type Settled, type Watched } from "./watch";
+import { toLlm } from "./messages";
 import { pythonTool } from "./python";
 import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { editRecord } from "./record-write";
@@ -558,10 +559,7 @@ export class Session {
       toolExecution: "sequential",
       beforeToolCall: guard.beforeToolCall,
       afterToolCall: guard.afterToolCall,
-      convertToLlm: (all) =>
-        guard.convert(
-          all.filter((m) => ["system", "user", "assistant", "toolResult"].includes(m.role)),
-        ) as never,
+      convertToLlm: (all) => guard.convert(toLlm(all)) as never,
       transformContext: async (all, signal) => {
         const { messages: compacted, status } = await compaction.compact(all, signal);
         if (status === "compacted") {

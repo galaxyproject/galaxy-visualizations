@@ -48,7 +48,10 @@ export function renderMessages(
 /** Repaint a stored transcript into the panel; loom: session-replay.js on `--continue`. */
 export function replayMessages(chat: ChatPanel, messages: AgentMessage[]) {
   for (const m of messages) {
-    if (m.role === "user") {
+    if (m.role === "compactionSummary") {
+      // Said the way it was said live, rather than shown as something the user wrote.
+      chat.addInfoMessage("Summarized the earlier conversation to make room.");
+    } else if (m.role === "user") {
       chat.addUserMessage(textOf(m.content));
     } else if (m.role !== "system") {
       renderMessages(chat, [m]);
