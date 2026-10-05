@@ -1,0 +1,417 @@
+type Json = Record<string, any>;
+
+export type Types = Record<string, Json>;
+
+const isObject = (value: unknown): value is Json =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** A value as Python's `repr` writes it. */
+export function repr(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "None";
+  }
+  if (typeof value === "boolean") {
+    return value ? "True" : "False";
+  }
+  if (typeof value === "string") {
+    const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
+    const escaped = value
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t");
+    return quote + (quote === "'" ? escaped.replace(/'/g, "\\'") : escaped) + quote;
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(repr).join(", ")}]`;
+  }
+  if (isObject(value)) {
+    return `{${Object.entries(value)
+      .map(([k, v]) => `${repr(k)}: ${repr(v)}`)
+      .join(", ")}}`;
+  }
+  return String(value);
+}
+
+/** A value as Python's `json.dumps` writes it. */
+export function pyJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(pyJson).join(", ")}]`;
+  }
+  if (isObject(value)) {
+    return `{${Object.entries(value)
+      .map(([k, v]) => `${JSON.stringify(k)}: ${pyJson(v)}`)
+      .join(", ")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+/** What a value looks like before the model replaces it, by what the type stores. */
+const SCALAR_PLACEHOLDER: Record<string, unknown> = {
+  boolean: false,
+  integer: 0,
+  number: 0.0,
+  string: "<value>",
+};
+
+/** The choices a `declared` options source lists, if this input has any. */
+function declaredValues(param: Json, spec: Json | undefined): unknown[] {
+  const source = spec?.options || {};
+  if (source.kind !== "declared") {
+    return [];
+  }
+  const values: unknown[] = param[source.from || ""] || [];
+  return values
+    .filter((v): v is Json => isObject(v) && v.value !== undefined && v.value !== null)
+    .map((v) => v.value);
+}
+
+/** galaxy-charts `toBoolean`. */
+const truthy = (value: unknown) => String(value).toLowerCase() === "true";
+
+/** A declared numeric literal, or null when it states no number. */
+function numericLiteral(value: unknown): number | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(value));
+  } catch {
+    return null;
+  }
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
+}
+
+/** What an input holds when no config sets it, read through the coercion its type declares. */
+export function effectiveDefault(param: Json, spec: Json | undefined): unknown {
+  let value = param.value ?? null;
+  if (value === null) {
+    const fallback = spec?.fallback || {};
+    const requires = fallback.requires;
+    if (Object.keys(fallback).length && (!requires || truthy(param[requires]))) {
+      value = fallback.value ?? null;
+    }
+  }
+  if (value === null) {
+    return null;
+  }
+  const coerce = spec?.coerce;
+  if (coerce === "boolean") {
+    return truthy(value);
+  }
+  if (coerce === "number") {
+    return numericLiteral(value);
+  }
+  return value;
+}
+
+function placeholder(param: Json, types: Types): unknown {
+  const spec = types[param.type] || {};
+  const stores = spec.stores || {};
+  if (stores.type === "object") {
+    return { "<from get_visualization_options>": true };
+  }
+  const fallback = effectiveDefault(param, spec);
+  if (fallback !== null) {
+    return fallback;
+  }
+  const choices = declaredValues(param, spec);
+  if (choices.length) {
+    return choices[0];
+  }
+  return SCALAR_PLACEHOLDER[stores.type] ?? "<value>";
+}
+
+function fill(param: Json, types: Types, out: Json) {
+  const name = param.name;
+  if (!name) {
+    return;
+  }
+  if (param.type !== "conditional") {
+    out[name] = placeholder(param, types);
+    return;
+  }
+  const test = param.test_param || {};
+  const cases: Json[] = param.cases || [];
+  const wanted = caseValue(test.value);
+  const chosen = cases.find((c) => caseValue(c.value) === wanted) || cases[0] || {};
+  const nested: Json = {};
+  if (test.name) {
+    nested[test.name] = "value" in chosen ? chosen.value : "<choice>";
+  }
+  for (const child of chosen.inputs || []) {
+    fill(child, types, nested);
+  }
+  out[name] = nested;
+}
+
+/** A ready-to-fill `settings` object and `tracks` entry for one plugin. */
+export function buildVisualizationTemplate(plugin: Json | undefined, types: Types): Json {
+  const settings: Json = {};
+  const track: Json = {};
+  for (const param of plugin?.settings || []) {
+    fill(param, types, settings);
+  }
+  for (const param of plugin?.tracks || []) {
+    fill(param, types, track);
+  }
+  const out: Json = { settings };
+  if (Object.keys(track).length) {
+    out.tracks = [track];
+  }
+  return out;
+}
+
+const GROUPS = ["settings", "tracks"];
+
+function pathsDeclaring(params: unknown, name: string, path: string[]): string[] {
+  const out: string[] = [];
+  for (const param of (params as unknown[]) || []) {
+    if (!isObject(param)) {
+      continue;
+    }
+    const own = param.name || "?";
+    if (param.type === "conditional") {
+      if (param.test_param?.name === name) {
+        out.push([...path, own, name].join("."));
+      }
+      for (const c of param.cases || []) {
+        out.push(...pathsDeclaring(c.inputs, name, [...path, own]));
+      }
+    } else if (own === name) {
+      out.push([...path, own].join("."));
+    }
+  }
+  return out;
+}
+
+/** Every canonical path under which `plugin` declares `name`, each named once. */
+export function declaredPaths(plugin: Json | undefined, name: string): string[] {
+  const found = GROUPS.flatMap((group) => pathsDeclaring(plugin?.[group], name, [group]));
+  return [...new Set(found)];
+}
+
+/** The stored state a group's walk reads its cases from. */
+function state(config: Json | undefined, group: string): Json {
+  let held = config?.[group];
+  if (group === "tracks" && Array.isArray(held)) {
+    held = held.length ? held[0] : null;
+  }
+  return isObject(held) ? held : {};
+}
+
+/** A case value as the form compares it, where a boolean stringifies to `"true"`. */
+export function caseValue(value: unknown): string | null {
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  return value === null || value === undefined ? null : String(value);
+}
+
+/** A case value with the label the form shows for it, where the test parameter declares one. */
+export function namedCase(test: Json | undefined, value: unknown): string {
+  const labels = new Map<unknown, unknown>();
+  for (const d of test?.data || []) {
+    if (isObject(d)) {
+      labels.set(d.value, d.label);
+    }
+  }
+  const label = labels.get(value);
+  return label ? `${repr(value)} (${label})` : repr(value);
+}
+
+/** The case label galaxy-charts compares: `result[testName] ?? test_param.value`. */
+export function selectedCase(test: Json | undefined, stated: unknown): string | null {
+  return caseValue(stated === null || stated === undefined ? test?.value : stated);
+}
+
+/** The case a conditional selects, as `formatConditional` selects it. */
+export function activeCase(param: Json, entry: unknown): Json | undefined {
+  const test = param.test_param || {};
+  const held = isObject(entry) ? entry[param.name] : undefined;
+  const chosen = selectedCase(test, isObject(held) ? held[test.name] : undefined);
+  if (chosen === null) {
+    return undefined;
+  }
+  return ((param.cases as Json[]) || []).find((c) => caseValue(c.value) === chosen);
+}
+
+/** The config a caller has to send, written the way the template writes an unfilled value. */
+function shape(trail: string[], testName: string): string {
+  let nested: Json = { [testName]: "<value>" };
+  for (const step of [...trail].reverse()) {
+    nested = { [step]: nested };
+  }
+  return pyJson(nested);
+}
+
+export interface Hit {
+  declared: Json;
+  path: string;
+  case: unknown;
+  otherCases: unknown[];
+}
+
+type Resolution = { hit: Hit | null; problem: string | null };
+
+const hit = (declared: Json, path: string): Resolution => ({
+  hit: { declared, path, case: undefined, otherCases: [] },
+  problem: null,
+});
+
+const problem = (text: string): Resolution => ({ hit: null, problem: text });
+
+function resolve(params: unknown, segments: string[], held: unknown, trail: string[]): Resolution {
+  const [name, ...rest] = segments;
+  const here = [...trail, name].join(".");
+  const param = ((params as unknown[]) || []).find(
+    (p): p is Json => isObject(p) && p.name === name,
+  );
+  if (!param) {
+    return problem(`${repr(trail.join("."))} declares nothing named ${repr(name)}.`);
+  }
+  if (param.type !== "conditional") {
+    if (rest.length) {
+      return problem(
+        `${repr(here)} is a ${repr(param.type)} input and holds nothing named ${repr(rest[0])}.`,
+      );
+    }
+    return hit(param, here);
+  }
+
+  const test = param.test_param || {};
+  const cases: Json[] = param.cases || [];
+  if (!rest.length) {
+    return problem(
+      `${repr(here)} is a conditional. Name an input inside it, or its test parameter ${repr(test.name)}.`,
+    );
+  }
+  if (rest[0] === test.name) {
+    if (rest.length > 1) {
+      return problem(
+        `${here}.${repr(rest[0])} is a test parameter and holds nothing named ${repr(rest[1])}.`,
+      );
+    }
+    return hit(test, `${here}.${rest[0]}`);
+  }
+
+  const nested = isObject(held) ? held[name] : undefined;
+  const chosen = selectedCase(test, isObject(nested) ? nested[test.name] : undefined);
+  const active = cases.find((c) => chosen !== null && caseValue(c.value) === chosen);
+  if (!active) {
+    const offered = cases.map((c) => namedCase(test, c.value)).join(", ");
+    return problem(
+      `${repr(here)} selects its inputs by ${repr(test.name)}. Pass ` +
+        `config=${shape([...trail, name], test.name)} with ${repr(test.name)} as one of ${offered}.`,
+    );
+  }
+  const found = resolve(active.inputs, rest, nested, [...trail, name]);
+  if (found.hit && found.hit.case === undefined) {
+    found.hit.case = active.value;
+    found.hit.otherCases = cases
+      .filter(
+        (c) =>
+          caseValue(c.value) !== chosen &&
+          ((c.inputs as Json[]) || []).some((i) => i.name === rest[0]),
+      )
+      .map((c) => c.value);
+  }
+  return found;
+}
+
+/** The input a published path names, with `config` selecting each conditional's case. */
+export function resolveParameter(
+  plugin: Json | undefined,
+  parameter: unknown,
+  config?: Json,
+): Resolution {
+  const segments = String(parameter ?? "")
+    .split(".")
+    .filter(Boolean);
+  if (segments.length < 2 || !GROUPS.includes(segments[0])) {
+    return problem(
+      `${repr(parameter)} is not a parameter path. Name one as get_visualization_details ` +
+        `publishes it, rooted at ${GROUPS.join(" or ")}.`,
+    );
+  }
+  const group = segments[0];
+  return resolve(plugin?.[group], segments.slice(1), state(config, group), [group]);
+}
+
+export interface Branch {
+  test: string;
+  value: unknown;
+  siblings: unknown[];
+}
+
+export interface Bearing {
+  path: string;
+  param: Json;
+  spec: Json;
+  value: unknown;
+  branch?: Branch;
+}
+
+/** Every value in a config whose input draws its options from a server-resolved set. */
+export function* optionBearing(
+  entry: unknown,
+  declared: unknown,
+  types: Types,
+  path: string[] = [],
+  branch?: Branch,
+): Generator<Bearing> {
+  if (!isObject(entry)) {
+    return;
+  }
+  for (const param of (declared as unknown[]) || []) {
+    const name = isObject(param) ? param.name : undefined;
+    if (!isObject(param) || !name || !Object.hasOwn(entry, name)) {
+      continue;
+    }
+    const value = entry[name];
+    if (param.type === "conditional") {
+      const active = activeCase(param, entry);
+      if (active) {
+        const under: Branch = {
+          test: param.test_param?.name,
+          value: active.value,
+          siblings: ((param.cases as Json[]) || []).filter((c) => c !== active).map((c) => c.value),
+        };
+        yield* optionBearing(value, active.inputs, types, [...path, name], under);
+      }
+      continue;
+    }
+    const spec = types[param.type] || {};
+    const kind = spec.options?.kind;
+    if (kind && kind !== "declared" && value !== null && value !== undefined) {
+      yield { path: [...path, name].join("."), param, spec, value, branch };
+    }
+  }
+}
+
+/** Deep equality over JSON values. */
+export function same(a: unknown, b: unknown): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((item, i) => same(item, b[i]));
+  }
+  if (isObject(a) && isObject(b)) {
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length && keys.every((k) => k in b && same(a[k], b[k]));
+  }
+  return false;
+}
+
+/** Whether a value is one the input offers, compared whole, or its effective default. */
+export function isOffered(
+  value: unknown,
+  options: Json[] | undefined,
+  param: Json,
+  spec: Json,
+): boolean {
+  if ((options || []).some((option) => same(value, option.value))) {
+    return true;
+  }
+  const fallback = effectiveDefault(param, spec);
+  return fallback !== null && same(value, fallback);
+}

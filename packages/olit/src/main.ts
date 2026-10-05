@@ -1,4 +1,4 @@
-/** olit shell: mounts Orbit's ChatPanel, boots the Pyodide brain, drives the chat. */
+/** olit shell: mounts Orbit's ChatPanel, starts the agent worker, drives the chat. */
 import "./orbit/styles.css";
 import "./olit.css";
 import { editRecord } from "./record-write";
@@ -7,13 +7,7 @@ import { WHAT, applyJobOutcome, noteSubmitted } from "./record-jobs";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
-import {
-  catalogFailed,
-  catalogRefusalMessage,
-  galaxyCanRun,
-  galaxyPartialWarning,
-  galaxyRefusalMessage,
-} from "./diagnostics";
+import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
@@ -29,8 +23,9 @@ import { reportSavedState, savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
 import { historyFromResult, recordPageFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
-import { PyodideManager } from "./pyodide/pyodide-manager";
-import { runOlit, type LoopEvent, type Message } from "./pyodide-runner";
+import { AgentClient } from "./agent/client";
+import type { Message } from "./agent/messages";
+import type { LoopEvent } from "./agent/session";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, outcomeOf } from "./invocations";
 import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
@@ -45,6 +40,9 @@ const PROMPT_DEFAULT = "You are Olit. Communicate only by calling tools.";
 const MAX_INPUT_HEIGHT = 150;
 
 const isDev = () => (import.meta as any).env.DEV;
+
+/** A url the worker can use: resolved against the page. */
+const absolute = (url: string) => new URL(url, window.location.href).href;
 
 /** Dev-only: synthesize data-incoming from the plugin XML (no framework host). */
 async function seedDevIncoming(container: HTMLElement): Promise<void> {
@@ -87,6 +85,7 @@ async function main() {
   const el = mountLayout(container);
   const artifactPane = mountArtifactPane(container);
   const chat = new ChatPanel(el.messages);
+  const retryNotice = createRetryNotice(chat);
 
   // Ask for a provider/key before the worker starts.
   const creds = await ensureCredentials(container);
@@ -97,7 +96,6 @@ async function main() {
     origin: window.location.origin,
     isIframe: window.top !== window.self,
     galaxy_root: config.galaxy_root,
-    openapi_url: `${config.galaxy_root}openapi.json`,
   });
 
   // Regenerated from the plugin XML every load, so a prompt correction reaches a resumed
@@ -137,12 +135,10 @@ async function main() {
   mountBuildStamp(container, {
     commit: (process.env.olit_commit as string) || "",
     built: (process.env.olit_built as string) || "",
-    wheel: (process.env.olit_wheel as string) || "",
     galaxy: config.galaxy_root,
     provider: config.ai_provider,
     model: config.ai_model || "",
   });
-  const retryNotice = createRetryNotice(chat);
 
   el.input.addEventListener("input", () => autosize(el.input));
 
@@ -195,40 +191,24 @@ async function main() {
     await renderArtifact(el.artifactContent, artifact);
   }
 
-  // Boot Pyodide (brain lives inside it).
   const base = isDev() ? "" : `static/plugins/visualizations/${PLUGIN_NAME}/`;
-  const indexURL = `${incoming.root}${base}static/pyodide`;
-  const pyodide = new PyodideManager({
-    indexURL,
-    extraPackages: [`${indexURL}/${process.env.olit_wheel}`],
-    // The key is the worker's to hold; the brain's config never carries it.
-    llm: { baseUrl: config.ai_base_url, apiKey: creds.apiKey },
-    galaxy: { root: config.galaxy_root, credentials },
-    opsModule: process.env.ops_module as string,
-    chartsModule: process.env.charts_module as string,
-  });
-  let ready = false;
-  const readyInfo = chat.addInfoMessage("Loading Olit...");
-  pyodide
-    .initialize()
-    .then(() => {
-      ready = true;
-      readyInfo.textContent = resumed
-        ? "Resumed this history's conversation. Olit ready."
-        : "Olit ready. Ask me to run something.";
-      // Its own message, not a replacement: being ready and having a dataset to start
-      // from are separate facts, and the user wants both.
-      if (config.dataset_id) {
-        void describeSeedDataset(config.galaxy_root, credentials, config.dataset_id).then(
-          (found) => {
-            if (found) {
-              chat.addInfoMessage(summarize(found));
-            }
-          },
-        );
+  const agent = new AgentClient(
+    new URL(`${incoming.root}${base}static/pyodide`, window.location.href).href,
+  );
+  const ready = true;
+  chat.addInfoMessage(
+    resumed
+      ? "Resumed this history's conversation. Olit ready."
+      : "Olit ready. Ask me to run something.",
+  );
+  // Its own message: being ready and having a dataset to start from are separate facts.
+  if (config.dataset_id) {
+    void describeSeedDataset(config.galaxy_root, credentials, config.dataset_id).then((found) => {
+      if (found) {
+        chat.addInfoMessage(summarize(found));
       }
-    })
-    .catch((e) => chat.addErrorMessage(`Failed to load Olit: ${e}`));
+    });
+  }
 
   // Advances submitted Galaxy work between turns, so no turn blocks on a job.
   const watcher = new InvocationWatcher({
@@ -291,9 +271,25 @@ async function main() {
   // Last diagnostics the brain reported; undefined until the first turn returns.
   let latest: import("./diagnostics").Diagnostics | undefined;
 
-  /** Cards rendered live from loop events; the final reconcile skips these ids. */
+  // Whether streamed text is open in an assistant message.
+  let speaking = false;
+
+  /** Cards and text rendered live from loop events; the final reconcile skips these. */
   function liveEvents(streamed: Set<string>) {
     return (ev: LoopEvent) => {
+      if (ev.type === "text") {
+        chat.hideThinking();
+        if (!speaking) {
+          chat.startAssistantMessage();
+          speaking = true;
+        }
+        chat.appendDelta(ev.delta);
+        return;
+      }
+      if (speaking) {
+        chat.finishAssistantMessage();
+        speaking = false;
+      }
       if (ev.type === "tool_start") {
         streamed.add(ev.id);
         chat.hideThinking();
@@ -343,23 +339,32 @@ async function main() {
       galaxy_root: config.galaxy_root,
       text,
     });
-    const reply = await runOlit(pyodide, {
-      config,
-      transcripts: convo,
-      artifacts: produced,
-      watching: watcher.watched(),
-      onEvent: liveEvents(streamed),
-    });
+    const reply = await agent.run(
+      {
+        config: {
+          ...config,
+          ai_base_url: absolute(config.ai_base_url),
+          galaxy_root: absolute(config.galaxy_root),
+          ai_api_key: creds.apiKey,
+          credentials,
+        },
+        transcripts: convo,
+        artifacts: produced,
+        watching: watcher.watched(),
+      },
+      liveEvents(streamed),
+      confirm,
+    );
+    if (speaking) {
+      chat.finishAssistantMessage();
+      speaking = false;
+    }
     console.log("diagnostics", reply.diagnostics);
     console.log("trace", reply.logs);
     console.log("messages", reply.messages);
     console.groupEnd();
 
-    // Surface a broken Galaxy catalog once; it is otherwise a silent dead end.
     latest = reply.diagnostics || latest;
-    if (catalogFailed(reply.diagnostics?.catalog)) {
-      chat.addErrorMessage(catalogRefusalMessage(reply.diagnostics?.catalog));
-    }
     chat.hideThinking();
     retryNotice.stop();
     if (reply.error) {
@@ -370,7 +375,7 @@ async function main() {
     }
 
     // The brain names this turn's messages; compaction moves them, so no slicing.
-    const spoke = renderMessages(chat, reply.new_messages || [], streamed);
+    const spoke = renderMessages(chat, reply.new_messages || [], streamed, new Set(), true);
     // Exactly one explanation for a quiet turn, most specific first.
     if (reply.aborted) {
       chat.addInfoMessage("Stopped.");
@@ -490,15 +495,18 @@ async function main() {
     // Stop pauses automatic continuation until the user speaks again.
     followUp.aborted();
     if (busy) {
-      pyodide.abort();
+      agent.abort();
     }
   }
 
-  pyodide.onConfirm = createConfirm({
+  const showConfirm = createConfirm({
     container,
-    respond: (id, approved) => pyodide.respondToConfirm(id, approved),
+    respond: (id, approved) => agent.confirm(Number(id), approved),
     note: (text) => chat.addInfoMessage(text),
   });
+  function confirm(id: number, request: { title: string; message: string }) {
+    showConfirm(String(id), request);
+  }
 
   el.send.addEventListener("click", submit);
   el.abort.addEventListener("click", abortCurrentTurn);
@@ -546,10 +554,6 @@ async function main() {
       if (!galaxyCanRun(latest?.galaxy)) {
         chat.addErrorMessage(galaxyRefusalMessage());
         return;
-      }
-      const partial = galaxyPartialWarning(latest?.galaxy);
-      if (partial) {
-        chat.addInfoMessage(partial);
       }
       el.input.value =
         "I approve the plan above. Show the full parameter table for review before executing.";

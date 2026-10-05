@@ -1,7 +1,7 @@
 """Refresh the galaxy-mcp tool set the parity test compares against.
 
 Run against an installed galaxy-mcp -- `uvx --from galaxy-mcp python3 ...` or a venv that
-has it. The brain does not depend on galaxy-mcp, so this is a deliberate, occasional step
+has it. The agent does not depend on galaxy-mcp, so this is a deliberate, occasional step
 rather than something the build does.
 
 Captures every tool the server registers, not only the ones olit already serves: a tool
@@ -12,11 +12,12 @@ recommend_biocontainer went unnoticed until an eval scenario flipped.
 import ast
 import json
 import pathlib
+import subprocess
 import sys
 import textwrap
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
-OUT = HERE / "brain" / "tests" / "data" / "galaxy-mcp-docs.json"
+OUT = HERE / "src" / "agent" / "galaxy-mcp-docs.json"
 
 
 def registered(tree):
@@ -29,11 +30,14 @@ def registered(tree):
                 if ast.unparse(base) == "mcp.tool":
                     names.add(node.name)
         # `mcp.tool(...)(fn)`: registration away from the def, for a tool gated on an extra.
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Call):
-            if ast.unparse(node.func.func) == "mcp.tool" and node.args:
-                target = node.args[0]
-                if isinstance(target, ast.Name):
-                    names.add(target.id)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Call)
+            and ast.unparse(node.func.func) == "mcp.tool"
+            and node.args
+            and isinstance(node.args[0], ast.Name)
+        ):
+            names.add(node.args[0].id)
     return names
 
 
@@ -46,7 +50,7 @@ def parameters(node):
 
 def main(argv):
     if not argv:
-        sys.exit("usage: galaxy-mcp-docs.py <path to galaxy_mcp/server.py> [version]")
+        sys.exit("usage: npm run galaxy-mcp-docs -- <path to galaxy_mcp/server.py> [version]")
     source = pathlib.Path(argv[0])
     version = argv[1] if len(argv) > 1 else json.loads(OUT.read_text())["version"]
     tree = ast.parse(source.read_text())
@@ -63,6 +67,8 @@ def main(argv):
         sys.exit(f"registered without a docstring, so nothing to compare: {missing}")
     payload = {"version": version, "docs": docs, "params": params}
     OUT.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n")
+    # The snapshot sits in src/, where `npm test` holds every JSON file to prettier.
+    subprocess.run(["npx", "prettier", "--config", "prettier.config.js", "--write", str(OUT)], cwd=HERE, check=True)
     print(f"{OUT.relative_to(HERE)}: {len(docs)} tools from galaxy-mcp {version}")
 
 

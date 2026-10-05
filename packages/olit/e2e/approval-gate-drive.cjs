@@ -49,19 +49,19 @@ async function waitFor(page, fn, ms, arg) {
         process.exit(1);
     }
 
-    // Nothing has needed the catalog, which is not the same as it having failed.
+    // An ordinary session: Galaxy answers and nothing has failed.
     const beforeAllowed = await calls();
     await page.click(".plan-draft-approve");
     await page.waitForTimeout(2500);
     const afterAllowed = await calls();
     const allowedBody = await page.evaluate(() => document.body.innerText);
-    check("a catalog nothing asked for does not refuse the plan",
+    check("an ordinary session does not refuse the plan",
           !/Galaxy is not available/i.test(allowedBody),
           /Galaxy is not available/i.test(allowedBody) ? "refused an ordinary session" : "approval proceeded");
     check("the approved turn was sent", afterAllowed > beforeAllowed,
           `${beforeAllowed} -> ${afterAllowed} provider calls`);
 
-    // Now run a process, which is what loads the catalog -- and it cannot load here.
+    // Now run a process, which fails here: the stub serves none of what it reads.
     // The approved turn above answered with another plan card, so count from what is on screen.
     await fetch(`${STUB}/__script?name=plan-after-process`);
     const cards = await page.locator(".plan-draft-approve").count();
@@ -82,11 +82,9 @@ async function waitFor(page, fn, ms, arg) {
     const after = await calls();
 
     const failedBody = await page.evaluate(() => document.body.innerText);
-    check("a failed catalog does not refuse the plan either",
+    check("a failed process does not refuse the plan",
           !/nothing in this plan can run/i.test(failedBody),
-          /nothing in this plan can run/i.test(failedBody) ? "refused on the catalog" : "approval proceeded");
-    check("the failed catalog is reported once, naming what it costs",
-          /lineage_report/.test(failedBody) && /every other Galaxy tool is unaffected/.test(failedBody));
+          /nothing in this plan can run/i.test(failedBody) ? "refused after the process" : "approval proceeded");
     check("the approved turn was sent", after > before, `${before} -> ${after} provider calls`);
 
     // Now the state the gate is actually for: Galaxy itself does not answer. The brain probes

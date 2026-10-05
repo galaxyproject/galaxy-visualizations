@@ -35,7 +35,7 @@ async function skills() {
 }
 
 async function galaxyMcp() {
-  const pinned = read("brain/tests/data/galaxy-mcp-docs.json").version;
+  const pinned = read("src/agent/galaxy-mcp-docs.json").version;
   const res = await fetch("https://pypi.org/pypi/galaxy-mcp/json");
   if (!res.ok) throw new Error(`PyPI ${res.status}`);
   const latest = (await res.json()).info.version;
@@ -46,12 +46,12 @@ async function galaxyMcp() {
   if (/\d(a|b|rc|\.dev)/.test(pinned)) {
     return (
       `galaxy-mcp captured from ${pinned}, an unreleased build; PyPI publishes ${latest}\n` +
-      `           recapture from whichever galaxy-mcp olit is meant to follow: make galaxy-mcp-docs`
+      `           recapture from whichever galaxy-mcp olit is meant to follow: npm run galaxy-mcp-docs`
     );
   }
   return (
     `galaxy-mcp BEHIND: descriptions captured from ${pinned}, PyPI has ${latest}\n` +
-    `           update: make galaxy-mcp-docs, then read the parity test's diff`
+    `           update: npm run galaxy-mcp-docs, then read the parity test's diff`
   );
 }
 
@@ -79,7 +79,7 @@ async function galaxyCharts() {
   return pinned === latest
     ? `charts     up to date at ${pinned}`
     : `charts     BEHIND: package.json wants ${pinned}, npm has ${latest}\n` +
-        `           update: bump it, then python3 scripts/check_vendored.py to re-read the input contract`;
+        `           update: bump it and run npm test; visualizations.ts imports its input contract directly`;
 }
 
 const results = await Promise.allSettled([skills(), galaxyMcp(), galaxyOps(), galaxyCharts()]);

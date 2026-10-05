@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { brainTag, describeIdentity, mountBuildStamp } from "./build-stamp";
-
-const WHEEL = "olit-0.0.0-00c80072ec980-py3-none-any.whl";
+import { describeIdentity, mountBuildStamp } from "./build-stamp";
 
 function identity(over: Partial<Parameters<typeof describeIdentity>[0]> = {}) {
   return {
     commit: "7d89d0ee",
     built: "2026-09-21T18:30:00.000Z",
-    wheel: WHEEL,
     galaxy: "http://localhost:8080/",
     provider: "galaxy",
     model: "claude-sonnet-5",
@@ -22,33 +19,21 @@ function footer(): HTMLElement {
   return el;
 }
 
-describe("brainTag", () => {
-  it("reads the content hash the build stamped into the wheel name", () => {
-    expect(brainTag(WHEEL)).toBe("0c80072ec980");
-  });
-
-  it("has nothing to report for an unstamped or missing wheel", () => {
-    expect(brainTag("olit-0.0.0-py3-none-any.whl")).toBe("");
-    expect(brainTag("")).toBe("");
-  });
-});
-
 describe("describeIdentity", () => {
   it("labels with the shell commit and date", () => {
     expect(describeIdentity(identity())!.label).toBe("7d89d0ee · 2026-09-21");
   });
 
-  it("names shell, brain, Galaxy and model in the tooltip", () => {
+  it("names shell, Galaxy and model in the tooltip", () => {
     const title = describeIdentity(identity())!.title;
     expect(title).toContain("Shell 7d89d0ee");
-    expect(title).toContain("Brain 0c80072ec980");
     expect(title).toContain("Galaxy http://localhost:8080/");
     expect(title).toContain("galaxy / claude-sonnet-5");
   });
 
   it("says a part is unknown rather than dropping it silently", () => {
-    const title = describeIdentity(identity({ wheel: "" }))!.title;
-    expect(title).toContain("Brain unknown");
+    const title = describeIdentity(identity({ built: "", commit: "7d89d0ee" }))!.title;
+    expect(title).toContain("Build time unknown");
   });
 
   it("says nothing when the build identified itself with neither commit nor time", () => {

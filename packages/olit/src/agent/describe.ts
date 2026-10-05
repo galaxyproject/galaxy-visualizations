@@ -1,0 +1,217 @@
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+
+import { KEEP_RECENT_TOKENS, RESERVE_TOKENS, TOOL_RESULT_MAX_CHARS } from "./compaction";
+import { PROMISED_FIELDS } from "./galaxy-tools";
+import { MAX_RESULT_BYTES } from "./guards";
+import { connect } from "./model";
+import { STARTER } from "./notebook";
+import { opsTools } from "./ops";
+import { ROW_BYTES_CAP, ROW_CAP } from "./paging";
+import { PROVIDERS, resolve } from "./providers";
+import { MAX_STEPS, olitTools } from "./session";
+import { GUARDS } from "./tool";
+
+const SCHEMA = 1;
+const SOURCE = "src/agent";
+const SKIPPED = ["skills/"];
+
+/** Whitespace-normalised hash: reflowing a paragraph is not a semantic change. */
+export const fingerprint = (text: string) =>
+  createHash("sha256")
+    .update((text ?? "").split(/\s+/).filter(Boolean).join(" "))
+    .digest("hex")
+    .slice(0, 16);
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? walk(path) : [path];
+  });
+}
+
+/** Every name a module exports, by module. */
+function symbols(root: string): Record<string, string[]> {
+  const base = join(root, SOURCE);
+  const out: Record<string, string[]> = {};
+  for (const file of walk(base).sort()) {
+    const rel = relative(base, file);
+    if (
+      !file.endsWith(".ts") ||
+      file.endsWith(".test.ts") ||
+      SKIPPED.some((s) => rel.startsWith(s))
+    ) {
+      continue;
+    }
+    const names = [
+      ...readFileSync(file, "utf8").matchAll(
+        /^export (?:async )?(?:const|function|class|interface|type) (\w+)/gm,
+      ),
+    ];
+    if (names.length) {
+      out[`${SOURCE}/${rel}`] = [...new Set(names.map((m) => m[1]))].sort();
+    }
+  }
+  return out;
+}
+
+function promptBlocks(root: string): string[] {
+  const text = readFileSync(join(root, SOURCE, "prompt.ts"), "utf8");
+  const blocks = [...text.matchAll(/^export const ([A-Z][A-Z_0-9]{2,}) = `/gm)].map((m) => m[1]);
+  const builders = [...text.matchAll(/^export function (\w+Block)\(/gm)].map((m) => m[1]);
+  return [...new Set([...blocks, ...builders])].sort();
+}
+
+function identityPrompt(root: string) {
+  const found = /<ai_prompt>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/ai_prompt>/.exec(
+    readFileSync(join(root, "public/olit.xml"), "utf8"),
+  );
+  return found ? { fingerprint: fingerprint(found[1]) } : {};
+}
+
+function typeOf(spec: Record<string, any>): string {
+  const kind = Array.isArray(spec.type) ? spec.type.join("|") : spec.type || "any";
+  const enumerated = spec.enum ? `(${spec.enum.join("|")})` : "";
+  const fallback = "default" in spec ? `=${spec.default}` : "";
+  return kind + enumerated + fallback;
+}
+
+function tools() {
+  const delegated = new Set(opsTools().map((t) => t.name));
+  const out: Record<string, unknown> = {};
+  for (const tool of olitTools()) {
+    const params = tool.parameters as { properties?: Record<string, any>; required?: string[] };
+    const properties = params.properties ?? {};
+    const required = new Set(params.required ?? []);
+    const names = Object.keys(properties).sort();
+    out[tool.name] = {
+      capability: tool.capability ?? null,
+      runner: delegated.has(tool.name) ? "galaxy-ops" : "olit",
+      signature: fingerprint(`${tool.description}|${names.join(",")}`),
+      params: Object.fromEntries(
+        names.map((n) => [n, typeOf(properties[n]) + (required.has(n) ? "!" : "")]),
+      ),
+      prose: fingerprint(
+        [tool.description, ...names.map((n) => `${n}:${properties[n].description ?? ""}`)].join(
+          "\n",
+        ),
+      ),
+      query: {},
+      passthrough: false,
+      promised_fields: PROMISED_FIELDS[tool.name] ?? [],
+    };
+  }
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/** What an unconfigured request carries, with and without tools, read off the real request. */
+async function llmRequest() {
+  const { model, streamFn } = connect(resolve({ ai_base_url: "http://x/v1", ai_model: "m" }));
+  const capture = async (tools: unknown[]) => {
+    let body: Record<string, unknown> = {};
+    const stream = await streamFn(
+      model,
+      { messages: [{ role: "user", content: "hi", timestamp: 0 }], tools } as never,
+      {
+        fetch: async () =>
+          new Response("data: [DONE]\n\n", { headers: { "content-type": "text/event-stream" } }),
+        onPayload: (payload: unknown) => {
+          body = payload as Record<string, unknown>;
+        },
+      } as never,
+    );
+    await stream.result();
+    return body;
+  };
+  const bare = await capture([]);
+  const withTools = await capture([
+    { name: "finish", description: "", parameters: { type: "object" } },
+  ]);
+  return {
+    body_keys: Object.keys(bare)
+      .filter((k) => k !== "messages")
+      .sort(),
+    sampling: Object.fromEntries(
+      ["max_tokens", "temperature", "tool_choice", "top_p"].map((k) => [k, bare[k] ?? null]),
+    ),
+    with_tools: { tool_choice: withTools.tool_choice ?? null },
+  };
+}
+
+function loop() {
+  return {
+    keep_recent_tokens: KEEP_RECENT_TOKENS,
+    max_steps: MAX_STEPS,
+    max_tool_result_bytes: MAX_RESULT_BYTES,
+    reserve_tokens: RESERVE_TOKENS,
+    row_bytes_cap: ROW_BYTES_CAP,
+    row_cap: ROW_CAP,
+    tool_execution: "sequential",
+    tool_result_max_chars: TOOL_RESULT_MAX_CHARS,
+  };
+}
+
+function shell(root: string) {
+  const script = join(root, "contract/shell.mjs");
+  const stated = JSON.parse(
+    execFileSync("node", ["--experimental-strip-types", script], {
+      input: "",
+      encoding: "utf8",
+      stdio: "pipe",
+    }),
+  );
+  return {
+    max_auto_follow_ups: stated.max_auto_follow_ups,
+    resume_prompt_from: "contract/shell.mjs",
+  };
+}
+
+function skills(root: string) {
+  const base = join(root, SOURCE, "skills/galaxy-skills");
+  const files = existsSync(base)
+    ? Object.fromEntries(
+        walk(base)
+          .filter((f) => f.endsWith(".md"))
+          .sort()
+          .map((f) => [
+            relative(base, f),
+            createHash("sha256").update(readFileSync(f)).digest("hex").slice(0, 16),
+          ]),
+      )
+    : {};
+  const lock = JSON.parse(readFileSync(join(root, "skills.lock.json"), "utf8"));
+  return {
+    vendored: Object.keys(files).length > 0,
+    files,
+    repo: lock.repo,
+    ref: lock.ref,
+    sha: lock.sha,
+  };
+}
+
+/** Where each named provider's requests go and which variable holds its key, for a harness
+ * that records completions or supplies credentials without resolving them a second way. */
+function providers() {
+  return Object.fromEntries(
+    PROVIDERS.map((p) => [p.id, { base_url: p.baseUrl ?? null, auth_env: p.authEnv ?? null }]),
+  );
+}
+
+/** The surface Olit exposes, as data, for an evaluator that does not read its source. */
+export async function describe(root: string) {
+  return {
+    schema: SCHEMA,
+    agent: "olit",
+    identity_prompt: identityPrompt(root),
+    symbols: symbols(root),
+    prompt_blocks: promptBlocks(root),
+    tools: tools(),
+    policy: { llm_request: await llmRequest(), loop: loop(), guards: [...GUARDS] },
+    providers: providers(),
+    shell: shell(root),
+    skills: skills(root),
+    record: { starter: STARTER, resume_tool: "notebook_resume" },
+  };
+}

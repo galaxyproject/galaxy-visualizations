@@ -1,6 +1,2 @@
-micropip
 numpy
 pandas
-jsonschema
-pyyaml
-pydantic

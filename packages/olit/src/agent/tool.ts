@@ -1,0 +1,134 @@
+import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
+import type { GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
+
+import type { Galaxy } from "./galaxy";
+
+export type Capability = "llm" | "local" | "read" | "write";
+
+/** Every guard that can refuse a call or end a turn. */
+export const GUARDS = [
+  "capability",
+  "destructive-declined",
+  "galaxy-poll",
+  "malformed-object-id",
+  "max-steps",
+  "process-refusal",
+  "repeated-failure",
+  "settled-question",
+  "sra-fan-out",
+] as const;
+
+export type Guard = (typeof GUARDS)[number];
+
+/** What a tool reports when the plain result is not the whole story. */
+export class Outcome {
+  constructor(
+    readonly text: string,
+    readonly isError = false,
+    readonly guard?: Guard,
+  ) {}
+}
+
+export const fail = (text: string) => new Outcome(text, true);
+
+export interface Artifact {
+  kind: string;
+  title?: string;
+  [key: string]: unknown;
+}
+
+export interface Python {
+  run(code: string): Promise<string>;
+  write(path: string, data: Uint8Array): Promise<void>;
+  read(path: string): Promise<Uint8Array | undefined>;
+}
+
+export interface Watched {
+  kind: string;
+  id: string;
+  state?: string;
+}
+
+export interface Context {
+  galaxy: Galaxy;
+  ops: GalaxyContext;
+  python: Python;
+  record: { sessionId?: string; pageId?: string };
+  /** Earlier turns' artifacts and this turn's, which a page may place. */
+  artifacts: { prior: Artifact[]; produced: Artifact[] };
+  watching: Watched[];
+}
+
+export interface Details {
+  refused?: boolean;
+  guard?: Guard;
+}
+
+export interface OlitTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  capability?: Capability;
+  /** Run in call order with the rest of its batch. */
+  sequential?: boolean;
+  run(args: any, ctx: Context): Promise<unknown>;
+}
+
+/** A Galaxy result as the model reads it: the envelope's non-empty payload fields. */
+export function rendered(envelope: Record<string, unknown>): string {
+  const out: Record<string, unknown> = {};
+  for (const key of ["data", "message", "pagination"]) {
+    if (envelope[key] !== undefined && envelope[key] !== null) {
+      out[key] = envelope[key];
+    }
+  }
+  return JSON.stringify(out);
+}
+
+export function result(
+  text: string,
+  isError = false,
+  details: Details = {},
+): AgentToolResult<Details> {
+  return { content: [{ type: "text", text }], details, isError };
+}
+
+/** Route an artifact to the shell, leaving its kind and title in the result. */
+export function claim(value: unknown, ctx: Context, hint?: string): unknown {
+  const artifact = (value as { artifact?: Artifact } | null)?.artifact;
+  if (!artifact || typeof artifact !== "object") {
+    return value;
+  }
+  ctx.artifacts.produced.push(artifact);
+  return {
+    ...(value as object),
+    artifact: { kind: artifact.kind, title: artifact.title },
+    ...(hint ? { hint } : {}),
+  };
+}
+
+export function asAgentTool(tool: OlitTool, ctx: Context): AgentTool {
+  return {
+    name: tool.name,
+    label: tool.name,
+    description: tool.description,
+    parameters: tool.parameters as unknown as AgentTool["parameters"],
+    executionMode: tool.sequential ? "sequential" : undefined,
+    execute: async (_id, args) => {
+      let value: unknown;
+      try {
+        value = await tool.run(args, ctx);
+      } catch (err) {
+        return result(`Tool '${tool.name}' raised: ${(err as Error)?.message ?? err}`, true);
+      }
+      if (value instanceof Outcome) {
+        return result(
+          value.text,
+          value.isError,
+          value.guard ? { refused: true, guard: value.guard } : {},
+        );
+      }
+      return result(typeof value === "string" ? value : rendered({ data: claim(value, ctx) }));
+    },
+  };
+}

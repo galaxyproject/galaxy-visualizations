@@ -9,7 +9,7 @@
  */
 
 import type { Artifact } from "./artifacts";
-import type { Message } from "./pyodide-runner";
+import type { Message } from "./agent/messages";
 
 export const SCHEMA = 1;
 /** The record block the brain refreshes each turn: stale the moment it is stored. */

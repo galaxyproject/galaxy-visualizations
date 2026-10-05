@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync } from "node:fs";
 import { defineConfig } from "vite";
+
+import { PROVIDERS } from "./src/agent/providers";
 
 const env = {
   GALAXY_KEY: "",
@@ -15,7 +16,7 @@ const env = {
   LLM_KEY: "",
   // Overrides <ai_model> for a dev run; empty means use the manifest.
   LLM_MODEL: "",
-  // The context window that decides when the brain compacts; lower it for a small model.
+  // The context window that decides when the agent compacts; lower it for a small model.
   LLM_CONTEXT_WINDOW: "",
   // How much recent conversation compaction keeps; clamped to what the window holds.
   LLM_KEEP_RECENT_TOKENS: "",
@@ -43,29 +44,14 @@ const proxyGalaxy = () => ({
   target: env.GALAXY_ROOT,
 });
 
-// The /llm proxy needs a concrete origin. The brain's registry is the authority for what
-// each provider's is, so read it rather than restating it here and letting the two drift.
-const READ_REGISTRY = [
-  "import json",
-  "from urllib.parse import urlsplit",
-  "from olit.substrate.llm.providers import REGISTRY",
-  "out = {}",
-  "for p in REGISTRY.values():",
-  "    if not p.base_url:",
-  "        continue",
-  "    u = urlsplit(p.base_url)",
-  "    out[p.id] = {'root': f'{u.scheme}://{u.netloc}', 'path': u.path or '/v1'}",
-  "print(json.dumps(out))",
-].join("\n");
-
+/** The /llm proxy's origin and path for each provider, from the agent's own registry. */
 function llmTargets(): Record<string, { root: string; path: string }> {
-  try {
-    const out = execFileSync("python3", ["-c", READ_REGISTRY], { cwd: "brain", encoding: "utf8" });
-    return JSON.parse(out);
-  } catch {
-    console.warn("Could not read the provider registry; set LLM_ROOT and LLM_PATH explicitly.");
-    return {};
-  }
+  return Object.fromEntries(
+    PROVIDERS.filter((p) => p.baseUrl).map((p) => {
+      const url = new URL(p.baseUrl!);
+      return [p.id, { root: url.origin, path: url.pathname || "/v1" }];
+    }),
+  );
 }
 
 /** The commit this bundle was built from; a deployed copy cannot be identified without it. */
@@ -77,37 +63,11 @@ function buildCommit(): string {
   }
 }
 
-/** The brain wheel the build produced; its name carries the version micropip checks. */
-function olitWheel(): string {
-  const wheel = readdirSync("brain/dist").find((f) => f.startsWith("olit-") && f.endsWith(".whl"));
-  if (!wheel) {
-    throw new Error("No brain wheel under brain/dist: run `npm run build:olit` first.");
-  }
-  return wheel;
-}
-
-/** The galaxy-ops module staged under static/pyodide; the worker imports it by name. */
-function stagedModule(prefix: string): string {
-  const found = readdirSync("static/pyodide").find(
-    (f) => f.startsWith(prefix) && f.endsWith(".js"),
-  );
-  if (!found) {
-    throw new Error(`No ${prefix} module under static/pyodide: run \`npm run build:ops\` first.`);
-  }
-  return found;
-}
-
-/** A build artefact's name, or empty under vitest, which neither builds the plugin nor boots
- * the worker: an absent wheel has nothing to stamp and an absent peer module installs nothing. */
-function artefact(named: () => string): string {
-  return process.env.VITEST ? "" : named();
-}
-
 const targets = llmTargets();
 if (env.LLM_PROVIDER && !targets[env.LLM_PROVIDER] && !env.LLM_ROOT) {
   // Falling through to the local default here is the trap that answers with the wrong model.
   const known = Object.keys(targets).sort().join(", ") || "none readable";
-  throw new Error(`LLM_PROVIDER=${env.LLM_PROVIDER} is not in the brain's registry (${known}).`);
+  throw new Error(`LLM_PROVIDER=${env.LLM_PROVIDER} is not in the agent's registry (${known}).`);
 }
 const llmTarget = targets[env.LLM_PROVIDER] || { root: "http://127.0.0.1:11434", path: "/v1" };
 const llmRoot = env.LLM_ROOT || llmTarget.root;
@@ -130,12 +90,9 @@ export const viteConfigCharts = defineConfig({
   },
   define: {
     "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
-    "process.env.olit_wheel": JSON.stringify(artefact(olitWheel)),
-    "process.env.ops_module": JSON.stringify(artefact(() => stagedModule("galaxy-ops-"))),
-    "process.env.charts_module": JSON.stringify(artefact(() => stagedModule("galaxy-charts-"))),
     "process.env.olit_commit": JSON.stringify(buildCommit()),
     "process.env.olit_built": JSON.stringify(new Date().toISOString()),
-    // Dev only: route the brain through the /llm proxy above, which attaches the key.
+    // Dev only: route the agent through the /llm proxy above, which attaches the key.
     "process.env.llm_base_url": JSON.stringify(env.LLM_PROVIDER || env.LLM_ROOT ? "/llm" : ""),
     "process.env.llm_provider": JSON.stringify(env.LLM_PROVIDER),
     "process.env.llm_model": JSON.stringify(env.LLM_MODEL),
