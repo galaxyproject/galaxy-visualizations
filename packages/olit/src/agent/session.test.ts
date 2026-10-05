@@ -513,3 +513,36 @@ describe("the record the session keeps", () => {
     expect(page.content).toBe("# Notebook");
   });
 });
+
+describe("a model-free call", () => {
+  it("is refused a tool the grant withholds, as a turn would be", async () => {
+    server([]);
+    const session = await Session.create(config({ capabilities: ["llm", "read"] }), python);
+    const out = await session.call("run_python", { code: "1" });
+    expect(out).toMatchObject({ is_error: true, guard: "capability" });
+    expect(out.content).toContain("needs the 'local' capability");
+  });
+
+  it("notes what it submitted in the record, as a turn does", async () => {
+    let page = "# Notebook";
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      const path = `${request.method} ${new URL(request.url).pathname.replace(/^\//, "")}`;
+      if (path === "PUT api/pages/p1") {
+        page = JSON.parse(await request.text()).content;
+      }
+      const body =
+        path === "GET api/pages/p1"
+          ? { content_editor: page }
+          : path === "POST api/tools"
+            ? { jobs: [{ id: "j7", state: "queued" }] }
+            : {};
+      return new Response(JSON.stringify(body), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const session = await Session.create(config({ record_page_id: "p1" }), python);
+    await session.call("run_tool", { history_id: "h1", tool_id: "cat1", inputs: {} });
+    expect(page).toContain("Galaxy job `j7` — submitted");
+  });
+});
