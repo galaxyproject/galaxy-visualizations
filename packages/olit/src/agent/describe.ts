@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import * as galaxyOps from "@galaxyproject/galaxy-ops/browser";
+import { allOperations } from "@galaxyproject/galaxy-ops/browser";
 
 import { KEEP_RECENT_TOKENS, RESERVE_TOKENS, TOOL_RESULT_MAX_CHARS } from "./compaction";
-import { PROMISED_FIELDS } from "./galaxy-tools";
 import { MAX_RESULT_BYTES } from "./guards";
 import { connect, keyVariable } from "./model";
 import { STARTER } from "./notebook";
 import { opsTools } from "./ops";
-import { ROW_BYTES_CAP, ROW_CAP } from "./paging";
 import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
 import { MAX_STEPS, olitTools } from "./session";
 import { GUARDS } from "./tool";
@@ -32,6 +32,9 @@ function walk(dir: string): string[] {
   });
 }
 
+/** The galaxy-ops entry Olit imports, keyed as a module beside Olit's own. */
+const GALAXY_OPS = "@galaxyproject/galaxy-ops/browser";
+
 /** Every name a module exports, by module. */
 function symbols(root: string): Record<string, string[]> {
   const base = join(root, SOURCE);
@@ -54,6 +57,8 @@ function symbols(root: string): Record<string, string[]> {
       out[`${SOURCE}/${rel}`] = [...new Set(names.map((m) => m[1]))].sort();
     }
   }
+  // What Olit links against in galaxy-ops, so a seam can name where moved behaviour lives now.
+  out[GALAXY_OPS] = Object.keys(galaxyOps).sort();
   return out;
 }
 
@@ -73,7 +78,12 @@ function identityPrompt(root: string) {
 }
 
 function typeOf(spec: Record<string, any>): string {
-  const kind = Array.isArray(spec.type) ? spec.type.join("|") : spec.type || "any";
+  // zod writes a nullable field with constraints on it as anyOf rather than a type list.
+  const kind = Array.isArray(spec.anyOf)
+    ? spec.anyOf.map((branch: Record<string, any>) => typeOf(branch)).join("|")
+    : Array.isArray(spec.type)
+      ? spec.type.join("|")
+      : spec.type || "any";
   const enumerated = spec.enum ? `(${spec.enum.join("|")})` : "";
   const fallback = "default" in spec ? `=${spec.default}` : "";
   return kind + enumerated + fallback;
@@ -81,6 +91,8 @@ function typeOf(spec: Record<string, any>): string {
 
 function tools() {
   const delegated = new Set(opsTools().map((t) => t.name));
+  // The result shape galaxy-ops declares for each operation and reads back in its own tests.
+  const declared = new Map(allOperations.map((op) => [op.name, op.result ?? null]));
   const out: Record<string, unknown> = {};
   for (const tool of olitTools()) {
     const params = tool.parameters as { properties?: Record<string, any>; required?: string[] };
@@ -99,7 +111,7 @@ function tools() {
           "\n",
         ),
       ),
-      promised_fields: PROMISED_FIELDS[tool.name] ?? [],
+      result: declared.get(tool.name) ?? null,
     };
   }
   return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
@@ -145,8 +157,6 @@ function loop() {
     max_steps: MAX_STEPS,
     max_tool_result_bytes: MAX_RESULT_BYTES,
     reserve_tokens: RESERVE_TOKENS,
-    row_bytes_cap: ROW_BYTES_CAP,
-    row_cap: ROW_CAP,
     tool_execution: "sequential",
     tool_result_max_chars: TOOL_RESULT_MAX_CHARS,
   };

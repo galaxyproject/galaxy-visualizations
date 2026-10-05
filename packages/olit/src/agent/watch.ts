@@ -3,7 +3,13 @@
  * galaxy-poller. The session owns it, so the browser and the eval harness see one behaviour.
  */
 import { segment, type Galaxy } from "./galaxy";
-import { settle } from "./invocation-outcome";
+import {
+  DATASET_TERMINAL_STATES,
+  INVOCATION_FINISHED_STATES,
+  invocationOutcome,
+  JOB_FAILED_STATES,
+  JOB_SETTLED_STATES,
+} from "@galaxyproject/galaxy-ops/browser";
 
 export type WatchKind = "job" | "invocation" | "dataset";
 
@@ -15,14 +21,19 @@ export interface Watched {
   state?: string;
 }
 
-/** Galaxy job states that will never change again. */
-const JOB_FAILED = new Set(["error", "failed", "deleted"]);
-const JOB_TERMINAL = new Set(["ok", "discarded", "skipped", "stopped", ...JOB_FAILED]);
+/** Galaxy job states that will never change again, as galaxy-ops settles an invocation's jobs. */
+const JOB_TERMINAL = new Set<string>(JOB_SETTLED_STATES);
+const JOB_FAILED = new Set<string>(JOB_FAILED_STATES);
 /** Terminal invocation states. `scheduled` only means every step was scheduled. */
-const INVOCATION_TERMINAL = new Set(["cancelled", "failed", "completed"]);
-/** Dataset states that will never change again. */
-const DATASET_FAILED = new Set(["error", "discarded", "deleted"]);
-const DATASET_TERMINAL = new Set(["ok", "paused", ...DATASET_FAILED]);
+const INVOCATION_TERMINAL = new Set<string>(INVOCATION_FINISHED_STATES);
+/**
+ * Dataset states the watch stops at: Galaxy's terminal ones, and `paused`, which is not terminal
+ * there -- a paused dataset waits on its inputs -- but which nothing changes until the user acts,
+ * so the watch reports it rather than waiting on it.
+ */
+const DATASET_TERMINAL = new Set<string>([...DATASET_TERMINAL_STATES, "paused"]);
+/** The terminal dataset states Galaxy leaves out of its ok_states (model Dataset.ok_states). */
+const DATASET_FAILED = new Set(["error", "discarded", "failed_metadata"]);
 
 export function isTerminal(kind: WatchKind, state: string | undefined): boolean {
   if (!state) return false;
@@ -33,7 +44,7 @@ export function isTerminal(kind: WatchKind, state: string | undefined): boolean 
 
 export function isFailure(kind: WatchKind, state: string | undefined): boolean {
   if (!state) return false;
-  if (kind === "job") return state === "error";
+  if (kind === "job") return JOB_FAILED.has(state);
   if (kind === "dataset") return DATASET_FAILED.has(state);
   return state === "failed";
 }
@@ -91,7 +102,7 @@ export function stateReader(galaxy: Galaxy) {
     const state = stateOf(await galaxy.get(`api/invocations/${segment(w.id)}`));
     if (state !== "scheduled" && state !== "completed") return state;
     const summary = await galaxy.get(`api/invocations/${segment(w.id)}/jobs_summary`);
-    return settle(state, summary?.states);
+    return invocationOutcome(state, summary?.states);
   };
 }
 

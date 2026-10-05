@@ -8,11 +8,44 @@
 //   GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=<key> LLM_PROVIDER=ollama \
 //     LLM_ROOT=http://127.0.0.1:8099 LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
 //     LLM_CONTEXT_WINDOW=64000 npx vite &
-//   node e2e/ops-bridge-drive.cjs
+//   GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=<key> node e2e/ops-bridge-drive.cjs
+//
+// The history create_history makes is purged afterwards by the id that call returned, and by
+// nothing else: other histories may share its name.
 const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = "http://127.0.0.1:8099";
+const GALAXY = (process.env.GALAXY_ROOT || "").replace(/\/$/, "");
+const KEY = process.env.GALAXY_KEY;
+
+/** The id of the history this run's create_history made, read off that call's own result. */
+const createdHistory = (results) => {
+  for (const one of results) {
+    try {
+      const data = JSON.parse(String(one).split("\n\n")[0]).data;
+      if (data && !Array.isArray(data) && data.name === "olit e2e ops" && data.id) return data.id;
+    } catch {
+      // not an envelope
+    }
+  }
+  return undefined;
+};
+
+/** Purge exactly that history, or say which one is left when there is no key to do it. */
+const purge = async (id) => {
+  if (!id) return;
+  if (!GALAXY || !KEY) {
+    console.log(`left history ${id} in place: set GALAXY_ROOT and GALAXY_KEY to purge it`);
+    return;
+  }
+  const res = await fetch(`${GALAXY}/api/histories/${id}`, {
+    method: "DELETE",
+    headers: { "x-api-key": KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ purge: true }),
+  });
+  console.log(`purged the history this run created (${id}): HTTP ${res.status}`);
+};
 
 const results = [];
 const check = (name, ok, detail) => {
@@ -70,8 +103,8 @@ const waitFor = async (page, fn, ms) => {
     "the richer one carries what its semantics produce",
     /inputs_template/.test(body) && /repeat_key_hint/.test(body),
   );
-  check("a paged operation reports the total, not just the page", /"total"/.test(body));
-  check("the tool panel arrives summarized rather than whole", /"tool_count"/.test(body) && !/"elems"/.test(body));
+  check("a paged operation reports the total, not just the page", /"total_items"/.test(body));
+  check("the tool panel arrives as entries rather than the whole tree", /"entries"/.test(body) && !/"elems"/.test(body));
   check("a write reached Galaxy through the same bridge", /olit e2e ops/.test(body));
   // Matched against the envelope rather than the payload: a tool's own test cases carry
   // fields named expect_failure, which is data rather than a failure of this call.
@@ -89,6 +122,7 @@ const waitFor = async (page, fn, ms) => {
       }
     }),
   );
+  await purge(createdHistory(tools));
   await p.screenshot({ path: `${OUT}/ops-bridge.png` });
   console.log(
     logs

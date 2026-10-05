@@ -44,6 +44,11 @@ describe("the Galaxy tool surface against galaxy-mcp", () => {
     }
   });
 
+  it("offers each name once: a galaxy-ops operation and an Olit tool never share one", () => {
+    const names = [...opsTools(), ...galaxyTools()].map((t) => t.name);
+    expect(names.filter((name, i) => names.indexOf(name) !== i)).toEqual([]);
+  });
+
   it("offers every galaxy-mcp tool except the connection, which Olit's session already has", () => {
     const offered = new Set([...opsTools(), ...galaxyTools()].map((t) => t.name));
     const missing = Object.keys(UPSTREAM).filter((name) => !offered.has(name));

@@ -76,10 +76,29 @@ export interface OlitTool {
   capability?: Capability;
   /** Deletes or cancels something that cannot be brought back: the user is asked first. */
   destructive?: boolean;
+  /** Destroys for these arguments only, as galaxy-ops' destructiveWhen says. */
+  destructiveWhen?: (args: Record<string, unknown>) => boolean;
+  /** The argument naming something that moves on its own: reading it again soon says nothing new. */
+  polls?: string;
+  /** The same arguments answer the same for the rest of the session. */
+  settled?: boolean;
   /** Every capability the tool needs, when it is more than `capability` alone. */
   requires?: Capability[];
   run(args: any, ctx: Context): Promise<unknown>;
 }
+
+/** What the guards need to know of a tool, read off the tool rather than kept in lists. */
+export interface ToolTraits {
+  settled: boolean;
+  polls?: string;
+  destroys: (args: Record<string, unknown>) => boolean;
+}
+
+export const traitsOf = (tool: OlitTool): ToolTraits => ({
+  settled: tool.settled === true,
+  polls: tool.polls,
+  destroys: (args) => tool.destructive === true || tool.destructiveWhen?.(args) === true,
+});
 
 /** A Galaxy result as the model reads it: the envelope's non-empty payload fields. */
 export function rendered(envelope: Record<string, unknown>): string {

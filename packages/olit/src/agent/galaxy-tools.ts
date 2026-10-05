@@ -1,13 +1,10 @@
 import { quote } from "./quote";
-import { validatePagination } from "@galaxyproject/galaxy-ops/browser";
+import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
-import { query, segment, type Galaxy } from "./galaxy";
+import { segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
-import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
-import { applySectionEdit, djb2Hash, malformedObjectIds, pageBody } from "./page-edit";
-import { serverPage } from "./paging";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
@@ -15,41 +12,10 @@ export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
-/** The log fields Galaxy adds to a job under `full=true`. */
-export const JOB_LOG_FIELDS = [
-  "tool_stdout",
-  "tool_stderr",
-  "job_stdout",
-  "job_stderr",
-  "stdout",
-  "stderr",
-];
-export const JOB_LOG_BYTES = 4 * 1024;
-
-/** Lookups over data Galaxy holds still for a session: the same question returns the same answer. */
-export const SETTLED = new Set([
-  "search_tools_by_name",
-  "search_tools_by_keywords",
-  "get_visualization_details",
-]);
-
-/** Whether repeating this call with the same arguments can produce anything new. */
-export const settled = (name: string) => SETTLED.has(name);
-
-/** Top-level fields of `data` that a description tells the model to read. */
-export const PROMISED_FIELDS: Record<string, string[]> = {
-  get_tool_panel: ["entries"],
-  get_tool_citations: ["tool_name", "tool_version", "citations"],
-  get_tool_input_template: ["tool_id", "inputs_template", "parameters"],
-  get_tool_run_examples: ["tool_id", "requested_version", "test_cases"],
-  get_history_details: ["history", "contents_summary"],
-  get_collection_details: ["collection_id", "collection", "elements", "elements_truncated", "note"],
-  get_workflow_input_template: ["inputs_template", "guide", "warnings"],
-};
-
-export const promisedFields = (name: string) => PROMISED_FIELDS[name] ?? [];
-
-/** Olit's policy over galaxy-ops operations it runs but does not own. */
+/**
+ * Olit's policy over galaxy-ops operations it runs but does not own: a refusal of its own before
+ * the call, a queue the call waits its turn in, or an answer to galaxy-ops' refusal.
+ */
 export const OPS_POLICY: Record<string, OpPolicy> = {
   // Galaxy runs a tool on a dataset from another history, so galaxy-ops does too. An agent that
   // does so has nearly always copied the wrong id, and the job answers a question nobody asked.
@@ -66,6 +32,21 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
         : undefined;
     },
   },
+  // Every write to a page waits its turn in the session's record queue, so a marker written
+  // between its read and its write is kept; a directive id galaxy-ops refuses is answered with
+  // where the id the agent wanted comes from.
+  update_page: {
+    around: serialized,
+    refused: (message, args) =>
+      malformedObjectIds(String(args.section_content ?? args.content ?? "")).length
+        ? new Outcome(
+            `${message} For an artifact you just made, write {{artifact}} where it belongs and ` +
+              "the directive is built for you.",
+            true,
+            "malformed-object-id",
+          )
+        : undefined,
+  },
 };
 
 /** What Olit adds to a galaxy-ops result: where a missed search lives, or fetch-failure triage. */
@@ -78,62 +59,6 @@ const isRow = (value: unknown): value is Row =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
 const STR = { type: "string" };
-const INT = { type: "integer" };
-const BOOL = { type: "boolean" };
-const LIMIT = {
-  type: "integer",
-  description: "Rows per page; the reply names next_offset when more remain.",
-};
-const OFFSET = {
-  type: "integer",
-  description: "Rows to skip, from a previous reply's next_offset.",
-};
-
-/** A dataset row with only the id a dataset-taking tool accepts. */
-function oneIdentifier(item: unknown): unknown {
-  if (!isRow(item)) {
-    return item;
-  }
-  const { dataset_id: _, ...rest } = item;
-  return rest;
-}
-
-async function getHistoryContents(args: Row, { galaxy }: Context) {
-  const limit = Math.trunc(args.limit ?? 100);
-  const offset = Math.trunc(args.offset ?? 0);
-  // galaxy-ops' own window check, so a bad page fails here as it would there.
-  validatePagination(limit, offset);
-  const wanted: [string, string][] = [];
-  if (!args.deleted) {
-    wanted.push(["deleted", "False"]);
-  }
-  if (args.visible ?? true) {
-    wanted.push(["visible", "True"]);
-  }
-  const params = {
-    limit: limit + 1,
-    offset,
-    order: args.order ?? "hid-asc",
-    v: "dev",
-    q: wanted.map(([field]) => field),
-    qv: wanted.map(([, value]) => value),
-  };
-  const items = await galaxy.get(
-    `api/histories/${segment(args.history_id)}/contents${query(params)}`,
-  );
-  if (!Array.isArray(items)) {
-    return items;
-  }
-  // The data both galaxy-ops and galaxy-mcp answer with, the window beside it.
-  const page = serverPage(items.map(oneIdentifier), offset, limit);
-  const payload = rendered({
-    data: { history_id: args.history_id, contents: page.data },
-    pagination: page.pagination,
-  });
-  const hint = fetchFailureHint(page.data);
-  return new Outcome(hint ? `${payload}\n\n${hint}` : payload);
-}
-
 /** Sources a history owns, and where each one answers its history_id. */
 const HISTORY_SCOPED_SRCS: Record<string, string> = {
   hda: "api/datasets",
@@ -176,44 +101,6 @@ async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string)
     }
   }
   return foreign;
-}
-
-/** Keep both ends of a log: the cause is usually at the end, the context at the start. */
-export function ends(text: string, cap: number): string {
-  const data = new TextEncoder().encode(text);
-  if (data.length <= cap) {
-    return text;
-  }
-  const half = Math.floor(cap / 2);
-  const front = data.subarray(0, half);
-  const back = data.subarray(data.length - half);
-  const cut = front.lastIndexOf(10);
-  const head = cut < 0 ? front : front.subarray(0, cut);
-  const start = back.indexOf(10);
-  const tail = start < 0 ? back : back.subarray(start + 1);
-  const dropped = data.length - head.length - tail.length;
-  const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
-  return `${decode(head)}\n[... ${dropped} of ${data.length} bytes omitted ...]\n${decode(tail)}`;
-}
-
-async function getJobDetails(args: Row, { galaxy }: Context) {
-  const dataset = (await galaxy.get(`api/datasets/${segment(args.dataset_id)}`)) || {};
-  const jobId = dataset.creating_job;
-  if (!jobId) {
-    return fail(`No creating job for dataset ${args.dataset_id}.`);
-  }
-  const job = await galaxy.get(`api/jobs/${segment(jobId)}${query({ full: true })}`);
-  if (!isRow(job)) {
-    return job;
-  }
-  const out: Row = { ...job };
-  for (const field of JOB_LOG_FIELDS) {
-    if (typeof out[field] === "string") {
-      out[field] = ends(out[field], JOB_LOG_BYTES);
-    }
-  }
-  // The data galaxy-ops and galaxy-mcp answer with, and the description promises.
-  return { job: out, dataset_id: args.dataset_id, job_id: jobId };
 }
 
 /** Python's `str.splitlines`. */
@@ -329,111 +216,12 @@ async function uploadFile(args: Row, { galaxy, python }: Context) {
   return galaxy.post("api/tools/fetch", fetchPayload(element, args.history_id));
 }
 
-async function jobStates(galaxy: Galaxy, invocationId: string): Promise<JobStates> {
-  try {
-    const summary = await galaxy.get(`api/invocations/${segment(invocationId)}/jobs_summary`);
-    return summary?.states || {};
-  } catch {
-    return {};
-  }
-}
-
-async function getInvocations(args: Row, { galaxy }: Context) {
-  if (args.invocation_id) {
-    const one = await galaxy.get(
-      `api/invocations/${segment(args.invocation_id)}${query({ step_details: args.step_details ?? false })}`,
-    );
-    return described(one, await jobStates(galaxy, args.invocation_id));
-  }
-  // A blank filter is no filter, as galaxy-ops reads it, not a search for the empty id.
-  const params = {
-    workflow_id: args.workflow_id || undefined,
-    history_id: args.history_id || undefined,
-    limit: args.limit,
-    view: args.view ?? "collection",
-    step_details: args.step_details ?? false,
-  };
-  const listed = await galaxy.get(`api/invocations${query(params)}`);
-  if (!Array.isArray(listed)) {
-    return listed;
-  }
-  const out = [];
-  for (const [index, invocation] of listed.entries()) {
-    const id = isRow(invocation) ? invocation.id : undefined;
-    out.push(
-      id && index < ROLLUP_LIMIT ? described(invocation, await jobStates(galaxy, id)) : invocation,
-    );
-  }
-  return out;
-}
-
 async function recommendBiocontainer(args: Row) {
   try {
     return await biocontainers.recommend(args.packages || []);
   } catch (error) {
     return fail((error as Error).message);
   }
-}
-
-async function getPage(args: Row, { galaxy }: Context) {
-  const page = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
-  if (!isRow(page)) {
-    return page;
-  }
-  const out: Row = { ...page, content_hash: djb2Hash(pageBody(page)) };
-  if (!args.include_rendered) {
-    delete out.content;
-  }
-  return out;
-}
-
-async function updatePage(args: Row, { galaxy }: Context) {
-  const malformed = malformedObjectIds(args.content || args.section_content || "");
-  if (malformed.length) {
-    return new Outcome(
-      `These name a Galaxy object by something that is not its encoded id: ` +
-        `${malformed.join(", ")}. Galaxy stores that and the embed renders nothing. ` +
-        "For an artifact you just made, write {{artifact}} where it belongs and the " +
-        "directive is built for you; otherwise use the encoded id a tool returned.",
-      true,
-      "malformed-object-id",
-    );
-  }
-  const payload: Row = {};
-  for (const key of ["title", "content"]) {
-    if (args[key] != null) {
-      payload[key] = args[key];
-    }
-  }
-  payload.edit_source = "agent";
-
-  const heading = args.section_heading;
-  const section = args.section_content;
-  const expect = args.expect_hash;
-  if (heading || section || expect) {
-    const current = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
-    const source = pageBody(current);
-    const actual = djb2Hash(source);
-    if (expect && expect !== actual) {
-      return {
-        written: false,
-        reason: "the page changed since you read it",
-        content_hash: actual,
-        content: source,
-      };
-    }
-    if (heading && section != null) {
-      payload.content = applySectionEdit(source, heading, section);
-    }
-  }
-
-  const written = await galaxy.put(`api/pages/${segment(args.page_id)}`, payload);
-  if (isRow(written)) {
-    written.content_hash = djb2Hash(pageBody(written));
-    // The embed-expanded render is not what was written, and galaxy-ops leaves it out too.
-    delete written.content;
-  }
-  return written;
 }
 
 type Run = (args: Row, ctx: Context) => Promise<unknown>;
@@ -472,20 +260,6 @@ function tool(
 
 export function galaxyTools(): OlitTool[] {
   return [
-    tool(
-      "get_history_contents",
-      "read",
-      { history_id: STR, limit: LIMIT, offset: OFFSET, deleted: BOOL, visible: BOOL, order: STR },
-      ["history_id"],
-      getHistoryContents,
-    ),
-    tool(
-      "get_job_details",
-      "read",
-      { dataset_id: STR, history_id: STR },
-      ["dataset_id"],
-      getJobDetails,
-    ),
     tool("download_dataset", "read", { dataset_id: STR }, ["dataset_id"], downloadDataset),
     tool(
       "upload_file",
@@ -495,51 +269,11 @@ export function galaxyTools(): OlitTool[] {
       uploadFile,
     ),
     tool(
-      "get_invocations",
-      "read",
-      {
-        invocation_id: STR,
-        workflow_id: STR,
-        history_id: STR,
-        limit: INT,
-        view: STR,
-        step_details: BOOL,
-      },
-      [],
-      getInvocations,
-    ),
-    tool(
       "recommend_biocontainer",
       "read",
       { packages: { type: "array", items: { type: "string" } } },
       ["packages"],
       recommendBiocontainer,
-    ),
-    tool("get_page", "read", { page_id: STR, include_rendered: BOOL }, ["page_id"], getPage),
-    tool(
-      "update_page",
-      "write",
-      {
-        page_id: STR,
-        content: STR,
-        title: STR,
-        section_heading: {
-          type: "string",
-          description: "The exact heading line of the section to replace.",
-        },
-        section_content: {
-          type: "string",
-          description: "The section's new text, heading line included.",
-        },
-        expect_hash: {
-          type: "string",
-          description:
-            "content_hash from when the page was read; the write is refused if it changed.",
-        },
-      },
-      ["page_id"],
-      // In the session's record queue: a marker written between its read and write is kept.
-      (args, ctx) => serialized(() => updatePage(args, ctx)),
     ),
   ];
 }

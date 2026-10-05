@@ -8,20 +8,15 @@ import {
   OPS_POLICY,
   galaxyTools,
   hdaInputs,
-  JOB_LOG_BYTES,
   MAX_DOWNLOAD_BYTES,
   PREVIEW_LINES,
-  settled,
 } from "./galaxy-tools";
-import { ROLLUP_LIMIT } from "./invocation-outcome";
-import { djb2Hash } from "./page-edit";
-import { Outcome, type Context, type Python } from "./tool";
+import { olitTools } from "./session";
+import { Outcome, traitsOf, type Context, type Python } from "./tool";
 
 type Fake = Partial<
   Record<"get" | "post" | "put" | "bytes", (path: string, body?: any) => Promise<any>>
 >;
-
-const MAX_TOOL_RESULT_BYTES = 256 * 1024;
 
 function files(): Python & { fs: Map<string, Uint8Array> } {
   const fs = new Map<string, Uint8Array>();
@@ -64,136 +59,22 @@ describe("tool surface", () => {
     }
   });
 
-  it("treats only catalog lookups as settled", () => {
-    expect(settled("search_tools_by_name")).toBe(true);
-    expect(settled("get_job_details")).toBe(false);
-    expect(settled("update_page")).toBe(false);
-  });
-});
-
-describe("get_history_contents", () => {
-  function contents(args: Record<string, unknown>, rows: unknown = [{ id: "d1", hid: 1 }]) {
-    const paths: string[] = [];
-    const ctx = context({
-      get: async (path) => {
-        paths.push(path);
-        return rows;
-      },
-    });
-    // The text the model reads, whichever way the tool built it.
-    const out = run("get_history_contents", { history_id: "h1", ...args }, ctx).then((value) =>
-      value instanceof Outcome ? value.text : (value as string),
-    );
-    return { paths, out };
-  }
-
-  it("lists a dataset in an error state like any other", async () => {
-    // A tidy listing that hides the failure is a history the researcher does not have.
-    const rows = [
-      { id: "d1", hid: 1, state: "ok" },
-      { id: "d2", hid: 2, state: "error" },
-    ];
-    const got = JSON.parse(await contents({}, rows).out);
-    expect(got.data.contents.map((i: { id: string }) => i.id)).toEqual(["d1", "d2"]);
-  });
-
-  it("answers as galaxy-ops and galaxy-mcp do: the history, its rows, the window beside", async () => {
-    const got = JSON.parse(await contents({}).out);
-    expect(Object.keys(got.data).sort()).toEqual(["contents", "history_id"]);
-    expect(got.data.history_id).toBe("h1");
-    expect(got.pagination).toMatchObject({ offset: 0, returned_items: 1 });
-  });
-
-  it("says where a failed fetch went, as every other Galaxy result does", async () => {
-    const failed = [
-      { id: "d1", hid: 1, state: "error", misc_info: "Failed to fetch url https://x.org/a.fq" },
-    ];
-    const [, appended] = (await contents({}, failed).out).split("\n\n");
-    expect(appended).toContain("[olit]");
-  });
-
-  it("refuses a window galaxy-ops would refuse, before asking Galaxy", async () => {
-    const { paths, out } = contents({ limit: -1 });
-    await expect(out).rejects.toThrow();
-    expect(paths).toEqual([]);
-  });
-
-  it("sends an order with what makes it count", async () => {
-    const { paths, out } = contents({ order: "hid-dsc" });
-    await out;
-    expect(paths[0]).toContain("order=hid-dsc");
-    expect(paths[0]).toContain("v=dev");
-  });
-
-  it("still states the default order", async () => {
-    const { paths, out } = contents({});
-    await out;
-    expect(paths[0]).toContain("order=hid-asc");
-  });
-
-  it("passes a create-time order through unchanged", async () => {
-    const { paths, out } = contents({ order: "create_time-dsc" });
-    await out;
-    expect(paths[0]).toContain("order=create_time-dsc");
-  });
-
-  it("leaves out hidden and deleted items by default", async () => {
-    const { paths, out } = contents({});
-    await out;
-    expect(paths[0]).toContain("q=deleted&q=visible");
-    expect(paths[0]).toContain("qv=False&qv=True");
-  });
-
-  it("stops filtering on visible when hidden items are asked for", async () => {
-    const { paths, out } = contents({ visible: false });
-    await out;
-    expect(paths[0]).not.toContain("q=visible");
-    expect(paths[0]).toContain("q=deleted&qv=False");
-  });
-
-  it("stops filtering on deleted when deleted items are asked for", async () => {
-    const { paths, out } = contents({ deleted: true });
-    await out;
-    expect(paths[0]).not.toContain("q=deleted");
-    expect(paths[0]).toContain("q=visible&qv=True");
-  });
-
-  it("offers one identifier per dataset", async () => {
-    const { out } = contents({}, [
-      { id: "hda1", dataset_id: "underlying1", name: "x.tabular", hid: 1 },
+  it("reads what each tool says of itself off galaxy-ops and Olit's own tools", () => {
+    const tools = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
+    const settledOnes = [...tools].filter(([, t]) => t.settled).map(([name]) => name);
+    expect(settledOnes.sort()).toEqual([
+      "get_visualization_details",
+      "search_tools_by_keywords",
+      "search_tools_by_name",
     ]);
-    const [item] = JSON.parse(await out).data.contents;
-    expect(item).toEqual({ id: "hda1", name: "x.tabular", hid: 1 });
-  });
-
-  it("says that more exist beyond a bounded page", async () => {
-    const rows = Array.from({ length: 101 }, (_, i) => ({ id: `d${i}`, hid: i }));
-    const { paths, out } = contents({}, rows);
-    const got = JSON.parse(await out);
-    expect(paths[0]).toContain("limit=101");
-    expect(got.data.contents).toHaveLength(100);
-    expect(got.pagination).toMatchObject({ has_next: true, next_offset: 100 });
-  });
-
-  it("appends fetch-failure triage to a result it produced itself", async () => {
-    const failure = {
-      id: "d1",
-      state: "error",
-      misc_info:
-        "Failed to fetch url https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR390728/001/SRR390728_1.fastq.gz. 404",
-    };
-    const { out } = contents({}, failure);
-    const [payload, appended] = (await out).split("\n\n");
-    expect(JSON.parse(payload).data.state).toBe("error");
-    expect(appended).toContain("ena_runs");
+    expect(tools.get("get_job_details")?.polls).toBe("dataset_id");
+    expect(tools.get("get_dataset_details")?.polls).toBe("dataset_id");
+    expect(tools.get("get_invocations")?.polls).toBe("invocation_id");
+    expect(tools.get("update_history")?.destroys({ history_id: "h1", deleted: true })).toBe(true);
+    expect(tools.get("update_history")?.destroys({ history_id: "h1", name: "x" })).toBe(false);
+    expect(tools.get("delete_user_tool")?.destroys({ uuid: "u1" })).toBe(true);
   });
 });
-
-function textOf(out: unknown): string {
-  expect(out).toBeInstanceOf(Outcome);
-  expect((out as Outcome).isError).toBe(false);
-  return (out as Outcome).text;
-}
 
 describe("run_tool history guard", () => {
   const HERE = "aaaaaaaaaaaaaaaa";
@@ -273,77 +154,6 @@ describe("run_tool history guard", () => {
       ld: { src: "ld", id: "l2" },
     });
     expect(found.map(([, id, src]) => [id, src])).toEqual([["c1", "hdca"]]);
-  });
-});
-
-describe("get_job_details", () => {
-  function job(record: Record<string, unknown>) {
-    const paths: string[] = [];
-    const ctx = context({
-      get: async (path) => {
-        paths.push(path);
-        return path.startsWith("api/datasets/") ? { id: "d1", creating_job: "j1" } : record;
-      },
-    });
-    return { paths, out: run("get_job_details", { dataset_id: "d1" }, ctx) };
-  }
-
-  it("answers with the job, the dataset and the job id, as galaxy-ops and galaxy-mcp do", async () => {
-    const out = await job({ id: "j1", state: "ok" }).out;
-    expect(out).toEqual({ job: { id: "j1", state: "ok" }, dataset_id: "d1", job_id: "j1" });
-  });
-
-  it("keeps a chatty job under the result cap", async () => {
-    const noisy = Array.from({ length: 30000 }, (_, i) => `line ${i} of warnings`).join("\n");
-    const out = await job({ id: "j1", state: "error", tool_stderr: noisy, stderr: noisy }).out;
-    expect(new TextEncoder().encode(JSON.stringify(out)).length).toBeLessThan(
-      MAX_TOOL_RESULT_BYTES,
-    );
-  });
-
-  it("keeps the first line through a flood of warnings", async () => {
-    const noise = Array(600)
-      .fill("Invalid bed line (skipped): @SQ SN:chr1 LN:248956422")
-      .join("\n");
-    const out = await job({
-      id: "j1",
-      tool_stderr: "Reading reference bed file: ref.dat\n" + noise,
-    }).out;
-    expect(out.job.tool_stderr.startsWith("Reading reference bed file: ref.dat")).toBe(true);
-    expect(out.job.tool_stderr).toContain("bytes omitted");
-  });
-
-  it("keeps the end of the log", async () => {
-    const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
-    const out = await job({ id: "j1", tool_stderr: noisy + "\nRuntimeError: the real cause" }).out;
-    expect(out.job.tool_stderr.endsWith("RuntimeError: the real cause")).toBe(true);
-    expect(new TextEncoder().encode(out.job.tool_stderr).length).toBeLessThanOrEqual(
-      JOB_LOG_BYTES + "[... x of y bytes omitted ...]\n".length,
-    );
-  });
-
-  it("keeps whole lines at both cuts", async () => {
-    const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
-    const out = await job({ id: "j1", tool_stderr: noisy }).out;
-    const lines: string[] = out.job.tool_stderr.split("\n");
-    expect(lines[0]).toBe("warning number 0");
-    expect(lines[lines.length - 1]).toBe("warning number 1999");
-    expect(lines.find((line) => line.includes("omitted"))).toMatch(
-      new RegExp(`of ${noisy.length} bytes omitted \\.\\.\\.\\]$`),
-    );
-  });
-
-  it("returns a short log whole", async () => {
-    const out = await job({ id: "j1", tool_stderr: "Traceback: boom" }).out;
-    expect(out.job.tool_stderr).toBe("Traceback: boom");
-  });
-
-  it("leaves the rest of the job untouched", async () => {
-    const { paths, out } = job({ id: "j1", state: "error", params: { input: "d0" } });
-    const got = await out;
-    expect(got.job.params).toEqual({ input: "d0" });
-    expect(got.job.state).toBe("error");
-    expect(paths[paths.length - 1]).toBe("api/jobs/j1?full=true");
   });
 });
 
@@ -569,183 +379,10 @@ describe("dataset filesystem", () => {
   });
 });
 
-describe("get_invocations", () => {
-  const SCHEDULED = { id: "i1", state: "completed", history_id: "h1" };
-
-  function invocations(listed?: unknown[], failing = false) {
-    const paths: string[] = [];
-    const ctx = context({
-      get: async (path) => {
-        paths.push(path);
-        if (path.endsWith("jobs_summary")) {
-          if (failing) {
-            throw new Error("HTTP 500");
-          }
-          return { states: { error: 1, ok: 1 } };
-        }
-        if (listed && path.startsWith("api/invocations?")) {
-          return listed;
-        }
-        return { ...SCHEDULED };
-      },
-    });
-    return { paths, ask: (args: Record<string, unknown>) => run("get_invocations", args, ctx) };
-  }
-
-  it("reads a blank filter as no filter", async () => {
-    const { paths, ask } = invocations([]);
-    await ask({ history_id: "", workflow_id: "" });
-    expect(paths[0]).not.toContain("history_id=");
-    expect(paths[0]).not.toContain("workflow_id=");
-  });
-
-  it("rolls up one invocation", async () => {
-    const { paths, ask } = invocations();
-    const out = await ask({ invocation_id: "i1" });
-    expect(out.outcome).toBe("failed");
-    expect(paths.some((p) => p.endsWith("jobs_summary"))).toBe(true);
-  });
-
-  it("rolls up a listing too", async () => {
-    const out = await invocations([{ ...SCHEDULED }, { ...SCHEDULED, id: "i2" }]).ask({
-      history_id: "h1",
-    });
-    expect(out.map((i: any) => i.outcome)).toEqual(["failed", "failed"]);
-  });
-
-  it("stops rolling up a long listing", async () => {
-    const many = Array.from({ length: ROLLUP_LIMIT + 3 }, (_, n) => ({
-      ...SCHEDULED,
-      id: `i${n}`,
-    }));
-    const { paths, ask } = invocations(many);
-    const out = await ask({ history_id: "h1" });
-    expect(out.filter((i: any) => "outcome" in i)).toHaveLength(ROLLUP_LIMIT);
-    expect(paths.filter((p) => p.endsWith("jobs_summary"))).toHaveLength(ROLLUP_LIMIT);
-  });
-
-  it("survives a jobs summary that fails", async () => {
-    const out = await invocations(undefined, true).ask({ invocation_id: "i1" });
-    expect(out.outcome).toBe("completed");
-    expect(out.job_states).toEqual({});
-  });
-});
-
 describe("recommend_biocontainer", () => {
   it("refuses an invalid package list in prose", async () => {
     expect(refused(await run("recommend_biocontainer", { packages: [] }, context({})))).toContain(
       "at least one",
-    );
-  });
-});
-
-describe("update_page", () => {
-  const DOC = "## Record\n\nintro\n\n## Methods\n\nold\n\n## Results\n\nfindings\n";
-  const ALSO_REAL = "0c97fda4aafcf418";
-
-  function page(content = DOC) {
-    const puts: any[] = [];
-    const ctx = context({
-      get: async () => ({ id: "p1", content_editor: content }),
-      put: async (_path, body) => {
-        puts.push(body);
-        return { id: "p1", content_editor: body.content ?? content };
-      },
-    });
-    return {
-      puts,
-      update: (args: Record<string, unknown>) =>
-        run("update_page", { page_id: "p1", ...args }, ctx),
-    };
-  }
-
-  it("leaves other sections alone in a section edit", async () => {
-    const p = page();
-    await p.update({ section_heading: "## Methods", section_content: "## Methods\n\nnew\n" });
-    expect(p.puts[0].content).toContain("new");
-    expect(p.puts[0].content).toContain("findings");
-    expect(p.puts[0].content).not.toContain("old");
-  });
-
-  it("refuses a write against a stale hash", async () => {
-    const p = page();
-    const out = await p.update({ content: "clobber", expect_hash: "deadbeef" });
-    expect(out.written).toBe(false);
-    expect(p.puts).toEqual([]);
-    expect(out.content_hash).toBe(djb2Hash(DOC));
-    expect(out.content).toBe(DOC);
-  });
-
-  it("allows a write against the current hash", async () => {
-    const p = page();
-    await p.update({ content: "fresh", expect_hash: djb2Hash(DOC) });
-    expect(p.puts[0].content).toBe("fresh");
-  });
-
-  it("reports the new hash", async () => {
-    expect((await page().update({ content: "fresh" })).content_hash).toBe(djb2Hash("fresh"));
-  });
-
-  it("hands back the source it wrote, not Galaxy's embed-expanded render", async () => {
-    const ctx = context({
-      get: async () => ({ id: "p1", content_editor: DOC }),
-      put: async (_path, body) => ({ id: "p1", content_editor: body.content, content: "<render>" }),
-    });
-    const out = (await run("update_page", { page_id: "p1", content: "fresh" }, ctx)) as any;
-    expect(out).not.toHaveProperty("content");
-    expect(out.content_editor).toBe("fresh");
-    expect(out.content_hash).toBe(djb2Hash("fresh"));
-  });
-
-  it("marks every write as an agent edit", async () => {
-    const p = page();
-    await p.update({ content: "x" });
-    expect(p.puts[0].edit_source).toBe("agent");
-  });
-
-  it("refuses a malformed id before Galaxy sees it, in prose that points at the artifact token", async () => {
-    const p = page("## Record\n");
-    const out = await p.update({
-      content: "```galaxy\nhistory_dataset_display(history_dataset_id=reads)\n```",
-    });
-    expect(out).toBeInstanceOf(Outcome);
-    expect(out.guard).toBe("malformed-object-id");
-    const text = refused(out);
-    expect(text.trimStart().startsWith("{")).toBe(false);
-    expect(text).toContain("{{artifact}}");
-    expect(text).toContain("history_dataset_id=reads");
-    expect(p.puts).toEqual([]);
-  });
-
-  it("accepts an encoded id written by hand", async () => {
-    const p = page("## Record\n");
-    const out = await p.update({
-      content: `\`\`\`galaxy\nhistory_dataset_display(history_dataset_id=${ALSO_REAL})\n\`\`\``,
-    });
-    expect(out).not.toBeInstanceOf(Outcome);
-    expect(p.puts[0].content.endsWith("```")).toBe(true);
-  });
-
-  it("checks a section edit too", async () => {
-    const out = await page().update({
-      content: null,
-      section_heading: "## Chart",
-      section_content: "visualization(history_dataset_id=reads)",
-    });
-    expect(out.guard).toBe("malformed-object-id");
-  });
-});
-
-describe("get_page", () => {
-  it("adds the content hash and withholds the rendered content", async () => {
-    const ctx = context({
-      get: async () => ({ id: "p1", content_editor: "## A", content: "<h2>A</h2>" }),
-    });
-    const out = await run("get_page", { page_id: "p1" }, ctx);
-    expect(out.content_hash).toBe(djb2Hash("## A"));
-    expect(out).not.toHaveProperty("content");
-    expect((await run("get_page", { page_id: "p1", include_rendered: true }, ctx)).content).toBe(
-      "<h2>A</h2>",
     );
   });
 });
