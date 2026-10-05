@@ -1,0 +1,20 @@
+{
+    "name": "@galaxyproject/ghost",
+    "private": false,
+    "version": "0.0.4",
+    "type": "module",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --write 'package.json' '*.js' 'src/*.js' 'public/*.js'"
+    },
+    "devDependencies": {
+        "jszip": "^3.10.1",
+        "prettier": "^3.6.2",
+        "vite": "^7.0.4"
+    }
+}
