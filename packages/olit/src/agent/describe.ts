@@ -68,7 +68,8 @@ function identityPrompt(root: string) {
   const found = /<ai_prompt>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/ai_prompt>/.exec(
     readFileSync(join(root, "public/olit.xml"), "utf8"),
   );
-  return found ? { fingerprint: fingerprint(found[1]) } : {};
+  // The text too: a harness seeds a run with the prompt the page seeds a conversation with.
+  return found ? { fingerprint: fingerprint(found[1]), text: found[1].trim() } : {};
 }
 
 function typeOf(spec: Record<string, any>): string {

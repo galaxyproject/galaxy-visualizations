@@ -91,6 +91,7 @@ describe("the description Olit publishes about itself", () => {
 
   it("reads the identity prompt from the plugin manifest", () => {
     expect(doc.identity_prompt.fingerprint).toMatch(/^[0-9a-f]{16}$/);
+    expect(doc.identity_prompt.text).toContain("You both talk and act.");
   });
 
   it("publishes every provider's endpoint and key variable", () => {
