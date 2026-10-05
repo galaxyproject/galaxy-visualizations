@@ -375,6 +375,11 @@ describe("get_job_details", () => {
     return { paths, out: run("get_job_details", { dataset_id: "d1" }, ctx) };
   }
 
+  it("answers with the job, the dataset and the job id, as galaxy-ops and galaxy-mcp do", async () => {
+    const out = await job({ id: "j1", state: "ok" }).out;
+    expect(out).toEqual({ job: { id: "j1", state: "ok" }, dataset_id: "d1", job_id: "j1" });
+  });
+
   it("keeps a chatty job under the result cap", async () => {
     const noisy = Array.from({ length: 30000 }, (_, i) => `line ${i} of warnings`).join("\n");
     const out = await job({ id: "j1", state: "error", tool_stderr: noisy, stderr: noisy }).out;
@@ -391,15 +396,15 @@ describe("get_job_details", () => {
       id: "j1",
       tool_stderr: "Reading reference bed file: ref.dat\n" + noise,
     }).out;
-    expect(out.tool_stderr.startsWith("Reading reference bed file: ref.dat")).toBe(true);
-    expect(out.tool_stderr).toContain("bytes omitted");
+    expect(out.job.tool_stderr.startsWith("Reading reference bed file: ref.dat")).toBe(true);
+    expect(out.job.tool_stderr).toContain("bytes omitted");
   });
 
   it("keeps the end of the log", async () => {
     const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
     const out = await job({ id: "j1", tool_stderr: noisy + "\nRuntimeError: the real cause" }).out;
-    expect(out.tool_stderr.endsWith("RuntimeError: the real cause")).toBe(true);
-    expect(new TextEncoder().encode(out.tool_stderr).length).toBeLessThanOrEqual(
+    expect(out.job.tool_stderr.endsWith("RuntimeError: the real cause")).toBe(true);
+    expect(new TextEncoder().encode(out.job.tool_stderr).length).toBeLessThanOrEqual(
       JOB_LOG_BYTES + "[... x of y bytes omitted ...]\n".length,
     );
   });
@@ -407,7 +412,7 @@ describe("get_job_details", () => {
   it("keeps whole lines at both cuts", async () => {
     const noisy = Array.from({ length: 2000 }, (_, i) => `warning number ${i}`).join("\n");
     const out = await job({ id: "j1", tool_stderr: noisy }).out;
-    const lines: string[] = out.tool_stderr.split("\n");
+    const lines: string[] = out.job.tool_stderr.split("\n");
     expect(lines[0]).toBe("warning number 0");
     expect(lines[lines.length - 1]).toBe("warning number 1999");
     expect(lines.find((line) => line.includes("omitted"))).toMatch(
@@ -417,14 +422,14 @@ describe("get_job_details", () => {
 
   it("returns a short log whole", async () => {
     const out = await job({ id: "j1", tool_stderr: "Traceback: boom" }).out;
-    expect(out.tool_stderr).toBe("Traceback: boom");
+    expect(out.job.tool_stderr).toBe("Traceback: boom");
   });
 
   it("leaves the rest of the job untouched", async () => {
     const { paths, out } = job({ id: "j1", state: "error", params: { input: "d0" } });
     const got = await out;
-    expect(got.params).toEqual({ input: "d0" });
-    expect(got.state).toBe("error");
+    expect(got.job.params).toEqual({ input: "d0" });
+    expect(got.job.state).toBe("error");
     expect(paths[paths.length - 1]).toBe("api/jobs/j1?full=true");
   });
 });

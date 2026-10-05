@@ -264,7 +264,8 @@ async function getJobDetails(args: Row, { galaxy }: Context) {
       out[field] = ends(out[field], JOB_LOG_BYTES);
     }
   }
-  return out;
+  // The data galaxy-ops and galaxy-mcp answer with, and the description promises.
+  return { job: out, dataset_id: args.dataset_id, job_id: jobId };
 }
 
 /** Python's `str.splitlines`. */
