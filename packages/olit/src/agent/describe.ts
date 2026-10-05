@@ -10,7 +10,7 @@ import { connect } from "./model";
 import { STARTER } from "./notebook";
 import { opsTools } from "./ops";
 import { ROW_BYTES_CAP, ROW_CAP } from "./paging";
-import { resolve } from "./providers";
+import { PROVIDERS, resolve } from "./providers";
 import { MAX_STEPS, olitTools } from "./session";
 import { GUARDS } from "./tool";
 
@@ -191,6 +191,14 @@ function skills(root: string) {
   };
 }
 
+/** Where each named provider's requests go and which variable holds its key, for a harness
+ * that records completions or supplies credentials without resolving them a second way. */
+function providers() {
+  return Object.fromEntries(
+    PROVIDERS.map((p) => [p.id, { base_url: p.baseUrl ?? null, auth_env: p.authEnv ?? null }]),
+  );
+}
+
 /** The surface Olit exposes, as data, for an evaluator that does not read its source. */
 export async function describe(root: string) {
   return {
@@ -201,6 +209,7 @@ export async function describe(root: string) {
     prompt_blocks: promptBlocks(root),
     tools: tools(),
     policy: { llm_request: await llmRequest(), loop: loop(), guards: [...GUARDS] },
+    providers: providers(),
     shell: shell(root),
     skills: skills(root),
     record: { starter: STARTER, resume_tool: "notebook_resume" },

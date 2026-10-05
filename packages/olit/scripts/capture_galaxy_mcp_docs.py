@@ -1,7 +1,7 @@
 """Refresh the galaxy-mcp tool set the parity test compares against.
 
 Run against an installed galaxy-mcp -- `uvx --from galaxy-mcp python3 ...` or a venv that
-has it. The brain does not depend on galaxy-mcp, so this is a deliberate, occasional step
+has it. The agent does not depend on galaxy-mcp, so this is a deliberate, occasional step
 rather than something the build does.
 
 Captures every tool the server registers, not only the ones olit already serves: a tool
@@ -29,11 +29,14 @@ def registered(tree):
                 if ast.unparse(base) == "mcp.tool":
                     names.add(node.name)
         # `mcp.tool(...)(fn)`: registration away from the def, for a tool gated on an extra.
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Call):
-            if ast.unparse(node.func.func) == "mcp.tool" and node.args:
-                target = node.args[0]
-                if isinstance(target, ast.Name):
-                    names.add(target.id)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Call)
+            and ast.unparse(node.func.func) == "mcp.tool"
+            and node.args
+            and isinstance(node.args[0], ast.Name)
+        ):
+            names.add(node.args[0].id)
     return names
 
 

@@ -28,7 +28,7 @@ flowchart TB
 
     subgraph Olit
         UI
-        Brain["Olit's Pyodide Brain"]
+        Brain["Olit's Agent (pi-agent-core)"]
         Skill["Galaxy Skills"]
         Ops["Galaxy MCP"]
         State["State"]
@@ -59,7 +59,7 @@ Olit explores how that model translates to a browser-native architecture. Its na
 
 | | Orbit | Olit |
 | --- | --- | --- |
-| Agent runtime | Local/server Python | Browser / Pyodide |
+| Agent runtime | Local/server (pi) | Browser worker (pi-agent-core) |
 | Scientific computation | Local environment + Galaxy | Galaxy |
 | Shell | Available | None |
 | Filesystem | Local filesystem | Galaxy data + browser storage |
@@ -93,7 +93,7 @@ Galaxy visualization plugins are not limited to plots and viewers: they can be c
 
 Because Olit is served by Galaxy, it is same-origin with the Galaxy API and can operate through the researcher's active session. In normal embedded operation, this avoids a local proxy, a separate agent process, or a long-lived Galaxy API key held by another service.
 
-The Python agent runs in a Web Worker through Pyodide. The surrounding TypeScript application connects the interface, browser runtime, model provider, and active Galaxy session. Model credentials remain in the browser rather than being held by a separate Olit backend.
+The agent runs in a Web Worker on pi-agent-core, the loop Orbit itself is built on, and loads Pyodide only when it runs Python. The surrounding application connects the interface, browser runtime, model provider, and active Galaxy session. Model credentials remain in the browser rather than being held by a separate Olit backend.
 
 This allows Olit to be distributed through Galaxy's existing visualization infrastructure without requiring a separate agent service.
 
@@ -113,7 +113,7 @@ Then start the development environment:
 npm run dev
 ```
 
-The first run builds the Pyodide assets and the Olit brain wheel and can take several minutes.
+The first run fetches the Pyodide assets and the skills corpus and can take a few minutes.
 
 To serve what is already built:
 
@@ -121,10 +121,10 @@ To serve what is already built:
 npx vite
 ```
 
-Changes under `brain/` require rebuilding the wheel and restarting the development server:
+The eval harness drives the agent as a Node module, rebuilt from source:
 
 ```bash
-npm run build:olit
+npm run build:session
 ```
 
 ### Against the stub
@@ -134,7 +134,7 @@ The end-to-end stub requires neither Galaxy nor a model. See `e2e/README.md`.
 ```bash
 node e2e/stub.cjs &
 GALAXY_ROOT=http://127.0.0.1:8099 \
-LLM_PROVIDER=local \
+LLM_PROVIDER=ollama \
 LLM_ROOT=http://127.0.0.1:8099 \
 LLM_PATH=/v1 \
 LLM_MODEL=stub-model \
@@ -147,17 +147,17 @@ npm run dev
 ```bash
 GALAXY_ROOT=http://127.0.0.1:8080 \
 GALAXY_KEY=<galaxy-api-key> \
-LLM_PROVIDER=gemini \
+LLM_PROVIDER=google \
 LLM_KEY="$GEMINI_KEY" \
 LLM_MODEL=gemini-3.7-flash \
 npm run dev
 ```
 
-`LLM_PROVIDER` names an entry in `brain/olit/substrate/llm/providers.py`, which defines the endpoint, context window, and rate limit. Set `LLM_ROOT` and `LLM_PATH` for an endpoint the registry does not contain.
+`LLM_PROVIDER` names an entry in `src/agent/providers.ts`, which defines the endpoint, context window, and rate limit. Set `LLM_ROOT` and `LLM_PATH` for an endpoint the registry does not contain.
 
 `GALAXY_KEY` is needed during local development because Vite serves Olit outside Galaxy, where the Galaxy session cookie does not apply.
 
-Leave `LLM_PROVIDER` unset to use the provider picker. This is the production path: the model key remains in the browser worker and never enters the Python agent.
+Leave `LLM_PROVIDER` unset to use the provider picker. This is the production path: the model key remains in the browser worker.
 
 ## Tests
 
@@ -165,12 +165,12 @@ Leave `LLM_PROVIDER` unset to use the provider picker. This is the production pa
 npm test
 ```
 
-This runs Vitest, pytest, TypeScript type checking, vendored-file verification, and the end-to-end drives.
+This runs Vitest, script linting, TypeScript type checking, vendored-file verification, and the end-to-end drives.
 
 To inspect the surface exposed to the agent:
 
 ```bash
-npm run describe
+npm run build:session && node dist/session.mjs --describe --root .
 ```
 
 This reports the tools and parameters exposed to the agent, the Galaxy queries they construct, guards that can refuse calls, and the sampling and loop policies.
