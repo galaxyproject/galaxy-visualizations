@@ -11,6 +11,10 @@ export function malformedObjectIds(content: string | undefined): string[] {
     .map(([, name, value]) => `${name}=${value}`);
 }
 
+/** A page's saved source: `content` is the embed-expanded render, `content_editor` the source. */
+export const pageBody = (page: { content_editor?: string; content?: string }) =>
+  page.content_editor || page.content || "";
+
 /** Galaxy's page hash, in `sectionDiffUtils.ts` and `page_assistant.py`. */
 export function djb2Hash(text: string | undefined): string {
   let h = 5381;

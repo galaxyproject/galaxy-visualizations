@@ -451,3 +451,65 @@ describe("prepare", () => {
     ]);
   });
 });
+
+describe("the record the session keeps", () => {
+  /** A Galaxy with one record page that keeps what is written to it, and one job. */
+  function recordServer(replies: Reply[], job: { state: string }) {
+    const page = { content: "# Notebook" };
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      const url = new URL(request.url);
+      if (url.href.startsWith(LLM)) {
+        return sse(replies.shift() ?? { text: "done" });
+      }
+      const path = `${request.method} ${url.pathname.replace(/^\//, "")}`;
+      const json = (body: unknown) =>
+        new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
+      if (path === "PUT api/pages/p1") {
+        page.content = JSON.parse(await request.text()).content;
+        return json({});
+      }
+      if (path === "GET api/pages/p1") {
+        return json({ content_editor: page.content });
+      }
+      if (path === "POST api/tools") {
+        return json({ jobs: [{ id: "j1", state: "queued" }] });
+      }
+      if (path === "GET api/jobs/j1") {
+        return json(job);
+      }
+      return json(path === "GET api/version" ? { version_major: "26.1" } : {});
+    });
+    return page;
+  }
+
+  const bound = { session_id: "s1", record_page_id: "p1", session_started_at: "2026-01-01" };
+  const runTool = { name: "run_tool", args: { history_id: "h1", tool_id: "cat1", inputs: {} } };
+
+  it("notes submitted work and its own session block, headless as in the browser", async () => {
+    const page = recordServer([{ calls: [runTool] }, { text: "ok" }], { state: "queued" });
+    const session = await Session.create(config(bound), python);
+    await session.turn(start);
+    expect(page.content).toContain("- [ ] Galaxy job `j1` — submitted, awaiting completion");
+    expect(page.content).toMatch(/```olit-session\nid: s1\nstarted_at: 2026-01-01\n/);
+  });
+
+  it("marks the step done when the work it watches settles", async () => {
+    const job = { state: "queued" };
+    const page = recordServer([{ calls: [runTool] }, { text: "ok" }], job);
+    const session = await Session.create(config(bound), python);
+    await session.turn(start);
+    job.state = "ok";
+    const { settled } = await session.settle();
+    expect(settled.map((s) => s.outcome)).toEqual(["completed"]);
+    expect(page.content).toContain("- [x] Galaxy job `j1`");
+    expect(page.content).toContain("Status: finished (ok) — recorded automatically");
+  });
+
+  it("writes nothing before the session has a record", async () => {
+    const page = recordServer([{ calls: [runTool] }, { text: "ok" }], { state: "queued" });
+    const session = await Session.create(config({ session_id: "s1" }), python);
+    await session.turn(start);
+    expect(page.content).toBe("# Notebook");
+  });
+});

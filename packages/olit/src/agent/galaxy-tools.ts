@@ -6,8 +6,9 @@ import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
 import { UPSTREAM_DOCS, type Annotate } from "./ops";
-import { applySectionEdit, djb2Hash, malformedObjectIds } from "./page-edit";
+import { applySectionEdit, djb2Hash, malformedObjectIds, pageBody } from "./page-edit";
 import { serverPage } from "./paging";
+import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
 export const DATA_DIR = "/data";
@@ -426,8 +427,6 @@ async function recommendBiocontainer(args: Row) {
   }
 }
 
-const pageBody = (page: Row) => page.content_editor || page.content || "";
-
 async function getPage(args: Row, { galaxy }: Context) {
   const page = (await galaxy.get(`api/pages/${segment(args.page_id)}`)) || {};
   if (!isRow(page)) {
@@ -603,7 +602,8 @@ export function galaxyTools(): OlitTool[] {
         },
       },
       ["page_id"],
-      updatePage,
+      // In the session's record queue: a marker written between its read and write is kept.
+      (args, ctx) => serialized(() => updatePage(args, ctx)),
     ),
   ];
 }

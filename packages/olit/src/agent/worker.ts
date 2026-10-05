@@ -30,7 +30,13 @@ export type WorkerMessage =
   | { type: "result"; result: TurnResult }
   | { type: "settled"; id: number; result: SettleResult };
 
-const CONTEXT_FIELDS = new Set(["history_id", "dataset_id", "session_id", "record_page_id"]);
+const CONTEXT_FIELDS = new Set([
+  "history_id",
+  "dataset_id",
+  "session_id",
+  "record_page_id",
+  "session_started_at",
+]);
 
 let python: Python | undefined;
 let session: { identity: string; session: Promise<Session> } | undefined;

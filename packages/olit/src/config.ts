@@ -29,5 +29,6 @@ export function buildConfig(
     // Filled in from the session document once it is loaded.
     session_id: undefined as string | undefined,
     record_page_id: undefined as string | undefined,
+    session_started_at: undefined as string | undefined,
   };
 }

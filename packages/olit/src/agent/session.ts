@@ -38,6 +38,9 @@ import {
 import { CONTEXT_SECTION, isRecordUpdate, RECORD_SECTION, sectionsOf } from "./sections";
 import { followUpPrompt, stateReader, Watch, type Settled, type Watched } from "./watch";
 import { pythonTool } from "./python";
+import { applyJobOutcome, noteSubmitted } from "./record-jobs";
+import { editRecord } from "./record-write";
+import { writeSessionSummary } from "./session-summary";
 import { visualizationTools } from "./visualizations";
 
 export const MAX_STEPS = 100;
@@ -59,6 +62,8 @@ export interface SessionConfig extends LlmConfig {
   dataset_id?: string;
   session_id?: string;
   record_page_id?: string;
+  /** When the conversation began, for the record's session block; else this session's start. */
+  session_started_at?: string;
   ai_reserve_tokens?: number;
   ai_keep_recent_tokens?: number;
   ai_compaction?: boolean;
@@ -302,6 +307,7 @@ export class Session {
   private calls = 0;
   /** Where the running turn hears about a provider retry. */
   private onRetry?: (info: RetryInfo) => void;
+  private readonly started = new Date().toISOString();
 
   private constructor(
     private config: SessionConfig,
@@ -434,7 +440,20 @@ export class Session {
   /** One pass over the unfinished work: what settled, and the follow-up turn it calls for. */
   async settle(): Promise<{ settled: Settled[]; pending: number; followUp?: string }> {
     const settled = await this.watch.poll();
+    // loom's poller advances the notebook itself, without asking the model.
+    await Promise.all(
+      settled.map(({ watched, state, outcome }) =>
+        this.editRecord((content) =>
+          applyJobOutcome(content, { id: watched.id, kind: watched.kind, state, outcome }),
+        ),
+      ),
+    );
     return { settled, pending: this.watch.pending, followUp: followUpPrompt(settled) };
+  }
+
+  /** An edit of the record this session is bound to, if it has one yet. */
+  private editRecord(edit: (content: string) => string) {
+    return editRecord({ galaxy: this.galaxy, pageId: this.binding.pageId }, edit);
   }
 
   /** The transcript with the context block set and the record excerpt refreshed. */
@@ -530,6 +549,7 @@ export class Session {
     let overflowReported = false;
     let before = JSON.stringify(this.binding);
     let watchedBefore = new Set<string>();
+    const recordWrites: Promise<boolean>[] = [];
 
     const agent = new Agent({
       // A message from a caller that does not stamp time (the eval harness) still sorts.
@@ -595,6 +615,8 @@ export class Session {
         done ||= name === "finish" && !event.isError;
         const changed = JSON.stringify(this.binding) !== before;
         const submitted = this.watch.list().filter((w) => !watchedBefore.has(`${w.kind}:${w.id}`));
+        // loom's agent hands the poller the id; here the session holds it already.
+        recordWrites.push(...submitted.map((w) => this.editRecord((c) => noteSubmitted(c, w))));
         emit({
           type: "tool_end",
           id: event.toolCallId,
@@ -628,6 +650,18 @@ export class Session {
       guardLog.push({ guard: "max-steps", steps });
       logs.push(`the step budget of ${maxSteps} was spent before the turn ended`);
     }
+    if (!failed && this.binding.sessionId) {
+      // loom writes its session block at session end; a tab has none, so every turn upserts it.
+      recordWrites.push(
+        writeSessionSummary(this.galaxy, this.binding.pageId, {
+          id: this.binding.sessionId,
+          startedAt: this.config.session_started_at ?? this.started,
+          endedAt: new Date().toISOString(),
+          orphanedActiveSteps: 0,
+        }),
+      );
+    }
+    await Promise.all(recordWrites);
     const usage = { input: 0, output: 0, cost: null as number | null };
     for (const m of produced) {
       if (m.role === "assistant") {

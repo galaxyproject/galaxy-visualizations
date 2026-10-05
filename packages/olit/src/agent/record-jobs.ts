@@ -1,4 +1,4 @@
-/** Record the outcome of submitted Galaxy work, shell-side.
+/** Record the outcome of submitted Galaxy work, by the session rather than the model.
  *
  * loom's `applyJobPollUpdate` advances the notebook block for a finished job; the checkbox
  * flips and the status line updates without the agent being asked. olit's record is prose
@@ -9,7 +9,7 @@
  * is appended, and only once.
  */
 
-import { WHAT, type Outcome } from "./agent/watch";
+import { WHAT, type Outcome } from "./watch";
 
 const DONE = "- [x]";
 const PENDING = "- [ ]";
@@ -90,11 +90,11 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
 }
 
 /**
- * Note submitted work in the record, keyed by the id the shell observed.
+ * Note submitted work in the record, keyed by the id the session observed.
  *
  * loom has `galaxy_invocation_record({ invocationId, ... })`: the agent hands the poller the
  * id and the poller owns the entry from then on. olit's watcher already holds the correct
- * id -- it took it from the tool result -- so the shell writes the entry itself rather than
+ * id -- it took it from the tool result -- so the session writes the entry itself rather than
  * trusting the model to transcribe a hex string. A live run wrote the invocation's `uuid`
  * where Galaxy's `id` was needed, which left the record unmatchable and the poller unable to
  * advance anything.
@@ -108,7 +108,7 @@ export function noteSubmitted(
   const entry = `- [ ] ${what} \`${w.id}\` — submitted, awaiting completion`;
   const lines = content.split("\n");
 
-  // Keep the session block last; it is the shell's own footer.
+  // Keep the session block last; it is the session's own footer.
   const fence = lines.findIndex((l) => l.trim().startsWith("```olit-session"));
   const at = fence < 0 ? lines.length : fence;
   const pad = at > 0 && lines[at - 1].trim() !== "" ? ["", entry, ""] : [entry, ""];
