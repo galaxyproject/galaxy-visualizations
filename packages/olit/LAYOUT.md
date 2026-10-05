@@ -20,7 +20,8 @@ src/agent/               the agent: pi-agent-core's loop, in a worker in the bro
   galaxy.ts ops.ts galaxy-tools.ts   Galaxy REST, galaxy-ops' operations, the tools Olit keeps
   guards.ts destructive.ts sra-gate.ts   what can refuse a call
   prompt.ts skills.ts notebook.ts   the system prompt, SKILL.md routers, the record page
-  python.ts                 Pyodide behind `run_python`, loaded on first use
+  python.ts python-realm.js python-node.ts   `run_python`: the trusted side, the isolated realm
+                            Pyodide runs in, and that realm's headless host
   processes/                deterministic procedures (lineage_report, organize_datasets)
   skills/                   vendored corpora, galaxy-skills fetched at build time
   describe.ts               what Olit publishes about itself, for an outside evaluator

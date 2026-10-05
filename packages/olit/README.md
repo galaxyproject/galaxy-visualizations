@@ -93,7 +93,7 @@ Galaxy visualization plugins are not limited to plots and viewers: they can be c
 
 Because Olit is served by Galaxy, it is same-origin with the Galaxy API and can operate through the researcher's active session. In normal embedded operation, this avoids a local proxy, a separate agent process, or a long-lived Galaxy API key held by another service.
 
-The agent runs in a Web Worker on pi-agent-core, the loop Orbit itself is built on, and loads Pyodide only when it runs Python. The surrounding application connects the interface, browser runtime, model provider, and active Galaxy session. Model credentials remain in the browser rather than being held by a separate Olit backend.
+The agent runs in a Web Worker on pi-agent-core, the loop Orbit itself is built on. Python runs apart from it, in a worker of its own with an opaque origin, started when the agent first runs Python. The surrounding application connects the interface, browser runtime, model provider, and active Galaxy session. Model credentials remain in the browser rather than being held by a separate Olit backend.
 
 This allows Olit to be distributed through Galaxy's existing visualization infrastructure without requiring a separate agent service.
 
@@ -180,6 +180,8 @@ This reports the tools and parameters exposed to the agent, the Galaxy queries t
 Olit deliberately does not reproduce a general-purpose local computing environment.
 
 `run_python` executes inside Pyodide. Submitted code is asynchronous, so top-level `await` and `pyfetch` work, but networking follows browser security rules: CORS-enabled APIs are accessible; arbitrary network resources are not.
+
+Python is isolated from the agent rather than restricted. It keeps that network access and loses only authority: its worker has an opaque origin, so it holds no Galaxy session, no storage of the page, and no reach into the agent's state or model credentials, and its requests go without credentials. Galaxy is reached through the agent's Galaxy tools, where the destructive-operation gate applies. Stop ends a running Python call along with its state. Headless, the same realm is a Node child process with an empty environment that may read only Pyodide's files.
 
 For research requiring a shell, unrestricted networking, local software installation, or a full filesystem, Orbit provides the appropriate execution environment.
 
