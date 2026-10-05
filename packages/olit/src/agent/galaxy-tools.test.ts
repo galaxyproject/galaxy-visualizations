@@ -187,6 +187,25 @@ describe("run_tool history guard", () => {
     expect(out.jobs[0].state).toBe("new");
   });
 
+  it("asks Galaxy for the tool version the model named, and only then", async () => {
+    const { posted } = owned({ d1: HERE });
+    const ctx = context({
+      get: async () => ({ id: "d1", history_id: HERE }),
+      post: async (_path, body) => {
+        posted.push(body);
+        return { jobs: [] };
+      },
+    });
+    await run(
+      "run_tool",
+      { history_id: HERE, tool_id: "cat1", inputs: {}, tool_version: "1.1" },
+      ctx,
+    );
+    await run("run_tool", { history_id: HERE, tool_id: "cat1", inputs: {} }, ctx);
+    expect(posted[0].tool_version).toBe("1.1");
+    expect(posted[1]).not.toHaveProperty("tool_version");
+  });
+
   it("refuses a dataset from another history before submission", async () => {
     const { posted, submit } = owned({ d1: ELSEWHERE });
     const out = refused(await submit(HERE, { input: { src: "hda", id: "d1" } }));

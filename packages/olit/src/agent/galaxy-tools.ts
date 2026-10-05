@@ -4,10 +4,9 @@ import * as biocontainers from "./biocontainers";
 import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
-import type { Annotate } from "./ops";
+import { UPSTREAM_DOCS, type Annotate } from "./ops";
 import { applySectionEdit, djb2Hash, malformedObjectIds } from "./page-edit";
 import { serverPage } from "./paging";
-import DOCS from "./tool-docs.json";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
 export const DATA_DIR = "/data";
@@ -204,6 +203,8 @@ async function runTool(args: Row, ctx: Context) {
       history_id: historyId,
       tool_id: args.tool_id,
       inputs,
+      // A request, not a guarantee: Galaxy falls back to an installed version.
+      ...(args.tool_version ? { tool_version: args.tool_version } : {}),
     });
   } catch (error) {
     if (!isParameterError(error)) {
@@ -486,6 +487,17 @@ async function updatePage(args: Row, { galaxy }: Context) {
 
 type Run = (args: Row, ctx: Context) => Promise<unknown>;
 
+/**
+ * What Olit says of the two tools that work on the browser's in-memory filesystem, which
+ * galaxy-mcp's docstrings describe as the server's own disk.
+ */
+const LOCAL_DOCS: Record<string, string> = {
+  download_dataset:
+    "Save a Galaxy dataset to the local filesystem.\n\nReturns `path`, `bytes`, `binary`, and for text data `lines`, a `preview` of the first 50 lines and `truncated`. Fetched as raw bytes, so BAM/HDF5/gzip arrive intact. The file lives in the browser's in-memory filesystem, which persists for the session, so read it with run_python -- text with `pandas.read_csv(path, sep='\\t')`, binary with `open(path, 'rb')` or a suitable library. Do not paste the preview into code: it is a sample, and re-emitting file content as a string breaks on tabs and newlines.",
+  upload_file:
+    "Upload a file from the local filesystem to a Galaxy history.\n\nReads the path from the browser's in-memory filesystem, so it pairs with run_python: write a result to a file, then upload it. Sent to Galaxy as pasted content. Use upload_file_from_url to ingest directly from a URL instead.\n\nAn upload is a Galaxy job: the dataset comes back before it is readable. Wait for it to reach 'ok' (check its state with get_dataset_details) before running a tool on it or charting it.",
+};
+
 /** A tool Olit runs itself, under galaxy-mcp's description, with fetch-failure triage appended. */
 function tool(
   name: string,
@@ -496,7 +508,7 @@ function tool(
 ): OlitTool {
   return {
     name,
-    description: (DOCS as Record<string, string>)[name],
+    description: LOCAL_DOCS[name] ?? UPSTREAM_DOCS[name],
     capability,
     parameters: { type: "object", properties, required },
     run: async (args, ctx) => {
@@ -519,7 +531,7 @@ export function galaxyTools(): OlitTool[] {
     tool(
       "run_tool",
       "write",
-      { history_id: STR, tool_id: STR, inputs: { type: "object" } },
+      { history_id: STR, tool_id: STR, inputs: { type: "object" }, tool_version: STR },
       ["history_id", "tool_id", "inputs"],
       runTool,
     ),
