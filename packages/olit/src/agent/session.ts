@@ -507,7 +507,7 @@ export class Session {
     const compaction = compactor(
       compactionSettings({
         enabled: this.config.ai_compaction,
-        contextWindow: this.target.contextWindow,
+        contextWindow: this.connection.model.contextWindow,
         reserveTokens: this.config.ai_reserve_tokens || this.target.maxTokens,
         keepRecentTokens: this.config.ai_keep_recent_tokens,
       }),

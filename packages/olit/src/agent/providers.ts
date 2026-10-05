@@ -1,8 +1,8 @@
-const DEFAULT_CONTEXT_WINDOW = 128000;
 const DEFAULT_RATE_LIMIT = 30;
 
 export interface ProviderModel {
   id: string;
+  /** Only for a model pi's catalog does not list; pi's own figure wins otherwise. */
   contextWindow?: number;
 }
 
@@ -59,10 +59,7 @@ export const PROVIDERS: Provider[] = [
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     authEnv: "GEMINI_KEY",
     rateLimit: 5,
-    models: [
-      { id: "gemini-3.7-flash", contextWindow: 1_000_000 },
-      { id: "gemini-3.1-flash-lite", contextWindow: 1_000_000 },
-    ],
+    models: [{ id: "gemini-3.7-flash" }, { id: "gemini-3.1-flash-lite" }],
   },
   {
     id: "deepseek",
@@ -80,11 +77,11 @@ export const PROVIDERS: Provider[] = [
     authEnv: "OPENROUTER_KEY",
     compat: OPENAI_COMPATIBLE,
     models: [
-      { id: "anthropic/claude-sonnet-5", contextWindow: 1_000_000 },
-      { id: "openai/gpt-5.6-terra", contextWindow: 1_050_000 },
-      { id: "deepseek/deepseek-v4-flash-0731", contextWindow: 1_310_720 },
-      { id: "google/gemini-3.7-flash", contextWindow: 1_048_576 },
-      { id: "google/gemini-3.1-flash-lite", contextWindow: 1_048_576 },
+      { id: "anthropic/claude-sonnet-5" },
+      { id: "openai/gpt-5.6-terra" },
+      { id: "deepseek/deepseek-v4-flash-0731" },
+      { id: "google/gemini-3.7-flash" },
+      { id: "google/gemini-3.1-flash-lite" },
     ],
   },
   {
@@ -165,7 +162,8 @@ export interface Target {
   model: string;
   baseUrl?: string;
   apiKey?: string;
-  contextWindow: number;
+  /** Configured, probed, or listed here; otherwise pi's catalog or a default decides. */
+  contextWindow?: number;
   maxTokens?: number;
   rateLimit: number;
   headers: Record<string, string>;
@@ -203,9 +201,7 @@ export function resolve(config: LlmConfig, env: Record<string, string | undefine
     baseUrl: config.ai_base_url || provider.baseUrl,
     apiKey: config.ai_api_key || (provider.authEnv ? env[provider.authEnv] : undefined),
     contextWindow:
-      config.ai_context_window ||
-      provider.models?.find((m) => m.id === model)?.contextWindow ||
-      DEFAULT_CONTEXT_WINDOW,
+      config.ai_context_window || provider.models?.find((m) => m.id === model)?.contextWindow,
     maxTokens: asked && ceiling ? Math.min(asked, ceiling) : asked || ceiling,
     rateLimit: config.ai_rate_limit || provider.rateLimit || DEFAULT_RATE_LIMIT,
     headers: provider.headers ?? {},

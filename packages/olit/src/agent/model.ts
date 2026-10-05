@@ -28,6 +28,8 @@ const APIS: Record<ProviderApi, () => ReturnType<typeof openAICompletionsApi>> =
 
 /** The output ceiling for a model a native adapter reaches but pi's catalog does not list. */
 const DEFAULT_NATIVE_MAX_TOKENS = 8192;
+/** The window of a model nobody configured and pi's catalog does not list. */
+export const DEFAULT_CONTEXT_WINDOW = 128000;
 
 /** At most `perMinute` requests in any minute, spaced as a token bucket refills. */
 function rateLimiter(perMinute: number): () => Promise<void> {
@@ -50,11 +52,10 @@ function rateLimiter(perMinute: number): () => Promise<void> {
     }));
 }
 
-/** pi's catalog entry for this model, when pi knows it and reaches it through the same API. */
-async function catalogued(provider: string, id: string, api: ProviderApi) {
+/** pi's catalog entry for this model, whichever API pi itself would reach it through. */
+export async function catalogued(provider: string, id: string) {
   const known = await CATALOGS[provider]?.().catch(() => undefined);
-  const entry = known ? Object.values(known).find((m) => m.id === id) : undefined;
-  return entry?.api === api ? entry : undefined;
+  return known ? Object.values(known).find((m) => m.id === id) : undefined;
 }
 
 /**
@@ -67,7 +68,9 @@ export async function connect(
 ): Promise<{ model: Model<Api>; streamFn: StreamFn }> {
   const provider = target.provider;
   const api = provider.api ?? "openai-completions";
-  const known = await catalogued(provider.id, target.model, api);
+  const entry = await catalogued(provider.id, target.model);
+  // The window is the model's own; the rest of an entry holds only for the API pi uses.
+  const known = entry?.api === api ? entry : undefined;
   const baseUrl = target.baseUrl ?? known?.baseUrl ?? "";
   const model = {
     ...(known ?? {
@@ -81,7 +84,7 @@ export async function connect(
     api,
     provider: provider.id,
     baseUrl,
-    contextWindow: target.contextWindow,
+    contextWindow: target.contextWindow ?? entry?.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
     // An OpenAI-compatible request gets no output ceiling unless one is configured, so the
     // endpoint's own default applies: OpenRouter reserves credit against whatever is asked.
     // pi's native adapters take the catalog's, as pi sends it.
