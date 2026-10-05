@@ -28,6 +28,7 @@ import {
   fail,
   result,
   type Artifact,
+  type Binding,
   type Guard,
   type Capability,
   type Context,
@@ -78,6 +79,8 @@ export type LoopEvent =
       is_error: boolean;
       refused: boolean;
       guard?: Guard;
+      /** Present when this call changed what the session is bound to. */
+      binding?: SessionBinding;
     }
   | { type: "llm_retry"; status: number; wait: number; attempt: number; of: number }
   | { type: "compacted" }
@@ -92,12 +95,27 @@ export interface TurnOptions {
   signal?: AbortSignal;
 }
 
+/** The binding as the shell stores it. */
+export interface SessionBinding {
+  session_id?: string;
+  record_page_id?: string;
+  history_id?: string;
+}
+
+const reported = (b: Binding): SessionBinding => ({
+  session_id: b.sessionId,
+  record_page_id: b.pageId,
+  history_id: b.historyId,
+});
+
 export interface TurnResult {
   logs: string[];
   /** The whole transcript, as pi holds it: what the next turn starts from. */
   messages: AgentMessage[];
   /** What this turn added. */
   new_messages: AgentMessage[];
+  /** What the session is bound to after the turn; absent when the turn could not run. */
+  binding?: SessionBinding;
   done: boolean;
   aborted: boolean;
   exhausted: boolean;
@@ -239,7 +257,8 @@ function galaxyOps(options: GalaxyOptions): GalaxyContext {
 }
 
 export class Session {
-  readonly record: { sessionId?: string; pageId?: string };
+  /** The session's identity in Galaxy, which its tools may change and each turn reports. */
+  readonly binding: Binding;
   private galaxyStatus: GalaxyStatus = GALAXY_UNREACHABLE;
   /** The model connection lives as long as the session: its rate limit spans turns. */
   private connection!: Awaited<ReturnType<typeof connect>>;
@@ -254,7 +273,11 @@ export class Session {
     private target: ReturnType<typeof resolve>,
     private tools: OlitTool[],
   ) {
-    this.record = { sessionId: config.session_id, pageId: config.record_page_id };
+    this.binding = {
+      sessionId: config.session_id,
+      pageId: config.record_page_id,
+      historyId: config.history_id,
+    };
   }
 
   static async create(
@@ -307,8 +330,9 @@ export class Session {
   /** Point this session at a new turn's context, which names its session and record as given. */
   rebind(config: Partial<SessionConfig>) {
     this.config = { ...this.config, ...config };
-    this.record.sessionId = config.session_id;
-    this.record.pageId = config.record_page_id;
+    this.binding.sessionId = config.session_id;
+    this.binding.pageId = config.record_page_id;
+    this.binding.historyId = config.history_id;
   }
 
   /** The transcript with the context block set and the record excerpt refreshed. */
@@ -337,7 +361,7 @@ export class Session {
       galaxy: this.galaxy,
       ops: this.ops,
       python: this.python,
-      record: this.record,
+      binding: this.binding,
       artifacts: { prior: options.artifacts ?? [], produced: [] },
       watching: options.watching ?? [],
     };
@@ -401,6 +425,7 @@ export class Session {
     let exhausted = false;
     let done = false;
     let overflowReported = false;
+    let before = JSON.stringify(this.binding);
 
     const agent = new Agent({
       // A message from a caller that does not stamp time (the eval harness) still sorts.
@@ -444,6 +469,7 @@ export class Session {
         produced.push(event.message);
       } else if (event.type === "tool_execution_start") {
         started.set(event.toolCallId, event.args);
+        before = JSON.stringify(this.binding);
         logs.push(`call ${event.toolName}(${brief(event.args)})`);
         emit({ type: "tool_start", id: event.toolCallId, name: event.toolName });
       } else if (event.type === "tool_execution_end") {
@@ -462,6 +488,7 @@ export class Session {
           logs.push(`  -> ${brief(content)}`);
         }
         done ||= name === "finish" && !event.isError;
+        const changed = JSON.stringify(this.binding) !== before;
         emit({
           type: "tool_end",
           id: event.toolCallId,
@@ -470,6 +497,7 @@ export class Session {
           is_error: event.isError,
           refused: !!guardName,
           guard: guardName,
+          ...(changed ? { binding: reported(this.binding) } : {}),
         });
       }
     });
@@ -514,6 +542,7 @@ export class Session {
             .reduce(agent.state.messages)
             .filter((m) => !(m.role === "assistant" && m.stopReason === "error")),
       new_messages: failed ? [] : kept,
+      binding: reported(this.binding),
       done,
       aborted,
       exhausted,

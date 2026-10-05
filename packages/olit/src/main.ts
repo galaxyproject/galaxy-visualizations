@@ -21,11 +21,10 @@ import {
 } from "./session-document";
 import { reportSavedState, savedSessions } from "./saved-session";
 import { writeSessionSummary } from "./session-summary";
-import { historyFromResult, recordPageFromResult } from "./working-history";
 import { createConfirm } from "./confirm-modal";
 import { AgentClient } from "./agent/client";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { LoopEvent } from "./agent/session";
+import type { LoopEvent, SessionBinding } from "./agent/session";
 import { paneArtifacts, renderArtifact, type Artifact } from "./artifacts";
 import { InvocationWatcher, galaxyStateReader, outcomeOf } from "./invocations";
 import { buildResumePrompt, createFollowUpDelivery, isResumableOutcome } from "./auto-resume";
@@ -280,6 +279,16 @@ async function main() {
   // Whether streamed text is open in an assistant message.
   let speaking = false;
 
+  /** What the agent session reports it is bound to; it owns these, the page records them. */
+  function adopt(binding: SessionBinding) {
+    if (binding.history_id) {
+      sessionDoc.history_id = binding.history_id;
+      config.history_id = binding.history_id;
+    }
+    sessionDoc.session.recordPageId = binding.record_page_id;
+    config.record_page_id = binding.record_page_id;
+  }
+
   /** Cards and text rendered live from loop events; the final reconcile skips these. */
   function liveEvents(streamed: Set<string>) {
     return (ev: LoopEvent) => {
@@ -318,17 +327,9 @@ async function main() {
         chat.updateToolCard(ev.id, status, ev.content);
         // Galaxy returns the ids, so the model never has to register them.
         watcher.ingest(ev.name, ev.content);
-        // A session opened without a history still ends up in one the agent chose.
-        const worked = historyFromResult(ev.name, ev.content);
-        if (worked) {
-          sessionDoc.history_id = worked;
-          config.history_id = worked;
-        }
-        // A record page the brain created or replaced; the session owns it from here.
-        const page = recordPageFromResult(ev.name, ev.content);
-        if (page) {
-          sessionDoc.session.recordPageId = page;
-          config.record_page_id = page;
+        // The session says when a call moved it: a history the agent chose, a record it opened.
+        if (ev.binding) {
+          adopt(ev.binding);
         }
       }
     };
@@ -392,6 +393,9 @@ async function main() {
 
     convo.length = 0;
     convo.push(...(reply.messages || []));
+    if (reply.binding) {
+      adopt(reply.binding);
+    }
 
     const artifacts = reply.artifacts || [];
     if (artifacts.length) {

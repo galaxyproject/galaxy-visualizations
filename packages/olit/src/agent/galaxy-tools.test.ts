@@ -36,7 +36,7 @@ function context(galaxy: Fake, extra: Partial<Context> = {}): Context {
     galaxy: galaxy as unknown as Galaxy,
     ops: createGalaxyContext({ baseUrl: "http://galaxy.test/", apiKey: "" }),
     python: files(),
-    record: {},
+    binding: {},
     artifacts: { prior: [], produced: [] },
     watching: [],
     ...extra,

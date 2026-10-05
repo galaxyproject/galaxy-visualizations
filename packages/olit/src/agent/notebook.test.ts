@@ -127,11 +127,11 @@ describe("notebook_resume", () => {
 
   it("keeps the page it just created", async () => {
     const g = fakeGalaxy();
-    const ctx = { galaxy: g.galaxy, record: { sessionId: SESSION } } as Context;
+    const ctx = { galaxy: g.galaxy, binding: { sessionId: SESSION } } as unknown as Context;
     const [tool] = notebookTools();
     await tool.run({}, ctx);
     await tool.run({}, ctx);
-    expect(ctx.record.pageId).toBe("newpage1");
+    expect(ctx.binding.pageId).toBe("newpage1");
     expect(g.posted).toHaveLength(1);
   });
 });

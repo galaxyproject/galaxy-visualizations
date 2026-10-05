@@ -330,7 +330,47 @@ describe("rebind", () => {
       python,
     );
     session.rebind({ session_id: "s2", record_page_id: undefined });
-    expect(session.record).toEqual({ sessionId: "s2", pageId: undefined });
+    expect(session.binding).toEqual({ sessionId: "s2", pageId: undefined, historyId: undefined });
+  });
+});
+
+describe("the history a session is bound to", () => {
+  it("moves to a history the agent creates, and says so when it happens", async () => {
+    const { result, events } = await turn(
+      [{ calls: [{ name: "create_history", args: { history_name: "x" } }] }, { text: "ok" }],
+      { history_id: "h1" },
+      { "api/histories": { id: "hnew", name: "x", model_class: "History" } },
+    );
+    expect(result.binding?.history_id).toBe("hnew");
+    const end = events.find((e) => e.type === "tool_end") as Extract<
+      LoopEvent,
+      { type: "tool_end" }
+    >;
+    expect(end.binding?.history_id).toBe("hnew");
+  });
+
+  it("stays put when a result merely mentions another history", async () => {
+    const { result, events } = await turn(
+      [{ calls: [{ name: "get_dataset_details", args: { dataset_id: "d9" } }] }, { text: "ok" }],
+      { history_id: "h1" },
+      { "api/datasets/d9": { id: "d9", history_id: "elsewhere", name: "x" } },
+    );
+    expect(events.find((e) => e.type === "tool_end")).toMatchObject({ is_error: false });
+    expect(result.binding?.history_id).toBe("h1");
+    expect(events.some((e) => e.type === "tool_end" && e.binding)).toBe(false);
+  });
+
+  it("binds an unbound session to the history the agent writes into", async () => {
+    const { result, events } = await turn(
+      [
+        { calls: [{ name: "update_history", args: { history_id: "hw", name: "renamed" } }] },
+        { text: "ok" },
+      ],
+      {},
+      { "api/histories/hw": { id: "hw", name: "renamed" } },
+    );
+    expect(events.find((e) => e.type === "tool_end")).toMatchObject({ is_error: false });
+    expect(result.binding?.history_id).toBe("hw");
   });
 });
 

@@ -49,11 +49,19 @@ export interface Watched {
   state?: string;
 }
 
+/** The session's identity in Galaxy: its id, its record page, the history it works in. */
+export interface Binding {
+  sessionId?: string;
+  pageId?: string;
+  historyId?: string;
+}
+
 export interface Context {
   galaxy: Galaxy;
   ops: GalaxyContext;
   python: Python;
-  record: { sessionId?: string; pageId?: string };
+  /** What this session is bound to; the session owns it and reports its changes. */
+  binding: Binding;
   /** Earlier turns' artifacts and this turn's, which a page may place. */
   artifacts: { prior: Artifact[]; produced: Artifact[] };
   watching: Watched[];
@@ -127,6 +135,12 @@ export function asAgentTool(
         value = await tool.run(args, ctx);
       } catch (err) {
         return result(`Tool '${tool.name}' raised: ${(err as Error)?.message ?? err}`, true);
+      }
+      // Writing into a history is choosing it: an unbound session works there from now on.
+      const named = (args as { history_id?: unknown }).history_id;
+      const wrote = tool.capability === "write" && !(value instanceof Outcome && value.isError);
+      if (wrote && typeof named === "string" && !ctx.binding.historyId) {
+        ctx.binding.historyId = named;
       }
       if (value instanceof Outcome) {
         return result(

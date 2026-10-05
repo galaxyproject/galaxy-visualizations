@@ -62,6 +62,11 @@ function opsTool(op: AnyOperation, annotate?: Annotate): OlitTool {
       if (!envelope.success) {
         return fail(String(envelope.message || `${op.name} failed`));
       }
+      // Creating a history is the agent choosing where to work, even in a bound session.
+      const created = (envelope.data as { id?: unknown } | undefined)?.id;
+      if (op.name === "create_history" && typeof created === "string") {
+        ctx.binding.historyId = created;
+      }
       const payload = rendered(envelope);
       const hint = await annotate?.(op.name, args, envelope.data, ctx);
       return new Outcome(hint ? `${payload}\n\n${hint}` : payload);

@@ -170,7 +170,7 @@ export async function resume(
   return { created: true, page_id: created.id, title: created.title ?? null, content: STARTER };
 }
 
-/** `notebook_resume`: opens the session's record page, keeping its id on `ctx.record`. */
+/** `notebook_resume`: opens the session's record page, keeping its id on `ctx.binding`. */
 export function notebookTools(): OlitTool[] {
   return [
     {
@@ -185,11 +185,11 @@ export function notebookTools(): OlitTool[] {
       parameters: { type: "object", properties: {} },
       capability: CAPABILITY,
       run: async (_args, ctx: Context) => {
-        const opened = await resume(ctx.galaxy, ctx.record.sessionId, ctx.record.pageId);
+        const opened = await resume(ctx.galaxy, ctx.binding.sessionId, ctx.binding.pageId);
         if (opened instanceof Outcome) {
           return opened;
         }
-        ctx.record.pageId = opened.page_id;
+        ctx.binding.pageId = opened.page_id;
         return new Outcome(JSON.stringify(opened));
       },
     },
