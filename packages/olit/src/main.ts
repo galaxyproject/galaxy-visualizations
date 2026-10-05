@@ -85,7 +85,14 @@ async function main() {
   const el = mountLayout(container);
   const artifactPane = mountArtifactPane(container);
   const chat = new ChatPanel(el.messages);
-  const retryNotice = createRetryNotice(chat);
+  /** An info line as text: the vendored panel parses it as HTML, and dataset names, ids and
+   * approval prompts reach it. */
+  const info = (text: string) => {
+    const line = chat.addInfoMessage("");
+    line.textContent = text;
+    return line;
+  };
+  const retryNotice = createRetryNotice({ addInfoMessage: info });
 
   // Ask for a provider/key before the worker starts.
   const creds = await ensureCredentials(container);
@@ -155,7 +162,7 @@ async function main() {
       savedId = await saved.save(sessionDoc, savedId);
       el.save.textContent = "Saved";
       reportSavedState(true);
-      chat.addInfoMessage(
+      info(
         "Saved this conversation. Open it again from Galaxy's visualizations to continue it anywhere.",
       );
     } catch (e) {
@@ -183,7 +190,7 @@ async function main() {
     el.reset.classList.remove("hidden");
   }
   if (fromGalaxy) {
-    chat.addInfoMessage("Opened a saved Olit session.");
+    info("Opened a saved Olit session.");
   }
   // Replayed like the transcript: a resumed session that can still place a chart but shows
   // an empty pane is telling the user it lost something it did not.
@@ -196,7 +203,7 @@ async function main() {
     new URL(`${incoming.root}${base}static/pyodide`, window.location.href).href,
   );
   const ready = true;
-  chat.addInfoMessage(
+  info(
     resumed
       ? "Resumed this history's conversation. Olit ready."
       : "Olit ready. Ask me to run something.",
@@ -205,7 +212,7 @@ async function main() {
   if (config.dataset_id) {
     void describeSeedDataset(config.galaxy_root, credentials, config.dataset_id).then((found) => {
       if (found) {
-        chat.addInfoMessage(summarize(found));
+        info(summarize(found));
       }
     });
   }
@@ -229,9 +236,9 @@ async function main() {
         chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
       } else if (outcome === "cancelled") {
         // The user asked for this; an alarm about it would be the loudest thing in the room.
-        chat.addInfoMessage(`${what} ${w.id} was cancelled.`);
+        info(`${what} ${w.id} was cancelled.`);
       } else {
-        chat.addInfoMessage(`${what} ${w.id} finished (${state}).`);
+        info(`${what} ${w.id} finished (${state}).`);
       }
       // Continue without asking the user to relay the notification.
       if (isResumableOutcome(state, failed)) {
@@ -266,7 +273,7 @@ async function main() {
   refreshSave();
   // Bounded automatic continuation, so an unattended tab cannot keep itself busy.
   const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
-    onPaused: (text) => chat.addInfoMessage(text),
+    onPaused: (text) => info(text),
   });
   // Last diagnostics the brain reported; undefined until the first turn returns.
   let latest: import("./diagnostics").Diagnostics | undefined;
@@ -299,7 +306,7 @@ async function main() {
         retryNotice.start(ev.status, ev.wait, ev.attempt, ev.of);
       } else if (ev.type === "compacted") {
         // Never let history disappear without saying so.
-        chat.addInfoMessage("Summarized the earlier conversation to make room.");
+        info("Summarized the earlier conversation to make room.");
       } else if (ev.type === "context_overflow") {
         // Compaction was needed and could not help; say so before the provider does.
         chat.addErrorMessage(
@@ -378,15 +385,13 @@ async function main() {
     const spoke = renderMessages(chat, reply.new_messages || [], streamed, new Set(), true);
     // Exactly one explanation for a quiet turn, most specific first.
     if (reply.aborted) {
-      chat.addInfoMessage("Stopped.");
+      info("Stopped.");
     } else if (reply.exhausted) {
       // Orbit has no step cap; olit's must not look like completion.
-      chat.addInfoMessage(
-        'I ran out of steps for one turn while still working. Say "continue" to pick it up.',
-      );
+      info('I ran out of steps for one turn while still working. Say "continue" to pick it up.');
     } else if (!spoke && !reply.done) {
       // A reply with no tool calls ends the loop; `done` means finish was called.
-      chat.addInfoMessage("The model ended the turn without a reply. Ask again, or rephrase.");
+      info("The model ended the turn without a reply. Ask again, or rephrase.");
     }
 
     convo.length = 0;
@@ -472,7 +477,7 @@ async function main() {
     followUp.agentStarted();
     el.send.classList.add("hidden");
     el.abort.classList.remove("hidden");
-    chat.addInfoMessage("Checking the Galaxy results that just landed.");
+    info("Checking the Galaxy results that just landed.");
     chat.showThinking();
     convo.push({ role: "user", content: text });
     try {
@@ -502,7 +507,7 @@ async function main() {
   const showConfirm = createConfirm({
     container,
     respond: (id, approved) => agent.confirm(Number(id), approved),
-    note: (text) => chat.addInfoMessage(text),
+    note: (text) => info(text),
   });
   function confirm(id: number, request: { title: string; message: string }) {
     showConfirm(String(id), request);
@@ -529,7 +534,7 @@ async function main() {
     produced.length = 0;
     el.artifactContent.innerHTML = "";
     el.reset.classList.add("hidden");
-    chat.addInfoMessage(
+    info(
       "Started a new conversation. The previous one is saved, and the record on Galaxy is untouched.",
     );
   });
