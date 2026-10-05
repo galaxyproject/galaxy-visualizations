@@ -180,6 +180,21 @@ describe("a turn", () => {
     });
   });
 
+  it("names an Olit tool asked for as a Galaxy tool, rather than letting Galaxy shrug", async () => {
+    const { result } = await turn([
+      {
+        calls: [
+          { name: "run_tool", args: { history_id: "h1", tool_id: "lineage_report", inputs: {} } },
+        ],
+      },
+      { calls: [{ name: "search_tools_by_name", args: { query: "vega_dataset" } }] },
+      { text: "ok" },
+    ]);
+    const tools = toChat(result.new_messages).filter((m) => m.role === "tool");
+    expect(tools[0].content).toContain("'lineage_report' is an Olit tool, not a Galaxy tool");
+    expect(tools[1].content).toContain("the tool catalog does not hold it");
+  });
+
   it("does not advertise a withheld tool", async () => {
     const { requests } = await turn([{ text: "ok" }], { capabilities: ["llm", "read"] });
     const names = requests[0].tools.map((t: { function: { name: string } }) => t.function.name);

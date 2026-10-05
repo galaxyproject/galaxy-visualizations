@@ -232,15 +232,52 @@ function placingArtifacts(tool: OlitTool): OlitTool {
 
 /** Every tool Olit can offer, before a session filters them by capability. */
 export function olitTools(skills = skillRegistry()): OlitTool[] {
-  return [
+  const own = [
     pythonTool(),
-    ...[...opsTools(annotate), ...galaxyTools(), ...visualizationTools()].map(placingArtifacts),
+    ...visualizationTools(),
     ...notebookTools(),
     ...gtnTools(),
     ...enaTools(),
     skillsTool(skills),
     ...processTools(),
   ];
+  const ownNames = new Set(own.map((t) => t.name));
+  const galaxy = [...opsTools(annotate), ...galaxyTools()].map((t) => misrouted(t, ownNames));
+  return [
+    pythonTool(),
+    ...[...galaxy, ...visualizationTools()].map(placingArtifacts),
+    ...notebookTools(),
+    ...gtnTools(),
+    ...enaTools(),
+    skillsTool(skills),
+    ...processTools(),
+  ];
+}
+
+/**
+ * A Galaxy tool asked about one of Olit's own tools: Galaxy answers "not found", or nothing at
+ * all, so say where the tool lives instead. A tool_id asks for it directly; a query hunts the
+ * catalog for it.
+ */
+function misrouted(tool: OlitTool, own: Set<string>): OlitTool {
+  return {
+    ...tool,
+    run: async (args: Record<string, unknown>, ctx: Context) => {
+      const wanted = [args.tool_id, args.query].find(
+        (v): v is string => typeof v === "string" && own.has(v.trim()),
+      );
+      if (wanted && wanted === args.tool_id) {
+        return fail(`'${wanted}' is an Olit tool, not a Galaxy tool. Call ${wanted} directly.`);
+      }
+      if (wanted) {
+        return fail(
+          `'${wanted}' is an Olit tool rather than a Galaxy tool, so the tool catalog does not ` +
+            "hold it. It is already in your tool list if you need it.",
+        );
+      }
+      return tool.run(args, ctx);
+    },
+  };
 }
 
 /** galaxy-ops over the same transport as Olit's own Galaxy client. */
@@ -260,6 +297,9 @@ export class Session {
   private connection!: Awaited<ReturnType<typeof connect>>;
   /** Galaxy work this session submitted and has not seen finish. */
   watch: Watch;
+  /** Guards for model-free calls (`call`), which persist across them as a turn's do. */
+  private callGuards?: ReturnType<typeof guards>;
+  private calls = 0;
   /** Where the running turn hears about a provider retry. */
   private onRetry?: (info: RetryInfo) => void;
 
@@ -356,8 +396,39 @@ export class Session {
       artifacts: { prior: [], produced: [] },
       watch: this.watch,
     };
-    const result = await asAgentTool(tool, () => ctx).execute("call", args as never);
-    return { content: contentText(result.content), artifacts: ctx.artifacts.produced };
+    // The guards a turn would apply, kept across calls the way a turn keeps them across steps.
+    this.callGuards ??= guards({
+      settled: SETTLED,
+      watch: this.watch,
+      secrets: [this.target.apiKey, this.config.galaxy_key].filter(
+        (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
+      ),
+      withheld: new Map(),
+      advertised: this.tools.map((t) => t.name),
+      destructive: new Set(this.tools.filter((t) => t.destructive).map((t) => t.name)),
+    });
+    const id = `call-${++this.calls}`;
+    const toolCall = { type: "toolCall", id, name, arguments: args };
+    const blocked = await this.callGuards.beforeToolCall({
+      toolCall,
+      args,
+      assistantMessage: { role: "assistant", content: [toolCall] },
+    } as never);
+    if (blocked?.block) {
+      const guard = this.callGuards.guardOf(id, name, false);
+      return { content: blocked.reason ?? "", is_error: true, guard, artifacts: [] };
+    }
+    const raw = await asAgentTool(tool, () => ctx).execute(id, args as never);
+    const after = await this.callGuards.afterToolCall({ toolCall, result: raw } as never);
+    const result = { ...raw, ...after };
+    if (result.isError) {
+      this.callGuards.noteFailure(name, args);
+    }
+    return {
+      content: contentText(result.content),
+      is_error: result.isError,
+      artifacts: ctx.artifacts.produced,
+    };
   }
 
   /** One pass over the unfinished work: what settled, and the follow-up turn it calls for. */
