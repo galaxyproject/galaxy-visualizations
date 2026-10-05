@@ -8,7 +8,7 @@ import { parseIncoming } from "./incoming";
 import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
-import { describeError, lastLine, renderMessages, replayMessages } from "./transcript";
+import { lastLine, renderMessages, replayMessages } from "./transcript";
 import { SessionStore, galaxyUserId, indexedDbStore } from "./session";
 import {
   advance,
@@ -392,7 +392,7 @@ async function main() {
     // Exactly one explanation for a quiet turn, most specific first.
     if (reply.error) {
       console.error("[olit] turn failed", reply.error);
-      chat.addErrorMessage(describeError(reply.error));
+      chat.addErrorMessage(lastLine(reply.error.message || "The turn failed."));
     } else if (reply.aborted) {
       info("Stopped.");
     } else if (reply.exhausted) {

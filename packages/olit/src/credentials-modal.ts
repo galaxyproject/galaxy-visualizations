@@ -38,7 +38,7 @@ const MARKUP = `
         <label for="cred-key">API key</label>
         <input id="cred-key" type="password" autocomplete="off" spellcheck="false"
                placeholder="Paste your key" />
-        <p class="cred-note">Kept in this browser tab only. It is never sent to or stored by Galaxy.</p>
+        <p class="cred-note">Kept for this browser tab, where pages on this Galaxy site can read it. It is never sent to or stored by Galaxy.</p>
       </div>
       <div id="cred-error" class="cred-error"></div>
     </div>
