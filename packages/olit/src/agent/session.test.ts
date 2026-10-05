@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
 import { toChat } from "./messages";
+import { connect } from "./model";
+import { resolve } from "./providers";
 import {
   failedTurn,
   injectContext,
@@ -386,27 +388,51 @@ describe("the history a session is bound to", () => {
 });
 
 describe("prepare", () => {
-  it("puts the context block in the system message once", () => {
-    const once = injectContext(start, "ctx");
-    const twice = injectContext(once, "ctx2");
-    expect(twice[0].content).toBe(
-      "You are olit.\n\n<!-- olit:context -->\nctx2\n<!-- /olit:context -->",
-    );
+  const sections = (m: AgentMessage) => (m as { sections?: Record<string, string> }).sections;
+
+  it("keeps the context as one section of the leading prompt", () => {
+    const twice = injectContext(injectContext(start, "ctx"), "ctx2");
+    expect(twice[0]).toMatchObject({ role: "system", content: "You are olit." });
+    expect(sections(twice[0])).toEqual({ context: "ctx2" });
+    expect(twice).toHaveLength(start.length);
   });
 
-  it("refreshes the record excerpt just before the last user turn", () => {
+  it("refreshes the record section just before the last user turn", () => {
     const first = injectRecord(start, "one");
-    const second = toChat(
-      injectRecord(
-        [
-          ...first,
-          { role: "assistant", content: [{ type: "text", text: "a" }], timestamp: 0 },
-          { role: "user", content: "again", timestamp: 0 },
-        ] as AgentMessage[],
-        "two",
-      ),
+    const second = injectRecord(
+      [
+        ...first,
+        { role: "assistant", content: [{ type: "text", text: "a" }], timestamp: 0 },
+        { role: "user", content: "again", timestamp: 0 },
+      ] as AgentMessage[],
+      "two",
     );
-    expect(second.filter((m) => (m.content ?? "").includes("olit:record"))).toHaveLength(1);
-    expect(second.at(-2)).toEqual({ role: "system", content: "<!-- olit:record -->\ntwo" });
+    const updates = second.filter((m) => sections(m)?.record);
+    expect(updates).toHaveLength(1);
+    expect(second.at(-2)).toBe(updates[0]);
+    expect(sections(updates[0])).toEqual({ record: "two" });
+  });
+
+  it("reaches the model as pi renders sections: the prompt, then the record update", async () => {
+    const { model, streamFn } = await connect(resolve({ ai_base_url: LLM, ai_model: "m" }));
+    const messages = injectRecord(injectContext(start, "CTX"), "RECORD-EXCERPT");
+    let sent: { messages: Array<{ role: string; content: string }> } = { messages: [] };
+    const stream = await streamFn(
+      model,
+      { messages } as never,
+      {
+        fetch: async () =>
+          new Response("data: [DONE]\n\n", { headers: { "content-type": "text/event-stream" } }),
+        onPayload: (payload: unknown) => {
+          sent = payload as typeof sent;
+        },
+      } as never,
+    );
+    await stream.result();
+    expect(sent.messages).toEqual([
+      { role: "system", content: "You are olit.\n\nCTX" },
+      { role: "system", content: 'Updated system prompt section "record":\n\nRECORD-EXCERPT' },
+      { role: "user", content: "hi" },
+    ]);
   });
 });

@@ -32,9 +32,14 @@ describe("what the document stores", () => {
     const stored = storableMessages([
       SEED,
       message("user", "hi"),
-      message("system", "<!-- olit:record -->\nstale dataset names"),
+      {
+        role: "system",
+        content: "",
+        sections: { record: "stale dataset names" },
+        timestamp: 0,
+      } as unknown as AgentMessage,
     ]);
-    expect(JSON.stringify(stored)).not.toContain("olit:record");
+    expect(JSON.stringify(stored)).not.toContain("stale dataset names");
   });
 
   it("keeps a stable session id across turns", () => {

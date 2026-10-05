@@ -4,7 +4,7 @@ import {
   type AgentMessage,
   type AgentTool,
 } from "@earendil-works/pi-agent-core";
-import { contentText, normalizeContext } from "@earendil-works/pi-ai";
+import { normalizeContext } from "@earendil-works/pi-ai";
 import { createGalaxyContext, type GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import { resolveArtifacts } from "./artifacts";
@@ -35,15 +35,13 @@ import {
   type OlitTool,
   type Python,
 } from "./tool";
+import { CONTEXT_SECTION, isRecordUpdate, RECORD_SECTION, sectionsOf } from "./sections";
 import { followUpPrompt, stateReader, Watch, type Settled, type Watched } from "./watch";
 import { pythonTool } from "./python";
 import { visualizationTools } from "./visualizations";
 
 export const MAX_STEPS = 100;
 const DEFAULT_CAPABILITIES: Capability[] = ["llm", "local", "read", "write"];
-const BEGIN = "<!-- olit:context -->";
-const END = "<!-- /olit:context -->";
-const RECORD_MARKER = "<!-- olit:record -->";
 const MIN_SECRET_LENGTH = 8;
 const PRE_DISPATCH = new Set<Guard>([
   "repeated-failure",
@@ -158,43 +156,38 @@ export function failedTurn(transcripts: AgentMessage[], err: unknown): TurnResul
   };
 }
 
-/** pi's message text, whatever form its content takes. */
-const textIn = (m: AgentMessage) =>
-  "content" in m ? contentText((m.content ?? "") as Parameters<typeof contentText>[0]) : "";
-
-const system = (content: string): AgentMessage =>
-  ({ role: "system", content, timestamp: Date.now() }) as AgentMessage;
-
-/** The session's context block in the system message, replacing an earlier copy. */
+/** The session's context as a section of the leading system message, replacing an earlier one. */
 export function injectContext(transcripts: AgentMessage[], text: string): AgentMessage[] {
   if (!text || !transcripts.length) {
     return transcripts;
   }
-  const block = `${BEGIN}\n${text}\n${END}`;
   const [first, ...rest] = transcripts;
-  if (first.role !== "system") {
-    return [system(block), ...transcripts];
-  }
-  let content = textIn(first);
-  const start = content.indexOf(BEGIN);
-  const stop = content.indexOf(END);
-  content =
-    start !== -1 && stop > start
-      ? content.slice(0, start) + block + content.slice(stop + END.length)
-      : `${content}\n\n${block}`;
-  return [{ ...first, content: content.trim() } as AgentMessage, ...rest];
+  const lead = first.role === "system" ? first : undefined;
+  const updated = {
+    ...(lead ?? { role: "system", content: "", timestamp: Date.now() }),
+    sections: { ...sectionsOf(first), [CONTEXT_SECTION]: text },
+  } as unknown as AgentMessage;
+  return lead ? [updated, ...rest] : [updated, ...transcripts];
 }
 
-/** The record excerpt as its own message just before the last user turn, replacing an earlier copy. */
+/**
+ * The record excerpt as an update of its own section just before the last user turn, so it
+ * sits beside what was asked; the update an earlier turn left is dropped.
+ */
 export function injectRecord(
   transcripts: AgentMessage[],
   text: string | undefined,
 ): AgentMessage[] {
-  const kept = transcripts.filter((m) => !textIn(m).includes(RECORD_MARKER));
+  const kept = transcripts.filter((m) => !isRecordUpdate(m));
   if (!text) {
     return kept;
   }
-  const message = system(`${RECORD_MARKER}\n${text}`);
+  const message = {
+    role: "system",
+    content: "",
+    sections: { [RECORD_SECTION]: text },
+    timestamp: Date.now(),
+  } as unknown as AgentMessage;
   const lastUser = kept.findLastIndex((m) => m.role === "user");
   return lastUser < 0
     ? [...kept, message]
