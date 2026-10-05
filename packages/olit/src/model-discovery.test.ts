@@ -38,6 +38,9 @@ describe("model discovery", () => {
 
   it("treats a body of the wrong shape as no models", () => {
     expect(modelIds({ models: ["a"] })).toEqual([]);
+    expect(modelIds({ models: [{ name: "models/gemini-3.7-flash" }, { name: 7 }] })).toEqual([
+      "gemini-3.7-flash",
+    ]);
     expect(modelIds(null)).toEqual([]);
   });
 

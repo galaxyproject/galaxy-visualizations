@@ -169,6 +169,25 @@ describe("a turn", () => {
     expect(names).not.toContain("organize_datasets");
   });
 
+  it("holds its rate limit across turns, not just within one", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "Date"] });
+    try {
+      const { requests } = server([{ text: "one" }, { text: "two" }]);
+      const session = await Session.create(config({ ai_rate_limit: 1 }), python);
+      await session.turn(start);
+      expect(requests).toHaveLength(1);
+      const second = session.turn(start);
+      await vi.advanceTimersByTimeAsync(30_000);
+      // One request a minute: a new turn must not get a fresh allowance.
+      expect(requests).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(31_000);
+      await second;
+      expect(requests).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the session's keys out of tool results", async () => {
     const { result } = await turn(
       [{ calls: [{ name: "get_history_details", args: { history_id: "f2c1" } }] }, { text: "ok" }],

@@ -10,7 +10,7 @@ const env = {
   // enough; LLM_ROOT/LLM_PATH below are only for an endpoint the registry lacks.
   LLM_PROVIDER: "",
   LLM_ROOT: "",
-  // Path the /llm proxy rewrites to; Gemini's shim is /v1beta/openai.
+  // Path the /llm proxy rewrites to; Gemini's native API is /v1beta.
   LLM_PATH: "",
   // Provider key, kept in the environment because the manifest is committed.
   LLM_KEY: "",

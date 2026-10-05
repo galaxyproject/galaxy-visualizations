@@ -108,7 +108,7 @@ function tools() {
 
 /** What an unconfigured request carries, with and without tools, read off the real request. */
 async function llmRequest() {
-  const { model, streamFn } = connect(resolve({ ai_base_url: "http://x/v1", ai_model: "m" }));
+  const { model, streamFn } = await connect(resolve({ ai_base_url: "http://x/v1", ai_model: "m" }));
   const capture = async (tools: unknown[]) => {
     let body: Record<string, unknown> = {};
     const stream = await streamFn(

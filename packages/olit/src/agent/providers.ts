@@ -6,9 +6,35 @@ export interface ProviderModel {
   contextWindow?: number;
 }
 
+/** The pi-ai API a provider is reached through; pi's own adapter for each. */
+export type ProviderApi = "openai-completions" | "google-generative-ai";
+
+/**
+ * Overrides of pi-ai's openai-completions compat detection, which keys on provider id and
+ * host. Each one names something an endpoint was seen to reject or require.
+ */
+export interface ProviderCompat {
+  /** pi sends `store` to any host it does not list as non-standard; only OpenAI defines it. */
+  supportsStore?: boolean;
+  maxTokensField?: "max_tokens" | "max_completion_tokens";
+  /** The record excerpt sits before the latest user turn rather than folded into the prompt. */
+  supportsMidConvoSystemMessages?: boolean;
+}
+
+/** What an OpenAI-compatible endpoint other than OpenAI itself has been seen to accept. */
+const OPENAI_COMPATIBLE: ProviderCompat = {
+  supportsStore: false,
+  supportsMidConvoSystemMessages: true,
+};
+/** The same, for servers that only read the older `max_tokens` (Galaxy, vLLM, llama.cpp). */
+const SELF_HOSTED: ProviderCompat = { ...OPENAI_COMPATIBLE, maxTokensField: "max_tokens" };
+
 export interface Provider {
   id: string;
   name: string;
+  /** Defaults to openai-completions. */
+  api?: ProviderApi;
+  compat?: ProviderCompat;
   baseUrl?: string;
   /** The environment variable a headless run reads the key from; none means no user key. */
   authEnv?: string;
@@ -24,11 +50,13 @@ export interface Provider {
 }
 
 export const PROVIDERS: Provider[] = [
-  { id: "galaxy", name: "Galaxy chat proxy", maxTokens: 8192 },
+  { id: "galaxy", name: "Galaxy chat proxy", maxTokens: 8192, compat: SELF_HOSTED },
   {
     id: "google",
     name: "Google Gemini",
-    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    // pi's own Gemini adapter: it keeps thought signatures and sends only what Gemini defines.
+    api: "google-generative-ai",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     authEnv: "GEMINI_KEY",
     rateLimit: 5,
     models: [
@@ -41,6 +69,8 @@ export const PROVIDERS: Provider[] = [
     name: "DeepSeek",
     baseUrl: "https://api.deepseek.com/v1",
     authEnv: "DEEPSEEK_KEY",
+    // pi already detects DeepSeek as non-standard.
+    compat: { supportsMidConvoSystemMessages: true },
     models: [{ id: "deepseek-v4-flash", contextWindow: 1_000_000 }],
   },
   {
@@ -48,6 +78,7 @@ export const PROVIDERS: Provider[] = [
     name: "OpenRouter",
     baseUrl: "https://openrouter.ai/api/v1",
     authEnv: "OPENROUTER_KEY",
+    compat: OPENAI_COMPATIBLE,
     models: [
       { id: "anthropic/claude-sonnet-5", contextWindow: 1_000_000 },
       { id: "openai/gpt-5.6-terra", contextWindow: 1_050_000 },
@@ -61,6 +92,7 @@ export const PROVIDERS: Provider[] = [
     name: "Jetstream2",
     baseUrl: "https://llm.jetstream-cloud.org/api",
     authEnv: "JETSTREAM2_KEY",
+    compat: SELF_HOSTED,
     models: [
       { id: "gpt-oss-120b", contextWindow: 131_072 },
       { id: "llama-4-scout", contextWindow: 328_000 },
@@ -70,6 +102,7 @@ export const PROVIDERS: Provider[] = [
     id: "ollama",
     name: "Ollama or a local server",
     baseUrl: "http://127.0.0.1:11434/v1",
+    compat: SELF_HOSTED,
     probeWindow: true,
     freeModel: true,
   },
@@ -78,6 +111,7 @@ export const PROVIDERS: Provider[] = [
     name: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
     authEnv: "OPENAI_KEY",
+    compat: { supportsMidConvoSystemMessages: true },
     freeModel: true,
   },
   {
@@ -85,6 +119,7 @@ export const PROVIDERS: Provider[] = [
     name: "Anthropic",
     baseUrl: "https://api.anthropic.com/v1",
     authEnv: "ANTHROPIC_KEY",
+    compat: OPENAI_COMPATIBLE,
     freeModel: true,
     headers: { "anthropic-dangerous-direct-browser-access": "true" },
   },
@@ -93,6 +128,7 @@ export const PROVIDERS: Provider[] = [
     name: "Groq",
     baseUrl: "https://api.groq.com/openai/v1",
     authEnv: "GROQ_KEY",
+    compat: OPENAI_COMPATIBLE,
     freeModel: true,
   },
   {
@@ -100,9 +136,18 @@ export const PROVIDERS: Provider[] = [
     name: "Mistral",
     baseUrl: "https://api.mistral.ai/v1",
     authEnv: "MISTRAL_KEY",
+    compat: { ...OPENAI_COMPATIBLE, maxTokensField: "max_tokens" },
     freeModel: true,
   },
-  { id: "xai", name: "xAI", baseUrl: "https://api.x.ai/v1", authEnv: "XAI_KEY", freeModel: true },
+  {
+    id: "xai",
+    name: "xAI",
+    baseUrl: "https://api.x.ai/v1",
+    authEnv: "XAI_KEY",
+    // pi already detects xAI as non-standard.
+    compat: { supportsMidConvoSystemMessages: true },
+    freeModel: true,
+  },
 ];
 
 export interface LlmConfig {
@@ -140,7 +185,12 @@ export function resolve(config: LlmConfig, env: Record<string, string | undefine
       );
     }
   } else if (config.ai_base_url) {
-    provider = { id: "custom", name: "Custom endpoint", baseUrl: config.ai_base_url };
+    provider = {
+      id: "custom",
+      name: "Custom endpoint",
+      baseUrl: config.ai_base_url,
+      compat: SELF_HOSTED,
+    };
   } else {
     provider = PROVIDERS[0];
   }

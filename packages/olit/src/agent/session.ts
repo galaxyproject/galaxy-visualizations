@@ -22,6 +22,7 @@ import { opsTools } from "./ops";
 import { processTools } from "./processes";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
 import { probeWindow, resolve, type LlmConfig } from "./providers";
+import type { RetryInfo } from "./retry";
 import { skillRegistry, skillsTool } from "./skills";
 import {
   asAgentTool,
@@ -217,6 +218,10 @@ export function olitTools(skills = skillRegistry()): OlitTool[] {
 export class Session {
   readonly record: { sessionId?: string; pageId?: string };
   private galaxyStatus: GalaxyStatus = GALAXY_UNREACHABLE;
+  /** The model connection lives as long as the session: its rate limit spans turns. */
+  private connection!: Awaited<ReturnType<typeof connect>>;
+  /** Where the running turn hears about a provider retry. */
+  private onRetry?: (info: RetryInfo) => void;
 
   private constructor(
     private config: SessionConfig,
@@ -254,6 +259,7 @@ export class Session {
     });
     const skills = skillRegistry();
     const session = new Session(config, galaxy, ops, python, target, olitTools(skills));
+    session.connection = await connect(target, (info) => session.onRetry?.(info));
     session.galaxyStatus = await galaxy
       .get("api/version")
       .then((): GalaxyStatus => GALAXY_READY)
@@ -330,10 +336,11 @@ export class Session {
       ask: options.ask,
     });
     const logs: string[] = [];
-    const { model, streamFn } = connect(this.target, (info) => {
+    const { model, streamFn } = this.connection;
+    this.onRetry = (info) => {
       logs.push(`provider answered ${info.status}, retrying in ${info.wait}s`);
       emit({ type: "llm_retry", ...info });
-    });
+    };
     const compaction = compactor(
       compactionSettings({
         enabled: this.config.ai_compaction,
