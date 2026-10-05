@@ -28,7 +28,7 @@ describe("what the document stores", () => {
     expect(restoreMessages(doc, newer)[0]).toEqual(newer);
   });
 
-  it("drops the record block the brain refreshes every turn", () => {
+  it("drops the record section the session refreshes every turn", () => {
     const stored = storableMessages([
       SEED,
       message("user", "hi"),

@@ -1,3 +1,4 @@
+import { contentText } from "@earendil-works/pi-ai";
 import type {
   AfterToolCallContext,
   AfterToolCallResult,
@@ -88,9 +89,6 @@ export function redact(text: string, secrets: string[]): string {
 }
 
 const key = (name: string, args: unknown) => `${name} ${JSON.stringify(args)}`;
-
-export const textOf = (content: Array<{ type: string; text?: string }>) =>
-  content.map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("");
 
 export interface GuardOptions {
   settled: Set<string>;
@@ -190,7 +188,7 @@ export function guards(options: GuardOptions) {
     toolCall,
     result,
   }: AfterToolCallContext): Promise<AfterToolCallResult | undefined> {
-    const text = textOf(result.content);
+    const text = contentText(result.content);
     const size = new TextEncoder().encode(text).length;
     if (size > MAX_RESULT_BYTES) {
       return {
@@ -229,7 +227,7 @@ export function guards(options: GuardOptions) {
       if (m.role !== "toolResult" || !m.isError) {
         return m;
       }
-      const text = textOf(m.content);
+      const text = contentText(m.content);
       if (text !== `Tool ${m.toolName} not found`) {
         return m;
       }

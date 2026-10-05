@@ -1,6 +1,7 @@
+import { quote } from "../quote";
 import { query, segment, type Galaxy } from "../galaxy";
 import { chunkItems, groupDatasets, type Grouping } from "./dataset-grouping";
-import { repr, type Process, type State } from "./process";
+import { type Process, type State } from "./process";
 
 export const BATCH = 1000;
 const NAME_SAMPLE = 10;
@@ -149,7 +150,7 @@ export function summarizeState(state: State): State | null {
     return {
       ok: false,
       error:
-        `Refused: ${repr(lost.datatype)} would relabel ` +
+        `Refused: ${quote(lost.datatype)} would relabel ` +
         `${lost.names.length} compressed dataset(s) as uncompressed.`,
       use: `${lost.datatype}.gz`,
       datasets: lost.names.slice(0, NAME_SAMPLE),
@@ -197,8 +198,8 @@ export const organizeDatasets: Process = {
       type: "string",
       default: "auto",
       help:
-        "'auto' pairs on evidence, 'paired' (or Galaxy's own 'list:paired') forces pairing, " +
-        "'list' forces a flat list.",
+        '"auto" pairs on evidence, "paired" (or Galaxy\'s own "list:paired") forces pairing, ' +
+        '"list" forces a flat list.',
     },
     datatype: {
       type: "string",

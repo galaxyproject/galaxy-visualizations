@@ -9,7 +9,7 @@ import { toChat } from "./messages";
 import { failedTurn, Session, type TurnResult } from "./session";
 import { DEFAULT_MAX_AUTO_FOLLOW_UPS } from "./watch";
 
-/** One session over JSON lines: `create`, `turn`, `settle`, `close`; events stream before a turn's result. */
+/** One session over JSON lines: `create`, `turn`, `settle`, `call`, `close`; a turn's events stream before its result. */
 /** Where Pyodide lives, resolved only when a session needs it: `--describe` runs without it. */
 const pyodideURL = () =>
   pathToFileURL(dirname(createRequire(import.meta.url).resolve("pyodide/pyodide.mjs"))).href;
@@ -46,6 +46,9 @@ async function main() {
           artifacts: request.artifacts,
         });
         write({ result: graded(result) });
+      } else if (request.op === "call") {
+        // One tool without a model, for a drive that checks it against a real Galaxy.
+        write({ result: await session!.call(request.name, request.args ?? {}) });
       } else if (request.op === "settle") {
         // The same pass the page makes between turns, with the same follow-up it would send.
         const { settled, pending, followUp } = await session!.settle();

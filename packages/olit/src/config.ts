@@ -1,4 +1,4 @@
-/** The brain's config, assembled from the Charts incoming contract and dev env vars. */
+/** The agent's config, assembled from the Charts incoming contract and dev env vars. */
 import { parseIncoming } from "./incoming";
 import { providerById, type Credentials } from "./credentials";
 

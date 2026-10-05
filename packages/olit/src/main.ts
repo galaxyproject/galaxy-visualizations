@@ -112,7 +112,7 @@ async function main() {
     timestamp: Date.now(),
   } as AgentMessage;
   const convo: AgentMessage[] = [seed];
-  // The shell owns what a turn produced, the way it owns the transcript: the brain is
+  // The shell owns what a turn produced, the way it owns the transcript: the agent session is
   // rebuilt whenever the config changes, so anything it held would not survive a model switch.
   const produced: Artifact[] = [];
   // A vega spec carries its rows, so a long session keeps only its most recent artifacts.
@@ -298,7 +298,7 @@ async function main() {
   const followUp = createFollowUpDelivery((text) => void runAutomaticTurn(text), {
     onPaused: (text) => info(text),
   });
-  // Last diagnostics the brain reported; undefined until the first turn returns.
+  // Last diagnostics the agent reported; undefined until the first turn returns.
   let latest: import("./diagnostics").Diagnostics | undefined;
 
   // Whether streamed text is open in an assistant message.
@@ -363,7 +363,7 @@ async function main() {
     };
   }
 
-  /** One turn: the request, what the brain said, and whatever it produced. */
+  /** One turn: the request, what the agent said, and whatever it produced. */
   async function runTurn(text: string): Promise<void> {
     const streamed = new Set<string>();
     console.groupCollapsed("[olit] turn");
@@ -394,13 +394,13 @@ async function main() {
     chat.hideThinking();
     retryNotice.stop();
     if (reply.error) {
-      // The brain returns a failed turn as data; the console keeps the detail.
+      // The agent returns a failed turn as data; the console keeps the detail.
       console.error("[olit] turn failed", reply.error);
       chat.addErrorMessage(describeError(reply.error));
       return;
     }
 
-    // The brain names this turn's messages; compaction moves them, so no slicing.
+    // The agent names this turn's messages; compaction moves them, so no slicing.
     const spoke = renderMessages(chat, reply.new_messages || [], streamed, true);
     // Exactly one explanation for a quiet turn, most specific first.
     if (reply.aborted) {
@@ -604,6 +604,6 @@ async function main() {
   });
 }
 
-// No window here: the brain compacts, and trimming on top would delete the summary.
+// No window here: the agent compacts, and trimming on top would delete the summary.
 
 void main();

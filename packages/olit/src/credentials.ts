@@ -70,7 +70,7 @@ export function clearCredentials(): void {
  * Is this selection usable? A provider whose endpoint takes no user key (the
  * Galaxy proxy, a local server) is usable without one; every other provider
  * needs a non-empty key. Returning a reason rather than a bool lets the caller
- * keep the overlay up and say what is missing, instead of starting a brain that
+ * keep the overlay up and say what is missing, instead of starting an agent that
  * fails on its first request.
  */
 export function credentialProblem(creds: Credentials | null): string | null {

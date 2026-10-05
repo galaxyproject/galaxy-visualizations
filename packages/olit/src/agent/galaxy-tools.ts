@@ -1,3 +1,4 @@
+import { quote } from "./quote";
 import { allOperations, runWithEnvelope } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
@@ -287,7 +288,7 @@ async function downloadDataset(args: Row, { galaxy, python }: Context) {
   const state = isRow(details) ? details.state : undefined;
   if (state !== "ok") {
     return fail(
-      `Dataset is in state ${state == null ? "None" : `'${state}'`}, not 'ok', so it holds nothing to read yet. ` +
+      `Dataset is in state ${quote(state)}, not "ok", so it holds nothing to read yet. ` +
         "Wait for the job producing it to finish and download it again.",
     );
   }

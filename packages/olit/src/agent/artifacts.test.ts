@@ -34,7 +34,7 @@ describe("resolving tokens", () => {
   it("refuses a kind with no renderer rather than writing it broken", () => {
     const { text, refusal } = resolveArtifacts("{{artifact}}", [{ kind: "hologram", title: "x" }]);
     expect(text).toBe("{{artifact}}");
-    expect(refusal).toContain("'hologram'");
+    expect(refusal).toContain('"hologram"');
     expect(refusal).toContain("mermaid");
   });
 
@@ -69,7 +69,7 @@ describe("resolving tokens", () => {
   it("refuses an unknown title and names what there is", () => {
     const { text, refusal } = resolveArtifacts("{{artifact: Nothing}}", [VEGA]);
     expect(text).toBe("{{artifact: Nothing}}");
-    expect(refusal).toContain("'Nothing'");
+    expect(refusal).toContain('"Nothing"');
     expect(refusal).toContain("Glucose by BMI");
   });
 

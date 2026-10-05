@@ -4,7 +4,7 @@ import {
   type AgentMessage,
   type AgentTool,
 } from "@earendil-works/pi-agent-core";
-import { normalizeContext } from "@earendil-works/pi-ai";
+import { contentText, normalizeContext } from "@earendil-works/pi-ai";
 import { createGalaxyContext, type GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import { resolveArtifacts } from "./artifacts";
@@ -14,7 +14,7 @@ import { connectGalaxy, galaxyFetch, type Galaxy, type GalaxyOptions } from "./g
 import { annotate, galaxyTools, SETTLED } from "./galaxy-tools";
 import { enaTools } from "./ena";
 import { gtnTools } from "./gtn";
-import { guards, textOf } from "./guards";
+import { guards } from "./guards";
 import { connect } from "./model";
 import { excerpt, notebookTools } from "./notebook";
 import { opsTools } from "./ops";
@@ -338,6 +338,28 @@ export class Session {
     this.binding.historyId = config.history_id;
   }
 
+  /**
+   * One tool, run as a turn would run it but without a model: for a drive that checks a tool's
+   * real effect against a real Galaxy. Returns what the model would read and what the shell
+   * would receive.
+   */
+  async call(name: string, args: Record<string, unknown>) {
+    const tool = this.tools.find((t) => t.name === name);
+    if (!tool) {
+      throw new Error(`no tool named ${name}`);
+    }
+    const ctx: Context = {
+      galaxy: this.galaxy,
+      ops: this.ops,
+      python: this.python,
+      binding: this.binding,
+      artifacts: { prior: [], produced: [] },
+      watch: this.watch,
+    };
+    const result = await asAgentTool(tool, () => ctx).execute("call", args as never);
+    return { content: contentText(result.content), artifacts: ctx.artifacts.produced };
+  }
+
   /** One pass over the unfinished work: what settled, and the follow-up turn it calls for. */
   async settle(): Promise<{ settled: Settled[]; pending: number; followUp?: string }> {
     const settled = await this.watch.poll();
@@ -423,7 +445,7 @@ export class Session {
           messages: [{ role: "user", content: prompt, timestamp: Date.now() }],
         });
         const stream = await streamFn(model, request, { signal });
-        return textOf((await stream.result()).content as Array<{ type: string; text?: string }>);
+        return contentText((await stream.result()).content);
       },
     );
     const maxSteps = this.config.max_steps || MAX_STEPS;
@@ -484,7 +506,7 @@ export class Session {
         logs.push(`call ${event.toolName}(${brief(event.args)})`);
         emit({ type: "tool_start", id: event.toolCallId, name: event.toolName });
       } else if (event.type === "tool_execution_end") {
-        const content = textOf(event.result.content);
+        const content = contentText(event.result.content);
         const notFound = content === `Tool ${event.toolName} not found`;
         const name = event.toolName;
         const guardName =

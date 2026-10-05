@@ -1,50 +1,10 @@
+import { quote } from "./quote";
 type Json = Record<string, any>;
 
 export type Types = Record<string, Json>;
 
 const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** A value as Python's `repr` writes it. */
-export function repr(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "None";
-  }
-  if (typeof value === "boolean") {
-    return value ? "True" : "False";
-  }
-  if (typeof value === "string") {
-    const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
-    const escaped = value
-      .replace(/\\/g, "\\\\")
-      .replace(/\n/g, "\\n")
-      .replace(/\r/g, "\\r")
-      .replace(/\t/g, "\\t");
-    return quote + (quote === "'" ? escaped.replace(/'/g, "\\'") : escaped) + quote;
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(repr).join(", ")}]`;
-  }
-  if (isObject(value)) {
-    return `{${Object.entries(value)
-      .map(([k, v]) => `${repr(k)}: ${repr(v)}`)
-      .join(", ")}}`;
-  }
-  return String(value);
-}
-
-/** A value as Python's `json.dumps` writes it. */
-export function pyJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(pyJson).join(", ")}]`;
-  }
-  if (isObject(value)) {
-    return `{${Object.entries(value)
-      .map(([k, v]) => `${JSON.stringify(k)}: ${pyJson(v)}`)
-      .join(", ")}}`;
-  }
-  return JSON.stringify(value ?? null);
-}
 
 /** What a value looks like before the model replaces it, by what the type stores. */
 const SCALAR_PLACEHOLDER: Record<string, unknown> = {
@@ -215,7 +175,7 @@ export function namedCase(test: Json | undefined, value: unknown): string {
     }
   }
   const label = labels.get(value);
-  return label ? `${repr(value)} (${label})` : repr(value);
+  return label ? `${quote(value)} (${label})` : quote(value);
 }
 
 /** The case label galaxy-charts compares: `result[testName] ?? test_param.value`. */
@@ -240,7 +200,7 @@ function shape(trail: string[], testName: string): string {
   for (const step of [...trail].reverse()) {
     nested = { [step]: nested };
   }
-  return pyJson(nested);
+  return JSON.stringify(nested ?? null);
 }
 
 export interface Hit {
@@ -266,12 +226,12 @@ function resolve(params: unknown, segments: string[], held: unknown, trail: stri
     (p): p is Json => isObject(p) && p.name === name,
   );
   if (!param) {
-    return problem(`${repr(trail.join("."))} declares nothing named ${repr(name)}.`);
+    return problem(`${quote(trail.join("."))} declares nothing named ${quote(name)}.`);
   }
   if (param.type !== "conditional") {
     if (rest.length) {
       return problem(
-        `${repr(here)} is a ${repr(param.type)} input and holds nothing named ${repr(rest[0])}.`,
+        `${quote(here)} is a ${quote(param.type)} input and holds nothing named ${quote(rest[0])}.`,
       );
     }
     return hit(param, here);
@@ -281,13 +241,13 @@ function resolve(params: unknown, segments: string[], held: unknown, trail: stri
   const cases: Json[] = param.cases || [];
   if (!rest.length) {
     return problem(
-      `${repr(here)} is a conditional. Name an input inside it, or its test parameter ${repr(test.name)}.`,
+      `${quote(here)} is a conditional. Name an input inside it, or its test parameter ${quote(test.name)}.`,
     );
   }
   if (rest[0] === test.name) {
     if (rest.length > 1) {
       return problem(
-        `${here}.${repr(rest[0])} is a test parameter and holds nothing named ${repr(rest[1])}.`,
+        `${here}.${quote(rest[0])} is a test parameter and holds nothing named ${quote(rest[1])}.`,
       );
     }
     return hit(test, `${here}.${rest[0]}`);
@@ -299,8 +259,8 @@ function resolve(params: unknown, segments: string[], held: unknown, trail: stri
   if (!active) {
     const offered = cases.map((c) => namedCase(test, c.value)).join(", ");
     return problem(
-      `${repr(here)} selects its inputs by ${repr(test.name)}. Pass ` +
-        `config=${shape([...trail, name], test.name)} with ${repr(test.name)} as one of ${offered}.`,
+      `${quote(here)} selects its inputs by ${quote(test.name)}. Pass ` +
+        `config=${shape([...trail, name], test.name)} with ${quote(test.name)} as one of ${offered}.`,
     );
   }
   const found = resolve(active.inputs, rest, nested, [...trail, name]);
@@ -328,7 +288,7 @@ export function resolveParameter(
     .filter(Boolean);
   if (segments.length < 2 || !GROUPS.includes(segments[0])) {
     return problem(
-      `${repr(parameter)} is not a parameter path. Name one as get_visualization_details ` +
+      `${quote(parameter)} is not a parameter path. Name one as get_visualization_details ` +
         `publishes it, rooted at ${GROUPS.join(" or ")}.`,
     );
   }

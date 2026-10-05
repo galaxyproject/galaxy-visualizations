@@ -141,7 +141,7 @@ describe("buildResumePrompt", () => {
 
   it("restates nothing the standing prompt already carries", () => {
     // The system message is rebuilt on every turn, this one included, so a second copy here
-    // could only drift. Each phrase below is a rule that lives in `prompt.py`.
+    // could only drift. Each phrase below is a rule that lives in `src/agent/prompt.ts`.
     const prompt = buildResumePrompt([
       { kind: "job", id: "j1", label: "Galaxy job j1", outcome: "failed" },
     ]);

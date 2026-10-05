@@ -248,8 +248,8 @@ describe("run_tool history guard", () => {
 
   it("leaves non-dataset parameters alone", async () => {
     const { posted, submit } = owned({ d1: HERE });
-    await submit(HERE, { input: { src: "hda", id: "d1" }, cond: "c3=='Gold'", lines: 5 });
-    expect(posted[0].inputs.cond).toBe("c3=='Gold'");
+    await submit(HERE, { input: { src: "hda", id: "d1" }, cond: 'c3=="Gold"', lines: 5 });
+    expect(posted[0].inputs.cond).toBe('c3=="Gold"');
   });
 
   it("finds references in nested structures", () => {
@@ -272,7 +272,7 @@ describe("run_tool history guard", () => {
 });
 
 describe("run_tool parameter help", () => {
-  const REJECTION = "HTTP 400: Parameter '0|other_column' has an invalid key structure.";
+  const REJECTION = 'HTTP 400: Parameter "0|other_column" has an invalid key structure.';
 
   function rejecting(error: Error, toolAnswer?: unknown) {
     const asked: string[] = [];
@@ -584,20 +584,20 @@ describe("dataset filesystem", () => {
   it("refuses a dataset still running rather than reading it", async () => {
     const d = dataset(TABLE, { state: "running" });
     const out = refused(await d.download("abc123"));
-    expect(out).toContain("not 'ok'");
+    expect(out).toContain('not "ok"');
     expect(out).toContain("running");
     expect(d.fs.size).toBe(0);
   });
 
   it("refuses an errored dataset", async () => {
     expect(refused(await dataset(TABLE, { state: "error" }).download("abc123"))).toContain(
-      "not 'ok'",
+      'not "ok"',
     );
   });
 
   it("refuses a dataset that states no state", async () => {
     expect(refused(await dataset(TABLE, { state: null }).download("abc123"))).toContain(
-      "state None",
+      "state null",
     );
   });
 

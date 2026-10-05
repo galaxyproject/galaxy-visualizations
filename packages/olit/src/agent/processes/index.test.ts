@@ -54,8 +54,8 @@ describe("process tools", () => {
 
   it("shows a default to the model", () => {
     const props = params(tools().organize_datasets).properties;
-    expect(props.structure.description).toContain("Defaults to 'auto'.");
-    expect(props.collection_name.description).toBe("Defaults to 'Collection'.");
+    expect(props.structure.description).toContain('Defaults to "auto".');
+    expect(props.collection_name.description).toBe('Defaults to "Collection".');
     expect(params(tools().lineage_report).properties.depth.description).toBe("Defaults to 4.");
   });
 

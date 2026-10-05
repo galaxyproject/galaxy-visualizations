@@ -2,7 +2,7 @@
 
 export interface ConfirmDeps {
   container: HTMLElement;
-  /** Answer the brain, resuming the parked turn. */
+  /** Answer the agent, resuming the parked turn. */
   respond: (confirmId: string, approved: boolean) => void;
   /** Say in chat what was decided. */
   note: (text: string) => void;

@@ -1,5 +1,5 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { ThinkingContent } from "@earendil-works/pi-ai";
+import { contentText, type ThinkingContent } from "@earendil-works/pi-ai";
 
 /** A message in the OpenAI chat format. Olit keeps pi's own messages; the harness grades this. */
 export interface ChatMessage {
@@ -14,20 +14,11 @@ export interface ChatMessage {
 
 const REASONING_KEYS = ["reasoning_content", "reasoning"] as const;
 
-const textOf = (content: unknown): string =>
-  typeof content === "string"
-    ? content
-    : Array.isArray(content)
-      ? content
-          .map((c: { type: string; text?: string }) => (c.type === "text" ? c.text : ""))
-          .join("")
-      : "";
-
 /** pi's messages in the OpenAI chat shape the evaluation harness grades. */
 export function toChat(messages: AgentMessage[]): ChatMessage[] {
   return messages.flatMap((m): ChatMessage[] => {
     if (m.role === "assistant") {
-      const out: ChatMessage = { role: "assistant", content: textOf(m.content) || null };
+      const out: ChatMessage = { role: "assistant", content: contentText(m.content) || null };
       const calls = m.content.filter((c) => c.type === "toolCall");
       if (calls.length) {
         out.tool_calls = calls.map((c) => ({
@@ -48,15 +39,20 @@ export function toChat(messages: AgentMessage[]): ChatMessage[] {
     }
     if (m.role === "toolResult") {
       return [
-        { role: "tool", tool_call_id: m.toolCallId, name: m.toolName, content: textOf(m.content) },
+        {
+          role: "tool",
+          tool_call_id: m.toolCallId,
+          name: m.toolName,
+          content: contentText(m.content),
+        },
       ];
     }
-    if (m.role === "system" && !textOf(m.content)) {
+    if (m.role === "system" && !contentText(m.content)) {
       // pi's declaration of the tool set, which it re-derives every turn; Olit keeps no copy.
       return [];
     }
     if (m.role === "system" || m.role === "user") {
-      return [{ role: m.role, content: textOf(m.content) }];
+      return [{ role: m.role, content: contentText(m.content) }];
     }
     return [];
   });

@@ -54,12 +54,12 @@ const MARKUP = `
 
 /**
  * Resolve with usable credentials, showing the overlay only when what we have
- * cannot work. Rejecting up front beats starting a brain that dies on its first
+ * cannot work. Rejecting up front beats starting an agent that dies on its first
  * request, and the overlay stays up on a bad entry rather than stranding the
  * user in front of an agent that never connected.
  *
  * `cancellable` is only safe when a working selection already exists to fall back
- * on: dismissing the first-run picker would leave the brain with no key at all.
+ * on: dismissing the first-run picker would leave the agent with no key at all.
  * Resolves null when dismissed.
  */
 function openPicker(container: HTMLElement, cancellable: boolean): Promise<Credentials | null> {
@@ -194,7 +194,7 @@ function openPicker(container: HTMLElement, cancellable: boolean): Promise<Crede
 /**
  * Reopen the picker so the provider can be changed after boot. The worker takes
  * its config at initialize, so the new choice is applied by reloading rather than
- * re-initializing a live brain. Conversation history lives in IndexedDB and is
+ * re-initializing a live agent. Conversation history lives in IndexedDB and is
  * restored on the way back up, so switching models does not discard it.
  */
 export async function switchProvider(container: HTMLElement): Promise<void> {

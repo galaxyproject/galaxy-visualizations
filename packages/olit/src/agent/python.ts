@@ -63,7 +63,6 @@ export function pythonTool(): OlitTool {
       "cannot import galaxy, and real compute belongs in a Galaxy job.",
     parameters: { type: "object", properties: { code: { type: "string" } }, required: ["code"] },
     capability: "local",
-    sequential: true,
     run: async ({ code }: { code: string }, ctx) => {
       try {
         return new Outcome(await ctx.python.run(code ?? ""));

@@ -66,7 +66,7 @@ describe("toChat", () => {
       ],
       timestamp: 0,
     };
-    expect(toChat([user as AgentMessage])).toEqual([{ role: "user", content: "ab" }]);
+    expect(toChat([user as AgentMessage])).toEqual([{ role: "user", content: "a\nb" }]);
   });
 
   it("leaves out pi's tool declarations, which say nothing a grader reads", () => {

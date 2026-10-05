@@ -1,7 +1,8 @@
+import { quote } from "../quote";
 import { claim, Outcome, type Capability, type OlitTool } from "../tool";
 import { lineageReport } from "./lineage-report";
 import { organizeDatasets } from "./organize-datasets";
-import { repr, type Process } from "./process";
+import { type Process } from "./process";
 
 export type { Process } from "./process";
 
@@ -29,7 +30,7 @@ function parameters(process: Process) {
       spec.type === "array" ? { type: "array", items: { type: "string" } } : { type: spec.type };
     const described = [
       ...(spec.help ? [spec.help] : []),
-      ...(spec.default !== undefined ? [`Defaults to ${repr(spec.default)}.`] : []),
+      ...(spec.default !== undefined ? [`Defaults to ${quote(spec.default)}.`] : []),
     ];
     if (described.length) {
       properties[key].description = described.join(" ");

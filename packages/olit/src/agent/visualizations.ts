@@ -1,3 +1,4 @@
+import { quote } from "./quote";
 import inputs from "galaxy-charts/galaxy-charts.inputs.json";
 import { getOptions } from "galaxy-charts/runtime";
 import { Value } from "typebox/value";
@@ -12,8 +13,6 @@ import {
   effectiveDefault,
   isOffered,
   optionBearing,
-  pyJson,
-  repr,
   resolveParameter,
   type Types,
 } from "./visualization-inputs";
@@ -150,7 +149,7 @@ async function listVisualizations(galaxy: Galaxy, a: Json): Promise<Json> {
   };
   if (!matching.length) {
     result.hint =
-      `No installed visualization accepts the datatype ${repr(extension)}. ` +
+      `No installed visualization accepts the datatype ${quote(extension)}. ` +
       "Converting the dataset to a supported datatype is the usual route.";
   } else if (matching.some((p) => columnParameters(p).length) && !numeric.length) {
     result.hint =
@@ -172,7 +171,7 @@ async function resolveVisualization(
   if (!installed.some((p) => p.name === name)) {
     return {
       refusal: {
-        error: `Refused: ${repr(name)} is not an installed visualization.`,
+        error: `Refused: ${quote(name)} is not an installed visualization.`,
         hint: "Call list_visualizations for the dataset to see what this server offers.",
       },
     };
@@ -183,7 +182,7 @@ async function resolveVisualization(
   if (!compatible.some((p) => p.name === name)) {
     return {
       refusal: {
-        error: `Refused: ${repr(name)} cannot render the datatype ${repr(dataset.extension)}.`,
+        error: `Refused: ${quote(name)} cannot render the datatype ${quote(dataset.extension)}.`,
         can_render_it: compatible.map((p) => p.name).sort(),
         hint: "Call list_visualizations for this dataset for the full picture.",
       },
@@ -265,7 +264,7 @@ async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown
   const plugin: Json = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
   if (!plugin.name) {
     return fail(
-      `Refused: ${repr(name)} is not an installed visualization. Call list_visualizations ` +
+      `Refused: ${quote(name)} is not an installed visualization. Call list_visualizations ` +
         "for a dataset to see what this server offers.",
     );
   }
@@ -293,7 +292,9 @@ function matches(entry: Json, search: string | undefined): boolean {
     return false;
   }
   const hay = ["id", "name", "label", "value"]
-    .map((k) => (!entry[k] ? "" : typeof entry[k] === "object" ? repr(entry[k]) : String(entry[k])))
+    .map((k) =>
+      !entry[k] ? "" : typeof entry[k] === "object" ? quote(entry[k]) : String(entry[k]),
+    )
     .join(" ")
     .toLowerCase();
   return hay.includes(search.toLowerCase());
@@ -308,14 +309,14 @@ async function getVisualizationOptions(
   const asked = a.parameter;
   const plugin = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
   if (!isObject(plugin) || !plugin.name) {
-    return fail(`Refused: ${repr(name)} is not an installed visualization.`);
+    return fail(`Refused: ${quote(name)} is not an installed visualization.`);
   }
 
   const { hit, problem } = resolveParameter(plugin, asked, a.config);
   if (problem || !hit) {
     const leaf = String(asked).split(".").pop()!;
     const elsewhere = declaredPaths(plugin, leaf).filter((path) => path !== asked);
-    const where = elsewhere.length ? ` ${repr(leaf)} is declared at ${elsewhere.join(", ")}.` : "";
+    const where = elsewhere.length ? ` ${quote(leaf)} is declared at ${elsewhere.join(", ")}.` : "";
     return fail(`Refused: ${problem}${where}`);
   }
   const { declared, path: wanted, otherCases: siblings, case: when } = hit;
@@ -324,7 +325,7 @@ async function getVisualizationOptions(
 
   const envelope = await resolveOptions(galaxy, declared, { datasetId: a.dataset_id });
   if (!envelope.success) {
-    return fail(`Could not resolve ${repr(wanted)}: ${envelope.message || "the lookup failed"}.`);
+    return fail(`Could not resolve ${quote(wanted)}: ${envelope.message || "the lookup failed"}.`);
   }
   const offered: Json[] = envelope.data || [];
   if (!kind) {
@@ -351,8 +352,8 @@ async function getVisualizationOptions(
   if (!entries.length && siblings.length) {
     result.other_cases = siblings;
     result.hint =
-      `This server lists no ${repr(wanted)} for ${repr(when)}. The same parameter is ` +
-      `declared for ${siblings.map(repr).join(", ")}; try one of those.`;
+      `This server lists no ${quote(wanted)} for ${quote(when)}. The same parameter is ` +
+      `declared for ${siblings.map(quote).join(", ")}; try one of those.`;
     return result;
   }
   if (search) {
@@ -370,7 +371,7 @@ async function getVisualization(galaxy: Galaxy, a: Json): Promise<unknown> {
   const saved: Json = (await galaxy.get(`api/visualizations/${segment(a.visualization_id)}`)) || {};
   if (!saved.id) {
     return fail(
-      `No saved visualization ${repr(a.visualization_id)}. Pass the visualization_id ` +
+      `No saved visualization ${quote(a.visualization_id)}. Pass the visualization_id ` +
         "that save_visualization returned.",
     );
   }
@@ -447,7 +448,7 @@ export function checkLevel(
     .sort();
   if (unknown.length) {
     return {
-      error: `Refused: ${where} declares no parameter ${repr(unknown[0])}.`,
+      error: `Refused: ${where} declares no parameter ${quote(unknown[0])}.`,
       declared: sortedAllowed,
       hint:
         "Parameters inside a conditional belong in that conditional's object, " +
@@ -465,7 +466,7 @@ export function checkLevel(
       const cases: Json[] = param.cases || [];
       const active = activeCase(param, entry);
       if (!active) {
-        const labels = cases.map((c) => repr(c.value)).join(", ");
+        const labels = cases.map((c) => quote(c.value)).join(", ");
         return {
           error: `Refused: ${param.name}.${test} selects the case, so it takes one of ${labels}.`,
           declared: sortedAllowed,
@@ -502,11 +503,11 @@ function wrongShape(name: string, value: unknown, spec: Json | undefined): Json 
   const wanted = spec!.type;
   let error: string;
   if (wanted === "object") {
-    error = `Refused: ${repr(name)} takes the whole entry it was chosen from, not ${repr(value)}.`;
+    error = `Refused: ${quote(name)} takes the whole entry it was chosen from, not ${quote(value)}.`;
   } else if (typeof value === "object") {
-    error = `Refused: ${repr(name)} stores ${wanted}, not the entry it was chosen from.`;
+    error = `Refused: ${quote(name)} stores ${wanted}, not the entry it was chosen from.`;
   } else {
-    error = `Refused: ${repr(name)} stores ${wanted}: ${failure.message}`;
+    error = `Refused: ${quote(name)} stores ${wanted}: ${failure.message}`;
   }
   return {
     error,
@@ -577,18 +578,18 @@ async function rejectUnoffered(
       if (!offered.length && branch) {
         return {
           saved: false,
-          error: `Refused: this server lists no ${path} for ${branch.test}=${repr(branch.value)}.`,
+          error: `Refused: this server lists no ${path} for ${branch.test}=${quote(branch.value)}.`,
           other_cases: branch.siblings,
           hint:
             "The same parameter is declared for " +
-            branch.siblings.map(repr).join(", ") +
+            branch.siblings.map(quote).join(", ") +
             "; a value resolved under one of those does not become valid by " +
-            `leaving ${branch.test} as ${repr(branch.value)}.`,
+            `leaving ${branch.test} as ${quote(branch.value)}.`,
         };
       }
       const names = offered
         .slice(0, MATCH_CAP)
-        .map((o) => repr(identity(o.value)))
+        .map((o) => quote(identity(o.value)))
         .join(", ");
       return {
         saved: false,
@@ -597,7 +598,7 @@ async function rejectUnoffered(
           `${offered.length} value(s) are offered` +
           (names ? `, including ${names}` : " for this case") +
           ". These were resolved with " +
-          (a.dataset_id ? `dataset_id=${repr(a.dataset_id)}` : "no dataset") +
+          (a.dataset_id ? `dataset_id=${quote(a.dataset_id)}` : "no dataset") +
           "; call get_visualization_options the same way and store the option's " +
           "complete `value` unchanged, since a value naming the right entry with " +
           "different or fewer fields is not it.",
@@ -642,7 +643,7 @@ async function saveVisualization(
     if (!visualizationId) {
       return fail(
         "Galaxy accepted the visualization but returned no id, so there is nothing " +
-          `to display or revise. It answered: ${pyJson(created)}`,
+          `to display or revise. It answered: ${JSON.stringify(created ?? null)}`,
       );
     }
   }
@@ -680,7 +681,7 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
   }
   const details: Json = (await galaxy.get(`api/datasets/${segment(datasetId)}`)) || {};
   if (!details.id) {
-    return { charted: false, error: `No dataset ${repr(datasetId)} is readable.` };
+    return { charted: false, error: `No dataset ${quote(datasetId)} is readable.` };
   }
   const { ready, refusal } = vega.build(datasetId, a.spec, details);
   if (refusal || !ready) {
@@ -703,7 +704,7 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
   const suspect = vega.unsatisfiableTypes(ready, details);
   if (suspect.length) {
     result.note =
-      `Galaxy types ${suspect.map(repr).join(", ")} as text, so a quantitative ` +
+      `Galaxy types ${suspect.map(quote).join(", ")} as text, so a quantitative ` +
       "encoding on it plots only the rows that parse as numbers, and none if it holds no " +
       "numbers at all. Check the chart says what you meant.";
   }

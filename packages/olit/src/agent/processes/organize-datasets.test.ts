@@ -217,7 +217,7 @@ describe("datatype", () => {
     expect(summary.use).toBe("fastqsanger.gz");
     expect(summary.datasets[0].endsWith(".fastq.gz")).toBe(true);
     expect(summary.error).toBe(
-      "Refused: 'fastqsanger' would relabel 4 compressed dataset(s) as uncompressed.",
+      'Refused: "fastqsanger" would relabel 4 compressed dataset(s) as uncompressed.',
     );
     expect(ops(calls)).toEqual(["contents"]);
   });

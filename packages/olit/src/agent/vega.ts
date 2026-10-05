@@ -1,7 +1,6 @@
+import { quote } from "./quote";
 import { segment } from "./galaxy";
 import { compile } from "vega-lite";
-
-import { repr } from "./visualization-inputs";
 
 type Json = Record<string, any>;
 
@@ -58,7 +57,7 @@ export function unreferenceable(details: Json): string | null {
       return `${name} is in state 'error', so the job producing it failed and it holds nothing to chart.`;
     }
     return (
-      `${name} is in state ${repr(state)}, so it holds no readable content yet. A dataset reaches ` +
+      `${name} is in state ${quote(state)}, so it holds no readable content yet. A dataset reaches ` +
       "'ok' when the job producing it finishes; wait for it and chart it again rather than " +
       "converting it or changing its datatype."
     );
@@ -89,7 +88,7 @@ export function unreferenceable(details: Json): string | null {
   const delimiter = details.metadata_delimiter;
   if (hasNames && delimiter !== ",") {
     return (
-      `Galaxy names this dataset's columns and separates them with ${repr(delimiter)}, a ` +
+      `Galaxy names this dataset's columns and separates them with ${quote(delimiter)}, a ` +
       "combination Vega's reader has not been verified against here."
     );
   }
@@ -269,8 +268,8 @@ export function build(
       return {
         ready: null,
         refusal:
-          `the spec reads ${unknown.map(repr).join(", ")}, which this dataset does ` +
-          `not hold. Its columns are ${available.map(repr).join(", ")}.`,
+          `the spec reads ${unknown.map(quote).join(", ")}, which this dataset does ` +
+          `not hold. Its columns are ${available.map(quote).join(", ")}.`,
       };
     }
   }

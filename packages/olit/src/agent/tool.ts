@@ -77,8 +77,6 @@ export interface OlitTool {
   destructive?: boolean;
   /** Every capability the tool needs, when it is more than `capability` alone. */
   requires?: Capability[];
-  /** Run in call order with the rest of its batch. */
-  sequential?: boolean;
   run(args: any, ctx: Context): Promise<unknown>;
 }
 
@@ -125,7 +123,6 @@ export function asAgentTool(
     label: tool.name,
     description: tool.description,
     parameters: tool.parameters as unknown as AgentTool["parameters"],
-    executionMode: tool.sequential ? "sequential" : undefined,
     execute: async (_id, args, signal) => {
       const ctx = contextFor(signal);
       let value: unknown;

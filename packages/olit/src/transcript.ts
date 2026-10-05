@@ -4,8 +4,7 @@ import { contentText } from "@earendil-works/pi-ai";
 
 import { ChatPanel } from "./orbit/chat/chat-panel";
 
-const textOf = (content: unknown) =>
-  contentText((content ?? "") as Parameters<typeof contentText>[0]);
+const textOf = (content: unknown) => contentText(content as Parameters<typeof contentText>[0]);
 
 /** Render the turn's messages; returns whether any assistant prose was shown. */
 export function renderMessages(

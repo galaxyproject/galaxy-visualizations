@@ -106,7 +106,7 @@ describe("the data invariant", () => {
   it("leaves a transform naming no data alone", () => {
     const spec = {
       mark: "point",
-      transform: [{ calculate: "datum['col:3'] * 2", as: "doubled" }],
+      transform: [{ calculate: 'datum["col:3"] * 2', as: "doubled" }],
       encoding: { x: { field: "doubled", type: "quantitative" } },
     };
     const { ready, refusal } = built(spec);
@@ -144,7 +144,7 @@ describe("which datasets can be referenced", () => {
   it("refuses named columns with an unverified delimiter", () => {
     const { refusal } = built(SCATTER, { ...CSV, metadata_delimiter: "\t" });
     expect(refusal).toContain("has not been verified");
-    expect(refusal).toContain("'\\t'");
+    expect(refusal).toContain('"\\t"');
   });
 });
 
@@ -155,7 +155,7 @@ describe("field names", () => {
       encoding: { x: { field: "Glucose", type: "quantitative" } },
     });
     expect(refusal).toContain("does not hold");
-    expect(refusal).toContain("'col:1'");
+    expect(refusal).toContain('"col:1"');
   });
 
   it("accepts a field a transform produces", () => {
@@ -192,8 +192,8 @@ describe("field names", () => {
   });
 
   it("checks a field named only in a filter", () => {
-    const spec = { mark: "point", transform: [{ filter: "datum['nope'] > 1" }], encoding: {} };
-    expect(built(spec).refusal).toContain("'nope'");
+    const spec = { mark: "point", transform: [{ filter: 'datum["nope"] > 1' }], encoding: {} };
+    expect(built(spec).refusal).toContain('"nope"');
   });
 
   it("does not check names a pivot makes unknowable", () => {
@@ -232,7 +232,7 @@ describe("what reaches the page", () => {
 describe("the dataset has to be readable", () => {
   it("names an unfinished job rather than blaming the datatype", () => {
     const { refusal } = built(SCATTER, { ...TABULAR, state: "running", metadata_data_lines: null });
-    expect(refusal).toContain("state 'running'");
+    expect(refusal).toContain('state "running"');
     expect(refusal).toContain("wait for it and chart it again");
     expect(refusal).not.toContain("column count");
   });
@@ -254,7 +254,7 @@ describe("the dataset has to be readable", () => {
       metadata_columns: null,
       metadata_data_lines: null,
     };
-    expect(built(SCATTER, queued).refusal).toContain("state 'queued'");
+    expect(built(SCATTER, queued).refusal).toContain('state "queued"');
   });
 });
 

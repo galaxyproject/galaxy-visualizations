@@ -76,7 +76,7 @@ export function newDocument(options: {
   };
 }
 
-/** The seed prompt and the brain's refreshed blocks are regenerated, never stored.
+/** The seed prompt and the session's refreshed sections are regenerated, never stored.
  *
  * Storing the seed would pin a restored conversation to the prompt text of the day it
  * started, so a prompt correction would never reach it.
