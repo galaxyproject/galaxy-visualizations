@@ -28,7 +28,7 @@ flowchart TB
 
     subgraph Olit
         UI
-        Brain["Olit's Agent (pi-agent-core)"]
+        Brain["Olit's Agent (pi-durable)"]
         Skill["Galaxy Skills"]
         Ops["Galaxy MCP"]
         State["State"]
@@ -59,7 +59,7 @@ Olit explores how that model translates to a browser-native architecture. Its na
 
 | | Orbit | Olit |
 | --- | --- | --- |
-| Agent runtime | Local/server (pi) | Browser worker (pi-agent-core) |
+| Agent runtime | Local/server (pi) | Browser worker (pi-durable) |
 | Scientific computation | Local environment + Galaxy | Galaxy |
 | Shell | Available | None |
 | Filesystem | Local filesystem | Galaxy data + browser storage |
@@ -93,7 +93,7 @@ Galaxy visualization plugins are not limited to plots and viewers: they can be c
 
 Because Olit is served by Galaxy, it is same-origin with the Galaxy API and can operate through the researcher's active session. In normal embedded operation, this avoids a local proxy, a separate agent process, or a long-lived Galaxy API key held by another service.
 
-The agent runs in a Web Worker on pi-agent-core, the loop Orbit itself is built on. Python runs apart from it, in a worker of its own with an opaque origin, started when the agent first runs Python. The surrounding application connects the interface, browser runtime, model provider, and active Galaxy session. Model credentials remain in the browser rather than being held by a separate Olit backend.
+The agent runs in a Web Worker on pi-durable, pi's durable agent harness: conversations, runs, compaction, retries and submitted Galaxy work are committed to SQLite in the browser's private file system (OPFS), so a reload resumes them instead of starting over. A browser that keeps no files, such as a private window, runs the same conversation in memory and says so. One tab holds a conversation at a time. Python runs apart from the agent, in a worker of its own with an opaque origin, started when the agent first runs Python. The surrounding application connects the interface, browser runtime, model provider, and active Galaxy session. Model credentials remain in the browser rather than being held by a separate Olit backend.
 
 This allows Olit to be distributed through Galaxy's existing visualization infrastructure without requiring a separate agent service.
 
