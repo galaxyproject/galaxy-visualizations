@@ -1,15 +1,11 @@
 import { quote } from "./quote";
-import {
-  allOperations,
-  runWithEnvelope,
-  validatePagination,
-} from "@galaxyproject/galaxy-ops/browser";
+import { validatePagination } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { query, segment, type Galaxy } from "./galaxy";
 import { catalogMissHint, fetchFailureHint } from "./hints";
 import { described, ROLLUP_LIMIT, type JobStates } from "./invocation-outcome";
-import { UPSTREAM_DOCS, type Annotate } from "./ops";
+import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { applySectionEdit, djb2Hash, malformedObjectIds, pageBody } from "./page-edit";
 import { serverPage } from "./paging";
 import { serialized } from "./record-write";
@@ -52,6 +48,25 @@ export const PROMISED_FIELDS: Record<string, string[]> = {
 };
 
 export const promisedFields = (name: string) => PROMISED_FIELDS[name] ?? [];
+
+/** Olit's policy over galaxy-ops operations it runs but does not own. */
+export const OPS_POLICY: Record<string, OpPolicy> = {
+  // Galaxy runs a tool on a dataset from another history, so galaxy-ops does too. An agent that
+  // does so has nearly always copied the wrong id, and the job answers a question nobody asked.
+  run_tool: {
+    check: async (args, ctx) => {
+      const foreign = await foreignInputs(ctx.galaxy, args.inputs, String(args.history_id));
+      return foreign.length
+        ? fail(
+            `Refused: these inputs do not identify a dataset in history ${args.history_id}: ` +
+              `${JSON.stringify(foreign)}. Use the \`id\` field of a dataset returned by ` +
+              `get_history_contents for this history. To use data from elsewhere, copy it into ` +
+              `this history first.`,
+          )
+        : undefined;
+    },
+  },
+};
 
 /** What Olit adds to a galaxy-ops result: where a missed search lives, or fetch-failure triage. */
 export const annotate: Annotate = async (name, args, data, ctx) =>
@@ -161,73 +176,6 @@ async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string)
     }
   }
   return foreign;
-}
-
-/** What the model is told when a tool rejects its inputs. */
-export function parameterHelp(detail: string, template: unknown): string {
-  if (!template || (isRow(template) && !Object.keys(template).length)) {
-    return detail;
-  }
-  return (
-    `${detail}\nThe tool accepts these input keys. Fill this template and resend:\n` +
-    JSON.stringify(template, null, 1)
-  );
-}
-
-/** Galaxy's prose on the paths that answer 500 instead of rejecting the request. */
-const PARAMETER_ERROR_PHRASES = ["invalid key structure", "has no attribute"];
-
-/** Whether the tool rejected the inputs, which is when its template is worth attaching. */
-function isParameterError(error: unknown): boolean {
-  if ((error as { status?: number })?.status === 400) {
-    return true;
-  }
-  return PARAMETER_ERROR_PHRASES.some((phrase) =>
-    String((error as Error)?.message ?? error).includes(phrase),
-  );
-}
-
-/** The shape a tool accepts, built by galaxy-ops, or undefined. */
-async function toolInputTemplate(toolId: string | undefined, ctx: Context): Promise<unknown> {
-  const op = allOperations.find((o) => o.name === "get_tool_input_template");
-  if (!toolId || !op) {
-    return undefined;
-  }
-  try {
-    const envelope = await runWithEnvelope(op, { toolId } as never, ctx.ops);
-    return envelope.success ? (envelope.data as Row | undefined)?.inputs_template : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function runTool(args: Row, ctx: Context) {
-  const historyId = args.history_id;
-  const inputs = args.inputs || {};
-  const foreign = await foreignInputs(ctx.galaxy, inputs, historyId);
-  if (foreign.length) {
-    return fail(
-      `Refused: these inputs do not identify a dataset in history ${historyId}: ` +
-        `${JSON.stringify(foreign)}. Use the \`id\` field of a dataset returned by ` +
-        `get_history_contents for this history. To use data from elsewhere, copy it into ` +
-        `this history first.`,
-    );
-  }
-  try {
-    return await ctx.galaxy.post("api/tools", {
-      history_id: historyId,
-      tool_id: args.tool_id,
-      inputs,
-      // A request, not a guarantee: Galaxy falls back to an installed version.
-      ...(args.tool_version ? { tool_version: args.tool_version } : {}),
-    });
-  } catch (error) {
-    if (!isParameterError(error)) {
-      throw error;
-    }
-    const detail = String((error as Error)?.message ?? error);
-    return fail(parameterHelp(detail, await toolInputTemplate(args.tool_id, ctx)));
-  }
 }
 
 /** Keep both ends of a log: the cause is usually at the end, the context at the start. */
@@ -530,13 +478,6 @@ export function galaxyTools(): OlitTool[] {
       { history_id: STR, limit: LIMIT, offset: OFFSET, deleted: BOOL, visible: BOOL, order: STR },
       ["history_id"],
       getHistoryContents,
-    ),
-    tool(
-      "run_tool",
-      "write",
-      { history_id: STR, tool_id: STR, inputs: { type: "object" }, tool_version: STR },
-      ["history_id", "tool_id", "inputs"],
-      runTool,
     ),
     tool(
       "get_job_details",

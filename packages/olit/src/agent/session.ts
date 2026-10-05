@@ -11,7 +11,7 @@ import { resolveArtifacts } from "./artifacts";
 import { compactionSettings, compactor } from "./compaction";
 import type { Ask } from "./destructive";
 import { connectGalaxy, galaxyFetch, type Galaxy, type GalaxyOptions } from "./galaxy";
-import { annotate, galaxyTools, SETTLED } from "./galaxy-tools";
+import { annotate, galaxyTools, OPS_POLICY, SETTLED } from "./galaxy-tools";
 import { enaTools } from "./ena";
 import { gtnTools } from "./gtn";
 import { guards } from "./guards";
@@ -248,7 +248,9 @@ export function olitTools(skills = skillRegistry()): OlitTool[] {
     ...processTools(),
   ];
   const own = new Set([python, ...visualizations, ...rest].map((t) => t.name));
-  const galaxy = [...opsTools(annotate), ...galaxyTools()].map((t) => misrouted(t, own));
+  const galaxy = [...opsTools(annotate, OPS_POLICY), ...galaxyTools()].map((t) =>
+    misrouted(t, own),
+  );
   return [python, ...[...galaxy, ...visualizations].map(placingArtifacts), ...rest];
 }
 
