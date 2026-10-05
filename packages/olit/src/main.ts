@@ -8,7 +8,7 @@ import { parseIncoming } from "./incoming";
 import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
-import { describeError, lastLine, renderMessages, replayMessages, toolStatus } from "./transcript";
+import { describeError, lastLine, renderMessages, replayMessages } from "./transcript";
 import { SessionStore, galaxyUserId, indexedDbStore } from "./session";
 import {
   advance,
@@ -332,9 +332,7 @@ async function main() {
             "cannot free enough room. Start a new conversation, or configure a larger window.",
         );
       } else if (ev.type === "tool_end") {
-        // The agent states the outcome; toolStatus only guesses at it.
-        const status = ev.is_error ? "error" : toolStatus(ev.content);
-        chat.updateToolCard(ev.id, status, ev.content);
+        chat.updateToolCard(ev.id, ev.is_error ? "error" : "done", ev.content);
         // The session registered and recorded what this call submitted; the page polls it.
         if (ev.watch) {
           watchGalaxy();

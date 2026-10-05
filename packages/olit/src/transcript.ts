@@ -22,7 +22,7 @@ export function renderMessages(
         spoke = true;
         say(chat, text);
       } else if (!streamed.has(m.toolCallId)) {
-        chat.updateToolCard(m.toolCallId, m.isError ? "error" : toolStatus(text), text);
+        chat.updateToolCard(m.toolCallId, m.isError ? "error" : "done", text);
       }
     } else if (m.role === "assistant") {
       const text = m.content
@@ -81,16 +81,4 @@ export function describeError(err: { message?: string; status_code?: number }): 
     return "The model provider rejected the API key. Enter another with the Model button.";
   }
   return lastLine(err.message || "The turn failed.");
-}
-
-export function toolStatus(content: string): "done" | "error" {
-  try {
-    const parsed = JSON.parse(content);
-    if (parsed && parsed.ok === false) {
-      return "error";
-    }
-  } catch {
-    // non-JSON tool output (e.g. run_python) is a success
-  }
-  return "done";
 }
