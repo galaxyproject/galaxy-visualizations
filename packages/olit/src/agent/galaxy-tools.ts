@@ -42,7 +42,7 @@ export const settled = (name: string) => SETTLED.has(name);
 
 /** Top-level fields of `data` that a description tells the model to read. */
 export const PROMISED_FIELDS: Record<string, string[]> = {
-  get_tool_panel: ["tool_count", "section_count"],
+  get_tool_panel: ["entries"],
   get_tool_citations: ["tool_name", "tool_version", "citations"],
   get_tool_input_template: ["tool_id", "inputs_template", "parameters"],
   get_tool_run_examples: ["tool_id", "requested_version", "test_cases"],
