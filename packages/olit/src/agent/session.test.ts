@@ -77,6 +77,9 @@ function server(replies: Reply[], galaxy: Record<string, unknown> = {}) {
     const path = url.pathname.replace(/^\//, "");
     const body =
       path in galaxy ? galaxy[path] : path === "api/version" ? { version_major: "26.1" } : {};
+    if (typeof body === "function") {
+      return body();
+    }
     return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
   });
   return { requests, hits };
@@ -110,6 +113,43 @@ async function turn(
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+const MISSING_HISTORY = {
+  "api/histories/h404/contents": () =>
+    new Response(JSON.stringify({ err_msg: "No such history" }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    }),
+};
+const failingRead = { name: "get_history_contents", args: { history_id: "h404", limit: "5" } };
+
+describe("the repeated-failure guard", () => {
+  it("refuses a model's fourth identical failing call, by the arguments pi validated", async () => {
+    const replies = Array.from({ length: 4 }, () => ({ calls: [failingRead] }));
+    const { result, events } = await turn(replies, { max_steps: 5 }, MISSING_HISTORY);
+    const ends = events.filter((e) => e.type === "tool_end");
+    expect(ends.slice(0, 3).every((e) => e.is_error && !e.refused)).toBe(true);
+    expect(ends[3]).toMatchObject({ refused: true, guard: "repeated-failure" });
+    expect(result.guards).toContainEqual({
+      guard: "repeated-failure",
+      tool: "get_history_contents",
+    });
+  });
+
+  it("refuses the same on model-free calls", async () => {
+    server([], MISSING_HISTORY);
+    const session = await Session.create(config(), python);
+    for (let i = 0; i < 3; i++) {
+      expect(await session.call(failingRead.name, failingRead.args)).toMatchObject({
+        is_error: true,
+      });
+    }
+    expect(await session.call(failingRead.name, failingRead.args)).toMatchObject({
+      is_error: true,
+      guard: "repeated-failure",
+    });
+  });
+});
 
 describe("a turn", () => {
   it("streams the reply and returns it in the transcript", async () => {

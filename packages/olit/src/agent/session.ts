@@ -433,7 +433,7 @@ export class Session {
     const after = await guard.afterToolCall({ toolCall, result: raw } as never);
     const result = { ...raw, ...after };
     if (result.isError) {
-      guard.noteFailure(name, args);
+      guard.noteFailure(name, id);
     }
     await Promise.all(this.recordSubmitted(watching).writes);
     return {
@@ -578,7 +578,6 @@ export class Session {
     const maxSteps = this.config.max_steps || MAX_STEPS;
     const produced: AgentMessage[] = [];
     const guardLog: TurnResult["guards"] = [];
-    const started = new Map<string, unknown>();
     let steps = 0;
     let exhausted = false;
     let retried = false;
@@ -631,7 +630,6 @@ export class Session {
       ) {
         produced.push(event.message);
       } else if (event.type === "tool_execution_start") {
-        started.set(event.toolCallId, event.args);
         before = JSON.stringify(this.binding);
         watchedBefore = this.watching();
         logs.push(`call ${event.toolName}(${brief(event.args)})`);
@@ -643,7 +641,7 @@ export class Session {
         const guardName =
           guard.guardOf(event.toolCallId, name, notFound) ?? event.result.details?.guard;
         if (event.isError && !(guardName && PRE_DISPATCH.has(guardName))) {
-          guard.noteFailure(name, started.get(event.toolCallId) ?? {});
+          guard.noteFailure(name, event.toolCallId);
         }
         if (guardName) {
           guardLog.push({ guard: guardName, tool: name });

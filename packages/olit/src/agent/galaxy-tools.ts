@@ -87,7 +87,7 @@ export function hdaInputs(inputs: unknown): [string, string, string][] {
     if (Array.isArray(value)) {
       value.forEach((item, index) => walk(`${name}[${index}]`, item));
     } else if (isRow(value)) {
-      if (value.src in HISTORY_SCOPED_SRCS && value.id) {
+      if (Object.hasOwn(HISTORY_SCOPED_SRCS, value.src) && value.id) {
         found.push([name, value.id, value.src]);
         return;
       }
@@ -104,7 +104,7 @@ export function hdaInputs(inputs: unknown): [string, string, string][] {
 async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string) {
   const foreign = [];
   for (const [name, objectId, src] of hdaInputs(inputs)) {
-    const detail = (await galaxy.get(`${HISTORY_SCOPED_SRCS[src]}/${objectId}`)) || {};
+    const detail = (await galaxy.get(`${HISTORY_SCOPED_SRCS[src]}/${segment(objectId)}`)) || {};
     const where = isRow(detail) ? detail.history_id : undefined;
     if (where && where !== historyId) {
       foreign.push({

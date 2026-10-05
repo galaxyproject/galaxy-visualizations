@@ -75,7 +75,7 @@ function runner(s: ReturnType<typeof session>) {
     }
     state.executed++;
     if (fails) {
-      s.g.noteFailure(name, args);
+      s.g.noteFailure(name, `c${id}`);
     }
     return { refused: false, text: fails ? "boom" : "fine", guard: undefined };
   };
@@ -96,6 +96,14 @@ const resultOf = (m: AgentMessage) =>
   m as unknown as { toolName: string; content: Array<{ type: string; text: string }> };
 
 describe("repeated-failure guard", () => {
+  it("does not count a failure the guard never checked, such as one pi refused for its arguments", async () => {
+    const s = session();
+    for (let i = 0; i < 3; i++) {
+      s.g.noteFailure("t", `unchecked-${i}`);
+    }
+    expect(await s.before({ id: "c1", name: "t", arguments: {} })).toBeUndefined();
+  });
+
   const REFUSED = { page_id: "p1", content: "history_dataset_id=reads" };
 
   it("refuses identical failures after the limit", async () => {

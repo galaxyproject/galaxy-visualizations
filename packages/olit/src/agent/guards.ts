@@ -101,6 +101,7 @@ export interface GuardOptions {
 export function guards(options: GuardOptions) {
   const now = options.now ?? Date.now;
   const failures = new Map<string, number>();
+  const checked = new Map<string, Record<string, unknown>>();
   const settled = new Map<string, number>();
   const readAt = new Map<string, number>();
   const states = () =>
@@ -172,6 +173,7 @@ export function guards(options: GuardOptions) {
     }
     const { id, name } = context.toolCall;
     const args = (context.args ?? {}) as Record<string, unknown>;
+    checked.set(id, args);
     const hit = refusal(name, args, id);
     if (hit) {
       refused.set(id, hit[0]);
@@ -208,8 +210,11 @@ export function guards(options: GuardOptions) {
     return clean === text ? undefined : { content: [{ type: "text", text: clean }] };
   }
 
-  /** Count a failed call, so an unchanged repeat meets the guard. */
-  function noteFailure(name: string, args: unknown) {
+  /** Count a failed call by the arguments it was checked with, so an unchanged repeat meets the guard. */
+  function noteFailure(name: string, id: string) {
+    const args = checked.get(id);
+    if (!args) return;
+    checked.delete(id);
     failures.set(key(name, args), (failures.get(key(name, args)) ?? 0) + 1);
   }
 
