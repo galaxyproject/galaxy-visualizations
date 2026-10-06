@@ -151,7 +151,6 @@ export class Runtime {
             galaxyStatus,
             seedDataset: datasetId,
             galaxyRoot: galaxy.root,
-            galaxyReads: capabilities.includes("read"),
           }),
           skills.routerText(),
         ]

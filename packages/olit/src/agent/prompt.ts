@@ -597,7 +597,6 @@ export interface PromptOptions {
   galaxyStatus?: GalaxyStatus;
   seedDataset?: string;
   galaxyRoot?: string;
-  galaxyReads?: boolean;
 }
 
 function galaxyNotice(status: GalaxyStatus): string {
@@ -612,10 +611,9 @@ export function systemText({
   galaxyStatus = GALAXY_READY,
   seedDataset,
   galaxyRoot,
-  galaxyReads = true,
 }: PromptOptions = {}): string {
-  const ready = galaxyStatus === GALAXY_READY && galaxyReads;
-  const galaxy = (block: string) => (ready ? block : "");
+  // As loom does: the Galaxy guidance rides on the connection, whichever tools are granted.
+  const galaxy = (block: string) => (galaxyStatus === GALAXY_READY ? block : "");
   return [
     IDENTITY,
     seedDatasetBlock(seedDataset),

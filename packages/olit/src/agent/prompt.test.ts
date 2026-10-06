@@ -298,12 +298,6 @@ describe("galaxy readiness", () => {
     }
   });
 
-  it("leaves the Galaxy guidance out when Galaxy reads are not granted", () => {
-    const withheld = systemText({ galaxyReads: false });
-    expect(withheld).not.toContain("### Drafting a new plan");
-    expect(withheld).not.toContain("## Galaxy: NOT AVAILABLE");
-  });
-
   it("replaces the guidance with a notice", () => {
     const down = systemText({ galaxyStatus: GALAXY_UNREACHABLE });
     expect(down).toContain("## Galaxy: NOT AVAILABLE");

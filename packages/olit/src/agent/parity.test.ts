@@ -12,6 +12,8 @@ const params = (tool: { parameters: Record<string, unknown> }) =>
 
 /** Tools Olit runs on the browser's in-memory filesystem, which galaxy-mcp runs on disk. */
 const LOCAL = new Set(["download_dataset", "upload_file"]);
+/** Olit tools whose description is Olit's own: the two above, and the quay.io image resolver. */
+const LOCAL_DOCS = new Set([...LOCAL, "recommend_biocontainer"]);
 /** Parameters Olit adds to a galaxy-mcp tool, each explained in its own schema. */
 const EXTENDS: Record<string, string[]> = {
   update_page: ["expect_hash", "section_content", "section_heading"],
@@ -38,7 +40,7 @@ describe("the Galaxy tool surface against galaxy-mcp", () => {
 
   it("tells the model what galaxy-mcp tells it, never a copy kept here", () => {
     for (const tool of [...opsTools(), ...galaxyTools()]) {
-      if (tool.name in DOCS && !LOCAL.has(tool.name)) {
+      if (tool.name in DOCS && !LOCAL_DOCS.has(tool.name)) {
         expect(tool.description, tool.name).toBe(DOCS[tool.name]);
       }
     }
