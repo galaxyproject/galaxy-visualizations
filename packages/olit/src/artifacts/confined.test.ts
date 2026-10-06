@@ -39,7 +39,7 @@ describe("what a restored or model-made artifact may reach", () => {
       vi.spyOn(window, "location", "get").mockReturnValue({
         ...window.location,
         href: "about:blank",
-        origin: here,
+        origin: "null",
       });
       const url = "/visualizations/display?visualization=igv&dataset_id=f2";
       expect(displayable(url)).toBe(true);

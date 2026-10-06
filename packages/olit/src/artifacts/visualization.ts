@@ -8,7 +8,7 @@ export function displayable(url: unknown, root = "/"): url is string {
     // host must not reach the iframe.
     const resolved = new URL(url, document.baseURI);
     return (
-      resolved.origin === window.location.origin &&
+      resolved.origin === new URL(document.baseURI).origin &&
       resolved.pathname === `${root}visualizations/display`
     );
   } catch {
