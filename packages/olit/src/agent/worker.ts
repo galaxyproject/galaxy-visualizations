@@ -1,6 +1,8 @@
 import {
   InboxDoc,
   LiveDoc,
+  MemoryStorage,
+  type Storage,
   watchEvents,
   type AgentEvent,
   type Conversation,
@@ -34,7 +36,7 @@ export type WorkerMessage =
   | { type: "waiting" }
   /** Another tab took the conversation over. */
   | { type: "lost" }
-  | { type: "ready"; unkept?: string; galaxy: GalaxyStatus }
+  | { type: "ready"; unkept?: string; galaxy: GalaxyStatus; galaxyProblem?: string }
   | { type: "events"; events: readonly AgentEvent[] }
   /** Galaxy work the conversation watched has settled. */
   | { type: "settled"; settled: Settled }
@@ -140,21 +142,30 @@ async function open(request: OpenRequest) {
     root: request.config.galaxy_root,
     credentials: request.config.credentials,
   });
-  const user = await galaxy
-    .get("api/users/current")
-    .then((body) => (typeof body?.id === "string" && body.id ? body.id : "anon"))
-    .catch(() => "anon");
-  const name = `olit-${user}`;
-  await holdStorage(name, {
-    steal: request.steal,
-    waiting: () => post({ type: "waiting" }),
-    // Ending the worker lets go of the files it holds open, which the other tab needs.
-    lost: () => {
-      post({ type: "lost" });
-      self.close();
+  // An anonymous user has no id; a lookup that failed is not one, and keeps nothing rather than
+  // mixing this user's conversations into another identity's files.
+  let unkept: string | undefined;
+  const user = await galaxy.get("api/users/current").then(
+    (body) => (typeof body?.id === "string" && body.id ? body.id : "anon"),
+    (e) => {
+      unkept = `the Galaxy user could not be identified: ${String((e as Error)?.message ?? e)}`;
+      return undefined;
     },
-  });
-  const { storage, unkept } = await openStorage(name);
+  );
+  let storage: Storage = new MemoryStorage();
+  if (user !== undefined) {
+    // The file pool is one per origin, whichever Galaxy user opens it, so the tab lock is too.
+    await holdStorage("storage", {
+      steal: request.steal,
+      waiting: () => post({ type: "waiting" }),
+      // Ending the worker lets go of the files it holds open, which the other tab needs.
+      lost: () => {
+        post({ type: "lost" });
+        self.close();
+      },
+    });
+    ({ storage, unkept } = await openStorage(`olit-${user}`));
+  }
   runtime = await Runtime.open({
     storage,
     config: request.config,
@@ -165,7 +176,12 @@ async function open(request: OpenRequest) {
     ? await runtime.open(request.saved.document, request.saved.id)
     : await runtime.continuing(request.placement);
   await attach(next);
-  post({ type: "ready", unkept, galaxy: runtime.galaxyStatus });
+  post({
+    type: "ready",
+    unkept,
+    galaxy: runtime.galaxyStatus,
+    galaxyProblem: runtime.galaxyProblem,
+  });
 }
 
 async function reply(id: number, work: () => Promise<unknown>) {

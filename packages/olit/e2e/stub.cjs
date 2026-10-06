@@ -433,7 +433,8 @@ const server = http.createServer(async (req, res) => {
     if (url.includes("/api/plugins")) return json(res, 200, [{ name: "ngl", settings: [], tracks: [] }]);
     if (url.includes("/api/datatypes/")) return json(res, 200, [{ visualization: "ngl" }]);
     if (url.includes("/api/users/current")) {
-        return json(res, 200, /galaxysession=/.test(req.headers.cookie || "") ? { username: "e2e-user" } : {});
+        // Galaxy answers a signed-in user with its id; an anonymous one has none.
+        return json(res, 200, /galaxysession=/.test(req.headers.cookie || "") ? { id: "u1", username: "e2e-user" } : {});
     }
     if (url.includes("/api/datasets/")) {
         const id = decodeURIComponent(url.split("/api/datasets/")[1].split(/[/?]/)[0]);

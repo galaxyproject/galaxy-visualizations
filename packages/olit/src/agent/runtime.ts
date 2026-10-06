@@ -88,6 +88,8 @@ interface Current {
  * holds back follow-ups.
  */
 export class Runtime {
+  /** Why Galaxy did not answer when the session opened, when it did not. */
+  galaxyProblem?: string;
   private constructor(
     readonly harness: Harness,
     readonly galaxy: Galaxy,
@@ -108,10 +110,14 @@ export class Runtime {
     const resolved = await target(config, env);
     const connected = await connect(resolved);
     const current: Current = { config, target: resolved, ...connected };
+    let galaxyProblem: string | undefined;
     const galaxyStatus = await galaxy
       .get("api/version")
       .then((): GalaxyStatus => GALAXY_READY)
-      .catch((): GalaxyStatus => GALAXY_UNREACHABLE);
+      .catch((e): GalaxyStatus => {
+        galaxyProblem = String((e as Error)?.message ?? e);
+        return GALAXY_UNREACHABLE;
+      });
     const skills = skillRegistry();
     const capabilities = config.capabilities ?? DEFAULT_CAPABILITIES;
     let harness: Harness | undefined;
@@ -191,7 +197,9 @@ export class Runtime {
       context,
     );
     harness.resume();
-    return new Runtime(harness, galaxy, galaxyStatus, current, connect, env);
+    const runtime = new Runtime(harness, galaxy, galaxyStatus, current, connect, env);
+    runtime.galaxyProblem = galaxyProblem;
+    return runtime;
   }
 
   get capabilities(): Capability[] {

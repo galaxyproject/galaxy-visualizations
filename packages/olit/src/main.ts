@@ -96,8 +96,18 @@ async function main() {
   const galaxy = connectGalaxy({ root: config.galaxy_root, credentials });
   const saved = savedSessions(galaxy);
   // Opening a saved visualization opens that conversation; otherwise the history's own.
+  let savedProblem: string | undefined;
   const fromGalaxy = incoming.visualizationId
-    ? await saved.load(incoming.visualizationId).catch(() => null)
+    ? await saved.load(incoming.visualizationId).then(
+        (document) => {
+          if (!document) savedProblem = "it is not an Olit session this version can open";
+          return document;
+        },
+        (e) => {
+          savedProblem = String((e as Error)?.message ?? e);
+          return null;
+        },
+      )
     : null;
   let savedId = fromGalaxy ? incoming.visualizationId : undefined;
   // A saved session carries its own history; otherwise the launch decides it.
@@ -168,6 +178,7 @@ async function main() {
     ended,
     usage: (totals) => usage.set(totals),
     retry: (errorMessage, at, attempt) => retryNotice.start(errorMessage, at, attempt),
+    failed: (message) => chat.addErrorMessage(message),
     retried: () => retryNotice.stop(),
   });
 
@@ -252,8 +263,20 @@ async function main() {
       refreshSave();
       if (message.unkept) {
         chat.addErrorMessage(
-          `This browser keeps no files for this page (${message.unkept}), so the conversation ` +
+          `Olit is not keeping this conversation in the browser (${message.unkept}), so it ` +
             "ends when the page closes. Save it to Galaxy to keep it.",
+        );
+      }
+      if (message.galaxyProblem) {
+        chat.addErrorMessage(
+          `Galaxy did not answer when Olit opened (${message.galaxyProblem}), so no Galaxy tool ` +
+            "can run in this session. Reload once Galaxy is back.",
+        );
+      }
+      if (savedProblem) {
+        chat.addErrorMessage(
+          `Could not open saved session ${incoming.visualizationId} (${savedProblem}). This is ` +
+            "the history's own conversation instead, and Save stores it as a new session.",
         );
       }
       if (fromGalaxy) {
@@ -275,7 +298,7 @@ async function main() {
         info(summarize(launch.dataset));
       }
     } else if (message.type === "waiting") {
-      const line = info("Olit is open on this conversation in another tab. ");
+      const line = info("Olit is open in another tab. ");
       const take = document.createElement("button");
       take.className = "plan-btn";
       take.textContent = "Use it here";
@@ -289,9 +312,7 @@ async function main() {
       el.input.disabled = true;
       el.send.disabled = true;
       refreshSave();
-      chat.addErrorMessage(
-        "Olit was opened on this conversation in another tab, which has it now.",
-      );
+      chat.addErrorMessage("Olit was opened in another tab, which has it now.");
     } else if (message.type === "failed") {
       console.error("[olit] worker failed", message.message);
       chat.hideThinking();
@@ -341,7 +362,11 @@ async function main() {
 
   function submit() {
     const text = el.input.value.trim();
-    if (!text || busy || !ready) {
+    if (!text || busy) {
+      return;
+    }
+    if (!ready) {
+      info("Olit is still starting; send again once it says it is ready.");
       return;
     }
     el.input.value = "";
@@ -370,7 +395,8 @@ async function main() {
     reportSavedState(true);
     el.artifactContent.innerHTML = "";
     afterReset =
-      "Started a new conversation. The previous one is saved, and the record on Galaxy is untouched.";
+      "Started a new conversation. The previous one stays in this browser but is no longer " +
+      "reachable from here unless you saved it; its record on Galaxy is untouched.";
     agent.reset();
   });
   el.input.addEventListener("keydown", (e) => {

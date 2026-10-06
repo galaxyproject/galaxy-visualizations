@@ -17,8 +17,8 @@ function check(name, ok, detail) {
 }
 
 const paneFrames = (p) => p.evaluate(() => document.querySelectorAll("#artifact-content iframe").length);
-/** The page says so when the browser keeps no files for it, and nothing could survive a reload. */
-const durable = (p) => p.evaluate(() => !/keeps no files/i.test(document.body.innerText));
+/** The page says so when it is not keeping the conversation, and nothing could survive a reload. */
+const durable = (p) => p.evaluate(() => !/not keeping this conversation/i.test(document.body.innerText));
 
 (async () => {
     const browser = await chromium.launch();

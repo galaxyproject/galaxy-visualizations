@@ -29,6 +29,7 @@ function view() {
     usage: vi.fn(),
     retry: vi.fn(),
     retried: vi.fn(),
+    failed: vi.fn(),
   };
   return { chat, hooks, view: new ChatView(chat, hooks) };
 }
@@ -135,5 +136,40 @@ describe("a live run", () => {
       { type: "message_end", entry: failed } as AgentEvent,
     ]);
     expect(v.outcome).toMatchObject({ spoke: false, error: "429 Too Many Requests" });
+  });
+
+  const unanswered = (reason: string, detail?: string) =>
+    ({
+      type: "submission",
+      record: { id: 1, type: "input", status: "unanswered", reason, detail },
+    }) as unknown as AgentEvent;
+
+  it("says why a message went unanswered rather than that the model kept quiet", () => {
+    const { view: v } = view();
+    v.apply([
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      unanswered("faulted", "host.watched raised"),
+    ]);
+    expect(v.outcome.error).toBe("Olit failed while answering: host.watched raised");
+    v.apply([
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      unanswered("model_error", "context overflow"),
+    ]);
+    expect(v.outcome.error).toBe("The model request failed: context overflow");
+  });
+
+  it("keeps a Stop and a spent turn budget as their own endings", () => {
+    const { view: v } = view();
+    v.apply([{ type: "run_start", inputs: [] } as unknown as AgentEvent, unanswered("aborted")]);
+    expect(v.outcome).toMatchObject({ aborted: true });
+    expect(v.outcome.error).toBeUndefined();
+  });
+
+  it("reports a background task that failed", () => {
+    const { hooks, view: v } = view();
+    v.apply([
+      { type: "task_failed", taskId: 7, kind: "olit.galaxy-watch", message: "boom" } as AgentEvent,
+    ]);
+    expect(hooks.failed).toHaveBeenCalledWith("Olit's olit.galaxy-watch task failed: boom");
   });
 });

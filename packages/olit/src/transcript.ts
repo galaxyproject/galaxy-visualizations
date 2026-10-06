@@ -40,6 +40,23 @@ export interface ViewHooks {
   usage(totals: { input: number; output: number; cost: number | null }): void;
   retry(errorMessage: string, at: number, attempt: number): void;
   retried(): void;
+  /** Something failed outside any one run. */
+  failed(message: string): void;
+}
+
+/** Why pi-durable left a user's message unanswered, as the user should hear it. */
+function unanswered(reason: string | undefined, detail: unknown): string {
+  const why = typeof detail === "string" && detail ? `: ${detail}` : "";
+  switch (reason) {
+    case "model_error":
+      return `The model request failed${why}`;
+    case "no_model":
+      return "No model is configured for this conversation, so nothing could answer.";
+    case "faulted":
+      return `Olit failed while answering${why}`;
+    default:
+      return `This message was not answered (${reason ?? "unknown reason"}${why}).`;
+  }
 }
 
 const textOf = (message: Message) =>
@@ -96,9 +113,13 @@ export class ChatView {
         this.hooks.busy(false);
         ended = true;
       } else if (event.type === "submission" && event.record.status === "unanswered") {
-        const reason = (event.record as { reason?: string }).reason;
+        const { reason, detail } = event.record as { reason?: string; detail?: unknown };
         if (reason === "aborted") this.run.aborted = true;
-        if (reason === "turn_limit") this.run.exhausted = true;
+        else if (reason === "turn_limit") this.run.exhausted = true;
+        // A model error already reached the chat as its own entry; anything else says it here.
+        else this.run.error ??= unanswered(reason, detail);
+      } else if (event.type === "task_failed") {
+        this.hooks.failed(`Olit's ${event.kind} task failed: ${event.message}`);
       } else if (event.type === "message_update") {
         for (const change of event.changes) {
           if (change.type === "text_delta") this.stream(change.delta);

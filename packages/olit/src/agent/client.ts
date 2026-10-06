@@ -20,6 +20,11 @@ export class AgentClient {
       }
       listen(data);
     };
+    // A worker that never loads, or dies outside a message, would otherwise leave Send inert.
+    this.worker.onerror = (e) => {
+      e.preventDefault();
+      listen({ type: "failed", message: e.message || "Olit's worker failed to start." });
+    };
   }
 
   private send(message: PageMessage) {
