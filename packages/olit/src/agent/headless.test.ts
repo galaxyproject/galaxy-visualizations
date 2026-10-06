@@ -325,6 +325,19 @@ describe("a turn", () => {
     expect(asked(result.entries)).toEqual(["hi", EMPTY_REPLY]);
   });
 
+  it("asks again after a later empty reply once a tool call came between", async () => {
+    const call = { calls: [{ name: "get_history_details", args: { history_id: "h1" } }] };
+    const { result } = await turn([{ text: "" }, call, { text: "" }, { text: "The answer." }]);
+    expect(answers(result.entries).at(-1)).toBe("The answer.");
+    expect(asked(result.entries)).toEqual(["hi", EMPTY_REPLY, EMPTY_REPLY]);
+  });
+
+  it("ends the turn on a second empty reply in a row", async () => {
+    const { result } = await turn([{ text: "" }, { text: "" }, { text: "unused" }]);
+    expect(asked(result.entries)).toEqual(["hi", EMPTY_REPLY]);
+    expect(answers(result.entries)).not.toContain("unused");
+  });
+
   it("sends max_tokens only when one is configured", async () => {
     const unset = await turn([{ text: "ok" }]);
     expect(unset.requests[0]).not.toHaveProperty("max_tokens");

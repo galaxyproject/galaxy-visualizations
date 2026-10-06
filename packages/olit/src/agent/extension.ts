@@ -65,6 +65,7 @@ export interface OlitHost {
 interface Run {
   id: SubmissionId | undefined;
   guard: ReturnType<typeof guards>;
+  /** Whether the last empty answer was already asked again; a tool call since clears it. */
   retried: boolean;
   excerpt?: Promise<string>;
 }
@@ -192,7 +193,10 @@ export function olitExtension(host: OlitHost) {
           const calls = message.content.flatMap((c) =>
             c.type === "toolCall" ? [{ id: c.id, name: c.name, arguments: c.arguments }] : [],
           );
-          if (calls.length) (await runOf(api, api.conversationId, context)).guard.observe(calls);
+          if (!calls.length) return;
+          const run = await runOf(api, api.conversationId, context);
+          run.guard.observe(calls);
+          run.retried = false;
         },
         onYield: async (answer, api, context) => {
           const run = await runOf(api, api.conversationId, context);
