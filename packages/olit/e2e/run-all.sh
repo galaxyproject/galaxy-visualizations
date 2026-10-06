@@ -47,7 +47,7 @@ done
 # The build must not carry the dev env, or LLM_PROVIDER suppresses the modal.
 env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tmp/olit-e2e-build.log 2>&1
 
-for d in credentials artifact-pane provider-switch galaxy-boot galaxy-frame python-isolation; do
+for d in credentials artifact-pane provider-switch galaxy-boot galaxy-frame saved-session python-isolation; do
     ran="$ran $d"
     if node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"

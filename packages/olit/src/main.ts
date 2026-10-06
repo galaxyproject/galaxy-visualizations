@@ -285,9 +285,11 @@ async function main() {
         info("Opened a saved Olit session.");
       }
       info(
-        view.turns
-          ? "Resumed this history's conversation. Olit ready."
-          : "Olit ready. Ask me to run something.",
+        fromGalaxy
+          ? "Olit ready."
+          : view.turns
+            ? "Resumed this history's conversation. Olit ready."
+            : "Olit ready. Ask me to run something.",
       );
       // Its own message: being ready and having a dataset to start from are separate facts.
       if (launch.problem) {
