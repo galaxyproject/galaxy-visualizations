@@ -10,7 +10,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { savedSessions } from "../saved-session";
 import { Binding } from "./documents";
 import { connectGalaxy } from "./galaxy";
-import { artifactsOf, context, Runtime } from "./runtime";
+import { artifactsOf } from "../artifacts/kinds";
+import { context, Runtime } from "./runtime";
 import { title, type SessionDocument } from "./saved";
 import type { Python } from "./tool";
 

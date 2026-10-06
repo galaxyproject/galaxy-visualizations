@@ -8,7 +8,7 @@ import {
 } from "galaxy-charts/runtime";
 
 import { query, segment, type Galaxy } from "./galaxy";
-import { fail, type OlitTool } from "./tool";
+import { fail, type Artifact, type OlitTool } from "./tool";
 import * as vega from "./vega";
 import {
   buildVisualizationTemplate,
@@ -40,7 +40,6 @@ export const NOT_OFFERED = new Set(["olit", "vintent"]);
 const NUMERIC_COLUMNS = new Set(["int", "float"]);
 const MATCH_CAP = 5;
 const ROW_CAP = 100;
-const EMBED = { hide_panels: "true", hide_masthead: "true" };
 const STR = { type: "string" };
 
 const isObject = (value: unknown): value is Json =>
@@ -409,17 +408,16 @@ async function showVisualization(galaxy: Galaxy, a: Json): Promise<Json> {
   }
   const name = a.visualization;
   const title = a.title || `${name} of ${dataset!.name || a.dataset_id}`;
-  const params = { visualization: name, dataset_id: a.dataset_id, ...EMBED };
+  const artifact: Artifact = {
+    kind: "visualization",
+    title,
+    visualization: name,
+    dataset_id: a.dataset_id,
+  };
   return {
     shown: true,
     title,
-    artifact: {
-      kind: "visualization",
-      title,
-      visualization: name,
-      dataset_id: a.dataset_id,
-      url: `${rootPath(galaxy)}visualizations/display${query(params)}`,
-    },
+    artifact,
     hint:
       "The visualization is displayed to the user. Nothing was added to Galaxy, so " +
       "call save_visualization if they ask to keep it. Writing it into the record " +
@@ -644,19 +642,15 @@ async function saveVisualization(
       );
     }
   }
-  const params = { visualization: name, visualization_id: visualizationId, ...EMBED };
-  const artifact: Json = {
+  const artifact: Artifact = {
     kind: "visualization",
     title,
     visualization: name,
     dataset_id: a.dataset_id,
-    url: `${rootPath(galaxy)}visualizations/display${query(params)}`,
+    ...(present(a.settings) ? { settings: a.settings } : {}),
+    ...(present(a.tracks) ? { tracks: a.tracks } : {}),
+    visualization_id: visualizationId,
   };
-  for (const key of ["settings", "tracks"]) {
-    if (present(a[key])) {
-      artifact[key] = a[key];
-    }
-  }
   return {
     saved: true,
     visualization_id: visualizationId,
@@ -665,8 +659,8 @@ async function saveVisualization(
     hint:
       "Saved to the user's visualizations and displayed. It is not a history dataset. " +
       "Writing it into the record means putting {{artifact}} where it belongs in the " +
-      "page content; visualization_id above identifies the saved object and renders " +
-      "nothing in a page. Say what it shows and finish.",
+      "page content, which places it with these settings and tracks. Say what it shows " +
+      "and finish.",
   };
 }
 
@@ -696,7 +690,7 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
     charted: true,
     title,
     columns: vega.columnNames(details),
-    artifact: { kind: "vega-lite", title, spec: ready },
+    artifact: { kind: "vega-lite", title, spec: ready } satisfies Artifact,
   };
   const suspect = vega.unsatisfiableTypes(ready, details);
   if (suspect.length) {

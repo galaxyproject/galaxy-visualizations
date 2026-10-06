@@ -4,7 +4,6 @@ import {
   createRegistry,
   DEFAULT_COMPACTION_POLICY,
   Harness,
-  ToolResultEntry,
   UsageDoc,
   type Conversation,
   type ConversationId,
@@ -13,6 +12,7 @@ import {
   type Submission,
 } from "@earendil-works/pi-durable";
 
+import { artifactsOf } from "../artifacts/kinds";
 import type { Ask } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
@@ -24,7 +24,7 @@ import { editRecord } from "./record-write";
 import { modelsOf, SCHEMA, type SessionDocument } from "./saved";
 import { writeSessionSummary } from "./session-summary";
 import { skillRegistry } from "./skills";
-import type { Artifact, Capability, Python } from "./tool";
+import type { Capability, Python } from "./tool";
 import { galaxyOps, olitTools } from "./tools";
 import { galaxyWatch, WATCH_TASK, type Watched } from "./watch";
 
@@ -73,15 +73,6 @@ async function target(config: LlmConfig, env: Record<string, string | undefined>
     resolved.contextWindow = (await probeWindow(resolved.baseUrl)) ?? resolved.contextWindow;
   }
   return resolved;
-}
-
-/** The artifacts the conversation's results carried, newest last. */
-export function artifactsOf(entries: readonly EntryRecord[]): Artifact[] {
-  return entries.flatMap((entry) => {
-    if (!ToolResultEntry.is(entry)) return [];
-    const result = entry.model?.[0] as { details?: { artifacts?: Artifact[] } } | undefined;
-    return result?.details?.artifacts ?? [];
-  });
 }
 
 /** The model a provider switch changes, and what compaction and the guards read of it. */

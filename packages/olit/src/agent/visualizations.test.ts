@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { render } from "./artifacts";
+import { toPage, type Artifact } from "../artifacts/kinds";
+import { displayAddress } from "../artifacts/visualization";
 import type { Galaxy } from "./galaxy";
 import { claim, type Context, Outcome, rendered } from "./tool";
 import {
@@ -815,7 +816,7 @@ describe("show_visualization and save_visualization", () => {
     call("save_visualization", g, { dataset_id: "d1", ...args }, charts);
 
   const queryOf = (result: Json) =>
-    Object.fromEntries(new URL(result.artifact.url, "http://x").searchParams);
+    Object.fromEntries(new URL(displayAddress(result.artifact), "http://x").searchParams);
 
   it("puts nothing in galaxy when showing", async () => {
     const g = server();
@@ -924,10 +925,9 @@ describe("show_visualization and save_visualization", () => {
     expect(out.error).toContain("not an installed visualization");
   });
 
-  it("addresses the display under Galaxy's own root path", async () => {
-    const g = Object.assign(server(), { root: "https://host.test/galaxy/" });
-    const out = await save(g, { visualization: "atlas" });
-    expect(out.artifact.url).toMatch(/^\/galaxy\/visualizations\/display\?/);
+  it("hands back a config, leaving the address to whoever renders it", async () => {
+    const out = await save(server(), { visualization: "atlas" });
+    expect(out.artifact).not.toHaveProperty("url");
   });
 
   it("refuses when galaxy returns no id for a new visualization", async () => {
@@ -1062,13 +1062,29 @@ describe("show_visualization and save_visualization", () => {
     expect(out.error).toContain('"builtin"');
   });
 
-  it("hands back an artifact that embeds the plugin and dataset from both tools", async () => {
+  it("hands back the config a page embeds, from both tools", async () => {
     const g = server();
-    const expected = "```galaxy\nvisualization(visualization_id=atlas, history_dataset_id=d1)\n```";
-    expect(render((await show(g, { visualization: "atlas" })).artifact)).toBe(expected);
+    const shown = (await show(g, { visualization: "atlas" })).artifact as Artifact;
+    expect(shown).toEqual({
+      kind: "visualization",
+      title: shown.title,
+      visualization: "atlas",
+      dataset_id: "d1",
+    });
     const saved = await save(g, { visualization: "atlas" });
-    expect(render(saved.artifact)).toBe(expected);
-    expect(render(saved.artifact)).not.toContain(saved.visualization_id);
+    expect(saved.artifact).toMatchObject({
+      visualization: "atlas",
+      dataset_id: "d1",
+      visualization_id: saved.visualization_id,
+    });
+    const page = JSON.parse(
+      toPage(saved.artifact).slice("```visualization\n".length, -"\n```".length),
+    );
+    expect(page).toEqual({
+      visualization_name: "atlas",
+      visualization_title: saved.title,
+      dataset_id: "d1",
+    });
   });
 
   it("refuses the entry a scalar parameter was chosen from", async () => {
@@ -1324,7 +1340,7 @@ describe("artifact claim", () => {
     });
     expect(produced).toHaveLength(1);
     expect(produced[0].kind).toBe("visualization");
-    expect(produced[0].url).toContain("visualization=ngl");
+    expect(produced[0]).toMatchObject({ visualization: "ngl", dataset_id: DATASET });
     expect(data.artifact).toEqual({ kind: "visualization", title: data.title });
   });
 

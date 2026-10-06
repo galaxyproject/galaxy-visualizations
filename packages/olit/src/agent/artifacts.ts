@@ -1,32 +1,7 @@
+import { toPage, type Artifact } from "../artifacts/kinds";
 import { quote } from "./quote";
-import type { Artifact } from "./tool";
-import { fence } from "./vega";
 
 const TOKEN = /\{\{\s*artifact\s*(?::\s*([^{}]*?)\s*)?\}\}/g;
-
-const fenced = (label: string, body: string) => "```" + label + "\n" + body + "\n```";
-
-const str = (value: unknown) => String(value ?? "null");
-
-/** Page markdown per artifact kind. */
-export const RENDERERS: Record<string, (artifact: Artifact) => string> = {
-  "vega-lite": (artifact) => fence((artifact.spec as Record<string, unknown>) || {}),
-  visualization: (artifact) =>
-    fenced(
-      "galaxy",
-      `visualization(visualization_id=${str(artifact.visualization)}, ` +
-        `history_dataset_id=${str(artifact.dataset_id)})`,
-    ),
-  mermaid: (artifact) => fenced("mermaid", (artifact.diagram as string) || ""),
-};
-
-/** This artifact as page markdown, or null when no renderer covers its kind. */
-export function render(artifact: Artifact | null | undefined): string | null {
-  const renderer = Object.hasOwn(RENDERERS, artifact?.kind ?? "")
-    ? RENDERERS[artifact!.kind]
-    : undefined;
-  return renderer ? renderer(artifact!) : null;
-}
 
 const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
@@ -89,14 +64,7 @@ export function resolveArtifacts<T>(
       }
       return match;
     }
-    const markdown = render(artifact);
-    if (markdown === null) {
-      refusal ??=
-        `A ${quote(artifact.kind)} artifact cannot be written into a Galaxy page; ` +
-        `a page holds ${Object.keys(RENDERERS).sort().join(", ")}.`;
-      return match;
-    }
-    return markdown;
+    return toPage(artifact);
   });
   return { text, refusal };
 }

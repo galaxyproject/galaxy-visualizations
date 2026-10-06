@@ -2,7 +2,7 @@
 import { contentText, type AssistantMessage, type Message } from "@earendil-works/pi-ai";
 import type { AgentEvent, EntryRecord } from "@earendil-works/pi-durable";
 
-import type { Artifact } from "./artifacts";
+import { artifactsOf, type Artifact } from "./artifacts/kinds";
 
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./agent/markers";
 import type { ChatPanel } from "./orbit/chat/chat-panel";
@@ -80,7 +80,7 @@ export class ChatView {
         this.restoring = true;
         for (const entry of event.entries) this.entry(entry);
         this.restoring = false;
-        this.hooks.artifacts(event.entries.flatMap(artifactsOf), true);
+        this.hooks.artifacts(artifactsOf(event.entries), true);
         const partial = event.generation?.message;
         if (partial) this.stream(textOf(partial));
         this.hooks.busy(event.run !== undefined);
@@ -187,17 +187,10 @@ export class ChatView {
         this.card(message.toolCallId, message.toolName);
         this.chat.updateToolCard(message.toolCallId, message.isError ? "error" : "done", text);
       }
-      const made = artifactsOf(entry);
+      const made = artifactsOf([entry]);
       if (made.length && !this.restoring) this.hooks.artifacts(made, false);
     }
   }
-}
-
-/** The artifacts a tool result carried in its details. */
-function artifactsOf(entry: EntryRecord): Artifact[] {
-  const message = entry.model?.[0] as
-    { role?: string; details?: { artifacts?: Artifact[] } } | undefined;
-  return message?.role === "toolResult" ? (message.details?.artifacts ?? []) : [];
 }
 
 function sum(totals: Array<{ input?: number; output?: number; cost?: { total?: number } }>) {

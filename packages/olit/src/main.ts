@@ -207,7 +207,7 @@ async function main() {
 
   const base = isDev() ? "" : `static/plugins/visualizations/${PLUGIN_NAME}/`;
   const opening = {
-    pyodideURL: new URL(`${incoming.root}${base}static/pyodide`, window.location.href).href,
+    pyodideURL: new URL(`${incoming.root}${base}static/pyodide`, document.baseURI).href,
     config: workerConfig(),
     placement: { historyId: config.history_id, datasetId: config.dataset_id },
     ...(fromGalaxy && savedId ? { saved: { id: savedId, document: fromGalaxy } } : {}),

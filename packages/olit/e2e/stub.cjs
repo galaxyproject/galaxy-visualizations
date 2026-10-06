@@ -165,13 +165,20 @@ function pluginSpecs() {
 }
 
 // The shape VisualizationFrame reads from /api/plugins/<name> to build data-incoming.
+/** The `<entry_point>` attributes olit.xml declares, as Galaxy's plugin API returns them. */
+function entryPoint() {
+    const xml = fs.readFileSync(path.join(ROOT, "public", "olit.xml"), "utf8");
+    const tag = xml.match(/<entry_point\b([^>]*)\/?>/)[1];
+    return Object.fromEntries([...tag.matchAll(/(\w+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+}
+
 function pluginDict() {
     return {
         name: "olit",
         html: "AI Research Assistant",
         embeddable: true,
         href: PLUGIN_HREF,
-        entry_point: { attr: { entry_point_type: "script", src: "index.js", css: "index.css" } },
+        entry_point: { attr: entryPoint() },
         specs: pluginSpecs(),
         settings: [],
     };
@@ -206,6 +213,38 @@ function hostPage(url) {
         visualization_plugin: pluginDict(),
         visualization_title: "AI Research Assistant",
     };
+    if (params.get("frame")) {
+        // As Galaxy's VisualizationFrame.vue mounts a plugin: it asks the plugin API for the
+        // entry point, then fills an iframe without a src, whose location stays about:blank.
+        const mount = [
+            "(async () => {",
+            "  const plugin = await (await fetch('/api/plugins/olit')).json();",
+            "  const doc = document.getElementById('galaxy_visualization').contentDocument;",
+            "  const app = doc.createElement('div');",
+            "  app.id = 'app';",
+            `  app.setAttribute('data-incoming', JSON.stringify({ ...${JSON.stringify(incoming)}, root: window.location.origin + '/', visualization_plugin: plugin }));`,
+            "  doc.body.appendChild(app);",
+            "  const attr = plugin.entry_point.attr;",
+            "  const script = doc.createElement('script');",
+            "  script.type = attr.type || 'module';",
+            "  script.src = `${plugin.href}/${attr.src}`;",
+            "  doc.body.appendChild(script);",
+            "  if (attr.css) {",
+            "    const link = doc.createElement('link');",
+            "    link.rel = 'stylesheet';",
+            "    link.href = `${plugin.href}/${attr.css}`;",
+            "    doc.head.appendChild(link);",
+            "  }",
+            "})();",
+        ].join("\n");
+        return [
+            "<!doctype html>",
+            '<html lang="en"><head><meta charset="UTF-8" /></head><body style="margin:0">',
+            '<iframe id="galaxy_visualization" title="visualization" style="width:100vw;height:100vh;border:0"></iframe>',
+            `<script>${mount}<\/script>`,
+            "</body></html>",
+        ].join("\n");
+    }
     return [
         "<!doctype html>",
         '<html lang="en"><head><meta charset="UTF-8" />',

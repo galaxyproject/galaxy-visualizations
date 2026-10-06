@@ -6,7 +6,7 @@ export function loadable(uri: string, root = "/"): boolean {
   try {
     const url = new URL(uri, document.baseURI);
     return (
-      url.origin === window.location.origin &&
+      url.origin === new URL(document.baseURI).origin &&
       url.pathname.startsWith(root) &&
       /^api\/datasets\/[^/]+\/display$/.test(url.pathname.slice(root.length))
     );
@@ -21,8 +21,9 @@ export function loadable(uri: string, root = "/"): boolean {
  * user's session or carry values to another host.
  */
 function confinedLoader(root: string) {
-  // Over http, against this page's origin, whichever build of vega is running.
-  const base = vegaLoader({ mode: "http", baseURL: window.location.origin });
+  // Over http, against the page's base, whichever build of vega is running. Galaxy mounts the page
+  // in a frame whose location is about:blank; its base is still Galaxy's.
+  const base = vegaLoader({ mode: "http", baseURL: new URL(document.baseURI).origin });
   return {
     ...base,
     async sanitize(uri: string, options: Parameters<typeof base.sanitize>[1]) {

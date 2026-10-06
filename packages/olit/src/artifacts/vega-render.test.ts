@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderVega } from "./vega";
 
 const chart = (data: object) => ({
-  $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+  $schema: "https://vega.github.io/schema/vega-lite/v6.json",
   data,
   transform: [{ calculate: "datum.a * 2", as: "b" }],
   mark: "bar",
@@ -42,8 +42,15 @@ describe("renderVega", () => {
   });
 
   it("lets a dataset's display through to the network", async () => {
+    const fetched: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      fetched.push(String(url));
+      return new Response("[]", { headers: { "content-type": "application/json" } });
+    });
     const { warned } = await render(chart({ url: "/api/datasets/f2c1/display" }));
+    vi.unstubAllGlobals();
     expect(warned).not.toMatch(/may only load/);
+    expect(fetched).toEqual([`${window.location.origin}/api/datasets/f2c1/display`]);
   });
 
   it("refuses a spec that reads another Galaxy API with the user's session", async () => {
