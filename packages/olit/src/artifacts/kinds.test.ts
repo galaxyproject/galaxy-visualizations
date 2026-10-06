@@ -1,10 +1,11 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { describe, expect, it } from "vitest";
 
-import { artifactsOf, toPage, type Artifact } from "./kinds";
+import { pageContentProblem } from "../agent/page-edit";
+import { artifactsOf, PAGE, toPage, type Artifact } from "./kinds";
 
-const body = (markdown: string, label: string) =>
-  JSON.parse(markdown.slice(`\`\`\`${label}\n`.length, -"\n```".length));
+const body = (markdown: string | undefined, label: string) =>
+  JSON.parse(markdown!.slice(`\`\`\`${label}\n`.length, -"\n```".length));
 
 describe("an artifact written into a page", () => {
   it("makes a chart a vega cell holding its spec", () => {
@@ -12,9 +13,19 @@ describe("an artifact written into a page", () => {
     expect(body(out, "vega")).toEqual({ mark: "point" });
   });
 
-  it("makes a diagram a mermaid cell", () => {
-    const out = toPage({ kind: "mermaid", title: "Dataset lineage", diagram: "graph TD;\nA-->B;" });
-    expect(out).toBe("```mermaid\ngraph TD;\nA-->B;\n```");
+  it("gives a diagram no page form, since Galaxy renders no mermaid cell", () => {
+    expect(PAGE.mermaid).toBeNull();
+    expect(toPage({ kind: "mermaid", title: "Lineage", diagram: "graph TD;" })).toBeUndefined();
+  });
+
+  it("writes every kind it can place as a cell Galaxy renders", () => {
+    const samples: Artifact[] = [
+      { kind: "vega-lite", title: "c", spec: {} },
+      { kind: "visualization", title: "v", visualization: "igv", dataset_id: "d1" },
+    ];
+    for (const a of samples) {
+      expect(pageContentProblem(toPage(a)!), a.kind).toBeUndefined();
+    }
   });
 
   it("makes a visualization Galaxy's visualization block, holding its whole config", () => {

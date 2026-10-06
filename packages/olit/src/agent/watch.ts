@@ -101,6 +101,8 @@ export interface Settled {
   watched: Watched;
   state: string;
   outcome: Outcome;
+  /** Why the record could not be updated for this work, when it could not. */
+  record?: string;
 }
 
 /** How many of an invocation's jobs are in each state, or undefined when Galaxy gives no summary. */
@@ -134,7 +136,7 @@ export interface WatchOptions {
   editRecord: (
     conversationId: ConversationId,
     edit: (content: string) => string,
-  ) => Promise<unknown>;
+  ) => Promise<string | undefined>;
   pollMs?: number;
 }
 
@@ -142,7 +144,8 @@ export const watchKey = (w: { kind: string; id: string }) => `${w.kind}:${w.id}`
 
 export const WATCH_TASK = "olit.galaxy-watch";
 
-type WatchState = { phase: "note" } | { phase: "poll"; polls: number; state?: string };
+type WatchState =
+  { phase: "note" } | { phase: "poll"; polls: number; state?: string; record?: string };
 
 /**
  * Submitted Galaxy work, noted in the record and polled until it settles. Then it advances the
@@ -157,31 +160,43 @@ export function galaxyWatch({ galaxy, editRecord, pollMs = 10_000 }: WatchOption
     initial: () => ({ phase: "note" }),
     phases: {
       note: async (task, runtime, context) => {
-        await editRecord(task.conversationId, (content) => noteSubmitted(content, task.input));
+        const record = await editRecord(task.conversationId, (content) =>
+          noteSubmitted(content, task.input),
+        );
         await runtime.commit(
-          () => ({ status: "running", checkpoint: { phase: "poll", polls: 0 } }),
+          () => ({
+            status: "running",
+            checkpoint: { phase: "poll", polls: 0, ...(record ? { record } : {}) },
+          }),
           context,
         );
       },
       poll: async (task, runtime, context) => {
         const watched = task.input;
         const state = await read(watched).catch(() => undefined);
+        const noted = task.state.checkpoint as { polls: number; record?: string };
         if (!state || !isTerminal(watched.kind, state)) {
-          const { polls } = task.state.checkpoint as { polls: number };
           const checkpoint = {
             phase: "poll" as const,
-            polls: polls + 1,
+            polls: noted.polls + 1,
             ...(state ? { state } : {}),
+            ...(noted.record ? { record: noted.record } : {}),
           };
           await runtime.commit(() => ({ status: "running", checkpoint }), context);
           await runtime.sleep(Date.now() + pollMs, context);
           return;
         }
         const outcome = outcomeOf(watched.kind, state);
-        await editRecord(task.conversationId, (content) =>
-          applyJobOutcome(content, { id: watched.id, kind: watched.kind, state, outcome }),
-        );
-        const settled: Settled = { watched: { ...watched, state }, state, outcome };
+        const record =
+          (await editRecord(task.conversationId, (content) =>
+            applyJobOutcome(content, { id: watched.id, kind: watched.kind, state, outcome }),
+          )) ?? noted.record;
+        const settled: Settled = {
+          watched: { ...watched, state },
+          state,
+          outcome,
+          ...(record ? { record } : {}),
+        };
         const prompt = followUpPrompt([settled]);
         const policy = await runtime.snapshot(FollowUps, task.conversationId, context);
         const held = !!policy?.paused || (policy?.automatic ?? 0) >= MAX_AUTO_FOLLOW_UPS;
@@ -236,7 +251,7 @@ export function isResumableOutcome(state: string, failed: boolean): boolean {
  * workflow may still have jobs running. Several held batches are joined into one turn, so
  * whatever this says is said once per batch.
  */
-export function buildResumePrompt(runs: GalaxyFollowUp[]): string {
+export function buildResumePrompt(runs: GalaxyFollowUp[], unrecorded: string[] = []): string {
   const failing = runs.some((run) => run.outcome === "failed");
   return (
     `${FOLLOW_UP_MARK} These runs reached a terminal state. The JSON below is ` +
@@ -245,6 +260,11 @@ export function buildResumePrompt(runs: GalaxyFollowUp[]): string {
     (failing
       ? "\nA failing workflow can still have jobs running, so this is not proof the invocation " +
         "has finished."
+      : "") +
+    (unrecorded.length
+      ? "\nThe record was not updated for this work, so its status lines there are stale: " +
+        unrecorded.join("; ") +
+        "."
       : "")
   );
 }
@@ -259,5 +279,8 @@ export function followUpPrompt(settled: Settled[]): string | undefined {
       label: `${WHAT[s.watched.kind]} ${s.watched.id}`,
       outcome: s.outcome === "failed" ? ("failed" as const) : ("completed" as const),
     }));
-  return runs.length ? buildResumePrompt(runs) : undefined;
+  const unrecorded = settled.flatMap((s) =>
+    s.record ? [`${WHAT[s.watched.kind]} ${s.watched.id}: ${s.record}`] : [],
+  );
+  return runs.length ? buildResumePrompt(runs, unrecorded) : undefined;
 }

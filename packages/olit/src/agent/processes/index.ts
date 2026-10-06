@@ -1,3 +1,4 @@
+import { isKind, PAGE } from "../../artifacts/kinds";
 import { quote } from "../quote";
 import { claim, Outcome, type Capability, type OlitTool } from "../tool";
 import { lineageReport } from "./lineage-report";
@@ -13,6 +14,17 @@ export const ARTIFACT_HINT =
   "so do not look for it there. Keeping it means writing {{artifact}} into a page " +
   "where it belongs; that token is the only way to place it, since its content is " +
   "held outside your context. Describe what it shows and finish.";
+
+/** What to say of an artifact a Galaxy page cannot render: it stays in the pane. */
+export const PANE_ONLY_HINT =
+  "This artifact is already displayed to the user and is not a history dataset, so do not " +
+  "look for it there. A Galaxy page cannot render it, so it cannot be placed in the record; " +
+  "describe what it shows there instead, and finish.";
+
+const hintFor = (state: unknown) => {
+  const kind = (state as { artifact?: { kind?: string } } | undefined)?.artifact?.kind;
+  return kind && isKind(kind) && PAGE[kind] === null ? PANE_ONLY_HINT : ARTIFACT_HINT;
+};
 
 const STRENGTH: Capability[] = ["llm", "local", "read", "write"];
 
@@ -75,7 +87,7 @@ export function processTools(processes: Process[] = PROCESSES): OlitTool[] {
           return new Outcome(JSON.stringify(summary));
         }
         // A renderable artifact goes to the shell out of band, not into the context.
-        const claimed = claim(state, ctx, ARTIFACT_HINT);
+        const claimed = claim(state, ctx, hintFor(state));
         return new Outcome(
           JSON.stringify(claimed === state ? state : { ...(claimed as object), ok: true }),
         );

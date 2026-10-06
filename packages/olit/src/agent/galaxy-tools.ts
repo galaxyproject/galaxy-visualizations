@@ -10,6 +10,7 @@ import {
   iwcCandidatesHint,
 } from "./hints";
 import { ELIDED } from "./notebook";
+import { pageContentProblem } from "./page-edit";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -18,6 +19,12 @@ export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+/** A refusal for page content Galaxy would not render, before it is sent. */
+const invalidPage = async (content: unknown) => {
+  const problem = typeof content === "string" ? pageContentProblem(content) : undefined;
+  return problem ? fail(`Refused: ${problem}`) : undefined;
+};
+
 /**
  * Olit's policy over galaxy-ops operations it runs but does not own: a refusal of its own before
  * the call, a queue the call waits its turn in, or an answer to galaxy-ops' refusal.
@@ -39,6 +46,7 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
     },
   },
   update_history: { destructiveWhen: (args) => args.deleted === true },
+  create_page: { check: async (args) => invalidPage(args.content) },
   get_dataset_details: { polls: "dataset_id" },
   get_job_details: { polls: "dataset_id" },
   get_invocations: { polls: "invocation_id" },
@@ -53,7 +61,7 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
         ? fail(
             "Refused: this content still holds the record excerpt's elision marker, so it would delete the elided middle. Edit a section instead.",
           )
-        : undefined,
+        : invalidPage(args.section_content ?? args.content),
     around: serialized,
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length

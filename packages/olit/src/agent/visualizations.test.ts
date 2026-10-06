@@ -1116,7 +1116,7 @@ describe("show_visualization and save_visualization", () => {
       visualization_id: saved.visualization_id,
     });
     const page = JSON.parse(
-      toPage(saved.artifact).slice("```visualization\n".length, -"\n```".length),
+      toPage(saved.artifact)!.slice("```visualization\n".length, -"\n```".length),
     );
     expect(page).toEqual({
       visualization_name: "atlas",

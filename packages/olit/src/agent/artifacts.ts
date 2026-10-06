@@ -64,7 +64,14 @@ export function resolveArtifacts<T>(
       }
       return match;
     }
-    return toPage(artifact);
+    const block = toPage(artifact);
+    if (block === undefined) {
+      refusal ??=
+        `${quote(artifact.title || artifact.kind)} is a ${artifact.kind} diagram, which a ` +
+        "Galaxy page cannot render; describe it in the record instead.";
+      return match;
+    }
+    return block;
   });
   return { text, refusal };
 }

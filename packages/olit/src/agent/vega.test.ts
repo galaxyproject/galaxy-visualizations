@@ -210,7 +210,7 @@ describe("field names", () => {
 
 describe("what reaches the page", () => {
   it("renders the artifact as the fence galaxy parses", () => {
-    const text = toPage({ kind: "vega-lite", title: "Chart", spec: built(SCATTER).ready! });
+    const text = toPage({ kind: "vega-lite", title: "Chart", spec: built(SCATTER).ready! })!;
     expect(text.startsWith("```vega\n") && text.endsWith("\n```")).toBe(true);
     expect(text).toContain('"url": "/api/datasets/abc123/display"');
   });

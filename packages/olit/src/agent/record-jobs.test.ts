@@ -100,16 +100,19 @@ describe("applyJobOutcome", () => {
 });
 
 describe("noteSubmitted", () => {
-  const base = "## Record\n\nSome prose from the agent.\n\n```olit-session\nid: x\n```\n";
+  const base = "## Record\n\nSome prose from the agent.\n";
 
   it("adds a pending entry keyed by the id the shell observed", () => {
     const out = noteSubmitted(base, { id: "417e33144b294c21", kind: "invocation" });
     expect(out).toContain("- [ ] Workflow invocation `417e33144b294c21` — submitted");
   });
 
-  it("keeps the session block last", () => {
+  it("appends after what the agent wrote, separated by a blank line", () => {
     const out = noteSubmitted(base, { id: "417e33144b294c21", kind: "invocation" });
-    expect(out.indexOf("417e33144b294c21")).toBeLessThan(out.indexOf("```olit-session"));
+    expect(out).toBe(
+      "## Record\n\nSome prose from the agent.\n\n" +
+        "- [ ] Workflow invocation `417e33144b294c21` — submitted, awaiting completion\n",
+    );
   });
 
   it("does not duplicate an id the agent already wrote", () => {

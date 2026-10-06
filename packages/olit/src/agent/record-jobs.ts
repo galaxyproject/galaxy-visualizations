@@ -118,12 +118,7 @@ export function noteSubmitted(
   if (unfencedLine(content.split("\n"), w.id) >= 0) return content;
   const what = WHAT[w.kind];
   const entry = `- [ ] ${what} \`${w.id}\` — ${SUBMITTED}`;
-  const lines = content.split("\n");
-
-  // Keep the session block last; it is the session's own footer.
-  const fence = lines.findIndex((l) => l.trim().startsWith("```olit-session"));
-  const at = fence < 0 ? lines.length : fence;
-  const pad = at > 0 && lines[at - 1].trim() !== "" ? ["", entry, ""] : [entry, ""];
-  lines.splice(at, 0, ...pad);
-  return lines.join("\n");
+  const lines = content.replace(/\n+$/, "").split("\n");
+  const pad = lines.length && lines.at(-1)!.trim() !== "" ? ["", entry, ""] : [entry, ""];
+  return [...lines, ...pad].join("\n");
 }

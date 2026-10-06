@@ -108,10 +108,7 @@ async function attach(next: Conversation) {
   post({ type: "events", events: [stream.snapshot] });
   stream.start(async (events) => {
     post({ type: "events", events });
-    if (events.some((e) => e.type === "run_end")) {
-      declineAll();
-      await runtime!.summarize(next).catch(() => undefined);
-    }
+    if (events.some((e) => e.type === "run_end")) declineAll();
     await postHeld();
   });
   const graph = await harness.watchTaskGraph(context);

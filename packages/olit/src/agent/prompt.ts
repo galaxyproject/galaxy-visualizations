@@ -540,9 +540,9 @@ lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only wit
 **encoded** ids, never raw integers or HIDs; get them from \`get_history_contents\` or
 \`get_dataset_details\`.
 
-Do **not** wrap content in \`\`\`txt, \`\`\`text, or any other fence: Galaxy renders those as
-raw monospace instead of formatted content. Present data as Markdown tables or prose.
-The only meaningful fenced block on a Galaxy page is \`\`\`galaxy.`;
+A \`\`\` fence on a Galaxy page opens a cell, and Galaxy renders only \`\`\`galaxy, \`\`\`vega and
+\`\`\`visualization cells; any other type shows as an error and Galaxy refuses the page. Present
+data as Markdown tables or prose; for code or plain text use ~~~ fences.`;
 
 function localDate(now: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");

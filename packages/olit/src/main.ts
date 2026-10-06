@@ -193,8 +193,11 @@ async function main() {
     };
   }
 
-  function settledOne({ watched: w, state, outcome }: Settled) {
+  function settledOne({ watched: w, state, outcome, record }: Settled) {
     const what = WHAT[w.kind];
+    if (record) {
+      chat.addErrorMessage(`The record was not updated for ${what} ${w.id}: ${record}.`);
+    }
     if (outcome === "failed") {
       chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
     } else if (outcome === "cancelled") {

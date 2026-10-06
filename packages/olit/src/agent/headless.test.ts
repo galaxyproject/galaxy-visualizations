@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Binding } from "./documents";
 import { Headless, type HeadlessConfig } from "./headless";
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./markers";
+import { pageContentProblem } from "./page-edit";
 import { serialized } from "./record-write";
 import { context } from "./runtime";
 import type { Python } from "./tool";
@@ -436,7 +437,7 @@ describe("the record and the work the conversation watches", () => {
 
   const runTool = { name: "run_tool", args: { history_id: "h1", tool_id: "cat1", inputs: {} } };
 
-  it("notes submitted work and its own session block", async () => {
+  it("notes submitted work as page content Galaxy renders", async () => {
     const { page, session } = await recorded(
       [{ calls: [runTool] }, { text: "ok" }],
       { state: "queued" },
@@ -446,7 +447,7 @@ describe("the record and the work the conversation watches", () => {
     await vi.waitFor(() =>
       expect(page.content).toContain("- [ ] Galaxy job `j1` — submitted, awaiting completion"),
     );
-    expect(page.content).toMatch(/```olit-session\nid: s1\nstarted_at: 2026-01-01\n/);
+    expect(pageContentProblem(page.content)).toBeUndefined();
   });
 
   it("marks the step done when the work settles, and follows up in a run of its own", async () => {

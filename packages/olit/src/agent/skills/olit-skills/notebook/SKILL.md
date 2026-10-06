@@ -74,8 +74,9 @@ a dataset as `history_dataset_display(history_dataset_id=f2db41e1fa331b3e)`. The
 tool result that created the thing. A directive is neither a tool nor a visualization, so
 `search_tools_by_name` and `get_visualization_details` cannot tell you anything about one.
 
-Do **not** wrap content in ```txt, ```text, or any other fence: Galaxy renders those
-as raw monospace instead of formatted content.
+A ``` fence opens a cell, and Galaxy renders only ```galaxy, ```vega and ```visualization
+cells; any other type shows as an error and Galaxy refuses the page. For code or plain text use
+~~~ fences.
 
 A chart, diagram or visualization produced in this session goes in as `{{artifact}}`,
 written where it belongs in the content. That token becomes the block Galaxy renders,

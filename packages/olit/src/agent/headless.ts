@@ -70,7 +70,6 @@ export class Headless {
   /** The user's message, answered: how its submission settled, and what the run appended. */
   async turn(text: string) {
     const settled = await (await this.runtime.submit(this.conversation, text)).wait(context);
-    await this.runtime.summarize(this.conversation);
     return {
       status: settled.status,
       ...(settled.status === "unanswered"

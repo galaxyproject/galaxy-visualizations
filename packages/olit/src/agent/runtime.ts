@@ -22,7 +22,6 @@ import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from 
 import { probeWindow, resolve, type LlmConfig, type Target } from "./providers";
 import { editRecord } from "./record-write";
 import { modelsOf, SCHEMA, type SessionDocument } from "./saved";
-import { writeSessionSummary } from "./session-summary";
 import { skillRegistry } from "./skills";
 import type { Capability, Python } from "./tool";
 import { galaxyOps, olitTools } from "./tools";
@@ -275,18 +274,6 @@ export class Runtime {
       (await tx.doc(FollowUps, conversation.id)).paused = true;
     }, context);
     await conversation.abort(context, { keepQueued: true });
-  }
-
-  /** Upsert the record's session block: loom writes it at session end, a tab has none. */
-  async summarize(conversation: Conversation): Promise<void> {
-    const bound = await this.harness.snapshot(Binding, conversation.id, context);
-    if (!bound?.sessionId) return;
-    await writeSessionSummary(this.galaxy, bound.pageId, {
-      id: bound.sessionId,
-      startedAt: bound.startedAt ?? new Date().toISOString(),
-      endedAt: new Date().toISOString(),
-      orphanedActiveSteps: 0,
-    });
   }
 
   /** The conversation as a saved session: its context, and what binds it to Galaxy. */

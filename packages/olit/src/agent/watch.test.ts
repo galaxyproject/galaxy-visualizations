@@ -151,7 +151,12 @@ describe("terminal states", () => {
 const JOB: Watched = { kind: "job", id: "j1", label: "run_tool", state: "queued" };
 
 /** A Harness running only the watch task, over `storage`, against a Galaxy answering `state`. */
-async function watching(storage: Storage, state: () => string | Error, edits: string[] = []) {
+async function watching(
+  storage: Storage,
+  state: () => string | Error,
+  edits: string[] = [],
+  unwritten?: string,
+) {
   const galaxy = {
     get: async () => {
       const s = state();
@@ -162,7 +167,10 @@ async function watching(storage: Storage, state: () => string | Error, edits: st
   const watch = galaxyWatch({
     galaxy,
     pollMs: 5,
-    editRecord: async (_id, edit) => edits.push(edit("")),
+    editRecord: async (_id, edit) => {
+      edits.push(edit(""));
+      return unwritten;
+    },
   });
   const registry = createRegistry();
   registry.install(defineExtension({ name: "watch", tasks: [watch] }));
@@ -175,8 +183,9 @@ async function submitted(
   state: () => string | Error,
   edits?: string[],
   paused = false,
+  unwritten?: string,
 ) {
-  const { harness, watch } = await watching(storage, state, edits);
+  const { harness, watch } = await watching(storage, state, edits, unwritten);
   const conversation = await harness.createConversation(
     { ownership: { kind: "ownerless" } },
     context,
@@ -224,6 +233,24 @@ describe("the watch task", () => {
     expect(asked[0].startsWith(FOLLOW_UP_MARK)).toBe(true);
     expect((await harness.snapshot(FollowUps, conversation.id, context))?.automatic).toBe(1);
     expect(edits[0]).toContain("Galaxy job `j1` — submitted");
+    await harness.close(context);
+  });
+
+  it("tells the model and the page when the record could not be updated", async () => {
+    const { harness, conversation, task } = await submitted(
+      new MemoryStorage(),
+      () => "ok",
+      [],
+      false,
+      "record page p1 could not be written (HTTP 400: bad fence)",
+    );
+    const done = await harness.waitForTask(task, context);
+    expect(done.state.outcome).toMatchObject({
+      result: { record: "record page p1 could not be written (HTTP 400: bad fence)" },
+    });
+    const [asked] = await followUps(conversation);
+    expect(asked).toContain("The record was not updated for this work");
+    expect(asked).toContain("HTTP 400: bad fence");
     await harness.close(context);
   });
 
