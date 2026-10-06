@@ -3,13 +3,19 @@ import { describe, expect, it } from "vitest";
 import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable } from "./model";
 import { piProvider, providerById, PROVIDERS, resolve, type LlmConfig } from "./providers";
 
+/** The model a connection serves, as pi-ai resolves it. */
+async function modelOf(config: LlmConfig) {
+  const { models, model } = await connect(resolve(config));
+  return models.getModel(model.provider as never, model.modelId)!;
+}
+
 /** The body and headers a request would carry, read off the real request. */
 async function request(config: LlmConfig) {
-  const { model, streamFn } = await connect(resolve(config));
+  const { models, model } = await connect(resolve(config));
   let body: Record<string, unknown> = {};
   let headers = new Headers();
-  const stream = await streamFn(
-    model,
+  const stream = models.streamSimple(
+    models.getModel(model.provider as never, model.modelId)!,
     { messages: [{ role: "user", content: "hi", timestamp: 0 }] } as never,
     {
       fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -32,35 +38,40 @@ const body = async (provider: string) =>
 
 describe("connect", () => {
   it("names the model by its real provider, so pi applies what it knows of it", async () => {
-    const { model } = await connect(resolve({ ai_provider: "deepseek", ai_model: "m" }));
+    const model = await modelOf({ ai_provider: "deepseek", ai_model: "m" });
     expect(model.provider).toBe("deepseek");
   });
 
   it("reaches Gemini through pi's own adapter and catalog", async () => {
-    const { model } = await connect(
-      resolve({ ai_provider: "google", ai_model: "gemini-3.7-flash", ai_api_key: "k" }),
-    );
+    const model = await modelOf({
+      ai_provider: "google",
+      ai_model: "gemini-3.7-flash",
+      ai_api_key: "k",
+    });
     expect(model.api).toBe("google-generative-ai");
     // Known to pi as a reasoning model, so its thought signatures are kept and replayed.
     expect(model.reasoning).toBe(true);
   });
 
   it("takes a listed model's window from pi's catalog, where a copy here would drift", async () => {
-    const { model } = await connect(
-      resolve({ ai_provider: "openrouter", ai_model: "deepseek/deepseek-v4-flash-0731" }),
-    );
+    const model = await modelOf({
+      ai_provider: "openrouter",
+      ai_model: "deepseek/deepseek-v4-flash-0731",
+    });
     expect(model.contextWindow).toBe(
       (await catalogued("openrouter", "deepseek/deepseek-v4-flash-0731"))!.contextWindow,
     );
   });
 
   it("lets a configured window override pi's, and falls back when nobody knows", async () => {
-    const configured = await connect(
-      resolve({ ai_provider: "google", ai_model: "gemini-3.7-flash", ai_context_window: 4096 }),
-    );
-    expect(configured.model.contextWindow).toBe(4096);
-    const unknown = await connect(resolve({ ai_provider: "openai", ai_model: "unlisted" }));
-    expect(unknown.model.contextWindow).toBe(DEFAULT_CONTEXT_WINDOW);
+    const configured = await modelOf({
+      ai_provider: "google",
+      ai_model: "gemini-3.7-flash",
+      ai_context_window: 4096,
+    });
+    expect(configured.contextWindow).toBe(4096);
+    const unknown = await modelOf({ ai_provider: "openai", ai_model: "unlisted" });
+    expect(unknown.contextWindow).toBe(DEFAULT_CONTEXT_WINDOW);
   });
 
   it("lists a window only for a model pi's catalog does not know", async () => {
@@ -98,7 +109,7 @@ describe("connect", () => {
 
   it("reaches a provider pi defines through pi's own API, with nothing of Olit's on top", async () => {
     const reached = async (provider: string, model: string) =>
-      (await connect(resolve({ ai_provider: provider, ai_model: model, ai_api_key: "k" }))).model;
+      modelOf({ ai_provider: provider, ai_model: model, ai_api_key: "k" });
     expect((await reached("openai", "gpt-unlisted")).api).toBe("openai-responses");
     expect((await reached("anthropic", "claude-unlisted")).api).toBe("anthropic-messages");
     expect((await reached("mistral", "mistral-unlisted")).api).toBe("mistral-conversations");
@@ -109,7 +120,7 @@ describe("connect", () => {
   });
 
   it("reads a key from pi's own variable for a provider pi defines", async () => {
-    const { apiKey } = await connect(resolve({ ai_provider: "groq", ai_model: "m" }), undefined, {
+    const { apiKey } = await connect(resolve({ ai_provider: "groq", ai_model: "m" }), {
       GROQ_API_KEY: "gsk-from-env",
     });
     expect(apiKey).toBe("gsk-from-env");

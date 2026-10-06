@@ -1,19 +1,12 @@
-import type { BeforeToolCallContext } from "@earendil-works/pi-agent-core";
 import { describe, expect, it } from "vitest";
 
 import { classify, destructiveGate, type Ask } from "./destructive";
-import { olitTools } from "./session";
+import { olitTools } from "./tools";
 import { traitsOf } from "./tool";
 
 const TRAITS = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
 const DESTROYS = (name: string, args: Record<string, unknown>) =>
   TRAITS.get(name)?.destroys(args) === true;
-
-const context = (name: string, args: Record<string, unknown>) =>
-  ({
-    toolCall: { type: "toolCall", id: "c1", name, arguments: args },
-    args,
-  }) as unknown as BeforeToolCallContext;
 
 /** A user who answers every approval the same way, and remembers being asked. */
 function asked(answer: boolean) {
@@ -26,7 +19,7 @@ function asked(answer: boolean) {
 }
 
 const gate = (name: string, args: Record<string, unknown>, ask?: Ask) =>
-  destructiveGate(ask, DESTROYS)(context(name, args));
+  destructiveGate(ask, DESTROYS)(name, args);
 
 describe("classify", () => {
   it("treats only an explicit true as a history delete", () => {
@@ -59,20 +52,20 @@ describe("classify", () => {
 describe("destructiveGate", () => {
   it("refuses a history delete when nobody can approve it", async () => {
     const result = await gate("update_history", { history_id: "h1", deleted: true });
-    expect(result?.block).toBe(true);
-    expect(result?.reason?.startsWith("Refused:")).toBe(true);
-    expect(result?.reason).toContain("h1");
+    expect(result).toBeTruthy();
+    expect(result?.startsWith("Refused:")).toBe(true);
+    expect(result).toContain("h1");
   });
 
   it("asks before cancelling an invocation, which galaxy-ops flags", async () => {
     const user = asked(false);
     const result = await gate("cancel_workflow_invocation", { invocation_id: "i1" }, user.ask);
     expect(user.questions).toHaveLength(1);
-    expect(result?.block).toBe(true);
+    expect(result).toBeTruthy();
   });
 
   it("says a delete covers the whole history and is recoverable", async () => {
-    const reason = (await gate("update_history", { history_id: "h1", deleted: true }))?.reason;
+    const reason = await gate("update_history", { history_id: "h1", deleted: true });
     expect(reason).toContain("entire history");
     expect(reason).toContain("Recoverable");
   });
@@ -95,8 +88,8 @@ describe("destructiveGate", () => {
       { history_id: "h1", deleted: true },
       asked(false).ask,
     );
-    expect(result?.block).toBe(true);
-    expect(result?.reason).toContain("declined");
+    expect(result).toBeTruthy();
+    expect(result).toContain("declined");
   });
 
   it("asks with the honest headline", async () => {
@@ -111,7 +104,7 @@ describe("destructiveGate", () => {
     const user = asked(true);
     const check = destructiveGate(user.ask, DESTROYS);
     for (let i = 0; i < 3; i++) {
-      await check(context("update_history", { history_id: "h1", deleted: true }));
+      await check("update_history", { history_id: "h1", deleted: true });
     }
     expect(user.questions).toHaveLength(3);
   });
@@ -130,11 +123,11 @@ describe("destructiveGate", () => {
       () => "threw",
     );
     expect(result).not.toBe("threw");
-    expect((result as { reason?: string })?.reason?.startsWith("Refused:")).toBe(true);
+    expect((result as string)?.startsWith("Refused:")).toBe(true);
   });
 
   it("refuses in JSON-free text the model can act on", async () => {
-    const reason = (await gate("update_history", { history_id: "h1", deleted: true }))!.reason!;
+    const reason = (await gate("update_history", { history_id: "h1", deleted: true }))!;
     expect(() => JSON.parse(reason)).toThrow();
     expect(reason).toContain("Galaxy interface");
   });

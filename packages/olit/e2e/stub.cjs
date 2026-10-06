@@ -22,7 +22,7 @@ const TYPES = {
     ".md": "text/markdown",
 };
 
-let script = "confirm";     // confirm | slow | compact | ratelimit | plan | plan-after-graph
+let script = "confirm";     // confirm | slow | slow-once | compact | ratelimit | plan | plan-after-graph
 let galaxyUp = true;        // /api/version answers, which is what the agent probes for reachability
 let rateLimited = 0;
 let calls = 0;
@@ -290,6 +290,14 @@ const server = http.createServer(async (req, res) => {
                 }]));
             }
             return answer(message("recovered after the wait"));
+        }
+        if (script === "slow-once") {
+            // The first answer is slow enough that a reload lands while it is in flight.
+            if (calls === 1) {
+                await new Promise((r) => setTimeout(r, 15000));
+                return answer(message("the abandoned answer"));
+            }
+            return answer(message("The answer after the reload."));
         }
         if (script === "slow") {
             // Long enough that Stop lands while the request is in flight.

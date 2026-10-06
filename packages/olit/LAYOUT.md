@@ -3,19 +3,24 @@
 ```
 public/olit.xml          plugin manifest: data sources, ai_prompt, capabilities
 src/                      the shell (TypeScript)
-  main.ts                   boots the agent worker, wires the chat, runs a turn
+  main.ts                   boots the agent worker, wires the chat, sends what the user writes
   layout.ts artifact-pane.ts usage-bar.ts retry-notice.ts   the pane's parts
   config.ts incoming.ts credentials*.ts   what the agent is handed, and by whom
-  session.ts                the conversation, in IndexedDB per user and history
-  transcript.ts artifacts/  rendering messages, charts and Galaxy visualizations
+  saved-session.ts          a conversation saved to Galaxy as a visualization
+  transcript.ts artifacts/  the chat drawn from the conversation's events; charts and visualizations
   orbit/                    vendored from Orbit, byte-identical (scripts/check_vendored.py)
-src/agent/               the agent: pi-agent-core's loop, in a worker in the browser
+src/agent/               the agent: pi-durable's harness, in a worker in the browser
+  runtime.ts                the harness: conversations per history, model, Stop, save and open
+  extension.ts              Olit as a pi-durable extension: tools, prompt, guards
+  documents.ts              Olit's state beside the transcript: binding, follow-up policy, sessions
+  storage.ts                SQLite in the browser's private file system, one tab at a time
   worker.ts client.ts       the worker, and the page's handle on it
-  node.ts                   the same session over JSON lines, for the eval harness
-  watch.ts                  submitted Galaxy work, settled between turns, and the follow-up it calls for
-  record-write.ts record-jobs.ts session-summary.ts   the session's own edits to the record page
-  session.ts                one session: tools, guards, compaction, a turn
-  model.ts providers.ts retry.ts   the model endpoint, its registry, its resend policy
+  headless.ts node.ts       one conversation over JSON lines, for the eval harness: its entries
+  saved.ts                  a conversation as a saved document
+  tool.ts tools.ts          one Olit tool as a durable tool; every tool Olit offers
+  watch.ts                  submitted Galaxy work, watched by a durable task that submits its follow-up
+  record-write.ts record-jobs.ts session-summary.ts   the agent's own edits to the record page
+  model.ts providers.ts     the model endpoint, its registry, its rate limit
   galaxy.ts ops.ts galaxy-tools.ts   Galaxy REST, galaxy-ops' operations, the tools Olit keeps
   guards.ts destructive.ts sra-gate.ts   what can refuse a call
   prompt.ts skills.ts notebook.ts   the system prompt, SKILL.md routers, the record page
@@ -43,8 +48,8 @@ through node.
 
 If another repo names a path, it is not tooling but an interface. The `agents` repo builds
 `dist/session.mjs` (`npm run build:session`) and drives it, asks it to `--describe` itself,
-and asks the session to `settle` between turns as the page does; `src/agent/describe.test.ts`
-pins what `--describe` returns.
+and asks it to `settle`, waiting for submitted work and the runs its follow-ups start; it reads
+the entries pi-durable appended. `src/agent/describe.test.ts` pins what `--describe` returns.
 
 ## Vendored integrity
 

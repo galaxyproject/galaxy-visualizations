@@ -1,4 +1,4 @@
-// A reload must not lose the conversation: pi resumes from session.jsonl, olit from IndexedDB.
+// A reload must not lose the conversation: Olit keeps it in the browser's files (OPFS).
 const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
@@ -14,7 +14,7 @@ function check(name, ok, detail) {
 
 (async () => {
     const browser = await chromium.launch();
-    // One context for both visits, so IndexedDB survives the reload as it would for a user.
+    // One context for both visits, so the browser's files survive the reload as for a user.
     const context = await browser.newContext({ viewport: { width: 1100, height: 700 } });
     const page = await context.newPage();
 

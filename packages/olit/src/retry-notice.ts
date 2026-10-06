@@ -1,7 +1,8 @@
 /** Tick a provider's stated wait down, so a slow turn is distinguishable from a hung one. */
 
 export interface RetryNotice {
-  start(status: number, wait: number, attempt: number, of: number): void;
+  /** Count down to `at`, when the request is sent again. */
+  start(errorMessage: string, at: number, attempt: number): void;
   stop(): void;
 }
 
@@ -23,12 +24,17 @@ export function createRetryNotice(chat: NoticeSink): RetryNotice {
 
   return {
     stop,
-    start(status, wait, attempt, of) {
+    start(errorMessage, at, attempt) {
       stop();
-      let left = Math.ceil(wait);
+      let left = Math.max(1, Math.ceil((at - Date.now()) / 1000));
+      const status = /^\D*(\d{3})\b/.exec(errorMessage)?.[1];
       const label =
-        status === 429 ? "Rate limited by the model provider" : `Provider error ${status}`;
-      const render = () => `${label} — retrying in ${left}s (attempt ${attempt}/${of}).`;
+        status === "429"
+          ? "Rate limited by the model provider"
+          : status
+            ? `Provider error ${status}`
+            : "The model provider failed";
+      const render = () => `${label} — retrying in ${left}s (attempt ${attempt + 1}).`;
       line = chat.addInfoMessage(render());
       timer = setInterval(() => {
         left -= 1;

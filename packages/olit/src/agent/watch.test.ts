@@ -1,15 +1,33 @@
-/** The session's watch on submitted Galaxy work, which lets the agent hand control back. */
+/** The conversation's watch on submitted Galaxy work, which lets the agent hand control back. */
 
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import type { Models } from "@earendil-works/pi-ai";
+import {
+  createRegistry,
+  defineExtension,
+  Harness,
+  InboxDoc,
+  MemoryStorage,
+  type Conversation,
+  type Storage,
+} from "@earendil-works/pi-durable";
+import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { describe, expect, it } from "vitest";
 
+import { FollowUps } from "./documents";
+import { FOLLOW_UP_MARK } from "./markers";
 import type { Galaxy } from "./galaxy";
+import { context, watchedBy } from "./runtime";
 import {
   followUpPrompt,
+  galaxyWatch,
   isFailure,
   isTerminal,
   outcomeOf,
   stateReader,
-  Watch,
   watchedFrom,
   type Watched,
 } from "./watch";
@@ -132,41 +150,122 @@ describe("terminal states", () => {
 
 const JOB: Watched = { kind: "job", id: "j1", label: "run_tool", state: "queued" };
 
-describe("Watch", () => {
-  it("reports an item once it reaches a terminal state, then stops watching it", async () => {
-    const states: Record<string, string> = { j1: "running" };
-    const watch = new Watch(async (w) => states[w.id]);
-    watch.add([JOB]);
-    expect(await watch.poll()).toEqual([]);
-    states.j1 = "ok";
-    expect(await watch.poll()).toEqual([
-      { watched: { ...JOB, state: "ok" }, state: "ok", outcome: "completed" },
+/** A Harness running only the watch task, over `storage`, against a Galaxy answering `state`. */
+async function watching(storage: Storage, state: () => string | Error, edits: string[] = []) {
+  const galaxy = {
+    get: async () => {
+      const s = state();
+      if (s instanceof Error) throw s;
+      return { state: s };
+    },
+  } as unknown as Galaxy;
+  const watch = galaxyWatch({
+    galaxy,
+    pollMs: 5,
+    editRecord: async (_id, edit) => edits.push(edit("")),
+  });
+  const registry = createRegistry();
+  registry.install(defineExtension({ name: "watch", tasks: [watch] }));
+  const harness = await Harness.open(storage, { models: {} as Models, registry }, context);
+  return { harness, watch };
+}
+
+async function submitted(
+  storage: Storage,
+  state: () => string | Error,
+  edits?: string[],
+  paused = false,
+) {
+  const { harness, watch } = await watching(storage, state, edits);
+  const conversation = await harness.createConversation(
+    { ownership: { kind: "ownerless" } },
+    context,
+  );
+  const task = await conversation.commit(async (tx) => {
+    if (paused) (await tx.doc(FollowUps, conversation.id)).paused = true;
+    return tx.createTask(watch, JOB, {
+      ownership: { kind: "conversation" },
+      conversationId: conversation.id,
+      background: true,
+    });
+  }, context);
+  harness.resume();
+  return { harness, conversation, task };
+}
+
+/** What the conversation was asked, as user entries. */
+const followUps = async (conversation: Conversation) =>
+  (await conversation.context(context)).entries.flatMap((e) =>
+    e.kind === "pi.user" ? [String((e.model?.[0] as { content: unknown }).content)] : [],
+  );
+
+describe("the watch task", () => {
+  it("notes the work, watches it, and follows up once it settles", async () => {
+    let state = "running";
+    const edits: string[] = [];
+    const { harness, conversation, task } = await submitted(
+      new MemoryStorage(),
+      () => state,
+      edits,
+    );
+    await new Promise((r) => setTimeout(r, 30));
+    expect(await watchedBy(harness, conversation.id, context)).toEqual([
+      { ...JOB, state: "running" },
     ]);
-    expect(watch.pending).toBe(0);
-    expect(await watch.poll()).toEqual([]);
-  });
-
-  it("names what it is still watching, with the state last read", async () => {
-    const watch = new Watch(async () => "running");
-    watch.add([JOB]);
-    await watch.poll();
-    expect(watch.list()).toEqual([{ ...JOB, state: "running" }]);
-  });
-
-  it("does not watch the same id twice, and says what it newly took on", () => {
-    const watch = new Watch(async () => undefined);
-    expect(watch.add([JOB])).toHaveLength(1);
-    expect(watch.add([JOB])).toEqual([]);
-    expect(watch.pending).toBe(1);
+    state = "ok";
+    const done = await harness.waitForTask(task, context);
+    expect(done.state.outcome).toEqual({
+      status: "completed",
+      result: { watched: { ...JOB, state: "ok" }, state: "ok", outcome: "completed" },
+    });
+    expect(await watchedBy(harness, conversation.id, context)).toEqual([]);
+    const asked = await followUps(conversation);
+    expect(asked).toHaveLength(1);
+    expect(asked[0].startsWith(FOLLOW_UP_MARK)).toBe(true);
+    expect((await harness.snapshot(FollowUps, conversation.id, context))?.automatic).toBe(1);
+    expect(edits[0]).toContain("Galaxy job `j1` — submitted");
+    await harness.close(context);
   });
 
   it("keeps watching when Galaxy errors, rather than dropping the job", async () => {
-    const watch = new Watch(async () => {
-      throw new Error("502");
-    });
-    watch.add([JOB]);
-    expect(await watch.poll()).toEqual([]);
-    expect(watch.pending).toBe(1);
+    let state: string | Error = new Error("502");
+    const { harness, conversation, task } = await submitted(new MemoryStorage(), () => state);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(await watchedBy(harness, conversation.id, context)).toHaveLength(1);
+    state = "ok";
+    await harness.waitForTask(task, context);
+    expect(await watchedBy(harness, conversation.id, context)).toEqual([]);
+    await harness.close(context);
+  });
+
+  it("queues its follow-up for the user while follow-ups are paused", async () => {
+    const { harness, conversation, task } = await submitted(
+      new MemoryStorage(),
+      () => "ok",
+      [],
+      true,
+    );
+    await harness.waitForTask(task, context);
+    expect(await followUps(conversation)).toEqual([]);
+    const inbox = await harness.snapshot(InboxDoc, conversation.id, context);
+    expect(inbox?.items).toHaveLength(1);
+    expect((await harness.snapshot(FollowUps, conversation.id, context))?.automatic).toBe(0);
+    await harness.close(context);
+  });
+
+  it("resumes after the page closes and opens again, and follows up once", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "olit-watch-")), "olit.sqlite3");
+    let state = "running";
+    const first = await submitted(await openNodeSqliteStorage(file), () => state);
+    await new Promise((r) => setTimeout(r, 20));
+    await first.harness.close(context);
+    state = "ok";
+    const { harness } = await watching(await openNodeSqliteStorage(file), () => state);
+    harness.resume();
+    await harness.waitForTask(first.task, context);
+    const conversation = (await harness.conversation(first.conversation.id, context))!;
+    expect(await followUps(conversation)).toHaveLength(1);
+    await harness.close(context);
   });
 });
 
@@ -178,15 +277,6 @@ const galaxy = (answers: Record<string, unknown>, asked: string[] = []) =>
       return answers[path];
     },
   }) as unknown as Galaxy;
-
-describe("Watch, polled twice at once", () => {
-  it("reports a settled item once", async () => {
-    const watch = new Watch(async () => "ok");
-    watch.add([{ kind: "job", id: "j1", label: "run_tool", state: "running" }]);
-    const [a, b] = await Promise.all([watch.poll(), watch.poll()]);
-    expect(a.length + b.length).toBe(1);
-  });
-});
 
 describe("stateReader", () => {
   it("reports a job's state as Galaxy gives it", async () => {

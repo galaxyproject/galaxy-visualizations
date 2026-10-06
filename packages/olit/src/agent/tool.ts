@@ -1,8 +1,17 @@
-import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
+import { Type } from "@earendil-works/pi-ai";
+import type { Context as Chord, JsonValue } from "@earendil-works/chord";
+import {
+  defineTool,
+  type ConversationId,
+  type JsonObject,
+  type Task,
+  type ToolRegistration,
+} from "@earendil-works/pi-durable";
 import type { GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
+import { Binding as Bound } from "./documents";
 import type { Galaxy } from "./galaxy";
-import { watchedFrom, type Watch } from "./watch";
+import { isTerminal, watchedFrom, type Watched } from "./watch";
 
 export type Capability = "llm" | "local" | "read" | "write";
 
@@ -12,7 +21,6 @@ export const GUARDS = [
   "destructive-declined",
   "galaxy-poll",
   "malformed-object-id",
-  "max-steps",
   "process-refusal",
   "repeated-failure",
   "settled-question",
@@ -45,7 +53,7 @@ export interface Python {
   read(path: string): Promise<Uint8Array | undefined>;
 }
 
-/** The session's identity in Galaxy: its id, its record page, the history it works in. */
+/** The conversation's identity in Galaxy: its id, its record page, the history it works in. */
 export interface Binding {
   sessionId?: string;
   pageId?: string;
@@ -60,13 +68,8 @@ export interface Context {
   binding: Binding;
   /** Earlier turns' artifacts and this turn's, which a page may place. */
   artifacts: { prior: Artifact[]; produced: Artifact[] };
-  /** The session's unfinished Galaxy work; a tool that submits some registers it here. */
-  watch: Watch;
-}
-
-export interface Details {
-  refused?: boolean;
-  guard?: Guard;
+  /** Galaxy work a tool submitted, watched once the call returns. */
+  watch: { add(items: Watched[]): void };
 }
 
 export interface OlitTool {
@@ -111,14 +114,6 @@ export function rendered(envelope: Record<string, unknown>): string {
   return JSON.stringify(out);
 }
 
-export function result(
-  text: string,
-  isError = false,
-  details: Details = {},
-): AgentToolResult<Details> {
-  return { content: [{ type: "text", text }], details, isError };
-}
-
 /** Route an artifact to the shell, leaving its kind and title in the result. */
 export function claim(value: unknown, ctx: Context, hint?: string): unknown {
   const artifact = (value as { artifact?: Artifact } | null)?.artifact;
@@ -133,41 +128,93 @@ export function claim(value: unknown, ctx: Context, hint?: string): unknown {
   };
 }
 
-/** A tool for pi. `contextFor` gives the call a context whose requests end when pi aborts it. */
-export function asAgentTool(
-  tool: OlitTool,
-  contextFor: (signal?: AbortSignal) => Context,
-): AgentTool {
-  return {
+/** What a durable tool needs from its host besides the conversation's binding. */
+export interface ToolHost {
+  /** Galaxy clients and Python for one call, ended by its abort signal. */
+  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "ops" | "python">;
+  /** The artifacts earlier results carried, newest last. */
+  artifacts(conversationId: ConversationId, context: Chord): Promise<Artifact[]>;
+  watch: Task<Watched, any, JsonValue, object>;
+}
+
+/** What a result carries beside its text: the artifacts it made, the guard that refused it. */
+export interface Details {
+  artifacts?: Artifact[];
+  refused?: boolean;
+  guard?: Guard;
+}
+
+/**
+ * An Olit tool as a pi-durable tool. A read runs again after a reload; a write does not, so a
+ * Galaxy effect is never repeated: the work it submitted is watched from the commit that records
+ * the binding it changed. Artifacts travel in the result's details.
+ */
+export function durableTool(tool: OlitTool, host: ToolHost): ToolRegistration {
+  return defineTool({
     name: tool.name,
-    label: tool.name,
     description: tool.description,
-    parameters: tool.parameters as unknown as AgentTool["parameters"],
-    execute: async (_id, args, signal) => {
-      const ctx = contextFor(signal);
+    parameters: Type.Unsafe(tool.parameters),
+    ...(tool.capability === "write" ? {} : { replay: "safe" as const }),
+    execute: async (args, api, context) => {
+      const id = api.conversationId;
+      const [bound, prior] = await Promise.all([
+        api.snapshot(Bound, id, context),
+        host.artifacts(id, context),
+      ]);
+      const before = JSON.stringify(bound ?? {});
+      const submitted: Watched[] = [];
+      const ctx: Context = {
+        ...host.clients(context.abortSignal),
+        binding: { ...(bound ?? {}) },
+        artifacts: { prior, produced: [] },
+        watch: { add: (items) => submitted.push(...items) },
+      };
       let value: unknown;
       try {
         value = await tool.run(args, ctx);
       } catch (err) {
-        return result(`Tool '${tool.name}' raised: ${(err as Error)?.message ?? err}`, true);
+        value = fail(`Tool '${tool.name}' raised: ${(err as Error)?.message ?? err}`);
       }
       if (!(value instanceof Outcome)) {
-        ctx.watch.add(watchedFrom(tool.name, value));
+        submitted.push(...watchedFrom(tool.name, value));
       }
-      // Writing into a history is choosing it: an unbound session works there from now on.
       const named = (args as { history_id?: unknown }).history_id;
       const wrote = tool.capability === "write" && !(value instanceof Outcome && value.isError);
       if (wrote && typeof named === "string" && !ctx.binding.historyId) {
         ctx.binding.historyId = named;
       }
-      if (value instanceof Outcome) {
-        return result(
-          value.text,
-          value.isError,
-          value.guard ? { refused: true, guard: value.guard } : {},
-        );
+      const text =
+        value instanceof Outcome
+          ? value.text
+          : typeof value === "string"
+            ? value
+            : rendered({ data: claim(value, ctx) });
+      const rebound = JSON.stringify(ctx.binding) !== before;
+      const watched = submitted.filter((w) => !isTerminal(w.kind, w.state));
+      if (rebound || watched.length) {
+        await api.commit(async (tx) => {
+          if (rebound) {
+            Object.assign(await tx.doc(Bound, id), ctx.binding);
+          }
+          for (const w of watched) {
+            await tx.createTask(host.watch, w, {
+              ownership: { kind: "conversation" },
+              conversationId: id,
+              background: true,
+            });
+          }
+        }, context);
       }
-      return result(typeof value === "string" ? value : rendered({ data: claim(value, ctx) }));
+      const guard = value instanceof Outcome ? value.guard : undefined;
+      const details: Details = {
+        ...(ctx.artifacts.produced.length ? { artifacts: ctx.artifacts.produced } : {}),
+        ...(guard ? { refused: true, guard } : {}),
+      };
+      return {
+        content: [{ type: "text", text }],
+        isError: value instanceof Outcome && value.isError,
+        ...(Object.keys(details).length ? { details: details as JsonObject } : {}),
+      };
     },
-  };
+  });
 }

@@ -45,9 +45,9 @@ and it cannot see the agent's worker or the model key. `run-all.sh` runs it in C
 and WebKit, because only the last two attach Galaxy's SameSite-less cookie where the realm's
 credential lock has to stop it. `src/agent/python-node.test.ts` covers the headless realm.
 
-**Anything about persistence needs `?history_id=`.** IndexedDB continuity is keyed by the
-session the history last pointed at, so without a history in the URL the dev page starts a
-new conversation every load, where Galaxy supplies one in production. Saving to a
+**Anything about persistence needs `?history_id=`.** A reload continues the conversation the
+history last pointed at, kept in the browser's files (OPFS), so without a history in the URL the
+dev page starts a new conversation every load, where Galaxy supplies one in production. Saving to a
 Visualization is deliberate and independent of this.
 
 `LLM_KEEP_RECENT_TOKENS` must be small enough that the short test transcript has something

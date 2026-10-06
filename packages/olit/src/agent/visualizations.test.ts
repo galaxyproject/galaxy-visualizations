@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Watch } from "./watch";
 
 import { render } from "./artifacts";
 import type { Galaxy } from "./galaxy";
-import { asAgentTool, type Context, Outcome } from "./tool";
+import { claim, type Context, Outcome, rendered } from "./tool";
 import {
   chartOptions,
   checkLevel,
@@ -49,7 +48,7 @@ const context = (galaxy: unknown) =>
     galaxy: galaxy as Galaxy,
     artifacts: { prior: [], produced: [] },
     binding: {},
-    watch: new Watch(async () => undefined),
+    watch: { add: () => undefined },
   }) as unknown as Context;
 
 function call(name: string, galaxy: unknown, args: Json, charts = fakeCharts()): Promise<any> {
@@ -1314,8 +1313,7 @@ describe("artifact claim", () => {
   async function dispatch(name: string, args: Json) {
     const ctx = context(galaxy);
     const tool = visualizationTools(fakeCharts()).find((t) => t.name === name)!;
-    const result = await asAgentTool(tool, () => ctx).execute("1", args);
-    const text = (result.content[0] as { text: string }).text;
+    const text = rendered({ data: claim(await tool.run(args, ctx), ctx) });
     return { produced: ctx.artifacts.produced, data: JSON.parse(text).data };
   }
 

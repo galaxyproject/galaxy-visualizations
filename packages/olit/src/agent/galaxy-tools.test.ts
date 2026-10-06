@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
-import { Watch } from "./watch";
 
 import type { Galaxy } from "./galaxy";
 import {
@@ -12,7 +11,7 @@ import {
   PREVIEW_LINES,
 } from "./galaxy-tools";
 import { ELIDED } from "./notebook";
-import { olitTools } from "./session";
+import { olitTools } from "./tools";
 import { Outcome, traitsOf, type Context, type Python } from "./tool";
 
 type Fake = Partial<
@@ -36,7 +35,7 @@ function context(galaxy: Fake, extra: Partial<Context> = {}): Context {
     python: files(),
     binding: {},
     artifacts: { prior: [], produced: [] },
-    watch: new Watch(async () => undefined),
+    watch: { add: () => undefined },
     ...extra,
   };
 }

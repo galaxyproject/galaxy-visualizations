@@ -1,9 +1,7 @@
-import type { AgentMessage, BeforeToolCallContext } from "@earendil-works/pi-agent-core";
-import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
-import { olitTools } from "./session";
+import { olitTools } from "./tools";
 import { traitsOf } from "./tool";
-import { Watch, type Watched } from "./watch";
+import type { Watched } from "./watch";
 
 import {
   guards,
@@ -11,67 +9,43 @@ import {
   plainToolName,
   redact,
   withoutControlTokens,
+  type Call,
   type GuardOptions,
 } from "./guards";
 
 type Args = Record<string, unknown>;
-type Call = { id: string; name: string; arguments: Args };
 
-const assistant = (calls: Call[]) =>
-  ({
-    role: "assistant",
-    content: calls.map((c) => ({ type: "toolCall", ...c })),
-  }) as AssistantMessage;
-
-/** A session watch already holding these items. */
 /** What each of Olit's tools says of itself, read off the real tool set. */
 const TRAITS = new Map(olitTools().map((t) => [t.name, traitsOf(t)]));
 
-function watchOf(items: Watched[]) {
-  const watch = new Watch(async () => undefined);
-  watch.add(items);
-  return watch;
-}
-
-function session(overrides: Partial<GuardOptions> = {}) {
+function session(overrides: Partial<GuardOptions> = {}, watched: Watched[] = []) {
   let clock = 1_000_000;
   const g = guards({
     tools: TRAITS,
-    watch: new Watch(async () => undefined),
     secrets: [],
     withheld: new Map(),
     advertised: [],
     now: () => clock,
     ...overrides,
   });
-  const before = (call: Call, message = assistant([call])) =>
-    g.beforeToolCall({
-      assistantMessage: message,
-      toolCall: { type: "toolCall", ...call },
-      args: call.arguments,
-      context: {},
-    } as unknown as BeforeToolCallContext);
-  const after = (text: string, name = "t") =>
-    g.afterToolCall({
-      assistantMessage: assistant([]),
-      toolCall: { type: "toolCall", id: "c1", name, arguments: {} },
-      args: {},
-      result: { content: [{ type: "text", text }], details: undefined },
-      isError: false,
-      context: {},
-    } as never);
+  /** A call about to run, observed with the answer it came in when one is given. */
+  const before = (call: Call, batch?: Call[]) => {
+    if (batch) g.observe(batch);
+    return g.check(call, watched);
+  };
+  const after = (text: string) => g.screened(text);
   const tick = (ms: number) => (clock += ms);
-  return { g, before, after, tick };
+  return { g, before, after, tick, watched };
 }
 
-/** A call that runs when allowed, and counts its failure the way the session does. */
+/** A call that runs when allowed, and counts its failure the way a run does. */
 function runner(s: ReturnType<typeof session>) {
   let id = 0;
   const state = { executed: 0, fails: true };
   const call = async (name: string, args: Args, fails = state.fails) => {
-    const blocked = await s.before({ id: `c${++id}`, name, arguments: args });
-    if (blocked?.block) {
-      return { refused: true, text: blocked.reason!, guard: s.g.guardOf(`c${id}`, name, false) };
+    const refusal = await s.before({ id: `c${++id}`, name, arguments: args });
+    if (refusal) {
+      return { refused: true, text: refusal, guard: s.g.guardOf(`c${id}`) };
     }
     state.executed++;
     if (fails) {
@@ -81,19 +55,6 @@ function runner(s: ReturnType<typeof session>) {
   };
   return { call, state };
 }
-
-const toolResult = (toolName: string, text: string, isError = true) =>
-  ({
-    role: "toolResult",
-    toolCallId: "c1",
-    toolName,
-    content: [{ type: "text", text }],
-    isError,
-    timestamp: 0,
-  }) as AgentMessage;
-
-const resultOf = (m: AgentMessage) =>
-  m as unknown as { toolName: string; content: Array<{ type: string; text: string }> };
 
 describe("repeated-failure guard", () => {
   it("does not count a failure the guard never checked, such as one pi refused for its arguments", async () => {
@@ -172,10 +133,10 @@ describe("settled-question guard", () => {
     expect(await s.before(call)).toBeUndefined();
     expect(await s.before(call)).toBeUndefined();
     const refusal = await s.before(call);
-    expect(refusal?.block).toBe(true);
-    expect(refusal?.reason).toContain("already answered");
-    expect(refusal?.reason).toContain("fixed for this session");
-    expect(s.g.guardOf("c1", "search_tools_by_name", false)).toBe("settled-question");
+    expect(refusal).toBeTruthy();
+    expect(refusal).toContain("already answered");
+    expect(refusal).toContain("fixed for this session");
+    expect(s.g.guardOf("c1")).toBe("settled-question");
   });
 
   it("treats a different query as its own question", async () => {
@@ -207,29 +168,29 @@ describe("galaxy-poll guard", () => {
   const read = (name: string, args: Args) => ({ id: "c1", name, arguments: args });
 
   it("lets the first read of a watched resource through", async () => {
-    const s = session({ watch: watchOf(WATCHED) });
+    const s = session({}, WATCHED);
     expect(await s.before(read("get_dataset_details", { dataset_id: "d1" }))).toBeUndefined();
   });
 
   it("refuses a second read inside the cooldown", async () => {
-    const s = session({ watch: watchOf(WATCHED) });
+    const s = session({}, WATCHED);
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     const refusal = await s.before(read("get_dataset_details", { dataset_id: "d1" }));
-    expect(refusal?.block).toBe(true);
-    expect(refusal?.reason).toContain("running");
-    expect(refusal?.reason).toContain("background monitor is watching it");
-    expect(s.g.guardOf("c1", "get_dataset_details", false)).toBe("galaxy-poll");
+    expect(refusal).toBeTruthy();
+    expect(refusal).toContain("running");
+    expect(refusal).toContain("background monitor is watching it");
+    expect(s.g.guardOf("c1")).toBe("galaxy-poll");
   });
 
   it("lets the read through again once the cooldown expires", async () => {
-    const s = session({ watch: watchOf(WATCHED) });
+    const s = session({}, WATCHED);
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     s.tick(120_000);
     expect(await s.before(read("get_dataset_details", { dataset_id: "d1" }))).toBeUndefined();
   });
 
   it("never holds a resource the watcher is not following", async () => {
-    const s = session({ watch: watchOf(WATCHED) });
+    const s = session({}, WATCHED);
     for (let i = 0; i < 3; i++) {
       expect(
         await s.before(read("get_dataset_details", { dataset_id: "settled" })),
@@ -238,33 +199,31 @@ describe("galaxy-poll guard", () => {
   });
 
   it("cools each resource down on its own", async () => {
-    const s = session({
-      watch: watchOf([
-        ...WATCHED,
-        { kind: "dataset", id: "d2", label: "upload_file", state: "queued" },
-      ]),
-    });
+    const s = session({}, [
+      ...WATCHED,
+      { kind: "dataset", id: "d2", label: "upload_file", state: "queued" },
+    ]);
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     expect(await s.before(read("get_dataset_details", { dataset_id: "d2" }))).toBeUndefined();
     expect(await s.before(read("get_dataset_details", { dataset_id: "d1" }))).toBeDefined();
   });
 
   it("leaves a call that reads no watched resource alone", async () => {
-    const s = session({ watch: watchOf(WATCHED) });
+    const s = session({}, WATCHED);
     expect(await s.before(read("get_history_contents", { history_id: "h1" }))).toBeUndefined();
     expect(await s.before(read("get_dataset_details", {}))).toBeUndefined();
   });
 
   it("cools the job behind a watched dataset down with it", async () => {
-    const s = session({ watch: watchOf(WATCHED) });
+    const s = session({}, WATCHED);
     await s.before(read("get_dataset_details", { dataset_id: "d1" }));
     expect(await s.before(read("get_job_details", { dataset_id: "d1" }))).toBeDefined();
   });
 
   it("keys an invocation by its own argument", async () => {
-    const s = session({
-      watch: watchOf([{ kind: "invocation", id: "i1", label: "invoke_workflow", state: "new" }]),
-    });
+    const s = session({}, [
+      { kind: "invocation", id: "i1", label: "invoke_workflow", state: "new" },
+    ]);
     await s.before(read("get_invocations", { invocation_id: "i1" }));
     expect(await s.before(read("get_invocations", { invocation_id: "i1" }))).toBeDefined();
   });
@@ -272,10 +231,9 @@ describe("galaxy-poll guard", () => {
 
 describe("work submitted in the same turn", () => {
   it("is watched as soon as it is submitted, not from the next turn", async () => {
-    const watch = new Watch(async () => undefined);
-    const s = session({ watch });
-    // The upload landed earlier in this turn and registered its dataset.
-    watch.add([{ kind: "dataset", id: "d5", label: "upload_file", state: "queued" }]);
+    const s = session();
+    // The upload landed earlier in this run and registered its dataset.
+    s.watched.push({ kind: "dataset", id: "d5", label: "upload_file", state: "queued" });
     const read = { id: "c1", name: "get_dataset_details", arguments: { dataset_id: "d5" } };
     await s.before(read);
     expect(await s.before(read)).toBeDefined();
@@ -297,12 +255,11 @@ describe("SRA gate wiring", () => {
   it("refuses a fan-out before any of it runs, and lets the batch through", async () => {
     const s = session();
     const calls = [sra("a", "SRR1"), sra("b", "SRR2")];
-    const message = assistant(calls);
     for (const call of calls) {
-      const refusal = await s.before(call, message);
-      expect(refusal?.block).toBe(true);
-      expect(refusal?.reason).toContain("batch SRA imports");
-      expect(s.g.guardOf(call.id, "run_tool", false)).toBe("sra-fan-out");
+      const refusal = await s.before(call, calls);
+      expect(refusal).toBeTruthy();
+      expect(refusal).toContain("batch SRA imports");
+      expect(s.g.guardOf(call.id)).toBe("sra-fan-out");
     }
     const corrected = sra("batch", "SRR1,SRR2");
     expect(await s.before(corrected)).toBeUndefined();
@@ -317,25 +274,14 @@ describe("destructive gate wiring", () => {
       name: "update_history",
       arguments: { history_id: "h1", deleted: true },
     });
-    expect(refusal?.reason).toContain("declined");
-    expect(s.g.guardOf("d", "update_history", false)).toBe("destructive-declined");
+    expect(refusal).toContain("declined");
+    expect(s.g.guardOf("d")).toBe("destructive-declined");
   });
 });
 
-describe("oversized result", () => {
-  it("discards an oversized result and says how to recover", async () => {
-    const out = await session().after("x".repeat(256 * 1024 + 1), "run_python");
-    const text = out!.content![0] as { text: string };
-    expect(out!.isError).toBe(true);
-    expect(text.text).not.toContain("x".repeat(100));
-    expect(text.text).toContain("run_python");
-    expect(text.text).toContain("narrow");
-    expect(text.text).not.toContain("offset");
-    expect(text.text).not.toContain("limit and page");
-  });
-
-  it("passes a result inside the budget through untouched", async () => {
-    expect(await session().after("y".repeat(1000))).toBeUndefined();
+describe("a result as the model reads it", () => {
+  it("passes a result without secrets or control tokens through untouched", () => {
+    expect(session().after("y".repeat(1000))).toBeUndefined();
   });
 });
 
@@ -368,8 +314,8 @@ describe("secret redaction", () => {
   });
 
   it("scrubs a tool result before the model reads it", async () => {
-    const out = await session({ secrets: SECRETS }).after("key fea4130124bb18ef");
-    expect(out!.content).toEqual([{ type: "text", text: "key [redacted]" }]);
+    const out = session({ secrets: SECRETS }).after("key fea4130124bb18ef");
+    expect(out).toBe("key [redacted]");
   });
 });
 
@@ -399,20 +345,15 @@ describe("harmony control tokens", () => {
     expect(notFoundHint("totally_made_up", ["get_page"])).toBeUndefined();
   });
 
-  it("names an unknown tool without its control token", () => {
-    const name = "not_a_tool<|channel|>commentary";
-    const [out] = session({ advertised: ["get_page"] }).g.convert([
-      toolResult(name, `Tool ${name} not found`),
-    ]);
-    const text = resultOf(out).content[0].text;
-    expect(text).not.toContain("<|");
-    expect(text).toContain("not_a_tool");
-    expect(resultOf(out).toolName).toBe("not_a_tool");
+  it("hints the tool a contaminated call meant, without the token", () => {
+    const name = "get_page<|channel|>commentary";
+    const out = session({ advertised: ["get_page"] }).g.unoffered(name);
+    expect(out?.text).not.toContain("<|");
+    expect(out?.text).toContain("Did you mean `get_page`?");
   });
 
-  it("strips control tokens from a tool result", async () => {
-    const out = await session().after("before<|channel|>final");
-    expect(out!.content).toEqual([{ type: "text", text: "beforefinal" }]);
+  it("strips control tokens from a tool result", () => {
+    expect(session().after("before<|channel|>final")).toBe("beforefinal");
   });
 });
 
@@ -442,10 +383,9 @@ describe("not-found hints", () => {
     expect(notFoundHint("", ["run_python"])).toBeUndefined();
   });
 
-  it("appends the hint to pi's not-found result", () => {
+  it("appends the hint to the not-found result", () => {
     const g = session({ advertised: ["run_python"] }).g;
-    const [out] = g.convert([toolResult(SNEAKY, `Tool ${SNEAKY} not found`)]);
-    expect(resultOf(out).content[0].text).toBe(
+    expect(g.unoffered(SNEAKY)?.text).toBe(
       `Tool ${SNEAKY} not found\n\n${notFoundHint(SNEAKY, ["run_python"])}`,
     );
   });
@@ -455,29 +395,21 @@ describe("not-found hints", () => {
   });
 
   it("leaves an unknown name reported as unknown", () => {
-    const message = toolResult("no_such_tool", "Tool no_such_tool not found");
-    expect(session({ advertised: ["run_python"] }).g.convert([message])[0]).toEqual(message);
+    expect(session({ advertised: ["run_python"] }).g.unoffered("no_such_tool")).toBeUndefined();
   });
 
   it("cannot reach a tool the session was not offered", () => {
     const g = session({ advertised: ["get_page"], withheld: new Map([["run_tool", "write"]]) }).g;
-    const [out] = g.convert([toolResult("run_tоol", "Tool run_tоol not found")]);
-    expect(resultOf(out).content[0].text).toBe("Tool run_tоol not found");
+    expect(g.unoffered("run_tоol")).toBeUndefined();
   });
 
   it("refuses a withheld tool by its capability", () => {
     const g = session({ withheld: new Map([["run_tool", "write"]]) }).g;
-    const [out] = g.convert([toolResult("run_tool", "Tool run_tool not found")]);
-    expect(resultOf(out).content[0].text).toBe(
-      "Refused: 'run_tool' needs the 'write' capability, which is not granted in this session. " +
+    expect(g.unoffered("run_tool")).toEqual({
+      text:
+        "Refused: 'run_tool' needs the 'write' capability, which is not granted in this session. " +
         "Tell the user, and stay within the tools you are offered.",
-    );
-    expect(g.guardOf("c1", "run_tool", true)).toBe("capability");
-    expect(g.guardOf("c1", "run_tool", false)).toBeUndefined();
-  });
-
-  it("leaves a successful result alone", () => {
-    const message = toolResult("run_tool", "Tool run_tool not found", false);
-    expect(session().g.convert([message])[0]).toBe(message);
+      guard: "capability",
+    });
   });
 });
