@@ -243,9 +243,9 @@ async function main() {
       ready = true;
       galaxyStatus = message.galaxy;
       refreshSave();
-      if (!message.durable) {
+      if (message.unkept) {
         chat.addErrorMessage(
-          "This browser keeps no files for this page (private browsing?), so the conversation " +
+          `This browser keeps no files for this page (${message.unkept}), so the conversation ` +
             "ends when the page closes. Save it to Galaxy to keep it.",
         );
       }

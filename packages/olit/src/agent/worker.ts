@@ -34,7 +34,7 @@ export type WorkerMessage =
   | { type: "waiting" }
   /** Another tab took the conversation over. */
   | { type: "lost" }
-  | { type: "ready"; durable: boolean; galaxy: GalaxyStatus }
+  | { type: "ready"; unkept?: string; galaxy: GalaxyStatus }
   | { type: "events"; events: readonly AgentEvent[] }
   /** Galaxy work the conversation watched has settled. */
   | { type: "settled"; settled: Settled }
@@ -157,7 +157,7 @@ async function open(request: OpenRequest) {
       self.close();
     },
   });
-  const { storage, durable } = await openStorage(name);
+  const { storage, unkept } = await openStorage(name);
   runtime = await Runtime.open({
     storage,
     config: request.config,
@@ -168,7 +168,7 @@ async function open(request: OpenRequest) {
     ? await runtime.open(request.saved.document, request.saved.id)
     : await runtime.continuing(request.placement);
   await attach(next);
-  post({ type: "ready", durable, galaxy: runtime.galaxyStatus });
+  post({ type: "ready", unkept, galaxy: runtime.galaxyStatus });
 }
 
 async function reply(id: number, work: () => Promise<unknown>) {
