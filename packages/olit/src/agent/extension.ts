@@ -61,13 +61,12 @@ export interface OlitHost {
   watch: Task<Watched, any, any, object>;
 }
 
-/** What Olit remembers of one run: the guards' counts, the empty-answer retry, the record excerpt. */
+/** What Olit remembers of one run: the guards' counts and the empty-answer retry. */
 interface Run {
   id: SubmissionId | undefined;
   guard: ReturnType<typeof guards>;
   /** Whether the last empty answer was already asked again; a tool call since clears it. */
   retried: boolean;
-  excerpt?: Promise<string>;
 }
 
 const finish = defineTool({
@@ -182,12 +181,10 @@ export function olitExtension(host: OlitHost) {
     hooks: [
       hook(GenerationTask, {
         beforeRequest: async (request, api, context) => {
-          const run = await runOf(api, api.conversationId, context);
-          run.excerpt ??= api
-            .snapshot(Binding, api.conversationId, context)
-            .then((b) => excerpt(host.galaxy, b?.pageId, b?.historyId))
-            .catch(() => "");
-          return { messages: withRecord(request.messages, await run.excerpt) };
+          // Read for every request, as loom's context hook does: a run's own writes change both.
+          const bound = await api.snapshot(Binding, api.conversationId, context);
+          const text = await excerpt(host.galaxy, bound?.pageId, bound?.historyId);
+          return { messages: withRecord(request.messages, text) };
         },
         afterResponse: async (message, api, context) => {
           const calls = message.content.flatMap((c) =>

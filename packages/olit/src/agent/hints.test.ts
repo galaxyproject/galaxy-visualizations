@@ -168,11 +168,24 @@ describe("invocationOutcomeHint", () => {
     ).toBeUndefined();
   });
 
-  it("rolls up no more of a listing than galaxy-ops' page", async () => {
-    const { galaxy, asked } = jobs({});
-    const listed = Array.from({ length: 25 }, (_, i) => ({ id: `i${i}`, state: "scheduled" }));
-    await invocationOutcomeHint(galaxy, "get_invocations", listed);
+  it("rolls up no more of a listing than galaxy-ops' page, and says which it left unchecked", async () => {
+    const summaries = Object.fromEntries(
+      Array.from({ length: 20 }, (_, i) => [`i${i}`, { ok: 1 }]),
+    );
+    const { galaxy, asked } = jobs(summaries);
+    const listed = Array.from({ length: 25 }, (_, i) => ({ id: `i${i}`, state: "completed" }));
+    const hint = await invocationOutcomeHint(galaxy, "get_invocations", listed);
     expect(asked).toHaveLength(20);
+    expect(hint).toContain("the 5 listed after the first 20");
+  });
+
+  it("says which invocations' jobs could not be read", async () => {
+    const { galaxy } = jobs({ i2: { ok: 1 } });
+    const hint = await invocationOutcomeHint(galaxy, "get_invocations", [
+      { id: "i1", state: "scheduled" },
+      { id: "i2", state: "completed" },
+    ]);
+    expect(hint).toContain("i1 (their jobs could not be read)");
   });
 
   it("adds the note to an invocation read by id, whose outcome galaxy-ops gives", async () => {

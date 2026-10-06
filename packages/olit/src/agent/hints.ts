@@ -145,11 +145,14 @@ export async function invocationOutcomeHint(
     return note && `[olit] ${note}`;
   }
   const lines: string[] = [];
-  for (const row of Array.isArray(data) ? data.slice(0, ROLLUP_LIMIT) : []) {
+  const listed = Array.isArray(data) ? data : [];
+  const unchecked: string[] = [];
+  for (const row of listed.slice(0, ROLLUP_LIMIT)) {
     if (!isRow(row) || typeof row.id !== "string") {
       continue;
     }
     const states = await invocationJobStates(galaxy, row.id).catch(() => undefined);
+    if (!states) unchecked.push(row.id);
     const outcome = states && invocationOutcome(row.state as string | undefined, states);
     if (outcome && outcome !== row.state) {
       const note = OUTCOME_NOTES[outcome];
@@ -158,6 +161,17 @@ export async function invocationOutcomeHint(
           (note ? ` ${note}` : ""),
       );
     }
+  }
+  const beyond = Math.max(0, listed.length - ROLLUP_LIMIT);
+  if (unchecked.length || beyond) {
+    const which = [
+      unchecked.length ? `${unchecked.join(", ")} (their jobs could not be read)` : "",
+      beyond ? `the ${beyond} listed after the first ${ROLLUP_LIMIT}` : "",
+    ].filter(Boolean);
+    lines.push(
+      `[olit] Jobs were not checked for ${which.join(" and ")}; their \`state\` describes ` +
+        "scheduling only, so read one by id before reporting how it went.",
+    );
   }
   return lines.length ? lines.join("\n") : undefined;
 }

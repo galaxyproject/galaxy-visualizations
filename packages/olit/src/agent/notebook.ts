@@ -46,8 +46,12 @@ async function datasetManifest(galaxy: Galaxy, historyId: string): Promise<strin
         limit: MANIFEST_MAX + 1,
       })}`,
     );
-  } catch {
-    return "";
+  } catch (e) {
+    return (
+      "## Datasets in this history\n\n" +
+      `The history's contents could not be listed this turn (${String((e as Error)?.message ?? e)}), ` +
+      "so no ids are shown here; read them with get_history_contents rather than from memory."
+    );
   }
   if (!Array.isArray(items) || !items.length) {
     return "";
@@ -85,12 +89,13 @@ export async function excerpt(
   historyId?: string,
 ): Promise<string> {
   let content = "";
+  let unread: string | undefined;
   if (pageId) {
     try {
       const full = await usable(galaxy, pageId);
       content = (full ? pageBody(full) : "") || "";
-    } catch {
-      content = "";
+    } catch (e) {
+      unread = String((e as Error)?.message ?? e);
     }
   }
 
@@ -117,6 +122,12 @@ where they will not find them.${manifestBlock}
 
 `
     : "";
+  if (unread) {
+    return `${binding}## The record
+
+Page \`${pageId}\` could not be read this turn (${unread}). It is not empty: do not rewrite it
+from memory or treat it as new; read it again before editing it.`;
+  }
   if (!content.trim()) {
     return binding.trimEnd();
   }

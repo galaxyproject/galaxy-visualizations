@@ -228,7 +228,7 @@ describe("excerpt", () => {
     expect(asked.get("order")).toBe("hid-dsc");
   });
 
-  it("keeps the binding block when the history cannot be listed", async () => {
+  it("says the history could not be listed, rather than showing no datasets", async () => {
     const g = fakeGalaxy([], async (path) => {
       if (path.includes("contents")) {
         throw new Error("galaxy said no");
@@ -237,7 +237,17 @@ describe("excerpt", () => {
     });
     const out = await excerpt(g.galaxy, "p1", "h1");
     expect(out).toContain("## Galaxy binding");
-    expect(out).not.toContain("## Datasets in this history");
+    expect(out).toContain("could not be listed this turn (galaxy said no)");
+  });
+
+  it("says the record could not be read, rather than leaving it out as if empty", async () => {
+    const g = fakeGalaxy([], async (path) => {
+      if (path.includes("/p1")) throw new Error("HTTP 502");
+      return [];
+    });
+    const out = await excerpt(g.galaxy, "p1", "h1");
+    expect(out).toContain("Page `p1` could not be read this turn (HTTP 502)");
+    expect(out).toContain("It is not empty");
   });
 });
 
