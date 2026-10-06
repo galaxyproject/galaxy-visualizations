@@ -60,22 +60,29 @@ async function opfsStorage(name: string): Promise<Storage> {
 
 export interface OpenedStorage {
   storage: Storage;
-  /** False when the browser keeps no files (private browsing): the session ends with the page. */
-  durable: boolean;
+  /** Why the browser keeps no files, when it keeps none: the session then ends with the page. */
+  unkept?: string;
 }
 
 /** The storage of `name`: OPFS where the browser has it, memory otherwise. */
 export async function openStorage(name: string): Promise<OpenedStorage> {
   // A tab that just handed the storage over may still be letting go of its files.
+  let failure: unknown;
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
-      return { storage: await opfsStorage(name), durable: true };
+      return { storage: await opfsStorage(name) };
     } catch (error) {
+      failure = error;
       if ((error as Error)?.name !== "NoModificationAllowedError") break;
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
-  return { storage: new MemoryStorage(), durable: false };
+  console.warn("[olit] files are not kept:", failure);
+  const { name: kind, message } = (failure ?? {}) as Partial<Error>;
+  return {
+    storage: new MemoryStorage(),
+    unkept: [kind, message].filter(Boolean).join(": ") || String(failure),
+  };
 }
 
 /**
