@@ -103,6 +103,15 @@ export interface Settled {
   outcome: Outcome;
 }
 
+/** How many of an invocation's jobs are in each state, or undefined when Galaxy gives no summary. */
+export async function invocationJobStates(
+  galaxy: Galaxy,
+  id: string,
+): Promise<Record<string, number> | undefined> {
+  const states = (await galaxy.get(`api/invocations/${segment(id)}/jobs_summary`))?.states;
+  return states && typeof states === "object" ? states : undefined;
+}
+
 /** Reads one item's state from Galaxy; an invocation's comes from its jobs as well. */
 export function stateReader(galaxy: Galaxy) {
   const stateOf = (body: unknown) => {
@@ -114,10 +123,8 @@ export function stateReader(galaxy: Galaxy) {
     if (w.kind === "dataset") return stateOf(await galaxy.get(`api/datasets/${segment(w.id)}`));
     const state = stateOf(await galaxy.get(`api/invocations/${segment(w.id)}`));
     if (state !== "scheduled" && state !== "completed") return state;
-    const summary = await galaxy.get(`api/invocations/${segment(w.id)}/jobs_summary`);
-    const states = summary?.states;
-    if (!states || typeof states !== "object") return undefined;
-    return invocationOutcome(state, states);
+    const states = await invocationJobStates(galaxy, w.id);
+    return states && invocationOutcome(state, states);
   };
 }
 

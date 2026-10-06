@@ -1,5 +1,9 @@
+import { invocationOutcome } from "@galaxyproject/galaxy-ops/browser";
+
 import type { Galaxy } from "./galaxy";
+import { quote } from "./quote";
 import { NOT_OFFERED } from "./visualizations";
+import { invocationJobStates } from "./watch";
 
 const FAILED_FETCH = /Failed to fetch url\s+(\S+)/;
 /** ENA and SRA read paths, whose sharding is not derivable from an accession. */
@@ -108,4 +112,52 @@ export async function catalogMissHint(
     `[olit] '${plugin}' is a visualization, which the tool catalog does not hold. ` +
     "list_visualizations names the ones that can render a given dataset."
   );
+}
+
+/** Invocations in a listing rolled up from their jobs, one Galaxy call each. */
+const ROLLUP_LIMIT = 20;
+
+const OUTCOME_NOTES: Record<string, string> = {
+  failed:
+    "A job in this invocation failed. Galaxy's `state` describes scheduling only. Report the " +
+    "failure rather than the state, and read the failing dataset's get_job_details before " +
+    "proposing a repair.",
+  failing:
+    "A job in this invocation failed while others are still running. The run is not over, so do " +
+    "not report it as finished, and do not repair it until it settles.",
+  cancelled: "This invocation was cancelled, so its outputs are incomplete.",
+};
+
+/**
+ * What an invocation's jobs make of it, as galaxy-ops reads one by id: a listing carries only
+ * Galaxy's `state`, which describes scheduling, so each listed one whose jobs say otherwise is named.
+ */
+export async function invocationOutcomeHint(
+  galaxy: Galaxy,
+  name: string,
+  data: unknown,
+): Promise<string | undefined> {
+  if (name !== "get_invocations") {
+    return undefined;
+  }
+  if (isRow(data)) {
+    const note = OUTCOME_NOTES[String(data.outcome)];
+    return note && `[olit] ${note}`;
+  }
+  const lines: string[] = [];
+  for (const row of Array.isArray(data) ? data.slice(0, ROLLUP_LIMIT) : []) {
+    if (!isRow(row) || typeof row.id !== "string") {
+      continue;
+    }
+    const states = await invocationJobStates(galaxy, row.id).catch(() => undefined);
+    const outcome = states && invocationOutcome(row.state as string | undefined, states);
+    if (outcome && outcome !== row.state) {
+      const note = OUTCOME_NOTES[outcome];
+      lines.push(
+        `[olit] Invocation ${row.id}: outcome ${quote(outcome)}, jobs ${JSON.stringify(states)}.` +
+          (note ? ` ${note}` : ""),
+      );
+    }
+  }
+  return lines.length ? lines.join("\n") : undefined;
 }
