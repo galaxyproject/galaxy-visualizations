@@ -654,8 +654,8 @@ async function saveVisualization(
     return fail(JSON.stringify({ saved: false, ...rejected }));
   }
   const name = a.visualization;
-  const title = artifact!.title;
-  const config = visualizationConfig(a);
+  let title = artifact!.title;
+  let config = visualizationConfig(a);
 
   let visualizationId = a.visualization_id;
   if (visualizationId) {
@@ -667,6 +667,16 @@ async function saveVisualization(
           `${quote(name)}. Leave visualization_id out to save a new one.`,
       );
     }
+    // Galaxy replaces a revision's config and title whole, so what Olit does not own -- the
+    // plugin's own keys, such as galaxy-charts' transcripts -- and an unchanged title carry over.
+    const {
+      dataset_id: _d,
+      settings: _s,
+      tracks: _t,
+      ...kept
+    } = (existing.latest_revision?.config as Json | undefined) ?? {};
+    config = { ...kept, ...config };
+    title = a.title || existing.title || title;
     await galaxy.put(`api/visualizations/${segment(visualizationId)}`, { title, config });
   } else {
     const created = await galaxy.post("api/visualizations", { type: name, title, config });
@@ -682,7 +692,7 @@ async function saveVisualization(
     saved: true,
     visualization_id: visualizationId,
     title,
-    artifact: { ...artifact!, visualization_id: visualizationId },
+    artifact: { ...artifact!, title, visualization_id: visualizationId },
     hint:
       "Saved to the user's visualizations and displayed. It is not a history dataset. " +
       "Writing it into the record means putting {{artifact}} where it belongs in the " +

@@ -796,7 +796,15 @@ describe("show_visualization and save_visualization", () => {
   function server(compatible = ["atlas"], plugins: Record<string, Json> = {}) {
     return fakeGalaxy((path) => {
       if (path.startsWith("api/datasets/")) return { extension: "tabular", name: "sample.tabular" };
-      if (path === "api/visualizations/v9") return { id: "v9", type: "atlas" };
+      if (path === "api/visualizations/v9")
+        return {
+          id: "v9",
+          type: "atlas",
+          title: "Atlas of samples",
+          latest_revision: {
+            config: { dataset_id: "d1", settings: { old: 1 }, transcripts: [{ role: "user" }] },
+          },
+        };
       if (path === "api/visualizations/s1") return { id: "s1", type: "olit" };
       const declared = path.match(/^api\/plugins\/(.+)$/);
       if (declared) return plugins[declared[1]] ?? [];
@@ -949,6 +957,23 @@ describe("show_visualization and save_visualization", () => {
     expect(body.config.settings).toEqual({ x_axis_label: "Time" });
     expect(out.visualization_id).toBe("v9");
     expect(out.artifact).toMatchObject({ visualization: "atlas", visualization_id: "v9" });
+  });
+
+  it("keeps what the plugin stored and the title when revising, replacing only settings and tracks", async () => {
+    const g = server();
+    const out = await save(g, {
+      visualization: "atlas",
+      visualization_id: "v9",
+      settings: { x_axis_label: "Time" },
+    });
+    const [, body] = g.putTo!;
+    expect(body.config).toEqual({
+      dataset_id: "d1",
+      settings: { x_axis_label: "Time" },
+      transcripts: [{ role: "user" }],
+    });
+    expect(body.title).toBe("Atlas of samples");
+    expect(out.artifact.title).toBe("Atlas of samples");
   });
 
   it("refuses to overwrite a visualization of another type, such as a saved Olit session", async () => {

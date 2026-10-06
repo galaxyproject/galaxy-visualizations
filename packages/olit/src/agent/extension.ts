@@ -23,6 +23,7 @@ import { EMPTY_REPLY } from "./markers";
 import { excerpt } from "./notebook";
 import {
   durableTool,
+  GUARD_COUNTS_AS_FAILURE,
   traitsOf,
   type Artifact,
   type Capability,
@@ -34,14 +35,6 @@ import type { Watched } from "./watch";
 
 export const MAX_STEPS = 100;
 export const DEFAULT_CAPABILITIES: Capability[] = ["llm", "local", "read", "write"];
-
-/** Guards that refuse before a call runs, so its failure says nothing about its arguments. */
-const PRE_DISPATCH = new Set<Guard>([
-  "repeated-failure",
-  "settled-question",
-  "galaxy-poll",
-  "sra-fan-out",
-]);
 
 export interface OlitHost {
   galaxy: Galaxy;
@@ -152,7 +145,7 @@ export function olitExtension(host: OlitHost) {
       out = replaced(result, blockedReason(result), run.guard.guardOf(call.id));
     }
     const guard = (out.details as { guard?: Guard } | undefined)?.guard;
-    if (out.isError && !(guard && PRE_DISPATCH.has(guard))) {
+    if (out.isError && (!guard || GUARD_COUNTS_AS_FAILURE[guard])) {
       run.guard.noteFailure(call.name, call.id);
     }
     const screened = run.guard.screened(contentText(out.content ?? []));

@@ -64,7 +64,7 @@ export const IWC_CANDIDATES_HINT =
   "fit, say so. If nothing came back, retry once with just the assay; if the query had no " +
   "searchable terms, ask the user what they want to find out.";
 
-const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_workflows"]);
+export const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_workflows"]);
 
 export const iwcCandidatesHint = (name: string) =>
   IWC_LISTINGS.has(name) ? IWC_CANDIDATES_HINT : undefined;
@@ -79,7 +79,7 @@ export function fetchFailureHint(result: unknown): string | undefined {
 }
 
 /** Searches over the tool catalog, which holds no visualizations. */
-const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
+export const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
 /** Plugins never offered as a visualization: this agent and a standalone LLM plugin. */
 
 /** The installed visualization this query names. */

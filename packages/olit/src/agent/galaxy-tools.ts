@@ -11,6 +11,7 @@ import {
 } from "./hints";
 import { ELIDED } from "./notebook";
 import { pageContentProblem } from "./page-edit";
+import { watchedFrom } from "./watch";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -47,6 +48,8 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   },
   update_history: { destructiveWhen: (args) => args.deleted === true },
   create_page: { check: async (args) => invalidPage(args.content) },
+  // A revert rewrites the page too, so it waits its turn behind the session's own record writes.
+  revert_page_revision: { around: serialized },
   get_dataset_details: { polls: "dataset_id" },
   get_job_details: { polls: "dataset_id" },
   get_invocations: { polls: "invocation_id" },
@@ -177,10 +180,15 @@ async function downloadDataset(args: Row, { galaxy, python }: Context) {
   let partial = false;
   let data: Uint8Array;
   if (Number.isInteger(stated) && stated > MAX_DOWNLOAD_BYTES) {
-    const prefix = await chunk(galaxy, args.dataset_id, MAX_DOWNLOAD_BYTES);
+    // Only Galaxy's tabular datatypes serve a chunk of themselves; any other ignores the offset
+    // and streams the whole file, and BAM answers with SAM text.
+    const tabular = Array.isArray(details.metadata_column_types);
+    const prefix = tabular ? await chunk(galaxy, args.dataset_id, MAX_DOWNLOAD_BYTES) : undefined;
     if (prefix === undefined) {
       return fail(
-        `Dataset is ${(stated / 1e6).toFixed(1)} MB and cannot be read in chunks. Run a Galaxy tool on it instead.`,
+        `Dataset is ${(stated / 1e6).toFixed(1)} MB, over the ${MAX_DOWNLOAD_BYTES / 1e6} MB a ` +
+          `download reads, and Galaxy cannot serve ${quote(details.extension)} data in parts. ` +
+          "Run a Galaxy tool on it instead.",
       );
     }
     data = new TextEncoder().encode(prefix);
@@ -288,7 +296,11 @@ function tool(
     run: async (args, ctx) => {
       const value = await run(args, ctx);
       const hint = value instanceof Outcome ? undefined : fetchFailureHint(value);
-      return hint ? new Outcome(`${rendered({ data: value })}\n\n${hint}`) : value;
+      if (!hint) return value;
+      // Wrapped, the result is text the tool runner no longer reads work from, so watch it here,
+      // as the galaxy-ops tools do.
+      ctx.watch.add(watchedFrom(name, value));
+      return new Outcome(`${rendered({ data: value })}\n\n${hint}`);
     },
   };
 }

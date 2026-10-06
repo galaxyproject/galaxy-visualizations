@@ -73,7 +73,17 @@ const records = (value: unknown): Array<Record<string, unknown>> =>
   Array.isArray(value) ? value.filter((v) => v && typeof v === "object") : [];
 
 /** The unfinished work a tool's Galaxy result names; an unknown shape names none. */
+/** The tools whose results submit Galaxy work to watch. */
+export const WATCHED_TOOLS = new Set([
+  "run_tool",
+  "run_user_tool",
+  "upload_file_from_url",
+  "upload_file",
+  "invoke_workflow",
+]);
+
 export function watchedFrom(toolName: string, data: unknown): Watched[] {
+  if (!WATCHED_TOOLS.has(toolName)) return [];
   const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const out: Watched[] = [];
   const add = (kind: WatchKind, item: Record<string, unknown>, outputs?: string[]) => {

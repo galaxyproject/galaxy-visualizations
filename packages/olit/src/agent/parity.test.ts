@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { galaxyTools } from "./galaxy-tools";
+import { galaxyTools, OPS_POLICY } from "./galaxy-tools";
+import { CATALOG_SEARCHES, IWC_LISTINGS } from "./hints";
 import SNAPSHOT from "./galaxy-mcp-docs.json";
 import { opsTools } from "./ops";
+import { WATCHED_TOOLS } from "./watch";
 
 /** galaxy-mcp's Python signatures and docstrings, captured from its source. */
 const UPSTREAM = SNAPSHOT.params as Record<string, string[]>;
@@ -55,5 +57,17 @@ describe("the Galaxy tool surface against galaxy-mcp", () => {
     const offered = new Set([...opsTools(), ...galaxyTools()].map((t) => t.name));
     const missing = Object.keys(UPSTREAM).filter((name) => !offered.has(name));
     expect(missing).toEqual(["connect"]);
+  });
+
+  it("keys every rule Olit adds to an operation on a name the tool surface still offers", () => {
+    const offered = new Set([...opsTools(), ...galaxyTools()].map((t) => t.name));
+    const keyed = [
+      ...Object.keys(OPS_POLICY),
+      ...WATCHED_TOOLS,
+      ...IWC_LISTINGS,
+      ...CATALOG_SEARCHES,
+      "get_invocations",
+    ];
+    expect(keyed.filter((name) => !offered.has(name))).toEqual([]);
   });
 });

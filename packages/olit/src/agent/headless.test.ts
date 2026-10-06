@@ -214,6 +214,14 @@ describe("a turn", () => {
     expect(contentText(refused.content).startsWith("Refused:")).toBe(true);
   });
 
+  it("asks about a destructive call each time, never refusing it as a repeated failure", async () => {
+    const cancel = {
+      calls: [{ name: "cancel_workflow_invocation", args: { invocation_id: "i1" } }],
+    };
+    const { result } = await turn([cancel, cancel, cancel, cancel, { text: "ok" }]);
+    expect(results(result.entries).map(guardOf)).toEqual(Array(4).fill("destructive-declined"));
+  });
+
   it("names an Olit tool asked for as a Galaxy tool, rather than letting Galaxy shrug", async () => {
     const { result } = await turn([
       {
