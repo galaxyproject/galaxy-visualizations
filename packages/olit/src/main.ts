@@ -8,6 +8,7 @@ import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
 import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";
+import { saveCredentials } from "./credentials";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { ChatView, lastLine, type RunOutcome } from "./transcript";
 import { reportSavedState, savedSessions } from "./saved-session";
@@ -329,6 +330,7 @@ async function main() {
   el.model.addEventListener("click", async () => {
     const picked = await switchProvider(container);
     if (picked) {
+      const previous = { creds, model: { ...config } };
       creds = picked;
       const { ai_base_url, ai_provider, ai_model } = buildConfig(incoming, picked);
       Object.assign(config, { ai_base_url, ai_provider, ai_model });
@@ -336,7 +338,14 @@ async function main() {
       const { ai_base_url: url, ai_api_key } = workerConfig();
       await agent
         .switchModel({ ai_base_url: url, ai_provider, ai_model, ai_api_key })
-        .catch((e) => chat.addErrorMessage(`Could not switch the model: ${lastLine(String(e))}`));
+        .catch((e) => {
+          // The worker kept the model it had, so the page, and the next reload, keep it too.
+          creds = previous.creds;
+          saveCredentials(previous.creds);
+          Object.assign(config, previous.model);
+          showModel();
+          chat.addErrorMessage(`Could not switch the model: ${lastLine(String(e))}`);
+        });
     }
   });
 
