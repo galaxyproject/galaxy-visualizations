@@ -301,6 +301,3 @@ export function compiled(spec: Json): { compiles: boolean; problems: string[] } 
 }
 
 /** The spec as the markdown a Galaxy page holds. */
-export function fence(spec: Json): string {
-  return "```vega\n" + JSON.stringify(spec, null, 2) + "\n```";
-}

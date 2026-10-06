@@ -1,5 +1,6 @@
 import { query, segment } from "../galaxy";
 import { generateMermaid } from "./lineage-mermaid";
+import type { Artifact } from "../tool";
 import type { Process } from "./process";
 
 const DEFAULT_DEPTH = 4;
@@ -46,7 +47,7 @@ export const lineageReport: Process = {
         kind: "mermaid",
         title: "Dataset lineage",
         diagram: generateMermaid(nodes, edges, dataset_id),
-      },
+      } satisfies Artifact,
     };
   },
 };

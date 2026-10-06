@@ -182,6 +182,7 @@ describe("lineage_report as a tool", () => {
     expect(out.artifact).toEqual({ kind: "mermaid", title: "Dataset lineage" });
     expect(out.hint).toBe(ARTIFACT_HINT);
     expect(out.ok).toBe(true);
-    expect(ctx.artifacts.produced[0].diagram).toContain('hda_d1["*out"]');
+    expect(ctx.artifacts.produced[0]).toMatchObject({ kind: "mermaid" });
+    expect((ctx.artifacts.produced[0] as { diagram: string }).diagram).toContain('hda_d1["*out"]');
   });
 });

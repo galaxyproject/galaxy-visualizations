@@ -29,7 +29,7 @@ describe("renderArtifact", () => {
   });
 
   it("hands the chart renderer Galaxy's root path", async () => {
-    await renderArtifact(content, { kind: "vega-lite", spec: {} }, "/galaxy/");
+    await renderArtifact(content, { kind: "vega-lite", title: "Chart", spec: {} }, "/galaxy/");
     expect(renderVega.mock.calls[0][2]).toBe("/galaxy/");
   });
 
@@ -51,23 +51,20 @@ describe("renderArtifact", () => {
     expect(content.querySelector(".artifact-card-title")?.textContent).toBe("Dataset lineage");
   });
 
-  it("reports an unknown kind instead of rendering nothing", async () => {
-    await renderArtifact(content, { kind: "sankey" });
+  it("frames a Galaxy visualization at the display address its config names", async () => {
+    await renderArtifact(content, {
+      kind: "visualization",
+      title: "Structure",
+      visualization: "ngl",
+      dataset_id: "d1",
+    });
 
     expect(renderVega).not.toHaveBeenCalled();
     expect(renderMermaid).not.toHaveBeenCalled();
-    expect(content.textContent).toContain("Unsupported artifact type: sankey");
-  });
-
-  it("sends a Galaxy visualization to the frame at its display address", async () => {
-    const url = "/visualizations/display?visualization=ngl&dataset_id=d1";
-    await renderArtifact(content, { kind: "visualization", title: "Structure", url });
-
-    expect(renderVega).not.toHaveBeenCalled();
-    expect(renderMermaid).not.toHaveBeenCalled();
-    expect(content.querySelector("iframe")?.getAttribute("src")).toBe(
-      new URL(url, document.baseURI).href,
-    );
+    const src = new URL(content.querySelector("iframe")!.getAttribute("src")!);
+    expect(src.pathname).toBe("/visualizations/display");
+    expect(src.searchParams.get("visualization")).toBe("ngl");
+    expect(src.searchParams.get("dataset_id")).toBe("d1");
   });
 });
 

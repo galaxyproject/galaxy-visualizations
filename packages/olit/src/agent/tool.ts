@@ -9,9 +9,12 @@ import {
 } from "@earendil-works/pi-durable";
 import type { GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
+import type { Artifact } from "../artifacts/kinds";
 import { Binding as Bound } from "./documents";
 import type { Galaxy } from "./galaxy";
 import { isTerminal, watchedFrom, type Watched } from "./watch";
+
+export type { Artifact } from "../artifacts/kinds";
 
 export type Capability = "llm" | "local" | "read" | "write";
 
@@ -39,12 +42,6 @@ export class Outcome {
 }
 
 export const fail = (text: string) => new Outcome(text, true);
-
-export interface Artifact {
-  kind: string;
-  title?: string;
-  [key: string]: unknown;
-}
 
 export interface Python {
   /** An abort ends the run and the realm with it; the next call starts afresh. */

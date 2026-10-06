@@ -1,26 +1,24 @@
-import { renderVega } from "./vega";
 import { renderMermaid } from "./mermaid";
+import type { Artifact, ArtifactOf, Kind } from "./kinds";
+import { renderVega } from "./vega";
 import { renderVisualization } from "./visualization";
 
-/** A typed, renderable result; the kind selects the renderer. */
-export interface Artifact {
-  kind: string;
-  title?: string;
-  spec?: unknown;
-  diagram?: unknown;
-  [key: string]: unknown;
-}
+export type { Artifact } from "./kinds";
 
-/** Append an artifact card to the pane, dispatching on kind.
- *
- * Two sources, and no third: kinds olit produces itself, and Galaxy visualizations, which
- * Galaxy renders at its own display route from a dataset or a saved visualization.
- */
+/** How each kind draws in the pane: kinds Olit makes itself, and Galaxy's own visualizations. */
+const PANE: { [K in Kind]: (body: HTMLElement, artifact: ArtifactOf<K>, root: string) => unknown } =
+  {
+    "vega-lite": (body, a, root) => renderVega(body, a.spec, root),
+    mermaid: (body, a) => renderMermaid(body, a.diagram),
+    visualization: (body, a, root) => renderVisualization(body, a, root),
+  };
+
 /** What the pane shows for a list: the newest, since a live turn clears the pane first. */
 export function paneArtifacts(artifacts: Artifact[]): Artifact[] {
   return artifacts.length ? [artifacts[artifacts.length - 1]] : [];
 }
 
+/** Append an artifact card to the pane. */
 export async function renderArtifact(
   content: HTMLElement,
   artifact: Artifact,
@@ -44,13 +42,9 @@ export async function renderArtifact(
   card.appendChild(body);
   content.appendChild(card);
 
-  if (artifact.kind === "vega-lite" || artifact.kind === "vega") {
-    await renderVega(body, artifact.spec, root);
-  } else if (artifact.kind === "mermaid") {
-    await renderMermaid(body, artifact.diagram);
-  } else if (artifact.kind === "visualization") {
-    renderVisualization(body, artifact.url, root);
-  } else {
-    body.textContent = `Unsupported artifact type: ${artifact.kind}`;
-  }
+  await (PANE[artifact.kind] as (b: HTMLElement, a: Artifact, r: string) => unknown)(
+    body,
+    artifact,
+    root,
+  );
 }
