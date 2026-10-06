@@ -6,6 +6,9 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 // Where Galaxy serves a visualization plugin from, and the host page it renders.
 const PLUGIN_HREF = "/static/plugins/visualizations/olit/static";
+// The history a dataset lives in, as Galaxy reports it on the dataset: drives choose a history
+// by the dataset they launch on, `d1` and the dev default living in `h1`.
+const historyOf = (datasetId) => (["d1", "__test__"].includes(datasetId) ? "h1" : `h-${datasetId}`);
 // A plugin the artifact pane mounts, declaring its own entry point as Galaxy's plugin API does.
 const NGL_HREF = "/static/plugins/visualizations/ngl/static";
 const NGL = {
@@ -215,18 +218,16 @@ const escapeAttr = (text) =>
 
 // What VisualizationFrame.vue builds in the browser, rendered here instead: the same
 // data-incoming, the same plugin href, so a built app resolves Pyodide the way it does
-// in a deployment rather than from the dev server.
+// in a deployment rather than from the dev server. VisualizationDisplay.vue hands a plugin
+// opened on a dataset `{ dataset_id }` and nothing else: no history, and a title only for a
+// saved visualization.
 function hostPage(url) {
     const params = new URL(url, "http://127.0.0.1:8099").searchParams;
+    const datasetId = params.get("dataset_id");
     const incoming = {
         root: "http://127.0.0.1:8099/",
-        visualization_config: {
-            dataset_id: params.get("dataset_id") || undefined,
-            history_id: params.get("history_id") || undefined,
-            settings: {},
-        },
+        visualization_config: datasetId ? { dataset_id: datasetId } : {},
         visualization_plugin: pluginDict(),
-        visualization_title: "AI Research Assistant",
     };
     if (params.get("frame")) {
         // As Galaxy's VisualizationFrame.vue mounts a plugin: it asks the plugin API for the
@@ -435,10 +436,12 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, /galaxysession=/.test(req.headers.cookie || "") ? { username: "e2e-user" } : {});
     }
     if (url.includes("/api/datasets/")) {
-        return json(res, 200, { id: "d1", name: "peptide.pdb", extension: "pdb" });
+        const id = decodeURIComponent(url.split("/api/datasets/")[1].split(/[/?]/)[0]);
+        return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", history_id: historyOf(id) });
     }
     if (url.includes("/api/visualizations")) return json(res, 200, { id: "v1" });
     if (url.includes("/api/histories")) return json(res, 200, { id: "h1", name: "stub" });
+    if (url.startsWith("/history/current_history_json")) return json(res, 200, { id: "h1", name: "stub" });
     return json(res, 200, {});
 });
 

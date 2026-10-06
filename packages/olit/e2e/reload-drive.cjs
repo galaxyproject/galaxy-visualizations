@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { chromium } = require("playwright");
-const APP = (process.env.APP_URL || "http://localhost:5173/") + "?history_id=e2ereload0001";
+const APP = (process.env.APP_URL || "http://localhost:5173/") + "?dataset_id=e2ereload0001";
 const STUB = "http://127.0.0.1:8099";
 
 const results = [];

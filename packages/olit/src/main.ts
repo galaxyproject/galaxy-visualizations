@@ -1,7 +1,7 @@
 /** olit shell: mounts Orbit's ChatPanel, starts the agent worker, drives the chat. */
 import "./orbit/styles.css";
 import "./olit.css";
-import { describeSeedDataset, summarize } from "./seed-dataset";
+import { resolveLaunch, summarize } from "./seed-dataset";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
@@ -39,8 +39,6 @@ async function seedDevIncoming(container: HTMLElement): Promise<void> {
     root: "/",
     visualization_config: {
       dataset_id: pageUrl.searchParams.get("dataset_id") || "__test__",
-      // Dev only: a history to key the session on, as Galaxy supplies in production.
-      history_id: pageUrl.searchParams.get("history_id") || undefined,
       settings: {},
     },
     visualization_plugin: await parseXML("olit.xml"),
@@ -102,6 +100,8 @@ async function main() {
     ? await saved.load(incoming.visualizationId).catch(() => null)
     : null;
   let savedId = fromGalaxy ? incoming.visualizationId : undefined;
+  // A saved session carries its own history; otherwise the launch decides it.
+  const launch = fromGalaxy ? {} : await resolveLaunch(galaxy, config.dataset_id);
 
   const usage = mountUsageBar(container);
   mountBuildStamp(container, {
@@ -209,7 +209,7 @@ async function main() {
   const opening = {
     pyodideURL: new URL(`${incoming.root}${base}static/pyodide`, document.baseURI).href,
     config: workerConfig(),
-    placement: { historyId: config.history_id, datasetId: config.dataset_id },
+    placement: { historyId: launch.historyId, datasetId: config.dataset_id },
     ...(fromGalaxy && savedId ? { saved: { id: savedId, document: fromGalaxy } } : {}),
   };
 
@@ -258,12 +258,14 @@ async function main() {
           : "Olit ready. Ask me to run something.",
       );
       // Its own message: being ready and having a dataset to start from are separate facts.
-      if (config.dataset_id) {
-        void describeSeedDataset(galaxy, config.dataset_id).then((found) => {
-          if (found) {
-            info(summarize(found));
-          }
-        });
+      if (launch.problem) {
+        const what = config.dataset_id ? `dataset ${config.dataset_id}` : "the current history";
+        chat.addErrorMessage(
+          `Could not read ${what} from Galaxy (${launch.problem}), so this conversation is not ` +
+            "bound to a history.",
+        );
+      } else if (launch.dataset) {
+        info(summarize(launch.dataset));
       }
     } else if (message.type === "waiting") {
       const line = info("Olit is open on this conversation in another tab. ");

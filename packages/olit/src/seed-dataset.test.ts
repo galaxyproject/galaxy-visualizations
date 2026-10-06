@@ -1,44 +1,60 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { connectGalaxy } from "./agent/galaxy";
-import { describeSeedDataset, summarize } from "./seed-dataset";
+import { resolveLaunch, summarize } from "./seed-dataset";
 
 const galaxy = connectGalaxy({ root: "http://galaxy/" });
 
 afterEach(() => vi.unstubAllGlobals());
 
-const serve = (body: unknown, ok = true) =>
-  vi.stubGlobal(
-    "fetch",
-    async () => new Response(JSON.stringify(body), { status: ok ? 200 : 404 }),
-  );
+describe("resolveLaunch", () => {
+  /** Galaxy answering `routes`, by path, and recording what was asked. */
+  function routes(answers: Record<string, unknown>) {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      const path = new URL(input instanceof Request ? input.url : String(input)).pathname.slice(1);
+      asked.push(path);
+      return path in answers
+        ? new Response(JSON.stringify(answers[path]), { status: 200 })
+        : new Response("not found", { status: 404 });
+    });
+    return asked;
+  }
 
-describe("describeSeedDataset", () => {
-  it("reads the dataset Galaxy opened olit on", async () => {
-    serve({ name: "health.csv", extension: "csv", state: "ok", misc_blurb: "8 lines" });
-    expect(await describeSeedDataset(galaxy, "d1")).toEqual({
-      name: "health.csv",
-      extension: "csv",
-      state: "ok",
-      blurb: "8 lines",
+  it("takes the conversation's history from the dataset Galaxy launched olit on", async () => {
+    routes({
+      "api/datasets/d1": {
+        name: "health.csv",
+        extension: "csv",
+        state: "ok",
+        misc_blurb: "8 lines",
+        history_id: "h1",
+      },
+    });
+    expect(await resolveLaunch(galaxy, "d1")).toEqual({
+      historyId: "h1",
+      dataset: { name: "health.csv", extension: "csv", state: "ok", blurb: "8 lines" },
     });
   });
 
-  it("says nothing when Galaxy refuses the dataset", async () => {
-    serve({}, false);
-    expect(await describeSeedDataset(galaxy, "d1")).toBeNull();
+  it("falls back to Galaxy's current history when launched without a dataset", async () => {
+    const asked = routes({ "history/current_history_json": { id: "h9" } });
+    expect(await resolveLaunch(galaxy)).toEqual({ historyId: "h9" });
+    expect(asked).toEqual(["history/current_history_json"]);
   });
 
-  it("says nothing rather than throwing when the request fails", async () => {
+  it("says why when Galaxy refuses the dataset, rather than starting unbound in silence", async () => {
+    routes({});
+    const launch = await resolveLaunch(galaxy, "d1");
+    expect(launch.historyId).toBeUndefined();
+    expect(launch.problem).toContain("404");
+  });
+
+  it("says why when the request fails", async () => {
     vi.stubGlobal("fetch", async () => {
       throw new Error("offline");
     });
-    expect(await describeSeedDataset(galaxy, "d1")).toBeNull();
-  });
-
-  it("says nothing when the response is not a dataset", async () => {
-    serve({ err_msg: "not found" });
-    expect(await describeSeedDataset(galaxy, "d1")).toBeNull();
+    expect((await resolveLaunch(galaxy, "d1")).problem).toContain("offline");
   });
 });
 

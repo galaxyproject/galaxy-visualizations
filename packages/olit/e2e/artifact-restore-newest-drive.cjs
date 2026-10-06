@@ -5,7 +5,7 @@
 const { chromium } = require("playwright");
 // Keyed on a history the way Galaxy supplies one: without it nothing persists and there is
 // nothing to restore.
-const APP = (process.env.APP_URL || "http://localhost:5173/") + "?history_id=h1";
+const APP = (process.env.APP_URL || "http://localhost:5173/") + "?dataset_id=d1";
 const STUB = "http://127.0.0.1:8099";
 
 const results = [];

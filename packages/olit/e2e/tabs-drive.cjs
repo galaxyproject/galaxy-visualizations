@@ -1,7 +1,7 @@
 // One tab holds a conversation at a time. A second tab says the conversation is open elsewhere,
 // takes it over when asked, and keeps it in the browser's files; the first tab says it lost it.
 const { chromium } = require("playwright");
-const APP = (process.env.APP_URL || "http://localhost:5173/") + "?history_id=e2etabs0001";
+const APP = (process.env.APP_URL || "http://localhost:5173/") + "?dataset_id=e2etabs0001";
 const STUB = "http://127.0.0.1:8099";
 
 const results = [];

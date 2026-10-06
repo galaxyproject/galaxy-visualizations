@@ -87,9 +87,9 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
         return policy.refused?.(message, args) ?? fail(message);
       }
       ctx.watch.add(watchedFrom(op.name, envelope.data));
-      // Creating a history is the agent choosing where to work, even in a bound session.
+      // A conversation stays on the history it was launched on; an unbound one takes the first.
       const created = (envelope.data as { id?: unknown } | undefined)?.id;
-      if (op.name === "create_history" && typeof created === "string") {
+      if (op.name === "create_history" && typeof created === "string" && !ctx.binding.historyId) {
         ctx.binding.historyId = created;
       }
       const payload = rendered(envelope);

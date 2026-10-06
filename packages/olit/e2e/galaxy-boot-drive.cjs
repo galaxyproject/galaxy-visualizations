@@ -3,7 +3,7 @@
 const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
 const STUB = "http://127.0.0.1:8099";
-const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?dataset_id=d1&history_id=h1`;
+const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?dataset_id=d1`;
 
 const results = [];
 function check(name, ok, detail) {

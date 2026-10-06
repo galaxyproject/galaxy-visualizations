@@ -3,8 +3,9 @@ const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = process.env.STUB_URL || "http://127.0.0.1:8099";
-const HISTORY = "e2ehistory0001";
-const URL = `${APP}?history_id=${HISTORY}`;
+// Galaxy launches Olit on a dataset; the history is the one holding it.
+const DATASET = "e2edataset0001";
+const URL = `${APP}?dataset_id=${DATASET}`;
 
 let failed = 0;
 function check(name, ok, detail) {
@@ -70,7 +71,7 @@ function check(name, ok, detail) {
     check("reset survives a reload", !fresh.includes(ASK), "nothing restored");
 
     // A different history is a different conversation, as a different cwd is for pi.
-    await page.goto(`${APP}?history_id=otherhistory`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${APP}?dataset_id=otherdataset`, { waitUntil: "domcontentloaded" });
     check("booted on another history", await booted());
     const other = await page.evaluate(() => document.body.innerText);
     check("histories are kept apart", !other.includes(ASK));

@@ -221,6 +221,16 @@ describe("local continuity", () => {
     expect((await after.export(continued)).session.id).toBe(id);
   });
 
+  it("continues a history's conversation on the dataset it is opened on this time", async () => {
+    world();
+    const one = await machine();
+    const conversation = await one.create({ historyId: "h1", datasetId: "d1" });
+    const continued = await one.continuing({ historyId: "h1", datasetId: "d2" });
+    expect(continued.id).toBe(conversation.id);
+    const bound = await one.harness.snapshot(Binding, continued.id, context);
+    expect(bound).toMatchObject({ historyId: "h1", datasetId: "d2" });
+  });
+
   it("opens a saved conversation as saved, not with turns the browser added since", async () => {
     const { saved } = world();
     const one = await machine();

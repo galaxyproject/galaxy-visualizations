@@ -5,7 +5,6 @@ import { buildConfig } from "./config";
 const incoming = (specs: Record<string, unknown>) => ({
   root: "/",
   datasetId: "d1",
-  historyId: "h1",
   specs,
   settings: {},
 });

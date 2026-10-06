@@ -241,7 +241,7 @@ export class Runtime {
     );
   }
 
-  /** The conversation this history continues, or a new one. */
+  /** The conversation this history continues, now on the dataset it was launched on, or a new one. */
   async continuing(placement: Placement): Promise<Conversation> {
     const index = await this.harness.snapshot(Sessions, context);
     const known = placement.historyId ? index?.byHistory[placement.historyId] : undefined;
@@ -251,6 +251,11 @@ export class Runtime {
         : await this.harness.conversation(known as ConversationId, context);
     if (found) {
       await found.configure({ model: this.model }, context);
+      if (placement.datasetId) {
+        await found.commit(async (tx) => {
+          (await tx.doc(Binding, found.id)).datasetId = placement.datasetId;
+        }, context);
+      }
       return found;
     }
     return this.create(placement);

@@ -357,10 +357,19 @@ describe("a turn", () => {
 });
 
 describe("the history a conversation is bound to", () => {
-  it("moves to a history the agent creates", async () => {
+  it("stays on the history it was launched on when the agent creates another", async () => {
     const { session } = await turn(
       [{ calls: [{ name: "create_history", args: { history_name: "x" } }] }, { text: "ok" }],
       { history_id: "h1" },
+      { "api/histories": { id: "hnew", name: "x", model_class: "History" } },
+    );
+    expect((await bound(session))?.historyId).toBe("h1");
+  });
+
+  it("takes the first history the agent creates when it was launched on none", async () => {
+    const { session } = await turn(
+      [{ calls: [{ name: "create_history", args: { history_name: "x" } }] }, { text: "ok" }],
+      {},
       { "api/histories": { id: "hnew", name: "x", model_class: "History" } },
     );
     expect((await bound(session))?.historyId).toBe("hnew");
