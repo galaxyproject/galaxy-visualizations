@@ -25,6 +25,16 @@ export interface JobOutcome {
 
 const SUBMITTED = "submitted, awaiting completion";
 
+/** The status line each outcome leaves in the record. */
+const STAMP: Record<Outcome, (state: string) => string> = {
+  completed: (state) => `finished (${state})`,
+  failed: (state) => `failed (${state})`,
+  cancelled: () => "cancelled",
+  skipped: () => "skipped",
+  paused: () => "paused, waiting on an input that failed",
+  unreadable: (state) => `no longer shown by Galaxy (${state})`,
+};
+
 function unfencedLine(lines: string[], id: string): number {
   let fenced = false;
   return lines.findIndex((l) => {
@@ -51,11 +61,7 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   const at = lineWithId(lines, outcome.id);
   if (at < 0) return content;
 
-  // A cancel names itself; "cancelled (cancelled)" would say it twice.
-  const stamp =
-    outcome.outcome === "cancelled"
-      ? "cancelled"
-      : `${outcome.outcome === "failed" ? "failed" : "finished"} (${outcome.state})`;
+  const stamp = STAMP[outcome.outcome](outcome.state);
   // Already recorded: do not append a second time.
   if (lines[at].includes(stamp)) return content;
   for (let i = at; i < Math.min(at + 4, lines.length); i++) {
@@ -71,9 +77,9 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   ) {
     step = step < at && /^\s*($|#)/.test(lines[step]) ? -1 : step - 1;
   }
-  // A cancelled step is neither verified nor failed, so its marker is left as the agent
-  // wrote it and the status line below is what says the run was stopped.
-  if (step >= 0 && outcome.outcome !== "cancelled") {
+  // Only a completed or failed run settles the step; any other leaves its marker as the agent
+  // wrote it, and the status line below says what happened.
+  if (step >= 0) {
     const marker = lines[step].trimStart();
     if (marker.startsWith(PENDING) && outcome.outcome === "completed") {
       lines[step] = lines[step].replace(PENDING, DONE);

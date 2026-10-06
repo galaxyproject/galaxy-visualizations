@@ -200,9 +200,13 @@ async function main() {
     }
     if (outcome === "failed") {
       chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
-    } else if (outcome === "cancelled") {
-      // The user asked for this; an alarm about it would be the loudest thing in the room.
-      info(`${what} ${w.id} was cancelled.`);
+    } else if (outcome === "paused") {
+      chat.addErrorMessage(`${what} ${w.id} is paused: it waits on an input that failed.`);
+    } else if (outcome === "unreadable") {
+      chat.addErrorMessage(`${what} ${w.id} is no longer shown by Galaxy (${state}).`);
+    } else if (outcome === "cancelled" || outcome === "skipped") {
+      // Someone chose this; an alarm about it would be the loudest thing in the room.
+      info(`${what} ${w.id} was ${outcome}.`);
     } else {
       info(`${what} ${w.id} finished (${state}).`);
     }

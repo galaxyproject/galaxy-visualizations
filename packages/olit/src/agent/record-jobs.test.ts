@@ -30,6 +30,25 @@ describe("applyJobOutcome", () => {
     expect(out).toContain("- [ ] 2. **Sort rows**");
   });
 
+  it("leaves paused or skipped work's step open, and says what happened", () => {
+    const paused = applyJobOutcome(RECORD, {
+      id: "d071e794759ab192",
+      kind: "job",
+      state: "paused",
+      outcome: "paused",
+    });
+    expect(paused).toContain("- [ ] 1. **Filter rows**");
+    expect(paused).toContain("Status: paused, waiting on an input that failed");
+    const skipped = applyJobOutcome(RECORD, {
+      id: "d071e794759ab192",
+      kind: "job",
+      state: "skipped",
+      outcome: "skipped",
+    });
+    expect(skipped).toContain("- [ ] 1. **Filter rows**");
+    expect(skipped).toContain("Status: skipped");
+  });
+
   it("is idempotent — the poller may see the same terminal state repeatedly", () => {
     const once = applyJobOutcome(RECORD, ok("d071e794759ab192"));
     expect(applyJobOutcome(once, ok("d071e794759ab192"))).toBe(once);
