@@ -1,24 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vite";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 
 import { viteConfigCharts } from "./vite.config.charts";
 
-const staticCopyPlugin = viteStaticCopy({
-  targets: [
-    {
-      src: "node_modules/pyodide/*",
-      dest: "pyodide",
-      overwrite: true,
-    },
-    {
-      src: "temp/pyodide/*.whl",
-      dest: "pyodide",
-      overwrite: true,
-    },
-  ],
-});
+/** Pyodide and the wheels Olit loads beside it, copied next to the bundle Galaxy serves. */
+const copyPyodide = {
+  name: "olit-pyodide-copy",
+  writeBundle(options) {
+    const dest = path.join(options.dir, "pyodide");
+    fs.mkdirSync(dest, { recursive: true });
+    fs.cpSync("node_modules/pyodide", dest, { recursive: true });
+    for (const wheel of fs.readdirSync("temp/pyodide").filter((f) => f.endsWith(".whl"))) {
+      fs.copyFileSync(path.join("temp/pyodide", wheel), path.join(dest, wheel));
+    }
+  },
+};
 
 /** Pyodide's files as they are, as Galaxy serves them: the dev server would transform its scripts. */
 const servePyodide = {
@@ -44,7 +41,7 @@ const servePyodide = {
 
 export default defineConfig(({ command }) => ({
   ...viteConfigCharts,
-  plugins: command === "build" ? [staticCopyPlugin] : [servePyodide],
+  plugins: command === "build" ? [copyPyodide] : [servePyodide],
   test: {
     environment: "happy-dom",
     globals: true,

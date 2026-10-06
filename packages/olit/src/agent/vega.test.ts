@@ -69,13 +69,13 @@ describe("the data source", () => {
     expect(ready!.data.format).toEqual({ type: "csv", parse: { Price: "number" } });
   });
 
-  it("uses the schema galaxy renders with, whatever the caller names", () => {
-    expect(built(SCATTER).ready!.$schema).toBe("https://vega.github.io/schema/vega-lite/v5.json");
+  it("uses the schema Olit renders with, whatever the caller names", () => {
+    expect(built(SCATTER).ready!.$schema).toBe("https://vega.github.io/schema/vega-lite/v6.json");
     const { ready } = built({
       ...SCATTER,
-      $schema: "https://vega.github.io/schema/vega-lite/v6.json",
+      $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     });
-    expect(ready!.$schema.endsWith("v5.json")).toBe(true);
+    expect(ready!.$schema.endsWith("v6.json")).toBe(true);
   });
 
   it("parses numeric columns as numbers and leaves text alone", () => {

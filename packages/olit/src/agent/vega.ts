@@ -4,8 +4,8 @@ import { compile } from "vega-lite";
 
 type Json = Record<string, any>;
 
-/** The vega-lite major Galaxy renders a page with. */
-export const SCHEMA = "https://vega.github.io/schema/vega-lite/v5.json";
+/** The vega-lite major Olit renders with. */
+export const SCHEMA = "https://vega.github.io/schema/vega-lite/v6.json";
 export const SIZE_LIMIT = 25_000_000;
 
 const displayUrl = (datasetId: string, root: string) =>
