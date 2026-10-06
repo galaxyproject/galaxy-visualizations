@@ -357,6 +357,22 @@ describe("a turn", () => {
   });
 });
 
+describe("a restart, as a browser with nothing stored does it", () => {
+  it("carries over what Reset does, the history and dataset, and not the old record or session", async () => {
+    server([{ text: "ok" }]);
+    const session = await open({ history_id: "h1", dataset_id: "d1" });
+    await session.runtime.harness.commit(async (tx) => {
+      Object.assign(await tx.doc(Binding, session.conversation.id), { pageId: "p1" });
+    }, context);
+    const before = await bound(session);
+    await session.restart();
+    const after = await bound(session);
+    expect(after).toMatchObject({ historyId: "h1", datasetId: "d1" });
+    expect(after?.pageId).toBeUndefined();
+    expect(after?.sessionId).not.toBe(before?.sessionId);
+  });
+});
+
 describe("the history a conversation is bound to", () => {
   it("stays on the history it was launched on when the agent creates another", async () => {
     const { session } = await turn(

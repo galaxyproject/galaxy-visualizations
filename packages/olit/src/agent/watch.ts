@@ -1,7 +1,7 @@
 /** Galaxy work a conversation submitted, watched by a durable task; the analogue of loom's galaxy-poller. */
 import { defineTask, type ConversationId } from "@earendil-works/pi-durable";
 
-import { FollowUps, MAX_AUTO_FOLLOW_UPS } from "./documents";
+import { FollowUps, heldBy } from "./documents";
 import { HttpError, segment, type Galaxy } from "./galaxy";
 import { FOLLOW_UP_MARK, WHAT } from "./markers";
 import { applyJobOutcome, noteSubmitted } from "./record-jobs";
@@ -216,7 +216,7 @@ export function galaxyWatch({ galaxy, editRecord, pollMs = 10_000 }: WatchOption
         };
         const prompt = followUpPrompt([settled]);
         const policy = await runtime.snapshot(FollowUps, task.conversationId, context);
-        const held = !!policy?.paused || (policy?.automatic ?? 0) >= MAX_AUTO_FOLLOW_UPS;
+        const held = heldBy(policy) !== undefined;
         const conversation = prompt
           ? await runtime.conversation(task.conversationId, context)
           : undefined;

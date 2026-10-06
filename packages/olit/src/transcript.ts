@@ -42,6 +42,8 @@ export interface ViewHooks {
   retried(): void;
   /** Something failed outside any one run. */
   failed(message: string): void;
+  /** The user wrote a message, which answers whatever plan draft was open. */
+  wrote(): void;
 }
 
 /** Why pi-durable left a user's message unanswered, as the user should hear it. */
@@ -186,6 +188,7 @@ export class ChatView {
         this.hooks.info("Checking the Galaxy results that just landed.");
       } else if (text !== EMPTY_REPLY) {
         this.turns += 1;
+        this.hooks.wrote();
         this.chat.addUserMessage(text);
       }
     } else if (message.role === "assistant") {

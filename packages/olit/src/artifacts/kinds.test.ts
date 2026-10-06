@@ -2,7 +2,8 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { describe, expect, it } from "vitest";
 
 import { pageContentProblem } from "../agent/page-edit";
-import { artifactsOf, PAGE, toPage, type Artifact } from "./kinds";
+import { artifactsOf, PAGE, toPage, type Artifact, type ArtifactOf } from "./kinds";
+import { incoming } from "./visualization";
 
 const body = (markdown: string | undefined, label: string) =>
   JSON.parse(markdown!.slice(`\`\`\`${label}\n`.length, -"\n```".length));
@@ -65,5 +66,37 @@ describe("the artifacts results carried", () => {
 
   it("drops a kind Olit does not know, as a saved document may carry", () => {
     expect(artifactsOf([result([{ kind: "sankey", title: "x" }])])).toEqual([]);
+  });
+});
+
+describe("a visualization in a page and in the pane", () => {
+  /** What Galaxy's MarkdownVisualization.vue processContent hands VisualizationFrame. */
+  const asGalaxyPage = (markdown: string) => {
+    const parsed = JSON.parse(markdown.slice("```visualization\n".length, -"\n```".length));
+    return {
+      name: parsed.visualization_name,
+      config: {
+        dataset_id: parsed.dataset_id,
+        dataset_url: parsed.dataset_url,
+        settings: parsed.settings,
+        tracks: parsed.tracks,
+      },
+    };
+  };
+
+  it("renders the same plugin with the same config in both", () => {
+    const viz: ArtifactOf<"visualization"> = {
+      kind: "visualization",
+      title: "Reads",
+      visualization: "plotly",
+      dataset_id: "d1",
+      settings: { x_axis_label: "Residue" },
+      tracks: [{ y: "1" }],
+      visualization_id: "v1",
+    };
+    const page = asGalaxyPage(toPage(viz)!);
+    const pane = incoming(viz, {}, "/");
+    expect(page.name).toBe(viz.visualization);
+    expect(page.config).toEqual({ dataset_url: undefined, ...pane.visualization_config });
   });
 });

@@ -31,6 +31,13 @@ export const FollowUps = defineDoc<{ automatic: number; paused: boolean }>({
   initial: () => ({ automatic: 0, paused: false }),
 });
 
+/** Why settled work waits for the user rather than starting a run, or undefined when it need not. */
+export function heldBy(policy: { automatic: number; paused: boolean } | undefined) {
+  if (policy?.paused) return "stopped" as const;
+  if ((policy?.automatic ?? 0) >= MAX_AUTO_FOLLOW_UPS) return "capped" as const;
+  return undefined;
+}
+
 /**
  * Which conversation each Galaxy history continues, and which conversation holds each saved
  * session as saved: the save it holds, and its last entry then.

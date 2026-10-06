@@ -117,16 +117,16 @@ export class Headless {
     return { settled, pending: pending.length, entries: await this.fresh() };
   }
 
-  /** A tab closed and opened again with nothing stored: a new conversation on the same record. */
+  /**
+   * A tab closed and opened again with nothing stored, as a browser does it: a new conversation
+   * launched on the same history and dataset, and nothing else carried over, just as Reset does.
+   */
   async restart() {
     const bound = await this.runtime.harness.snapshot(Binding, this.conversation.id, context);
     const next = await this.runtime.create({
       historyId: bound?.historyId,
       datasetId: bound?.datasetId,
     });
-    await next.commit(async (tx) => {
-      Object.assign(await tx.doc(Binding, next.id), bound ?? {});
-    }, context);
     this.conversation = next;
     this.last = 0;
     await this.fresh();

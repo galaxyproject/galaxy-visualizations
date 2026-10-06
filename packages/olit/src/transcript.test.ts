@@ -30,6 +30,7 @@ function view() {
     retry: vi.fn(),
     retried: vi.fn(),
     failed: vi.fn(),
+    wrote: vi.fn(),
   };
   return { chat, hooks, view: new ChatView(chat, hooks) };
 }
@@ -171,5 +172,76 @@ describe("a live run", () => {
       { type: "task_failed", taskId: 7, kind: "olit.galaxy-watch", message: "boom" } as AgentEvent,
     ]);
     expect(hooks.failed).toHaveBeenCalledWith("Olit's olit.galaxy-watch task failed: boom");
+  });
+});
+
+describe("a run drawn live and the same run restored", () => {
+  /** What the user ends up seeing: messages, steps and replies, in order, deltas joined. */
+  function seen(chat: ReturnType<typeof view>["chat"]) {
+    const calls = [
+      ...Object.entries(chat).flatMap(([name, fn]) =>
+        (fn as ReturnType<typeof vi.fn>).mock.calls.map((args, i) => ({
+          name,
+          args,
+          order: (fn as ReturnType<typeof vi.fn>).mock.invocationCallOrder[i],
+        })),
+      ),
+    ].sort((a, b) => a.order - b.order);
+    const out: string[] = [];
+    for (const { name, args } of calls) {
+      if (name === "addUserMessage") out.push(`user: ${args[0]}`);
+      else if (name === "addToolCard") out.push(`step: ${args[1]}`);
+      else if (name === "updateToolCard") out.push(`step ${args[1]}: ${args[2]}`);
+      else if (name === "startAssistantMessage") out.push("reply: ");
+      else if (name === "appendDelta") out[out.length - 1] += args[0];
+    }
+    return out;
+  }
+
+  const asked = user("count the rows");
+  const calling = entry("pi.assistant", {
+    role: "assistant",
+    content: [{ type: "toolCall", id: "c1", name: "get_tool_details", arguments: {} }],
+    stopReason: "toolUse",
+  });
+  const stepped = result(false, "get_tool_details", "12 rows");
+  const answered = entry("pi.assistant", {
+    role: "assistant",
+    content: [{ type: "text", text: "There are 12 rows." }],
+    stopReason: "stop",
+  });
+
+  it("shows the user the same conversation either way", () => {
+    const live = view();
+    live.view.apply([
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      { type: "message_end", entry: asked } as AgentEvent,
+      { type: "message_end", entry: calling } as AgentEvent,
+      {
+        type: "tool_execution_start",
+        toolCallId: "c1",
+        toolName: "get_tool_details",
+      } as AgentEvent,
+      { type: "message_end", entry: stepped } as AgentEvent,
+      {
+        type: "message_update",
+        changes: [{ type: "text_delta", contentIndex: 0, delta: "There are " }],
+      } as unknown as AgentEvent,
+      {
+        type: "message_update",
+        changes: [{ type: "text_delta", contentIndex: 0, delta: "12 rows." }],
+      } as unknown as AgentEvent,
+      { type: "message_end", entry: answered } as AgentEvent,
+      { type: "run_end" } as unknown as AgentEvent,
+    ]);
+    const restored = view();
+    restored.view.apply([snapshot([asked, calling, stepped, answered])]);
+    expect(seen(live.chat)).toEqual(seen(restored.chat));
+    expect(seen(restored.chat)).toEqual([
+      "user: count the rows",
+      "step: get_tool_details",
+      "step done: 12 rows",
+      "reply: There are 12 rows.",
+    ]);
   });
 });

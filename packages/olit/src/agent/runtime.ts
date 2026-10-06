@@ -7,12 +7,13 @@ import {
   UsageDoc,
   type Conversation,
   type ConversationId,
+  type Cursor,
   type EntryRecord,
   type Storage,
   type Submission,
 } from "@earendil-works/pi-durable";
 
-import { artifactsOf } from "../artifacts/kinds";
+import { artifactsOf, type Artifact } from "../artifacts/kinds";
 import type { Ask } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
@@ -32,6 +33,25 @@ export const context = BACKGROUND_CONTEXT;
 const MIN_SECRET_LENGTH = 8;
 /** Earlier artifacts a tool can place; a spec carries its rows, so few are offered. */
 const ARTIFACT_LIMIT = 20;
+
+/**
+ * The newest artifacts a conversation's results carried, oldest of them first. Read from its
+ * whole history rather than its context, so a chart the user saw stays placeable after the turns
+ * that made it were summarized away.
+ */
+export async function artifactsIn(
+  conversation: Pick<Conversation, "entries">,
+  ctx: Chord,
+): Promise<Artifact[]> {
+  const found: Artifact[] = [];
+  let cursor: Cursor | undefined;
+  do {
+    const page = await conversation.entries({}, 200, cursor, ctx);
+    found.unshift(...artifactsOf([...page.items].reverse()));
+    cursor = page.next;
+  } while (cursor && found.length < ARTIFACT_LIMIT);
+  return found.slice(-ARTIFACT_LIMIT);
+}
 
 export interface RuntimeConfig extends LlmConfig {
   galaxy_root: string;
@@ -138,8 +158,7 @@ export class Runtime {
       }),
       artifacts: async (id, ctx) => {
         const conversation = await harness!.conversation(id, ctx);
-        const entries = conversation ? (await conversation.context(ctx)).entries : [];
-        return artifactsOf(entries).slice(-ARTIFACT_LIMIT);
+        return conversation ? artifactsIn(conversation, ctx) : [];
       },
       watched: (id, ctx) => watchedBy(harness!, id, ctx),
       tools: olitTools(skills),

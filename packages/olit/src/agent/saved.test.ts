@@ -11,7 +11,7 @@ import { savedSessions } from "../saved-session";
 import { Binding } from "./documents";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
-import { context, Runtime } from "./runtime";
+import { artifactsIn, context, Runtime } from "./runtime";
 import { title, type SessionDocument } from "./saved";
 import type { Python } from "./tool";
 
@@ -256,5 +256,32 @@ describe("local continuity", () => {
     await one.saved(conversation, id, document);
 
     expect((await one.open((await saved.load(id))!, id)).id).toBe(conversation.id);
+  });
+});
+
+describe("artifacts across a compaction", () => {
+  const made = (id: number, title: string) =>
+    ({
+      id,
+      kind: "pi.tool-result",
+      model: [
+        {
+          role: "toolResult",
+          details: { artifacts: [{ kind: "vega-lite", title, spec: {} }] },
+        },
+      ],
+    }) as unknown as import("@earendil-works/pi-durable").EntryRecord;
+
+  it("keeps a chart placeable after the turns that made it were summarized", async () => {
+    // Newest first, two pages, as pi-durable hands a conversation's whole history back.
+    const pages = [
+      { items: [made(4, "After")], next: { page: 2 } },
+      { items: [made(2, "Before")] },
+    ];
+    const conversation = {
+      entries: async (_q: unknown, _limit: number, cursor: unknown) => pages[cursor ? 1 : 0],
+    };
+    const titles = (await artifactsIn(conversation as never, context)).map((a) => a.title);
+    expect(titles).toEqual(["Before", "After"]);
   });
 });

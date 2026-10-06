@@ -1,6 +1,7 @@
 /** olit shell: mounts Orbit's ChatPanel, starts the agent worker, drives the chat. */
 import "./orbit/styles.css";
 import "./olit.css";
+import { settlePlanDrafts } from "./plan-drafts";
 import { resolveLaunch, summarize } from "./seed-dataset";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
@@ -179,6 +180,7 @@ async function main() {
     usage: (totals) => usage.set(totals),
     retry: (errorMessage, at, attempt) => retryNotice.start(errorMessage, at, attempt),
     failed: (message) => chat.addErrorMessage(message),
+    wrote: () => settlePlanDrafts(el.messages),
     retried: () => retryNotice.stop(),
   });
 

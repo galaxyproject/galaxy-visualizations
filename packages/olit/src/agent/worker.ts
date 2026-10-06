@@ -9,7 +9,7 @@ import {
   type TaskId,
 } from "@earendil-works/pi-durable";
 
-import { Binding, FollowUps, MAX_AUTO_FOLLOW_UPS } from "./documents";
+import { Binding, FollowUps, heldBy } from "./documents";
 import { connectGalaxy } from "./galaxy";
 import type { GalaxyStatus } from "./prompt";
 import { browserPython } from "./python";
@@ -87,13 +87,7 @@ async function postHeld() {
     runtime.harness.snapshot(LiveDoc, id, context),
   ]);
   const queued = !live?.run && (inbox?.items ?? []).some((item) => item.mode !== "write");
-  const next: Waiting = !queued
-    ? undefined
-    : policy?.paused
-      ? "stopped"
-      : (policy?.automatic ?? 0) >= MAX_AUTO_FOLLOW_UPS
-        ? "capped"
-        : undefined;
+  const next: Waiting = queued ? heldBy(policy) : undefined;
   if (next !== held) {
     held = next;
     post({ type: "held", held });
