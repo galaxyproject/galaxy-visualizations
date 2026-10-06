@@ -112,6 +112,8 @@ export const viteConfigCharts = defineConfig({
       "/api": proxyGalaxy(),
       // Galaxy serves its OpenAPI spec here; the scoped catalog fetches it.
       "/openapi.json": proxyGalaxy(),
+      // Visualization plugins the artifact pane mounts, from where Galaxy serves them.
+      "/static/plugins/visualizations": proxyGalaxy(),
       // Dev LLM proxy; the key is attached here so it never reaches page JS.
       "/llm": {
         changeOrigin: true,

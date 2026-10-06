@@ -314,3 +314,40 @@ export function isOffered(value: unknown, options: Json[] | undefined, param: Js
   const fallback = resolvedDefault(param);
   return fallback !== null && same(value, fallback);
 }
+
+/**
+ * What a config leaves the viewer to choose: inputs still unset once galaxy-charts' defaults
+ * apply, whose options only the server can offer, such as a dataset's columns.
+ */
+export function unresolved(plugin: Json, config: Json, types: Types): string[] {
+  const missing: string[] = [];
+  const walk = (declared: unknown, values: Json, path: string) => {
+    for (const param of (declared as unknown[]) || []) {
+      if (!isObject(param) || !param.name) {
+        continue;
+      }
+      const value = values[param.name];
+      if (param.type === "conditional") {
+        const inner = isObject(value) ? value : {};
+        walk(caseFor(param, inner)?.inputs, inner, `${path}${param.name}.`);
+      } else if (value == null && (types[param.type]?.options?.kind ?? "declared") !== "declared") {
+        missing.push(path + param.name);
+      }
+    }
+  };
+  const settings = isObject(config.settings) ? config.settings : {};
+  walk(plugin.settings, parseValues(plugin.settings, settings), "settings.");
+  if (Array.isArray(plugin.tracks) && plugin.tracks.length) {
+    // galaxy-charts gives a plugin with tracks one empty track when a config holds none.
+    const tracks: unknown[] =
+      Array.isArray(config.tracks) && config.tracks.length ? config.tracks : [{}];
+    tracks.forEach((track, i) =>
+      walk(
+        plugin.tracks,
+        parseValues(plugin.tracks, isObject(track) ? track : {}),
+        `tracks[${i}].`,
+      ),
+    );
+  }
+  return missing;
+}

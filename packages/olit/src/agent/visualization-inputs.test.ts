@@ -1,7 +1,9 @@
 import { quote } from "./quote";
 import { describe, expect, it } from "vitest";
 
-import { buildVisualizationTemplate } from "./visualization-inputs";
+import inputs from "galaxy-charts/galaxy-charts.inputs.json";
+
+import { buildVisualizationTemplate, unresolved, type Types } from "./visualization-inputs";
 
 const TYPES = {
   text: { stores: { type: "string" } },
@@ -100,5 +102,44 @@ describe("quote", () => {
     expect(quote(null)).toBe("null");
     expect(quote(undefined)).toBe("null");
     expect(quote({ id: "a", n: [1, true] })).toBe('{"id":"a","n":[1,true]}');
+  });
+});
+
+describe("unresolved", () => {
+  const types = (inputs as { types: Types }).types;
+  const PLOTLY = {
+    settings: [{ name: "x_axis_label", type: "text" }],
+    tracks: [
+      { name: "x", type: "data_column", is_auto: "true" },
+      { name: "y", type: "data_column", is_number: "true" },
+    ],
+  };
+
+  it("names what only the dataset can fill, on the one track a config without tracks gets", () => {
+    expect(unresolved(PLOTLY, {}, types)).toEqual(["tracks[0].y"]);
+    expect(unresolved(PLOTLY, { tracks: [{ y: "1" }, {}] }, types)).toEqual(["tracks[1].y"]);
+    expect(unresolved(PLOTLY, { tracks: [{ y: "1" }] }, types)).toEqual([]);
+  });
+
+  it("follows the case a conditional selects", () => {
+    const plugin = {
+      settings: [
+        {
+          name: "source",
+          type: "conditional",
+          test_param: { name: "origin", type: "select", value: "igv" },
+          cases: [
+            { value: "igv", inputs: [{ name: "genome", type: "data_json" }] },
+            { value: "none", inputs: [] },
+          ],
+        },
+      ],
+    };
+    expect(unresolved(plugin, {}, types)).toEqual(["settings.source.genome"]);
+    expect(unresolved(plugin, { settings: { source: { origin: "none" } } }, types)).toEqual([]);
+  });
+
+  it("asks nothing of a plugin with no inputs", () => {
+    expect(unresolved({}, {}, types)).toEqual([]);
   });
 });

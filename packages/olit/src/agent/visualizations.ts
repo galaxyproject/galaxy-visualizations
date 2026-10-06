@@ -8,6 +8,7 @@ import {
 } from "galaxy-charts/runtime";
 
 import { query, segment, type Galaxy } from "./galaxy";
+import type { ArtifactOf } from "../artifacts/kinds";
 import { fail, type Artifact, type OlitTool } from "./tool";
 import * as vega from "./vega";
 import {
@@ -17,6 +18,7 @@ import {
   optionBearing,
   resolvedDefault,
   resolveParameter,
+  unresolved,
   type Types,
 } from "./visualization-inputs";
 
@@ -291,7 +293,7 @@ async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown
       "`stores` is the schema a value is validated against; for an input naming " +
       "`pass_through`, resolve its options and send the chosen option's `value` rather than " +
       "building one to that schema. Build `settings` and `tracks` and pass them to " +
-      "save_visualization: settings cannot ride in a displayed visualization, only in a saved one.",
+      "show_visualization or save_visualization; both take the same config.",
   };
 }
 
@@ -401,22 +403,70 @@ async function getVisualization(galaxy: Galaxy, a: Json): Promise<unknown> {
   };
 }
 
-async function showVisualization(galaxy: Galaxy, a: Json): Promise<Json> {
+/**
+ * The visualization both tools accept, as its artifact: a plugin that renders the dataset, with
+ * settings and tracks that leave nothing for the viewer to choose. Saving only adds where it is kept.
+ */
+async function checked(
+  galaxy: Galaxy,
+  resolveOptions: ResolveOptions,
+  a: Json,
+): Promise<{ artifact?: ArtifactOf<"visualization">; refusal?: Json; rejected?: Json }> {
   const { dataset, refusal } = await resolveVisualization(galaxy, a);
+  if (refusal) {
+    return { refusal };
+  }
+  const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
+  const rejected =
+    rejectUndeclared(plugin, a) ??
+    (await rejectUnoffered(resolveOptions(galaxy), plugin, a)) ??
+    rejectIncomplete(plugin, a);
+  if (rejected) {
+    return { rejected };
+  }
+  return {
+    artifact: {
+      kind: "visualization",
+      title: a.title || `${a.visualization} of ${dataset!.name || a.dataset_id}`,
+      visualization: a.visualization,
+      dataset_id: a.dataset_id,
+      ...(present(a.settings) ? { settings: a.settings } : {}),
+      ...(present(a.tracks) ? { tracks: a.tracks } : {}),
+    },
+  };
+}
+
+/** Refuse a config that leaves an input only the dataset can fill, which the viewer would pick. */
+function rejectIncomplete(plugin: Json, a: Json): Json | null {
+  const missing = isObject(plugin) ? unresolved(plugin, a, TYPES) : [];
+  if (!missing.length) {
+    return null;
+  }
+  return {
+    error:
+      `Refused: ${quote(a.visualization)} needs ${missing.join(", ")}, which only the ` +
+      "dataset can supply, so the config is not complete without it.",
+    hint:
+      "Call get_visualization_options for each and pass the chosen option's `value` in " +
+      "settings or tracks, the same config for showing or saving.",
+  };
+}
+
+async function showVisualization(
+  galaxy: Galaxy,
+  resolveOptions: ResolveOptions,
+  a: Json,
+): Promise<unknown> {
+  const { artifact, refusal, rejected } = await checked(galaxy, resolveOptions, a);
   if (refusal) {
     return { shown: false, ...refusal };
   }
-  const name = a.visualization;
-  const title = a.title || `${name} of ${dataset!.name || a.dataset_id}`;
-  const artifact: Artifact = {
-    kind: "visualization",
-    title,
-    visualization: name,
-    dataset_id: a.dataset_id,
-  };
+  if (rejected) {
+    return fail(JSON.stringify({ shown: false, ...rejected }));
+  }
   return {
     shown: true,
-    title,
+    title: artifact!.title,
     artifact,
     hint:
       "The visualization is displayed to the user. Nothing was added to Galaxy, so " +
@@ -515,14 +565,12 @@ function rejectUndeclared(plugin: unknown, a: Json): Json | null {
   const tracks = a.tracks ?? null;
   if (settings !== null && !isObject(settings)) {
     return {
-      saved: false,
       error: "Refused: settings is one object keyed by parameter name.",
       hint: 'Send {"locus": "chr1:1-100"}, not a list.',
     };
   }
   if (tracks !== null && !Array.isArray(tracks)) {
     return {
-      saved: false,
       error: "Refused: tracks is a list, one object per track.",
       hint: "Send [{...}], one entry for each track.",
     };
@@ -530,13 +578,13 @@ function rejectUndeclared(plugin: unknown, a: Json): Json | null {
   if (settings !== null) {
     const bad = checkLevel(settings, plugin.settings, "settings");
     if (bad) {
-      return { saved: false, ...bad };
+      return bad;
     }
   }
   for (const track of tracks || []) {
     const bad = checkLevel(track, plugin.tracks, "a track");
     if (bad) {
-      return { saved: false, ...bad };
+      return bad;
     }
   }
   return null;
@@ -564,7 +612,6 @@ async function rejectUnoffered(
       }
       if (!offered.length && branch) {
         return {
-          saved: false,
           error: `Refused: this server lists no ${path} for ${branch.test}=${quote(branch.value)}.`,
           other_cases: branch.siblings,
           hint:
@@ -579,7 +626,6 @@ async function rejectUnoffered(
         .map((o) => quote(identity(o.value)))
         .join(", ");
       return {
-        saved: false,
         error: `Refused: ${path} does not exactly match a value this server offers.`,
         hint:
           `${offered.length} value(s) are offered` +
@@ -600,25 +646,15 @@ async function saveVisualization(
   resolveOptions: ResolveOptions,
   a: Json,
 ): Promise<unknown> {
-  const { dataset, refusal } = await resolveVisualization(galaxy, a);
+  const { artifact, refusal, rejected } = await checked(galaxy, resolveOptions, a);
   if (refusal) {
     return { saved: false, ...refusal };
   }
-
-  if (present(a.settings) || present(a.tracks)) {
-    const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
-    const undeclared = rejectUndeclared(plugin, a);
-    if (undeclared) {
-      return fail(JSON.stringify(undeclared));
-    }
-    const unoffered = await rejectUnoffered(resolveOptions(galaxy), plugin, a);
-    if (unoffered) {
-      return fail(JSON.stringify(unoffered));
-    }
+  if (rejected) {
+    return fail(JSON.stringify({ saved: false, ...rejected }));
   }
-
   const name = a.visualization;
-  const title = a.title || `${name} of ${dataset!.name || a.dataset_id}`;
+  const title = artifact!.title;
   const config = visualizationConfig(a);
 
   let visualizationId = a.visualization_id;
@@ -642,20 +678,11 @@ async function saveVisualization(
       );
     }
   }
-  const artifact: Artifact = {
-    kind: "visualization",
-    title,
-    visualization: name,
-    dataset_id: a.dataset_id,
-    ...(present(a.settings) ? { settings: a.settings } : {}),
-    ...(present(a.tracks) ? { tracks: a.tracks } : {}),
-    visualization_id: visualizationId,
-  };
   return {
     saved: true,
     visualization_id: visualizationId,
     title,
-    artifact,
+    artifact: { ...artifact!, visualization_id: visualizationId },
     hint:
       "Saved to the user's visualizations and displayed. It is not a history dataset. " +
       "Writing it into the record means putting {{artifact}} where it belongs in the " +
@@ -753,20 +780,26 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
       name: "show_visualization",
       capability: "read",
       description:
-        "Display a dataset with an installed visualization. Renders only; saves nothing. Takes the " +
-        "plugin's defaults -- use save_visualization to bind settings or tracks.",
-      parameters: schema({ dataset_id: STR, visualization: STR, title: STR }, [
-        "dataset_id",
-        "visualization",
-      ]),
-      run: (args, ctx) => showVisualization(ctx.galaxy, args),
+        "Display a dataset with an installed visualization, with the settings and tracks it needs. " +
+        "Renders only; saves nothing. Takes the same config as save_visualization.",
+      parameters: schema(
+        {
+          dataset_id: STR,
+          visualization: STR,
+          title: STR,
+          settings: { type: "object" },
+          tracks: { type: "array", items: { type: "object" } },
+        },
+        ["dataset_id", "visualization"],
+      ),
+      run: (args, ctx) => showVisualization(ctx.galaxy, resolveOptions, args),
     },
     {
       name: "save_visualization",
       capability: "write",
       description:
-        "Save a Galaxy visualization of a dataset, the durable kind the user keeps. Needed to " +
-        "bind settings or tracks, which a displayed visualization cannot carry. Pass " +
+        "Save a Galaxy visualization of a dataset, the durable kind the user keeps. Takes the " +
+        "same config as show_visualization and displays it the same way. Pass " +
         "visualization_id to revise one already saved instead of adding another.",
       parameters: schema(
         {

@@ -6,6 +6,21 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 // Where Galaxy serves a visualization plugin from, and the host page it renders.
 const PLUGIN_HREF = "/static/plugins/visualizations/olit/static";
+// A plugin the artifact pane mounts, declaring its own entry point as Galaxy's plugin API does.
+const NGL_HREF = "/static/plugins/visualizations/ngl/static";
+const NGL = {
+    name: "ngl",
+    href: NGL_HREF,
+    entry_point: { attr: { src: "dist/viewer.js", type: "module" } },
+    settings: [{ name: "mode", type: "text" }],
+    tracks: [],
+};
+// Shows what it was handed, so a drive can read the config the pane mounted it with.
+const NGL_MODULE = [
+    "const app = document.getElementById('app');",
+    "const incoming = JSON.parse(app.dataset.incoming);",
+    "app.textContent = 'ngl mounted ' + JSON.stringify(incoming.visualization_config);",
+].join("\n");
 const HOST_PAGE = "/plugins/visualizations/olit";
 const TYPES = {
     ".js": "text/javascript",
@@ -142,7 +157,7 @@ const createVisualization = [{
     type: "function",
     function: {
         name: "show_visualization",
-        arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl" }),
+        arguments: JSON.stringify({ dataset_id: "d1", visualization: "ngl", settings: { mode: "cartoon" } }),
     },
 }];
 
@@ -282,6 +297,10 @@ const server = http.createServer(async (req, res) => {
     if (url.startsWith("/__seen")) return json(res, 200, { seen, calls, prompts, cookies });
     if (url.startsWith("/__public")) return json(res, 200, { public: true });
 
+    if (url.startsWith(`${NGL_HREF}/${NGL.entry_point.attr.src}`)) {
+        res.writeHead(200, { "Content-Type": "text/javascript" });
+        return res.end(NGL_MODULE);
+    }
     if (url.startsWith(PLUGIN_HREF)) return serveStatic(res, url.slice(PLUGIN_HREF.length).split("?")[0]);
     if (url === "/" || url.startsWith(HOST_PAGE)) {
         // Galaxy's session cookie, with no SameSite, as Galaxy sets it.
@@ -409,6 +428,7 @@ const server = http.createServer(async (req, res) => {
     cookies.push({ url: `${req.method} ${url}`, cookie: req.headers.cookie || null });
     if (!galaxyUp && url.includes("/api/")) return json(res, 503, { err_msg: "galaxy is down" });
     if (url.includes("/api/plugins/olit")) return json(res, 200, pluginDict());
+    if (url.includes("/api/plugins/ngl")) return json(res, 200, NGL);
     if (url.includes("/api/plugins")) return json(res, 200, [{ name: "ngl", settings: [], tracks: [] }]);
     if (url.includes("/api/datatypes/")) return json(res, 200, [{ visualization: "ngl" }]);
     if (url.includes("/api/users/current")) {
