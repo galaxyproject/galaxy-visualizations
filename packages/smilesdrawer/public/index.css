@@ -1,0 +1,171 @@
+/* ============================================================
+   SmilesDrawer Galaxy Visualization Plugin — index.css
+   ============================================================ */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f8f9fa;
+    color: #333;
+    min-height: 100vh;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+#sd-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#sd-toolbar label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #555;
+    white-space: nowrap;
+}
+
+#sd-search {
+    flex: 1 1 200px;
+    max-width: 300px;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+#sd-theme-select,
+#sd-col-select {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    background: #fff;
+    cursor: pointer;
+}
+
+#sd-count {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: #888;
+    white-space: nowrap;
+}
+
+/* ── Status / Error banners ──────────────────────────────── */
+#sd-status {
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+#sd-error {
+    display: none;
+    padding: 0.75rem 1rem;
+    background: #f8d7da;
+    color: #721c24;
+    border-bottom: 1px solid #f5c6cb;
+    font-size: 0.85rem;
+}
+
+/* ── Molecule grid ───────────────────────────────────────── */
+#sd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+}
+
+/* ── Molecule card ───────────────────────────────────────── */
+.sd-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    cursor: default;
+}
+
+.sd-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.sd-card canvas {
+    display: block;
+    max-width: 100%;
+}
+
+.sd-card-label {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    color: #555;
+    text-align: center;
+    word-break: break-all;
+    border-top: 1px solid #f0f0f0;
+    background: #fafafa;
+}
+
+.sd-card-smiles {
+    width: 100%;
+    padding: 0 0.6rem 0.4rem;
+    font-size: 0.65rem;
+    color: #999;
+    text-align: center;
+    word-break: break-all;
+    font-family: monospace;
+}
+
+/* dark-theme card overrides */
+body.theme-dark .sd-card {
+    background: #2b2d30;
+    border-color: #444;
+}
+body.theme-dark .sd-card-label { color: #ccc; background: #222; border-color: #444; }
+body.theme-dark .sd-card-smiles { color: #888; }
+body.theme-dark { background: #1e1f22; color: #ddd; }
+body.theme-dark #sd-toolbar { background: #2b2d30; border-color: #444; }
+body.theme-dark #sd-toolbar label { color: #bbb; }
+body.theme-dark #sd-search,
+body.theme-dark #sd-theme-select,
+body.theme-dark #sd-col-select { background: #3c3f41; color: #ddd; border-color: #555; }
+
+/* ── Pagination ──────────────────────────────────────────── */
+#sd-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    flex-wrap: wrap;
+}
+
+#sd-pagination button {
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.1s;
+}
+
+#sd-pagination button:hover:not(:disabled) { background: #e9ecef; }
+#sd-pagination button:disabled { opacity: 0.4; cursor: default; }
+#sd-pagination button.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+#sd-page-info { font-size: 0.85rem; color: #666; }

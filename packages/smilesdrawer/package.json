@@ -1,0 +1,19 @@
+{
+  "name": "smilesdrawer-galaxy-viz",
+  "version": "1.0.0",
+  "description": "Galaxy visualization plugin for rendering 2D molecular structures from SMILES notation using reymond-group/smilesDrawer",
+  "author": "",
+  "license": "MIT",
+  "keywords": [
+    "galaxy",
+    "visualization",
+    "chemistry",
+    "smiles",
+    "molecules",
+    "smilesdrawer"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reymond-group/smilesDrawer"
+  }
+}
