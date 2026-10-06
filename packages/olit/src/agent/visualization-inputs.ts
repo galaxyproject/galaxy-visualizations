@@ -317,13 +317,14 @@ export function isOffered(value: unknown, options: Json[] | undefined, param: Js
 
 /**
  * What a config leaves the viewer to choose: inputs still unset once galaxy-charts' defaults
- * apply, whose options only the server can offer, such as a dataset's columns.
+ * apply, whose options only the server can offer, such as a dataset's columns. An input the
+ * plugin declares optional may stay unset, as galaxy-charts' form lets it.
  */
 export function unresolved(plugin: Json, config: Json, types: Types): string[] {
   const missing: string[] = [];
   const walk = (declared: unknown, values: Json, path: string) => {
     for (const param of (declared as unknown[]) || []) {
-      if (!isObject(param) || !param.name) {
+      if (!isObject(param) || !param.name || String(param.optional).toLowerCase() === "true") {
         continue;
       }
       const value = values[param.name];

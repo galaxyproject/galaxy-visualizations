@@ -121,6 +121,17 @@ describe("unresolved", () => {
     expect(unresolved(PLOTLY, { tracks: [{ y: "1" }] }, types)).toEqual([]);
   });
 
+  it("lets an input the plugin declares optional stay unset", () => {
+    const igv = {
+      tracks: [
+        { name: "urlDataset", type: "data" },
+        { name: "indexUrlDataset", type: "data", optional: "true" },
+      ],
+    };
+    expect(unresolved(igv, {}, types)).toEqual(["tracks[0].urlDataset"]);
+    expect(unresolved(igv, { tracks: [{ urlDataset: { id: "d1" } }] }, types)).toEqual([]);
+  });
+
   it("follows the case a conditional selects", () => {
     const plugin = {
       settings: [
