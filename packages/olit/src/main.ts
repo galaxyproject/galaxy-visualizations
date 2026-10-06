@@ -155,7 +155,7 @@ async function main() {
     if (!artifacts.length) return;
     el.artifactContent.innerHTML = "";
     for (const artifact of restored ? paneArtifacts(artifacts) : artifacts) {
-      await renderArtifact(el.artifactContent, artifact, rootPath);
+      await renderArtifact(el.artifactContent, artifact, rootPath, galaxy);
     }
     // After filling, so the pane opens on something rather than on an empty frame.
     if (!restored) artifactPane.reveal();

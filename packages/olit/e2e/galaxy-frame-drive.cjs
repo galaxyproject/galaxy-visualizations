@@ -1,5 +1,6 @@
 // Olit mounted as Galaxy mounts a plugin: into an iframe without a src, whose location is
-// about:blank while its origin is Galaxy's. A visualization must still reach the artifact pane.
+// about:blank while its origin is Galaxy's. A visualization must still mount in the artifact pane,
+// in a frame of its own inside that one, from the plugin's entry point on Galaxy.
 const playwright = require("playwright");
 const BROWSER = process.env.BROWSER || "chromium";
 const STUB = "http://127.0.0.1:8099";
@@ -33,11 +34,12 @@ function check(name, ok, detail) {
     await fetch(`${STUB}/__script?name=visualization`);
     await frame.locator("#input").fill("open the structure in a viewer");
     await frame.locator("#send-btn").click();
-    const shown = await frame.locator("#artifact-content iframe").waitFor({ timeout: 90000 })
+    const plugin = frame.frameLocator("#artifact-content iframe").locator("#app");
+    const shown = await plugin.filter({ hasText: "ngl mounted" }).waitFor({ timeout: 90000 })
         .then(() => true).catch(() => false);
-    const pane = await frame.locator("#artifact-content").innerText().catch(() => "");
-    check("the visualization reaches the artifact pane", shown, pane.slice(0, 120));
-    check("it is not refused for want of an address", !/no address to display/.test(pane));
+    const text = await plugin.innerText({ timeout: 1000 }).catch(() => "");
+    check("the plugin runs in the artifact pane", shown, text.slice(0, 120));
+    check("with the config the artifact carries", /"mode":"cartoon"/.test(text));
 
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

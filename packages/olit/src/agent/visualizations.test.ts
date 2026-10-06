@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { toPage, type Artifact } from "../artifacts/kinds";
-import { displayAddress } from "../artifacts/visualization";
 import type { Galaxy } from "./galaxy";
 import { claim, type Context, Outcome, rendered } from "./tool";
 import {
@@ -803,20 +802,17 @@ describe("show_visualization and save_visualization", () => {
       if (declared) return plugins[declared[1]] ?? [];
       if (path.startsWith("api/plugins?")) return compatible.map((n) => ({ name: n }));
       if (path === "api/plugins")
-        return compatible.some((n) => n === "igv") ? [{ name: "igv" }] : INSTALLED;
+        return [...INSTALLED, ...compatible.filter((n) => n !== "atlas").map((n) => ({ name: n }))];
       return [];
     });
   }
 
   type Server = ReturnType<typeof server>;
 
-  const show = (g: Server, args: Json) =>
-    call("show_visualization", g, { dataset_id: "d1", ...args });
+  const show = (g: Server, args: Json, charts = fakeCharts()) =>
+    call("show_visualization", g, { dataset_id: "d1", ...args }, charts);
   const save = (g: Server, args: Json, charts = fakeCharts()) =>
     call("save_visualization", g, { dataset_id: "d1", ...args }, charts);
-
-  const queryOf = (result: Json) =>
-    Object.fromEntries(new URL(displayAddress(result.artifact), "http://x").searchParams);
 
   it("puts nothing in galaxy when showing", async () => {
     const g = server();
@@ -824,19 +820,64 @@ describe("show_visualization and save_visualization", () => {
     expect(g.posted).toBeUndefined();
   });
 
-  it("names the plugin in the shown address and asks for a bare page", async () => {
-    const q = queryOf(await show(server(), { visualization: "atlas" }));
-    expect(q.visualization).toBe("atlas");
-    expect(q.dataset_id).toBe("d1");
-    expect(q).not.toHaveProperty("visualization_id");
-    expect(q.hide_panels).toBe("true");
-    expect(q.hide_masthead).toBe("true");
+  const PLOTLY = {
+    name: "plotly",
+    tracks: [
+      { name: "x", type: "data_column", is_auto: "true" },
+      { name: "y", type: "data_column", is_number: "true" },
+    ],
+  };
+  const plotly = () => server(["plotly"], { plotly: PLOTLY });
+  const columns = () =>
+    fakeCharts([
+      { label: "Column: 1", value: "0" },
+      { label: "Column: 2", value: "1" },
+    ]);
+  const both = [
+    [show, "shown"],
+    [save, "saved"],
+  ] as const;
+
+  it("shows and saves the same config, saving only adding where it is kept", async () => {
+    const config = { visualization: "plotly", title: "Hydrophobicity", tracks: [{ y: "1" }] };
+    const shown = await show(plotly(), config, columns());
+    const g = plotly();
+    const saved = await save(g, config, columns());
+    expect(shown.artifact).toEqual({
+      kind: "visualization",
+      title: "Hydrophobicity",
+      visualization: "plotly",
+      dataset_id: "d1",
+      tracks: [{ y: "1" }],
+    });
+    expect(saved.artifact).toEqual({ ...shown.artifact, visualization_id: "v1" });
+    expect(g.posted![1].config).toEqual({ dataset_id: "d1", tracks: [{ y: "1" }] });
   });
 
-  it("names the plugin beside the id in the saved address", async () => {
-    const q = queryOf(await save(server(), { visualization: "atlas" }));
-    expect(q.visualization).toBe("atlas");
-    expect(q.visualization_id).toBe("v1");
+  it("refuses either way a config that leaves the viewer to pick a column", async () => {
+    for (const [run, key] of both) {
+      for (const args of [{}, { tracks: [{ x: "0" }] }, { tracks: [{ y: "1" }, {}] }]) {
+        const g = plotly();
+        const out = refused(await run(g, { visualization: "plotly", ...args }, columns()));
+        expect(out[key]).toBe(false);
+        expect(out.error).toMatch(/needs tracks\[\d\]\.y/);
+        expect(out.hint).toContain("get_visualization_options");
+        expect(g.posted).toBeUndefined();
+      }
+    }
+  });
+
+  it("validates a shown config as a saved one is", async () => {
+    const out = refused(
+      await show(igv(), { visualization: "igv", tracks: [{ dataset_id: "d1" }] }),
+    );
+    expect(out.shown).toBe(false);
+    expect(out.declared).toContain("urlDataset");
+    const unoffered = refused(
+      await show(plotly(), { visualization: "plotly", tracks: [{ y: "9" }] }, columns()),
+    );
+    expect(unoffered.shown).toBe(false);
+    expect(unoffered.error).toContain("does not exactly match");
   });
 
   it("refuses a visualization the server does not have either way", async () => {
@@ -907,9 +948,7 @@ describe("show_visualization and save_visualization", () => {
     expect(path).toBe("api/visualizations/v9");
     expect(body.config.settings).toEqual({ x_axis_label: "Time" });
     expect(out.visualization_id).toBe("v9");
-    const q = queryOf(out);
-    expect(q.visualization).toBe("atlas");
-    expect(q.visualization_id).toBe("v9");
+    expect(out.artifact).toMatchObject({ visualization: "atlas", visualization_id: "v9" });
   });
 
   it("refuses to overwrite a visualization of another type, such as a saved Olit session", async () => {
@@ -1007,7 +1046,6 @@ describe("show_visualization and save_visualization", () => {
         ],
       },
     ],
-    tracks: [{ name: "urlDataset", type: "data" }],
   };
 
   it("refuses a conditional's parameters flattened beside it", async () => {

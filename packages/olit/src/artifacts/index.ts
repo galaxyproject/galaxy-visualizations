@@ -1,3 +1,4 @@
+import type { Galaxy } from "../agent/galaxy";
 import { renderMermaid } from "./mermaid";
 import type { Artifact, ArtifactOf, Kind } from "./kinds";
 import { renderVega } from "./vega";
@@ -6,12 +7,18 @@ import { renderVisualization } from "./visualization";
 export type { Artifact } from "./kinds";
 
 /** How each kind draws in the pane: kinds Olit makes itself, and Galaxy's own visualizations. */
-const PANE: { [K in Kind]: (body: HTMLElement, artifact: ArtifactOf<K>, root: string) => unknown } =
-  {
-    "vega-lite": (body, a, root) => renderVega(body, a.spec, root),
-    mermaid: (body, a) => renderMermaid(body, a.diagram),
-    visualization: (body, a, root) => renderVisualization(body, a, root),
-  };
+const PANE: {
+  [K in Kind]: (
+    body: HTMLElement,
+    artifact: ArtifactOf<K>,
+    root: string,
+    galaxy: Pick<Galaxy, "get" | "root">,
+  ) => unknown;
+} = {
+  "vega-lite": (body, a, root) => renderVega(body, a.spec, root),
+  mermaid: (body, a) => renderMermaid(body, a.diagram),
+  visualization: (body, a, _root, galaxy) => renderVisualization(body, a, galaxy),
+};
 
 /** What the pane shows for a list: the newest, since a live turn clears the pane first. */
 export function paneArtifacts(artifacts: Artifact[]): Artifact[] {
@@ -22,7 +29,8 @@ export function paneArtifacts(artifacts: Artifact[]): Artifact[] {
 export async function renderArtifact(
   content: HTMLElement,
   artifact: Artifact,
-  root = "/",
+  root: string,
+  galaxy: Pick<Galaxy, "get" | "root">,
 ): Promise<void> {
   const card = document.createElement("div");
   card.className = "artifact-card";
@@ -42,9 +50,7 @@ export async function renderArtifact(
   card.appendChild(body);
   content.appendChild(card);
 
-  await (PANE[artifact.kind] as (b: HTMLElement, a: Artifact, r: string) => unknown)(
-    body,
-    artifact,
-    root,
-  );
+  await (
+    PANE[artifact.kind] as (b: HTMLElement, a: Artifact, r: string, g: typeof galaxy) => unknown
+  )(body, artifact, root, galaxy);
 }

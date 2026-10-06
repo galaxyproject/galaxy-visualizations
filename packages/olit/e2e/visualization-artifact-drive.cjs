@@ -1,10 +1,12 @@
-// A visualization must reach the artifact pane as a frame, and must reach the model as a
-// reference only. Both cross the worker boundary, where a dict that is serialized before it is
+// A visualization must reach the artifact pane mounted from its whole config, as Galaxy's
+// VisualizationFrame mounts a plugin, and must reach the model as a reference only. Both cross the worker boundary, where a dict that is serialized before it is
 // claimed loses the artifact without any test below noticing.
 const { chromium } = require("playwright");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = "http://127.0.0.1:8099";
+// Galaxy as the page reaches it: its own root in dev, which proxies Galaxy's paths to the stub.
+const GALAXY = new URL("/", APP).href;
 
 const results = [];
 function check(name, ok, detail) {
@@ -21,9 +23,12 @@ async function waitFor(page, fn, ms) {
     return false;
 }
 
-const frameSrc = () => {
-    const frame = document.querySelector("#artifact-content iframe");
-    return frame ? frame.getAttribute("src") : null;
+/** What the plugin in the pane's frame was handed and shows, once it has run. */
+const mounted = () => {
+    const doc = document.querySelector("#artifact-content iframe")?.contentDocument;
+    const app = doc?.getElementById("app");
+    if (!app || !/ngl mounted/.test(app.textContent)) return null;
+    return { incoming: JSON.parse(app.dataset.incoming), src: doc.querySelector("script")?.getAttribute("src") };
 };
 
 (async () => {
@@ -47,22 +52,22 @@ const frameSrc = () => {
     await p.fill("#input", "open the structure in a viewer");
     await p.click("#send-btn");
 
-    const framed = await waitFor(p, frameSrc, 90000);
-    check("the visualization reaches the artifact pane as a frame", framed);
+    const framed = await waitFor(p, mounted, 90000);
+    check("the plugin runs in the artifact pane", framed);
 
-    const src = await p.evaluate(frameSrc);
-    const q = new URLSearchParams((src || "").split("?")[1] || "");
+    const { incoming, src } = (await p.evaluate(mounted)) || { incoming: {} };
     check(
-        "the frame names the plugin, which is what Galaxy renders from",
-        (src || "").includes("/visualizations/display") && q.get("visualization") === "ngl"
-            && q.get("dataset_id") === "d1",
+        "it is mounted from the entry point the plugin declares",
+        src === `${GALAXY}static/plugins/visualizations/ngl/static/dist/viewer.js`,
         src,
     );
-    check("showing leaves no saved visualization to address", !q.has("visualization_id"), src);
     check(
-        "the frame asks Galaxy for a bare page",
-        q.get("hide_panels") === "true" && q.get("hide_masthead") === "true",
+        "it is handed the whole config, settings included",
+        JSON.stringify(incoming.visualization_config) === JSON.stringify({ dataset_id: "d1", settings: { mode: "cartoon" } }),
+        JSON.stringify(incoming.visualization_config),
     );
+    check("showing leaves no saved visualization to address", !incoming.visualization_id);
+    check("it is rooted at Galaxy", incoming.root === GALAXY, incoming.root);
 
     check(
         "the pane is opened for it rather than left collapsed",
@@ -78,8 +83,8 @@ const frameSrc = () => {
     const toolResults = prompts.flatMap((q) => q.toolResults || []);
     check("the model was given a tool result at all", toolResults.length > 0);
     check(
-        "the frame address is withheld from the model",
-        toolResults.length > 0 && toolResults.every((c) => !c.includes("/visualizations/display")),
+        "the config is withheld from the model",
+        toolResults.length > 0 && toolResults.every((c) => !c.includes("cartoon")),
         toolResults[0]?.slice(0, 160),
     );
     check(

@@ -10,18 +10,27 @@ vi.mock("./mermaid", () => ({ renderMermaid: (...a: unknown[]) => renderMermaid(
 
 const { renderArtifact, paneArtifacts } = await import("./index");
 
+const galaxy = {
+  root: "http://galaxy.test/",
+  get: async (): Promise<any> => ({
+    href: "/static/ngl",
+    entry_point: { attr: { src: "main.js" } },
+  }),
+};
+
 describe("renderArtifact", () => {
   let content: HTMLElement;
 
   beforeEach(() => {
     renderVega.mockClear();
     renderMermaid.mockClear();
-    content = document.createElement("div");
+    content = document.body.appendChild(document.createElement("div"));
+    (window as any).happyDOM.settings.handleDisabledFileLoadingAsSuccess = true;
   });
 
   it("routes a vega-lite artifact to the vega renderer with its spec", async () => {
     const spec = { mark: "point" };
-    await renderArtifact(content, { kind: "vega-lite", title: "Chart", spec });
+    await renderArtifact(content, { kind: "vega-lite", title: "Chart", spec }, "/", galaxy);
 
     expect(renderVega).toHaveBeenCalledTimes(1);
     expect(renderVega.mock.calls[0][1]).toBe(spec);
@@ -29,13 +38,23 @@ describe("renderArtifact", () => {
   });
 
   it("hands the chart renderer Galaxy's root path", async () => {
-    await renderArtifact(content, { kind: "vega-lite", title: "Chart", spec: {} }, "/galaxy/");
+    await renderArtifact(
+      content,
+      { kind: "vega-lite", title: "Chart", spec: {} },
+      "/galaxy/",
+      galaxy,
+    );
     expect(renderVega.mock.calls[0][2]).toBe("/galaxy/");
   });
 
   it("routes a mermaid artifact to the mermaid renderer with its diagram", async () => {
     const diagram = "graph TD; A-->B";
-    await renderArtifact(content, { kind: "mermaid", title: "Dataset lineage", diagram });
+    await renderArtifact(
+      content,
+      { kind: "mermaid", title: "Dataset lineage", diagram },
+      "/",
+      galaxy,
+    );
 
     expect(renderMermaid).toHaveBeenCalledTimes(1);
     expect(renderMermaid.mock.calls[0][1]).toBe(diagram);
@@ -43,28 +62,32 @@ describe("renderArtifact", () => {
   });
 
   it("renders the title as the card heading", async () => {
-    await renderArtifact(content, {
-      kind: "mermaid",
-      title: "Dataset lineage",
-      diagram: "graph TD;",
-    });
+    await renderArtifact(
+      content,
+      { kind: "mermaid", title: "Dataset lineage", diagram: "graph TD;" },
+      "/",
+      galaxy,
+    );
     expect(content.querySelector(".artifact-card-title")?.textContent).toBe("Dataset lineage");
   });
 
-  it("frames a Galaxy visualization at the display address its config names", async () => {
-    await renderArtifact(content, {
-      kind: "visualization",
-      title: "Structure",
-      visualization: "ngl",
-      dataset_id: "d1",
-    });
+  it("mounts a Galaxy visualization from the config it carries", async () => {
+    const tracks = [{ y: "1" }];
+    await renderArtifact(
+      content,
+      { kind: "visualization", title: "Structure", visualization: "ngl", dataset_id: "d1", tracks },
+      "/",
+      galaxy,
+    );
 
     expect(renderVega).not.toHaveBeenCalled();
     expect(renderMermaid).not.toHaveBeenCalled();
-    const src = new URL(content.querySelector("iframe")!.getAttribute("src")!);
-    expect(src.pathname).toBe("/visualizations/display");
-    expect(src.searchParams.get("visualization")).toBe("ngl");
-    expect(src.searchParams.get("dataset_id")).toBe("d1");
+    const doc = content.querySelector("iframe")!.contentDocument!;
+    const handed = JSON.parse(doc.getElementById("app")!.getAttribute("data-incoming")!);
+    expect(handed.visualization_config).toEqual({ dataset_id: "d1", tracks });
+    expect(doc.querySelector("script")!.getAttribute("src")).toBe(
+      "http://galaxy.test/static/ngl/main.js",
+    );
   });
 });
 
