@@ -23,7 +23,7 @@ import { recordsOn, type RecordSummary } from "./notebook";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
 import { probeWindow, resolve, type LlmConfig, type Target } from "./providers";
 import { editRecord } from "./record-write";
-import { modelsOf, SCHEMA, usageTotals, type SessionDocument } from "./saved";
+import { modelsOf, SCHEMA, thisBuild, usageTotals, type SessionDocument } from "./saved";
 import { skillRegistry } from "./skills";
 import type { Capability, Python } from "./tool";
 import { galaxyOps, olitTools } from "./tools";
@@ -330,6 +330,7 @@ export class Runtime {
     ]);
     const totals = Object.values(usage?.models ?? {});
     const now = new Date().toISOString();
+    const build = thisBuild();
     return {
       olit_session: SCHEMA,
       ...(bound?.historyId ? { history_id: bound.historyId } : {}),
@@ -341,6 +342,7 @@ export class Runtime {
         updatedAt: now,
         turn: exported.entries.filter((e) => e.kind === "pi.user").length,
         ...(bound?.pageId ? { recordPageId: bound.pageId } : {}),
+        ...(build ? { build } : {}),
         models: modelsOf(exported.entries),
         usage: usageTotals(totals),
       },

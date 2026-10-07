@@ -16,6 +16,22 @@ export interface ModelUse {
   model?: string;
 }
 
+/** The Olit build that wrote a document: its commit and when it was built. */
+export interface Build {
+  commit: string;
+  built?: string;
+}
+
+/** This bundle's build stamp, when the build recorded one. */
+export function thisBuild(): Build | undefined {
+  const commit = process.env.olit_commit;
+  if (!commit) {
+    return undefined;
+  }
+  const built = process.env.olit_built;
+  return built ? { commit, built } : { commit };
+}
+
 export interface SessionDocument {
   olit_session: number;
   history_id?: string;
@@ -27,6 +43,8 @@ export interface SessionDocument {
     updatedAt: string;
     turn: number;
     recordPageId?: string;
+    /** The build that saved it, so a session can be traced to the code that ran it. */
+    build?: Build;
     models: ModelUse[];
     usage: { input: number; output: number; cost: number | null };
   };
