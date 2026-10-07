@@ -241,6 +241,9 @@ async function main() {
     note: (text) => info(text),
   });
 
+  /** Said once ready, when the user chose to continue a record whose conversation is gone. */
+  let continuing: string | undefined;
+
   const agent = new AgentClient((message) => {
     if (message.type === "events") {
       view.apply(message.events);
@@ -266,9 +269,12 @@ async function main() {
       galaxyStatus = message.galaxy;
       refreshSave();
       if (message.unkept) {
+        const refused = message.unkept.startsWith("SecurityError")
+          ? 'the browser refuses this site storage, as Firefox does in private windows and with "Never remember history"'
+          : message.unkept;
         chat.addErrorMessage(
-          `Olit is not keeping this conversation in the browser (${message.unkept}), so it ` +
-            "ends when the page closes. Save it to Galaxy to keep it.",
+          `Olit is not keeping this conversation in the browser (${refused}), so it ends when ` +
+            "the page closes. Save it to Galaxy to keep it.",
         );
       }
       if (message.galaxyProblem) {
@@ -292,6 +298,9 @@ async function main() {
       if (fromGalaxy) {
         info("Opened a saved Olit session.");
       }
+      if (continuing) {
+        info(continuing);
+      }
       info(
         fromGalaxy
           ? "Olit ready."
@@ -311,23 +320,34 @@ async function main() {
       }
     } else if (message.type === "recoverable") {
       // The browser kept nothing of a session here; the user says which, if any, this is.
-      const line = info("Olit has earlier sessions on this history. Continue one, or start new: ");
+      const line = info(
+        "This browser keeps no Olit conversation for this history. Continue one of its records, " +
+          "or start new. A conversation saved with Save opens from Galaxy's visualizations.",
+      );
+      const choices = document.createElement("div");
+      choices.className = "olit-choices";
+      line.append(choices);
       const choose = (pageId?: string) => {
-        line.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        choices.querySelectorAll("button").forEach((b) => (b.disabled = true));
         agent.recover(pageId);
       };
       for (const record of message.records) {
         const button = document.createElement("button");
         button.className = "plan-btn";
-        button.textContent = `Continue ${record.title} (updated ${record.updated.slice(0, 16).replace("T", " ")})`;
-        button.addEventListener("click", () => choose(record.pageId));
-        line.append(button);
+        button.textContent = `Continue the record ${record.title} (updated ${record.updated.slice(0, 16).replace("T", " ")})`;
+        button.addEventListener("click", () => {
+          continuing =
+            `Continuing the record ${record.title}: new entries go to that page. Its ` +
+            "conversation is not in this browser, so this chat starts empty.";
+          choose(record.pageId);
+        });
+        choices.append(button);
       }
       const fresh = document.createElement("button");
       fresh.className = "plan-btn";
       fresh.textContent = "Start new";
       fresh.addEventListener("click", () => choose());
-      line.append(fresh);
+      choices.append(fresh);
     } else if (message.type === "waiting") {
       const line = info("Olit is open in another tab. ");
       const take = document.createElement("button");

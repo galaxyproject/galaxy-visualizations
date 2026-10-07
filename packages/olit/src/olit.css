@@ -58,3 +58,10 @@
 #usage-bar {
   margin-left: auto;
 }
+
+.olit-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
