@@ -45,6 +45,14 @@ function check(name, ok, detail) {
     check("the plugin runs in the artifact pane", shown, text.slice(0, 120));
     check("with the config the artifact carries", /"mode":"cartoon"/.test(text));
 
+    await frame.locator("text=The structure is open in the viewer.").first().waitFor({ timeout: 60000 }).catch(() => {});
+    await fetch(`${STUB}/__script?name=linked`);
+    await frame.locator("#input").fill("is it ready?");
+    await frame.locator("#send-btn").click();
+    const link = frame.locator("a.galaxy-artifact-link", { hasText: "0123456789abcdef" });
+    const href = await link.getAttribute("href", { timeout: 60000 }).catch(() => null);
+    check("a dataset the reply names links to the Galaxy it runs in", href === `${STUB}/datasets/0123456789abcdef`, href);
+
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
     await browser.close();

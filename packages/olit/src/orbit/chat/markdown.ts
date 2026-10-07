@@ -13,6 +13,7 @@
 
 import { marked, type Marked } from "marked";
 import DOMPurify, { type Config } from "dompurify";
+import { linkGalaxyArtifacts } from "./galaxy-links.js";
 
 const PURIFY_CONFIG: Config = {
   USE_PROFILES: { html: true },
@@ -28,7 +29,14 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   }
 });
 
-export function renderMarkdown(text: string, instance: Marked | typeof marked = marked): string {
+export function renderMarkdown(
+  text: string,
+  instance: Marked | typeof marked = marked,
+  galaxyServerUrl?: string | null,
+): string {
   const html = instance.parse(text, { async: false }) as string;
-  return DOMPurify.sanitize(html, PURIFY_CONFIG);
+  const container = document.createElement("div");
+  container.innerHTML = DOMPurify.sanitize(html, PURIFY_CONFIG);
+  linkGalaxyArtifacts(container, galaxyServerUrl);
+  return container.innerHTML;
 }

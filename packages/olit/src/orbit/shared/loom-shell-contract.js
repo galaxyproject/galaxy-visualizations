@@ -6,6 +6,8 @@ export const LoomWidgetKey = {
   Notebook: "notebook",
   PlanView: "plan-view",
   Activity: "activity",
+  // JSON, not markdown: the live Galaxy history projection (shared/galaxy-live-contract).
+  GalaxyLive: "galaxy-live",
 };
 
 export function encodeMarkdownWidget(markdown) {

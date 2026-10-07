@@ -85,6 +85,7 @@ async function main() {
   let creds = await ensureCredentials(container);
   const config = buildConfig(incoming, creds);
   const rootPath = new URL(config.galaxy_root, document.baseURI).pathname;
+  chat.setGalaxyServerUrl(absolute(config.galaxy_root));
   // Runtime context: where relative fetches resolve and what origin Galaxy calls hit.
   console.log("[olit] context", {
     href: window.location.href,

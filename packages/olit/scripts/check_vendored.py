@@ -4,7 +4,8 @@ Upstream moves fast (87 commits to styles.css in six months); olit absorbs that
 for free only while these files are untouched. An edit here turns every future
 sync into a merge, so it fails loudly instead.
 
-chat-panel.ts is the one documented exception: a 2-line import retarget.
+chat-panel.ts and galaxy-links.ts are the documented exception: their imports of loom's
+shared/ modules are retargeted to the vendored copies.
 """
 
 import hashlib
@@ -23,6 +24,7 @@ SKILLS_STAMP = SKILLS / "VENDORED.json"
 
 TRACKED = [
     "chat/chat-panel.ts",
+    "chat/galaxy-links.ts",
     "chat/markdown.ts",
     "chat/block-spacing.ts",
     "chat/copy-button.ts",
@@ -31,6 +33,8 @@ TRACKED = [
     "styles.css",
     "shared/team-dispatch-contract.js",
     "shared/loom-shell-contract.js",
+    "shared/galaxy-artifact-links.js",
+    "shared/notebook-fences.js",
 ]
 
 

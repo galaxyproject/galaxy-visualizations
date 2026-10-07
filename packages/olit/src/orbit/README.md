@@ -12,7 +12,8 @@ diffable against upstream and can be synced (or promoted to a shared package) la
 
 | here | upstream | changed |
 |---|---|---|
-| `chat/chat-panel.ts` | `app/src/renderer/chat/chat-panel.ts` | **2 lines** (see below) |
+| `chat/chat-panel.ts` | `app/src/renderer/chat/chat-panel.ts` | **imports** (see below) |
+| `chat/galaxy-links.ts` | `app/src/renderer/chat/galaxy-links.ts` | **imports** (see below) |
 | `chat/markdown.ts` | `app/src/renderer/chat/markdown.ts` | none |
 | `chat/block-spacing.ts` | `app/src/renderer/chat/block-spacing.ts` | none |
 | `chat/copy-button.ts` | `app/src/renderer/chat/copy-button.ts` | none |
@@ -22,18 +23,21 @@ diffable against upstream and can be synced (or promoted to a shared package) la
 | `assets/fonts/**` | `app/src/renderer/assets/fonts/**` | none |
 | `shared/team-dispatch-contract.{js,d.ts}` | `shared/team-dispatch-contract.{js,d.ts}` | none |
 | `shared/loom-shell-contract.{js,d.ts}` | `shared/loom-shell-contract.{js,d.ts}` | none |
+| `shared/galaxy-artifact-links.{js,d.ts}` | `shared/galaxy-artifact-links.{js,d.ts}` | none |
+| `shared/notebook-fences.{js,d.ts}` | `shared/notebook-fences.{js,d.ts}` | none |
 
-## The only change: chat-panel.ts imports (2 lines)
+## The only change: imports of loom's shared/ modules
 
-Upstream, `chat-panel.ts` reaches the shared contracts via the loom monorepo layout:
+Upstream, `chat-panel.ts` and `galaxy-links.ts` reach the shared modules via the loom monorepo
+layout, for example:
 
 ```
 from "../../../../shared/team-dispatch-contract.js"
 from "../../../../shared/loom-shell-contract.js"
 ```
 
-That path points outside the olit package, so it was retargeted to the vendored
-sibling copy:
+That path points outside the olit package, so each is retargeted to the vendored
+sibling copy, and prettier rejoins an import that then fits one line:
 
 ```
 from "../shared/team-dispatch-contract.js"

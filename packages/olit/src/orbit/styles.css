@@ -228,7 +228,8 @@ a:visited {
   width: 100%;
 }
 
-#update-banner {
+#update-banner,
+#moved-banner {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -243,30 +244,35 @@ a:visited {
 }
 /* Copy-the-link fallback, revealed only when the browser couldn't be opened
    (WSLg / no default browser). Wraps onto its own row under the banner text. */
-#update-banner .update-banner-fallback {
+#update-banner .update-banner-fallback,
+#moved-banner .update-banner-fallback {
   flex: 1 1 100%;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-dim);
 }
-#update-banner .update-banner-fallback-url {
+#update-banner .update-banner-fallback-url,
+#moved-banner .update-banner-fallback-url {
   font-family: var(--font-mono, monospace);
   color: var(--accent);
   user-select: all;
   word-break: break-all;
 }
-#update-banner.hidden {
+#update-banner.hidden,
+#moved-banner.hidden {
   display: none;
 }
-#update-banner .update-banner-text {
+#update-banner .update-banner-text,
+#moved-banner .update-banner-text {
   flex: 1;
 }
 #update-banner-version {
   font-weight: 600;
   color: var(--accent);
 }
-#update-banner .update-banner-link {
+#update-banner .update-banner-link,
+#moved-banner .update-banner-link {
   background: none;
   border: 1px solid var(--accent);
   color: var(--accent);
@@ -275,11 +281,13 @@ a:visited {
   cursor: pointer;
   font: inherit;
 }
-#update-banner .update-banner-link:hover {
+#update-banner .update-banner-link:hover,
+#moved-banner .update-banner-link:hover {
   background: var(--accent);
   color: var(--bg-deep);
 }
-#update-banner .update-banner-dismiss {
+#update-banner .update-banner-dismiss,
+#moved-banner .update-banner-dismiss {
   background: none;
   border: none;
   color: var(--text-dim);
@@ -288,7 +296,8 @@ a:visited {
   line-height: 1;
   padding: 0 4px;
 }
-#update-banner .update-banner-dismiss:hover {
+#update-banner .update-banner-dismiss:hover,
+#moved-banner .update-banner-dismiss:hover {
   color: var(--text-bright);
 }
 
@@ -338,17 +347,21 @@ a:visited {
    reaches under the lights. The buttons/links stay no-drag (mirrors the
    .pane-title rule). */
 body.platform-darwin #update-banner,
+body.platform-darwin #moved-banner,
 body.platform-darwin #bypass-banner,
 body.platform-darwin #sandbox-banner,
 body.platform-darwin #whatsnew-banner {
   -webkit-app-region: drag;
 }
 body.platform-darwin #update-banner,
+body.platform-darwin #moved-banner,
 body.platform-darwin #whatsnew-banner {
   padding-left: 78px;
 }
 body.platform-darwin #update-banner button,
 body.platform-darwin #update-banner a,
+body.platform-darwin #moved-banner button,
+body.platform-darwin #moved-banner a,
 body.platform-darwin #bypass-banner button,
 body.platform-darwin #bypass-banner a,
 body.platform-darwin #sandbox-banner button,
@@ -596,6 +609,11 @@ body.files-collapsed #files-divider {
     background 0.1s,
     color 0.1s;
   white-space: nowrap;
+}
+/* display:inline-flex above is an author rule and beats the UA stylesheet's
+   [hidden] { display: none }, so without this the button never hides (#534). */
+.chat-copy-btn[hidden] {
+  display: none;
 }
 .chat-copy-btn:hover {
   background: var(--bg-hover);
@@ -921,14 +939,13 @@ body.platform-darwin #files-title {
 .orbit-title-logo {
   display: block;
   width: auto;
-  max-width: 72px;
-  height: 18px;
-  object-fit: contain;
-}
-
-.orbit-title-text {
-  line-height: 1;
-  white-space: nowrap;
+  /* Sized so the built-in wordmark matches the 13px masthead text it replaced:
+     the letterforms occupy 200 of the viewBox's 340 units, so 22px tall gives a
+     ~12.9px cap. Fits the 40px masthead, and at ~89px the whole lockup is still
+     narrower than the old mark-plus-text pair. */
+  height: 22px;
+  /* Carries its own wordmark, so it must not be squeezed by the flex parent. */
+  flex: none;
 }
 
 /* ── App footer ───────────────────────────────────────────────────────────── */
@@ -1805,6 +1822,12 @@ body.platform-darwin #files-title {
   line-height: 1.4;
 }
 
+#input.file-drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: var(--bg-surface);
+}
+
 #input-hint > span {
   flex: 1;
   min-width: 0;
@@ -2457,8 +2480,12 @@ body.platform-darwin #files-title {
   gap: 8px;
 }
 
-.prefs-row-with-btn input {
+.prefs-row-with-btn input,
+.prefs-row-with-btn select {
   flex: 1;
+  /* A long model id (OpenRouter ids run 40+ chars) would otherwise widen the
+     select past the row and push the button out. */
+  min-width: 0;
 }
 
 .prefs-row-with-btn .plan-btn {
@@ -2529,6 +2556,19 @@ body.platform-darwin #files-title {
 .prefs-table .prefs-skills-branch {
   width: 12%;
 }
+.prefs-skills-bundled:not(:empty) {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--text-dim);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+}
+
 .prefs-table .prefs-skills-enabled {
   width: 8%;
   text-align: center;
@@ -2931,6 +2971,30 @@ body.platform-darwin #files-title {
 .ext-message {
   margin-bottom: 12px;
   line-height: 1.5;
+}
+
+/* Extension titles are model-supplied, so let a long one wrap rather than
+   overflow the masthead. */
+#ext-title {
+  overflow-wrap: anywhere;
+}
+
+/* The command/path being approved. Lives in the scrollable modal body -- the
+   header has no scroll region, so a long title there would squeeze the options
+   off-screen. #399 */
+.ext-detail {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 .ext-input {
@@ -3374,6 +3438,7 @@ body.remote-mode #prefs-section-analysis {
    adds. The shim no-ops these anyway, but they have no business being shown. */
 body.remote-mode #welcome-overlay,
 body.remote-mode #update-banner,
+body.remote-mode #moved-banner,
 body.remote-mode #report-issue-btn,
 body.remote-mode #exec-mode-toggle,
 body.remote-mode #cwd-bar,

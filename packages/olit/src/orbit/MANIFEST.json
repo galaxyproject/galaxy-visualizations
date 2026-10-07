@@ -1,15 +1,18 @@
 {
-  "_comment": "Vendored from galaxyproject/loom. Hashes pin the files so accidental edits fail CI. chat-panel.ts carries a documented 2-line import retarget; see README.md.",
+  "_comment": "Vendored from galaxyproject/loom. Hashes pin the files so accidental edits fail CI. chat-panel.ts and galaxy-links.ts carry documented import retargets; see README.md.",
   "upstream": "galaxyproject/loom",
   "files": {
-    "chat/chat-panel.ts": "faee4e3de2f3cce252d54c91d8b30c3862c11ecdda89c39cd0e5f739b9cb92c9",
-    "chat/markdown.ts": "9bf98b8a0cb2a4b4d406ccaaa2ed336341b3f521095f0d85b3a564968d8f8619",
+    "chat/chat-panel.ts": "d8a5d55e4d6d8b0e2f445941e83e89d14613b9bcc1fc6f621ef60e16308a91b9",
+    "chat/galaxy-links.ts": "e267f08733eef23f31a1d330080b6e7267dde4c7af3d3b13cebdda275e86cbea",
+    "chat/markdown.ts": "fee1213622f6cd7d2d2f23a5c8d307b062ecf46597aec87be46e70ff2875d02f",
     "chat/block-spacing.ts": "2beed8d2752fd09591b9a9f1c1ed88757529b144917e540315bc1bc841031550",
     "chat/copy-button.ts": "bd41f3f50584ebdccdbca2036b67bfe10348bf9ee648b6387372e72d51842142",
     "update-banner.ts": "fee2906b2cbb83df7ce3d12c5567eeca7aea6c850103336265a4588ec41e7a74",
     "theme.ts": "6c3a742fa0e43efa8dca35f4aa7be8e75225b62a583c40c00300fb02207aa4a3",
-    "styles.css": "72927cc28be20b6363846ee3b67928c572b3f02396d03cc4906e3b16fa16986c",
+    "styles.css": "b7196e6a8cc67bf37fd3d89e6e8aeed3dbbf093fd76049792d070e59be0456b9",
     "shared/team-dispatch-contract.js": "49c0c560419bd6cbae1c9acd0d710c45ecafba0d31b5bcf1c1b6bba28bdca969",
-    "shared/loom-shell-contract.js": "8cea47bad66a8c6bee64542bf0fb669047e5397e97db5e6b4513420399e6ae09"
+    "shared/loom-shell-contract.js": "0750781c16e29a5e9e9bb8734271a811fad05eade95ca27410361d8bedb65080",
+    "shared/galaxy-artifact-links.js": "69cada0f5e7c133045b75f47e932532f951e38686ea07606272ebeb24162a101",
+    "shared/notebook-fences.js": "f0f98b1832497336fb065f17127386f9adfae5297639d41bcb14592431992e97"
   }
 }
