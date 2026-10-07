@@ -20,6 +20,32 @@ export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+const HEADING = /^#{1,6}\s+\S/;
+
+/** A refusal for a section edit that would leave its text without a heading in the record. */
+function headingless(args: Record<string, unknown>) {
+  if (args.section_heading == null) {
+    return undefined;
+  }
+  const heading = String(args.section_heading).trim();
+  if (!HEADING.test(heading)) {
+    return fail(
+      `Refused: section_heading is the heading line itself, such as ${quote(`## ${heading}`)}, ` +
+        "not the title alone; a line the page does not hold as a heading appends the text " +
+        "under no heading.",
+    );
+  }
+  const first = String(args.section_content ?? "")
+    .trimStart()
+    .split("\n")[0];
+  return HEADING.test(first)
+    ? undefined
+    : fail(
+        "Refused: section_content replaces the whole section, heading line included, so it " +
+          `starts with ${quote(heading)}; without it the record loses the heading.`,
+      );
+}
+
 /** A refusal for page content Galaxy would not render, before it is sent. */
 const invalidPage = async (content: unknown) => {
   const problem = typeof content === "string" ? pageContentProblem(content) : undefined;
@@ -68,7 +94,7 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
         ? fail(
             "Refused: this content still holds the record excerpt's elision marker, so it would delete the elided middle. Edit a section instead.",
           )
-        : invalidPage(args.section_content ?? args.content),
+        : (headingless(args) ?? invalidPage(args.section_content ?? args.content)),
     around: serialized,
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length

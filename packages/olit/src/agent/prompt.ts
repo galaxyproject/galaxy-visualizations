@@ -491,7 +491,8 @@ was drafted and nobody asked you to write it down.
   record page and returns its id, current content and \`content_hash\`.
 - **Add to the record a section at a time.** \`update_page({ page_id, section_heading,
   section_content })\` replaces one section and leaves the rest of the page alone, which is
-  what appending a finding or a step usually is.
+  what appending a finding or a step usually is. \`section_heading\` is the heading line
+  itself, such as \`## Results\`, and \`section_content\` starts with it.
 - **\`content\` replaces the whole page.** Reach for it only to restructure the record, and
   then send the existing content with your addition merged in, never the new part alone --
   passing only the new text discards everything already recorded.

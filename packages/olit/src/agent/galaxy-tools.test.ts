@@ -489,4 +489,18 @@ describe("update_page policy", () => {
     expect(refused?.isError).toBe(true);
     expect(await check({ page_id: "p1", content: "# A" }, {} as never)).toBeUndefined();
   });
+
+  it("refuses a section edit that would drop its heading", async () => {
+    const check = OPS_POLICY.update_page.check!;
+    const section = (section_heading: string, section_content: string) =>
+      check({ page_id: "p1", section_heading, section_content }, {} as never);
+    const bare = await section("## Results", "Counted 3 teams.");
+    expect(bare?.isError).toBe(true);
+    expect(bare?.text).toContain('starts with "## Results"');
+    const title = await section("Results", "## Results\n\nCounted 3 teams.");
+    expect(title?.isError).toBe(true);
+    expect(title?.text).toContain('"## Results"');
+    expect(await section("## Results", "## Results\n\nCounted 3 teams.")).toBeUndefined();
+    expect(await section("## Results", "## Findings\n\nRenamed.")).toBeUndefined();
+  });
 });
