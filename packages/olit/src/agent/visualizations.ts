@@ -14,7 +14,8 @@ import * as vega from "./vega";
 import {
   buildVisualizationTemplate,
   declaredPaths,
-  isOffered,
+  identity,
+  offeredValue,
   optionBearing,
   resolvedDefault,
   resolveParameter,
@@ -242,7 +243,7 @@ function describeParameter(param: Json, types: Types, path: string[] = []): Json
     }
     if (source.kind !== "declared") {
       options.resolve = "get_visualization_options";
-      options.pass_through = "the resolved option's `value`, unchanged";
+      options.chosen_by = "an option's id, as get_visualization_options lists it";
     }
     described.options = options;
   }
@@ -277,26 +278,18 @@ async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown
     ),
     tracks: ((plugin.tracks as Json[]) || []).map((p) => describeParameter(p, TYPES, ["tracks"])),
     hint:
-      "`stores` is the schema a value is validated against; for an input naming " +
-      "`pass_through`, resolve its options and send the chosen option's `value` rather than " +
-      "building one to that schema. Build `settings` and `tracks` and pass them to " +
+      "`stores` is the schema a value is validated against. For an input naming `chosen_by`, " +
+      'resolve its options and pass the chosen id, as {"id": ...} where it stores an object; ' +
+      "the server stores the whole entry. Build `settings` and `tracks` and pass them to " +
       "show_visualization or save_visualization; both take the same config.",
   };
 }
-
-/** What names an option: an object's id, or the value itself when it is a scalar. */
-const identity = (value: unknown) => (isObject(value) ? value.id : value);
 
 function matches(entry: Json, search: string | undefined): boolean {
   if (!search) {
     return false;
   }
-  const hay = ["id", "name", "label", "value"]
-    .map((k) =>
-      !entry[k] ? "" : typeof entry[k] === "object" ? quote(entry[k]) : String(entry[k]),
-    )
-    .join(" ")
-    .toLowerCase();
+  const hay = `${entry.id ?? ""} ${entry.name ?? ""}`.toLowerCase();
   return hay.includes(search.toLowerCase());
 }
 
@@ -337,18 +330,9 @@ async function getVisualizationOptions(
         "get_visualization_details says what it accepts.",
     };
   }
-  const entries = offered.map((o) => ({
-    id: identity(o.value),
-    name: o.label,
-    value: o.value,
-  }));
+  const entries = offered.map((o) => ({ id: identity(o.value), name: o.label }));
 
-  const result: Json = {
-    parameter: wanted,
-    source: kind,
-    total: entries.length,
-    options: entries.slice(0, ROW_CAP),
-  };
+  const result: Json = { parameter: wanted, source: kind, total: entries.length };
   if (!entries.length && siblings.length) {
     result.other_cases = siblings;
     result.hint =
@@ -358,12 +342,13 @@ async function getVisualizationOptions(
   }
   if (search) {
     result.matches = entries.filter((e) => matches(e, search)).slice(0, MATCH_CAP);
-    result.hint =
-      "`matches` holds the values to store as given; pass one through unchanged rather than rebuilding it.";
   } else {
-    result.hint =
-      "Store an option's `value` as given rather than rebuilding it from its id; `search` narrows a long list.";
+    result.options = entries.slice(0, ROW_CAP);
   }
+  result.hint =
+    'An option is chosen by its id: pass {"id": ...} for an input that stores an object, ' +
+    "the id itself otherwise, and the server stores the entry it names." +
+    (search ? "" : " `search` narrows a long list.");
   return result;
 }
 
@@ -404,10 +389,11 @@ async function checked(
     return { refusal };
   }
   const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
+  const chosen = { ...a, settings: structuredClone(a.settings), tracks: structuredClone(a.tracks) };
   const rejected =
-    rejectUndeclared(plugin, a) ??
-    (await rejectUnoffered(resolveOptions(galaxy), plugin, a)) ??
-    rejectIncomplete(plugin, a);
+    rejectUndeclared(plugin, chosen) ??
+    (await selectOffered(resolveOptions(galaxy), plugin, chosen)) ??
+    rejectIncomplete(plugin, chosen);
   if (rejected) {
     return { rejected };
   }
@@ -417,8 +403,8 @@ async function checked(
       title: a.title || `${a.visualization} of ${dataset!.name || a.dataset_id}`,
       visualization: a.visualization,
       dataset_id: a.dataset_id,
-      ...(present(a.settings) ? { settings: a.settings } : {}),
-      ...(present(a.tracks) ? { tracks: a.tracks } : {}),
+      ...(present(chosen.settings) ? { settings: chosen.settings } : {}),
+      ...(present(chosen.tracks) ? { tracks: chosen.tracks } : {}),
     },
   };
 }
@@ -434,7 +420,7 @@ function rejectIncomplete(plugin: Json, a: Json): Json | null {
       `Refused: ${quote(a.visualization)} needs ${missing.join(", ")}, which only the ` +
       "dataset can supply, so the config is not complete without it.",
     hint:
-      "Call get_visualization_options for each and pass the chosen option's `value` in " +
+      "Call get_visualization_options for each and pass the chosen option's id in " +
       "settings or tracks, the same config for showing or saving.",
   };
 }
@@ -509,9 +495,9 @@ function issueRefusal(issue: ValueIssueType, entry: unknown, where: string): Jso
       const wanted = (issue.stores as Json)?.type;
       let error: string;
       if (wanted === "object") {
-        error = `Refused: ${quote(issue.name)} takes the whole entry it was chosen from, not ${quote(value)}.`;
+        error = `Refused: ${quote(issue.name)} takes an entry, {"id": ...}, not ${quote(value)}.`;
       } else if (typeof value === "object") {
-        error = `Refused: ${quote(issue.name)} stores ${wanted}, not the entry it was chosen from.`;
+        error = `Refused: ${quote(issue.name)} stores ${wanted}, the option's id, not an entry.`;
       } else {
         error = `Refused: ${quote(issue.name)} stores ${wanted}: ${issue.message}`;
       }
@@ -519,8 +505,8 @@ function issueRefusal(issue: ValueIssueType, entry: unknown, where: string): Jso
         error,
         expected: issue.stores,
         hint:
-          "Call get_visualization_options with `search`: it returns the value to store, " +
-          "whole for an input that takes an entry and bare for one that takes a string.",
+          "Call get_visualization_options with `search` for the id to choose: pass it as " +
+          '{"id": ...} for an input that takes an entry and bare for one that takes a string.',
       };
     }
     case "not_offered":
@@ -577,8 +563,8 @@ function rejectUndeclared(plugin: unknown, a: Json): Json | null {
   return null;
 }
 
-/** Refuse a value the server does not offer, resolving the options again at the write. */
-async function rejectUnoffered(
+/** Write the offered entry each option-bearing value names, or refuse one naming none. */
+async function selectOffered(
   lookup: ReturnType<ResolveOptions>,
   plugin: Json,
   a: Json,
@@ -594,7 +580,11 @@ async function rejectUnoffered(
         continue;
       }
       const offered: Json[] = envelope.data || [];
-      if (isOffered(value, offered, param)) {
+      const stored = offeredValue(value, offered, param);
+      if (stored !== undefined) {
+        const steps = path.split(".");
+        const parent = steps.slice(0, -1).reduce((held: Json, step) => held[step], entry as Json);
+        parent[steps.at(-1)!] = stored;
         continue;
       }
       if (!offered.length && branch) {
@@ -613,15 +603,13 @@ async function rejectUnoffered(
         .map((o) => quote(identity(o.value)))
         .join(", ");
       return {
-        error: `Refused: ${path} does not exactly match a value this server offers.`,
+        error: `Refused: ${path} names ${quote(identity(value))}, which this server does not offer.`,
         hint:
           `${offered.length} value(s) are offered` +
           (names ? `, including ${names}` : " for this case") +
           ". These were resolved with " +
           (a.dataset_id ? `dataset_id=${quote(a.dataset_id)}` : "no dataset") +
-          "; call get_visualization_options the same way and store the option's " +
-          "complete `value` unchanged, since a value naming the right entry with " +
-          "different or fewer fields is not it.",
+          "; call get_visualization_options the same way and choose one by its id.",
       };
     }
   }
@@ -642,7 +630,7 @@ async function saveVisualization(
   }
   const name = a.visualization;
   let title = artifact!.title;
-  let config = visualizationConfig(a);
+  let config = visualizationConfig(artifact!);
 
   let visualizationId = a.visualization_id;
   if (visualizationId) {
@@ -740,7 +728,7 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         "Resolve a visualization parameter's selectable options from wherever the plugin says " +
         "they live. `parameter` is the `path` get_visualization_details publishes. Where a name is " +
         "declared in several cases of a conditional, pass `config` in the shape save_visualization " +
-        "takes, so the test parameter in it says which case. Use `search` to get the value to store.",
+        "takes, so the test parameter in it says which case. Use `search` to find the id to choose.",
       parameters: schema(
         {
           visualization: STR,

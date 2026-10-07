@@ -75,9 +75,9 @@ For one visualization's parameters, use `get_visualization_details`. Each input 
 before binding anything, the way `get_tool_details` comes before `run_tool`.
 
 `get_visualization_options` resolves an `options` source into the actual choices, whether they
-come from a remote list, a Galaxy data table or the history. Where a value is an object, pass the
-one it returns through unchanged: it carries fields the plugin needs and rebuilding it from an id
-produces something that looks right and does not load. Name the parameter by the `path` each input
+come from a remote list, a Galaxy data table or the history. Choose one by its id, as Galaxy's form
+does: pass `{"id": ...}` where the input stores an object and the id itself where it stores a
+string, and the server stores the whole entry it names. Name the parameter by the `path` each input
 publishes. Where that path crosses a conditional, pass `config` in the shape `save_visualization`
 takes: the test parameter in it says which case is in play, so the same name under two
 conditionals stays distinct.
