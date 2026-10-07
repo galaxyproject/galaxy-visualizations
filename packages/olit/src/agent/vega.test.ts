@@ -93,10 +93,19 @@ describe("the data invariant", () => {
     { mark: "point", transform: [{ lookup: "a", from: { data: { values: [] }, key: "a" } }] },
     { hconcat: [{ data: { url: "/elsewhere" }, mark: "bar" }] },
     { facet: { field: "col:1" }, spec: { data: { values: [] }, mark: "bar" } },
+    { data: { name: "rows" }, datasets: { rows: [{ a: 1 }] }, mark: "point" },
+    { data: { name: "rows", values: [{ a: 1 }] }, mark: "point" },
+    { layer: [{ data: { name: "rows" }, mark: "line" }], mark: "point" },
   ])("refuses a spec naming data of its own: %j", (spec) => {
     const { ready, refusal } = built(spec);
     expect(ready).toBeNull();
     expect(refusal).toContain("names its own data");
+  });
+
+  it("points a spec that only names its data source at the dataset", () => {
+    const { ready, refusal } = built({ data: { name: "dataset" }, mark: "point" });
+    expect(refusal).toBeNull();
+    expect(ready!.data.url).toBe("/api/datasets/abc123/display");
   });
 
   it("names where the data was", () => {

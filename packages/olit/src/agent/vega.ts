@@ -123,7 +123,7 @@ export function dataPaths(node: unknown, path: string[] = []): string[] {
   const found: string[] = [];
   if (isObject(node)) {
     for (const [key, value] of Object.entries(node)) {
-      if (key === "data") {
+      if (key === "data" || key === "datasets") {
         found.push([...path, key].join("."));
       }
       found.push(...dataPaths(value, [...path, key]));
@@ -132,6 +132,11 @@ export function dataPaths(node: unknown, path: string[] = []): string[] {
     node.forEach((item, index) => found.push(...dataPaths(item, [...path, String(index)])));
   }
   return found;
+}
+
+/** A top-level `data` that only names a source; with no `datasets`, nothing backs the name. */
+function placeholder(data: unknown): boolean {
+  return isObject(data) && Object.keys(data).length === 1 && typeof data.name === "string";
 }
 
 /** Every transform step anywhere in the spec, layers included. */
@@ -239,13 +244,15 @@ export function unsatisfiableTypes(spec: Json, details: Json): string[] {
 /** The spec Olit will render, or a sentence saying why it will not. */
 export function build(
   datasetId: string,
-  spec: unknown,
+  given: unknown,
   details: Json,
   root = "/",
 ): { ready: Json | null; refusal: string | null } {
-  if (!isObject(spec) || !Object.keys(spec).length) {
+  if (!isObject(given) || !Object.keys(given).length) {
     return { ready: null, refusal: "`spec` has to be a Vega-Lite specification object." };
   }
+  const { data, ...unnamed } = given;
+  const spec = placeholder(data) ? unnamed : given;
   const owned = dataPaths(spec);
   if (owned.length) {
     return {
