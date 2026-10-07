@@ -76,6 +76,26 @@ const llmTarget = targets[env.LLM_PROVIDER] || { root: "http://127.0.0.1:11434",
 const llmRoot = env.LLM_ROOT || llmTarget.root;
 const llmPath = env.LLM_PATH || llmTarget.path;
 
+/**
+ * What the bundle is compiled with. The dev server passes the shell's settings; a build passes
+ * none, because a build is what Galaxy serves and a developer's routing must not reach it.
+ */
+export function defines(settings: Partial<typeof env> = {}): Record<string, string> {
+  return {
+    "process.env.credentials": JSON.stringify(settings.GALAXY_KEY ? "omit" : "include"),
+    "process.env.olit_commit": JSON.stringify(buildCommit()),
+    "process.env.olit_built": JSON.stringify(new Date().toISOString()),
+    // Dev only: route the agent through the /llm proxy above, which attaches the key.
+    "process.env.llm_base_url": JSON.stringify(
+      settings.LLM_PROVIDER || settings.LLM_ROOT ? "/llm" : "",
+    ),
+    "process.env.llm_provider": JSON.stringify(settings.LLM_PROVIDER ?? ""),
+    "process.env.llm_model": JSON.stringify(settings.LLM_MODEL ?? ""),
+    "process.env.llm_context_window": JSON.stringify(settings.LLM_CONTEXT_WINDOW ?? ""),
+    "process.env.llm_keep_recent_tokens": JSON.stringify(settings.LLM_KEEP_RECENT_TOKENS ?? ""),
+  };
+}
+
 // https://vitejs.dev/config/
 export const viteConfigCharts = defineConfig({
   base: "./",
@@ -91,17 +111,7 @@ export const viteConfigCharts = defineConfig({
       },
     },
   },
-  define: {
-    "process.env.credentials": JSON.stringify(env.GALAXY_KEY ? "omit" : "include"),
-    "process.env.olit_commit": JSON.stringify(buildCommit()),
-    "process.env.olit_built": JSON.stringify(new Date().toISOString()),
-    // Dev only: route the agent through the /llm proxy above, which attaches the key.
-    "process.env.llm_base_url": JSON.stringify(env.LLM_PROVIDER || env.LLM_ROOT ? "/llm" : ""),
-    "process.env.llm_provider": JSON.stringify(env.LLM_PROVIDER),
-    "process.env.llm_model": JSON.stringify(env.LLM_MODEL),
-    "process.env.llm_context_window": JSON.stringify(env.LLM_CONTEXT_WINDOW),
-    "process.env.llm_keep_recent_tokens": JSON.stringify(env.LLM_KEEP_RECENT_TOKENS),
-  },
+  define: defines(env),
   resolve: {
     alias: {
       "@": "/src",

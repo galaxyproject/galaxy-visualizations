@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vite";
 
-import { viteConfigCharts } from "./vite.config.charts";
+import { defines, viteConfigCharts } from "./vite.config.charts";
 
 /** Pyodide and the wheels Olit loads beside it, copied next to the bundle Galaxy serves. */
 const copyPyodide = {
@@ -41,6 +41,7 @@ const servePyodide = {
 
 export default defineConfig(({ command }) => ({
   ...viteConfigCharts,
+  define: command === "build" ? defines() : viteConfigCharts.define,
   plugins: command === "build" ? [copyPyodide] : [servePyodide],
   test: {
     environment: "happy-dom",
