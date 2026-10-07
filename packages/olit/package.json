@@ -29,7 +29,7 @@
   "dependencies": {
     "@earendil-works/chord": "^1.0.4",
     "@earendil-works/pi-ai": "^1.0.4",
-    "@earendil-works/pi-durable": "https://github.com/guerler/pi/releases/download/durable-v1.0.4-olit.1/earendil-works-pi-durable-1.0.4-olit.1.tgz",
+    "@earendil-works/pi-durable": "https://github.com/guerler/pi/releases/download/durable-v1.0.4-olit.2/earendil-works-pi-durable-1.0.4-olit.2.tgz",
     "@galaxyproject/galaxy-ops": "https://github.com/guerler/galaxy-mcp/releases/download/ops-v0.3.2-ops.1/galaxyproject-galaxy-ops-0.3.2-ops.1.tgz",
     "@sqlite.org/sqlite-wasm": "^3.53.4-build2",
     "galaxy-charts": "^0.1.17",

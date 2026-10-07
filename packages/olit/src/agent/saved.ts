@@ -6,9 +6,9 @@
  * Fields the Charts contract already reads (`history_id`, `dataset_id`) stay at the top level,
  * because `parseIncoming` looks for them there when Galaxy reopens a saved session.
  */
-import type { EntryDraft } from "@earendil-works/pi-durable";
+import type { ExportedEntry } from "@earendil-works/pi-durable";
 
-export const SCHEMA = 4;
+export const SCHEMA = 5;
 
 /** A model that produced part of this conversation. Carries no endpoint and no key. */
 export interface ModelUse {
@@ -31,11 +31,11 @@ export interface SessionDocument {
     usage: { input: number; output: number; cost: number | null };
   };
   /** The conversation's active context, as pi-durable exports it. */
-  entries: EntryDraft[];
+  entries: ExportedEntry[];
 }
 
 /** Which models answered, in the order they first did. */
-export function modelsOf(entries: readonly EntryDraft[]): ModelUse[] {
+export function modelsOf(entries: readonly ExportedEntry[]): ModelUse[] {
   const seen = new Map<string, ModelUse>();
   for (const e of entries) {
     for (const m of e.model ?? []) {
@@ -52,6 +52,14 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 
 const ENCODED_ID = /^[0-9a-f]+$/;
 
+/** A head marker naming an earlier entry of the document, by its position. */
+const startsEarlier = (head: unknown, at: number) =>
+  isObject(head) &&
+  typeof head.entry === "number" &&
+  Number.isInteger(head.entry) &&
+  head.entry >= 0 &&
+  head.entry < at;
+
 /** Is this a document we understand? Another schema is not ours to interpret. */
 export function isSessionDocument(value: unknown): value is SessionDocument {
   if (!isObject(value) || value.olit_session !== SCHEMA || !isObject(value.session)) {
@@ -65,10 +73,12 @@ export function isSessionDocument(value: unknown): value is SessionDocument {
       (typeof session.recordPageId === "string" && ENCODED_ID.test(session.recordPageId))) &&
     Array.isArray(entries) &&
     entries.every(
-      (e) =>
+      (e, i) =>
         isObject(e) &&
         typeof e.kind === "string" &&
-        (e.model === undefined || Array.isArray(e.model)),
+        (e.model === undefined || Array.isArray(e.model)) &&
+        // A head marker starts the context at itself or at an earlier entry of this document.
+        (e.head === undefined || e.head === "self" || startsEarlier(e.head, i)),
     )
   );
 }

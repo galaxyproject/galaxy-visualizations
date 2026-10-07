@@ -131,6 +131,38 @@ describe("a saved Olit visualization is a restorable conversation", () => {
     expect(messages.filter((m) => m.role === "assistant")).toHaveLength(1);
   });
 
+  it("comes back across a compaction: the same context, and the earlier chart still placeable", async () => {
+    const { saved } = world();
+    const one = await machine();
+    const conversation = await one.create({ historyId: "h1" });
+    await say(one, conversation, "run fastqc");
+    await conversation.commit(async (tx) => {
+      await tx.appendEntry(conversation.id, { kind: "pi.tool-result", model: [chart] });
+    }, context);
+    await say(one, conversation, "after the chart");
+    // A compaction as pi-durable places one: a summary that starts the context at itself.
+    await conversation.commit(async (tx) => {
+      await tx.appendEntry(conversation.id, {
+        kind: "pi.compaction",
+        model: [
+          { role: "user", content: "<summary>ran fastqc, charted it</summary>", timestamp: 0 },
+        ],
+        head: "self",
+      });
+    }, context);
+    const before = await conversation.context(context);
+    const id = await saved.save(await one.export(conversation));
+
+    const two = await machine();
+    const reopened = await two.open((await saved.load(id))!, id);
+    const after = await reopened.context(context);
+    const roles = (view: typeof before) =>
+      view.messages.filter((m) => m.role !== "system").map((m) => m.role);
+    expect(roles(after)).toEqual(roles(before));
+    expect(after.entries[0].kind).toBe("pi.compaction");
+    expect((await artifactsIn(reopened, context)).map((a) => a.title)).toEqual([CHART.title]);
+  });
+
   it("continues on the second machine and saves back to the same visualization", async () => {
     const { rows, saved } = world();
     const one = await machine();
