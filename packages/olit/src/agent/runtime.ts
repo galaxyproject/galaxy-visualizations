@@ -23,7 +23,7 @@ import { recordsOn, type RecordSummary } from "./notebook";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
 import { probeWindow, resolve, type LlmConfig, type Target } from "./providers";
 import { editRecord } from "./record-write";
-import { modelsOf, SCHEMA, type SessionDocument } from "./saved";
+import { modelsOf, SCHEMA, usageTotals, type SessionDocument } from "./saved";
 import { skillRegistry } from "./skills";
 import type { Capability, Python } from "./tool";
 import { galaxyOps, olitTools } from "./tools";
@@ -31,9 +31,15 @@ import { galaxyWatch, WATCH_TASK, type Watched } from "./watch";
 
 export const context = BACKGROUND_CONTEXT;
 
-const MIN_SECRET_LENGTH = 8;
 /** Earlier artifacts a tool can place; a spec carries its rows, so few are offered. */
 const ARTIFACT_LIMIT = 20;
+
+/** How Olit's turns run under pi-durable, whatever the model: what `describe` reports as well. */
+export const LOOP = {
+  toolExecution: "sequential",
+  followUpMode: "all",
+  promptPlacement: "lead",
+} as const;
 
 /**
  * The newest artifacts a conversation's results carried, oldest of them first. Read from its
@@ -170,9 +176,7 @@ export class Runtime {
       tools: olitTools(skills),
       capabilities,
       secrets: () =>
-        [current.apiKey, config.galaxy_key].filter(
-          (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
-        ),
+        [current.apiKey, config.galaxy_key].filter((s): s is string => typeof s === "string"),
       prompt: ({ model, provider, datasetId }) =>
         [
           systemText({
@@ -197,9 +201,7 @@ export class Runtime {
         models,
         registry,
         settings: {
-          toolExecution: "sequential",
-          followUpMode: "all",
-          promptPlacement: "lead",
+          ...LOOP,
           maxTurns: config.max_steps || MAX_STEPS,
           get compaction() {
             const reserveTokens =
@@ -340,11 +342,7 @@ export class Runtime {
         turn: exported.entries.filter((e) => e.kind === "pi.user").length,
         ...(bound?.pageId ? { recordPageId: bound.pageId } : {}),
         models: modelsOf(exported.entries),
-        usage: {
-          input: totals.reduce((sum, u) => sum + (u.input ?? 0), 0),
-          output: totals.reduce((sum, u) => sum + (u.output ?? 0), 0),
-          cost: totals.length ? totals.reduce((sum, u) => sum + (u.cost?.total ?? 0), 0) : null,
-        },
+        usage: usageTotals(totals),
       },
       entries: [...exported.entries],
     };

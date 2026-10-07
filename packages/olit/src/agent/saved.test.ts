@@ -12,7 +12,7 @@ import { Binding } from "./documents";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
 import { artifactsIn, context, Runtime } from "./runtime";
-import { title, type SessionDocument } from "./saved";
+import { title, usageTotals, type SessionDocument } from "./saved";
 import type { Python } from "./tool";
 
 const ROOT = "http://galaxy.test/";
@@ -315,5 +315,12 @@ describe("artifacts across a compaction", () => {
     };
     const titles = (await artifactsIn(conversation as never, context)).map((a) => a.title);
     expect(titles).toEqual(["Before", "After"]);
+  });
+});
+
+describe("usage, as the page shows it and a saved session keeps it", () => {
+  it("reports no cost, rather than zero, when no model reported one", () => {
+    expect(usageTotals([{ input: 10, output: 2 }])).toEqual({ input: 10, output: 2, cost: null });
+    expect(usageTotals([{ input: 1, output: 1, cost: { total: 0.5 } }]).cost).toBe(0.5);
   });
 });

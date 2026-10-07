@@ -88,3 +88,16 @@ export function title(document: SessionDocument): string {
   const given = (document.session.title || "").trim();
   return given.length >= 3 ? given : `Olit Session (${document.session.id.slice(0, 8)})`;
 }
+
+/** A conversation's usage across its models; no cost when no model reported one, not zero. */
+export function usageTotals(
+  totals: Array<{ input?: number; output?: number; cost?: { total?: number } }>,
+) {
+  return {
+    input: totals.reduce((n, u) => n + (u.input ?? 0), 0),
+    output: totals.reduce((n, u) => n + (u.output ?? 0), 0),
+    cost: totals.some((u) => u.cost?.total)
+      ? totals.reduce((n, u) => n + (u.cost?.total ?? 0), 0)
+      : null,
+  };
+}

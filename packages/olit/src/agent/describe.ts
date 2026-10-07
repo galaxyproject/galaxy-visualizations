@@ -10,6 +10,7 @@ import { MAX_AUTO_FOLLOW_UPS } from "./documents";
 import { MAX_STEPS } from "./extension";
 import { connect, keyVariable } from "./model";
 import { STARTER } from "./notebook";
+import { LOOP } from "./runtime";
 import { opsTools } from "./ops";
 import { defaultEndpoint, PROVIDERS, resolve } from "./providers";
 import { GUARDS } from "./tool";
@@ -157,7 +158,7 @@ function loop() {
     keep_recent_tokens: DEFAULT_COMPACTION_POLICY.keepRecentTokens,
     max_steps: MAX_STEPS,
     reserve_tokens: DEFAULT_COMPACTION_POLICY.reserveTokens,
-    tool_execution: "sequential",
+    tool_execution: LOOP.toolExecution,
   };
 }
 

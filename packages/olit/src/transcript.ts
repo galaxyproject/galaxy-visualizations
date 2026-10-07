@@ -5,6 +5,7 @@ import type { AgentEvent, EntryRecord } from "@earendil-works/pi-durable";
 import { artifactsOf, type Artifact } from "./artifacts/kinds";
 
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./agent/markers";
+import { usageTotals } from "./agent/saved";
 import type { ChatPanel } from "./orbit/chat/chat-panel";
 
 type Chat = Pick<
@@ -104,7 +105,7 @@ export class ChatView {
         if (partial) this.stream(textOf(partial));
         this.hooks.busy(event.run !== undefined);
         const totals = Object.values(event.usage.models ?? {});
-        this.hooks.usage(sum(totals));
+        this.hooks.usage(usageTotals(totals));
       } else if (event.type === "run_start") {
         this.run = { spoke: false, done: false, aborted: false, exhausted: false };
         this.hooks.busy(true);
@@ -137,7 +138,7 @@ export class ChatView {
       } else if (event.type === "compaction_end") {
         this.hooks.info("Summarized the earlier conversation to make room.");
       } else if (event.type === "usage_changed") {
-        this.hooks.usage(sum(Object.values(event.usage.models ?? {})));
+        this.hooks.usage(usageTotals(Object.values(event.usage.models ?? {})));
       }
     }
     if (ended) this.hooks.ended(this.run);
@@ -215,16 +216,6 @@ export class ChatView {
       if (made.length && !this.restoring) this.hooks.artifacts(made, false);
     }
   }
-}
-
-function sum(totals: Array<{ input?: number; output?: number; cost?: { total?: number } }>) {
-  return {
-    input: totals.reduce((n, u) => n + (u.input ?? 0), 0),
-    output: totals.reduce((n, u) => n + (u.output ?? 0), 0),
-    cost: totals.some((u) => u.cost?.total)
-      ? totals.reduce((n, u) => n + (u.cost?.total ?? 0), 0)
-      : null,
-  };
 }
 
 /** The last meaningful line of a Python traceback, which is the actual error. */

@@ -97,19 +97,6 @@ export const chartOptions: ResolveOptions = (galaxy) => {
   };
 };
 
-/** The installed visualization this query names, if the tool catalog is the wrong one. */
-export async function aVisualizationNamed(
-  galaxy: Galaxy,
-  search: string | undefined,
-): Promise<string | undefined> {
-  const wanted = (search || "").trim().toLowerCase();
-  const installed: Json[] = (await galaxy.get("api/plugins")) || [];
-  return installed
-    .map((p) => p.name)
-    .filter((n) => !NOT_OFFERED.has(n))
-    .find((n) => n && n.toLowerCase() === wanted);
-}
-
 function columnParameters(plugin: Json): string[] {
   return [...(plugin.tracks || []), ...(plugin.settings || [])]
     .filter((parameter: Json) => parameter.type === "data_column")
