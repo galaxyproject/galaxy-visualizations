@@ -83,6 +83,23 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: npm test
 
+      # Informational: where a package's pinned upstreams sit against their sources. Never fails
+      # the build; the report lands in the job summary.
+      - name: Report stale pins
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        working-directory: packages/${{ matrix.package }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jq -e '.scripts.stale' package.json >/dev/null || exit 0
+          {
+            echo "### Pinned upstreams: ${{ matrix.package }}"
+            echo '```'
+            npm run --silent stale
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   test-playwright:
     needs: discover
     if: needs.discover.outputs.playwright_packages != '[]'
@@ -129,6 +146,23 @@ jobs:
       - name: Run Playwright tests
         working-directory: packages/${{ matrix.package }}
         run: npm test
+
+      # Informational: where a package's pinned upstreams sit against their sources. Never fails
+      # the build; the report lands in the job summary.
+      - name: Report stale pins
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        working-directory: packages/${{ matrix.package }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jq -e '.scripts.stale' package.json >/dev/null || exit 0
+          {
+            echo "### Pinned upstreams: ${{ matrix.package }}"
+            echo '```'
+            npm run --silent stale
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Playwright report
         if: failure()
