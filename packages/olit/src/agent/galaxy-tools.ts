@@ -12,7 +12,7 @@ import {
 import { ELIDED } from "./notebook";
 import { pageContentProblem } from "./page-edit";
 import { watchedFrom } from "./watch";
-import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
+import { type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
@@ -389,7 +389,8 @@ const LOCAL_DOCS: Record<string, string> = {
     "Upload a file from the local filesystem to a Galaxy history.\n\nReads the path from the browser's in-memory filesystem, so it pairs with run_python: write a result to a file, then upload it. Sent to Galaxy as pasted content. Use upload_file_from_url to ingest directly from a URL instead.\n\nAn upload is a Galaxy job: the dataset comes back before it is readable. Wait for it to reach 'ok' (check its state with get_dataset_details) before running a tool on it or charting it.",
 };
 
-/** A tool Olit runs itself, under galaxy-mcp's description, with fetch-failure triage appended. */
+/** A tool Olit runs itself, under galaxy-mcp's name and its own description, with fetch-failure
+ * triage appended. */
 function tool(
   name: string,
   capability: Capability,
@@ -399,7 +400,7 @@ function tool(
 ): OlitTool {
   return {
     name,
-    description: LOCAL_DOCS[name] ?? UPSTREAM_DOCS[name],
+    description: LOCAL_DOCS[name],
     capability,
     parameters: { type: "object", properties, required },
     run: async (args, ctx) => {

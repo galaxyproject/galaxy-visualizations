@@ -2,12 +2,12 @@ import { z } from "zod";
 import {
   allOperations,
   describeOperation,
+  GALAXY_MCP_SURFACE,
   runWithEnvelope,
   spellParamNames,
   type AnyOperation,
 } from "@galaxyproject/galaxy-ops/browser";
 
-import SNAPSHOT from "./galaxy-mcp-docs.json";
 import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
 import { watchedFrom } from "./watch";
 
@@ -20,12 +20,6 @@ export type Annotate = (
   data: unknown,
   ctx: Context,
 ) => Promise<string | undefined>;
-
-/**
- * What galaxy-mcp tells a model about a tool, captured from its source by
- * scripts/capture_galaxy_mcp_docs.py and never edited here: Orbit's model reads the same text.
- */
-export const UPSTREAM_DOCS = SNAPSHOT.docs as Record<string, string>;
 
 /** What Olit layers on a galaxy-ops operation it does not own: policy, not behaviour. */
 export interface OpPolicy {
@@ -40,7 +34,10 @@ export interface OpPolicy {
   settled?: boolean;
 }
 
-/** galaxy-ops operations under galaxy-mcp's names: snake_case at the top level, its docstrings. */
+/**
+ * galaxy-ops operations under galaxy-mcp's names, snake_case at the top level, described as
+ * galaxy-mcp advertises them to an MCP client: Orbit's model is told the same.
+ */
 export function opsTools(annotate?: Annotate, policies: Record<string, OpPolicy> = {}): OlitTool[] {
   return allOperations.map((op) => opsTool(op, annotate, policies[op.name] ?? {}));
 }
@@ -55,10 +52,11 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
     required?: string[];
   };
   const toInput = new Map(Object.keys(op.input).map((key) => [snake(key), key]));
+  const advertised = GALAXY_MCP_SURFACE[op.name];
   return {
     name: op.name,
-    // galaxy-ops' own line, in snake_case, for an operation galaxy-mcp has not documented.
-    description: UPSTREAM_DOCS[op.name] ?? spellParamNames(describeOperation(op), op.input, snake),
+    // galaxy-ops' own line, in snake_case, for an operation galaxy-mcp does not advertise.
+    description: advertised?.description ?? spellParamNames(describeOperation(op), op.input, snake),
     capability: op.readOnly === false ? "write" : "read",
     destructive: op.destructive === true && !policy.destructiveWhen,
     destructiveWhen: policy.destructiveWhen,
@@ -67,7 +65,10 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
     parameters: {
       ...schema,
       properties: Object.fromEntries(
-        Object.entries(schema.properties ?? {}).map(([k, v]) => [snake(k), v]),
+        Object.entries(schema.properties ?? {}).map(([k, v]) => {
+          const said = advertised?.parameters[snake(k)];
+          return [snake(k), said ? { ...(v as object), description: said } : v];
+        }),
       ),
       required: schema.required?.map(snake),
     },

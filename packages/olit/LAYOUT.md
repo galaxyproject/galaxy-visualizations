@@ -32,8 +32,6 @@ src/agent/               the agent: pi-durable's harness, in a worker in the bro
 e2e/                      Playwright drives against a stub, plus opt-in live drives
 scripts/                  tooling, one flat folder, each file named for what it does
   install_*                 what `npm run build` calls: pyodide, skills
-  capture_*                 run by hand to refresh a pinned upstream snapshot, whose
-                            output is committed: galaxy-mcp docs
   check_*                   reports and gates that change nothing: stale pins, the
                             integrity of files copied in from elsewhere
 ```
@@ -42,9 +40,8 @@ scripts/                  tooling, one flat folder, each file named for what it 
 
 Tooling lives flat in `scripts/`, one file per job, named `<verb>_<subject>` so an `ls`
 groups the verbs and the name says when it runs. The extension follows what the script has
-to load, not which side of olit it serves: `capture_galaxy_mcp_docs.py` is Python because it
-parses galaxy-mcp's Python source, `install_skills.js` is JavaScript because it fetches
-through node.
+to load, not which side of olit it serves: `install_skills.js` is JavaScript because it
+fetches through node.
 
 If another repo names a path, it is not tooling but an interface. The `agents` repo builds
 `dist/session.mjs` (`npm run build:session`) and drives it, asks it to `--describe` itself,

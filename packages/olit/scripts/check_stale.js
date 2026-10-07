@@ -34,27 +34,6 @@ async function skills() {
   );
 }
 
-async function galaxyMcp() {
-  const pinned = read("src/agent/galaxy-mcp-docs.json").version;
-  const res = await fetch("https://pypi.org/pypi/galaxy-mcp/json");
-  if (!res.ok) throw new Error(`PyPI ${res.status}`);
-  const latest = (await res.json()).info.version;
-  if (pinned === latest) {
-    return `galaxy-mcp up to date at ${pinned}`;
-  }
-  // A capture from a dev checkout is not behind a release; the two are not ordered.
-  if (/\d(a|b|rc|\.dev)/.test(pinned)) {
-    return (
-      `galaxy-mcp captured from ${pinned}, an unreleased build; PyPI publishes ${latest}\n` +
-      `           recapture from whichever galaxy-mcp olit is meant to follow: npm run galaxy-mcp-docs`
-    );
-  }
-  return (
-    `galaxy-mcp BEHIND: descriptions captured from ${pinned}, PyPI has ${latest}\n` +
-    `           update: npm run galaxy-mcp-docs, then read the parity test's diff`
-  );
-}
-
 async function npmLatest(pkg) {
   const res = await fetch(`https://registry.npmjs.org/${pkg}/latest`);
   if (!res.ok) throw new Error(`npm ${res.status} for ${pkg}`);
@@ -133,13 +112,7 @@ async function orbit() {
   return `orbit ui   up to date: loom is ${cmp.total_commits} commit(s) past ${pinned}, none touching the vendored files`;
 }
 
-const results = await Promise.allSettled([
-  skills(),
-  galaxyMcp(),
-  galaxyOps(),
-  galaxyCharts(),
-  orbit(),
-]);
+const results = await Promise.allSettled([skills(), galaxyOps(), galaxyCharts(), orbit()]);
 for (const r of results) {
   console.log(r.status === "fulfilled" ? r.value : `(could not check: ${r.reason.message})`);
 }
