@@ -703,6 +703,9 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
     title,
     columns: vega.columnNames(details),
     artifact: { kind: "vega-lite", title, spec: ready } satisfies Artifact,
+    hint:
+      "The chart is displayed to the user. Writing it into the record means putting " +
+      "{{artifact}} where it belongs in the page content. Say what it shows and finish.",
   };
   const suspect = vega.unsatisfiableTypes(ready, details);
   if (suspect.length) {
