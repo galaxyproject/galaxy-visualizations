@@ -8,12 +8,15 @@ import {
   type SelectionSignature,
 } from "./copy-button.js";
 import { copyToClipboard } from "../update-banner.js";
-import { TEAM_DISPATCH_KIND, type TeamDispatchDetails } from "../shared/team-dispatch-contract.js";
+import {
+  TEAM_DISPATCH_KIND,
+  type TeamDispatchDetails,
+} from "../../../../shared/team-dispatch-contract.js";
 import type {
   ParameterFormPayload,
   ParameterGroup,
   ParameterSpec,
-} from "../shared/loom-shell-contract.js";
+} from "../../../../shared/loom-shell-contract.js";
 
 export type MessageRecord =
   | { role: "user"; text: string }

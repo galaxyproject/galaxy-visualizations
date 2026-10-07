@@ -30,7 +30,7 @@ async function skills() {
   return (
     `skills     BEHIND by ${cmp.total_commits} commit(s): ${lock.sha.slice(0, 8)} -> ${head.sha.slice(0, 8)}\n` +
     `           ${touched} file(s) changed under skills/, the subtree olit vendors\n` +
-    `           update: edit skills.lock.json, node scripts/install_skills.js, python3 scripts/check_vendored.py --update`
+    `           update: edit skills.lock.json, node scripts/install_skills.js`
   );
 }
 
@@ -71,9 +71,6 @@ async function galaxyCharts() {
         `           update: bump it and run npm test; visualizations.ts imports its input contract directly`;
 }
 
-/** Where a vendored UI file lives in loom: shared/ as it is, the rest under the renderer. */
-const loomPath = (rel) => (rel.startsWith("shared/") ? rel : `app/src/renderer/${rel}`);
-
 /** GitHub's compare lists at most this many files, so a longer list may be missing some. */
 const COMPARE_FILE_CAP = 300;
 
@@ -84,19 +81,11 @@ async function orbit() {
   if (head.sha === manifest.commit) {
     return `orbit ui   up to date at ${pinned} (${manifest.upstream}@main)`;
   }
-  const watched = Object.keys(manifest.files).flatMap((rel) => {
-    const path = loomPath(rel);
-    return path.endsWith(".js") ? [path, path.replace(/\.js$/, ".d.ts")] : [path];
-  });
-  watched.push(loomPath("assets/fonts/"));
+  const watched = new Set(Object.keys(manifest.files));
   const cmp = await github(`repos/${manifest.upstream}/compare/${manifest.commit}...${head.sha}`);
   const files = cmp.files || [];
-  const touched = files
-    .map((f) => f.filename)
-    .filter((name) => watched.some((w) => (w.endsWith("/") ? name.startsWith(w) : name === w)));
-  const update =
-    "           update: copy them from loom, keeping the shared/ import retarget (src/orbit/README.md),\n" +
-    "           set MANIFEST.json's commit, python3 scripts/check_vendored.py --update";
+  const touched = files.map((f) => f.filename).filter((name) => watched.has(name));
+  const update = "           update: npm run sync:orbit -- <path to a loom checkout at main>";
   if (touched.length) {
     return (
       `orbit ui   BEHIND: ${touched.length} vendored file(s) changed in loom since ${pinned}: ${touched.join(", ")}\n` +

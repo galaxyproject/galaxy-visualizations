@@ -6,7 +6,7 @@ import { artifactsOf, type Artifact } from "./artifacts/kinds";
 
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./agent/markers";
 import { usageTotals } from "./agent/saved";
-import type { ChatPanel } from "./orbit/chat/chat-panel";
+import type { ChatPanel } from "./orbit/app/src/renderer/chat/chat-panel";
 import { StreamedReply } from "./streamed-reply";
 
 type Chat = Pick<

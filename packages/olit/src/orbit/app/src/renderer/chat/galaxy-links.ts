@@ -1,5 +1,5 @@
-import { galaxyArtifactReferences } from "../shared/galaxy-artifact-links.js";
-import { NOTEBOOK_FENCE_READ_PREFIXES } from "../shared/notebook-fences.js";
+import { galaxyArtifactReferences } from "../../../../shared/galaxy-artifact-links.js";
+import { NOTEBOOK_FENCE_READ_PREFIXES } from "../../../../shared/notebook-fences.js";
 
 // Notebook blocks can carry either fence prefix during the Loom -> Orbit rename.
 const NOTEBOOK_BLOCK_LANGUAGE = `(?:${NOTEBOOK_FENCE_READ_PREFIXES.join("|")})-(?:galaxy-page|invocation|job)`;
