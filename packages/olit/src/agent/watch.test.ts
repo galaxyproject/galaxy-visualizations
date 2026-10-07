@@ -236,6 +236,16 @@ describe("the watch task", () => {
     await harness.close(context);
   });
 
+  it("records a failure the record did not yet hold, as work submitted before it was opened", async () => {
+    const edits: string[] = [];
+    const { harness, task } = await submitted(new MemoryStorage(), () => "error", edits);
+    await harness.waitForTask(task, context);
+    const settled = edits.at(-1)!;
+    expect(settled).toContain("Galaxy job `j1`");
+    expect(settled).toContain("Status: failed (error) — recorded automatically");
+    await harness.close(context);
+  });
+
   it("tells the model and the page when the record could not be updated", async () => {
     const { harness, conversation, task } = await submitted(
       new MemoryStorage(),
