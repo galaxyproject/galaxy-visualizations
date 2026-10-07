@@ -306,13 +306,21 @@ export function same(a: unknown, b: unknown): boolean {
   return false;
 }
 
-/** Whether a value is one the input offers, compared whole, or its default. */
-export function isOffered(value: unknown, options: Json[] | undefined, param: Json): boolean {
-  if ((options || []).some((option) => same(value, option.value))) {
-    return true;
+/** What names an option: an object's id, or the value itself when it is a scalar. */
+export const identity = (value: unknown) => (isObject(value) ? value.id : value);
+
+/**
+ * The value stored for `value`: the offered entry it names, as galaxy-charts' select picks an
+ * entry by id and writes the whole of it, or the input's default. Undefined when neither.
+ */
+export function offeredValue(value: unknown, options: Json[] | undefined, param: Json): unknown {
+  const id = identity(value);
+  const named = id == null ? undefined : (options || []).find((o) => same(identity(o.value), id));
+  if (named) {
+    return named.value;
   }
   const fallback = resolvedDefault(param);
-  return fallback !== null && same(value, fallback);
+  return fallback !== null && same(value, fallback) ? fallback : undefined;
 }
 
 /**

@@ -258,33 +258,20 @@ describe("a reply streamed live ends as the stored answer reads", () => {
   const shownText = (chat: ReturnType<typeof view>["chat"]) =>
     chat.appendDelta.mock.calls.map((c) => c[0]).join("");
 
-  it("shows the text a block starts with, not only the deltas after it", () => {
+  it("shows the text a message starts with, in one message", () => {
     const { chat, view: v } = view();
+    const partial = { role: "assistant", content: [{ type: "text", text: "The **Plotly " }] };
     v.apply([
       { type: "run_start", inputs: [] } as unknown as AgentEvent,
-      update({ type: "text_start", contentIndex: 0, block: { type: "text", text: "The first " } }),
-      update({ type: "text_delta", contentIndex: 0, delta: "words." }),
-      { type: "message_end", entry: stored("The first words.") } as AgentEvent,
+      { type: "message_start", message: partial } as unknown as AgentEvent,
+      update({ type: "text_delta", contentIndex: 0, delta: "scatter** is saved." }),
+      {
+        type: "message_end",
+        entry: stored("The **Plotly scatter** is saved. Done."),
+      } as AgentEvent,
     ]);
-    expect(shownText(chat)).toBe("The first words.");
-  });
-
-  it("shows a block sent whole, and a message replaced whole", () => {
-    const { chat, view: v } = view();
-    v.apply([
-      { type: "run_start", inputs: [] } as unknown as AgentEvent,
-      update({ type: "text_delta", contentIndex: 0, delta: "Half" }),
-      update({ type: "block", contentIndex: 0, block: { type: "text", text: "Half a sentence" } }),
-      update({
-        type: "message",
-        message: {
-          role: "assistant",
-          content: [{ type: "text", text: "Half a sentence, then more." }],
-        },
-      }),
-      { type: "message_end", entry: stored("Half a sentence, then more.") } as AgentEvent,
-    ]);
-    expect(shownText(chat)).toBe("Half a sentence, then more.");
+    expect(shownText(chat)).toBe("The **Plotly scatter** is saved. Done.");
+    expect(chat.startAssistantMessage).toHaveBeenCalledTimes(1);
   });
 
   it("finishes with what the stored answer holds beyond what streamed", () => {

@@ -8,7 +8,7 @@ src/                      the shell (TypeScript)
   config.ts incoming.ts credentials*.ts   what the agent is handed, and by whom
   saved-session.ts          a conversation saved to Galaxy as a visualization
   transcript.ts artifacts/  the chat drawn from the conversation's events; charts and visualizations
-  orbit/                    vendored from Orbit, byte-identical (scripts/check_vendored.py)
+  orbit/                    vendored from Orbit under loom's own paths, byte-identical
 src/agent/               the agent: pi-durable's harness, in a worker in the browser
   runtime.ts                the harness: conversations per history, model, Stop, save and open
   extension.ts              Olit as a pi-durable extension: tools, prompt, guards
@@ -32,8 +32,7 @@ src/agent/               the agent: pi-durable's harness, in a worker in the bro
 e2e/                      Playwright drives against a stub, plus opt-in live drives
 scripts/                  tooling, one flat folder, each file named for what it does
   install_*                 what `npm run build` calls: pyodide, skills
-  capture_*                 run by hand to refresh a pinned upstream snapshot, whose
-                            output is committed: galaxy-mcp docs
+  sync_*                    run by hand to copy a pinned upstream in: the Orbit UI
   check_*                   reports and gates that change nothing: stale pins, the
                             integrity of files copied in from elsewhere
 ```
@@ -42,9 +41,8 @@ scripts/                  tooling, one flat folder, each file named for what it 
 
 Tooling lives flat in `scripts/`, one file per job, named `<verb>_<subject>` so an `ls`
 groups the verbs and the name says when it runs. The extension follows what the script has
-to load, not which side of olit it serves: `capture_galaxy_mcp_docs.py` is Python because it
-parses galaxy-mcp's Python source, `install_skills.js` is JavaScript because it fetches
-through node.
+to load, not which side of olit it serves: `install_skills.js` is JavaScript because it
+fetches through node.
 
 If another repo names a path, it is not tooling but an interface. The `agents` repo builds
 `dist/session.mjs` (`npm run build:session`) and drives it, asks it to `--describe` itself,
@@ -59,7 +57,7 @@ while the copies stay byte-identical, so their hashes are pinned.
 
 ```bash
 npm run vendored                              # or: python3 scripts/check_vendored.py
-python3 scripts/check_vendored.py --update    # re-pin after a deliberate re-sync
+npm run sync:orbit -- <loom checkout>         # re-sync the Orbit UI from loom, re-pinned
 ```
 
 The Orbit seam registry, which tracks what Olit's prompts and tools carry from Orbit, lives

@@ -1,4 +1,4 @@
-/* olit-owned styles. The vendored src/orbit/styles.css stays byte-identical
+/* olit-owned styles. The vendored src/orbit/app/src/renderer/styles.css stays byte-identical
    to loom so it can be re-synced by copy; additions belong here. */
 
 /* Credentials picker — reuses the vendored modal shell. */

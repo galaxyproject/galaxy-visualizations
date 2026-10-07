@@ -12,7 +12,7 @@ import {
 import { ELIDED } from "./notebook";
 import { pageContentProblem } from "./page-edit";
 import { watchedFrom } from "./watch";
-import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
+import { type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
@@ -20,6 +20,32 @@ export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+const HEADING = /^#{1,6}\s+\S/;
+
+/** A refusal for a section edit that would leave its text without a heading in the record. */
+function headingless(args: Record<string, unknown>) {
+  if (args.section_heading == null) {
+    return undefined;
+  }
+  const heading = String(args.section_heading).trim();
+  if (!HEADING.test(heading)) {
+    return fail(
+      `Refused: section_heading is the heading line itself, such as ${quote(`## ${heading}`)}, ` +
+        "not the title alone; a line the page does not hold as a heading appends the text " +
+        "under no heading.",
+    );
+  }
+  const first = String(args.section_content ?? "")
+    .trimStart()
+    .split("\n")[0];
+  return HEADING.test(first)
+    ? undefined
+    : fail(
+        "Refused: section_content replaces the whole section, heading line included, so it " +
+          `starts with ${quote(heading)}; without it the record loses the heading.`,
+      );
+}
+
 /** A refusal for page content Galaxy would not render, before it is sent. */
 const invalidPage = async (content: unknown) => {
   const problem = typeof content === "string" ? pageContentProblem(content) : undefined;
@@ -35,6 +61,10 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   // does so has nearly always copied the wrong id, and the job answers a question nobody asked.
   run_tool: {
     check: async (args, ctx) => {
+      const unread = await unreadInputs(ctx.galaxy, args);
+      if (unread) {
+        return unread;
+      }
       const foreign = await foreignInputs(ctx.galaxy, args.inputs, String(args.history_id));
       return foreign.length
         ? fail(
@@ -64,7 +94,7 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
         ? fail(
             "Refused: this content still holds the record excerpt's elision marker, so it would delete the elided middle. Edit a section instead.",
           )
-        : invalidPage(args.section_content ?? args.content),
+        : (headingless(args) ?? invalidPage(args.section_content ?? args.content)),
     around: serialized,
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length
@@ -118,6 +148,85 @@ export function hdaInputs(inputs: unknown): [string, string, string][] {
   };
   walk("", inputs || {});
   return found;
+}
+
+/**
+ * Whether Galaxy's legacy tool state reads `key` for these declared inputs: a parameter by its
+ * name, a repeat's instance as `name_N|`, a conditional or section member as `name|`, the way
+ * `_populate_state_legacy` builds its keys. Galaxy runs the tool without any key it does not read.
+ */
+function reads(declared: unknown, key: string): boolean {
+  return ((declared as Row[]) || []).filter(isRow).some((p) => {
+    const name = String(p.name ?? "");
+    if (!name) {
+      return false;
+    }
+    if (p.type === "repeat" || p.type === "upload_dataset") {
+      const instance = key.match(/^(.+?)_\d+\|(.+)$/);
+      return instance?.[1] === name && reads(p.inputs, instance[2]);
+    }
+    if (p.type === "conditional") {
+      const test = p.test_param?.name;
+      if (key === test) {
+        return true;
+      }
+      const rest = key.startsWith(`${name}|`) ? key.slice(name.length + 1) : undefined;
+      return (
+        rest !== undefined &&
+        (rest === test || ((p.cases as Row[]) || []).some((c) => reads(c.inputs, rest)))
+      );
+    }
+    if (p.type === "section") {
+      return key.startsWith(`${name}|`) && reads(p.inputs, key.slice(name.length + 1));
+    }
+    return key === name;
+  });
+}
+
+/** The keys Galaxy reads for these declared inputs, a repeat's shown by its first instance. */
+function keysOf(declared: unknown, prefix = ""): string[] {
+  return ((declared as Row[]) || []).filter(isRow).flatMap((p) => {
+    const key = `${prefix}${p.name}`;
+    if (p.type === "repeat" || p.type === "upload_dataset") {
+      return keysOf(p.inputs, `${key}_0|`);
+    }
+    if (p.type === "conditional") {
+      const cases = ((p.cases as Row[]) || []).flatMap((c) => keysOf(c.inputs, `${key}|`));
+      return [`${key}|${p.test_param?.name}`, ...new Set(cases)];
+    }
+    return p.type === "section" ? keysOf(p.inputs, `${key}|`) : [key];
+  });
+}
+
+/** A refusal for input keys Galaxy would not read, which it otherwise drops without a word. */
+async function unreadInputs(galaxy: Galaxy, args: Row) {
+  if (!isRow(args.inputs)) {
+    return undefined;
+  }
+  const version = args.tool_version ? `&tool_version=${encodeURIComponent(args.tool_version)}` : "";
+  let schema: unknown;
+  try {
+    schema = await galaxy.get(`api/tools/${segment(args.tool_id)}?io_details=true${version}`);
+  } catch {
+    return undefined;
+  }
+  if (!isRow(schema) || !Array.isArray(schema.inputs)) {
+    return undefined;
+  }
+  const unread = Object.keys(args.inputs).filter(
+    (key) =>
+      !key.startsWith("__") && !key.endsWith("|__identifier__") && !reads(schema.inputs, key),
+  );
+  if (!unread.length) {
+    return undefined;
+  }
+  return fail(
+    `Refused: ${args.tool_id} has no parameter at ${unread.map(quote).join(", ")}, so Galaxy ` +
+      `would run it without ${unread.length > 1 ? "them" : "it"}. Its keys are ` +
+      `${keysOf(schema.inputs).map(quote).join(", ")}; a repeat takes one instance per ` +
+      `\`name_0|\`, \`name_1|\`, and a parameter that takes several datasets takes them under ` +
+      `its own key as {"values": [...]}.`,
+  );
 }
 
 /** Inputs that belong to a history other than the one the job will run in. */
@@ -280,7 +389,8 @@ const LOCAL_DOCS: Record<string, string> = {
     "Upload a file from the local filesystem to a Galaxy history.\n\nReads the path from the browser's in-memory filesystem, so it pairs with run_python: write a result to a file, then upload it. Sent to Galaxy as pasted content. Use upload_file_from_url to ingest directly from a URL instead.\n\nAn upload is a Galaxy job: the dataset comes back before it is readable. Wait for it to reach 'ok' (check its state with get_dataset_details) before running a tool on it or charting it.",
 };
 
-/** A tool Olit runs itself, under galaxy-mcp's description, with fetch-failure triage appended. */
+/** A tool Olit runs itself, under galaxy-mcp's name and its own description, with fetch-failure
+ * triage appended. */
 function tool(
   name: string,
   capability: Capability,
@@ -290,7 +400,7 @@ function tool(
 ): OlitTool {
   return {
     name,
-    description: LOCAL_DOCS[name] ?? UPSTREAM_DOCS[name],
+    description: LOCAL_DOCS[name],
     capability,
     parameters: { type: "object", properties, required },
     run: async (args, ctx) => {

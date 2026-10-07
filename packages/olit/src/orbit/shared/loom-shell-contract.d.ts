@@ -6,6 +6,7 @@ export const LoomWidgetKey: {
   readonly Notebook: "notebook";
   readonly PlanView: "plan-view";
   readonly Activity: "activity";
+  readonly GalaxyLive: "galaxy-live";
 };
 
 export interface ShellActivityEvent {

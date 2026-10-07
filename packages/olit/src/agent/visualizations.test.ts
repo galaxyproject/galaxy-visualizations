@@ -226,7 +226,7 @@ describe("get_visualization_details", () => {
       kind: "history_dataset",
       extension: "bam,bed",
       resolve: "get_visualization_options",
-      pass_through: "the resolved option's `value`, unchanged",
+      chosen_by: "an option's id, as get_visualization_options lists it",
     });
   });
 
@@ -244,7 +244,7 @@ describe("get_visualization_details", () => {
       kind: "data_json",
       url: "https://x/g.json",
       resolve: "get_visualization_options",
-      pass_through: "the resolved option's `value`, unchanged",
+      chosen_by: "an option's id, as get_visualization_options lists it",
     });
   });
 
@@ -460,9 +460,9 @@ describe("get_visualization_options", () => {
     );
   });
 
-  it("carries the value to store with every listed option", async () => {
+  it("lists each option by the id that chooses it, without its entry", async () => {
     const out = await options({ parameter: "settings.source.genome", config: builtin });
-    expect(out.options[0].value).toEqual(HG19.value);
+    expect(out.options[0]).toEqual({ id: "hg19", name: HG19.label });
   });
 
   it("lists the scalar itself as the value of a select over scalars", async () => {
@@ -470,21 +470,19 @@ describe("get_visualization_options", () => {
       { parameter: "tracks.displayMode" },
       fakeCharts([{ label: "Expanded", value: "EXPANDED" }]),
     );
-    expect(out.options[0]).toEqual({ id: "EXPANDED", name: "Expanded", value: "EXPANDED" });
+    expect(out.options[0]).toEqual({ id: "EXPANDED", name: "Expanded" });
     expect(out.source).toBe("declared");
     expect(out.total).toBe(1);
   });
 
-  it("carries a matched option's value whole", async () => {
+  it("answers a search with its matches alone", async () => {
     const out = await options({
       parameter: "settings.source.genome",
       config: builtin,
       search: "hg19",
     });
-    const match = out.matches[0];
-    expect(match.id).toBe("hg19");
-    expect(match.value.table).toBe("fasta_indexes");
-    expect(match.value.row).toEqual(["hg19", "Human hg19"]);
+    expect(out.matches).toEqual([{ id: "hg19", name: HG19.label }]);
+    expect(out).not.toHaveProperty("options");
   });
 
   it("asks the resolver for the declared input it found", async () => {
@@ -678,7 +676,7 @@ describe("get_visualization_options", () => {
     expect(out).toContain("no route to host");
   });
 
-  it("says how to get the value to store when browsing", async () => {
+  it("says how to narrow the list when browsing", async () => {
     const out = await options({ parameter: "settings.source.genome", config: builtin });
     expect(out.hint).toContain("search");
   });
@@ -885,7 +883,7 @@ describe("show_visualization and save_visualization", () => {
       await show(plotly(), { visualization: "plotly", tracks: [{ y: "9" }] }, columns()),
     );
     expect(unoffered.shown).toBe(false);
-    expect(unoffered.error).toContain("does not exactly match");
+    expect(unoffered.error).toContain("which this server does not offer");
   });
 
   it("refuses a visualization the server does not have either way", async () => {
@@ -1052,7 +1050,7 @@ describe("show_visualization and save_visualization", () => {
     const out = refused(await save(g, { visualization: "igv", settings: { genome: "hg38" } }));
     expect(out.saved).toBe(false);
     expect(g.posted).toBeUndefined();
-    expect(out.error).toContain("whole entry");
+    expect(out.error).toContain('takes an entry, {"id": ...}');
     expect(out.expected.required).toEqual(["id"]);
     expect(out.hint).toContain("get_visualization_options");
   });
@@ -1164,7 +1162,7 @@ describe("show_visualization and save_visualization", () => {
     expect(out.saved).toBe(false);
     expect(g.posted).toBeUndefined();
     expect(out.error).toContain("stores string");
-    expect(out.error).toContain("not the entry");
+    expect(out.error).toContain("not an entry");
 
     const column = refused(
       await save(g, { visualization: "igv", tracks: [{ x: { column: "col2", src: "hda" } }] }),
@@ -1250,28 +1248,47 @@ describe("show_visualization and save_visualization", () => {
     expect(g.posted![1].config.settings.source.genome).toEqual(OFFERED_MM10);
   });
 
-  it("refuses a genome written from memory", async () => {
+  it("stores the offered entry for a genome written from memory, as the form would", async () => {
+    const g = igv(CONDITIONAL);
+    const out = await igvGenome(
+      g,
+      fakeCharts([{ label: "mm10", value: OFFERED_MM10 }]),
+      INVENTED_MM10,
+    );
+    expect(out.saved).toBe(true);
+    expect(g.posted![1].config.settings.source.genome).toEqual(OFFERED_MM10);
+  });
+
+  it("stores the whole entry an id alone chooses", async () => {
+    const g = igv(CONDITIONAL);
+    const out = await igvGenome(g, fakeCharts([{ label: "mm10", value: OFFERED_MM10 }]), {
+      id: "mm10",
+    });
+    expect(out.saved).toBe(true);
+    expect(g.posted![1].config.settings.source.genome).toEqual(OFFERED_MM10);
+  });
+
+  it("shows the whole entry an id alone chooses", async () => {
+    const out = await show(
+      igv(CONDITIONAL),
+      { visualization: "igv", settings: { source: { origin: "igv", genome: { id: "mm10" } } } },
+      fakeCharts([{ label: "mm10", value: OFFERED_MM10 }]),
+    );
+    expect(out.shown).toBe(true);
+    expect(out.artifact.settings.source.genome).toEqual(OFFERED_MM10);
+  });
+
+  it("refuses a genome the server does not offer, naming it", async () => {
     const g = igv(CONDITIONAL);
     const out = refused(
-      await igvGenome(g, fakeCharts([{ label: "mm10", value: OFFERED_MM10 }]), INVENTED_MM10),
+      await igvGenome(g, fakeCharts([{ label: "mm10", value: OFFERED_MM10 }]), { id: "mm99" }),
     );
     expect(out.saved).toBe(false);
     expect(g.posted).toBeUndefined();
-    expect(out.error).toContain("source.genome");
-    expect(out.hint).toContain("get_visualization_options");
-  });
-
-  it("refuses a value naming the right entry with fewer fields and says so", async () => {
-    const partial = { id: OFFERED_MM10.id, name: OFFERED_MM10.name };
-    const out = refused(
-      await igvGenome(
-        igv(CONDITIONAL),
-        fakeCharts([{ label: "mm10", value: OFFERED_MM10 }]),
-        partial,
-      ),
+    expect(out.error).toBe(
+      'Refused: source.genome names "mm99", which this server does not offer.',
     );
-    expect(out.error).toContain("does not exactly match");
-    expect(out.hint).toContain("complete `value` unchanged");
+    expect(out.hint).toContain("get_visualization_options");
   });
 
   it("names the cases that might hold a value when this one offers nothing", async () => {
@@ -1369,7 +1386,7 @@ describe("show_visualization and save_visualization", () => {
       await call(
         "save_visualization",
         g,
-        { dataset_id: "d1", visualization: "igv", tracks: [{ urlDataset: { id: "d1" } }] },
+        { dataset_id: "d1", visualization: "igv", tracks: [{ urlDataset: { id: "d2" } }] },
         Object.assign(charts, { asked: [] }),
       ),
     );

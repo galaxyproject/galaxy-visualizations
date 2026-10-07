@@ -208,6 +208,14 @@ describe("a saved Olit visualization is a restorable conversation", () => {
     expect(JSON.stringify(await one.export(conversation))).not.toMatch(/apiKey|baseUrl|Bearer|sk-/);
   });
 
+  it("says which build saved it", async () => {
+    world();
+    const one = await machine();
+    const { build } = (await one.export(await one.create({}))).session;
+    expect(build?.commit).toBe(process.env.olit_commit);
+    expect(build?.commit).toMatch(/^[0-9a-f]{7,}$/);
+  });
+
   it("names a new conversation after itself, so two of them are told apart", async () => {
     world();
     const one = await machine();

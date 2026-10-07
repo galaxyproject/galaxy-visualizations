@@ -30,28 +30,7 @@ async function skills() {
   return (
     `skills     BEHIND by ${cmp.total_commits} commit(s): ${lock.sha.slice(0, 8)} -> ${head.sha.slice(0, 8)}\n` +
     `           ${touched} file(s) changed under skills/, the subtree olit vendors\n` +
-    `           update: edit skills.lock.json, node scripts/install_skills.js, python3 scripts/check_vendored.py --update`
-  );
-}
-
-async function galaxyMcp() {
-  const pinned = read("src/agent/galaxy-mcp-docs.json").version;
-  const res = await fetch("https://pypi.org/pypi/galaxy-mcp/json");
-  if (!res.ok) throw new Error(`PyPI ${res.status}`);
-  const latest = (await res.json()).info.version;
-  if (pinned === latest) {
-    return `galaxy-mcp up to date at ${pinned}`;
-  }
-  // A capture from a dev checkout is not behind a release; the two are not ordered.
-  if (/\d(a|b|rc|\.dev)/.test(pinned)) {
-    return (
-      `galaxy-mcp captured from ${pinned}, an unreleased build; PyPI publishes ${latest}\n` +
-      `           recapture from whichever galaxy-mcp olit is meant to follow: npm run galaxy-mcp-docs`
-    );
-  }
-  return (
-    `galaxy-mcp BEHIND: descriptions captured from ${pinned}, PyPI has ${latest}\n` +
-    `           update: npm run galaxy-mcp-docs, then read the parity test's diff`
+    `           update: edit skills.lock.json, node scripts/install_skills.js`
   );
 }
 
@@ -92,7 +71,37 @@ async function galaxyCharts() {
         `           update: bump it and run npm test; visualizations.ts imports its input contract directly`;
 }
 
-const results = await Promise.allSettled([skills(), galaxyMcp(), galaxyOps(), galaxyCharts()]);
+/** GitHub's compare lists at most this many files, so a longer list may be missing some. */
+const COMPARE_FILE_CAP = 300;
+
+async function orbit() {
+  const manifest = read("src/orbit/MANIFEST.json");
+  const head = await github(`repos/${manifest.upstream}/commits/main`);
+  const pinned = manifest.commit.slice(0, 8);
+  if (head.sha === manifest.commit) {
+    return `orbit ui   up to date at ${pinned} (${manifest.upstream}@main)`;
+  }
+  const watched = new Set(Object.keys(manifest.files));
+  const cmp = await github(`repos/${manifest.upstream}/compare/${manifest.commit}...${head.sha}`);
+  const files = cmp.files || [];
+  const touched = files.map((f) => f.filename).filter((name) => watched.has(name));
+  const update = "           update: npm run sync:orbit -- <path to a loom checkout at main>";
+  if (touched.length) {
+    return (
+      `orbit ui   BEHIND: ${touched.length} vendored file(s) changed in loom since ${pinned}: ${touched.join(", ")}\n` +
+      update
+    );
+  }
+  if (files.length >= COMPARE_FILE_CAP) {
+    return (
+      `orbit ui   UNKNOWN: loom changed ${files.length}+ files since ${pinned}, more than GitHub lists;\n` +
+      `           compare src/orbit with loom by hand`
+    );
+  }
+  return `orbit ui   up to date: loom is ${cmp.total_commits} commit(s) past ${pinned}, none touching the vendored files`;
+}
+
+const results = await Promise.allSettled([skills(), galaxyOps(), galaxyCharts(), orbit()]);
 for (const r of results) {
   console.log(r.status === "fulfilled" ? r.value : `(could not check: ${r.reason.message})`);
 }

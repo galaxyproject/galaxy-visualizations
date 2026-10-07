@@ -76,6 +76,80 @@ describe("tool surface", () => {
   });
 });
 
+describe("run_tool input keys", () => {
+  const CAT1 = {
+    id: "cat1",
+    inputs: [
+      { name: "input1", type: "data" },
+      { name: "queries", type: "repeat", inputs: [{ name: "input2", type: "data" }] },
+      {
+        name: "mode",
+        type: "conditional",
+        test_param: { name: "kind", type: "select" },
+        cases: [
+          { value: "a", inputs: [{ name: "depth", type: "integer" }] },
+          { value: "b", inputs: [] },
+        ],
+      },
+      { name: "advanced", type: "section", inputs: [{ name: "lines", type: "integer" }] },
+    ],
+  };
+  const TP_CAT = { id: "tp_cat", inputs: [{ name: "inputs", type: "data", multiple: true }] };
+
+  function check(schema: unknown, inputs: unknown) {
+    const ctx = context({
+      get: async (path) => (path.startsWith("api/tools/") ? schema : { id: "d", history_id: "h1" }),
+    });
+    return OPS_POLICY.run_tool.check!({ history_id: "h1", tool_id: "cat1", inputs }, ctx);
+  }
+
+  it("allows every key Galaxy's legacy tool state reads", async () => {
+    const out = await check(CAT1, {
+      input1: { src: "hda", id: "d" },
+      "queries_0|input2": { src: "hda", id: "d" },
+      "queries_1|input2": { src: "hda", id: "d" },
+      "mode|kind": "a",
+      "mode|depth": 3,
+      "advanced|lines": 5,
+      "input1|__identifier__": "x",
+    });
+    expect(out).toBeUndefined();
+  });
+
+  it("refuses a repeat member named without its instance, listing the tool's keys", async () => {
+    const out = refused(
+      await check(CAT1, {
+        input1: { src: "hda", id: "d" },
+        "queries|input2": { src: "hda", id: "d" },
+      }),
+    );
+    expect(out).toContain('has no parameter at "queries|input2"');
+    expect(out).toContain('"queries_0|input2"');
+    expect(out).toContain('"mode|kind"');
+  });
+
+  it("refuses indexing a parameter that takes several datasets", async () => {
+    const out = refused(
+      await check(TP_CAT, {
+        "inputs|0": { src: "hda", id: "d" },
+        "inputs|1": { src: "hda", id: "d" },
+      }),
+    );
+    expect(out).toContain('"inputs|0", "inputs|1"');
+    expect(out).toContain('{"values": [...]}');
+  });
+
+  it("refuses a nested object Galaxy's legacy format does not read", async () => {
+    const out = refused(await check(CAT1, { queries: [{ input2: { src: "hda", id: "d" } }] }));
+    expect(out).toContain('"queries"');
+  });
+
+  it("leaves the keys unchecked when the tool's parameters cannot be read", async () => {
+    expect(await check(null, { anything: 1 })).toBeUndefined();
+    expect(await check({ id: "cat1" }, { anything: 1 })).toBeUndefined();
+  });
+});
+
 describe("run_tool history guard", () => {
   const HERE = "aaaaaaaaaaaaaaaa";
   const ELSEWHERE = "bbbbbbbbbbbbbbbb";
@@ -414,5 +488,19 @@ describe("update_page policy", () => {
     const refused = await check({ page_id: "p1", content: `# A\n\n${ELIDED}\n\n# Z` }, {} as never);
     expect(refused?.isError).toBe(true);
     expect(await check({ page_id: "p1", content: "# A" }, {} as never)).toBeUndefined();
+  });
+
+  it("refuses a section edit that would drop its heading", async () => {
+    const check = OPS_POLICY.update_page.check!;
+    const section = (section_heading: string, section_content: string) =>
+      check({ page_id: "p1", section_heading, section_content }, {} as never);
+    const bare = await section("## Results", "Counted 3 teams.");
+    expect(bare?.isError).toBe(true);
+    expect(bare?.text).toContain('starts with "## Results"');
+    const title = await section("Results", "## Results\n\nCounted 3 teams.");
+    expect(title?.isError).toBe(true);
+    expect(title?.text).toContain('"## Results"');
+    expect(await section("## Results", "## Results\n\nCounted 3 teams.")).toBeUndefined();
+    expect(await section("## Results", "## Findings\n\nRenamed.")).toBeUndefined();
   });
 });

@@ -1,58 +1,41 @@
 # src/orbit — vendored UI from galaxyproject/loom
 
 These files are copied **verbatim** from
-[`galaxyproject/loom`](https://github.com/galaxyproject/loom) (`app/src/renderer/`
-and `shared/`), MIT-licensed, "Copyright (c) 2024-2026 Galaxy Project contributors".
-olit reuses Orbit's chat UI directly so migrating Orbit users see a familiar
-interface. Keep these files untouched where possible; adapt in olit's own code
-(`src/main.ts`, `src/incoming.ts`) rather than editing here, so this folder stays
-diffable against upstream and can be synced (or promoted to a shared package) later.
+[`galaxyproject/loom`](https://github.com/galaxyproject/loom), MIT-licensed, "Copyright (c)
+2024-2026 Galaxy Project contributors". olit reuses Orbit's chat UI directly so migrating Orbit
+users see a familiar interface. Adapt in olit's own code (`src/main.ts`, `src/transcript.ts`,
+`src/olit.css`) rather than editing here.
 
-## Files (source → here)
+Each file sits under the path it has in loom (`app/src/renderer/...`, `shared/...`), so every one
+is byte-identical to upstream and its relative imports resolve as they do there. Nothing here is
+modified.
 
-| here | upstream | changed |
-|---|---|---|
-| `chat/chat-panel.ts` | `app/src/renderer/chat/chat-panel.ts` | **2 lines** (see below) |
-| `chat/markdown.ts` | `app/src/renderer/chat/markdown.ts` | none |
-| `chat/block-spacing.ts` | `app/src/renderer/chat/block-spacing.ts` | none |
-| `chat/copy-button.ts` | `app/src/renderer/chat/copy-button.ts` | none |
-| `update-banner.ts` | `app/src/renderer/update-banner.ts` | none |
-| `theme.ts` | `app/src/renderer/theme.ts` | none |
-| `styles.css` | `app/src/renderer/styles.css` | none |
-| `assets/fonts/**` | `app/src/renderer/assets/fonts/**` | none |
-| `shared/team-dispatch-contract.{js,d.ts}` | `shared/team-dispatch-contract.{js,d.ts}` | none |
-| `shared/loom-shell-contract.{js,d.ts}` | `shared/loom-shell-contract.{js,d.ts}` | none |
-
-## The only change: chat-panel.ts imports (2 lines)
-
-Upstream, `chat-panel.ts` reaches the shared contracts via the loom monorepo layout:
+`MANIFEST.json` lists the files, the loom commit they were copied from, and each file's sha256.
 
 ```
-from "../../../../shared/team-dispatch-contract.js"
-from "../../../../shared/loom-shell-contract.js"
+npm run sync:orbit -- <path to a loom checkout>   # copy them from that checkout and re-pin
+python3 scripts/check_vendored.py                 # fails on any edit (part of npm test)
+npm run stale                                     # says when loom's main has changed one
 ```
 
-That path points outside the olit package, so it was retargeted to the vendored
-sibling copy:
+The sync copies exactly the listed files and stops when one of them imports a file that is not
+listed: add that file's loom path to `MANIFEST.json` and sync again.
 
-```
-from "../shared/team-dispatch-contract.js"
-from "../shared/loom-shell-contract.js"
-```
+The fonts' licence texts (`OFL.txt` beside each family) are olit's additions and are not listed:
+loom ships the fonts without them, and the SIL Open Font License asks for the licence to travel
+with the fonts.
 
-Nothing else was modified. The team-dispatch / parameter-form / plan-draft branches
-of `ChatPanel` were unused by olit but left intact so the file stays verbatim.
+## What olit uses
 
-Two of the three are still unused, and one is no longer:
+The team-dispatch, parameter-form and plan-draft branches of `ChatPanel` stay in the file so it
+stays verbatim:
 
-- **plan-draft — wired.** `main.ts` listens for the `plan-draft-action` event, so
-  Approve / Edit / Reject drive the approval gate.
-- **parameter-form — unwired on purpose (decided 2026-08-15).** `addParameterCard`
-  is a complete interactive form (grouped, typed inputs, min/max/step, help text),
-  but stage 3 of the approval gate deliberately stays a **markdown table**: the
-  prompt already specifies one, it works on any model, and the form needs a payload
-  source olit does not have — Orbit builds `ParameterFormPayload` from an
-  `analyze_plan_parameters` tool that was never ported. Revisit only alongside that
-  tool; the widget alone is not the missing half.
-- **team-dispatch — unused.** Orbit's experimental multi-agent surface, off by
-  default there too.
+- **plan-draft — wired.** `main.ts` listens for the `plan-draft-action` event, so Approve / Edit /
+  Reject drive the approval gate.
+- **parameter-form — unwired on purpose (decided 2026-08-15).** `addParameterCard` is a complete
+  interactive form, but stage 3 of the approval gate stays a **markdown table**: the prompt already
+  specifies one, it works on any model, and the form needs a payload source olit does not have --
+  Orbit builds `ParameterFormPayload` from an `analyze_plan_parameters` tool that was never ported.
+- **team-dispatch — unused.** Orbit's experimental multi-agent surface, off by default there too.
+- **Galaxy links — wired.** `main.ts` calls `setGalaxyServerUrl` with olit's Galaxy root, so ids a
+  reply names link to the Galaxy it runs in.

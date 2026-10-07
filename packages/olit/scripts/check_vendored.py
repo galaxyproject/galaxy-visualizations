@@ -2,9 +2,8 @@
 
 Upstream moves fast (87 commits to styles.css in six months); olit absorbs that
 for free only while these files are untouched. An edit here turns every future
-sync into a merge, so it fails loudly instead.
-
-chat-panel.ts is the one documented exception: a 2-line import retarget.
+sync into a merge, so it fails loudly instead. The files are the ones
+src/orbit/MANIFEST.json lists, under their loom paths; `npm run sync:orbit` writes them.
 """
 
 import hashlib
@@ -21,26 +20,14 @@ MANIFEST = VENDORED / "MANIFEST.json"
 SKILLS = ROOT / "src" / "agent" / "skills" / "galaxy-skills"
 SKILLS_STAMP = SKILLS / "VENDORED.json"
 
-TRACKED = [
-    "chat/chat-panel.ts",
-    "chat/markdown.ts",
-    "chat/block-spacing.ts",
-    "chat/copy-button.ts",
-    "update-banner.ts",
-    "theme.ts",
-    "styles.css",
-    "shared/team-dispatch-contract.js",
-    "shared/loom-shell-contract.js",
-]
-
 
 def digest(path: pathlib.Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def current() -> dict:
+def current(tracked) -> dict:
     out = {}
-    for rel in TRACKED:
+    for rel in tracked:
         p = VENDORED / rel
         if p.exists():
             out[rel] = digest(p)
@@ -91,22 +78,11 @@ def skills(argv: list[str]) -> int:
 
 
 def main(argv: list[str]) -> int:
-    manifest = json.loads(MANIFEST.read_text())
-    now = current()
+    pinned = json.loads(MANIFEST.read_text())["files"]
+    now = current(pinned)
 
-    if "--update" in argv:
-        manifest["files"] = now
-        MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
-        print(f"pinned {len(now)} vendored files")
-        return 0
-
-    pinned = manifest.get("files") or {}
-    if not pinned:
-        print("no pins recorded; run: python3 scripts/check_vendored.py --update")
-        return 1
-
-    changed = [r for r in TRACKED if r in pinned and now.get(r) != pinned[r]]
-    missing = [r for r in TRACKED if r not in now]
+    changed = [r for r in pinned if r in now and now[r] != pinned[r]]
+    missing = [r for r in pinned if r not in now]
     if changed or missing:
         for r in changed:
             print(f"  MODIFIED  src/orbit/{r}")
@@ -115,8 +91,8 @@ def main(argv: list[str]) -> int:
         print(
             "\nVendored files are synced from loom by copy and must stay identical.\n"
             "Put olit-specific changes in olit-owned files (e.g. src/credentials.css).\n"
-            "If this is a deliberate re-sync from upstream, re-pin with:\n"
-            "  python3 scripts/check_vendored.py --update"
+            "To take a newer loom, sync from a checkout of it, which re-pins them:\n"
+            "  npm run sync:orbit -- <path to a loom checkout>"
         )
         return 1
 
