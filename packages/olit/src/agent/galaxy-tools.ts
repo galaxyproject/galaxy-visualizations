@@ -35,6 +35,10 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   // does so has nearly always copied the wrong id, and the job answers a question nobody asked.
   run_tool: {
     check: async (args, ctx) => {
+      const unread = await unreadInputs(ctx.galaxy, args);
+      if (unread) {
+        return unread;
+      }
       const foreign = await foreignInputs(ctx.galaxy, args.inputs, String(args.history_id));
       return foreign.length
         ? fail(
@@ -118,6 +122,85 @@ export function hdaInputs(inputs: unknown): [string, string, string][] {
   };
   walk("", inputs || {});
   return found;
+}
+
+/**
+ * Whether Galaxy's legacy tool state reads `key` for these declared inputs: a parameter by its
+ * name, a repeat's instance as `name_N|`, a conditional or section member as `name|`, the way
+ * `_populate_state_legacy` builds its keys. Galaxy runs the tool without any key it does not read.
+ */
+function reads(declared: unknown, key: string): boolean {
+  return ((declared as Row[]) || []).filter(isRow).some((p) => {
+    const name = String(p.name ?? "");
+    if (!name) {
+      return false;
+    }
+    if (p.type === "repeat" || p.type === "upload_dataset") {
+      const instance = key.match(/^(.+?)_\d+\|(.+)$/);
+      return instance?.[1] === name && reads(p.inputs, instance[2]);
+    }
+    if (p.type === "conditional") {
+      const test = p.test_param?.name;
+      if (key === test) {
+        return true;
+      }
+      const rest = key.startsWith(`${name}|`) ? key.slice(name.length + 1) : undefined;
+      return (
+        rest !== undefined &&
+        (rest === test || ((p.cases as Row[]) || []).some((c) => reads(c.inputs, rest)))
+      );
+    }
+    if (p.type === "section") {
+      return key.startsWith(`${name}|`) && reads(p.inputs, key.slice(name.length + 1));
+    }
+    return key === name;
+  });
+}
+
+/** The keys Galaxy reads for these declared inputs, a repeat's shown by its first instance. */
+function keysOf(declared: unknown, prefix = ""): string[] {
+  return ((declared as Row[]) || []).filter(isRow).flatMap((p) => {
+    const key = `${prefix}${p.name}`;
+    if (p.type === "repeat" || p.type === "upload_dataset") {
+      return keysOf(p.inputs, `${key}_0|`);
+    }
+    if (p.type === "conditional") {
+      const cases = ((p.cases as Row[]) || []).flatMap((c) => keysOf(c.inputs, `${key}|`));
+      return [`${key}|${p.test_param?.name}`, ...new Set(cases)];
+    }
+    return p.type === "section" ? keysOf(p.inputs, `${key}|`) : [key];
+  });
+}
+
+/** A refusal for input keys Galaxy would not read, which it otherwise drops without a word. */
+async function unreadInputs(galaxy: Galaxy, args: Row) {
+  if (!isRow(args.inputs)) {
+    return undefined;
+  }
+  const version = args.tool_version ? `&tool_version=${encodeURIComponent(args.tool_version)}` : "";
+  let schema: unknown;
+  try {
+    schema = await galaxy.get(`api/tools/${segment(args.tool_id)}?io_details=true${version}`);
+  } catch {
+    return undefined;
+  }
+  if (!isRow(schema) || !Array.isArray(schema.inputs)) {
+    return undefined;
+  }
+  const unread = Object.keys(args.inputs).filter(
+    (key) =>
+      !key.startsWith("__") && !key.endsWith("|__identifier__") && !reads(schema.inputs, key),
+  );
+  if (!unread.length) {
+    return undefined;
+  }
+  return fail(
+    `Refused: ${args.tool_id} has no parameter at ${unread.map(quote).join(", ")}, so Galaxy ` +
+      `would run it without ${unread.length > 1 ? "them" : "it"}. Its keys are ` +
+      `${keysOf(schema.inputs).map(quote).join(", ")}; a repeat takes one instance per ` +
+      `\`name_0|\`, \`name_1|\`, and a parameter that takes several datasets takes them under ` +
+      `its own key as {"values": [...]}.`,
+  );
 }
 
 /** Inputs that belong to a history other than the one the job will run in. */
