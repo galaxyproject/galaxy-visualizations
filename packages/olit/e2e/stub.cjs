@@ -44,6 +44,8 @@ let script = "confirm";
 // Saved visualizations as Galaxy keeps them: each a type, a title and its latest revision's config.
 const visualizations = new Map();
 const visualizationWrites = [];
+// One tool run's job, as Galaxy reports it; a drive finishes it through /__job.
+let jobState = "queued";
 // Pages as Galaxy keeps them: a page may be attached to a history (a history notebook) and listed by it.
 const pages = new Map();
 // The cell types Galaxy's page parser renders; its server refuses any other ``` fence.
@@ -315,6 +317,10 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { prompts: 0 });
     }
     if (url.startsWith("/__seen")) return json(res, 200, { seen, calls, prompts, cookies });
+    if (url.startsWith("/__job")) {
+        jobState = new URL(url, "http://x").searchParams.get("state") || jobState;
+        return json(res, 200, { jobState });
+    }
     if (url.startsWith("/__pages")) return json(res, 200, { pages: [...pages.values()] });
     if (url.startsWith("/__visualizations")) return json(res, 200, { visualizations: [...visualizations.values()], writes: visualizationWrites });
     if (url.startsWith("/__public")) return json(res, 200, { public: true });
@@ -445,6 +451,14 @@ const server = http.createServer(async (req, res) => {
                 : message("", createVisualization));
         }
         if (script === "plain") return answer(message("Noted."));
+        if (script === "reset-watch") {
+            // Open the record, run a tool, then say so; anything asked after that is a follow-up.
+            const tools = (body.messages || []).filter((m) => m.role === "tool").length;
+            const call = (name, args) => [{ id: `call_${tools}`, type: "function", function: { name, arguments: JSON.stringify(args) } }];
+            if (tools === 0) return answer(message("", call("notebook_resume", {})));
+            if (tools === 1) return answer(message("", call("run_tool", { history_id: "h-dreset", tool_id: "cat1", inputs: {} })));
+            return answer(message("Submitted."));
+        }
         if (script === "record") {
             return answer(last.role === "tool"
                 ? message("Noted in the record.")
@@ -469,6 +483,15 @@ const server = http.createServer(async (req, res) => {
         const id = decodeURIComponent(url.split("/api/datasets/")[1].split(/[/?]/)[0]);
         return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", history_id: historyOf(id) });
     }
+    // A tool run as Galaxy's POST /api/tools answers it: the queued job and the output it will write.
+    if (url.startsWith("/api/tools") && req.method === "POST") {
+        req.resume();
+        return json(res, 200, {
+            outputs: [{ id: "oreset1", name: "out_file1", state: "queued" }],
+            jobs: [{ id: "jreset1", state: "queued", tool_id: "cat1" }],
+        });
+    }
+    if (url.startsWith("/api/jobs/jreset1")) return json(res, 200, { id: "jreset1", state: jobState });
     if (url.startsWith("/api/pages")) {
         const [path, search] = url.split("?");
         const id = path.split("/")[3];
