@@ -216,7 +216,12 @@ export function galaxyWatch({ galaxy, editRecord, pollMs = 10_000 }: WatchOption
         const outcome: Outcome = refused ? "unreadable" : outcomeOf(watched.kind, state);
         const record =
           (await editRecord(task.conversationId, (content) =>
-            applyJobOutcome(content, { id: watched.id, kind: watched.kind, state, outcome }),
+            applyJobOutcome(noteSubmitted(content, watched), {
+              id: watched.id,
+              kind: watched.kind,
+              state,
+              outcome,
+            }),
           )) ?? noted.record;
         const settled: Settled = {
           watched: { ...watched, state },

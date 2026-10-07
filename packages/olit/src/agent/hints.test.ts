@@ -72,7 +72,7 @@ describe("fetchFailureHint", () => {
   });
 });
 
-function plugins(installed: { name: string }[]) {
+function plugins(installed: { name: string; html?: string; tags?: string[] }[]) {
   const asked: string[] = [];
   const galaxy = {
     get: async (path: string) => {
@@ -83,44 +83,51 @@ function plugins(installed: { name: string }[]) {
   return { galaxy, asked };
 }
 
+const VIEWERS = [
+  { name: "ngl", html: "NGL Viewer" },
+  { name: "molstar", html: "Molstar Viewer" },
+  { name: "plotly", html: "Bar, Line and Scatter", tags: ["Plotly", "Chart"] },
+  { name: "olit", html: "AI Research Assistant" },
+];
+
 describe("catalogMissHint", () => {
-  it("answers a visualization name with where it lives", async () => {
-    const { galaxy } = plugins([{ name: "plotly" }, { name: "igv" }]);
-    const hint = await catalogMissHint(galaxy, "search_tools_by_name", { query: "plotly" }, []);
-    expect(hint).toContain("'plotly' is a visualization");
-    expect(hint).toContain("list_visualizations");
+  const search = (galaxy: Galaxy, query: string, found: unknown[] = []) =>
+    catalogMissHint(galaxy, "search_tools_by_name", { query }, found);
+
+  it("redirects an empty search whose words name a visualization", async () => {
+    const { galaxy } = plugins(VIEWERS);
+    for (const query of ["structure viewer", "ngl", "chart"]) {
+      const hint = await search(galaxy, query);
+      expect(hint, query).toContain(`No Galaxy tool matched '${query}'`);
+      expect(hint, query).toContain("list_visualizations");
+    }
   });
 
-  it("names neither this agent nor the frozen plugin", async () => {
-    const { galaxy } = plugins([{ name: "olit" }]);
-    expect(
-      await catalogMissHint(galaxy, "search_tools_by_name", { query: "olit" }, []),
-    ).toBeUndefined();
-  });
-
-  it("never asks about plugins when the search matched a real tool", async () => {
-    const { galaxy, asked } = plugins([{ name: "plotly" }]);
-    expect(
-      await catalogMissHint(galaxy, "search_tools_by_name", { query: "bowtie2" }, [
-        { id: "bowtie2" },
-      ]),
-    ).toBeUndefined();
+  it("never asks about plugins when the search found tools", async () => {
+    const { galaxy, asked } = plugins(VIEWERS);
+    expect(await search(galaxy, "heatmap viewer", [{ id: "heatmap2" }])).toBeUndefined();
     expect(asked).toEqual([]);
   });
 
+  it("says nothing when no visualization is named, nor for this agent", async () => {
+    const { galaxy } = plugins(VIEWERS);
+    expect(await search(galaxy, "bowtie2")).toBeUndefined();
+    expect(await search(galaxy, "research assistant")).toBeUndefined();
+  });
+
   it("reads a keyword search the same way", async () => {
-    const { galaxy } = plugins([{ name: "plotly" }]);
+    const { galaxy } = plugins(VIEWERS);
     const hint = await catalogMissHint(
       galaxy,
       "search_tools_by_keywords",
       { keywords: ["plotly"] },
       [],
     );
-    expect(hint).toContain("'plotly' is a visualization");
+    expect(hint).toContain("No Galaxy tool matched 'plotly'");
   });
 
   it("gives a tool that is not a catalog search no hint", async () => {
-    const { galaxy, asked } = plugins([{ name: "plotly" }]);
+    const { galaxy, asked } = plugins(VIEWERS);
     expect(await catalogMissHint(galaxy, "get_histories", { query: "plotly" }, [])).toBeUndefined();
     expect(asked).toEqual([]);
   });

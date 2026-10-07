@@ -1488,6 +1488,12 @@ describe("vega_dataset", () => {
     expect(out.note).toContain('Galaxy types "col:1" as text');
   });
 
+  it("says how a chart goes into the record", async () => {
+    const out = await chart({ mark: "point", encoding: { x: { field: "col:2" } } });
+    expect(out.charted).toBe(true);
+    expect(out.hint).toContain("{{artifact}}");
+  });
+
   it("refuses a dataset galaxy cannot read", async () => {
     const out = await chart({ mark: "point" }, {});
     expect(out).toEqual({ charted: false, error: 'No dataset "d1" is readable.' });

@@ -82,16 +82,28 @@ export function fetchFailureHint(result: unknown): string | undefined {
 export const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
 /** Plugins never offered as a visualization: this agent and a standalone LLM plugin. */
 
-/** The installed visualization this query names. */
-async function visualizationNamed(galaxy: Galaxy, query: string): Promise<string | undefined> {
-  const wanted = query.trim().toLowerCase();
-  const installed: { name?: string }[] = (await galaxy.get("api/plugins")) || [];
-  return installed
-    .map((plugin) => plugin.name)
-    .find((name) => name && !NOT_OFFERED.has(name) && name.toLowerCase() === wanted);
+type Plugin = { name?: string; html?: string; tags?: string[] | null };
+
+const words = (text: string) => new Set(text.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []);
+
+/** Whether a search's words name an installed visualization: its name, display title or a tag. */
+async function namesVisualization(galaxy: Galaxy, query: string): Promise<boolean> {
+  const wanted = words(query);
+  if (!wanted.size) {
+    return false;
+  }
+  const installed: Plugin[] = (await galaxy.get("api/plugins")) || [];
+  return installed.some(
+    (plugin) =>
+      plugin.name &&
+      !NOT_OFFERED.has(plugin.name) &&
+      [...words([plugin.name, plugin.html ?? "", ...(plugin.tags ?? [])].join(" "))].some((word) =>
+        wanted.has(word),
+      ),
+  );
 }
 
-/** Where the thing this search did not find actually lives, or undefined. */
+/** Where a tool search that found nothing was looking: a visualization the catalog does not hold. */
 export async function catalogMissHint(
   galaxy: Galaxy,
   name: string,
@@ -104,13 +116,13 @@ export async function catalogMissHint(
     return undefined;
   }
   const query = (args.query as string) || ((args.keywords as string[]) || []).join(" ");
-  const plugin = await visualizationNamed(galaxy, query);
-  if (!plugin) {
+  if (!(await namesVisualization(galaxy, query))) {
     return undefined;
   }
   return (
-    `[olit] '${plugin}' is a visualization, which the tool catalog does not hold. ` +
-    "list_visualizations names the ones that can render a given dataset."
+    `[olit] No Galaxy tool matched '${query}', which names an installed visualization. ` +
+    "Visualizations are not in the tool catalog: list_visualizations names the ones that can " +
+    "render a given dataset."
   );
 }
 

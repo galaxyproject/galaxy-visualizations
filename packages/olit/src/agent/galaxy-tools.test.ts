@@ -472,7 +472,7 @@ describe("annotate", () => {
   it("prefers a catalog miss and falls back to fetch-failure triage", async () => {
     const ctx = context({ get: async () => [{ name: "plotly" }] });
     expect(await annotate("search_tools_by_name", { query: "plotly" }, [], ctx)).toContain(
-      "is a visualization",
+      "No Galaxy tool matched 'plotly'",
     );
     const failure = {
       state: "error",
