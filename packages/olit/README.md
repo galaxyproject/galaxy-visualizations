@@ -1,190 +1,102 @@
-# Olit: A Browser-Native AI Co-Scientist for Galaxy
+# Olit: an AI co-scientist inside Galaxy
 
-Olit is an AI co-scientist that runs directly inside Galaxy, in the web browser.
+Olit runs in the browser, inside Galaxy. It inspects histories and datasets, plans analyses, finds
+and runs Galaxy tools and workflows, follows their jobs, reads the results, and keeps a record of
+the analysis as a Galaxy page.
 
-It can inspect histories and datasets, plan analyses, search for and run Galaxy tools and workflows, follow their execution, inspect results, perform local computation, create visualizations and other artifacts, and continue working from what it finds.
+**The browser runs the agent; Galaxy runs the science.** Analyses are ordinary Galaxy jobs and
+workflows with their usual provenance. Light Python runs in the browser through Pyodide. There is
+no agent server and no per-user container: Olit uses your Galaxy session, and your model key stays
+in your browser.
 
-**The browser runs the agent; Galaxy runs the science.**
+## Try it in Galaxy
 
-Galaxy provides the computational environment: datasets, tools, workflows, jobs, histories, and provenance. Lightweight Python runs locally through Pyodide. The agent uses the researcher's active Galaxy session, and model credentials remain in the browser.
+**Requirements:** Galaxy 26.1 or newer; a model provider key (or a Galaxy whose admin configured
+its chat proxy); a current Chrome or Firefox (Safari is untested).
 
-No separate agent server or per-user compute container is required.
+1. Add Olit to your Galaxy's `client/visualizations.yml`, with the version on npm:
 
-## Why Olit?
+   ```yaml
+   olit:
+       package: "@galaxyproject/olit"
+       version: <version>
+   ```
 
-Galaxy already provides AI capabilities for tasks such as chat, error analysis, and tool recommendation. Olit explores a different question:
+2. Rebuild the client (`make client`, or `cd client && pnpm run plugins`) and restart Galaxy.
+3. Select a csv, tabular or txt dataset, choose **Visualize**, and open **AI Research
+   Assistant**. Olit works in that dataset's history.
+4. Pick a provider and paste its key: Gemini, DeepSeek, OpenRouter, OpenAI, Anthropic, Groq,
+   Mistral, xAI, Jetstream2, a local OpenAI-compatible server, or Galaxy's chat proxy. The key is
+   kept for this tab only and sent nowhere but to the provider.
 
-> **Can an open-ended AI co-scientist operate Galaxy directly from the browser, using Galaxy itself as its computational environment?**
-
-A research question can become a multi-step Galaxy analysis. Olit can inspect the available data, develop a plan, select and configure tools, submit jobs and workflows, wait for their results, inspect the outputs, and continue the analysis based on what it finds.
-
-Scientific computation remains in Galaxy. Tools, parameters, inputs, outputs, and provenance remain part of the normal Galaxy research record rather than moving into a separate agent environment.
+Olit keeps its conversation in the browser's private file system, so a reload continues where you
+left off; a private window keeps it in memory and says so. **Save** stores the conversation in
+Galaxy as a visualization you can reopen anywhere, and the analysis record is a page attached to
+the history.
 
 ## Architecture
 
 ```mermaid
-flowchart TB
-    UI["Orbit's Chat Interface"]
-
-    subgraph Olit
-        UI
-        Brain["Olit's Agent (pi-durable)"]
-        Skill["Galaxy Skills"]
-        Ops["Galaxy MCP"]
-        State["State"]
-        BrowserState["Browser Storage"]
-        Notebook["Galaxy Notebook"]
-        Session["Visualization Session"]
-    end
-
-    Model["LLM Provider"]
-    GalaxyApi["Galaxy's API"]
-
-    UI --> Brain
-    Brain --> Skill
-    Brain --> Ops
-    Brain --> State
-    State --> BrowserState
-    State --> Notebook
-    State --> Session
-    Brain --> Model
-    Ops --> GalaxyApi
+flowchart LR
+    UI["Chat UI (from Orbit)"] --> Agent["Agent (pi-durable, Web Worker)"]
+    Agent --> Ops["galaxy-ops"] --> Galaxy["Galaxy API"]
+    Agent --> Python["Pyodide (isolated worker)"]
+    Agent --> Model["LLM provider"]
+    Agent --> Storage["Browser storage (OPFS)"]
+    Agent --> Record["Record page in Galaxy"]
 ```
+
+- The agent runs on [pi-durable](https://github.com/earendil-works/pi): conversations, runs and
+  submitted Galaxy work are committed to SQLite in the browser, so they survive a reload.
+- Galaxy operations come from `@galaxyproject/galaxy-ops`, the same operations galaxy-mcp serves,
+  described to the model as galaxy-mcp describes them.
+- Python runs in its own worker with an opaque origin: it has no Galaxy session, no page storage
+  and no model key.
+
+`LAYOUT.md` maps the source tree.
 
 ## Olit and Orbit
 
-[Orbit](https://github.com/galaxyproject/loom) is Galaxy's flagship AI environment and the main functional reference for Olit. Orbit pioneered the AI co-scientist model for Galaxy: an open-ended agent that can plan analyses, work with Galaxy tools and workflows, inspect results, and continue a research process over multiple steps.
-
-Olit explores how that model translates to a browser-native architecture. Its name reflects that lineage, in a relationship similar in spirit to JupyterLab and JupyterLite: the research experience is adapted to a different runtime environment.
+[Orbit](https://github.com/galaxyproject/loom) is Galaxy's AI environment and Olit's functional
+reference; Olit reuses Orbit's chat interface.
 
 | | Orbit | Olit |
 | --- | --- | --- |
-| Agent runtime | Local/server (pi) | Browser worker (pi-durable) |
-| Scientific computation | Local environment + Galaxy | Galaxy |
-| Shell | Available | None |
-| Filesystem | Local filesystem | Galaxy data + browser storage |
-| Galaxy access | MCP | Active Galaxy session |
-| Deployment | Agent environment | Galaxy visualization plugin |
-| Per-user agent backend | Required | None |
+| Agent runtime | Local or server (pi) | Browser worker (pi-durable) |
+| Computation | Local environment and Galaxy | Galaxy, plus Pyodide |
+| Shell | Yes | No |
+| Galaxy access | MCP | Your Galaxy session |
+| Delivered as | Desktop app or web service | Galaxy visualization plugin |
 
-The architectures have different capability envelopes. Orbit provides a shell, local processes, unrestricted networking, and a conventional filesystem. Olit investigates what an AI co-scientist can do when the browser provides the agent runtime and Galaxy provides the scientific computational environment.
-
-## Galaxy as the computational environment
-
-Olit's constraints are deliberate.
-
-Scientific analyses execute as normal Galaxy jobs and workflows. Inputs and outputs remain Galaxy datasets and collections. Galaxy records the tools, parameters, inputs, outputs, and provenance of the analysis.
-
-Pyodide complements that remote computation with local Python for lightweight exploration and intermediate computation. Browser storage provides local agent state, while persistent research outputs can be represented using Galaxy-native artifacts.
-
-The result is a division of responsibilities:
-
-- **Galaxy** provides scientific tools, workflows, data, jobs, provenance, and persistent research outputs.
-- **Pyodide** provides lightweight local Python computation.
-- **The browser** provides the agent runtime, interface, local state, networking, and model connection.
-
-Olit therefore does not introduce another general-purpose computational environment alongside Galaxy.
-
-## Inside Galaxy
-
-Olit is built as an application on Galaxy's Charts visualization plugin framework.
-
-Galaxy visualization plugins are not limited to plots and viewers: they can be complete browser applications with access to Galaxy data and services. Olit uses that existing extension point to deliver an AI co-scientist inside the Galaxy interface.
-
-Because Olit is served by Galaxy, it is same-origin with the Galaxy API and can operate through the researcher's active session. In normal embedded operation, this avoids a local proxy, a separate agent process, or a long-lived Galaxy API key held by another service.
-
-The agent runs in a Web Worker on pi-durable, pi's durable agent harness: conversations, runs, compaction, retries and submitted Galaxy work are committed to SQLite in the browser's private file system (OPFS), so a reload resumes them instead of starting over. A browser that keeps no files, such as a private window, runs the same conversation in memory and says so. One tab holds a conversation at a time. Python runs apart from the agent, in a worker of its own with an opaque origin, started when the agent first runs Python. The surrounding application connects the interface, browser runtime, model provider, and active Galaxy session. Model credentials remain in the browser rather than being held by a separate Olit backend.
-
-This allows Olit to be distributed through Galaxy's existing visualization infrastructure without requiring a separate agent service.
-
-`LAYOUT.md` maps the repository and its major components.
-
-## Running it
-
-Install dependencies once:
-
-```bash
-npm install
-```
-
-Then start the development environment:
-
-```bash
-npm run dev
-```
-
-The first run fetches the Pyodide assets and the skills corpus and can take a few minutes.
-
-To serve what is already built:
-
-```bash
-npx vite
-```
-
-The eval harness drives the agent as a Node module, rebuilt from source:
-
-```bash
-npm run build:session
-```
-
-### Against the stub
-
-The end-to-end stub requires neither Galaxy nor a model. See `e2e/README.md`.
-
-```bash
-node e2e/stub.cjs &
-GALAXY_ROOT=http://127.0.0.1:8099 \
-LLM_PROVIDER=ollama \
-LLM_ROOT=http://127.0.0.1:8099 \
-LLM_PATH=/v1 \
-LLM_MODEL=stub-model \
-LLM_CONTEXT_WINDOW=40000 \
-npm run dev
-```
-
-### Against Galaxy and a model
-
-```bash
-GALAXY_ROOT=http://127.0.0.1:8080 \
-GALAXY_KEY=<galaxy-api-key> \
-LLM_PROVIDER=google \
-LLM_KEY="$GEMINI_API_KEY" \
-LLM_MODEL=gemini-3.7-flash \
-npm run dev
-```
-
-`LLM_PROVIDER` names an entry in `src/agent/providers.ts`. A provider pi-ai defines (Gemini, DeepSeek, OpenRouter, OpenAI, Anthropic, Groq, Mistral, xAI) is pi's own: its endpoint, API, context windows and, headless, its key variable (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...). Olit defines only the Galaxy proxy, Jetstream2 and local servers. Set `LLM_ROOT` and `LLM_PATH` for an endpoint neither registry contains.
-
-`GALAXY_KEY` is needed during local development because Vite serves Olit outside Galaxy, where the Galaxy session cookie does not apply.
-
-Leave `LLM_PROVIDER` unset to use the provider picker. This is the production path: the model key remains in the browser worker.
-
-## Tests
-
-```bash
-npm test
-```
-
-This runs Vitest, script linting, TypeScript type checking, vendored-file verification, and the end-to-end drives.
-
-To inspect the surface exposed to the agent:
-
-```bash
-npm run build:session && node dist/session.mjs --describe --root .
-```
-
-This reports the tools and parameters exposed to the agent, the Galaxy queries they construct, guards that can refuse calls, and the sampling and loop policies.
+For a shell, local software or unrestricted networking, use Orbit.
 
 ## Scope
 
-Olit deliberately does not reproduce a general-purpose local computing environment.
+`run_python` runs in Pyodide. Top-level `await` and `pyfetch` work; network access follows browser
+rules, so CORS-enabled APIs are reachable and other sites are not. Galaxy is reached only through
+Olit's Galaxy tools, where destructive operations ask before they run. Stop ends a running Python
+call.
 
-`run_python` executes inside Pyodide. Submitted code is asynchronous, so top-level `await` and `pyfetch` work, but networking follows browser security rules: CORS-enabled APIs are accessible; arbitrary network resources are not.
+## Development
 
-Python is isolated from the agent rather than restricted. It keeps that network access and loses only authority: its worker has an opaque origin, so it holds no Galaxy session, no storage of the page, and no reach into the agent's state or model credentials, and its requests go without credentials. Galaxy is reached through the agent's Galaxy tools, where the destructive-operation gate applies. Stop ends a running Python call along with its state. Headless, the same realm is a Node child process with an empty environment that may read only Pyodide's files.
+```bash
+npm install
+npm run dev        # builds (fetching Pyodide and the skills corpus on first run), then serves
+npm test           # unit tests, linting, type checks, vendored-file checks, browser tests
+npm run stale      # where the pinned upstreams stand
+```
 
-For research requiring a shell, unrestricted networking, local software installation, or a full filesystem, Orbit provides the appropriate execution environment.
+`npm run dev` against a local Galaxy and a model:
 
-Olit instead tests a different architectural proposition:
+```bash
+GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=<galaxy-api-key> \
+LLM_PROVIDER=google LLM_KEY="$GEMINI_API_KEY" LLM_MODEL=gemini-3.7-flash \
+npm run dev
+```
 
-> **Galaxy is the computational environment. The browser is the agent runtime.**
+`GALAXY_KEY` is needed only because the dev server runs outside Galaxy. Leave `LLM_PROVIDER` unset
+to get the provider picker, as in production. Providers are listed in `src/agent/providers.ts`.
+
+The browser tests run against a stub Galaxy and model (`e2e/README.md`). The eval harness drives
+a Node build of the agent: `npm run build:session`, and `node dist/session.mjs --describe --root .`
+prints the tools, guards and policies the agent is given.
