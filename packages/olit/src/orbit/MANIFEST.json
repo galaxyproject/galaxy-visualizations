@@ -1,6 +1,7 @@
 {
   "_comment": "Vendored from galaxyproject/loom. Hashes pin the files so accidental edits fail CI. chat-panel.ts and galaxy-links.ts carry documented import retargets; see README.md.",
   "upstream": "galaxyproject/loom",
+  "commit": "49bca89cbcb9d0b9479ce6d02b17f9c55d630409",
   "files": {
     "chat/chat-panel.ts": "d8a5d55e4d6d8b0e2f445941e83e89d14613b9bcc1fc6f621ef60e16308a91b9",
     "chat/galaxy-links.ts": "e267f08733eef23f31a1d330080b6e7267dde4c7af3d3b13cebdda275e86cbea",

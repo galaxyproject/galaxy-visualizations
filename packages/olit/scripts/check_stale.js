@@ -92,7 +92,54 @@ async function galaxyCharts() {
         `           update: bump it and run npm test; visualizations.ts imports its input contract directly`;
 }
 
-const results = await Promise.allSettled([skills(), galaxyMcp(), galaxyOps(), galaxyCharts()]);
+/** Where a vendored UI file lives in loom: shared/ as it is, the rest under the renderer. */
+const loomPath = (rel) => (rel.startsWith("shared/") ? rel : `app/src/renderer/${rel}`);
+
+/** GitHub's compare lists at most this many files, so a longer list may be missing some. */
+const COMPARE_FILE_CAP = 300;
+
+async function orbit() {
+  const manifest = read("src/orbit/MANIFEST.json");
+  const head = await github(`repos/${manifest.upstream}/commits/main`);
+  const pinned = manifest.commit.slice(0, 8);
+  if (head.sha === manifest.commit) {
+    return `orbit ui   up to date at ${pinned} (${manifest.upstream}@main)`;
+  }
+  const watched = Object.keys(manifest.files).flatMap((rel) => {
+    const path = loomPath(rel);
+    return path.endsWith(".js") ? [path, path.replace(/\.js$/, ".d.ts")] : [path];
+  });
+  watched.push(loomPath("assets/fonts/"));
+  const cmp = await github(`repos/${manifest.upstream}/compare/${manifest.commit}...${head.sha}`);
+  const files = cmp.files || [];
+  const touched = files
+    .map((f) => f.filename)
+    .filter((name) => watched.some((w) => (w.endsWith("/") ? name.startsWith(w) : name === w)));
+  const update =
+    "           update: copy them from loom, keeping the shared/ import retarget (src/orbit/README.md),\n" +
+    "           set MANIFEST.json's commit, python3 scripts/check_vendored.py --update";
+  if (touched.length) {
+    return (
+      `orbit ui   BEHIND: ${touched.length} vendored file(s) changed in loom since ${pinned}: ${touched.join(", ")}\n` +
+      update
+    );
+  }
+  if (files.length >= COMPARE_FILE_CAP) {
+    return (
+      `orbit ui   UNKNOWN: loom changed ${files.length}+ files since ${pinned}, more than GitHub lists;\n` +
+      `           compare src/orbit with loom by hand`
+    );
+  }
+  return `orbit ui   up to date: loom is ${cmp.total_commits} commit(s) past ${pinned}, none touching the vendored files`;
+}
+
+const results = await Promise.allSettled([
+  skills(),
+  galaxyMcp(),
+  galaxyOps(),
+  galaxyCharts(),
+  orbit(),
+]);
 for (const r of results) {
   console.log(r.status === "fulfilled" ? r.value : `(could not check: ${r.reason.message})`);
 }

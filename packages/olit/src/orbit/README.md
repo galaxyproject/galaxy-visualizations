@@ -8,6 +8,9 @@ interface. Keep these files untouched where possible; adapt in olit's own code
 (`src/main.ts`, `src/incoming.ts`) rather than editing here, so this folder stays
 diffable against upstream and can be synced (or promoted to a shared package) later.
 
+`MANIFEST.json` records the loom commit they were copied from and pins each file's hash.
+`npm run stale` reports when loom has changed any of them since that commit.
+
 ## Files (source → here)
 
 | here | upstream | changed |
