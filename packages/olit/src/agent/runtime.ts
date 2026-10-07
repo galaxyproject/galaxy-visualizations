@@ -19,6 +19,7 @@ import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
 import { connectGalaxy, type Galaxy } from "./galaxy";
 import { olitModels } from "./model";
+import { recordsOn, type RecordSummary } from "./notebook";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
 import { probeWindow, resolve, type LlmConfig, type Target } from "./providers";
 import { editRecord } from "./record-write";
@@ -82,6 +83,11 @@ export interface Placement {
   historyId?: string;
   datasetId?: string;
   instructions?: string;
+  /**
+   * A session found again through the record attached to its history, once the browser kept
+   * nothing of it: its identity and record are durable, its conversation was not.
+   */
+  record?: RecordSummary;
 }
 
 const uuid = () => globalThis.crypto?.randomUUID?.() || `s-${Date.now()}-${Math.random()}`;
@@ -253,8 +259,9 @@ export class Runtime {
         },
         init: async (tx, id) => {
           Object.assign(await tx.doc(Binding, id), {
-            sessionId: uuid(),
-            startedAt: new Date().toISOString(),
+            sessionId: placement.record?.sessionId ?? uuid(),
+            startedAt: placement.record?.created || new Date().toISOString(),
+            ...(placement.record ? { pageId: placement.record.pageId } : {}),
             ...(placement.historyId ? { historyId: placement.historyId } : {}),
             ...(placement.datasetId ? { datasetId: placement.datasetId } : {}),
           });
@@ -267,8 +274,8 @@ export class Runtime {
     );
   }
 
-  /** The conversation this history continues, now on the dataset it was launched on, or a new one. */
-  async continuing(placement: Placement): Promise<Conversation> {
+  /** The conversation this browser keeps for the history, now on the dataset it was launched on. */
+  async kept(placement: Placement): Promise<Conversation | undefined> {
     const index = await this.harness.snapshot(Sessions, context);
     const known = placement.historyId ? index?.byHistory[placement.historyId] : undefined;
     const found =
@@ -282,9 +289,18 @@ export class Runtime {
           (await tx.doc(Binding, found.id)).datasetId = placement.datasetId;
         }, context);
       }
-      return found;
     }
-    return this.create(placement);
+    return found;
+  }
+
+  /** The conversation this history continues, or a new one. */
+  async continuing(placement: Placement): Promise<Conversation> {
+    return (await this.kept(placement)) ?? this.create(placement);
+  }
+
+  /** The Olit records attached to the launch history, for a session this browser no longer keeps. */
+  records(historyId: string | undefined): Promise<RecordSummary[]> {
+    return historyId ? recordsOn(this.galaxy, historyId) : Promise.resolve([]);
   }
 
   /** The user's own message, which lets settled work start runs again. */

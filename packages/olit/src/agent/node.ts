@@ -5,7 +5,8 @@ import { Headless } from "./headless";
 import { nodePython } from "./python-node";
 
 /**
- * One conversation over JSON lines: `create`, `turn`, `settle`, `restart`, `export`, `close`.
+ * One conversation over JSON lines: `create`, `turn`, `settle`, `restart` (answered with the
+ * history's records to continue), `recover`, `export`, `close`.
  * Results carry pi-durable's entries as they were appended.
  */
 const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`);
@@ -36,7 +37,9 @@ async function main() {
       } else if (request.op === "settle") {
         write({ result: await session!.settle(Number(request.timeout) || 600) });
       } else if (request.op === "restart") {
-        await session!.restart();
+        write({ result: { records: await session!.restart() } });
+      } else if (request.op === "recover") {
+        await session!.recover(request.page_id ?? undefined);
         write({ result: {} });
       } else if (request.op === "export") {
         write({ result: await session!.export(request.title ?? "") });

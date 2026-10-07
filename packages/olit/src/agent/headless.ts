@@ -7,7 +7,8 @@ import {
 } from "@earendil-works/pi-durable";
 
 import { Binding } from "./documents";
-import { context, Runtime, type RuntimeConfig } from "./runtime";
+import type { RecordSummary } from "./notebook";
+import { context, Runtime, type Placement, type RuntimeConfig } from "./runtime";
 import type { Python } from "./tool";
 import { WATCH_TASK, type Settled } from "./watch";
 
@@ -28,6 +29,9 @@ const timeout = (ms: number) =>
 export class Headless {
   /** The newest entry already handed back. */
   private last = 0;
+  /** What a restart was launched on, and the records it offered to continue. */
+  private launch: Placement = {};
+  private offered: RecordSummary[] = [];
 
   private constructor(
     readonly runtime: Runtime,
@@ -118,16 +122,28 @@ export class Headless {
   }
 
   /**
-   * A tab closed and opened again with nothing stored, as a browser does it: a new conversation
-   * launched on the same history and dataset, and nothing else carried over, just as Reset does.
+   * A tab closed and opened again with nothing stored, as a browser does it: launched on the same
+   * history and dataset, it offers the Olit records attached to that history and starts nothing
+   * until `recover` says which session this is, as the user does in a tab. With no records, a new
+   * session starts at once.
    */
-  async restart() {
+  async restart(): Promise<RecordSummary[]> {
     const bound = await this.runtime.harness.snapshot(Binding, this.conversation.id, context);
-    const next = await this.runtime.create({
-      historyId: bound?.historyId,
-      datasetId: bound?.datasetId,
+    this.launch = { historyId: bound?.historyId, datasetId: bound?.datasetId };
+    this.offered = await this.runtime.records(bound?.historyId);
+    if (!this.offered.length) await this.recover();
+    return this.offered;
+  }
+
+  /** Continue the offered session whose record is `pageId`, or start a new one. */
+  async recover(pageId?: string) {
+    const record = this.offered.find((r) => r.pageId === pageId);
+    if (pageId && !record) throw new Error(`No offered record ${pageId}.`);
+    this.conversation = await this.runtime.create({
+      ...this.launch,
+      ...(record ? { record } : {}),
     });
-    this.conversation = next;
+    this.offered = [];
     this.last = 0;
     await this.fresh();
   }

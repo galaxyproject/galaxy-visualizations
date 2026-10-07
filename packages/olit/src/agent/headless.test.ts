@@ -366,18 +366,57 @@ describe("a turn", () => {
 });
 
 describe("a restart, as a browser with nothing stored does it", () => {
-  it("carries over what Reset does, the history and dataset, and not the old record or session", async () => {
-    server([{ text: "ok" }]);
+  const RECORD = {
+    id: "p7",
+    slug: "olit-sess-7",
+    title: "Olit Notebook (sess-7)",
+    create_time: "2026-10-01T09:00:00",
+    update_time: "2026-10-02T09:00:00",
+  };
+
+  async function launched(pages: unknown[]) {
+    server([{ text: "ok" }], { "api/pages": pages });
     const session = await open({ history_id: "h1", dataset_id: "d1" });
     await session.runtime.harness.commit(async (tx) => {
       Object.assign(await tx.doc(Binding, session.conversation.id), { pageId: "p1" });
     }, context);
+    return session;
+  }
+
+  it("starts a new session at once, as Reset does, when the history has no records", async () => {
+    const session = await launched([]);
     const before = await bound(session);
-    await session.restart();
+    expect(await session.restart()).toEqual([]);
     const after = await bound(session);
     expect(after).toMatchObject({ historyId: "h1", datasetId: "d1" });
     expect(after?.pageId).toBeUndefined();
     expect(after?.sessionId).not.toBe(before?.sessionId);
+  });
+
+  it("offers the history's records and starts nothing until told which session this is", async () => {
+    const session = await launched([RECORD, { id: "p9", slug: "not-olit", title: "Mine" }]);
+    const before = session.conversation.id;
+    const offered = await session.restart();
+    expect(offered.map((r) => r.pageId)).toEqual(["p7"]);
+    expect(session.conversation.id).toBe(before);
+    await session.recover("p7");
+    expect(session.conversation.id).not.toBe(before);
+    // The session's identity and record come back; its conversation does not.
+    expect(await bound(session)).toMatchObject({
+      sessionId: "sess-7",
+      pageId: "p7",
+      historyId: "h1",
+      startedAt: "2026-10-01T09:00:00",
+    });
+    expect((await session.conversation.context(context)).entries).toEqual([]);
+  });
+
+  it("starts new when told so, even with records on offer", async () => {
+    const session = await launched([RECORD]);
+    await session.restart();
+    await session.recover();
+    expect((await bound(session))?.sessionId).not.toBe("sess-7");
+    expect((await bound(session))?.pageId).toBeUndefined();
   });
 });
 

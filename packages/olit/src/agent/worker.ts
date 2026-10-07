@@ -15,6 +15,7 @@ import type { GalaxyStatus } from "./prompt";
 import { browserPython } from "./python";
 import { context, Runtime, type Placement, type RuntimeConfig } from "./runtime";
 import type { SessionDocument } from "./saved";
+import type { RecordSummary } from "./notebook";
 import { holdStorage, openStorage } from "./storage";
 import { WATCH_TASK, type Settled } from "./watch";
 
@@ -36,7 +37,16 @@ export type WorkerMessage =
   | { type: "waiting" }
   /** Another tab took the conversation over. */
   | { type: "lost" }
-  | { type: "ready"; unkept?: string; galaxy: GalaxyStatus; galaxyProblem?: string }
+  | {
+      type: "ready";
+      unkept?: string;
+      galaxy: GalaxyStatus;
+      galaxyProblem?: string;
+      /** Why the history's earlier records could not be looked up. */
+      recordsProblem?: string;
+    }
+  /** No session kept here, but the launch history has Olit records to choose from. */
+  | { type: "recoverable"; records: RecordSummary[] }
   | { type: "events"; events: readonly AgentEvent[] }
   /** Galaxy work the conversation watched has settled. */
   | { type: "settled"; settled: Settled }
@@ -53,7 +63,9 @@ export type PageMessage =
   | { type: "reset" }
   | { type: "switch"; id: number; config: Partial<RuntimeConfig> }
   | { type: "export"; id: number; title: string }
-  | { type: "saved"; id: number; savedId: string; document: SessionDocument };
+  | { type: "saved"; id: number; savedId: string; document: SessionDocument }
+  /** Continue the session whose record is `pageId`, or start a new one. */
+  | { type: "recover"; pageId?: string };
 
 const post = (message: WorkerMessage) => self.postMessage(message);
 
@@ -63,6 +75,8 @@ let runtime: Runtime | undefined;
 let conversation: Conversation | undefined;
 let detach: (() => Promise<unknown>) | undefined;
 let held: Waiting;
+/** A launch waiting for the user to choose among the history's records. */
+let choosing: { placement: Placement; records: RecordSummary[]; unkept?: string } | undefined;
 
 function ask(title: string, message: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -166,16 +180,47 @@ async function open(request: OpenRequest) {
     python: browserPython(request.pyodideURL),
     ask,
   });
-  const next = request.saved
-    ? await runtime.open(request.saved.document, request.saved.id)
-    : await runtime.continuing(request.placement);
+  if (request.saved) {
+    return begin(await runtime.open(request.saved.document, request.saved.id), unkept);
+  }
+  const kept = await runtime.kept(request.placement);
+  if (kept) return begin(kept, unkept);
+  // Nothing of a session here: the history's records say which sessions it had, and the user
+  // says which one this is, if any.
+  let records: RecordSummary[] = [];
+  let recordsProblem: string | undefined;
+  try {
+    records = await runtime.records(request.placement.historyId);
+  } catch (e) {
+    recordsProblem = String((e as Error)?.message ?? e);
+  }
+  if (records.length) {
+    choosing = { placement: request.placement, records, unkept };
+    post({ type: "recoverable", records });
+    return;
+  }
+  return begin(await runtime.create(request.placement), unkept, recordsProblem);
+}
+
+/** Show `next`, and say the session is ready. */
+async function begin(next: Conversation, unkept?: string, recordsProblem?: string) {
   await attach(next);
   post({
     type: "ready",
     unkept,
-    galaxy: runtime.galaxyStatus,
-    galaxyProblem: runtime.galaxyProblem,
+    galaxy: runtime!.galaxyStatus,
+    galaxyProblem: runtime!.galaxyProblem,
+    recordsProblem,
   });
+}
+
+/** The session the user chose to continue from the history's records, or a new one. */
+async function recover(pageId: string | undefined) {
+  if (!choosing) return;
+  const { placement, records, unkept } = choosing;
+  choosing = undefined;
+  const record = records.find((r) => r.pageId === pageId);
+  await begin(await runtime!.create({ ...placement, ...(record ? { record } : {}) }), unkept);
 }
 
 async function reply(id: number, work: () => Promise<unknown>) {
@@ -207,6 +252,8 @@ self.onmessage = async ({ data }: MessageEvent<PageMessage>) => {
       await reply(data.id, () => runtime!.switchModel(conversation!, data.config));
     } else if (data.type === "export") {
       await reply(data.id, () => runtime!.export(conversation!, data.title));
+    } else if (data.type === "recover") {
+      await recover(data.pageId);
     } else if (data.type === "saved") {
       await reply(data.id, () => runtime!.saved(conversation!, data.savedId, data.document));
     }

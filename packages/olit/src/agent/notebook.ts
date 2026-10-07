@@ -147,11 +147,51 @@ ${body}
 ${fence}`;
 }
 
-/** The session's record page, created if it has none or its page is gone. */
+/**
+ * An Olit record attached to a history: the session that owns it, found again through the
+ * history it was started on once the browser holds nothing of that session.
+ */
+export interface RecordSummary {
+  pageId: string;
+  sessionId: string;
+  title: string;
+  created: string;
+  updated: string;
+}
+
+const SESSION_SLUG = /^olit-(.+)$/;
+
+/** The Olit records Galaxy keeps attached to `historyId`, most recently updated first. */
+export async function recordsOn(galaxy: Galaxy, historyId: string): Promise<RecordSummary[]> {
+  const pages: unknown = await galaxy.get(`api/pages${query({ history_id: historyId })}`);
+  return (Array.isArray(pages) ? (pages as Page[]) : [])
+    .flatMap((page) => {
+      const session = typeof page.slug === "string" ? SESSION_SLUG.exec(page.slug)?.[1] : undefined;
+      return session && !page.deleted
+        ? [
+            {
+              pageId: String(page.id),
+              sessionId: session,
+              title: String(page.title ?? page.slug),
+              created: String(page.create_time ?? ""),
+              updated: String(page.update_time ?? ""),
+            },
+          ]
+        : [];
+    })
+    .sort((a, b) => b.updated.localeCompare(a.updated));
+}
+
+/**
+ * The session's record page, created if it has none or its page is gone. A new one is attached
+ * to the history the session works in, so the session can be found again from that history; the
+ * session, not the history, stays what the record belongs to.
+ */
 export async function resume(
   galaxy: Galaxy,
   sessionId?: string,
   pageId?: string,
+  historyId?: string,
 ): Promise<Outcome | Page> {
   if (!sessionId) {
     return fail(
@@ -177,6 +217,7 @@ export async function resume(
     slug: slugForSession(sessionId),
     content: STARTER,
     content_format: "markdown",
+    ...(historyId ? { history_id: historyId } : {}),
   });
   if (typeof created !== "object" || created === null || !created.id) {
     return fail(JSON.stringify({ error: "Could not create the record page." }));
@@ -205,7 +246,12 @@ export function notebookTools(): OlitTool[] {
       parameters: { type: "object", properties: {} },
       capability: CAPABILITY,
       run: async (_args, ctx: Context) => {
-        const opened = await resume(ctx.galaxy, ctx.binding.sessionId, ctx.binding.pageId);
+        const opened = await resume(
+          ctx.galaxy,
+          ctx.binding.sessionId,
+          ctx.binding.pageId,
+          ctx.binding.historyId,
+        );
         if (opened instanceof Outcome) {
           return opened;
         }

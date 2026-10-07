@@ -43,7 +43,16 @@ const TYPES = {
 let script = "confirm";
 // Saved visualizations as Galaxy keeps them: each a type, a title and its latest revision's config.
 const visualizations = new Map();
-const visualizationWrites = [];     // confirm | slow | slow-once | compact | ratelimit | plan | plan-after-graph
+const visualizationWrites = [];
+// Pages as Galaxy keeps them: a page may be attached to a history (a history notebook) and listed by it.
+const pages = new Map();
+// The cell types Galaxy's page parser renders; its server refuses any other ``` fence.
+const PAGE_CELLS = ["galaxy", "markdown", "vega", "visualization", "vitessce"];
+const badFence = (content) =>
+    String(content || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .find((line) => line.startsWith("```") && line.length > 3 && !PAGE_CELLS.includes(line.slice(3)));     // confirm | slow | slow-once | compact | ratelimit | plan | plan-after-graph
 let galaxyUp = true;        // /api/version answers, which is what the agent probes for reachability
 let rateLimited = 0;
 let calls = 0;
@@ -306,6 +315,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { prompts: 0 });
     }
     if (url.startsWith("/__seen")) return json(res, 200, { seen, calls, prompts, cookies });
+    if (url.startsWith("/__pages")) return json(res, 200, { pages: [...pages.values()] });
     if (url.startsWith("/__visualizations")) return json(res, 200, { visualizations: [...visualizations.values()], writes: visualizationWrites });
     if (url.startsWith("/__public")) return json(res, 200, { public: true });
 
@@ -338,6 +348,8 @@ const server = http.createServer(async (req, res) => {
             roles: (body.messages || []).map((m) => m.role),
             toolResults: (body.messages || []).filter((m) => m.role === "tool").map((m) => String(m.content)),
             text: JSON.stringify(body.messages || []).slice(0, 4000),
+            // The record excerpt rides just before the last user message, past where `text` stops.
+            tail: JSON.stringify(body.messages || []).slice(-6000),
             authorization: req.headers.authorization || null,
         });
         const answer = (completion) => (body.stream ? sse(res, completion) : json(res, 200, completion));
@@ -433,6 +445,11 @@ const server = http.createServer(async (req, res) => {
                 : message("", createVisualization));
         }
         if (script === "plain") return answer(message("Noted."));
+        if (script === "record") {
+            return answer(last.role === "tool"
+                ? message("Noted in the record.")
+                : message("", [{ id: "call_1", type: "function", function: { name: "notebook_resume", arguments: "{}" } }]));
+        }
         return answer(last.role === "tool" ? message("Done.") : message("", deleteHistory));
     }
 
@@ -451,6 +468,46 @@ const server = http.createServer(async (req, res) => {
     if (url.includes("/api/datasets/")) {
         const id = decodeURIComponent(url.split("/api/datasets/")[1].split(/[/?]/)[0]);
         return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", history_id: historyOf(id) });
+    }
+    if (url.startsWith("/api/pages")) {
+        const [path, search] = url.split("?");
+        const id = path.split("/")[3];
+        if (req.method === "GET" && !id) {
+            const history = new URLSearchParams(search || "").get("history_id");
+            const listed = [...pages.values()].filter((p) => !history || p.history_id === history);
+            return json(res, 200, listed.map(({ content, content_editor, ...summary }) => summary));
+        }
+        if (req.method === "GET") {
+            const found = pages.get(id);
+            return found ? json(res, 200, found) : json(res, 404, { err_msg: "Page not found" });
+        }
+        const body = await new Promise((resolve) => {
+            let raw = "";
+            req.on("data", (c) => (raw += c));
+            req.on("end", () => resolve(raw ? JSON.parse(raw) : {}));
+        });
+        const fence = badFence(body.content);
+        if (fence) return json(res, 400, { err_msg: `Unsupported fenced block type [${fence.slice(3)}].` });
+        const now = new Date().toISOString();
+        if (req.method === "POST") {
+            const created = `p${pages.size + 1}`;
+            pages.set(created, {
+                id: created,
+                slug: body.slug,
+                title: body.title,
+                history_id: body.history_id ?? null,
+                content: body.content,
+                content_editor: body.content,
+                create_time: now,
+                update_time: now,
+                deleted: false,
+            });
+            return json(res, 200, pages.get(created));
+        }
+        const found = pages.get(id);
+        if (!found) return json(res, 404, { err_msg: "Page not found" });
+        Object.assign(found, { content: body.content, content_editor: body.content, update_time: now });
+        return json(res, 200, found);
     }
     if (url.startsWith("/api/visualizations")) {
         const id = url.split("?")[0].split("/")[3];

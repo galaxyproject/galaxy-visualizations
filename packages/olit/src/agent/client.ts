@@ -55,6 +55,11 @@ export class AgentClient {
     this.send({ type: "confirmed", id, approved });
   }
 
+  /** Continue the session whose record is `pageId`, or start a new one. */
+  recover(pageId?: string) {
+    this.send({ type: "recover", ...(pageId ? { pageId } : {}) });
+  }
+
   reset() {
     this.send({ type: "reset" });
   }

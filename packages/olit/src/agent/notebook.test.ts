@@ -6,6 +6,7 @@ import {
   excerpt,
   HEAD_MAX_CHARS,
   notebookTools,
+  recordsOn,
   resume,
   slugForSession,
   TAIL_MAX_CHARS,
@@ -274,5 +275,33 @@ describe("page identity", () => {
     const other = "9a8b7c6d-0000-4000-8000-111122223333";
     expect(titleForSession(SESSION)).not.toBe(titleForSession(other));
     expect(slugForSession(SESSION)).not.toBe(slugForSession(other));
+  });
+});
+
+describe("a session's record and the history it was started on", () => {
+  it("attaches a new record to the session's history, so the session can be found again", async () => {
+    const g = fakeGalaxy();
+    await resume(g.galaxy, "sess-1", undefined, "h1");
+    const [path, body] = g.posted[0];
+    expect(path).toBe("api/pages");
+    expect(body).toMatchObject({ slug: "olit-sess-1", history_id: "h1" });
+  });
+
+  it("lists the Olit records attached to a history, by the session each belongs to", async () => {
+    const g = fakeGalaxy([], async (path) =>
+      path === "api/pages?history_id=h1"
+        ? [
+            { id: "p1", slug: "olit-a", title: "A", create_time: "1", update_time: "2026-10-01" },
+            { id: "p2", slug: "olit-b", title: "B", create_time: "1", update_time: "2026-10-03" },
+            { id: "p3", slug: "results", title: "Not Olit's", update_time: "2026-10-04" },
+            { id: "p4", slug: "olit-c", title: "Gone", deleted: true },
+          ]
+        : [],
+    );
+    const records = await recordsOn(g.galaxy, "h1");
+    expect(records.map((r) => [r.pageId, r.sessionId])).toEqual([
+      ["p2", "b"],
+      ["p1", "a"],
+    ]);
   });
 });

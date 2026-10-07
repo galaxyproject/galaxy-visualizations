@@ -276,6 +276,12 @@ async function main() {
             "can run in this session. Reload once Galaxy is back.",
         );
       }
+      if (message.recordsProblem) {
+        chat.addErrorMessage(
+          `Could not look for earlier Olit sessions on this history (${message.recordsProblem}), ` +
+            "so this is a new session.",
+        );
+      }
       if (savedProblem) {
         chat.addErrorMessage(
           `Could not open saved session ${incoming.visualizationId} (${savedProblem}). This is ` +
@@ -302,6 +308,25 @@ async function main() {
       } else if (launch.dataset) {
         info(summarize(launch.dataset));
       }
+    } else if (message.type === "recoverable") {
+      // The browser kept nothing of a session here; the user says which, if any, this is.
+      const line = info("Olit has earlier sessions on this history. Continue one, or start new: ");
+      const choose = (pageId?: string) => {
+        line.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        agent.recover(pageId);
+      };
+      for (const record of message.records) {
+        const button = document.createElement("button");
+        button.className = "plan-btn";
+        button.textContent = `Continue ${record.title} (updated ${record.updated.slice(0, 16).replace("T", " ")})`;
+        button.addEventListener("click", () => choose(record.pageId));
+        line.append(button);
+      }
+      const fresh = document.createElement("button");
+      fresh.className = "plan-btn";
+      fresh.textContent = "Start new";
+      fresh.addEventListener("click", () => choose());
+      line.append(fresh);
     } else if (message.type === "waiting") {
       const line = info("Olit is open in another tab. ");
       const take = document.createElement("button");
