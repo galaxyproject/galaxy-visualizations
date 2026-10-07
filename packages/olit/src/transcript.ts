@@ -62,6 +62,10 @@ function unanswered(reason: string | undefined, detail: unknown): string {
   }
 }
 
+/** A message's text blocks by content index; other blocks hold none. */
+const textBlocks = (message: { content: ReadonlyArray<{ type: string; text?: string }> }) =>
+  message.content.map((c) => (c.type === "text" ? (c.text ?? "") : ""));
+
 const textOf = (message: Message) =>
   message.role === "assistant"
     ? message.content
@@ -73,6 +77,9 @@ const textOf = (message: Message) =>
 /** The chat as a conversation's events draw it. */
 export class ChatView {
   private speaking = false;
+  /** The in-flight assistant message's text blocks, and how much of their text is on screen. */
+  private blocks: string[] = [];
+  private shown = "";
   private cards = new Set<string>();
   private run: RunOutcome = { spoke: false, done: false, aborted: false, exhausted: false };
   private restoring = false;
@@ -95,6 +102,7 @@ export class ChatView {
       if (event.type === "snapshot") {
         this.chat.clear();
         this.speaking = false;
+        this.shown = "";
         this.cards.clear();
         this.turns = 0;
         this.restoring = true;
@@ -102,7 +110,8 @@ export class ChatView {
         this.restoring = false;
         this.hooks.artifacts(artifactsOf(event.entries), true);
         const partial = event.generation?.message;
-        if (partial) this.stream(textOf(partial));
+        this.blocks = partial ? textBlocks(partial) : [];
+        this.show();
         this.hooks.busy(event.run !== undefined);
         const totals = Object.values(event.usage.models ?? {});
         this.hooks.usage(usageTotals(totals));
@@ -124,9 +133,20 @@ export class ChatView {
       } else if (event.type === "task_failed") {
         this.hooks.failed(`Olit's ${event.kind} task failed: ${event.message}`);
       } else if (event.type === "message_update") {
+        // The in-flight message as pi-durable holds it: a block can start with text in it, arrive
+        // whole, or the message be replaced, besides growing by deltas.
         for (const change of event.changes) {
-          if (change.type === "text_delta") this.stream(change.delta);
+          if (change.type === "text_delta") {
+            this.blocks[change.contentIndex] =
+              (this.blocks[change.contentIndex] ?? "") + change.delta;
+          } else if (change.type === "text_start" || change.type === "block") {
+            const block = change.block as { type?: string; text?: string };
+            if (block.type === "text") this.blocks[change.contentIndex] = block.text ?? "";
+          } else if (change.type === "message") {
+            this.blocks = textBlocks(change.message);
+          }
         }
+        this.show();
       } else if (event.type === "message_end") {
         this.entry(event.entry);
       } else if (event.type === "tool_execution_start") {
@@ -144,8 +164,15 @@ export class ChatView {
     if (ended) this.hooks.ended(this.run);
   }
 
+  /** Stream what the in-flight message's text has grown by since it was last shown. */
+  private show() {
+    const text = this.blocks.join("");
+    if (text.startsWith(this.shown)) this.stream(text.slice(this.shown.length));
+  }
+
   private stream(delta: string) {
     if (!delta) return;
+    this.shown += delta;
     this.chat.hideThinking();
     if (!this.speaking) {
       this.chat.startAssistantMessage();
@@ -195,8 +222,12 @@ export class ChatView {
     } else if (message.role === "assistant") {
       const answer = message as AssistantMessage;
       const text = textOf(answer);
+      // The answer as stored is what a reload shows; the streamed text ends the same way.
+      if (this.speaking && text.startsWith(this.shown)) this.stream(text.slice(this.shown.length));
       if (this.speaking) this.close();
       else if (text) this.say(text);
+      this.blocks = [];
+      this.shown = "";
       if (answer.stopReason === "error") this.run.error = answer.errorMessage;
       if (answer.stopReason === "aborted") this.run.aborted = true;
       for (const c of answer.content) {

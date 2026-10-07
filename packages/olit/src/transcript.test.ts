@@ -245,3 +245,56 @@ describe("a run drawn live and the same run restored", () => {
     ]);
   });
 });
+
+describe("a reply streamed live ends as the stored answer reads", () => {
+  const update = (...changes: unknown[]) =>
+    ({ type: "message_update", usage: {}, changes }) as unknown as AgentEvent;
+  const stored = (text: string) =>
+    entry("pi.assistant", {
+      role: "assistant",
+      content: [{ type: "text", text }],
+      stopReason: "stop",
+    });
+  const shownText = (chat: ReturnType<typeof view>["chat"]) =>
+    chat.appendDelta.mock.calls.map((c) => c[0]).join("");
+
+  it("shows the text a block starts with, not only the deltas after it", () => {
+    const { chat, view: v } = view();
+    v.apply([
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      update({ type: "text_start", contentIndex: 0, block: { type: "text", text: "The first " } }),
+      update({ type: "text_delta", contentIndex: 0, delta: "words." }),
+      { type: "message_end", entry: stored("The first words.") } as AgentEvent,
+    ]);
+    expect(shownText(chat)).toBe("The first words.");
+  });
+
+  it("shows a block sent whole, and a message replaced whole", () => {
+    const { chat, view: v } = view();
+    v.apply([
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      update({ type: "text_delta", contentIndex: 0, delta: "Half" }),
+      update({ type: "block", contentIndex: 0, block: { type: "text", text: "Half a sentence" } }),
+      update({
+        type: "message",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Half a sentence, then more." }],
+        },
+      }),
+      { type: "message_end", entry: stored("Half a sentence, then more.") } as AgentEvent,
+    ]);
+    expect(shownText(chat)).toBe("Half a sentence, then more.");
+  });
+
+  it("finishes with what the stored answer holds beyond what streamed", () => {
+    const { chat, view: v } = view();
+    v.apply([
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      update({ type: "text_delta", contentIndex: 0, delta: "Cut " }),
+      { type: "message_end", entry: stored("Cut off no longer.") } as AgentEvent,
+    ]);
+    expect(shownText(chat)).toBe("Cut off no longer.");
+    expect(chat.startAssistantMessage).toHaveBeenCalledTimes(1);
+  });
+});
