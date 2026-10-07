@@ -366,11 +366,14 @@ describe("followUpPrompt", () => {
   it("asks for a turn about runs that finished or failed", () => {
     const prompt = followUpPrompt([
       { watched: JOB, state: "ok", outcome: "completed" },
-      { watched: { ...JOB, id: "j2" }, state: "error", outcome: "failed" },
+      { watched: { ...JOB, id: "j2", outputs: ["d9"] }, state: "error", outcome: "failed" },
     ])!;
     expect(prompt.startsWith("[Olit automatic Galaxy follow-up]")).toBe(true);
     expect(prompt).toContain('"label": "Galaxy job j1"');
-    expect(prompt).toContain("still have jobs running");
+    // A failed job is read through its output, which get_job_details takes.
+    expect(prompt).toContain('"outputs": [\n      "d9"\n    ]');
+    // galaxy-ops calls a run failed only once nothing of it is running.
+    expect(prompt).not.toContain("still have jobs running");
   });
 
   it("asks for nothing about a run the user cancelled", () => {

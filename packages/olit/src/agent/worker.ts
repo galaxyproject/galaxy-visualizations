@@ -245,6 +245,11 @@ self.onmessage = async ({ data }: MessageEvent<PageMessage>) => {
       confirms.delete(data.id);
     } else if (data.type === "reset") {
       const bound = await runtime!.harness.snapshot(Binding, conversation!.id, context);
+      // The conversation left behind keeps its record current, but starts no run nobody sees:
+      // its settled work waits for the user, as after a Stop.
+      await conversation!.commit(async (tx) => {
+        (await tx.doc(FollowUps, conversation!.id)).paused = true;
+      }, context);
       await attach(
         await runtime!.create({ historyId: bound?.historyId, datasetId: bound?.datasetId }),
       );
