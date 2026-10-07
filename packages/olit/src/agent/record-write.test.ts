@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { HttpError, type Galaxy } from "./galaxy";
 import { editRecord } from "./record-write";
-import { writeSessionSummary } from "./session-summary";
 
 /** A Galaxy holding the session's record page p1 and nothing else, recording every write. */
 function galaxy(page: Record<string, unknown>, putOk = true) {
@@ -44,7 +43,7 @@ describe("editRecord", () => {
       content_editor: "${galaxy history_dataset_name(history_dataset_id=d1)}",
       content: "tracks.bed",
     });
-    expect(await editRecord(target(client), (c) => `${c}\nmore`)).toBe(true);
+    expect(await editRecord(target(client), (c) => `${c}\nmore`)).toBeUndefined();
     expect(writes).toEqual(["${galaxy history_dataset_name(history_dataset_id=d1)}\nmore"]);
   });
 
@@ -62,19 +61,21 @@ describe("editRecord", () => {
 
   it("writes nothing when the edit changes nothing", async () => {
     const { client, writes } = galaxy({ content_editor: "# Notebook" });
-    expect(await editRecord(target(client), (c) => c)).toBe(true);
+    expect(await editRecord(target(client), (c) => c)).toBeUndefined();
     expect(writes).toEqual([]);
   });
 
   it("reports failure once the attempts are spent", async () => {
     const { client, writes } = galaxy({ content_editor: "# Notebook" }, false);
-    expect(await editRecord(target(client), (c) => `${c}!`)).toBe(false);
+    expect(await editRecord(target(client), (c) => `${c}!`)).toContain("could not be written");
     expect(writes).toHaveLength(3);
   });
 
   it("gives up on a page Galaxy will not show", async () => {
     const { client, writes } = galaxy({ content_editor: "# Notebook" });
-    expect(await editRecord({ galaxy: client, pageId: "gone" }, (c) => `${c}!`)).toBe(false);
+    expect(await editRecord({ galaxy: client, pageId: "gone" }, (c) => `${c}!`)).toContain(
+      "would not show",
+    );
     expect(writes).toEqual([]);
   });
 });
@@ -104,36 +105,5 @@ describe("concurrent record writers", () => {
     ]);
     expect(stored).toContain("job submitted");
     expect(stored).toContain("job settled");
-  });
-});
-
-describe("writeSessionSummary", () => {
-  it("appends its block to the editable source", async () => {
-    const { client, writes } = galaxy({
-      content_editor: "${galaxy history_dataset_name(history_dataset_id=d1)}",
-      content: "tracks.bed",
-    });
-    await writeSessionSummary(client, "p1", {
-      id: "s1",
-      startedAt: "2026-01-01T00:00:00Z",
-      endedAt: "2026-01-01T00:01:00Z",
-      orphanedActiveSteps: 0,
-    });
-    expect(writes[0]).toContain("${galaxy history_dataset_name(history_dataset_id=d1)}");
-    expect(writes[0]).toContain("```olit-session");
-    expect(writes[0]).toContain("record: p1");
-  });
-
-  it("does nothing before the session has a record page", async () => {
-    const { client, writes } = galaxy({ content_editor: "" });
-    expect(
-      await writeSessionSummary(client, undefined, {
-        id: "s1",
-        startedAt: "a",
-        endedAt: "b",
-        orphanedActiveSteps: 0,
-      }),
-    ).toBe(false);
-    expect(writes).toEqual([]);
   });
 });

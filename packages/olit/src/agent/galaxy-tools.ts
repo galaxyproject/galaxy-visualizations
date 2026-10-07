@@ -3,8 +3,15 @@ import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { segment, type Galaxy } from "./galaxy";
-import { catalogMissHint, fetchFailureHint, iwcCandidatesHint } from "./hints";
+import {
+  catalogMissHint,
+  fetchFailureHint,
+  invocationOutcomeHint,
+  iwcCandidatesHint,
+} from "./hints";
 import { ELIDED } from "./notebook";
+import { pageContentProblem } from "./page-edit";
+import { watchedFrom } from "./watch";
 import { UPSTREAM_DOCS, type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -13,6 +20,12 @@ export const DATA_DIR = "/data";
 /** Lines of a downloaded dataset shown in its result. */
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+/** A refusal for page content Galaxy would not render, before it is sent. */
+const invalidPage = async (content: unknown) => {
+  const problem = typeof content === "string" ? pageContentProblem(content) : undefined;
+  return problem ? fail(`Refused: ${problem}`) : undefined;
+};
+
 /**
  * Olit's policy over galaxy-ops operations it runs but does not own: a refusal of its own before
  * the call, a queue the call waits its turn in, or an answer to galaxy-ops' refusal.
@@ -34,6 +47,9 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
     },
   },
   update_history: { destructiveWhen: (args) => args.deleted === true },
+  create_page: { check: async (args) => invalidPage(args.content) },
+  // A revert rewrites the page too, so it waits its turn behind the session's own record writes.
+  revert_page_revision: { around: serialized },
   get_dataset_details: { polls: "dataset_id" },
   get_job_details: { polls: "dataset_id" },
   get_invocations: { polls: "invocation_id" },
@@ -48,7 +64,7 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
         ? fail(
             "Refused: this content still holds the record excerpt's elision marker, so it would delete the elided middle. Edit a section instead.",
           )
-        : undefined,
+        : invalidPage(args.section_content ?? args.content),
     around: serialized,
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length
@@ -62,10 +78,14 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   },
 };
 
-/** What Olit adds to a galaxy-ops result: where a missed search lives, or fetch-failure triage. */
+/**
+ * What Olit adds to a galaxy-ops result: where a missed search lives, what listed invocations'
+ * jobs make of them, or fetch-failure triage.
+ */
 export const annotate: Annotate = async (name, args, data, ctx) =>
   iwcCandidatesHint(name) ??
   (await catalogMissHint(ctx.galaxy, name, args, data)) ??
+  (await invocationOutcomeHint(ctx.galaxy, name, data)) ??
   fetchFailureHint(data);
 
 type Row = Record<string, any>;
@@ -160,10 +180,15 @@ async function downloadDataset(args: Row, { galaxy, python }: Context) {
   let partial = false;
   let data: Uint8Array;
   if (Number.isInteger(stated) && stated > MAX_DOWNLOAD_BYTES) {
-    const prefix = await chunk(galaxy, args.dataset_id, MAX_DOWNLOAD_BYTES);
+    // Only Galaxy's tabular datatypes serve a chunk of themselves; any other ignores the offset
+    // and streams the whole file, and BAM answers with SAM text.
+    const tabular = Array.isArray(details.metadata_column_types);
+    const prefix = tabular ? await chunk(galaxy, args.dataset_id, MAX_DOWNLOAD_BYTES) : undefined;
     if (prefix === undefined) {
       return fail(
-        `Dataset is ${(stated / 1e6).toFixed(1)} MB and cannot be read in chunks. Run a Galaxy tool on it instead.`,
+        `Dataset is ${(stated / 1e6).toFixed(1)} MB, over the ${MAX_DOWNLOAD_BYTES / 1e6} MB a ` +
+          `download reads, and Galaxy cannot serve ${quote(details.extension)} data in parts. ` +
+          "Run a Galaxy tool on it instead.",
       );
     }
     data = new TextEncoder().encode(prefix);
@@ -243,11 +268,14 @@ type Run = (args: Row, ctx: Context) => Promise<unknown>;
 
 /**
  * What Olit says of the two tools that work on the browser's in-memory filesystem, which
- * galaxy-mcp's docstrings describe as the server's own disk.
+ * galaxy-mcp's docstrings describe as the server's own disk, and of the image resolver, which
+ * reads quay.io's tag listing rather than galaxy-mcp's mulled extra.
  */
 const LOCAL_DOCS: Record<string, string> = {
   download_dataset:
     "Save a Galaxy dataset to the local filesystem.\n\nReturns `path`, `bytes`, `binary`, and for text data `lines`, a `preview` of the first 50 lines and `truncated`. Fetched as raw bytes, so BAM/HDF5/gzip arrive intact. The file lives in the browser's in-memory filesystem, which persists for the session, so read it with run_python -- text with `pandas.read_csv(path, sep='\\t')`, binary with `open(path, 'rb')` or a suitable library. Do not paste the preview into code: it is a sample, and re-emitting file content as a string breaks on tabs and newlines.",
+  recommend_biocontainer:
+    'Resolve a verified quay.io/biocontainers image for a conda package.\n\nUse this to pick the ``container`` of a user-defined tool instead of guessing an image, before the definition is written, as the udt-authoring skill says to do first. The result is read from quay.io\'s tag listing rather than hallucinated, which avoids the most common user-defined-tool failure: inventing a tag, or using a bare image (e.g. "python:3.12-slim") that doesn\'t ship the libraries the tool imports.\n\nArgs:\n    packages: The conda packages the tool wraps, each as "name" or "name=version" (e.g. ["samtools=1.17"]). Use canonical conda names you would `conda install` (e.g. "pandas", "r-ggplot2", "samtools"). A single package yields a single-package image. Several need a mulled-v2 image, which a tag listing cannot resolve: the result then holds no image and a note saying so.\n\nReturns:\n    - image: the resolved quay.io/biocontainers/... reference, or null if none.\n    - found: whether an image was resolved.\n    - match_quality: "exact_version" | "name_only" | "not_found" (name_only means the pinned version has no built tag, or no version was pinned, so the newest built tag was used).\n    - source, notes: provenance and any explanatory notes.\n    - verified: true if the tag is built on quay.io, null if it could not be checked.\n\nNEXT STEPS:\n- If match_quality is "exact_version" and verified is not false, use data["image"] as the "container".\n- If match_quality is "name_only", the newest tag was substituted -- show the user which image you got before using it.\n- If image is null, don\'t guess a tag: tell the user no built image was found for those packages and ask how to proceed.',
   upload_file:
     "Upload a file from the local filesystem to a Galaxy history.\n\nReads the path from the browser's in-memory filesystem, so it pairs with run_python: write a result to a file, then upload it. Sent to Galaxy as pasted content. Use upload_file_from_url to ingest directly from a URL instead.\n\nAn upload is a Galaxy job: the dataset comes back before it is readable. Wait for it to reach 'ok' (check its state with get_dataset_details) before running a tool on it or charting it.",
 };
@@ -268,7 +296,11 @@ function tool(
     run: async (args, ctx) => {
       const value = await run(args, ctx);
       const hint = value instanceof Outcome ? undefined : fetchFailureHint(value);
-      return hint ? new Outcome(`${rendered({ data: value })}\n\n${hint}`) : value;
+      if (!hint) return value;
+      // Wrapped, the result is text the tool runner no longer reads work from, so watch it here,
+      // as the galaxy-ops tools do.
+      ctx.watch.add(watchedFrom(name, value));
+      return new Outcome(`${rendered({ data: value })}\n\n${hint}`);
     },
   };
 }

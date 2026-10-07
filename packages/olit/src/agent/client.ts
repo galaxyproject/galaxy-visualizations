@@ -20,6 +20,11 @@ export class AgentClient {
       }
       listen(data);
     };
+    // A worker that never loads, or dies outside a message, would otherwise leave Send inert.
+    this.worker.onerror = (e) => {
+      e.preventDefault();
+      listen({ type: "failed", message: e.message || "Olit's worker failed to start." });
+    };
   }
 
   private send(message: PageMessage) {
@@ -48,6 +53,11 @@ export class AgentClient {
 
   confirm(id: number, approved: boolean) {
     this.send({ type: "confirmed", id, approved });
+  }
+
+  /** Continue the session whose record is `pageId`, or start a new one. */
+  recover(pageId?: string) {
+    this.send({ type: "recover", ...(pageId ? { pageId } : {}) });
   }
 
   reset() {

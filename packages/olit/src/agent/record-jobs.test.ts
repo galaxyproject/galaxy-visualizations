@@ -30,6 +30,25 @@ describe("applyJobOutcome", () => {
     expect(out).toContain("- [ ] 2. **Sort rows**");
   });
 
+  it("leaves paused or skipped work's step open, and says what happened", () => {
+    const paused = applyJobOutcome(RECORD, {
+      id: "d071e794759ab192",
+      kind: "job",
+      state: "paused",
+      outcome: "paused",
+    });
+    expect(paused).toContain("- [ ] 1. **Filter rows**");
+    expect(paused).toContain("Status: paused, waiting on an input that failed");
+    const skipped = applyJobOutcome(RECORD, {
+      id: "d071e794759ab192",
+      kind: "job",
+      state: "skipped",
+      outcome: "skipped",
+    });
+    expect(skipped).toContain("- [ ] 1. **Filter rows**");
+    expect(skipped).toContain("Status: skipped");
+  });
+
   it("is idempotent — the poller may see the same terminal state repeatedly", () => {
     const once = applyJobOutcome(RECORD, ok("d071e794759ab192"));
     expect(applyJobOutcome(once, ok("d071e794759ab192"))).toBe(once);
@@ -100,16 +119,19 @@ describe("applyJobOutcome", () => {
 });
 
 describe("noteSubmitted", () => {
-  const base = "## Record\n\nSome prose from the agent.\n\n```olit-session\nid: x\n```\n";
+  const base = "## Record\n\nSome prose from the agent.\n";
 
   it("adds a pending entry keyed by the id the shell observed", () => {
     const out = noteSubmitted(base, { id: "417e33144b294c21", kind: "invocation" });
     expect(out).toContain("- [ ] Workflow invocation `417e33144b294c21` — submitted");
   });
 
-  it("keeps the session block last", () => {
+  it("appends after what the agent wrote, separated by a blank line", () => {
     const out = noteSubmitted(base, { id: "417e33144b294c21", kind: "invocation" });
-    expect(out.indexOf("417e33144b294c21")).toBeLessThan(out.indexOf("```olit-session"));
+    expect(out).toBe(
+      "## Record\n\nSome prose from the agent.\n\n" +
+        "- [ ] Workflow invocation `417e33144b294c21` — submitted, awaiting completion\n",
+    );
   });
 
   it("does not duplicate an id the agent already wrote", () => {

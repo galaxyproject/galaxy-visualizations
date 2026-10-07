@@ -25,6 +25,16 @@ export interface JobOutcome {
 
 const SUBMITTED = "submitted, awaiting completion";
 
+/** The status line each outcome leaves in the record. */
+const STAMP: Record<Outcome, (state: string) => string> = {
+  completed: (state) => `finished (${state})`,
+  failed: (state) => `failed (${state})`,
+  cancelled: () => "cancelled",
+  skipped: () => "skipped",
+  paused: () => "paused, waiting on an input that failed",
+  unreadable: (state) => `no longer shown by Galaxy (${state})`,
+};
+
 function unfencedLine(lines: string[], id: string): number {
   let fenced = false;
   return lines.findIndex((l) => {
@@ -51,11 +61,7 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   const at = lineWithId(lines, outcome.id);
   if (at < 0) return content;
 
-  // A cancel names itself; "cancelled (cancelled)" would say it twice.
-  const stamp =
-    outcome.outcome === "cancelled"
-      ? "cancelled"
-      : `${outcome.outcome === "failed" ? "failed" : "finished"} (${outcome.state})`;
+  const stamp = STAMP[outcome.outcome](outcome.state);
   // Already recorded: do not append a second time.
   if (lines[at].includes(stamp)) return content;
   for (let i = at; i < Math.min(at + 4, lines.length); i++) {
@@ -71,9 +77,9 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   ) {
     step = step < at && /^\s*($|#)/.test(lines[step]) ? -1 : step - 1;
   }
-  // A cancelled step is neither verified nor failed, so its marker is left as the agent
-  // wrote it and the status line below is what says the run was stopped.
-  if (step >= 0 && outcome.outcome !== "cancelled") {
+  // Only a completed or failed run settles the step; any other leaves its marker as the agent
+  // wrote it, and the status line below says what happened.
+  if (step >= 0) {
     const marker = lines[step].trimStart();
     if (marker.startsWith(PENDING) && outcome.outcome === "completed") {
       lines[step] = lines[step].replace(PENDING, DONE);
@@ -118,12 +124,7 @@ export function noteSubmitted(
   if (unfencedLine(content.split("\n"), w.id) >= 0) return content;
   const what = WHAT[w.kind];
   const entry = `- [ ] ${what} \`${w.id}\` — ${SUBMITTED}`;
-  const lines = content.split("\n");
-
-  // Keep the session block last; it is the session's own footer.
-  const fence = lines.findIndex((l) => l.trim().startsWith("```olit-session"));
-  const at = fence < 0 ? lines.length : fence;
-  const pad = at > 0 && lines[at - 1].trim() !== "" ? ["", entry, ""] : [entry, ""];
-  lines.splice(at, 0, ...pad);
-  return lines.join("\n");
+  const lines = content.replace(/\n+$/, "").split("\n");
+  const pad = lines.length && lines.at(-1)!.trim() !== "" ? ["", entry, ""] : [entry, ""];
+  return [...lines, ...pad].join("\n");
 }

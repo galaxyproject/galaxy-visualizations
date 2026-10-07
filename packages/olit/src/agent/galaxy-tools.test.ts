@@ -200,6 +200,8 @@ describe("dataset filesystem", () => {
           return {
             id: "d",
             state,
+            // Galaxy's tabular datatypes, and only they, carry column metadata.
+            ...(chunkable ? { metadata_column_types: ["str", "int"] } : {}),
             ...(details ?? {}),
             ...(size === undefined ? {} : { file_size: size }),
           };
@@ -312,9 +314,14 @@ describe("dataset filesystem", () => {
     }
   });
 
-  it("refuses an unchunkable oversized dataset", async () => {
-    const d = dataset(BINARY, { size: MAX_DOWNLOAD_BYTES + 1, chunkable: false });
-    expect(refused(await d.download("bigbam"))).toContain("cannot be read in chunks");
+  it("refuses an oversized dataset Galaxy cannot serve in parts, before fetching any of it", async () => {
+    const d = dataset(BINARY, {
+      size: MAX_DOWNLOAD_BYTES + 1,
+      chunkable: false,
+      details: { extension: "bam" },
+    });
+    expect(refused(await d.download("bigbam"))).toContain('cannot serve "bam" data in parts');
+    expect(d.fetched.some((path) => path.includes("display"))).toBe(false);
   });
 
   it("still downloads a dataset at the limit", async () => {

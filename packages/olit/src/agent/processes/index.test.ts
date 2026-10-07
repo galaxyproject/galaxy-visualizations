@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Outcome, type Context, type OlitTool } from "../tool";
-import { ARTIFACT_HINT, PROCESSES, processTools, type Process } from "./index";
+import { PANE_ONLY_HINT, PROCESSES, processTools, type Process } from "./index";
 
 function context(galaxy: Record<string, unknown> = {}) {
   return { galaxy, artifacts: { prior: [], produced: [] } } as unknown as Context;
@@ -180,7 +180,7 @@ describe("lineage_report as a tool", () => {
       "api/histories/h1/graph?seed_src=hda&seed_id=d1&direction=backward&depth=4&limit=200",
     ]);
     expect(out.artifact).toEqual({ kind: "mermaid", title: "Dataset lineage" });
-    expect(out.hint).toBe(ARTIFACT_HINT);
+    expect(out.hint).toBe(PANE_ONLY_HINT);
     expect(out.ok).toBe(true);
     expect(ctx.artifacts.produced[0]).toMatchObject({ kind: "mermaid" });
     expect((ctx.artifacts.produced[0] as { diagram: string }).diagram).toContain('hda_d1["*out"]');

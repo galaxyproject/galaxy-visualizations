@@ -6,6 +6,7 @@ import {
   excerpt,
   HEAD_MAX_CHARS,
   notebookTools,
+  recordsOn,
   resume,
   slugForSession,
   TAIL_MAX_CHARS,
@@ -228,7 +229,7 @@ describe("excerpt", () => {
     expect(asked.get("order")).toBe("hid-dsc");
   });
 
-  it("keeps the binding block when the history cannot be listed", async () => {
+  it("says the history could not be listed, rather than showing no datasets", async () => {
     const g = fakeGalaxy([], async (path) => {
       if (path.includes("contents")) {
         throw new Error("galaxy said no");
@@ -237,7 +238,17 @@ describe("excerpt", () => {
     });
     const out = await excerpt(g.galaxy, "p1", "h1");
     expect(out).toContain("## Galaxy binding");
-    expect(out).not.toContain("## Datasets in this history");
+    expect(out).toContain("could not be listed this turn (galaxy said no)");
+  });
+
+  it("says the record could not be read, rather than leaving it out as if empty", async () => {
+    const g = fakeGalaxy([], async (path) => {
+      if (path.includes("/p1")) throw new Error("HTTP 502");
+      return [];
+    });
+    const out = await excerpt(g.galaxy, "p1", "h1");
+    expect(out).toContain("Page `p1` could not be read this turn (HTTP 502)");
+    expect(out).toContain("It is not empty");
   });
 });
 
@@ -264,5 +275,33 @@ describe("page identity", () => {
     const other = "9a8b7c6d-0000-4000-8000-111122223333";
     expect(titleForSession(SESSION)).not.toBe(titleForSession(other));
     expect(slugForSession(SESSION)).not.toBe(slugForSession(other));
+  });
+});
+
+describe("a session's record and the history it was started on", () => {
+  it("attaches a new record to the session's history, so the session can be found again", async () => {
+    const g = fakeGalaxy();
+    await resume(g.galaxy, "sess-1", undefined, "h1");
+    const [path, body] = g.posted[0];
+    expect(path).toBe("api/pages");
+    expect(body).toMatchObject({ slug: "olit-sess-1", history_id: "h1" });
+  });
+
+  it("lists the Olit records attached to a history, by the session each belongs to", async () => {
+    const g = fakeGalaxy([], async (path) =>
+      path === "api/pages?history_id=h1"
+        ? [
+            { id: "p1", slug: "olit-a", title: "A", create_time: "1", update_time: "2026-10-01" },
+            { id: "p2", slug: "olit-b", title: "B", create_time: "1", update_time: "2026-10-03" },
+            { id: "p3", slug: "results", title: "Not Olit's", update_time: "2026-10-04" },
+            { id: "p4", slug: "olit-c", title: "Gone", deleted: true },
+          ]
+        : [],
+    );
+    const records = await recordsOn(g.galaxy, "h1");
+    expect(records.map((r) => [r.pageId, r.sessionId])).toEqual([
+      ["p2", "b"],
+      ["p1", "a"],
+    ]);
   });
 });

@@ -2,8 +2,9 @@
 const { chromium } = require("playwright");
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = process.env.STUB_URL || "http://127.0.0.1:8099";
-const HISTORY = "e2ehistory0002";
-const URL = `${APP}?history_id=${HISTORY}`;
+// Galaxy launches Olit on a dataset; the history is the one holding it.
+const DATASET = "e2edataset0002";
+const URL = `${APP}?dataset_id=${DATASET}`;
 
 let failed = 0;
 function check(name, ok, detail) {

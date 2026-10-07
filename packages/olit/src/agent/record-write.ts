@@ -38,7 +38,8 @@ export interface RecordTarget {
 }
 
 /**
- * Apply `edit` to the record's current content and write the result back.
+ * Apply `edit` to the record's current content and write the result back. Resolves to why the
+ * record could not be updated, or undefined once it holds the edit (or there is no record yet).
  *
  * `edit` must be pure and idempotent: it is re-run against fresh content on every attempt,
  * and returning the input unchanged means "nothing to do" rather than "write this". It is
@@ -47,12 +48,13 @@ export interface RecordTarget {
 export function editRecord(
   { galaxy, pageId }: RecordTarget,
   edit: (content: string, recordId: string) => string,
-): Promise<boolean> {
+): Promise<string | undefined> {
   return serialized(async () => {
     if (!pageId) {
-      return false;
+      return undefined;
     }
     const path = `api/pages/${segment(pageId)}`;
+    let last = "";
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       let before: string;
       try {
@@ -60,23 +62,23 @@ export function editRecord(
       } catch (e) {
         // A page Galaxy refuses to show is not one a retry will find.
         if (e instanceof HttpError) {
-          return false;
+          return `Galaxy would not show record page ${pageId} (${e.message})`;
         }
-        console.warn("[olit] record read failed", e);
+        last = String((e as Error)?.message ?? e);
         continue;
       }
       const after = edit(before, pageId);
       if (after === before) {
-        return true;
+        return undefined;
       }
       try {
         await galaxy.put(path, { content: after, edit_source: "agent" });
-        return true;
+        return undefined;
       } catch (e) {
         // A rejected write is re-read and reapplied rather than resent as it stands.
-        console.warn("[olit] record write failed", e);
+        last = String((e as Error)?.message ?? e);
       }
     }
-    return false;
+    return `record page ${pageId} could not be written (${last})`;
   });
 }

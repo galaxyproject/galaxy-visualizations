@@ -4,6 +4,12 @@ import type { Artifact } from "../artifacts/kinds";
 import { resolveArtifacts } from "./artifacts";
 
 const VEGA: Artifact = { kind: "vega-lite", title: "Glucose by BMI", spec: { mark: "point" } };
+const READS: Artifact = {
+  kind: "visualization",
+  title: "Reads",
+  visualization: "igv",
+  dataset_id: "d1",
+};
 const LINEAGE: Artifact = {
   kind: "mermaid",
   title: "Dataset lineage",
@@ -19,24 +25,30 @@ describe("resolving tokens", () => {
   });
 
   it("takes the most recent artifact for a bare token", () => {
-    const { text } = resolveArtifacts("{{artifact}}", [VEGA, LINEAGE]);
-    expect((text as string).startsWith("```mermaid")).toBe(true);
+    const { text } = resolveArtifacts("{{artifact}}", [VEGA, READS]);
+    expect((text as string).startsWith("```visualization")).toBe(true);
   });
 
   it("takes the one a titled token names", () => {
-    const { text } = resolveArtifacts("{{artifact: Glucose by BMI}}", [VEGA, LINEAGE]);
+    const { text } = resolveArtifacts("{{artifact: Glucose by BMI}}", [VEGA, READS]);
     expect((text as string).startsWith("```vega")).toBe(true);
   });
 
   it("resolves several tokens in one write", () => {
     const { text, refusal } = resolveArtifacts(
-      "{{artifact: Dataset lineage}}\n{{artifact: Glucose by BMI}}",
-      [VEGA, LINEAGE],
+      "{{artifact: Reads}}\n{{artifact: Glucose by BMI}}",
+      [VEGA, READS],
     );
     expect(refusal).toBeNull();
-    expect((text as string).indexOf("```mermaid")).toBeLessThan(
+    expect((text as string).indexOf("```visualization")).toBeLessThan(
       (text as string).indexOf("```vega"),
     );
+  });
+
+  it("refuses a diagram Galaxy pages cannot render, leaving the token", () => {
+    const { text, refusal } = resolveArtifacts("{{artifact: Dataset lineage}}", [VEGA, LINEAGE]);
+    expect(text).toBe("{{artifact: Dataset lineage}}");
+    expect(refusal).toContain("cannot render");
   });
 
   it("refuses an unknown title and names what there is", () => {

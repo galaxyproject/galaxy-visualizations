@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ChatPanel } from "./orbit/chat/chat-panel";
+import { settlePlanDrafts } from "./plan-drafts";
 
 const BODY = "## Plan A: chrM Variant Calling [galaxy]\n\n- [ ] 1. **QC**";
 
@@ -79,5 +80,21 @@ describe("plan draft card", () => {
     expect(card.classList.contains("approved")).toBe(false);
     expect(card.classList.contains("rejected")).toBe(false);
     expect(el.querySelector<HTMLButtonElement>(".plan-draft-approve")!.disabled).toBe(false);
+  });
+
+  it("settles an open draft once the user writes again, so a restored one cannot approve another", () => {
+    const el = document.createElement("div");
+    el.innerHTML =
+      `<div class="plan-draft-card approved"><button class="plan-btn">Approve</button></div>` +
+      `<div class="plan-draft-card" data-plan-draft-body="x">` +
+      `<div class="plan-draft-card-header">Plan draft — awaiting your approval</div>` +
+      `<button type="button" class="plan-btn plan-draft-approve">Approve</button></div>`;
+    settlePlanDrafts(el);
+    const cards = el.querySelectorAll<HTMLElement>(".plan-draft-card");
+    const approved = cards[0];
+    const open = cards[1];
+    expect(approved.classList.contains("answered")).toBe(false);
+    expect(open.classList.contains("answered")).toBe(true);
+    expect(open.querySelector<HTMLButtonElement>(".plan-draft-approve")!.disabled).toBe(true);
   });
 });

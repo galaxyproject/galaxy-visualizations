@@ -7,7 +7,7 @@ const playwright = require("playwright");
 const BROWSER = process.env.BROWSER || "chromium";
 const OUT = process.env.OUT || "/tmp";
 const STUB = "http://127.0.0.1:8099";
-const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?history_id=h1`;
+const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?dataset_id=d1`;
 const KEY = "sk-e2e-canary";
 
 const results = [];

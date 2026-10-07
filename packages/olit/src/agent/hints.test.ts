@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { Galaxy } from "./galaxy";
-import { catalogMissHint, fetchFailureHint, iwcCandidatesHint } from "./hints";
+import {
+  catalogMissHint,
+  fetchFailureHint,
+  invocationOutcomeHint,
+  iwcCandidatesHint,
+} from "./hints";
 
 const ENA_FAILURE = {
   id: "d1",
@@ -128,5 +133,70 @@ describe("iwcCandidatesHint", () => {
       iwcCandidatesHint("recommend_iwc_workflows"),
     );
     expect(iwcCandidatesHint("get_iwc_workflow_details")).toBeUndefined();
+  });
+});
+
+describe("invocationOutcomeHint", () => {
+  /** Galaxy answering jobs_summary from `summaries`, by invocation id. */
+  function jobs(summaries: Record<string, Record<string, number>>) {
+    const asked: string[] = [];
+    const galaxy = {
+      get: async (path: string) => {
+        asked.push(path);
+        const id = path.match(/^api\/invocations\/([^/]+)\/jobs_summary$/)?.[1];
+        return id && summaries[id] ? { states: summaries[id] } : {};
+      },
+    } as unknown as Galaxy;
+    return { galaxy, asked };
+  }
+
+  it("names a listed invocation whose jobs failed while Galaxy reads it as scheduled", async () => {
+    const { galaxy } = jobs({ i1: { error: 1, ok: 2 }, i2: { ok: 3 } });
+    const hint = await invocationOutcomeHint(galaxy, "get_invocations", [
+      { id: "i1", state: "scheduled" },
+      { id: "i2", state: "completed" },
+    ]);
+    expect(hint).toContain('Invocation i1: outcome "failed"');
+    expect(hint).toContain("get_job_details");
+    expect(hint).not.toContain("i2");
+  });
+
+  it("says nothing of a listing whose jobs agree with Galaxy", async () => {
+    const { galaxy } = jobs({ i2: { ok: 3 } });
+    expect(
+      await invocationOutcomeHint(galaxy, "get_invocations", [{ id: "i2", state: "completed" }]),
+    ).toBeUndefined();
+  });
+
+  it("rolls up no more of a listing than galaxy-ops' page, and says which it left unchecked", async () => {
+    const summaries = Object.fromEntries(
+      Array.from({ length: 20 }, (_, i) => [`i${i}`, { ok: 1 }]),
+    );
+    const { galaxy, asked } = jobs(summaries);
+    const listed = Array.from({ length: 25 }, (_, i) => ({ id: `i${i}`, state: "completed" }));
+    const hint = await invocationOutcomeHint(galaxy, "get_invocations", listed);
+    expect(asked).toHaveLength(20);
+    expect(hint).toContain("the 5 listed after the first 20");
+  });
+
+  it("says which invocations' jobs could not be read", async () => {
+    const { galaxy } = jobs({ i2: { ok: 1 } });
+    const hint = await invocationOutcomeHint(galaxy, "get_invocations", [
+      { id: "i1", state: "scheduled" },
+      { id: "i2", state: "completed" },
+    ]);
+    expect(hint).toContain("i1 (their jobs could not be read)");
+  });
+
+  it("adds the note to an invocation read by id, whose outcome galaxy-ops gives", async () => {
+    const { galaxy, asked } = jobs({});
+    const one = { id: "i1", state: "scheduled", outcome: "failing" };
+    expect(await invocationOutcomeHint(galaxy, "get_invocations", one)).toContain("not over");
+    expect(asked).toEqual([]);
+  });
+
+  it("leaves other tools alone", async () => {
+    const { galaxy } = jobs({});
+    expect(await invocationOutcomeHint(galaxy, "get_histories", [{ id: "h1" }])).toBeUndefined();
   });
 });

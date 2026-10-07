@@ -18,19 +18,25 @@ export type { Artifact } from "../artifacts/kinds";
 
 export type Capability = "llm" | "local" | "read" | "write";
 
-/** Every guard that can refuse a call or end a turn. */
-export const GUARDS = [
-  "capability",
-  "destructive-declined",
-  "galaxy-poll",
-  "malformed-object-id",
-  "process-refusal",
-  "repeated-failure",
-  "settled-question",
-  "sra-fan-out",
-] as const;
+/**
+ * Every guard that can refuse a call or end a turn, and whether its refusal counts as a failure
+ * of the call's arguments: one refused before the call ran, or declined by the user, says nothing
+ * about them, so it must not bring on the repeated-failure guard.
+ */
+export const GUARD_COUNTS_AS_FAILURE = {
+  capability: true,
+  "destructive-declined": false,
+  "galaxy-poll": false,
+  "malformed-object-id": true,
+  "process-refusal": true,
+  "repeated-failure": false,
+  "settled-question": false,
+  "sra-fan-out": false,
+} as const;
 
-export type Guard = (typeof GUARDS)[number];
+export type Guard = keyof typeof GUARD_COUNTS_AS_FAILURE;
+
+export const GUARDS = Object.keys(GUARD_COUNTS_AS_FAILURE) as Guard[];
 
 /** What a tool reports when the plain result is not the whole story. */
 export class Outcome {

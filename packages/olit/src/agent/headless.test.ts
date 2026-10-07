@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Binding } from "./documents";
 import { Headless, type HeadlessConfig } from "./headless";
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./markers";
+import { pageContentProblem } from "./page-edit";
 import { serialized } from "./record-write";
 import { context } from "./runtime";
 import type { Python } from "./tool";
@@ -213,6 +214,14 @@ describe("a turn", () => {
     expect(contentText(refused.content).startsWith("Refused:")).toBe(true);
   });
 
+  it("asks about a destructive call each time, never refusing it as a repeated failure", async () => {
+    const cancel = {
+      calls: [{ name: "cancel_workflow_invocation", args: { invocation_id: "i1" } }],
+    };
+    const { result } = await turn([cancel, cancel, cancel, cancel, { text: "ok" }]);
+    expect(results(result.entries).map(guardOf)).toEqual(Array(4).fill("destructive-declined"));
+  });
+
   it("names an Olit tool asked for as a Galaxy tool, rather than letting Galaxy shrug", async () => {
     const { result } = await turn([
       {
@@ -325,6 +334,19 @@ describe("a turn", () => {
     expect(asked(result.entries)).toEqual(["hi", EMPTY_REPLY]);
   });
 
+  it("asks again after a later empty reply once a tool call came between", async () => {
+    const call = { calls: [{ name: "get_history_details", args: { history_id: "h1" } }] };
+    const { result } = await turn([{ text: "" }, call, { text: "" }, { text: "The answer." }]);
+    expect(answers(result.entries).at(-1)).toBe("The answer.");
+    expect(asked(result.entries)).toEqual(["hi", EMPTY_REPLY, EMPTY_REPLY]);
+  });
+
+  it("ends the turn on a second empty reply in a row", async () => {
+    const { result } = await turn([{ text: "" }, { text: "" }, { text: "unused" }]);
+    expect(asked(result.entries)).toEqual(["hi", EMPTY_REPLY]);
+    expect(answers(result.entries)).not.toContain("unused");
+  });
+
   it("sends max_tokens only when one is configured", async () => {
     const unset = await turn([{ text: "ok" }]);
     expect(unset.requests[0]).not.toHaveProperty("max_tokens");
@@ -343,11 +365,75 @@ describe("a turn", () => {
   });
 });
 
+describe("a restart, as a browser with nothing stored does it", () => {
+  const RECORD = {
+    id: "p7",
+    slug: "olit-sess-7",
+    title: "Olit Notebook (sess-7)",
+    create_time: "2026-10-01T09:00:00",
+    update_time: "2026-10-02T09:00:00",
+  };
+
+  async function launched(pages: unknown[]) {
+    server([{ text: "ok" }], { "api/pages": pages });
+    const session = await open({ history_id: "h1", dataset_id: "d1" });
+    await session.runtime.harness.commit(async (tx) => {
+      Object.assign(await tx.doc(Binding, session.conversation.id), { pageId: "p1" });
+    }, context);
+    return session;
+  }
+
+  it("starts a new session at once, as Reset does, when the history has no records", async () => {
+    const session = await launched([]);
+    const before = await bound(session);
+    expect(await session.restart()).toEqual([]);
+    const after = await bound(session);
+    expect(after).toMatchObject({ historyId: "h1", datasetId: "d1" });
+    expect(after?.pageId).toBeUndefined();
+    expect(after?.sessionId).not.toBe(before?.sessionId);
+  });
+
+  it("offers the history's records and starts nothing until told which session this is", async () => {
+    const session = await launched([RECORD, { id: "p9", slug: "not-olit", title: "Mine" }]);
+    const before = session.conversation.id;
+    const offered = await session.restart();
+    expect(offered.map((r) => r.pageId)).toEqual(["p7"]);
+    expect(session.conversation.id).toBe(before);
+    await session.recover("p7");
+    expect(session.conversation.id).not.toBe(before);
+    // The session's identity and record come back; its conversation does not.
+    expect(await bound(session)).toMatchObject({
+      sessionId: "sess-7",
+      pageId: "p7",
+      historyId: "h1",
+      startedAt: "2026-10-01T09:00:00",
+    });
+    expect((await session.conversation.context(context)).entries).toEqual([]);
+  });
+
+  it("starts new when told so, even with records on offer", async () => {
+    const session = await launched([RECORD]);
+    await session.restart();
+    await session.recover();
+    expect((await bound(session))?.sessionId).not.toBe("sess-7");
+    expect((await bound(session))?.pageId).toBeUndefined();
+  });
+});
+
 describe("the history a conversation is bound to", () => {
-  it("moves to a history the agent creates", async () => {
+  it("stays on the history it was launched on when the agent creates another", async () => {
     const { session } = await turn(
       [{ calls: [{ name: "create_history", args: { history_name: "x" } }] }, { text: "ok" }],
       { history_id: "h1" },
+      { "api/histories": { id: "hnew", name: "x", model_class: "History" } },
+    );
+    expect((await bound(session))?.historyId).toBe("h1");
+  });
+
+  it("takes the first history the agent creates when it was launched on none", async () => {
+    const { session } = await turn(
+      [{ calls: [{ name: "create_history", args: { history_name: "x" } }] }, { text: "ok" }],
+      {},
       { "api/histories": { id: "hnew", name: "x", model_class: "History" } },
     );
     expect((await bound(session))?.historyId).toBe("hnew");
@@ -414,7 +500,7 @@ describe("the record and the work the conversation watches", () => {
 
   const runTool = { name: "run_tool", args: { history_id: "h1", tool_id: "cat1", inputs: {} } };
 
-  it("notes submitted work and its own session block", async () => {
+  it("notes submitted work as page content Galaxy renders", async () => {
     const { page, session } = await recorded(
       [{ calls: [runTool] }, { text: "ok" }],
       { state: "queued" },
@@ -424,7 +510,7 @@ describe("the record and the work the conversation watches", () => {
     await vi.waitFor(() =>
       expect(page.content).toContain("- [ ] Galaxy job `j1` — submitted, awaiting completion"),
     );
-    expect(page.content).toMatch(/```olit-session\nid: s1\nstarted_at: 2026-01-01\n/);
+    expect(pageContentProblem(page.content)).toBeUndefined();
   });
 
   it("marks the step done when the work settles, and follows up in a run of its own", async () => {

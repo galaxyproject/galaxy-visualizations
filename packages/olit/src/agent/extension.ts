@@ -23,6 +23,7 @@ import { EMPTY_REPLY } from "./markers";
 import { excerpt } from "./notebook";
 import {
   durableTool,
+  GUARD_COUNTS_AS_FAILURE,
   traitsOf,
   type Artifact,
   type Capability,
@@ -34,14 +35,6 @@ import type { Watched } from "./watch";
 
 export const MAX_STEPS = 100;
 export const DEFAULT_CAPABILITIES: Capability[] = ["llm", "local", "read", "write"];
-
-/** Guards that refuse before a call runs, so its failure says nothing about its arguments. */
-const PRE_DISPATCH = new Set<Guard>([
-  "repeated-failure",
-  "settled-question",
-  "galaxy-poll",
-  "sra-fan-out",
-]);
 
 export interface OlitHost {
   galaxy: Galaxy;
@@ -61,12 +54,12 @@ export interface OlitHost {
   watch: Task<Watched, any, any, object>;
 }
 
-/** What Olit remembers of one run: the guards' counts, the empty-answer retry, the record excerpt. */
+/** What Olit remembers of one run: the guards' counts and the empty-answer retry. */
 interface Run {
   id: SubmissionId | undefined;
   guard: ReturnType<typeof guards>;
+  /** Whether the last empty answer was already asked again; a tool call since clears it. */
   retried: boolean;
-  excerpt?: Promise<string>;
 }
 
 const finish = defineTool({
@@ -152,7 +145,7 @@ export function olitExtension(host: OlitHost) {
       out = replaced(result, blockedReason(result), run.guard.guardOf(call.id));
     }
     const guard = (out.details as { guard?: Guard } | undefined)?.guard;
-    if (out.isError && !(guard && PRE_DISPATCH.has(guard))) {
+    if (out.isError && (!guard || GUARD_COUNTS_AS_FAILURE[guard])) {
       run.guard.noteFailure(call.name, call.id);
     }
     const screened = run.guard.screened(contentText(out.content ?? []));
@@ -181,18 +174,19 @@ export function olitExtension(host: OlitHost) {
     hooks: [
       hook(GenerationTask, {
         beforeRequest: async (request, api, context) => {
-          const run = await runOf(api, api.conversationId, context);
-          run.excerpt ??= api
-            .snapshot(Binding, api.conversationId, context)
-            .then((b) => excerpt(host.galaxy, b?.pageId, b?.historyId))
-            .catch(() => "");
-          return { messages: withRecord(request.messages, await run.excerpt) };
+          // Read for every request, as loom's context hook does: a run's own writes change both.
+          const bound = await api.snapshot(Binding, api.conversationId, context);
+          const text = await excerpt(host.galaxy, bound?.pageId, bound?.historyId);
+          return { messages: withRecord(request.messages, text) };
         },
         afterResponse: async (message, api, context) => {
           const calls = message.content.flatMap((c) =>
             c.type === "toolCall" ? [{ id: c.id, name: c.name, arguments: c.arguments }] : [],
           );
-          if (calls.length) (await runOf(api, api.conversationId, context)).guard.observe(calls);
+          if (!calls.length) return;
+          const run = await runOf(api, api.conversationId, context);
+          run.guard.observe(calls);
+          run.retried = false;
         },
         onYield: async (answer, api, context) => {
           const run = await runOf(api, api.conversationId, context);

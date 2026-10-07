@@ -6,6 +6,9 @@ const path = require("path");
 const ROOT = path.join(__dirname, "..");
 // Where Galaxy serves a visualization plugin from, and the host page it renders.
 const PLUGIN_HREF = "/static/plugins/visualizations/olit/static";
+// The history a dataset lives in, as Galaxy reports it on the dataset: drives choose a history
+// by the dataset they launch on, `d1` and the dev default living in `h1`.
+const historyOf = (datasetId) => (["d1", "__test__"].includes(datasetId) ? "h1" : `h-${datasetId}`);
 // A plugin the artifact pane mounts, declaring its own entry point as Galaxy's plugin API does.
 const NGL_HREF = "/static/plugins/visualizations/ngl/static";
 const NGL = {
@@ -37,7 +40,21 @@ const TYPES = {
     ".md": "text/markdown",
 };
 
-let script = "confirm";     // confirm | slow | slow-once | compact | ratelimit | plan | plan-after-graph
+let script = "confirm";
+// Saved visualizations as Galaxy keeps them: each a type, a title and its latest revision's config.
+const visualizations = new Map();
+const visualizationWrites = [];
+// One tool run's job, as Galaxy reports it; a drive finishes it through /__job.
+let jobState = "queued";
+// Pages as Galaxy keeps them: a page may be attached to a history (a history notebook) and listed by it.
+const pages = new Map();
+// The cell types Galaxy's page parser renders; its server refuses any other ``` fence.
+const PAGE_CELLS = ["galaxy", "markdown", "vega", "visualization", "vitessce"];
+const badFence = (content) =>
+    String(content || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .find((line) => line.startsWith("```") && line.length > 3 && !PAGE_CELLS.includes(line.slice(3)));     // confirm | slow | slow-once | compact | ratelimit | plan | plan-after-graph
 let galaxyUp = true;        // /api/version answers, which is what the agent probes for reachability
 let rateLimited = 0;
 let calls = 0;
@@ -215,18 +232,23 @@ const escapeAttr = (text) =>
 
 // What VisualizationFrame.vue builds in the browser, rendered here instead: the same
 // data-incoming, the same plugin href, so a built app resolves Pyodide the way it does
-// in a deployment rather than from the dev server.
+// in a deployment rather than from the dev server. VisualizationDisplay.vue hands a plugin
+// opened on a dataset `{ dataset_id }` and nothing else: no history, and a title only for a
+// saved visualization.
 function hostPage(url) {
     const params = new URL(url, "http://127.0.0.1:8099").searchParams;
+    const datasetId = params.get("dataset_id");
+    // A saved one opens on its latest revision's config, with its id for the owner (u1).
+    const saved = visualizations.get(params.get("visualization_id"));
     const incoming = {
         root: "http://127.0.0.1:8099/",
-        visualization_config: {
-            dataset_id: params.get("dataset_id") || undefined,
-            history_id: params.get("history_id") || undefined,
-            settings: {},
-        },
+        visualization_config: saved
+            ? saved.latest_revision.config
+            : datasetId
+              ? { dataset_id: datasetId }
+              : {},
         visualization_plugin: pluginDict(),
-        visualization_title: "AI Research Assistant",
+        ...(saved ? { visualization_id: saved.id, visualization_title: saved.title } : {}),
     };
     if (params.get("frame")) {
         // As Galaxy's VisualizationFrame.vue mounts a plugin: it asks the plugin API for the
@@ -295,6 +317,12 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { prompts: 0 });
     }
     if (url.startsWith("/__seen")) return json(res, 200, { seen, calls, prompts, cookies });
+    if (url.startsWith("/__job")) {
+        jobState = new URL(url, "http://x").searchParams.get("state") || jobState;
+        return json(res, 200, { jobState });
+    }
+    if (url.startsWith("/__pages")) return json(res, 200, { pages: [...pages.values()] });
+    if (url.startsWith("/__visualizations")) return json(res, 200, { visualizations: [...visualizations.values()], writes: visualizationWrites });
     if (url.startsWith("/__public")) return json(res, 200, { public: true });
 
     if (url.startsWith(`${NGL_HREF}/${NGL.entry_point.attr.src}`)) {
@@ -326,6 +354,8 @@ const server = http.createServer(async (req, res) => {
             roles: (body.messages || []).map((m) => m.role),
             toolResults: (body.messages || []).filter((m) => m.role === "tool").map((m) => String(m.content)),
             text: JSON.stringify(body.messages || []).slice(0, 4000),
+            // The record excerpt rides just before the last user message, past where `text` stops.
+            tail: JSON.stringify(body.messages || []).slice(-6000),
             authorization: req.headers.authorization || null,
         });
         const answer = (completion) => (body.stream ? sse(res, completion) : json(res, 200, completion));
@@ -420,6 +450,20 @@ const server = http.createServer(async (req, res) => {
                 ? message("The structure is open in the viewer.")
                 : message("", createVisualization));
         }
+        if (script === "plain") return answer(message("Noted."));
+        if (script === "reset-watch") {
+            // Open the record, run a tool, then say so; anything asked after that is a follow-up.
+            const tools = (body.messages || []).filter((m) => m.role === "tool").length;
+            const call = (name, args) => [{ id: `call_${tools}`, type: "function", function: { name, arguments: JSON.stringify(args) } }];
+            if (tools === 0) return answer(message("", call("notebook_resume", {})));
+            if (tools === 1) return answer(message("", call("run_tool", { history_id: "h-dreset", tool_id: "cat1", inputs: {} })));
+            return answer(message("Submitted."));
+        }
+        if (script === "record") {
+            return answer(last.role === "tool"
+                ? message("Noted in the record.")
+                : message("", [{ id: "call_1", type: "function", function: { name: "notebook_resume", arguments: "{}" } }]));
+        }
         return answer(last.role === "tool" ? message("Done.") : message("", deleteHistory));
     }
 
@@ -432,13 +476,94 @@ const server = http.createServer(async (req, res) => {
     if (url.includes("/api/plugins")) return json(res, 200, [{ name: "ngl", settings: [], tracks: [] }]);
     if (url.includes("/api/datatypes/")) return json(res, 200, [{ visualization: "ngl" }]);
     if (url.includes("/api/users/current")) {
-        return json(res, 200, /galaxysession=/.test(req.headers.cookie || "") ? { username: "e2e-user" } : {});
+        // Galaxy answers a signed-in user with its id; an anonymous one has none.
+        return json(res, 200, /galaxysession=/.test(req.headers.cookie || "") ? { id: "u1", username: "e2e-user" } : {});
     }
     if (url.includes("/api/datasets/")) {
-        return json(res, 200, { id: "d1", name: "peptide.pdb", extension: "pdb" });
+        const id = decodeURIComponent(url.split("/api/datasets/")[1].split(/[/?]/)[0]);
+        return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", history_id: historyOf(id) });
     }
-    if (url.includes("/api/visualizations")) return json(res, 200, { id: "v1" });
+    // A tool run as Galaxy's POST /api/tools answers it: the queued job and the output it will write.
+    if (url.startsWith("/api/tools") && req.method === "POST") {
+        req.resume();
+        return json(res, 200, {
+            outputs: [{ id: "oreset1", name: "out_file1", state: "queued" }],
+            jobs: [{ id: "jreset1", state: "queued", tool_id: "cat1" }],
+        });
+    }
+    if (url.startsWith("/api/jobs/jreset1")) return json(res, 200, { id: "jreset1", state: jobState });
+    if (url.startsWith("/api/pages")) {
+        const [path, search] = url.split("?");
+        const id = path.split("/")[3];
+        if (req.method === "GET" && !id) {
+            const history = new URLSearchParams(search || "").get("history_id");
+            const listed = [...pages.values()].filter((p) => !history || p.history_id === history);
+            return json(res, 200, listed.map(({ content, content_editor, ...summary }) => summary));
+        }
+        if (req.method === "GET") {
+            const found = pages.get(id);
+            return found ? json(res, 200, found) : json(res, 404, { err_msg: "Page not found" });
+        }
+        const body = await new Promise((resolve) => {
+            let raw = "";
+            req.on("data", (c) => (raw += c));
+            req.on("end", () => resolve(raw ? JSON.parse(raw) : {}));
+        });
+        const fence = badFence(body.content);
+        if (fence) return json(res, 400, { err_msg: `Unsupported fenced block type [${fence.slice(3)}].` });
+        const now = new Date().toISOString();
+        if (req.method === "POST") {
+            const created = `p${pages.size + 1}`;
+            pages.set(created, {
+                id: created,
+                slug: body.slug,
+                title: body.title,
+                history_id: body.history_id ?? null,
+                content: body.content,
+                content_editor: body.content,
+                create_time: now,
+                update_time: now,
+                deleted: false,
+            });
+            return json(res, 200, pages.get(created));
+        }
+        const found = pages.get(id);
+        if (!found) return json(res, 404, { err_msg: "Page not found" });
+        Object.assign(found, { content: body.content, content_editor: body.content, update_time: now });
+        return json(res, 200, found);
+    }
+    if (url.startsWith("/api/visualizations")) {
+        const id = url.split("?")[0].split("/")[3];
+        if (req.method === "GET") {
+            if (!id) return json(res, 200, [...visualizations.values()]);
+            const found = visualizations.get(id);
+            return found ? json(res, 200, found) : json(res, 404, { err_msg: "Visualization not found" });
+        }
+        const body = await new Promise((resolve) => {
+            let raw = "";
+            req.on("data", (c) => (raw += c));
+            req.on("end", () => resolve(raw ? JSON.parse(raw) : {}));
+        });
+        visualizationWrites.push(`${req.method} ${id || ""}`.trim());
+        if (req.method === "POST") {
+            const created = `v${visualizations.size + 1}`;
+            visualizations.set(created, {
+                id: created,
+                type: body.type,
+                title: body.title,
+                user_id: "u1",
+                latest_revision: { config: body.config, title: body.title },
+            });
+            return json(res, 200, { id: created });
+        }
+        const found = visualizations.get(id);
+        if (!found) return json(res, 404, { err_msg: "Visualization not found" });
+        found.title = body.title || found.title;
+        found.latest_revision = { config: body.config || found.latest_revision.config, title: found.title };
+        return json(res, 200, { id });
+    }
     if (url.includes("/api/histories")) return json(res, 200, { id: "h1", name: "stub" });
+    if (url.startsWith("/history/current_history_json")) return json(res, 200, { id: "h1", name: "stub" });
     return json(res, 200, {});
 });
 

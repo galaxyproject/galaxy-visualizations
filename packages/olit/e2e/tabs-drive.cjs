@@ -1,7 +1,7 @@
 // One tab holds a conversation at a time. A second tab says the conversation is open elsewhere,
 // takes it over when asked, and keeps it in the browser's files; the first tab says it lost it.
 const { chromium } = require("playwright");
-const APP = (process.env.APP_URL || "http://localhost:5173/") + "?history_id=e2etabs0001";
+const APP = (process.env.APP_URL || "http://localhost:5173/") + "?dataset_id=e2etabs0001";
 const STUB = "http://127.0.0.1:8099";
 
 const results = [];
@@ -32,13 +32,13 @@ const shows = (page, pattern, ms = 120000) =>
 
     const second = await context.newPage();
     await second.goto(APP, { waitUntil: "domcontentloaded" });
-    check("the second tab says the conversation is open elsewhere", await shows(second, /open on this conversation in another tab/));
+    check("the second tab says the conversation is open elsewhere", await shows(second, /open in another tab/));
 
     await second.click("text=Use it here");
     check("it takes the conversation over", await shows(second, /olit ready/));
     check("with the conversation it took", /remember this/.test(await second.evaluate(() => document.body.innerText)));
     check("kept in the browser's files, not in memory",
-        !/keeps no files/i.test(await second.evaluate(() => document.body.innerText)));
+        !/not keeping this conversation/i.test(await second.evaluate(() => document.body.innerText)));
     check("the first tab says it lost the conversation", await shows(first, /another tab, which has it now/, 30000));
     check("and takes no more input", await first.evaluate(() => document.querySelector("#input").disabled));
 

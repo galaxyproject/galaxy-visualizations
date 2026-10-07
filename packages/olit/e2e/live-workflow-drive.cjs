@@ -51,7 +51,7 @@ const api = async (path) => {
         return idle();
     };
 
-    await page.goto(`${APP}?history_id=${HISTORY}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${APP}?dataset_id=${DATASET}`, { waitUntil: "domcontentloaded" });
     check("booted", await wait(() => /olit ready|Resumed this history/i.test(document.body.innerText), 300000));
 
     // A restored conversation replays its plan cards, and they are clickable. Start clean or

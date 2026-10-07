@@ -7,22 +7,23 @@ import {
   UsageDoc,
   type Conversation,
   type ConversationId,
+  type Cursor,
   type EntryRecord,
   type Storage,
   type Submission,
 } from "@earendil-works/pi-durable";
 
-import { artifactsOf } from "../artifacts/kinds";
+import { artifactsOf, type Artifact } from "../artifacts/kinds";
 import type { Ask } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
 import { connectGalaxy, type Galaxy } from "./galaxy";
 import { olitModels } from "./model";
+import { recordsOn, type RecordSummary } from "./notebook";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
 import { probeWindow, resolve, type LlmConfig, type Target } from "./providers";
 import { editRecord } from "./record-write";
-import { modelsOf, SCHEMA, type SessionDocument } from "./saved";
-import { writeSessionSummary } from "./session-summary";
+import { modelsOf, SCHEMA, usageTotals, type SessionDocument } from "./saved";
 import { skillRegistry } from "./skills";
 import type { Capability, Python } from "./tool";
 import { galaxyOps, olitTools } from "./tools";
@@ -30,9 +31,34 @@ import { galaxyWatch, WATCH_TASK, type Watched } from "./watch";
 
 export const context = BACKGROUND_CONTEXT;
 
-const MIN_SECRET_LENGTH = 8;
 /** Earlier artifacts a tool can place; a spec carries its rows, so few are offered. */
 const ARTIFACT_LIMIT = 20;
+
+/** How Olit's turns run under pi-durable, whatever the model: what `describe` reports as well. */
+export const LOOP = {
+  toolExecution: "sequential",
+  followUpMode: "all",
+  promptPlacement: "lead",
+} as const;
+
+/**
+ * The newest artifacts a conversation's results carried, oldest of them first. Read from its
+ * whole history rather than its context, so a chart the user saw stays placeable after the turns
+ * that made it were summarized away.
+ */
+export async function artifactsIn(
+  conversation: Pick<Conversation, "entries">,
+  ctx: Chord,
+): Promise<Artifact[]> {
+  const found: Artifact[] = [];
+  let cursor: Cursor | undefined;
+  do {
+    const page = await conversation.entries({}, 200, cursor, ctx);
+    found.unshift(...artifactsOf([...page.items].reverse()));
+    cursor = page.next;
+  } while (cursor && found.length < ARTIFACT_LIMIT);
+  return found.slice(-ARTIFACT_LIMIT);
+}
 
 export interface RuntimeConfig extends LlmConfig {
   galaxy_root: string;
@@ -63,6 +89,11 @@ export interface Placement {
   historyId?: string;
   datasetId?: string;
   instructions?: string;
+  /**
+   * A session found again through the record attached to its history, once the browser kept
+   * nothing of it: its identity and record are durable, its conversation was not.
+   */
+  record?: RecordSummary;
 }
 
 const uuid = () => globalThis.crypto?.randomUUID?.() || `s-${Date.now()}-${Math.random()}`;
@@ -89,6 +120,8 @@ interface Current {
  * holds back follow-ups.
  */
 export class Runtime {
+  /** Why Galaxy did not answer when the session opened, when it did not. */
+  galaxyProblem?: string;
   private constructor(
     readonly harness: Harness,
     readonly galaxy: Galaxy,
@@ -109,10 +142,14 @@ export class Runtime {
     const resolved = await target(config, env);
     const connected = await connect(resolved);
     const current: Current = { config, target: resolved, ...connected };
+    let galaxyProblem: string | undefined;
     const galaxyStatus = await galaxy
       .get("api/version")
       .then((): GalaxyStatus => GALAXY_READY)
-      .catch((): GalaxyStatus => GALAXY_UNREACHABLE);
+      .catch((e): GalaxyStatus => {
+        galaxyProblem = String((e as Error)?.message ?? e);
+        return GALAXY_UNREACHABLE;
+      });
     const skills = skillRegistry();
     const capabilities = config.capabilities ?? DEFAULT_CAPABILITIES;
     let harness: Harness | undefined;
@@ -133,16 +170,13 @@ export class Runtime {
       }),
       artifacts: async (id, ctx) => {
         const conversation = await harness!.conversation(id, ctx);
-        const entries = conversation ? (await conversation.context(ctx)).entries : [];
-        return artifactsOf(entries).slice(-ARTIFACT_LIMIT);
+        return conversation ? artifactsIn(conversation, ctx) : [];
       },
       watched: (id, ctx) => watchedBy(harness!, id, ctx),
       tools: olitTools(skills),
       capabilities,
       secrets: () =>
-        [current.apiKey, config.galaxy_key].filter(
-          (s): s is string => typeof s === "string" && s.length >= MIN_SECRET_LENGTH,
-        ),
+        [current.apiKey, config.galaxy_key].filter((s): s is string => typeof s === "string"),
       prompt: ({ model, provider, datasetId }) =>
         [
           systemText({
@@ -151,7 +185,6 @@ export class Runtime {
             galaxyStatus,
             seedDataset: datasetId,
             galaxyRoot: galaxy.root,
-            galaxyReads: capabilities.includes("read"),
           }),
           skills.routerText(),
         ]
@@ -168,9 +201,7 @@ export class Runtime {
         models,
         registry,
         settings: {
-          toolExecution: "sequential",
-          followUpMode: "all",
-          promptPlacement: "lead",
+          ...LOOP,
           maxTurns: config.max_steps || MAX_STEPS,
           get compaction() {
             const reserveTokens =
@@ -193,7 +224,9 @@ export class Runtime {
       context,
     );
     harness.resume();
-    return new Runtime(harness, galaxy, galaxyStatus, current, connect, env);
+    const runtime = new Runtime(harness, galaxy, galaxyStatus, current, connect, env);
+    runtime.galaxyProblem = galaxyProblem;
+    return runtime;
   }
 
   get capabilities(): Capability[] {
@@ -228,8 +261,9 @@ export class Runtime {
         },
         init: async (tx, id) => {
           Object.assign(await tx.doc(Binding, id), {
-            sessionId: uuid(),
-            startedAt: new Date().toISOString(),
+            sessionId: placement.record?.sessionId ?? uuid(),
+            startedAt: placement.record?.created || new Date().toISOString(),
+            ...(placement.record ? { pageId: placement.record.pageId } : {}),
             ...(placement.historyId ? { historyId: placement.historyId } : {}),
             ...(placement.datasetId ? { datasetId: placement.datasetId } : {}),
           });
@@ -242,8 +276,8 @@ export class Runtime {
     );
   }
 
-  /** The conversation this history continues, or a new one. */
-  async continuing(placement: Placement): Promise<Conversation> {
+  /** The conversation this browser keeps for the history, now on the dataset it was launched on. */
+  async kept(placement: Placement): Promise<Conversation | undefined> {
     const index = await this.harness.snapshot(Sessions, context);
     const known = placement.historyId ? index?.byHistory[placement.historyId] : undefined;
     const found =
@@ -252,9 +286,23 @@ export class Runtime {
         : await this.harness.conversation(known as ConversationId, context);
     if (found) {
       await found.configure({ model: this.model }, context);
-      return found;
+      if (placement.datasetId) {
+        await found.commit(async (tx) => {
+          (await tx.doc(Binding, found.id)).datasetId = placement.datasetId;
+        }, context);
+      }
     }
-    return this.create(placement);
+    return found;
+  }
+
+  /** The conversation this history continues, or a new one. */
+  async continuing(placement: Placement): Promise<Conversation> {
+    return (await this.kept(placement)) ?? this.create(placement);
+  }
+
+  /** The Olit records attached to the launch history, for a session this browser no longer keeps. */
+  records(historyId: string | undefined): Promise<RecordSummary[]> {
+    return historyId ? recordsOn(this.galaxy, historyId) : Promise.resolve([]);
   }
 
   /** The user's own message, which lets settled work start runs again. */
@@ -271,18 +319,6 @@ export class Runtime {
       (await tx.doc(FollowUps, conversation.id)).paused = true;
     }, context);
     await conversation.abort(context, { keepQueued: true });
-  }
-
-  /** Upsert the record's session block: loom writes it at session end, a tab has none. */
-  async summarize(conversation: Conversation): Promise<void> {
-    const bound = await this.harness.snapshot(Binding, conversation.id, context);
-    if (!bound?.sessionId) return;
-    await writeSessionSummary(this.galaxy, bound.pageId, {
-      id: bound.sessionId,
-      startedAt: bound.startedAt ?? new Date().toISOString(),
-      endedAt: new Date().toISOString(),
-      orphanedActiveSteps: 0,
-    });
   }
 
   /** The conversation as a saved session: its context, and what binds it to Galaxy. */
@@ -306,11 +342,7 @@ export class Runtime {
         turn: exported.entries.filter((e) => e.kind === "pi.user").length,
         ...(bound?.pageId ? { recordPageId: bound.pageId } : {}),
         models: modelsOf(exported.entries),
-        usage: {
-          input: totals.reduce((sum, u) => sum + (u.input ?? 0), 0),
-          output: totals.reduce((sum, u) => sum + (u.output ?? 0), 0),
-          cost: totals.length ? totals.reduce((sum, u) => sum + (u.cost?.total ?? 0), 0) : null,
-        },
+        usage: usageTotals(totals),
       },
       entries: [...exported.entries],
     };

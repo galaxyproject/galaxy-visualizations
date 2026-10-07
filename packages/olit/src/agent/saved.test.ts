@@ -11,8 +11,8 @@ import { savedSessions } from "../saved-session";
 import { Binding } from "./documents";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
-import { context, Runtime } from "./runtime";
-import { title, type SessionDocument } from "./saved";
+import { artifactsIn, context, Runtime } from "./runtime";
+import { title, usageTotals, type SessionDocument } from "./saved";
 import type { Python } from "./tool";
 
 const ROOT = "http://galaxy.test/";
@@ -131,6 +131,38 @@ describe("a saved Olit visualization is a restorable conversation", () => {
     expect(messages.filter((m) => m.role === "assistant")).toHaveLength(1);
   });
 
+  it("comes back across a compaction: the same context, and the earlier chart still placeable", async () => {
+    const { saved } = world();
+    const one = await machine();
+    const conversation = await one.create({ historyId: "h1" });
+    await say(one, conversation, "run fastqc");
+    await conversation.commit(async (tx) => {
+      await tx.appendEntry(conversation.id, { kind: "pi.tool-result", model: [chart] });
+    }, context);
+    await say(one, conversation, "after the chart");
+    // A compaction as pi-durable places one: a summary that starts the context at itself.
+    await conversation.commit(async (tx) => {
+      await tx.appendEntry(conversation.id, {
+        kind: "pi.compaction",
+        model: [
+          { role: "user", content: "<summary>ran fastqc, charted it</summary>", timestamp: 0 },
+        ],
+        head: "self",
+      });
+    }, context);
+    const before = await conversation.context(context);
+    const id = await saved.save(await one.export(conversation));
+
+    const two = await machine();
+    const reopened = await two.open((await saved.load(id))!, id);
+    const after = await reopened.context(context);
+    const roles = (view: typeof before) =>
+      view.messages.filter((m) => m.role !== "system").map((m) => m.role);
+    expect(roles(after)).toEqual(roles(before));
+    expect(after.entries[0].kind).toBe("pi.compaction");
+    expect((await artifactsIn(reopened, context)).map((a) => a.title)).toEqual([CHART.title]);
+  });
+
   it("continues on the second machine and saves back to the same visualization", async () => {
     const { rows, saved } = world();
     const one = await machine();
@@ -221,6 +253,16 @@ describe("local continuity", () => {
     expect((await after.export(continued)).session.id).toBe(id);
   });
 
+  it("continues a history's conversation on the dataset it is opened on this time", async () => {
+    world();
+    const one = await machine();
+    const conversation = await one.create({ historyId: "h1", datasetId: "d1" });
+    const continued = await one.continuing({ historyId: "h1", datasetId: "d2" });
+    expect(continued.id).toBe(conversation.id);
+    const bound = await one.harness.snapshot(Binding, continued.id, context);
+    expect(bound).toMatchObject({ historyId: "h1", datasetId: "d2" });
+  });
+
   it("opens a saved conversation as saved, not with turns the browser added since", async () => {
     const { saved } = world();
     const one = await machine();
@@ -246,5 +288,39 @@ describe("local continuity", () => {
     await one.saved(conversation, id, document);
 
     expect((await one.open((await saved.load(id))!, id)).id).toBe(conversation.id);
+  });
+});
+
+describe("artifacts across a compaction", () => {
+  const made = (id: number, title: string) =>
+    ({
+      id,
+      kind: "pi.tool-result",
+      model: [
+        {
+          role: "toolResult",
+          details: { artifacts: [{ kind: "vega-lite", title, spec: {} }] },
+        },
+      ],
+    }) as unknown as import("@earendil-works/pi-durable").EntryRecord;
+
+  it("keeps a chart placeable after the turns that made it were summarized", async () => {
+    // Newest first, two pages, as pi-durable hands a conversation's whole history back.
+    const pages = [
+      { items: [made(4, "After")], next: { page: 2 } },
+      { items: [made(2, "Before")] },
+    ];
+    const conversation = {
+      entries: async (_q: unknown, _limit: number, cursor: unknown) => pages[cursor ? 1 : 0],
+    };
+    const titles = (await artifactsIn(conversation as never, context)).map((a) => a.title);
+    expect(titles).toEqual(["Before", "After"]);
+  });
+});
+
+describe("usage, as the page shows it and a saved session keeps it", () => {
+  it("reports no cost, rather than zero, when no model reported one", () => {
+    expect(usageTotals([{ input: 10, output: 2 }])).toEqual({ input: 10, output: 2, cost: null });
+    expect(usageTotals([{ input: 1, output: 1, cost: { total: 0.5 } }]).cost).toBe(0.5);
   });
 });

@@ -25,7 +25,6 @@ export function buildConfig(
     ai_context_window: Number(process.env.llm_context_window) || undefined,
     ai_keep_recent_tokens: Number(process.env.llm_keep_recent_tokens) || undefined,
     galaxy_root: incoming.root,
-    history_id: incoming.historyId,
     dataset_id: incoming.datasetId,
     // Filled in from the session document once it is loaded.
     session_id: undefined as string | undefined,

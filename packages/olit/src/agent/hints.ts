@@ -1,5 +1,9 @@
+import { invocationOutcome } from "@galaxyproject/galaxy-ops/browser";
+
 import type { Galaxy } from "./galaxy";
+import { quote } from "./quote";
 import { NOT_OFFERED } from "./visualizations";
+import { invocationJobStates } from "./watch";
 
 const FAILED_FETCH = /Failed to fetch url\s+(\S+)/;
 /** ENA and SRA read paths, whose sharding is not derivable from an accession. */
@@ -60,7 +64,7 @@ export const IWC_CANDIDATES_HINT =
   "fit, say so. If nothing came back, retry once with just the assay; if the query had no " +
   "searchable terms, ask the user what they want to find out.";
 
-const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_workflows"]);
+export const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_workflows"]);
 
 export const iwcCandidatesHint = (name: string) =>
   IWC_LISTINGS.has(name) ? IWC_CANDIDATES_HINT : undefined;
@@ -75,7 +79,7 @@ export function fetchFailureHint(result: unknown): string | undefined {
 }
 
 /** Searches over the tool catalog, which holds no visualizations. */
-const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
+export const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
 /** Plugins never offered as a visualization: this agent and a standalone LLM plugin. */
 
 /** The installed visualization this query names. */
@@ -108,4 +112,66 @@ export async function catalogMissHint(
     `[olit] '${plugin}' is a visualization, which the tool catalog does not hold. ` +
     "list_visualizations names the ones that can render a given dataset."
   );
+}
+
+/** Invocations in a listing rolled up from their jobs, one Galaxy call each. */
+const ROLLUP_LIMIT = 20;
+
+const OUTCOME_NOTES: Record<string, string> = {
+  failed:
+    "A job in this invocation failed. Galaxy's `state` describes scheduling only. Report the " +
+    "failure rather than the state, and read the failing dataset's get_job_details before " +
+    "proposing a repair.",
+  failing:
+    "A job in this invocation failed while others are still running. The run is not over, so do " +
+    "not report it as finished, and do not repair it until it settles.",
+  cancelled: "This invocation was cancelled, so its outputs are incomplete.",
+};
+
+/**
+ * What an invocation's jobs make of it, as galaxy-ops reads one by id: a listing carries only
+ * Galaxy's `state`, which describes scheduling, so each listed one whose jobs say otherwise is named.
+ */
+export async function invocationOutcomeHint(
+  galaxy: Galaxy,
+  name: string,
+  data: unknown,
+): Promise<string | undefined> {
+  if (name !== "get_invocations") {
+    return undefined;
+  }
+  if (isRow(data)) {
+    const note = OUTCOME_NOTES[String(data.outcome)];
+    return note && `[olit] ${note}`;
+  }
+  const lines: string[] = [];
+  const listed = Array.isArray(data) ? data : [];
+  const unchecked: string[] = [];
+  for (const row of listed.slice(0, ROLLUP_LIMIT)) {
+    if (!isRow(row) || typeof row.id !== "string") {
+      continue;
+    }
+    const states = await invocationJobStates(galaxy, row.id).catch(() => undefined);
+    if (!states) unchecked.push(row.id);
+    const outcome = states && invocationOutcome(row.state as string | undefined, states);
+    if (outcome && outcome !== row.state) {
+      const note = OUTCOME_NOTES[outcome];
+      lines.push(
+        `[olit] Invocation ${row.id}: outcome ${quote(outcome)}, jobs ${JSON.stringify(states)}.` +
+          (note ? ` ${note}` : ""),
+      );
+    }
+  }
+  const beyond = Math.max(0, listed.length - ROLLUP_LIMIT);
+  if (unchecked.length || beyond) {
+    const which = [
+      unchecked.length ? `${unchecked.join(", ")} (their jobs could not be read)` : "",
+      beyond ? `the ${beyond} listed after the first ${ROLLUP_LIMIT}` : "",
+    ].filter(Boolean);
+    lines.push(
+      `[olit] Jobs were not checked for ${which.join(" and ")}; their \`state\` describes ` +
+        "scheduling only, so read one by id before reporting how it went.",
+    );
+  }
+  return lines.length ? lines.join("\n") : undefined;
 }

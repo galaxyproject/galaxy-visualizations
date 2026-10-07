@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { pageContentProblem } from "./page-edit";
+
 import {
   CHAT_FORMATTING,
   EXECUTING_A_STEP,
@@ -180,10 +182,13 @@ describe("other blocks", () => {
     expect(systemText()).toContain("**2026-08-14**");
   });
 
-  it("allows only the galaxy fence on a page", () => {
-    expect(GALAXY_PAGE_MARKDOWN).toContain("```galaxy");
-    expect(GALAXY_PAGE_MARKDOWN).toContain("```txt");
-    expect(GALAXY_PAGE_MARKDOWN).toContain("not** wrap");
+  it("names as page cells only the fences Galaxy renders, and ~~~ for anything else", () => {
+    const named = [...GALAXY_PAGE_MARKDOWN.matchAll(/```(\w+)/g)].map((m) => m[1]);
+    expect(named).toContain("galaxy");
+    for (const type of named) {
+      expect(pageContentProblem("```" + type), type).toBeUndefined();
+    }
+    expect(GALAXY_PAGE_MARKDOWN).toContain("~~~");
     expect(GALAXY_PAGE_MARKDOWN.toLowerCase()).toContain("encoded");
   });
 
@@ -296,12 +301,6 @@ describe("galaxy readiness", () => {
       expect(up).toContain(heading);
       expect(down).not.toContain(heading);
     }
-  });
-
-  it("leaves the Galaxy guidance out when Galaxy reads are not granted", () => {
-    const withheld = systemText({ galaxyReads: false });
-    expect(withheld).not.toContain("### Drafting a new plan");
-    expect(withheld).not.toContain("## Galaxy: NOT AVAILABLE");
   });
 
   it("replaces the guidance with a notice", () => {

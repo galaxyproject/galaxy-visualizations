@@ -4,7 +4,7 @@
 const playwright = require("playwright");
 const BROWSER = process.env.BROWSER || "chromium";
 const STUB = "http://127.0.0.1:8099";
-const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?history_id=h1&frame=1`;
+const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?dataset_id=d1&frame=1`;
 
 const results = [];
 function check(name, ok, detail) {
@@ -22,6 +22,10 @@ function check(name, ok, detail) {
     await frame.locator("#cred-provider").waitFor({ timeout: 30000 });
     check("the plugin's location is about:blank, as in Galaxy",
         (await inner().evaluate(() => window.location.href)) === "about:blank");
+    const handed = await inner().evaluate(() => JSON.parse(document.getElementById("app").dataset.incoming));
+    check("it is launched as Galaxy launches a plugin on a dataset: the dataset and nothing else",
+        JSON.stringify(handed.visualization_config) === JSON.stringify({ dataset_id: "d1" }),
+        JSON.stringify(handed.visualization_config));
     await frame.locator("#cred-provider").selectOption("openrouter");
     await frame.locator("#cred-endpoint").fill(`${STUB}/v1`);
     await frame.locator("#cred-key").fill("sk-or-v1-stubkeystubkey");

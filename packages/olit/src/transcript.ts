@@ -5,6 +5,7 @@ import type { AgentEvent, EntryRecord } from "@earendil-works/pi-durable";
 import { artifactsOf, type Artifact } from "./artifacts/kinds";
 
 import { EMPTY_REPLY, FOLLOW_UP_MARK } from "./agent/markers";
+import { usageTotals } from "./agent/saved";
 import type { ChatPanel } from "./orbit/chat/chat-panel";
 
 type Chat = Pick<
@@ -40,7 +41,30 @@ export interface ViewHooks {
   usage(totals: { input: number; output: number; cost: number | null }): void;
   retry(errorMessage: string, at: number, attempt: number): void;
   retried(): void;
+  /** Something failed outside any one run. */
+  failed(message: string): void;
+  /** The user wrote a message, which answers whatever plan draft was open. */
+  wrote(): void;
 }
+
+/** Why pi-durable left a user's message unanswered, as the user should hear it. */
+function unanswered(reason: string | undefined, detail: unknown): string {
+  const why = typeof detail === "string" && detail ? `: ${detail}` : "";
+  switch (reason) {
+    case "model_error":
+      return `The model request failed${why}`;
+    case "no_model":
+      return "No model is configured for this conversation, so nothing could answer.";
+    case "faulted":
+      return `Olit failed while answering${why}`;
+    default:
+      return `This message was not answered (${reason ?? "unknown reason"}${why}).`;
+  }
+}
+
+/** A message's text blocks by content index; other blocks hold none. */
+const textBlocks = (message: { content: ReadonlyArray<{ type: string; text?: string }> }) =>
+  message.content.map((c) => (c.type === "text" ? (c.text ?? "") : ""));
 
 const textOf = (message: Message) =>
   message.role === "assistant"
@@ -53,6 +77,9 @@ const textOf = (message: Message) =>
 /** The chat as a conversation's events draw it. */
 export class ChatView {
   private speaking = false;
+  /** The in-flight assistant message's text blocks, and how much of their text is on screen. */
+  private blocks: string[] = [];
+  private shown = "";
   private cards = new Set<string>();
   private run: RunOutcome = { spoke: false, done: false, aborted: false, exhausted: false };
   private restoring = false;
@@ -75,6 +102,7 @@ export class ChatView {
       if (event.type === "snapshot") {
         this.chat.clear();
         this.speaking = false;
+        this.shown = "";
         this.cards.clear();
         this.turns = 0;
         this.restoring = true;
@@ -82,10 +110,11 @@ export class ChatView {
         this.restoring = false;
         this.hooks.artifacts(artifactsOf(event.entries), true);
         const partial = event.generation?.message;
-        if (partial) this.stream(textOf(partial));
+        this.blocks = partial ? textBlocks(partial) : [];
+        this.show();
         this.hooks.busy(event.run !== undefined);
         const totals = Object.values(event.usage.models ?? {});
-        this.hooks.usage(sum(totals));
+        this.hooks.usage(usageTotals(totals));
       } else if (event.type === "run_start") {
         this.run = { spoke: false, done: false, aborted: false, exhausted: false };
         this.hooks.busy(true);
@@ -96,13 +125,28 @@ export class ChatView {
         this.hooks.busy(false);
         ended = true;
       } else if (event.type === "submission" && event.record.status === "unanswered") {
-        const reason = (event.record as { reason?: string }).reason;
+        const { reason, detail } = event.record as { reason?: string; detail?: unknown };
         if (reason === "aborted") this.run.aborted = true;
-        if (reason === "turn_limit") this.run.exhausted = true;
+        else if (reason === "turn_limit") this.run.exhausted = true;
+        // A model error already reached the chat as its own entry; anything else says it here.
+        else this.run.error ??= unanswered(reason, detail);
+      } else if (event.type === "task_failed") {
+        this.hooks.failed(`Olit's ${event.kind} task failed: ${event.message}`);
       } else if (event.type === "message_update") {
+        // The in-flight message as pi-durable holds it: a block can start with text in it, arrive
+        // whole, or the message be replaced, besides growing by deltas.
         for (const change of event.changes) {
-          if (change.type === "text_delta") this.stream(change.delta);
+          if (change.type === "text_delta") {
+            this.blocks[change.contentIndex] =
+              (this.blocks[change.contentIndex] ?? "") + change.delta;
+          } else if (change.type === "text_start" || change.type === "block") {
+            const block = change.block as { type?: string; text?: string };
+            if (block.type === "text") this.blocks[change.contentIndex] = block.text ?? "";
+          } else if (change.type === "message") {
+            this.blocks = textBlocks(change.message);
+          }
         }
+        this.show();
       } else if (event.type === "message_end") {
         this.entry(event.entry);
       } else if (event.type === "tool_execution_start") {
@@ -114,14 +158,21 @@ export class ChatView {
       } else if (event.type === "compaction_end") {
         this.hooks.info("Summarized the earlier conversation to make room.");
       } else if (event.type === "usage_changed") {
-        this.hooks.usage(sum(Object.values(event.usage.models ?? {})));
+        this.hooks.usage(usageTotals(Object.values(event.usage.models ?? {})));
       }
     }
     if (ended) this.hooks.ended(this.run);
   }
 
+  /** Stream what the in-flight message's text has grown by since it was last shown. */
+  private show() {
+    const text = this.blocks.join("");
+    if (text.startsWith(this.shown)) this.stream(text.slice(this.shown.length));
+  }
+
   private stream(delta: string) {
     if (!delta) return;
+    this.shown += delta;
     this.chat.hideThinking();
     if (!this.speaking) {
       this.chat.startAssistantMessage();
@@ -165,13 +216,18 @@ export class ChatView {
         this.hooks.info("Checking the Galaxy results that just landed.");
       } else if (text !== EMPTY_REPLY) {
         this.turns += 1;
+        this.hooks.wrote();
         this.chat.addUserMessage(text);
       }
     } else if (message.role === "assistant") {
       const answer = message as AssistantMessage;
       const text = textOf(answer);
+      // The answer as stored is what a reload shows; the streamed text ends the same way.
+      if (this.speaking && text.startsWith(this.shown)) this.stream(text.slice(this.shown.length));
       if (this.speaking) this.close();
       else if (text) this.say(text);
+      this.blocks = [];
+      this.shown = "";
       if (answer.stopReason === "error") this.run.error = answer.errorMessage;
       if (answer.stopReason === "aborted") this.run.aborted = true;
       for (const c of answer.content) {
@@ -191,16 +247,6 @@ export class ChatView {
       if (made.length && !this.restoring) this.hooks.artifacts(made, false);
     }
   }
-}
-
-function sum(totals: Array<{ input?: number; output?: number; cost?: { total?: number } }>) {
-  return {
-    input: totals.reduce((n, u) => n + (u.input ?? 0), 0),
-    output: totals.reduce((n, u) => n + (u.output ?? 0), 0),
-    cost: totals.some((u) => u.cost?.total)
-      ? totals.reduce((n, u) => n + (u.cost?.total ?? 0), 0)
-      : null,
-  };
 }
 
 /** The last meaningful line of a Python traceback, which is the actual error. */

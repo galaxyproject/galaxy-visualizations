@@ -1,12 +1,14 @@
 /** olit shell: mounts Orbit's ChatPanel, starts the agent worker, drives the chat. */
 import "./orbit/styles.css";
 import "./olit.css";
-import { describeSeedDataset, summarize } from "./seed-dataset";
+import { settlePlanDrafts } from "./plan-drafts";
+import { resolveLaunch, summarize } from "./seed-dataset";
 import { ChatPanel } from "./orbit/chat/chat-panel";
 import { applyOrbitTheme } from "./orbit/theme";
 import { parseIncoming } from "./incoming";
 import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";
+import { saveCredentials } from "./credentials";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { ChatView, lastLine, type RunOutcome } from "./transcript";
 import { reportSavedState, savedSessions } from "./saved-session";
@@ -39,8 +41,6 @@ async function seedDevIncoming(container: HTMLElement): Promise<void> {
     root: "/",
     visualization_config: {
       dataset_id: pageUrl.searchParams.get("dataset_id") || "__test__",
-      // Dev only: a history to key the session on, as Galaxy supplies in production.
-      history_id: pageUrl.searchParams.get("history_id") || undefined,
       settings: {},
     },
     visualization_plugin: await parseXML("olit.xml"),
@@ -98,10 +98,22 @@ async function main() {
   const galaxy = connectGalaxy({ root: config.galaxy_root, credentials });
   const saved = savedSessions(galaxy);
   // Opening a saved visualization opens that conversation; otherwise the history's own.
+  let savedProblem: string | undefined;
   const fromGalaxy = incoming.visualizationId
-    ? await saved.load(incoming.visualizationId).catch(() => null)
+    ? await saved.load(incoming.visualizationId).then(
+        (document) => {
+          if (!document) savedProblem = "it is not an Olit session this version can open";
+          return document;
+        },
+        (e) => {
+          savedProblem = String((e as Error)?.message ?? e);
+          return null;
+        },
+      )
     : null;
   let savedId = fromGalaxy ? incoming.visualizationId : undefined;
+  // A saved session carries its own history; otherwise the launch decides it.
+  const launch = fromGalaxy ? {} : await resolveLaunch(galaxy, config.dataset_id);
 
   const usage = mountUsageBar(container);
   mountBuildStamp(container, {
@@ -168,6 +180,8 @@ async function main() {
     ended,
     usage: (totals) => usage.set(totals),
     retry: (errorMessage, at, attempt) => retryNotice.start(errorMessage, at, attempt),
+    failed: (message) => chat.addErrorMessage(message),
+    wrote: () => settlePlanDrafts(el.messages),
     retried: () => retryNotice.stop(),
   });
 
@@ -193,13 +207,20 @@ async function main() {
     };
   }
 
-  function settledOne({ watched: w, state, outcome }: Settled) {
+  function settledOne({ watched: w, state, outcome, record }: Settled) {
     const what = WHAT[w.kind];
+    if (record) {
+      chat.addErrorMessage(`The record was not updated for ${what} ${w.id}: ${record}.`);
+    }
     if (outcome === "failed") {
       chat.addErrorMessage(`${what} ${w.id} finished as ${state}.`);
-    } else if (outcome === "cancelled") {
-      // The user asked for this; an alarm about it would be the loudest thing in the room.
-      info(`${what} ${w.id} was cancelled.`);
+    } else if (outcome === "paused") {
+      chat.addErrorMessage(`${what} ${w.id} is paused: it waits on an input that failed.`);
+    } else if (outcome === "unreadable") {
+      chat.addErrorMessage(`${what} ${w.id} is no longer shown by Galaxy (${state}).`);
+    } else if (outcome === "cancelled" || outcome === "skipped") {
+      // Someone chose this; an alarm about it would be the loudest thing in the room.
+      info(`${what} ${w.id} was ${outcome}.`);
     } else {
       info(`${what} ${w.id} finished (${state}).`);
     }
@@ -209,7 +230,7 @@ async function main() {
   const opening = {
     pyodideURL: new URL(`${incoming.root}${base}static/pyodide`, document.baseURI).href,
     config: workerConfig(),
-    placement: { historyId: config.history_id, datasetId: config.dataset_id },
+    placement: { historyId: launch.historyId, datasetId: config.dataset_id },
     ...(fromGalaxy && savedId ? { saved: { id: savedId, document: fromGalaxy } } : {}),
   };
 
@@ -245,28 +266,69 @@ async function main() {
       refreshSave();
       if (message.unkept) {
         chat.addErrorMessage(
-          `This browser keeps no files for this page (${message.unkept}), so the conversation ` +
+          `Olit is not keeping this conversation in the browser (${message.unkept}), so it ` +
             "ends when the page closes. Save it to Galaxy to keep it.",
+        );
+      }
+      if (message.galaxyProblem) {
+        chat.addErrorMessage(
+          `Galaxy did not answer when Olit opened (${message.galaxyProblem}), so no Galaxy tool ` +
+            "can run in this session. Reload once Galaxy is back.",
+        );
+      }
+      if (message.recordsProblem) {
+        chat.addErrorMessage(
+          `Could not look for earlier Olit sessions on this history (${message.recordsProblem}), ` +
+            "so this is a new session.",
+        );
+      }
+      if (savedProblem) {
+        chat.addErrorMessage(
+          `Could not open saved session ${incoming.visualizationId} (${savedProblem}). This is ` +
+            "the history's own conversation instead, and Save stores it as a new session.",
         );
       }
       if (fromGalaxy) {
         info("Opened a saved Olit session.");
       }
       info(
-        view.turns
-          ? "Resumed this history's conversation. Olit ready."
-          : "Olit ready. Ask me to run something.",
+        fromGalaxy
+          ? "Olit ready."
+          : view.turns
+            ? "Resumed this history's conversation. Olit ready."
+            : "Olit ready. Ask me to run something.",
       );
       // Its own message: being ready and having a dataset to start from are separate facts.
-      if (config.dataset_id) {
-        void describeSeedDataset(galaxy, config.dataset_id).then((found) => {
-          if (found) {
-            info(summarize(found));
-          }
-        });
+      if (launch.problem) {
+        const what = config.dataset_id ? `dataset ${config.dataset_id}` : "the current history";
+        chat.addErrorMessage(
+          `Could not read ${what} from Galaxy (${launch.problem}), so this conversation is not ` +
+            "bound to a history.",
+        );
+      } else if (launch.dataset) {
+        info(summarize(launch.dataset));
       }
+    } else if (message.type === "recoverable") {
+      // The browser kept nothing of a session here; the user says which, if any, this is.
+      const line = info("Olit has earlier sessions on this history. Continue one, or start new: ");
+      const choose = (pageId?: string) => {
+        line.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        agent.recover(pageId);
+      };
+      for (const record of message.records) {
+        const button = document.createElement("button");
+        button.className = "plan-btn";
+        button.textContent = `Continue ${record.title} (updated ${record.updated.slice(0, 16).replace("T", " ")})`;
+        button.addEventListener("click", () => choose(record.pageId));
+        line.append(button);
+      }
+      const fresh = document.createElement("button");
+      fresh.className = "plan-btn";
+      fresh.textContent = "Start new";
+      fresh.addEventListener("click", () => choose());
+      line.append(fresh);
     } else if (message.type === "waiting") {
-      const line = info("Olit is open on this conversation in another tab. ");
+      const line = info("Olit is open in another tab. ");
       const take = document.createElement("button");
       take.className = "plan-btn";
       take.textContent = "Use it here";
@@ -280,9 +342,7 @@ async function main() {
       el.input.disabled = true;
       el.send.disabled = true;
       refreshSave();
-      chat.addErrorMessage(
-        "Olit was opened on this conversation in another tab, which has it now.",
-      );
+      chat.addErrorMessage("Olit was opened in another tab, which has it now.");
     } else if (message.type === "failed") {
       console.error("[olit] worker failed", message.message);
       chat.hideThinking();
@@ -295,6 +355,7 @@ async function main() {
   el.model.addEventListener("click", async () => {
     const picked = await switchProvider(container);
     if (picked) {
+      const previous = { creds, model: { ...config } };
       creds = picked;
       const { ai_base_url, ai_provider, ai_model } = buildConfig(incoming, picked);
       Object.assign(config, { ai_base_url, ai_provider, ai_model });
@@ -302,7 +363,14 @@ async function main() {
       const { ai_base_url: url, ai_api_key } = workerConfig();
       await agent
         .switchModel({ ai_base_url: url, ai_provider, ai_model, ai_api_key })
-        .catch((e) => chat.addErrorMessage(`Could not switch the model: ${lastLine(String(e))}`));
+        .catch((e) => {
+          // The worker kept the model it had, so the page, and the next reload, keep it too.
+          creds = previous.creds;
+          saveCredentials(previous.creds);
+          Object.assign(config, previous.model);
+          showModel();
+          chat.addErrorMessage(`Could not switch the model: ${lastLine(String(e))}`);
+        });
     }
   });
 
@@ -332,7 +400,11 @@ async function main() {
 
   function submit() {
     const text = el.input.value.trim();
-    if (!text || busy || !ready) {
+    if (!text || busy) {
+      return;
+    }
+    if (!ready) {
+      info("Olit is still starting; send again once it says it is ready.");
       return;
     }
     el.input.value = "";
@@ -361,7 +433,8 @@ async function main() {
     reportSavedState(true);
     el.artifactContent.innerHTML = "";
     afterReset =
-      "Started a new conversation. The previous one is saved, and the record on Galaxy is untouched.";
+      "Started a new conversation. The previous one stays in this browser but is no longer " +
+      "reachable from here unless you saved it; its record on Galaxy is untouched.";
     agent.reset();
   });
   el.input.addEventListener("keydown", (e) => {

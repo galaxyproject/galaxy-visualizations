@@ -5,7 +5,7 @@
 const { chromium } = require("playwright");
 // Keyed on a history the way Galaxy supplies one: without it nothing persists and there is
 // nothing to restore.
-const APP = (process.env.APP_URL || "http://localhost:5173/") + "?history_id=h1";
+const APP = (process.env.APP_URL || "http://localhost:5173/") + "?dataset_id=d1";
 const STUB = "http://127.0.0.1:8099";
 
 const results = [];
@@ -19,8 +19,8 @@ const cardTitles = (p) =>
         [...document.querySelectorAll("#artifact-content .artifact-card-title")].map((e) => e.textContent),
     );
 
-/** The page says so when the browser keeps no files for it, and nothing could survive a reload. */
-const durable = (p) => p.evaluate(() => !/keeps no files/i.test(document.body.innerText));
+/** The page says so when it is not keeping the conversation, and nothing could survive a reload. */
+const durable = (p) => p.evaluate(() => !/not keeping this conversation/i.test(document.body.innerText));
 
 const boot = (page) =>
     page
