@@ -170,6 +170,16 @@ describe("anchoring", () => {
     expect(applyJobOutcome(record, ok)).toBe(record);
   });
 
+  it("records each of two neighbouring entries that settle the same way", () => {
+    const noted = noteSubmitted(noteSubmitted("# Record", { id: "d1", kind: "dataset" }), {
+      id: "d2",
+      kind: "dataset",
+    });
+    const both = applyJobOutcome(applyJobOutcome(noted, { ...ok, id: "d2" }), ok);
+    expect(both).toMatch(/- \[x\] .*`d1` — .*\n- Status: finished \(ok\)/);
+    expect(both).toMatch(/- \[x\] .*`d2` — .*\n- Status: finished \(ok\)/);
+  });
+
   it("prefers the session's own entry for the id", () => {
     const noted = noteSubmitted(record, { id: "d1", kind: "dataset" });
     const updated = applyJobOutcome(noted, ok);
