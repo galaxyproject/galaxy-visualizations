@@ -111,6 +111,7 @@ describe("recommend", () => {
     expect(out.image).toBeNull();
     expect(out.match_quality).toBe("not_found");
     expect(out.notes[0]).toContain("mulled-v2");
+    expect(out.notes[0]).not.toMatch(/MCP/);
     expect(fake.urls).toEqual([]);
   });
 

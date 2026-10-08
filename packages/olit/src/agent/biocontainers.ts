@@ -90,8 +90,8 @@ export async function recommend(
     return result({
       notes: [
         `A single image for several packages (${names}) is a mulled-v2 hash over the ` +
-          "package set, which a tag listing cannot reveal. Ask Galaxy's own MCP server, " +
-          "or install the packages in one tool one at a time.",
+          "package set, which a tag listing cannot reveal, so no image was resolved. Resolve " +
+          "one package at a time, or ask the user which image to use.",
       ],
     });
   }
