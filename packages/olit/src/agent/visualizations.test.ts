@@ -1301,13 +1301,30 @@ describe("show_visualization and save_visualization", () => {
     expect(out.other_cases).toEqual(["builtin"]);
   });
 
-  it("does not let a lookup that could not be made block a save", async () => {
-    const out = await igvGenome(
-      igv(CONDITIONAL),
-      fakeCharts([], { success: false }),
-      INVENTED_MM10,
+  it("refuses to save a value its options could not be read to check", async () => {
+    const g = igv(CONDITIONAL);
+    const out = refused(
+      await igvGenome(g, fakeCharts([], { message: "no route to host" }), INVENTED_MM10),
     );
-    expect(out.saved).toBe(true);
+    expect(out.saved).toBe(false);
+    expect(g.posted).toBeUndefined();
+    expect(out.error).toBe(
+      "Refused: source.genome could not be checked, because this server's options for it could " +
+        "not be read (no route to host).",
+    );
+    expect(out.hint).toContain("unavailable, not the value wrong");
+  });
+
+  it("refuses to show it too, since showing renders the same config", async () => {
+    const out = refused(
+      await show(
+        igv(CONDITIONAL),
+        { visualization: "igv", settings: { source: { origin: "igv", genome: { id: "mm10" } } } },
+        fakeCharts([], { message: "no route to host" }),
+      ),
+    );
+    expect(out.shown).toBe(false);
+    expect(out.error).toContain("could not be checked");
   });
 
   it("accepts the value an input holds by default", async () => {

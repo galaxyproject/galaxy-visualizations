@@ -578,8 +578,16 @@ async function selectOffered(
   for (const [entry, declared] of levels) {
     for (const { path, param, value, branch } of optionBearing(entry, declared, TYPES)) {
       const envelope = await lookup(param, { datasetId: a.dataset_id });
+      // A value nobody could check is not stored: an option is kept as the whole entry offered.
       if (!envelope.success) {
-        continue;
+        return {
+          error:
+            `Refused: ${path} could not be checked, because this server's options for it ` +
+            `could not be read (${envelope.message}).`,
+          hint:
+            "The options are unavailable, not the value wrong: try again, or use a case whose " +
+            "options can be read.",
+        };
       }
       const offered: Json[] = envelope.data || [];
       const stored = offeredValue(value, offered, param);
