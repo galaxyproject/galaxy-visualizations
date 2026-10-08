@@ -25,7 +25,6 @@ function writePreference(collapsed: boolean): void {
 export interface ArtifactPane {
   /** Show the pane because something was produced for it. */
   reveal(): void;
-  toggle(): void;
 }
 
 export function mountArtifactPane(container: HTMLElement): ArtifactPane {
@@ -111,6 +110,5 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
 
   return {
     reveal: () => set(false),
-    toggle: () => set(!collapsed()),
   };
 }

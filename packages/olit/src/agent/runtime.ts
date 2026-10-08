@@ -232,14 +232,6 @@ export class Runtime {
     return runtime;
   }
 
-  get capabilities(): Capability[] {
-    return this.current.config.capabilities ?? DEFAULT_CAPABILITIES;
-  }
-
-  get maxSteps(): number {
-    return this.current.config.max_steps || MAX_STEPS;
-  }
-
   /** The model new requests use. */
   get model() {
     return this.current.model;

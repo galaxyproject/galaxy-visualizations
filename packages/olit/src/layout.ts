@@ -57,7 +57,6 @@ export const LAYOUT = `
       </div>`;
 
 export interface Elements {
-  chat: HTMLElement;
   messages: HTMLElement;
   input: HTMLTextAreaElement;
   send: HTMLButtonElement;
@@ -73,7 +72,6 @@ export function mountLayout(container: HTMLElement): Elements {
   container.innerHTML = LAYOUT;
   const find = <T extends HTMLElement>(id: string) => container.querySelector<T>(id)!;
   return {
-    chat: find("#chat-pane"),
     messages: find("#messages"),
     input: find<HTMLTextAreaElement>("#input"),
     send: find<HTMLButtonElement>("#send-btn"),

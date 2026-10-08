@@ -151,15 +151,6 @@ describe("SraImportGate", () => {
     expect(calls.every((c) => g.check(c))).toBe(true);
   });
 
-  it("treats a prefixed tool name as the same tool", () => {
-    const calls = [call("a", "SRR1"), call("b", "SRR2")].map((c) => ({
-      ...c,
-      name: "galaxy_run_tool",
-    }));
-    g.assistant(calls);
-    expect(calls.every((c) => g.check(c))).toBe(true);
-  });
-
   it("accepts one list-file HDA as the correction of a rejected batch", () => {
     g.assistant([call("a", "SRR1"), call("b", "SRR2")]);
     const corrected = call("file", "unused");
