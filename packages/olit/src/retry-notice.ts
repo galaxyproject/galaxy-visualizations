@@ -27,7 +27,8 @@ export function createRetryNotice(chat: NoticeSink): RetryNotice {
     start(errorMessage, at, attempt) {
       stop();
       let left = Math.max(1, Math.ceil((at - Date.now()) / 1000));
-      const status = /^\D*(\d{3})\b/.exec(errorMessage)?.[1];
+      // The first number the message names, when it is an HTTP error status rather than a wait.
+      const status = /^\D*\b([45]\d\d)\b/.exec(errorMessage)?.[1];
       const label =
         status === "429"
           ? "Rate limited by the model provider"
