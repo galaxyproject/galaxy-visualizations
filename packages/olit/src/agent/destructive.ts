@@ -1,4 +1,11 @@
-export type Ask = (title: string, message: string) => Promise<boolean>;
+import type { ConversationId } from "@earendil-works/pi-durable";
+
+/** Ask the user, on behalf of the conversation whose run wants to act. */
+export type Ask = (
+  title: string,
+  message: string,
+  conversation?: ConversationId,
+) => Promise<boolean>;
 
 /**
  * What a call would destroy, in words for the person approving it, or undefined when it

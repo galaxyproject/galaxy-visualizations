@@ -126,7 +126,7 @@ export function olitExtension(host: OlitHost) {
         secrets: host.secrets(),
         withheld,
         advertised,
-        ask: host.ask,
+        ask: host.ask && ((title, message) => host.ask!(title, message, conversationId)),
       }),
       retried: false,
     };
