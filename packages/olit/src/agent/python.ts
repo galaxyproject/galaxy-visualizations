@@ -116,6 +116,16 @@ export function browserPython(pyodideURL: string): Python {
       listen: (onMessage, onExit) => {
         exit = onExit;
         worker.onmessage = ({ data }) => onMessage(data);
+        // A realm that fails to start or crashes ends here, failing whatever waited on it.
+        worker.onerror = (event) => {
+          event.preventDefault();
+          worker.terminate();
+          exit(`stopped working (${event.message || "its worker failed"})`);
+        };
+        worker.onmessageerror = () => {
+          worker.terminate();
+          exit("sent a message that could not be read");
+        };
       },
       close: () => {
         worker.terminate();
