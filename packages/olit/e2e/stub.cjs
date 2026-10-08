@@ -297,6 +297,18 @@ const server = http.createServer(async (req, res) => {
     const url = req.url || "";
     if (req.method === "OPTIONS") return json(res, 204, {});
 
+    // Every drive starts from a fresh Galaxy, whatever the one before it left behind.
+    if (url.startsWith("/__reset")) {
+        script = "confirm";
+        galaxyUp = true;
+        jobState = "queued";
+        rateLimited = 0;
+        calls = 0;
+        for (const list of [seen, cookies, prompts, visualizationWrites]) list.length = 0;
+        pages.clear();
+        visualizations.clear();
+        return json(res, 200, { reset: true });
+    }
     if (url.startsWith("/__script")) {
         script = new URL(url, "http://x").searchParams.get("name") || "confirm";
         calls = 0;
