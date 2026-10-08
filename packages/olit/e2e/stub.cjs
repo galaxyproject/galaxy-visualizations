@@ -583,6 +583,13 @@ const server = http.createServer(async (req, res) => {
         found.latest_revision = { config: body.config || found.latest_revision.config, title: found.title };
         return json(res, 200, { id });
     }
+    // A history's contents are a list, as Galaxy answers them; h1 holds the dataset drives open on.
+    if (/^\/api\/histories\/[^/?]+\/contents/.test(url)) {
+        const contents = url.startsWith("/api/histories/h1/")
+            ? [{ id: "d1", hid: 1, name: "peptide.pdb", extension: "pdb", state: "ok", history_content_type: "dataset" }]
+            : [];
+        return json(res, 200, contents);
+    }
     if (url.includes("/api/histories")) return json(res, 200, { id: "h1", name: "stub" });
     if (url.startsWith("/history/current_history_json")) return json(res, 200, { id: "h1", name: "stub" });
     return json(res, 200, {});
