@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { connectGalaxy, galaxyFetch, segment } from "./galaxy";
+import { briefly, connectGalaxy, ERROR_MAX, galaxyFetch, HttpError, segment } from "./galaxy";
 
 describe("segment", () => {
   it("keeps an id from adding a segment, a query or a fragment", () => {
@@ -74,5 +74,55 @@ describe("connectGalaxy", () => {
     await vi.advanceTimersByTimeAsync(600);
     await pending;
     expect(calls).toHaveLength(2);
+  });
+});
+
+describe("an error, as the model reads it", () => {
+  const NGINX =
+    "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n" +
+    "<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n";
+  const MAINTENANCE =
+    "<!DOCTYPE html><html><head><style>" +
+    "body{}".repeat(5000) +
+    "</style></head>" +
+    "<body><h1>Galaxy is down for maintenance</h1></body></html>";
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("keeps Galaxy's own message", () => {
+    expect(briefly('{"err_msg": "Tool \'cat9\' not found", "err_code": 400008}')).toBe(
+      "Tool 'cat9' not found",
+    );
+  });
+
+  it("names an HTML page by its title, or by its heading", () => {
+    expect(briefly(NGINX)).toBe("502 Bad Gateway");
+    expect(briefly(MAINTENANCE)).toBe("Galaxy is down for maintenance");
+  });
+
+  it("keeps what was said before a page, as a client library quotes one", () => {
+    expect(briefly(`GET: error 502: b'${NGINX}', 0 attempts left: ${NGINX}`)).toBe(
+      "GET: error 502: 502 Bad Gateway",
+    );
+  });
+
+  it("cuts anything else that runs long", () => {
+    const out = briefly("Traceback: " + "frame ".repeat(1000));
+    expect(out.length).toBeLessThan(ERROR_MAX + 40);
+    expect(out).toMatch(/… \(\d+ more characters\)$/);
+  });
+
+  it("throws Galaxy's status with the short form", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async () =>
+        new Response(MAINTENANCE, { status: 502, headers: { "content-type": "text/html" } }),
+    );
+    const error = await connectGalaxy({ root: "http://galaxy.test/" })
+      .post("api/tools", {})
+      .catch((e) => e);
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(502);
+    expect(error.message).toBe("HTTP 502: Galaxy is down for maintenance");
   });
 });

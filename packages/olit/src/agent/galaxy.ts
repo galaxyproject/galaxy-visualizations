@@ -107,6 +107,33 @@ export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOpti
   };
 }
 
+/** The most of an error a message carries: the model reads every one, some every turn. */
+export const ERROR_MAX = 1000;
+
+/**
+ * An error as one short line: Galaxy's own `err_msg`, an HTML page by its title (whatever a proxy
+ * answered with), and anything longer cut at `ERROR_MAX`.
+ */
+export function briefly(text: string): string {
+  let said = text.trim();
+  try {
+    const own = JSON.parse(said)?.err_msg;
+    if (typeof own === "string") said = own;
+  } catch {
+    // Not JSON: said as it stands.
+  }
+  const html = said.search(/<!doctype html|<html[\s>]/i);
+  if (html >= 0) {
+    const page = said.slice(html);
+    const title = (page.match(/<title[^>]*>([^<]*)</i) ?? page.match(/<h1[^>]*>([^<]*)</i))?.[1];
+    said = `${said.slice(0, html).replace(/b?['"]$/, "")}${title?.trim() || "an HTML page"}`;
+  }
+  said = said.replace(/\s+/g, " ").trim();
+  return said.length > ERROR_MAX
+    ? `${said.slice(0, ERROR_MAX)}… (${said.length - ERROR_MAX} more characters)`
+    : said;
+}
+
 export function connectGalaxy(options: GalaxyOptions): Galaxy {
   const root = options.root.replace(/\/*$/, "/");
   const send = galaxyFetch(options);
@@ -119,7 +146,10 @@ export function connectGalaxy(options: GalaxyOptions): Galaxy {
     }
     const response = await send(`${root}${path.replace(/^\//, "")}`, init);
     if (!response.ok) {
-      throw new HttpError(`HTTP ${response.status}: ${await response.text()}`, response.status);
+      throw new HttpError(
+        `HTTP ${response.status}: ${briefly(await response.text())}`,
+        response.status,
+      );
     }
     return response;
   }

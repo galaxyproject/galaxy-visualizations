@@ -537,3 +537,22 @@ describe("update_page policy", () => {
     expect(await section("## Results", "## Findings\n\nRenamed.")).toBeUndefined();
   });
 });
+
+describe("a galaxy-ops failure, as the model reads it", () => {
+  it("names the page Galaxy answered with, not the page itself", async () => {
+    const page =
+      "<html><head><title>500 Internal Server Error</title></head><body>" + "x".repeat(50_000);
+    const fetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(page, { status: 500, headers: { "content-type": "text/html" } });
+    try {
+      const details = olitTools().find((t) => t.name === "get_history_details")!;
+      const text = refused(await details.run({ history_id: "h1" }, context({})));
+      expect(text).toContain("500 Internal Server Error");
+      expect(text).not.toContain("<html");
+      expect(text.length).toBeLessThan(200);
+    } finally {
+      globalThis.fetch = fetch;
+    }
+  });
+});

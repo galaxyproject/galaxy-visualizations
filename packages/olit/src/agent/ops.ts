@@ -8,6 +8,7 @@ import {
   type AnyOperation,
 } from "@galaxyproject/galaxy-ops/browser";
 
+import { briefly } from "./galaxy";
 import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
 import { watchedFrom } from "./watch";
 
@@ -84,7 +85,7 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
         unknown
       >;
       if (!envelope.success) {
-        const message = String(envelope.message || `${op.name} failed`);
+        const message = briefly(String(envelope.message || `${op.name} failed`));
         return policy.refused?.(message, args) ?? fail(message);
       }
       ctx.watch.add(watchedFrom(op.name, envelope.data));
