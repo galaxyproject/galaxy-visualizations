@@ -114,9 +114,7 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
  * loom has `galaxy_invocation_record({ invocationId, ... })`: the agent hands the poller the
  * id and the poller owns the entry from then on. olit's watcher already holds the correct
  * id -- it took it from the tool result -- so the session writes the entry itself rather than
- * trusting the model to transcribe a hex string. A live run wrote the invocation's `uuid`
- * where Galaxy's `id` was needed, which left the record unmatchable and the poller unable to
- * advance anything.
+ * trusting the model to transcribe a hex string.
  */
 export function noteSubmitted(
   content: string,

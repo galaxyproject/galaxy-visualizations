@@ -72,7 +72,6 @@ export const outcomeOf = (kind: WatchKind, state: string): Outcome =>
 const records = (value: unknown): Array<Record<string, unknown>> =>
   Array.isArray(value) ? value.filter((v) => v && typeof v === "object") : [];
 
-/** The unfinished work a tool's Galaxy result names; an unknown shape names none. */
 /** The tools whose results submit Galaxy work to watch. */
 export const WATCHED_TOOLS = new Set([
   "run_tool",
@@ -82,6 +81,7 @@ export const WATCHED_TOOLS = new Set([
   "invoke_workflow",
 ]);
 
+/** The unfinished work a tool's Galaxy result names; an unknown shape names none. */
 export function watchedFrom(toolName: string, data: unknown): Watched[] {
   if (!WATCHED_TOOLS.has(toolName)) return [];
   const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
@@ -277,9 +277,8 @@ export interface GalaxyFollowUp {
  * What this event says, and nothing the system prompt already says.
  *
  * The standing prompt is re-injected into the system message on every turn, this one included,
- * so verification, authorization and record discipline are in context already; repeating them
- * here only put a second copy in a second repository, free to drift. What is left is what the
- * prompt cannot know: which submitted work settled and how, and what a paused or unreadable outcome
+ * so verification, authorization and record discipline are in context already and are not
+ * repeated here. What is left is what the prompt cannot know: which submitted work settled and how, and what a paused or unreadable outcome
  * means. Several held batches are joined into one turn, so whatever this says is said once per
  * batch.
  */

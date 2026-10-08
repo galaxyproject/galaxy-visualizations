@@ -54,7 +54,6 @@ export function failedUrl(result: unknown): string | undefined {
   return undefined;
 }
 
-/** The triage line this result earns, or undefined when nothing failed to fetch. */
 export const IWC_CANDIDATES_HINT =
   "[olit] These are ranked by word overlap, not relevance. Before offering one, call " +
   "`get_iwc_workflow_details` on the plausible candidates and check their inputs " +
@@ -68,6 +67,7 @@ export const IWC_LISTINGS = new Set(["recommend_iwc_workflows", "search_iwc_work
 export const iwcCandidatesHint = (name: string) =>
   IWC_LISTINGS.has(name) ? IWC_CANDIDATES_HINT : undefined;
 
+/** The triage line this result earns, or undefined when nothing failed to fetch. */
 export function fetchFailureHint(result: unknown): string | undefined {
   const url = failedUrl(result);
   if (url === undefined) {
@@ -79,7 +79,6 @@ export function fetchFailureHint(result: unknown): string | undefined {
 
 /** Searches over the tool catalog, which holds no visualizations. */
 export const CATALOG_SEARCHES = new Set(["search_tools_by_name", "search_tools_by_keywords"]);
-/** Plugins never offered as a visualization: this agent and a standalone LLM plugin. */
 
 type Plugin = { name?: string; html?: string; tags?: string[] | null };
 

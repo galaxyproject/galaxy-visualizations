@@ -40,9 +40,9 @@ type Resolve = (galaxy: Galaxy) => ReturnType<ResolveOptions>;
 /** What each galaxy-charts input type stores, and where its options come from. */
 const TYPES: Types = (inputs as { types: Types }).types;
 
-/** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
 const rootPath = (galaxy: Galaxy) => new URL(galaxy.root || "/", "http://localhost").pathname;
 
+/** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
 export const NOT_OFFERED = new Set(["olit", "vintent"]);
 
 const MATCH_CAP = 5;

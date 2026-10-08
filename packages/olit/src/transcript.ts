@@ -223,7 +223,7 @@ export class ChatView {
   }
 }
 
-/** The last meaningful line of a Python traceback, which is the actual error. */
+/** The last non-blank line of an error, which for a traceback is the error itself. */
 export function lastLine(text: string): string {
   const lines = text
     .split("\n")

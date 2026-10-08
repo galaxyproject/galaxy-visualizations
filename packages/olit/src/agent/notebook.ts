@@ -80,9 +80,9 @@ async function datasetManifest(galaxy: Galaxy, historyId: string): Promise<strin
   );
 }
 
-/** The record excerpt and history binding injected each turn. */
 export const ELIDED = "_(... middle elided ...)_";
 
+/** The record excerpt and history binding injected each turn. */
 export async function excerpt(
   galaxy: Galaxy,
   pageId?: string,

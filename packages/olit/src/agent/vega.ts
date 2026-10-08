@@ -265,5 +265,3 @@ export function compiled(spec: Json): { compiles: boolean; problems: string[] } 
   }
   return { compiles: problems.length === 0, problems };
 }
-
-/** The spec as the markdown a Galaxy page holds. */
