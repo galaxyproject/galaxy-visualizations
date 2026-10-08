@@ -159,6 +159,14 @@ describe("leftovers and scope", () => {
     ]);
   });
 
+  it("reports building nothing as a failure, with what did not match", async () => {
+    expect(summarizeState((await run([])).state)!.ok).toBe(false);
+    const lone = [{ id: "a", name: "sample_A.fastq.gz", extension: "fastqsanger.gz" }];
+    const summary = summarizeState((await run(lone, { structure: "paired" })).state)!;
+    expect(summary.ok).toBe(false);
+    expect(summary.unpaired.names).toEqual(["sample_A.fastq.gz"]);
+  });
+
   it("batches the datatype write", async () => {
     const many = Array.from({ length: 2500 }, (_, i) => ({
       id: `d${i}`,

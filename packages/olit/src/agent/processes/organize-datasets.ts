@@ -160,6 +160,14 @@ export function summarizeState(state: State): State | null {
   if (!grouping || typeof grouping !== "object") {
     return null;
   }
+  if (grouping.empty) {
+    return {
+      ok: false,
+      error: `Nothing was organized: no datasets formed a ${grouping.structure} collection.`,
+      unpaired: sample(grouping.unmatched),
+      out_of_scope: sample(grouping.out_of_scope),
+    };
+  }
   const built = state.collection || {};
   const leftovers = state.leftovers || {};
   return {
