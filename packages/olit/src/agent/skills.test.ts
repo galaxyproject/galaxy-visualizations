@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,6 +13,7 @@ import {
   type SkillEntry,
 } from "./skills";
 import { Outcome, type Context } from "./tool";
+import { olitTools } from "./tools";
 
 const SKILL = `---
 name: galaxy-transform-collection
@@ -184,5 +187,29 @@ describe("the shipped corpus", async () => {
     expect(out.isError).toBe(true);
     expect(out.text).toContain("galaxy-skills");
     expect(registry.read("galaxy-skills", "collection-manipulation/SKILL.md")).toBeTruthy();
+  });
+});
+
+describe("Olit's own skills", () => {
+  it("call each tool only with arguments the tool takes", () => {
+    const root = join(__dirname, "skills", "olit-skills");
+    const params = new Map(
+      olitTools().map((t) => [t.name, Object.keys(t.parameters.properties ?? {})]),
+    );
+    const wrong: string[] = [];
+    for (const skill of readdirSync(root)) {
+      const text = readFileSync(join(root, skill, "SKILL.md"), "utf8");
+      for (const [, name, args] of text.matchAll(/`([a-z_]+)\(([^`)]*)\)`/g)) {
+        const known = params.get(name);
+        if (!known) continue;
+        for (const arg of args
+          .split(",")
+          .map((a) => a.split("=")[0].trim())
+          .filter(Boolean)) {
+          if (!known.includes(arg)) wrong.push(`${skill}: ${name}(${arg})`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 });
