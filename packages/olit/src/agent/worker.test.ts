@@ -136,6 +136,8 @@ describe("the worker's order", () => {
       );
     await until(settled);
     expect(posted.some((m) => m.type === "reply" && m.id === switched)).toBe(false);
+    const confirmation = posted.find((m) => m.type === "confirm") as { id: number };
+    expect(posted).toContainEqual({ type: "withdrawn", id: confirmation.id });
     releaseProps();
   });
 });

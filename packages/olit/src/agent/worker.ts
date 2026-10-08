@@ -53,6 +53,8 @@ export type WorkerMessage =
   | { type: "settled"; settled: Settled }
   | { type: "held"; held: Waiting }
   | { type: "confirm"; id: number; title: string; message: string }
+  /** A confirmation the agent no longer waits on. */
+  | { type: "withdrawn"; id: number }
   | { type: "reply"; id: number; value?: unknown; error?: string }
   | { type: "failed"; message: string };
 
@@ -97,6 +99,7 @@ function decline(conversation: ConversationId) {
     if (waiting.conversation !== conversation) continue;
     confirms.delete(id);
     waiting.resolve(false);
+    post({ type: "withdrawn", id });
   }
 }
 

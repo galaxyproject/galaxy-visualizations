@@ -259,7 +259,7 @@ async function main() {
     ...(fromGalaxy && savedId ? { saved: { id: savedId, document: fromGalaxy } } : {}),
   };
 
-  const showConfirm = createConfirm({
+  const confirm = createConfirm({
     container,
     respond: (id, approved) => agent.confirm(Number(id), approved),
     note: (text) => info(text),
@@ -287,7 +287,9 @@ async function main() {
         );
       }
     } else if (message.type === "confirm") {
-      showConfirm(String(message.id), message);
+      confirm.show(String(message.id), message);
+    } else if (message.type === "withdrawn") {
+      confirm.dismiss(String(message.id));
     } else if (message.type === "ready") {
       ready = true;
       galaxyStatus = message.galaxy;
