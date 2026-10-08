@@ -124,6 +124,30 @@ describe("holding a conversation", () => {
     );
   });
 
+  it("ends the record reads a request makes before the model, with the run", async () => {
+    const reads: Request[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      if (request.url.includes("/contents")) {
+        reads.push(request);
+        return hanging(request);
+      }
+      return json(request.url.endsWith("api/version") ? { version_major: "26.1" } : {});
+    });
+    const runtime = await machine();
+    const conversation = await runtime.create({ historyId: "h1" });
+    await runtime.submit(conversation, "what is in my history?");
+    await until(() => reads.length === 1);
+
+    await runtime.hold([conversation]);
+    const idle = await Promise.race([
+      conversation.waitForIdle(context).then(() => true),
+      new Promise<boolean>((r) => setTimeout(() => r(false), 2000)),
+    ]);
+    expect(idle).toBe(true);
+    expect(reads[0].signal.aborted).toBe(true);
+  });
+
   it("does not resume a run the store held when it is opened again", async () => {
     const file = join(mkdtempSync(join(tmpdir(), "olit-hold-")), "olit.sqlite3");
     const asked = model(hanging, () => text("The answer, once asked again."));

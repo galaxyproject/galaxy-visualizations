@@ -175,8 +175,10 @@ export function olitExtension(host: OlitHost) {
       hook(GenerationTask, {
         beforeRequest: async (request, api, context) => {
           // Read for every request, as loom's context hook does: a run's own writes change both.
+          // Through the request's own signal, so a Stop ends the reads with the run.
           const bound = await api.snapshot(Binding, api.conversationId, context);
-          const text = await excerpt(host.galaxy, bound?.pageId, bound?.historyId);
+          const { galaxy } = host.clients(context.abortSignal);
+          const text = await excerpt(galaxy, bound?.pageId, bound?.historyId);
           return { messages: withRecord(request.messages, text) };
         },
         afterResponse: async (message, api, context) => {
