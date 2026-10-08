@@ -14,6 +14,12 @@ done
 
 fail=0
 pids=()
+# A failing driver's own words, where CI shows them: its log stays behind on the runner.
+failed() {
+    echo "FAIL  $1  ($2)"
+    tail -n 25 "$2" | sed 's/^/      /'
+    fail=1
+}
 # Wait for a server, or stop: drivers run against a server that never came up only fail obscurely.
 await() {
     for _ in $(seq "$2"); do curl -sf -o /dev/null "$1" && return 0; sleep 1; done
@@ -45,7 +51,7 @@ for d in confirm session reload tabs unsaved-changes approval-gate ratelimit vis
     if LLM_CONTEXT_WINDOW=64000 node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
-        echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1
+        failed "$d" "/tmp/olit-e2e-$d.log"
     fi
 done
 
@@ -63,7 +69,7 @@ for d in credentials artifact-pane provider-switch galaxy-boot galaxy-frame save
     if node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
-        echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1
+        failed "$d" "/tmp/olit-e2e-$d.log"
     fi
 done
 
@@ -74,7 +80,7 @@ for browser in firefox webkit; do
     if BROWSER=$browser node e2e/python-isolation-drive.cjs > "/tmp/olit-e2e-python-isolation-$browser.log" 2>&1; then
         echo "PASS  python-isolation ($browser)"
     else
-        echo "FAIL  python-isolation ($browser)  (/tmp/olit-e2e-python-isolation-$browser.log)"; fail=1
+        failed "python-isolation ($browser)" "/tmp/olit-e2e-python-isolation-$browser.log"
     fi
 done
 
