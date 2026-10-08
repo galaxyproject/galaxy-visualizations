@@ -24,6 +24,7 @@ import { mountLayout } from "./layout";
 import { mountArtifactPane } from "./artifact-pane";
 import { mountUsageBar } from "./usage-bar";
 import { mountBuildStamp } from "./build-stamp";
+import { localTime } from "./galaxy-time";
 import { createRetryNotice } from "./retry-notice";
 
 const PLUGIN_NAME = "olit";
@@ -345,7 +346,7 @@ async function main() {
       for (const record of message.records) {
         const button = document.createElement("button");
         button.className = "plan-btn";
-        button.textContent = `Continue the record ${record.title} (updated ${record.updated.slice(0, 16).replace("T", " ")})`;
+        button.textContent = `Continue the record ${record.title} (updated ${localTime(record.updated)})`;
         button.addEventListener("click", () => {
           continuing =
             `Continuing the record ${record.title}: new entries go to that page. Its ` +
