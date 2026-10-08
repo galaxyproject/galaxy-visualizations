@@ -378,6 +378,16 @@ export class Runtime {
             ...(document.session.recordPageId ? { pageId: document.session.recordPageId } : {}),
           });
           if (document.history_id) (await tx.doc(Sessions)).byHistory[document.history_id] = id;
+          // A save keeps totals, not a breakdown by model.
+          const { input, output, cost } = document.session.usage;
+          (await tx.doc(UsageDoc, id)).models["saved"] = {
+            input,
+            output,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: input + output,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: cost ?? 0 },
+          };
         },
       },
       context,

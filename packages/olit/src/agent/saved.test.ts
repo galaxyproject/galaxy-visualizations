@@ -163,6 +163,23 @@ describe("a saved Olit visualization is a restorable conversation", () => {
     expect((await artifactsIn(reopened, context)).map((a) => a.title)).toEqual([CHART.title]);
   });
 
+  it("keeps the usage it was saved with when it continues on another machine", async () => {
+    const { saved } = world();
+    const one = await machine();
+    const conversation = await one.create({ historyId: "h1" });
+    await say(one, conversation, "first");
+    const id = await saved.save(await one.export(conversation));
+
+    const two = await machine();
+    const reopened = await two.open((await saved.load(id))!, id);
+    await say(two, reopened, "second");
+    expect((await two.export(reopened)).session.usage).toEqual({
+      input: 20,
+      output: 10,
+      cost: null,
+    });
+  });
+
   it("continues on the second machine and saves back to the same visualization", async () => {
     const { rows, saved } = world();
     const one = await machine();
