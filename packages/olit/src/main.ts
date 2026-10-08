@@ -288,11 +288,8 @@ async function main() {
       galaxyStatus = message.galaxy;
       refreshSave();
       if (message.unkept) {
-        const refused = message.unkept.startsWith("SecurityError")
-          ? 'the browser refuses this site storage, as Firefox does in private windows and with "Never remember history"'
-          : message.unkept;
         chat.addErrorMessage(
-          `Olit is not keeping this conversation in the browser (${refused}), so it ends when ` +
+          `Olit is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
             "the page closes. Save it to Galaxy to keep it.",
         );
       }

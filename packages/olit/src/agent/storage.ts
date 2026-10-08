@@ -81,7 +81,10 @@ export async function openStorage(name: string): Promise<OpenedStorage> {
   const { name: kind, message } = (failure ?? {}) as Partial<Error>;
   return {
     storage: new MemoryStorage(),
-    unkept: [kind, message].filter(Boolean).join(": ") || String(failure),
+    unkept:
+      kind === "SecurityError"
+        ? 'the browser refuses this site storage, as Firefox does in private windows and with "Never remember history"'
+        : [kind, message].filter(Boolean).join(": ") || String(failure),
   };
 }
 
