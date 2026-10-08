@@ -18,6 +18,15 @@ const check = (name, ok, detail) => {
 };
 const calls = async () => (await (await fetch(`${STUB}/__seen`)).json()).calls;
 
+/** Until the approval is answered: a turn reaches the provider, or the page says it refused. */
+async function answered(page, before, refusal) {
+    const end = Date.now() + 30000;
+    while (Date.now() < end) {
+        if ((await calls()) > before || refusal.test(await page.evaluate(() => document.body.innerText))) return;
+        await page.waitForTimeout(400);
+    }
+}
+
 async function waitFor(page, fn, ms, arg) {
     const end = Date.now() + ms;
     while (Date.now() < end) {
@@ -50,7 +59,7 @@ async function waitFor(page, fn, ms, arg) {
     // An ordinary session: Galaxy answers and nothing has failed.
     const beforeAllowed = await calls();
     await page.click(".plan-draft-approve");
-    await page.waitForTimeout(2500);
+    await answered(page, beforeAllowed, /Galaxy is not available/i);
     const afterAllowed = await calls();
     const allowedBody = await page.evaluate(() => document.body.innerText);
     check("an ordinary session does not refuse the plan",
@@ -76,7 +85,7 @@ async function waitFor(page, fn, ms, arg) {
 
     const before = await calls();
     await page.locator(".plan-draft-approve").last().click();
-    await page.waitForTimeout(2500);
+    await answered(page, before, /nothing in this plan can run/i);
     const after = await calls();
 
     const failedBody = await page.evaluate(() => document.body.innerText);

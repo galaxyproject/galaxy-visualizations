@@ -119,11 +119,15 @@ async function ask(page, msg) {
     // ---- 3. Stop ends a turn parked on a slow provider -----------------------
     await script("slow");
     await ask(p, "do something slow");
-    await p.waitForTimeout(3000);
-    const stopVisible = await p.evaluate(
-        () => !document.querySelector("#abort-btn").classList.contains("hidden"),
-    );
+    const stopVisible = await waitFor(
+        p, () => !document.querySelector("#abort-btn").classList.contains("hidden"), 30000);
     check("Stop replaces Send while a turn is in flight", stopVisible);
+    let parked = false;
+    for (let i = 0; i < 60 && !parked; i++) {
+        parked = (await (await fetch(`${STUB}/__seen`)).json()).calls > 0;
+        if (!parked) await p.waitForTimeout(500);
+    }
+    check("the turn is waiting on the provider", parked);
     await p.click("#abort-btn");
     const stopped = await waitFor(p, () => /Stopped\./.test(document.body.innerText), 30000);
     check("Stop ends the turn without waiting for the provider", stopped);
