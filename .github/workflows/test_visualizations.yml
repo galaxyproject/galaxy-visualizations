@@ -135,9 +135,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
 
+      # Chromium unless the package names the browsers it drives in `playwrightBrowsers`.
       - name: Install Playwright browsers
         working-directory: packages/${{ matrix.package }}
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps $(jq -r '(.playwrightBrowsers // ["chromium"]) | join(" ")' package.json)
 
       - name: Build
         working-directory: packages/${{ matrix.package }}

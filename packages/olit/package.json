@@ -6,6 +6,11 @@
   "files": [
     "static"
   ],
+  "playwrightBrowsers": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
   "scripts": {
     "build": "npm run build:pyodide && npm run build:skills && vite build",
     "build:pyodide": "node scripts/install_pyodide.js",
