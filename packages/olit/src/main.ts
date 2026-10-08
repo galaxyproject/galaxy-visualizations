@@ -88,14 +88,6 @@ async function main() {
   const config = buildConfig(incoming, creds);
   const rootPath = new URL(config.galaxy_root, document.baseURI).pathname;
   chat.setGalaxyServerUrl(absolute(config.galaxy_root));
-  // Runtime context: where relative fetches resolve and what origin Galaxy calls hit.
-  console.log("[olit] context", {
-    href: window.location.href,
-    origin: window.location.origin,
-    isIframe: window.top !== window.self,
-    galaxy_root: config.galaxy_root,
-  });
-
   const credentials = (process.env.credentials as RequestCredentials) || "include";
   // The page's own Galaxy requests take the transport the agent's do.
   const galaxy = connectGalaxy({ root: config.galaxy_root, credentials });
