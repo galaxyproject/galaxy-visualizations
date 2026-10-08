@@ -86,24 +86,28 @@ type Plugin = { name?: string; html?: string; tags?: string[] | null };
 
 const words = (text: string) => new Set(text.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []);
 
-/** Whether a search's words name an installed visualization: its name, display title or a tag. */
+/**
+ * Whether a search names an installed visualization: every word of a plugin's name is in it.
+ * Titles and tags share words with tools ("fasta", "tree"), so they do not count, and a plugin
+ * list Galaxy will not give is no reason to say anything.
+ */
 async function namesVisualization(galaxy: Galaxy, query: string): Promise<boolean> {
   const wanted = words(query);
   if (!wanted.size) {
     return false;
   }
-  const installed: Plugin[] = (await galaxy.get("api/plugins")) || [];
-  return installed.some(
-    (plugin) =>
-      plugin.name &&
-      !NOT_OFFERED.has(plugin.name) &&
-      [...words([plugin.name, plugin.html ?? "", ...(plugin.tags ?? [])].join(" "))].some((word) =>
-        wanted.has(word),
-      ),
-  );
+  let installed: Plugin[];
+  try {
+    installed = (await galaxy.get("api/plugins")) || [];
+  } catch {
+    return false;
+  }
+  return installed.some((plugin) => {
+    const name = words(plugin.name ?? "");
+    return name.size > 0 && !NOT_OFFERED.has(plugin.name!) && [...name].every((w) => wanted.has(w));
+  });
 }
 
-/** Where a tool search that found nothing was looking: a visualization the catalog does not hold. */
 export async function catalogMissHint(
   galaxy: Galaxy,
   name: string,
