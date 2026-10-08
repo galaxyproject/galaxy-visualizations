@@ -19,6 +19,7 @@ import {
   offeredValue,
   optionBearing,
   resolvedDefault,
+  resolveConfig,
   resolveParameter,
   unresolved,
   type Types,
@@ -392,10 +393,15 @@ async function checked(
   }
   const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
   const chosen = { ...a, settings: structuredClone(a.settings), tracks: structuredClone(a.tracks) };
-  const rejected =
-    rejectUndeclared(plugin, chosen) ??
-    (await selectOffered(resolveOptions(galaxy), plugin, chosen)) ??
-    rejectIncomplete(plugin, chosen);
+  // The values as sent are checked before galaxy-charts' coercion could hide a wrong one; from
+  // then on, checks and the stored config are the one resolved config.
+  let rejected = rejectUndeclared(plugin, chosen);
+  if (!rejected) {
+    Object.assign(chosen, resolveConfig(plugin, chosen));
+    rejected =
+      (await selectOffered(resolveOptions(galaxy), plugin, chosen)) ??
+      rejectIncomplete(plugin, chosen);
+  }
   if (rejected) {
     return { rejected };
   }
