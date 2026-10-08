@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { visualizationStore } from "./agent/fake-model";
 import { connectGalaxy } from "./agent/galaxy";
 import { SCHEMA, title, type SessionDocument } from "./agent/saved";
 import { NotYours, PLUGIN_TYPE, reportSavedState, savedSessions } from "./saved-session";
@@ -22,30 +23,8 @@ const ME = "f2db41e1fa331b3e";
 
 /** A Galaxy that keeps visualizations in memory, each owned by the user who saved it. */
 function fakeGalaxy(me: string | null = ME) {
-  const rows = new Map<string, { title: string; config: unknown; type?: string; owner?: string }>();
-  let next = 1;
-  const json = (body: unknown, status = 200) =>
-    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-  const fetchMock = vi.fn(async (request: Request) => {
-    if (request.url.endsWith("/api/users/current")) {
-      return json(me ? { id: me } : { username: "Anonymous" });
-    }
-    const id = request.url.split("/api/visualizations/")[1];
-    if (request.method === "GET") {
-      const row = rows.get(id!);
-      return row
-        ? json({ user_id: row.owner, latest_revision: { config: row.config } })
-        : json("not found", 404);
-    }
-    const body = JSON.parse(await request.text());
-    if (request.method === "POST") {
-      const created = `v${next++}`;
-      rows.set(created, { ...body, owner: me ?? undefined });
-      return json({ id: created });
-    }
-    rows.set(id!, { ...rows.get(id!), ...body });
-    return json({});
-  });
+  const { rows, answer } = visualizationStore(me);
+  const fetchMock = vi.fn(async (request: Request) => (await answer(request))!);
   return { rows, fetchMock };
 }
 

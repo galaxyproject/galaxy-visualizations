@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { savedSessions } from "../saved-session";
 import { Binding } from "./documents";
-import { json, text } from "./fake-model";
+import { json, text, visualizationStore } from "./fake-model";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
 import { artifactsIn, context, Runtime } from "./runtime";
@@ -23,33 +23,18 @@ const USER = "f2db41e1fa331b3e";
 
 /** A Galaxy keeping visualizations in memory, so a "second machine" reads them back, and a model. */
 function world() {
-  const rows = new Map<string, Record<string, unknown>>();
+  const { rows, answer } = visualizationStore(USER);
   const requests: Array<{ messages: Array<{ role: string; content: string }> }> = [];
-  let next = 1;
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
     if (request.url.startsWith(LLM)) {
       requests.push(JSON.parse(await request.text()));
       return text(`answer ${requests.length}`);
     }
-    if (request.url.endsWith("/api/users/current")) return json({ id: USER });
-    const id = request.url.split("/api/visualizations/")[1];
-    if (request.url.includes("/api/visualizations")) {
-      if (request.method === "GET") {
-        const row = rows.get(id!);
-        return row
-          ? json({ user_id: USER, latest_revision: { config: row.config } })
-          : json("not found", 404);
-      }
-      const body = JSON.parse(await request.text());
-      if (request.method === "POST") {
-        rows.set(`v${next}`, body);
-        return json({ id: `v${next++}` });
-      }
-      rows.set(id!, { ...rows.get(id!), ...body });
-      return json({});
-    }
-    return json(request.url.endsWith("api/version") ? { version_major: "26.1" } : {});
+    return (
+      (await answer(request)) ??
+      json(request.url.endsWith("api/version") ? { version_major: "26.1" } : {})
+    );
   });
   return { rows, requests, saved: savedSessions(connectGalaxy({ root: ROOT })) };
 }
