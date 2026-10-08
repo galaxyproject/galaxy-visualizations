@@ -1,10 +1,13 @@
 import type { ConversationId } from "@earendil-works/pi-durable";
 
-/** Ask the user, on behalf of the conversation whose run wants to act. */
-export type Ask = (
+/** Ask the user, for one conversation's run. */
+export type Ask = (title: string, message: string) => Promise<boolean>;
+
+/** Ask the user on behalf of `conversation`, whose run wants to act. */
+export type AskFor = (
   title: string,
   message: string,
-  conversation?: ConversationId,
+  conversation: ConversationId,
 ) => Promise<boolean>;
 
 /**

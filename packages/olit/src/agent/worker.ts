@@ -31,7 +31,7 @@ export interface OpenRequest {
 }
 
 /** Why follow-ups are waiting for the user, when they are. */
-export type Waiting = "stopped" | "capped" | undefined;
+export type Waiting = "paused" | "capped" | undefined;
 
 export type WorkerMessage =
   /** Another tab has this conversation open. */
@@ -75,7 +75,7 @@ const post = (message: WorkerMessage) => self.postMessage(message);
 /** Confirmations waiting on the user, each held by the conversation whose run asked. */
 const confirms = new Map<
   number,
-  { conversation?: ConversationId; resolve: (approved: boolean) => void }
+  { conversation: ConversationId; resolve: (approved: boolean) => void }
 >();
 let confirmId = 0;
 let runtime: Runtime | undefined;
@@ -85,7 +85,7 @@ let held: Waiting;
 /** A launch waiting for the user to choose among the history's records. */
 let choosing: { placement: Placement; records: RecordSummary[]; unkept?: string } | undefined;
 
-function ask(title: string, message: string, conversation?: ConversationId): Promise<boolean> {
+function ask(title: string, message: string, conversation: ConversationId): Promise<boolean> {
   return new Promise((resolve) => {
     const id = confirmId++;
     confirms.set(id, { conversation, resolve });

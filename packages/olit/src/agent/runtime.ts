@@ -14,7 +14,7 @@ import {
 } from "@earendil-works/pi-durable";
 
 import { artifactsOf, type Artifact } from "../artifacts/kinds";
-import type { Ask } from "./destructive";
+import type { AskFor } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
 import { connectGalaxy, connectWeb, type Galaxy } from "./galaxy";
@@ -79,7 +79,7 @@ export interface RuntimeOptions {
   /** Where a headless run reads provider keys; a browser has none. */
   env?: Record<string, string | undefined>;
   /** Present when a user can approve a destructive operation. */
-  ask?: Ask;
+  ask?: AskFor;
   /** Galaxy work is polled this often. */
   pollMs?: number;
 }
@@ -314,14 +314,6 @@ export class Runtime {
       Object.assign(await tx.doc(FollowUps, conversation.id), { automatic: 0, paused: false });
     }, context);
     return conversation.submit({ type: "input", content: text }, context);
-  }
-
-  /** Stop: the run ends, and follow-ups wait for the user's next message. */
-  async stop(conversation: Conversation): Promise<void> {
-    await conversation.commit(async (tx) => {
-      (await tx.doc(FollowUps, conversation.id)).paused = true;
-    }, context);
-    await conversation.abort(context, { keepQueued: true });
   }
 
   /** Every conversation with live work: a run, or Galaxy work it watches. */

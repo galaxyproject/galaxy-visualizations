@@ -16,7 +16,7 @@ import {
 } from "@earendil-works/pi-durable";
 
 import { Binding } from "./documents";
-import type { Ask } from "./destructive";
+import type { AskFor } from "./destructive";
 import type { Galaxy } from "./galaxy";
 import { guards, plainToolName, withoutControlTokens } from "./guards";
 import { EMPTY_REPLY } from "./markers";
@@ -50,7 +50,7 @@ export interface OlitHost {
   secrets: () => string[];
   /** The standing system prompt for a conversation on this model. */
   prompt: (input: { model?: string; provider?: string; datasetId?: string }) => string;
-  ask?: Ask;
+  ask?: AskFor;
   watch: Task<Watched, any, any, object>;
 }
 

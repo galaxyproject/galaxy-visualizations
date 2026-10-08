@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { savedSessions } from "../saved-session";
 import { Binding } from "./documents";
+import { json, text } from "./fake-model";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
 import { artifactsIn, context, Runtime } from "./runtime";
@@ -20,21 +21,6 @@ const LLM = "http://llm.test/v1";
 const KEY = "sk-test-secret-value";
 const USER = "f2db41e1fa331b3e";
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-
-function reply(text: string): Response {
-  const chunks = [
-    { choices: [{ index: 0, delta: { content: text } }] },
-    {
-      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-      usage: { prompt_tokens: 10, completion_tokens: 5 },
-    },
-  ];
-  const body = chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n";
-  return new Response(body, { headers: { "content-type": "text/event-stream" } });
-}
-
 /** A Galaxy keeping visualizations in memory, so a "second machine" reads them back, and a model. */
 function world() {
   const rows = new Map<string, Record<string, unknown>>();
@@ -44,7 +30,7 @@ function world() {
     const request = input instanceof Request ? input : new Request(String(input), init);
     if (request.url.startsWith(LLM)) {
       requests.push(JSON.parse(await request.text()));
-      return reply(`answer ${requests.length}`);
+      return text(`answer ${requests.length}`);
     }
     if (request.url.endsWith("/api/users/current")) return json({ id: USER });
     const id = request.url.split("/api/visualizations/")[1];

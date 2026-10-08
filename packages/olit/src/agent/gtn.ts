@@ -4,7 +4,6 @@ export const GTN_HOST = "training.galaxyproject.org";
 export const GTN_BASE = `https://${GTN_HOST}`;
 export const GTN_API = `${GTN_BASE}/training-material/api`;
 export const FETCH_MAX_CHARS = 40000;
-export const ERROR_MAX_CHARS = 400;
 
 /** Chrome that carries no tutorial content, dropped whole. */
 const DROP_TAGS = new Set(["script", "style", "nav", "header", "footer", "aside", "noscript"]);
@@ -276,10 +275,7 @@ async function gtnFetch(args: { url?: string }, ctx: Context): Promise<Outcome> 
     const site = ctx.web.connect(`${parsed.origin}/`);
     page = await site.get(`${parsed.pathname}${parsed.search}`);
   } catch (error) {
-    let detail = error instanceof Error ? error.message : String(error);
-    if (detail.length > ERROR_MAX_CHARS) {
-      detail = `${detail.slice(0, ERROR_MAX_CHARS)} ...`;
-    }
+    const detail = error instanceof Error ? error.message : String(error);
     return fail(
       JSON.stringify({
         url,

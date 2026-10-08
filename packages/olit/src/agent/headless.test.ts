@@ -286,7 +286,7 @@ describe("a turn", () => {
     const running = session.turn("hi");
     await vi.waitFor(() => expect(requests).toHaveLength(1));
     await new Promise((r) => setTimeout(r, 50));
-    await session.runtime.stop(session.conversation);
+    await session.runtime.hold([session.conversation]);
     expect(await running).toMatchObject({ status: "unanswered", reason: "aborted" });
     expect(aborted).toBe(true);
   });
@@ -537,7 +537,8 @@ describe("the record and the work the conversation watches", () => {
       job,
     );
     await session.turn("hi");
-    await session.runtime.stop(session.conversation);
+    await session.runtime.hold([session.conversation]);
+    await session.conversation.waitForIdle(context);
     job.state = "ok";
     const quiet = await session.settle(5);
     expect(quiet.settled).toHaveLength(1);

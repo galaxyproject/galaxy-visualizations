@@ -6,47 +6,14 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FollowUps } from "./documents";
+import { hanging, json, text, toolCall } from "./fake-model";
 import { context, Runtime } from "./runtime";
 import type { Python } from "./tool";
 
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";
 
-const json = (body: unknown) =>
-  new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
-
-const stream = (delta: Record<string, unknown>, finish: string) =>
-  new Response(
-    [
-      { choices: [{ index: 0, delta }] },
-      { choices: [{ index: 0, delta: {}, finish_reason: finish }] },
-    ]
-      .map((c) => `data: ${JSON.stringify(c)}\n\n`)
-      .join("") + "data: [DONE]\n\n",
-    { headers: { "content-type": "text/event-stream" } },
-  );
-
-const text = (content: string) => stream({ content }, "stop");
-const python = (code: string) =>
-  stream(
-    {
-      tool_calls: [
-        {
-          index: 0,
-          id: "call_1",
-          type: "function",
-          function: { name: "run_python", arguments: JSON.stringify({ code }) },
-        },
-      ],
-    },
-    "tool_calls",
-  );
-
-/** Never answers; ends only when its request is aborted. */
-const hanging = (request: Request) =>
-  new Promise<Response>((_, reject) =>
-    request.signal.addEventListener("abort", () => reject(request.signal.reason), { once: true }),
-  );
+const python = (code: string) => toolCall("run_python", { code });
 
 /** A model answering each request in turn, and a Galaxy that says nothing in particular. */
 function model(...answers: Array<(request: Request) => Response | Promise<Response>>) {
@@ -159,21 +126,7 @@ describe("holding a conversation", () => {
       }
       if (request.url.startsWith(LLM)) {
         calls++;
-        return calls === 1
-          ? stream(
-              {
-                tool_calls: [
-                  {
-                    index: 0,
-                    id: "call_1",
-                    type: "function",
-                    function: { name: "ena_runs", arguments: '{"accession":"SRR390728"}' },
-                  },
-                ],
-              },
-              "tool_calls",
-            )
-          : text("done");
+        return calls === 1 ? toolCall("ena_runs", { accession: "SRR390728" }) : text("done");
       }
       return json(request.url.endsWith("api/version") ? { version_major: "26.1" } : {});
     });

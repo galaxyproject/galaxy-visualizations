@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { enaTools, ERROR_MAX_CHARS, RUNS_MAX } from "./ena";
-import { connectWeb } from "./galaxy";
+import { enaTools, RUNS_MAX } from "./ena";
+import { connectWeb, ERROR_MAX } from "./galaxy";
 import type { Context, Outcome } from "./tool";
 
 const HEADER =
@@ -125,7 +125,7 @@ describe("ena_runs", () => {
   it("trims a long error", async () => {
     net("x".repeat(5000), 400);
     const out = await refused({ accession: "NOPE" });
-    expect(out.error.length).toBeLessThanOrEqual(ERROR_MAX_CHARS + 4);
+    expect(out.error.length).toBeLessThanOrEqual(ERROR_MAX + 60);
   });
 
   it("says so when an accession has no runs", async () => {

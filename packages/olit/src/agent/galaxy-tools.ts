@@ -126,16 +126,13 @@ const isRow = (value: unknown): value is Row =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
 const STR = { type: "string" };
-/** Sources a history owns, and where each one answers its history_id. */
-const HISTORY_SCOPED_SRCS: Record<string, string> = {
-  hda: "api/datasets",
-  hdca: "api/dataset_collections",
-};
-
-/** Just enough of each to say where it lives: no dataset details, no collection elements. */
-const WHERE_ONLY: Record<string, string> = {
-  hda: "?keys=history_id,name",
-  hdca: "?view=collection",
+/**
+ * Sources a history owns: where each answers its history_id, and how to ask for little more than
+ * that, without a dataset's details or a collection's elements.
+ */
+const HISTORY_SCOPED_SRCS: Record<string, { path: string; brief: string }> = {
+  hda: { path: "api/datasets", brief: "?keys=history_id,name" },
+  hdca: { path: "api/dataset_collections", brief: "?view=collection" },
 };
 
 /** How many references are looked up at once. */
@@ -263,7 +260,7 @@ async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string)
       const [src, id] = [ref.slice(0, ref.indexOf("/")), ref.slice(ref.indexOf("/") + 1)];
       try {
         const detail = await galaxy.get(
-          `${HISTORY_SCOPED_SRCS[src]}/${segment(id)}${WHERE_ONLY[src]}`,
+          `${HISTORY_SCOPED_SRCS[src].path}/${segment(id)}${HISTORY_SCOPED_SRCS[src].brief}`,
         );
         if (isRow(detail)) found.set(ref, detail);
       } catch (e) {

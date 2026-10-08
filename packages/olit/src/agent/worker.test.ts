@@ -1,6 +1,7 @@
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { json, stream, toolCall } from "./fake-model";
 import { probeWindow } from "./providers";
 import type { PageMessage, WorkerMessage } from "./worker";
 
@@ -21,37 +22,7 @@ const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";
 const LOCAL = "http://local.test/v1";
 
-const json = (body: unknown) =>
-  new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
-
-const stream = (delta: Record<string, unknown>, finish: string) =>
-  new Response(
-    [
-      { choices: [{ index: 0, delta }] },
-      { choices: [{ index: 0, delta: {}, finish_reason: finish }] },
-    ]
-      .map((c) => `data: ${JSON.stringify(c)}\n\n`)
-      .join("") + "data: [DONE]\n\n",
-    { headers: { "content-type": "text/event-stream" } },
-  );
-
-const deleteHistory = () =>
-  stream(
-    {
-      tool_calls: [
-        {
-          index: 0,
-          id: "call_1",
-          type: "function",
-          function: {
-            name: "update_history",
-            arguments: JSON.stringify({ history_id: "h1", deleted: true }),
-          },
-        },
-      ],
-    },
-    "tool_calls",
-  );
+const deleteHistory = () => toolCall("update_history", { history_id: "h1", deleted: true });
 
 /** What the model was asked, the request bodies in turn. */
 const asked: string[] = [];

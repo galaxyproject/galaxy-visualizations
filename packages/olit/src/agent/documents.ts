@@ -33,7 +33,7 @@ export const FollowUps = defineDoc<{ automatic: number; paused: boolean }>({
 
 /** Why settled work waits for the user rather than starting a run, or undefined when it need not. */
 export function heldBy(policy: { automatic: number; paused: boolean } | undefined) {
-  if (policy?.paused) return "stopped" as const;
+  if (policy?.paused) return "paused" as const;
   if ((policy?.automatic ?? 0) >= MAX_AUTO_FOLLOW_UPS) return "capped" as const;
   return undefined;
 }

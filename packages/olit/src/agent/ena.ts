@@ -5,7 +5,6 @@ export const FIELDS =
   "run_accession,library_layout,fastq_ftp,fastq_md5,fastq_bytes,read_count,scientific_name";
 export const RUNS_DEFAULT = 25;
 export const RUNS_MAX = 500;
-export const ERROR_MAX_CHARS = 400;
 
 /** Percent-encode everything but unreserved characters. */
 const quote = (value: string) =>
@@ -65,12 +64,7 @@ async function enaRuns(
       );
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    return fail(
-      JSON.stringify({
-        accession,
-        error: detail.slice(0, ERROR_MAX_CHARS) + (detail.length > ERROR_MAX_CHARS ? " ..." : ""),
-      }),
-    );
+    return fail(JSON.stringify({ accession, error: detail }));
   }
 
   const found = rows(typeof table === "string" ? table : String(table));

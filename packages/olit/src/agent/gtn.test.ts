@@ -1,15 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  ERROR_MAX_CHARS,
-  FETCH_MAX_CHARS,
-  GTN_API,
-  GTN_BASE,
-  GTN_HOST,
-  gtnTools,
-  stripHtml,
-} from "./gtn";
-import { connectWeb } from "./galaxy";
+import { FETCH_MAX_CHARS, GTN_API, GTN_BASE, GTN_HOST, gtnTools, stripHtml } from "./gtn";
+import { connectWeb, ERROR_MAX } from "./galaxy";
 import type { Context, Outcome } from "./tool";
 
 const TOPICS = {
@@ -217,7 +209,7 @@ describe("gtn_fetch bounds", () => {
   it("trims an error body and carries a hint", async () => {
     const { outcome, out } = await fetchBody(status(404, "<html>".repeat(5000)));
     expect(outcome.isError).toBe(true);
-    expect(out.error.length).toBeLessThanOrEqual(ERROR_MAX_CHARS + 4);
+    expect(out.error.length).toBeLessThanOrEqual(ERROR_MAX + 60);
     expect(out.error).toContain("404");
     expect(out.hint).toContain("gtn_search");
   });
