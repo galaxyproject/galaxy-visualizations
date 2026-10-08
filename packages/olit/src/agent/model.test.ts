@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable } from "./model";
+import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable, olitModels } from "./model";
 import { piProvider, providerById, PROVIDERS, resolve, type LlmConfig } from "./providers";
 
 /** The model a connection serves, as pi-ai resolves it. */
@@ -135,6 +135,17 @@ describe("connect", () => {
   it("sends no bearer token to a keyless endpoint, which reads the page's session", async () => {
     const { headers } = await request({ ai_provider: "galaxy", ai_base_url: "http://g/v1" });
     expect(headers.has("authorization")).toBe(false);
+  });
+
+  it("does not carry a provider's earlier key over to a connection that gives none", async () => {
+    const { connect } = olitModels();
+    await connect(resolve({ ai_provider: "openrouter", ai_model: "m", ai_api_key: "sk-first" }));
+    const typed = await connect(
+      resolve({ ai_provider: "openrouter", ai_model: "m", ai_base_url: "http://elsewhere/v1" }),
+    );
+    expect(typed.apiKey).not.toBe("sk-first");
+    const listed = await connect(resolve({ ai_provider: "openrouter", ai_model: "m" }));
+    expect(listed.apiKey).toBeUndefined();
   });
 
   it("sends the key to an endpoint that takes one", async () => {

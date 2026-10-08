@@ -151,8 +151,11 @@ export function olitModels(env: Record<string, string | undefined> = {}) {
     const pi = await piProvider(provider.id);
     const store = (key: string) =>
       credentials.modify(provider.id, async () => ({ type: "api_key", key }));
+    // Each connection states the provider's credential exactly, so no earlier key carries over.
     if (target.apiKey) {
       await store(target.apiKey);
+    } else {
+      await credentials.delete(provider.id);
     }
     let model: Model<Api>;
     if (pi) {
