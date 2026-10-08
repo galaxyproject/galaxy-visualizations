@@ -28,11 +28,13 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const REPO = process.env.GALAXY_SKILLS_REPO || "galaxyproject/galaxy-skills";
-const DEST = join(process.cwd(), "src", "agent", "skills", "galaxy-skills");
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const DEST = join(ROOT, "src", "agent", "skills", "galaxy-skills");
 const STAMP = join(DEST, "VENDORED.json");
-const LOCK = join(process.cwd(), "skills.lock.json");
+const LOCK = join(ROOT, "skills.lock.json");
 
 // The allowlist Orbit applies at runtime, applied here at build time instead.
 const ALLOWED_OWNER = "galaxyproject";

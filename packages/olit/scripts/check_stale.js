@@ -7,10 +7,10 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const ROOT = process.cwd();
-const read = (p) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
+const read = (p) =>
+  JSON.parse(readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), p), "utf8"));
 
 /** The version spec `package.json` pins `name` to, wherever it declares it. */
 export function pinned(pkg, name) {

@@ -13,8 +13,9 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, normalize, posix } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const VENDORED = join(process.cwd(), "src", "orbit");
+const VENDORED = fileURLToPath(new URL("../src/orbit", import.meta.url));
 const MANIFEST = join(VENDORED, "MANIFEST.json");
 
 const loom = process.argv[2];
