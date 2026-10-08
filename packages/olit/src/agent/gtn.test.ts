@@ -9,6 +9,7 @@ import {
   gtnTools,
   stripHtml,
 } from "./gtn";
+import { connectWeb } from "./galaxy";
 import type { Context, Outcome } from "./tool";
 
 const TOPICS = {
@@ -71,7 +72,7 @@ const standard = () =>
 
 const status = (code: number, body: string) => () => new Response(body, { status: code });
 
-const ctx = {} as Context;
+const ctx = { web: connectWeb() } as Context;
 const [search, fetchTool] = gtnTools();
 
 async function call(tool: typeof search, args: Record<string, unknown>) {

@@ -1,5 +1,4 @@
-import { connectGalaxy } from "./galaxy";
-import { fail, Outcome, type OlitTool } from "./tool";
+import { fail, Outcome, type Context, type OlitTool } from "./tool";
 
 export const GTN_HOST = "training.galaxyproject.org";
 export const GTN_BASE = `https://${GTN_HOST}`;
@@ -184,10 +183,9 @@ export function stripHtml(html: string): string {
 const isRecord = (value: unknown): value is Record<string, any> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const gtn = connectGalaxy({ root: `${GTN_BASE}/`, credentials: "omit" });
-
-async function gtnSearch(args: { topic?: string; query?: string }): Promise<Outcome> {
+async function gtnSearch(args: { topic?: string; query?: string }, ctx: Context): Promise<Outcome> {
   const { topic, query } = args ?? {};
+  const gtn = ctx.web.connect(`${GTN_BASE}/`);
 
   if (!topic) {
     const data = await gtn.get("training-material/api/topics.json");
@@ -254,7 +252,7 @@ async function gtnSearch(args: { topic?: string; query?: string }): Promise<Outc
   );
 }
 
-async function gtnFetch(args: { url?: string }): Promise<Outcome> {
+async function gtnFetch(args: { url?: string }, ctx: Context): Promise<Outcome> {
   const url = (args?.url || "").trim();
   if (!url) {
     return fail(JSON.stringify({ error: "A tutorial url is required." }));
@@ -275,7 +273,7 @@ async function gtnFetch(args: { url?: string }): Promise<Outcome> {
 
   let page: unknown;
   try {
-    const site = connectGalaxy({ root: `${parsed.origin}/`, credentials: "omit" });
+    const site = ctx.web.connect(`${parsed.origin}/`);
     page = await site.get(`${parsed.pathname}${parsed.search}`);
   } catch (error) {
     let detail = error instanceof Error ? error.message : String(error);

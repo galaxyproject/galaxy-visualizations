@@ -14,9 +14,8 @@ const SKIPPED = ["orbit/", "agent/skills/"];
 
 /** Every direct `fetch(` call that is not Galaxy, and what it reaches. */
 const NOT_GALAXY: Record<string, string> = {
-  "agent/galaxy.ts": "the transport itself",
+  "agent/galaxy.ts": "the transport itself, for Galaxy and, as a tool call's `web`, other hosts",
   "agent/python.ts": "Pyodide's own static files for the realm, without credentials",
-  "agent/visualizations.ts": "a data_json option list at a URL the plugin's XML declares",
   "agent/providers.ts": "a local model server's /props",
 };
 
@@ -36,5 +35,15 @@ describe("the Galaxy transport", () => {
       .filter((rel) => /(^|[^\w.])fetch\(/m.test(readFileSync(join(ROOT, rel), "utf8")))
       .sort();
     expect(fetching).toEqual(Object.keys(NOT_GALAXY).sort());
+  });
+
+  it("is built only where Galaxy's own clients are, so other hosts go through a call's `web`", () => {
+    const building = sources(ROOT)
+      .map((path) => relative(ROOT, path))
+      .filter((rel) => /\.(ts|js)$/.test(rel) && !rel.endsWith(".test.ts"))
+      .filter((rel) => !SKIPPED.some((s) => rel.startsWith(s)))
+      .filter((rel) => /connectGalaxy\(/.test(readFileSync(join(ROOT, rel), "utf8")))
+      .sort();
+    expect(building).toEqual(["agent/galaxy.ts", "agent/runtime.ts", "agent/worker.ts", "main.ts"]);
   });
 });

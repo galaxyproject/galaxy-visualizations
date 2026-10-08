@@ -376,9 +376,9 @@ async function uploadFile(args: Row, { galaxy, python }: Context) {
   return galaxy.post("api/tools/fetch", fetchPayload(element, args.history_id));
 }
 
-async function recommendBiocontainer(args: Row) {
+async function recommendBiocontainer(args: Row, ctx: Context) {
   try {
-    return await biocontainers.recommend(args.packages || []);
+    return await biocontainers.recommend(args.packages || [], ctx.web.fetch);
   } catch (error) {
     return fail((error as Error).message);
   }

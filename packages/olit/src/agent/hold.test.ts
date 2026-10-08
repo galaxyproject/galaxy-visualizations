@@ -148,6 +148,49 @@ describe("holding a conversation", () => {
     expect(reads[0].signal.aborted).toBe(true);
   });
 
+  it("ends a tool's request to another host with the run", async () => {
+    const asked: Request[] = [];
+    let calls = 0;
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      if (request.url.startsWith("https://www.ebi.ac.uk/")) {
+        asked.push(request);
+        return hanging(request);
+      }
+      if (request.url.startsWith(LLM)) {
+        calls++;
+        return calls === 1
+          ? stream(
+              {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call_1",
+                    type: "function",
+                    function: { name: "ena_runs", arguments: '{"accession":"SRR390728"}' },
+                  },
+                ],
+              },
+              "tool_calls",
+            )
+          : text("done");
+      }
+      return json(request.url.endsWith("api/version") ? { version_major: "26.1" } : {});
+    });
+    const runtime = await machine();
+    const conversation = await runtime.create({ historyId: "h1" });
+    await runtime.submit(conversation, "which runs does SRR390728 have?");
+    await until(() => asked.length === 1);
+
+    await runtime.hold([conversation]);
+    const idle = await Promise.race([
+      conversation.waitForIdle(context).then(() => true),
+      new Promise<boolean>((r) => setTimeout(() => r(false), 2000)),
+    ]);
+    expect(idle).toBe(true);
+    expect(asked[0].signal.aborted).toBe(true);
+  });
+
   it("does not resume a run the store held when it is opened again", async () => {
     const file = join(mkdtempSync(join(tmpdir(), "olit-hold-")), "olit.sqlite3");
     const asked = model(hanging, () => text("The answer, once asked again."));

@@ -174,6 +174,35 @@ export function connectGalaxy(options: GalaxyOptions): Galaxy {
   };
 }
 
+/** The longest one tool call waits on hosts other than Galaxy, retries included. */
+export const WEB_TIMEOUT_MS = 30_000;
+
+/**
+ * Hosts other than Galaxy, for one tool call: reached as Galaxy is, retried and with short errors,
+ * but never with Galaxy's login, and ended by the call's abort or once its time is up.
+ */
+export interface Web {
+  connect(root: string): Galaxy;
+  fetch: typeof fetch;
+}
+
+export function connectWeb(signal?: AbortSignal, timeoutMs = WEB_TIMEOUT_MS): Web {
+  const ended = new AbortController();
+  const end = (reason: unknown) => ended.abort(reason);
+  if (signal?.aborted) end(signal.reason);
+  signal?.addEventListener("abort", () => end(signal.reason), { once: true });
+  // A timeout signal keeps no process alive, as a timer would; its own reason says less.
+  AbortSignal.timeout(timeoutMs).addEventListener(
+    "abort",
+    () => end(new Error(`no answer within ${timeoutMs / 1000} s`)),
+    { once: true },
+  );
+  return {
+    connect: (root) => connectGalaxy({ root, credentials: "omit", signal: ended.signal }),
+    fetch: (input, init) => fetch(input, { ...init, credentials: "omit", signal: ended.signal }),
+  };
+}
+
 /** A query string without undefined values, booleans lowercased, a key repeated per list item. */
 export function query(params: Record<string, unknown>): string {
   const search = new URLSearchParams();

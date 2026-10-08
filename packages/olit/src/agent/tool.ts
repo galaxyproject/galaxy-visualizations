@@ -11,7 +11,7 @@ import type { GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import type { Artifact } from "../artifacts/kinds";
 import { Binding as Bound } from "./documents";
-import type { Galaxy } from "./galaxy";
+import type { Galaxy, Web } from "./galaxy";
 import { isTerminal, watchedFrom, type Watched } from "./watch";
 
 export type { Artifact } from "../artifacts/kinds";
@@ -65,6 +65,8 @@ export interface Binding {
 
 export interface Context {
   galaxy: Galaxy;
+  /** Hosts other than Galaxy, ended with the call or once its time is up. */
+  web: Web;
   ops: GalaxyContext;
   python: Python;
   /** What this session is bound to; the session owns it and reports its changes. */
@@ -134,7 +136,7 @@ export function claim(value: unknown, ctx: Context, hint?: string): unknown {
 /** What a durable tool needs from its host besides the conversation's binding. */
 export interface ToolHost {
   /** Galaxy clients and Python for one call, ended by its abort signal. */
-  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "ops" | "python">;
+  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "web" | "ops" | "python">;
   /** The artifacts earlier results carried, newest last. */
   artifacts(conversationId: ConversationId, context: Chord): Promise<Artifact[]>;
   watch: Task<Watched, any, JsonValue, object>;

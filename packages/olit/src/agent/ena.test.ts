@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { enaTools, ERROR_MAX_CHARS, RUNS_MAX } from "./ena";
+import { connectWeb } from "./galaxy";
 import type { Context, Outcome } from "./tool";
 
 const HEADER =
@@ -46,7 +47,7 @@ function net(body: string, status = 200) {
 const [tool] = enaTools();
 
 async function call(args: Record<string, unknown>) {
-  const outcome = (await tool.run(args, {} as Context)) as Outcome;
+  const outcome = (await tool.run(args, { web: connectWeb() } as Context)) as Outcome;
   return { outcome, out: JSON.parse(outcome.text) };
 }
 

@@ -1,5 +1,4 @@
-import { connectGalaxy } from "./galaxy";
-import { fail, Outcome, type OlitTool } from "./tool";
+import { fail, Outcome, type Context, type OlitTool } from "./tool";
 
 export const ENA_HOST = "www.ebi.ac.uk";
 export const FIELDS =
@@ -7,8 +6,6 @@ export const FIELDS =
 export const RUNS_DEFAULT = 25;
 export const RUNS_MAX = 500;
 export const ERROR_MAX_CHARS = 400;
-
-const ena = connectGalaxy({ root: `https://${ENA_HOST}/`, credentials: "omit" });
 
 /** Percent-encode everything but unreserved characters. */
 const quote = (value: string) =>
@@ -48,7 +45,10 @@ function clampLimit(limit: unknown): number {
   return Number.isFinite(n) ? Math.max(1, Math.min(n, RUNS_MAX)) : RUNS_DEFAULT;
 }
 
-async function enaRuns(args: { accession?: string; limit?: unknown }): Promise<Outcome> {
+async function enaRuns(
+  args: { accession?: string; limit?: unknown },
+  ctx: Context,
+): Promise<Outcome> {
   const accession = (args?.accession || "").trim();
   if (!accession) {
     return fail(JSON.stringify({ error: "An ENA or SRA accession is required." }));
@@ -57,10 +57,12 @@ async function enaRuns(args: { accession?: string; limit?: unknown }): Promise<O
 
   let table: unknown;
   try {
-    table = await ena.get(
-      `ena/portal/api/filereport?accession=${quote(accession)}&result=read_run&fields=${FIELDS}` +
-        `&format=tsv&limit=${limit + 1}`,
-    );
+    table = await ctx.web
+      .connect(`https://${ENA_HOST}/`)
+      .get(
+        `ena/portal/api/filereport?accession=${quote(accession)}&result=read_run&fields=${FIELDS}` +
+          `&format=tsv&limit=${limit + 1}`,
+      );
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     return fail(

@@ -39,7 +39,7 @@ export const DEFAULT_CAPABILITIES: Capability[] = ["llm", "local", "read", "writ
 export interface OlitHost {
   galaxy: Galaxy;
   /** Galaxy clients and Python for one call, ended by its abort signal. */
-  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "ops" | "python">;
+  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "web" | "ops" | "python">;
   /** The artifacts earlier results of a conversation carried, newest last. */
   artifacts(conversationId: ConversationId, context: Chord): Promise<Artifact[]>;
   /** Galaxy work a conversation is watching, with the state last read. */

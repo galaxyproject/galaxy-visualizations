@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
-import type { Galaxy } from "./galaxy";
+import { connectWeb, type Galaxy } from "./galaxy";
 import {
   annotate,
   OPS_POLICY,
@@ -31,6 +31,7 @@ function files(): Python & { fs: Map<string, Uint8Array> } {
 function context(galaxy: Fake, extra: Partial<Context> = {}): Context {
   return {
     galaxy: galaxy as unknown as Galaxy,
+    web: connectWeb(),
     ops: createGalaxyContext({ baseUrl: "http://galaxy.test/", apiKey: "" }),
     python: files(),
     binding: {},

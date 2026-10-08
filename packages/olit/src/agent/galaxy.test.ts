@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { briefly, connectGalaxy, ERROR_MAX, galaxyFetch, HttpError, segment } from "./galaxy";
+import {
+  briefly,
+  connectGalaxy,
+  connectWeb,
+  ERROR_MAX,
+  galaxyFetch,
+  HttpError,
+  segment,
+} from "./galaxy";
 
 describe("segment", () => {
   it("keeps an id from adding a segment, a query or a fragment", () => {
@@ -124,5 +132,63 @@ describe("an error, as the model reads it", () => {
     expect(error).toBeInstanceOf(HttpError);
     expect(error.status).toBe(502);
     expect(error.message).toBe("HTTP 502: Galaxy is down for maintenance");
+  });
+});
+
+describe("a tool call's web", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Hosts that never answer, until their request is aborted. */
+  const hung = () =>
+    vi.stubGlobal(
+      "fetch",
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise((_, reject) => {
+          const signal = input instanceof Request ? input.signal : init?.signal;
+          signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+        }),
+    );
+
+  it("ends with the call", async () => {
+    hung();
+    const call = new AbortController();
+    const pending = connectWeb(call.signal).connect("https://www.ebi.ac.uk/").get("x");
+    call.abort(new Error("stopped"));
+    await expect(pending).rejects.toThrow("stopped");
+  });
+
+  it("ends once its time is up, and says so", async () => {
+    hung();
+    await expect(connectWeb(undefined, 50).fetch("https://quay.io/x")).rejects.toThrow(
+      "no answer within 0.05 s",
+    );
+  });
+
+  it("counts the waits between retries against the same time", async () => {
+    let asked = 0;
+    vi.stubGlobal("fetch", async () => {
+      asked++;
+      return new Response("busy", { status: 503, headers: { "retry-after": "60" } });
+    });
+    const started = Date.now();
+    await expect(
+      connectWeb(undefined, 100).connect("https://www.ebi.ac.uk/").get("x"),
+    ).rejects.toThrow("no answer within 0.1 s");
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(asked).toBe(1);
+  });
+
+  it("never sends Galaxy's login", async () => {
+    const sent: RequestCredentials[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      sent.push(
+        input instanceof Request ? input.credentials : (init?.credentials ?? "same-origin"),
+      );
+      return new Response("{}");
+    });
+    const web = connectWeb();
+    await web.connect("https://training.galaxyproject.org/").get("x");
+    await web.fetch("https://quay.io/x");
+    expect(sent).toEqual(["omit", "omit"]);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { toPage, type Artifact } from "../artifacts/kinds";
-import type { Galaxy } from "./galaxy";
+import { connectWeb, type Galaxy } from "./galaxy";
 import { claim, type Context, Outcome, rendered } from "./tool";
 import {
   chartOptions,
@@ -1507,7 +1507,7 @@ describe("galaxy-charts option resolution", () => {
       seen.push(path);
       return { columns: ["name", "value"], fields: [["hg38", "hg38.fa"]] };
     });
-    const out = await chartOptions(g as unknown as Galaxy)(
+    const out = await chartOptions(g as unknown as Galaxy, connectWeb())(
       { type: "data_table", tables: ["t1"] },
       {},
     );
@@ -1520,7 +1520,10 @@ describe("galaxy-charts option resolution", () => {
 
   it("reports a request that could not be read", async () => {
     const g = fakeGalaxy(() => ({ history_id: null }));
-    const out = await chartOptions(g as unknown as Galaxy)({ type: "data" }, { datasetId: "d9" });
+    const out = await chartOptions(g as unknown as Galaxy, connectWeb())(
+      { type: "data" },
+      { datasetId: "d9" },
+    );
     expect(out.success).toBe(false);
     expect(!out.success && out.message).toContain("d9");
   });
@@ -1531,11 +1534,14 @@ describe("galaxy-charts option resolution", () => {
       reads += 1;
       return { metadata_column_types: { 0: "int" } };
     });
-    const call = chartOptions(g as unknown as Galaxy);
+    const call = chartOptions(g as unknown as Galaxy, connectWeb());
     await call({ type: "data_column" }, { datasetId: "d9" });
     await call({ type: "data_column", is_number: "true" }, { datasetId: "d9" });
     expect(reads).toBe(1);
-    await chartOptions(g as unknown as Galaxy)({ type: "data_column" }, { datasetId: "d9" });
+    await chartOptions(g as unknown as Galaxy, connectWeb())(
+      { type: "data_column" },
+      { datasetId: "d9" },
+    );
     expect(reads).toBe(2);
   });
 });

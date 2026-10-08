@@ -17,7 +17,7 @@ import { artifactsOf, type Artifact } from "../artifacts/kinds";
 import type { Ask } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
-import { connectGalaxy, type Galaxy } from "./galaxy";
+import { connectGalaxy, connectWeb, type Galaxy } from "./galaxy";
 import { olitModels } from "./model";
 import { recordsOn, type RecordSummary } from "./notebook";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
@@ -165,6 +165,7 @@ export class Runtime {
       galaxy,
       clients: (signal) => ({
         galaxy: connectGalaxy({ ...galaxyOptions, signal }),
+        web: connectWeb(signal),
         ops: galaxyOps({ ...galaxyOptions, root: galaxy.root, signal }),
         python: { ...python, run: (code) => python.run(code, signal) },
       }),

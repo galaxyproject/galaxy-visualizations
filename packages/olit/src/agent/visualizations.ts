@@ -7,9 +7,9 @@ import {
   type ValueIssueType,
 } from "galaxy-charts/runtime";
 
-import { query, segment, type Galaxy } from "./galaxy";
+import { query, segment, type Galaxy, type Web } from "./galaxy";
 import type { ArtifactOf } from "../artifacts/kinds";
-import { fail, type Artifact, type OlitTool } from "./tool";
+import { fail, type Artifact, type Context, type OlitTool } from "./tool";
 import * as vega from "./vega";
 import * as tables from "./tables";
 import {
@@ -31,7 +31,11 @@ export type Envelope = { success: true; data: any } | { success: false; message:
 /** galaxy-charts' option resolution for one tool call: built once per call, then asked per input. */
 export type ResolveOptions = (
   galaxy: Galaxy,
+  web: Web,
 ) => (input: Json, context: { datasetId?: string }) => Promise<Envelope>;
+
+/** `ResolveOptions` with one call's `web` already given. */
+type Resolve = (galaxy: Galaxy) => ReturnType<ResolveOptions>;
 
 /** What each galaxy-charts input type stores, and where its options come from. */
 const TYPES: Types = (inputs as { types: Types }).types;
@@ -75,11 +79,11 @@ function pyType(value: unknown): string {
  * what a client fetched for as long as that client lives, so one client per tool call shares a
  * dataset between the inputs of one save and never carries it into the next call.
  */
-export const chartOptions: ResolveOptions = (galaxy) => {
+export const chartOptions: ResolveOptions = (galaxy, web) => {
   const client = {
     api: (path: string) => galaxy.get(path),
     url: async (target: string) => {
-      const response = await fetch(target);
+      const response = await web.fetch(target);
       if (!response.ok) {
         throw new Error(`${response.status} ${response.statusText}`);
       }
@@ -293,7 +297,7 @@ function matches(entry: Json, search: string | undefined): boolean {
 
 async function getVisualizationOptions(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<unknown> {
   const name = a.visualization;
@@ -379,7 +383,7 @@ async function getVisualization(galaxy: Galaxy, a: Json): Promise<unknown> {
  */
 async function checked(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<{ artifact?: ArtifactOf<"visualization">; refusal?: Json; rejected?: Json }> {
   const { dataset, refusal } = await resolveVisualization(galaxy, a);
@@ -425,7 +429,7 @@ function rejectIncomplete(plugin: Json, a: Json): Json | null {
 
 async function showVisualization(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<unknown> {
   const { artifact, refusal, rejected } = await checked(galaxy, resolveOptions, a);
@@ -616,7 +620,7 @@ async function selectOffered(
 
 async function saveVisualization(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<unknown> {
   const { artifact, refusal, rejected } = await checked(galaxy, resolveOptions, a);
@@ -721,6 +725,11 @@ function schema(properties: Json, required: string[]): Json {
 
 /** The visualization tools, in the order the catalogue lists them. */
 export function visualizationTools(resolveOptions: ResolveOptions = chartOptions): OlitTool[] {
+  /** Options resolved for this call, its requests to other hosts ended with it. */
+  const withWeb =
+    (ctx: Context): Resolve =>
+    (galaxy) =>
+      resolveOptions(galaxy, ctx.web);
   return [
     {
       name: "get_visualization_options",
@@ -740,7 +749,7 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         },
         ["visualization", "parameter"],
       ),
-      run: (args, ctx) => getVisualizationOptions(ctx.galaxy, resolveOptions, args),
+      run: (args, ctx) => getVisualizationOptions(ctx.galaxy, withWeb(ctx), args),
     },
     {
       name: "get_visualization",
@@ -778,7 +787,7 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         },
         ["dataset_id", "visualization"],
       ),
-      run: (args, ctx) => showVisualization(ctx.galaxy, resolveOptions, args),
+      run: (args, ctx) => showVisualization(ctx.galaxy, withWeb(ctx), args),
     },
     {
       name: "save_visualization",
@@ -798,7 +807,7 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         },
         ["dataset_id", "visualization"],
       ),
-      run: (args, ctx) => saveVisualization(ctx.galaxy, resolveOptions, args),
+      run: (args, ctx) => saveVisualization(ctx.galaxy, withWeb(ctx), args),
     },
     {
       name: "vega_dataset",
