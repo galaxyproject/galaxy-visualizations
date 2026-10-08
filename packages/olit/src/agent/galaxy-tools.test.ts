@@ -96,11 +96,16 @@ describe("run_tool input keys", () => {
   };
   const TP_CAT = { id: "tp_cat", inputs: [{ name: "inputs", type: "data", multiple: true }] };
 
-  function check(schema: unknown, inputs: unknown) {
+  function check(
+    schema: unknown,
+    inputs: unknown,
+    run: { tool_id?: string; tool_version?: string } = {},
+  ) {
     const ctx = context({
       get: async (path) => (path.startsWith("api/tools/") ? schema : { id: "d", history_id: "h1" }),
     });
-    return OPS_POLICY.run_tool.check!({ history_id: "h1", tool_id: "cat1", inputs }, ctx);
+    const tool_id = run.tool_id ?? (schema as { id?: string } | null)?.id ?? "cat1";
+    return OPS_POLICY.run_tool.check!({ history_id: "h1", inputs, ...run, tool_id }, ctx);
   }
 
   it("allows every key Galaxy's legacy tool state reads", async () => {
@@ -142,6 +147,34 @@ describe("run_tool input keys", () => {
   it("refuses a nested object Galaxy's legacy format does not read", async () => {
     const out = refused(await check(CAT1, { queries: [{ input2: { src: "hda", id: "d" } }] }));
     expect(out).toContain('"queries"');
+  });
+
+  it("checks the schema Galaxy expands an unversioned id to", async () => {
+    const shed = { ...CAT1, id: "toolshed.example/repos/iuc/cat1/cat1/1.0", version: "1.0" };
+    const out = await check(
+      shed,
+      { nonsense: 1 },
+      { tool_id: "toolshed.example/repos/iuc/cat1/cat1" },
+    );
+    expect(refused(out)).toContain('"nonsense"');
+  });
+
+  it("leaves the keys to Galaxy when the schema describes another tool", async () => {
+    expect(
+      await check({ ...CAT1, id: "cat2" }, { nonsense: 1 }, { tool_id: "cat1" }),
+    ).toBeUndefined();
+    expect(
+      await check({ ...CAT1, id: "cat10" }, { nonsense: 1 }, { tool_id: "cat1" }),
+    ).toBeUndefined();
+  });
+
+  it("leaves the keys to Galaxy when the schema is of another version than the run's", async () => {
+    const served = { ...CAT1, version: "2.0" };
+    expect(await check(served, { nonsense: 1 }, { tool_version: "1.0" })).toBeUndefined();
+    expect(await check(CAT1, { nonsense: 1 }, { tool_version: "1.0" })).toBeUndefined();
+    expect(refused(await check(served, { nonsense: 1 }, { tool_version: "2.0" }))).toContain(
+      '"nonsense"',
+    );
   });
 
   it("leaves the keys unchecked when the tool's parameters cannot be read", async () => {

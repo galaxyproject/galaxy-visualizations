@@ -214,6 +214,16 @@ async function unreadInputs(galaxy: Galaxy, args: Row) {
   if (!isRow(schema) || !Array.isArray(schema.inputs)) {
     return undefined;
   }
+  // Galaxy expands an unversioned id, and serves its newest version when the one asked for is
+  // missing; a schema for another tool or version is not this run's, so Galaxy has the say.
+  const id = String(schema.id ?? "");
+  const tool = String(args.tool_id);
+  if (!(id === tool || id.startsWith(`${tool}/`))) {
+    return undefined;
+  }
+  if (args.tool_version && schema.version !== args.tool_version) {
+    return undefined;
+  }
   const unread = Object.keys(args.inputs).filter(
     (key) =>
       !key.startsWith("__") && !key.endsWith("|__identifier__") && !reads(schema.inputs, key),
