@@ -23,6 +23,16 @@ const TRANSFORM_DEFAULTS: Record<string, string[]> = {
   quantile: ["prob", "value"],
   fold: ["key", "value"],
 };
+/**
+ * Galaxy's csv and tsv: the first row is always the header and names the columns, no row is a
+ * comment, and `comment_lines` only flags that the header is there. Every other datatype is read
+ * as tabular: no header, columns by position, and `comment_lines` counting leading `#` and blank
+ * rows.
+ */
+const HEADED = ["csv", "tsv"];
+
+const headed = (details: Json) => HEADED.includes(details.extension);
+
 /** Transforms whose output columns come from the data. */
 const OPAQUE_TRANSFORMS = ["pivot", "flatten"];
 
@@ -36,11 +46,10 @@ const named = (details: Json): string[] =>
 
 const isInt = (value: unknown): value is number => Number.isInteger(value);
 
-/** The names a spec may encode: Galaxy's own where it has them, else `col:N` by position. */
+/** The names a spec may encode: a csv or tsv header's, else `col:N` by position. */
 export function columnNames(details: Json): string[] {
-  const names = named(details);
-  if (names.length) {
-    return names;
+  if (headed(details)) {
+    return named(details);
   }
   const count = details.metadata_columns;
   return isInt(count) && count > 0 ? Array.from({ length: count }, (_, i) => `col:${i + 1}`) : [];
@@ -78,19 +87,22 @@ export function unreferenceable(details: Json): string | null {
       "chart the result."
     );
   }
-  const comments = details.metadata_comment_lines || 0;
-  const hasNames = named(details).length > 0;
-  if (comments && !hasNames) {
+  if (headed(details)) {
+    return named(details).length
+      ? null
+      : "Galaxy reports no header for this dataset, so Vega cannot be told its columns.";
+  }
+  if (named(details).length) {
     return (
-      `the first ${comments} line(s) are comments, which Vega reads as data rather than ` +
-      "skipping. Produce a dataset without them with a Galaxy tool and chart that."
+      `Galaxy names this ${quote(details.extension)} dataset's columns, but not from a header ` +
+      "row Vega can read. Convert it to csv or tsv with a Galaxy tool and chart that."
     );
   }
-  const delimiter = details.metadata_delimiter;
-  if (hasNames && delimiter !== ",") {
+  const comments = details.metadata_comment_lines || 0;
+  if (comments) {
     return (
-      `Galaxy names this dataset's columns and separates them with ${quote(delimiter)}, a ` +
-      "combination Vega's reader has not been verified against here."
+      `the first ${comments} line(s) are comments or blank, which Vega reads as data rather ` +
+      "than skipping. Produce a dataset without them with a Galaxy tool and chart that."
     );
   }
   return null;
@@ -98,13 +110,12 @@ export function unreferenceable(details: Json): string | null {
 
 /** The one data source a spec gets: this dataset's bytes, described from its metadata. */
 export function dataBlock(datasetId: string, details: Json, root = "/"): Json {
-  const format: Json = named(details).length
-    ? { type: "csv" }
-    : {
-        type: "dsv",
-        delimiter: details.metadata_delimiter || "\t",
-        header: columnNames(details),
-      };
+  const delimiter = details.metadata_delimiter || "\t";
+  const format: Json = headed(details)
+    ? delimiter === ","
+      ? { type: "csv" }
+      : { type: "dsv", delimiter }
+    : { type: "dsv", delimiter, header: columnNames(details) };
   const types: unknown[] = details.metadata_column_types || [];
   const parse: Record<string, string> = {};
   columnNames(details).forEach((name, i) => {

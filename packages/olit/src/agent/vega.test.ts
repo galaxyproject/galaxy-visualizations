@@ -19,6 +19,7 @@ const TABULAR = {
 const CSV = {
   ...TABULAR,
   name: "prices.csv",
+  extension: "csv",
   metadata_column_names: ["Transaction_date", "Product", "Price", "Country"],
   metadata_delimiter: ",",
   metadata_comment_lines: 1,
@@ -69,6 +70,18 @@ describe("the data source", () => {
     const { ready, refusal } = vega.build("abc123", spec, CSV);
     expect(refusal).toBeNull();
     expect(ready!.data.format).toEqual({ type: "csv", parse: { Price: "number" } });
+  });
+
+  it("lets a tsv's own header name the columns, read with its delimiter", () => {
+    const spec = { mark: "point", encoding: { x: { field: "Price", type: "quantitative" } } };
+    const tsv = { ...CSV, extension: "tsv", metadata_delimiter: "\t" };
+    const { ready, refusal } = vega.build("abc123", spec, tsv);
+    expect(refusal).toBeNull();
+    expect(ready!.data.format).toEqual({
+      type: "dsv",
+      delimiter: "\t",
+      parse: { Price: "number" },
+    });
   });
 
   it("uses the schema Olit renders with, whatever the caller names", () => {
@@ -152,11 +165,13 @@ describe("which datasets can be referenced", () => {
     );
   });
 
-  it("refuses named columns with an unverified delimiter", () => {
-    const { refusal } = built(SCATTER, { ...CSV, metadata_delimiter: "\t" });
-    expect(refusal).toContain("has not been verified");
-    expect(refusal).toContain('"\\t"');
-  });
+  it.each([",", "\t"])(
+    "refuses names a datatype sets without a header row vega can read (%j)",
+    (delimiter) => {
+      const named = { ...CSV, extension: "mzml.tabular", metadata_delimiter: delimiter };
+      expect(built(SCATTER, named).refusal).toContain("not from a header row");
+    },
+  );
 });
 
 describe("field names", () => {
@@ -290,5 +305,63 @@ describe("an encoding the column cannot satisfy", () => {
   it("does not report a nominal encoding on a text column", () => {
     const { ready } = built({ mark: "bar", encoding: { x: { field: "col:1", type: "nominal" } } });
     expect(vega.unsatisfiableTypes(ready!, TABULAR)).toEqual([]);
+  });
+});
+
+describe("Galaxy's tabular, csv and tsv, as each is read", () => {
+  const HEADER = ["Product", "Price"];
+  const base = { ...TABULAR, metadata_columns: 2, metadata_column_types: ["str", "int"] };
+  const tabular = { ...base, extension: "tabular", metadata_delimiter: "\t" };
+  const csv = {
+    ...base,
+    extension: "csv",
+    metadata_delimiter: ",",
+    metadata_column_names: HEADER,
+    metadata_comment_lines: 1,
+  };
+  const tsv = { ...csv, extension: "tsv", metadata_delimiter: "\t" };
+
+  it("reads tabular by position, its first row as data", () => {
+    expect(vega.columnNames(tabular)).toEqual(["col:1", "col:2"]);
+    expect(vega.dataBlock("d", tabular).format).toEqual({
+      type: "dsv",
+      delimiter: "\t",
+      header: ["col:1", "col:2"],
+      parse: { "col:2": "number" },
+    });
+  });
+
+  it("refuses tabular whose leading rows are comments or blank", () => {
+    expect(vega.unreferenceable({ ...tabular, metadata_comment_lines: 2 })).toContain(
+      "comments or blank",
+    );
+  });
+
+  it("reads csv and tsv by their header, which comment_lines only flags", () => {
+    for (const [details, format] of [
+      [csv, { type: "csv" }],
+      [tsv, { type: "dsv", delimiter: "\t" }],
+    ] as const) {
+      expect(vega.unreferenceable(details)).toBeNull();
+      expect(vega.columnNames(details)).toEqual(HEADER);
+      expect(vega.dataBlock("d", details).format).toEqual({
+        ...format,
+        parse: { Price: "number" },
+      });
+    }
+  });
+
+  it("refuses a csv Galaxy reports no header for", () => {
+    expect(vega.unreferenceable({ ...csv, metadata_column_names: [] })).toContain("no header");
+  });
+
+  it("refuses a tabular datatype whose names are not a header row", () => {
+    const manifest = {
+      ...tabular,
+      extension: "sra_manifest.tabular",
+      metadata_column_names: HEADER,
+    };
+    expect(vega.unreferenceable(manifest)).toContain("not from a header row");
+    expect(vega.columnNames(manifest)).toEqual(["col:1", "col:2"]);
   });
 });
