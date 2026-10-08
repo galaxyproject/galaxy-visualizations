@@ -10,7 +10,6 @@ import {
 
 import { briefly } from "./galaxy";
 import { fail, Outcome, rendered, type Context, type OlitTool } from "./tool";
-import { watchedFrom } from "./watch";
 
 export const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
@@ -88,10 +87,9 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
         const message = briefly(String(envelope.message || `${op.name} failed`));
         return policy.refused?.(message, args) ?? fail(message);
       }
-      ctx.watch.add(watchedFrom(op.name, envelope.data));
       const payload = rendered(envelope);
       const hint = await annotate?.(op.name, args, envelope.data, ctx);
-      return new Outcome(hint ? `${payload}\n\n${hint}` : payload);
+      return new Outcome(hint ? `${payload}\n\n${hint}` : payload, false, undefined, envelope.data);
     },
   };
 }

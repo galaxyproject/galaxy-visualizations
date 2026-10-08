@@ -12,7 +12,6 @@ import {
 } from "./hints";
 import { ELIDED } from "./notebook";
 import { pageContentProblem } from "./page-edit";
-import { watchedFrom } from "./watch";
 import { type Annotate, type OpPolicy } from "./ops";
 import { serialized } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
@@ -438,10 +437,7 @@ function tool(
       const value = await run(args, ctx);
       const hint = value instanceof Outcome ? undefined : fetchFailureHint(value);
       if (!hint) return value;
-      // Wrapped, the result is text the tool runner no longer reads work from, so watch it here,
-      // as the galaxy-ops tools do.
-      ctx.watch.add(watchedFrom(name, value));
-      return new Outcome(`${rendered({ data: value })}\n\n${hint}`);
+      return new Outcome(`${rendered({ data: value })}\n\n${hint}`, false, undefined, value);
     },
   };
 }

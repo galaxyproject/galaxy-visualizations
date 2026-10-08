@@ -48,7 +48,6 @@ const context = (galaxy: unknown) =>
     galaxy: galaxy as Galaxy,
     artifacts: { prior: [], produced: [] },
     binding: {},
-    watch: { add: () => undefined },
   }) as unknown as Context;
 
 function call(name: string, galaxy: unknown, args: Json, charts = fakeCharts()): Promise<any> {

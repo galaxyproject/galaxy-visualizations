@@ -12,7 +12,7 @@ import {
 } from "./galaxy-tools";
 import { ELIDED } from "./notebook";
 import { olitTools } from "./tools";
-import { Outcome, traitsOf, type Context, type Python } from "./tool";
+import { Outcome, submittedBy, traitsOf, type Context, type Python } from "./tool";
 
 type Fake = Partial<
   Record<"get" | "post" | "put" | "bytes", (path: string, body?: any) => Promise<any>>
@@ -36,7 +36,6 @@ function context(galaxy: Fake, extra: Partial<Context> = {}): Context {
     python: files(),
     binding: {},
     artifacts: { prior: [], produced: [] },
-    watch: { add: () => undefined },
     ...extra,
   };
 }
@@ -615,5 +614,71 @@ describe("a galaxy-ops failure, as the model reads it", () => {
     } finally {
       globalThis.fetch = fetch;
     }
+  });
+});
+
+describe("the work a call submitted", () => {
+  const queued = { id: "o1", state: "queued" };
+
+  /** An upload of /data/x.txt to a Galaxy answering the fetch with `outputs`. */
+  async function upload(outputs: unknown[]) {
+    const python = files();
+    python.fs.set("/data/x.txt", new TextEncoder().encode("a\tb\n"));
+    const ctx = context({ post: async () => ({ outputs, jobs: [] }) }, { python });
+    return run("upload_file", { path: "/data/x.txt", history_id: "h1" }, ctx);
+  }
+
+  it("is read from a plain result", async () => {
+    const out = await upload([queued]);
+    expect(out).not.toBeInstanceOf(Outcome);
+    expect(submittedBy("upload_file", out)).toEqual([
+      { kind: "dataset", id: "o1", label: "upload_file", state: "queued" },
+    ]);
+  });
+
+  it("is read from a result wrapped with a hint, as from a plain one", async () => {
+    const failed = {
+      id: "o2",
+      state: "error",
+      misc_info: "Failed to fetch url https://example.org/x.fastq",
+    };
+    const out = await upload([failed, queued]);
+    expect(out).toBeInstanceOf(Outcome);
+    expect(out.text).toContain("[olit]");
+    expect(submittedBy("upload_file", out)).toEqual([
+      { kind: "dataset", id: "o1", label: "upload_file", state: "queued" },
+    ]);
+  });
+
+  it("is read from what galaxy-ops answered, not from its rendering", async () => {
+    const fetch = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      return new Response(
+        JSON.stringify(
+          request.method === "POST" && request.url.endsWith("/api/tools")
+            ? { jobs: [{ id: "j1", state: "queued" }], outputs: [{ id: "o1" }] }
+            : {},
+        ),
+        { headers: { "content-type": "application/json" } },
+      );
+    };
+    try {
+      const runTool = olitTools().find((t) => t.name === "run_tool")!;
+      const out = await runTool.run(
+        { history_id: "h1", tool_id: "cat1", inputs: {} },
+        context({ get: async () => null }),
+      );
+      expect(out).toBeInstanceOf(Outcome);
+      expect(submittedBy("run_tool", out)).toEqual([
+        { kind: "job", id: "j1", label: "run_tool", state: "queued", outputs: ["o1"] },
+      ]);
+    } finally {
+      globalThis.fetch = fetch;
+    }
+  });
+
+  it("is nothing for a refusal", () => {
+    expect(submittedBy("run_tool", new Outcome("Refused: no", true))).toEqual([]);
   });
 });

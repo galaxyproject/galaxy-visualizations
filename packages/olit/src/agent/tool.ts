@@ -44,8 +44,14 @@ export class Outcome {
     readonly text: string,
     readonly isError = false,
     readonly guard?: Guard,
+    /** The result `text` renders, which the work a call submitted is read from. */
+    readonly data?: unknown,
   ) {}
 }
+
+/** The Galaxy work a call submitted, read from its result in whichever form it came back. */
+export const submittedBy = (name: string, value: unknown): Watched[] =>
+  watchedFrom(name, value instanceof Outcome ? value.data : value);
 
 export const fail = (text: string) => new Outcome(text, true);
 
@@ -73,8 +79,6 @@ export interface Context {
   binding: Binding;
   /** Earlier turns' artifacts and this turn's, which a page may place. */
   artifacts: { prior: Artifact[]; produced: Artifact[] };
-  /** Galaxy work a tool submitted, watched once the call returns. */
-  watch: { add(items: Watched[]): void };
 }
 
 export interface OlitTool {
@@ -167,12 +171,10 @@ export function durableTool(tool: OlitTool, host: ToolHost): ToolRegistration {
         host.artifacts(id, context),
       ]);
       const before = JSON.stringify(bound ?? {});
-      const submitted: Watched[] = [];
       const ctx: Context = {
         ...host.clients(context.abortSignal),
         binding: { ...(bound ?? {}) },
         artifacts: { prior, produced: [] },
-        watch: { add: (items) => submitted.push(...items) },
       };
       let value: unknown;
       try {
@@ -180,9 +182,7 @@ export function durableTool(tool: OlitTool, host: ToolHost): ToolRegistration {
       } catch (err) {
         value = fail(`Tool '${tool.name}' raised: ${(err as Error)?.message ?? err}`);
       }
-      if (!(value instanceof Outcome)) {
-        submitted.push(...watchedFrom(tool.name, value));
-      }
+      const submitted = submittedBy(tool.name, value);
       const text =
         value instanceof Outcome
           ? value.text
