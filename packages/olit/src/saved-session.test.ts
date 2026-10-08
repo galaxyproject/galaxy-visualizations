@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { connectGalaxy } from "./agent/galaxy";
 import { SCHEMA, title, type SessionDocument } from "./agent/saved";
 import { NotYours, PLUGIN_TYPE, reportSavedState, savedSessions } from "./saved-session";
@@ -50,6 +50,8 @@ function fakeGalaxy(me: string | null = ME) {
 }
 
 describe("a saved Olit visualization", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("is created as the olit type and never shared", async () => {
     const { rows, fetchMock } = fakeGalaxy();
     vi.stubGlobal("fetch", fetchMock);
@@ -59,7 +61,6 @@ describe("a saved Olit visualization", () => {
     for (const key of ["importable", "published", "slug", "users_shared_with"]) {
       expect(row).not.toHaveProperty(key);
     }
-    vi.unstubAllGlobals();
   });
 
   it("reads back what was saved", async () => {
@@ -68,7 +69,6 @@ describe("a saved Olit visualization", () => {
     const saved = savedSessions(connectGalaxy({ root: "http://galaxy/" }));
     const id = await saved.save(document());
     expect(await saved.load(id)).toEqual(document());
-    vi.unstubAllGlobals();
   });
 
   it.each([
@@ -81,7 +81,6 @@ describe("a saved Olit visualization", () => {
     await expect(
       savedSessions(connectGalaxy({ root: "http://galaxy/" })).load("v9"),
     ).rejects.toThrow(NotYours);
-    vi.unstubAllGlobals();
   });
 
   it("refuses every session to a user who is not signed in", async () => {
@@ -91,7 +90,6 @@ describe("a saved Olit visualization", () => {
     await expect(
       savedSessions(connectGalaxy({ root: "http://galaxy/" })).load("v9"),
     ).rejects.toThrow(NotYours);
-    vi.unstubAllGlobals();
   });
 
   it("refuses a visualization that is not an Olit session", async () => {
@@ -99,7 +97,6 @@ describe("a saved Olit visualization", () => {
     vi.stubGlobal("fetch", fetchMock);
     rows.set("v1", { title: "chart", config: { settings: {}, tracks: [] }, owner: ME });
     expect(await savedSessions(connectGalaxy({ root: "http://galaxy/" })).load("v1")).toBeNull();
-    vi.unstubAllGlobals();
   });
 
   it("meets Galaxy's three-character title minimum", () => {
@@ -118,7 +115,6 @@ describe("a saved Olit visualization", () => {
     await expect(
       savedSessions(connectGalaxy({ root: "http://galaxy/" })).save(document()),
     ).rejects.toThrow(/500/);
-    vi.unstubAllGlobals();
   });
 });
 
