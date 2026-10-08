@@ -74,6 +74,42 @@ describe("ena_runs", () => {
     ]);
     expect(only.md5).toEqual(["aaa", "bbb"]);
     expect(only.bytes).toEqual([101304405, 101858469]);
+    expect(only.mate1).toBe(only.urls[0]);
+    expect(only.mate2).toBe(only.urls[1]);
+    expect(only.unpaired).toBeUndefined();
+  });
+
+  /** One run as ENA reports it: its layout and its files, by name. */
+  const run = (layout: string, files: string[]) =>
+    HEADER +
+    `SRR001\t${layout}\t` +
+    files.map((f) => `ftp.sra.ebi.ac.uk/vol1/fastq/SRR001/${f}`).join(";") +
+    "\t\t\t1\tHomo sapiens\n";
+
+  it("names a paired run's mates by their file names, whatever the order", async () => {
+    net(run("PAIRED", ["SRR001.fastq.gz", "SRR001_1.fastq.gz", "SRR001_2.fastq.gz"]));
+    const only = (await call({ accession: "SRR001" })).out.runs[0];
+    expect(only.paired).toBe(true);
+    expect(only.mate1).toMatch(/SRR001_1\.fastq\.gz$/);
+    expect(only.mate2).toMatch(/SRR001_2\.fastq\.gz$/);
+    expect(only.unpaired).toEqual([expect.stringMatching(/SRR001\.fastq\.gz$/)]);
+  });
+
+  it("names no mates when the file names do not say which is which", async () => {
+    for (const files of [["SRR001.fastq.gz"], ["SRR001_a.fastq.gz", "SRR001_b.fastq.gz"]]) {
+      net(run("PAIRED", files));
+      const only = (await call({ accession: "SRR001" })).out.runs[0];
+      expect(only.paired, files.join()).toBe(true);
+      expect(only.mate1, files.join()).toBeUndefined();
+      expect(only.note, files.join()).toContain("do not say which file is which mate");
+    }
+  });
+
+  it("takes pairing from ENA's layout, not from the number of files", async () => {
+    net(run("SINGLE", ["SRR001_1.fastq.gz", "SRR001_2.fastq.gz"]));
+    const only = (await call({ accession: "SRR001" })).out.runs[0];
+    expect(only.paired).toBe(false);
+    expect(only.mate1).toBeUndefined();
   });
 
   it("reports a single-end run as one file", async () => {

@@ -33,6 +33,23 @@ function rows(table: string): Record<string, string>[] {
   });
 }
 
+/**
+ * A paired run's mates, when ENA's file names say which is which: exactly one `<run>_1.` and one
+ * `<run>_2.`. Never guessed from the order or the number of files.
+ */
+function mates(run: string | undefined, files: string[]) {
+  const named = (mate: number) =>
+    files.filter((url) => url.split("/").pop()?.startsWith(`${run}_${mate}.`));
+  const [first, second] = [named(1), named(2)];
+  if (!run || first.length !== 1 || second.length !== 1) {
+    return {
+      note: "ENA's file names do not say which file is which mate; check before pairing them.",
+    };
+  }
+  const unpaired = files.filter((url) => url !== first[0] && url !== second[0]);
+  return { mate1: first[0], mate2: second[0], ...(unpaired.length ? { unpaired } : {}) };
+}
+
 function clampLimit(limit: unknown): number {
   const value = limit || RUNS_DEFAULT;
   const n =
@@ -82,11 +99,13 @@ async function enaRuns(
   const truncated = found.length > limit;
   const runs = found.slice(0, limit).map((row) => {
     const files = urls(row.fastq_ftp);
+    const paired = row.library_layout === "PAIRED";
     return {
       run: row.run_accession ?? null,
       layout: row.library_layout ?? null,
-      paired: files.length >= 2,
+      paired,
       urls: files,
+      ...(paired ? mates(row.run_accession, files) : {}),
       md5: (row.fastq_md5 || "").split(";").filter(Boolean),
       bytes: (row.fastq_bytes || "")
         .split(";")
