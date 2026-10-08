@@ -3,6 +3,7 @@ import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { segment, type Galaxy } from "./galaxy";
+import * as tables from "./tables";
 import {
   catalogMissHint,
   fetchFailureHint,
@@ -291,7 +292,7 @@ async function downloadDataset(args: Row, { galaxy, python }: Context) {
   if (Number.isInteger(stated) && stated > MAX_DOWNLOAD_BYTES) {
     // Only Galaxy's tabular datatypes serve a chunk of themselves; any other ignores the offset
     // and streams the whole file, and BAM answers with SAM text.
-    const tabular = Array.isArray(details.metadata_column_types);
+    const tabular = tables.isTable(details);
     const prefix = tabular ? await chunk(galaxy, args.dataset_id, MAX_DOWNLOAD_BYTES) : undefined;
     if (prefix === undefined) {
       return fail(

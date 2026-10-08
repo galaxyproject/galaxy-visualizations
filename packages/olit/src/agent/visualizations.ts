@@ -11,6 +11,7 @@ import { query, segment, type Galaxy } from "./galaxy";
 import type { ArtifactOf } from "../artifacts/kinds";
 import { fail, type Artifact, type OlitTool } from "./tool";
 import * as vega from "./vega";
+import * as tables from "./tables";
 import {
   buildVisualizationTemplate,
   declaredPaths,
@@ -40,7 +41,6 @@ const rootPath = (galaxy: Galaxy) => new URL(galaxy.root || "/", "http://localho
 
 export const NOT_OFFERED = new Set(["olit", "vintent"]);
 
-const NUMERIC_COLUMNS = new Set(["int", "float"]);
 const MATCH_CAP = 5;
 const ROW_CAP = 100;
 const STR = { type: "string" };
@@ -133,9 +133,7 @@ async function preferredVisualizations(galaxy: Galaxy, extension: unknown): Prom
 async function listVisualizations(galaxy: Galaxy, a: Json): Promise<Json> {
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(a.dataset_id)}`)) || {};
   const extension = dataset.extension;
-  const numeric = ((dataset.metadata_column_types as string[]) || []).filter((t) =>
-    NUMERIC_COLUMNS.has(t),
-  );
+  const numeric = tables.numericColumns(dataset);
 
   let matching: Json[] =
     (await galaxy.get(`api/plugins${query({ dataset_id: a.dataset_id })}`)) || [];
@@ -701,7 +699,7 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
   const result: Json = {
     charted: true,
     title,
-    columns: vega.columnNames(details),
+    columns: tables.columnNames(details),
     artifact: { kind: "vega-lite", title, spec: ready } satisfies Artifact,
     hint:
       "The chart is displayed to the user. Writing it into the record means putting " +

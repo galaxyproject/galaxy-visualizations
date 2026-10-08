@@ -308,21 +308,19 @@ describe("an encoding the column cannot satisfy", () => {
   });
 });
 
-describe("Galaxy's tabular, csv and tsv, as each is read", () => {
-  const HEADER = ["Product", "Price"];
+describe("the data block for Galaxy's tabular, csv and tsv", () => {
   const base = { ...TABULAR, metadata_columns: 2, metadata_column_types: ["str", "int"] };
   const tabular = { ...base, extension: "tabular", metadata_delimiter: "\t" };
   const csv = {
     ...base,
     extension: "csv",
     metadata_delimiter: ",",
-    metadata_column_names: HEADER,
+    metadata_column_names: ["Product", "Price"],
     metadata_comment_lines: 1,
   };
   const tsv = { ...csv, extension: "tsv", metadata_delimiter: "\t" };
 
-  it("reads tabular by position, its first row as data", () => {
-    expect(vega.columnNames(tabular)).toEqual(["col:1", "col:2"]);
+  it("hands vega tabular's columns by position, its first row as data", () => {
     expect(vega.dataBlock("d", tabular).format).toEqual({
       type: "dsv",
       delimiter: "\t",
@@ -331,37 +329,12 @@ describe("Galaxy's tabular, csv and tsv, as each is read", () => {
     });
   });
 
-  it("refuses tabular whose leading rows are comments or blank", () => {
-    expect(vega.unreferenceable({ ...tabular, metadata_comment_lines: 2 })).toContain(
-      "comments or blank",
-    );
-  });
-
-  it("reads csv and tsv by their header, which comment_lines only flags", () => {
-    for (const [details, format] of [
-      [csv, { type: "csv" }],
-      [tsv, { type: "dsv", delimiter: "\t" }],
-    ] as const) {
-      expect(vega.unreferenceable(details)).toBeNull();
-      expect(vega.columnNames(details)).toEqual(HEADER);
-      expect(vega.dataBlock("d", details).format).toEqual({
-        ...format,
-        parse: { Price: "number" },
-      });
-    }
-  });
-
-  it("refuses a csv Galaxy reports no header for", () => {
-    expect(vega.unreferenceable({ ...csv, metadata_column_names: [] })).toContain("no header");
-  });
-
-  it("refuses a tabular datatype whose names are not a header row", () => {
-    const manifest = {
-      ...tabular,
-      extension: "sra_manifest.tabular",
-      metadata_column_names: HEADER,
-    };
-    expect(vega.unreferenceable(manifest)).toContain("not from a header row");
-    expect(vega.columnNames(manifest)).toEqual(["col:1", "col:2"]);
+  it("lets vega read a csv or tsv header itself, with the dataset's delimiter", () => {
+    expect(vega.dataBlock("d", csv).format).toEqual({ type: "csv", parse: { Price: "number" } });
+    expect(vega.dataBlock("d", tsv).format).toEqual({
+      type: "dsv",
+      delimiter: "\t",
+      parse: { Price: "number" },
+    });
   });
 });
