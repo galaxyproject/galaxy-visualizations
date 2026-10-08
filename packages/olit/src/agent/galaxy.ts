@@ -37,10 +37,13 @@ function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
 /** A value placed in a Galaxy path, encoded: an id the model wrote must not add a segment,
  * a query or a fragment to the request it names. Encoding leaves dots alone, and a URL reads
  * `..` (or `%2e%2e`) as the parent, so those are refused outright. */
+/** A value that cannot be one path segment, so no Galaxy id. */
+export class NotAnId extends Error {}
+
 export function segment(value: unknown): string {
   const text = String(value);
   if (/^(\.|%2e){0,2}$/i.test(text)) {
-    throw new Error(`${JSON.stringify(text)} is not a Galaxy id`);
+    throw new NotAnId(`${JSON.stringify(text)} is not a Galaxy id`);
   }
   return encodeURIComponent(text);
 }

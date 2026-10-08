@@ -2,7 +2,7 @@ import { quote } from "./quote";
 import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
-import { segment, type Galaxy } from "./galaxy";
+import { HttpError, NotAnId, segment, type Galaxy } from "./galaxy";
 import * as tables from "./tables";
 import {
   catalogMissHint,
@@ -69,10 +69,11 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
       const foreign = await foreignInputs(ctx.galaxy, args.inputs, String(args.history_id));
       return foreign.length
         ? fail(
-            `Refused: these inputs do not identify a dataset in history ${args.history_id}: ` +
-              `${JSON.stringify(foreign)}. Use the \`id\` field of a dataset returned by ` +
-              `get_history_contents for this history. To use data from elsewhere, copy it into ` +
-              `this history first.`,
+            `Refused: these inputs are in another history, not in history ${args.history_id} ` +
+              `where this job runs: ${JSON.stringify(foreign)}. An id from another history is ` +
+              "usually the wrong one: take the input's `id` from get_history_contents for this " +
+              "history. If the user does mean that data, say which history it is in and ask them " +
+              "to copy it into this one in Galaxy, then use the copy's id.",
           )
         : undefined;
     },
@@ -130,6 +131,15 @@ const HISTORY_SCOPED_SRCS: Record<string, string> = {
   hda: "api/datasets",
   hdca: "api/dataset_collections",
 };
+
+/** Just enough of each to say where it lives: no dataset details, no collection elements. */
+const WHERE_ONLY: Record<string, string> = {
+  hda: "?keys=history_id,name",
+  hdca: "?view=collection",
+};
+
+/** How many references are looked up at once. */
+const LOOKUPS = 4;
 
 /** Every history-scoped reference in a tool payload, with the field that carries it. */
 export function hdaInputs(inputs: unknown): [string, string, string][] {
@@ -240,22 +250,35 @@ async function unreadInputs(galaxy: Galaxy, args: Row) {
   );
 }
 
-/** Inputs that belong to a history other than the one the job will run in. */
+/**
+ * Inputs that belong to a history other than the one the job will run in, each looked up once. An
+ * id Galaxy will not resolve is not known to be foreign: the run is left to report it.
+ */
 async function foreignInputs(galaxy: Galaxy, inputs: unknown, historyId: string) {
-  const foreign = [];
-  for (const [name, objectId, src] of hdaInputs(inputs)) {
-    const detail = (await galaxy.get(`${HISTORY_SCOPED_SRCS[src]}/${segment(objectId)}`)) || {};
-    const where = isRow(detail) ? detail.history_id : undefined;
-    if (where && where !== historyId) {
-      foreign.push({
-        input: name,
-        supplied_id: objectId,
-        resolves_to_history_id: where,
-        resolves_to_name: detail.name ?? null,
-      });
+  const refs = hdaInputs(inputs);
+  const distinct = [...new Set(refs.map(([, id, src]) => `${src}/${id}`))];
+  const found = new Map<string, Row>();
+  const lookup = async () => {
+    for (let ref = distinct.pop(); ref !== undefined; ref = distinct.pop()) {
+      const [src, id] = [ref.slice(0, ref.indexOf("/")), ref.slice(ref.indexOf("/") + 1)];
+      try {
+        const detail = await galaxy.get(
+          `${HISTORY_SCOPED_SRCS[src]}/${segment(id)}${WHERE_ONLY[src]}`,
+        );
+        if (isRow(detail)) found.set(ref, detail);
+      } catch (e) {
+        if (!(e instanceof HttpError || e instanceof NotAnId)) throw e;
+      }
     }
-  }
-  return foreign;
+  };
+  await Promise.all(Array.from({ length: Math.min(LOOKUPS, distinct.length) }, lookup));
+  return refs.flatMap(([input, id, src]) => {
+    const detail = found.get(`${src}/${id}`);
+    const where = detail?.history_id;
+    return where && where !== historyId
+      ? [{ input, supplied_id: id, history_id: where, name: detail?.name ?? null }]
+      : [];
+  });
 }
 
 /** Python's `str.splitlines`. */

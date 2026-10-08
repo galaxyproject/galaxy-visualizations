@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
-import { connectWeb, type Galaxy } from "./galaxy";
+import { connectWeb, HttpError, type Galaxy } from "./galaxy";
 import {
   annotate,
   OPS_POLICY,
@@ -188,11 +188,28 @@ describe("run_tool history guard", () => {
   const HERE = "aaaaaaaaaaaaaaaa";
   const ELSEWHERE = "bbbbbbbbbbbbbbbb";
 
-  /** Olit's check over galaxy-ops' run_tool, against datasets owned as `owners` says. */
-  function owned(owners: Record<string, string>) {
+  /** What the check asked Galaxy, and the most it asked at once. */
+  const asked: string[] = [];
+  let inFlight = 0;
+  let mostInFlight = 0;
+
+  /**
+   * Olit's check over galaxy-ops' run_tool, against datasets owned as `owners` says; an id it does
+   * not list is one Galaxy will not show, and `failing` makes every lookup fail some other way.
+   */
+  function owned(owners: Record<string, string>, failing?: Error) {
+    asked.length = 0;
+    mostInFlight = 0;
     const ctx = context({
       get: async (path) => {
-        const id = path.split("/").pop()!;
+        asked.push(path);
+        inFlight++;
+        mostInFlight = Math.max(mostInFlight, inFlight);
+        await new Promise((r) => setTimeout(r, 1));
+        inFlight--;
+        if (failing) throw failing;
+        const id = path.split("?")[0].split("/").pop()!;
+        if (!(id in owners)) throw new HttpError("HTTP 404: History dataset not found", 404);
         return { id, name: `ds-${id}`, history_id: owners[id] };
       },
     });
@@ -206,10 +223,53 @@ describe("run_tool history guard", () => {
 
   it("refuses a dataset from another history", async () => {
     const out = refused(await owned({ d1: ELSEWHERE })(HERE, { input: { src: "hda", id: "d1" } }));
-    expect(out).toContain("do not identify a dataset in history");
+    expect(out).toContain("are in another history");
     expect(out).toContain("d1");
+    expect(out).toContain("ds-d1");
     expect(out).toContain(ELSEWHERE);
     expect(out).toContain(HERE);
+  });
+
+  it("says what to do without naming an operation Olit does not have", async () => {
+    const out = refused(await owned({ d1: ELSEWHERE })(HERE, { input: { src: "hda", id: "d1" } }));
+    expect(out).toContain("get_history_contents");
+    expect(out).toContain("ask them to copy it into this one in Galaxy");
+    expect(out).not.toContain("copy it into this history first");
+  });
+
+  it("leaves an id Galaxy will not resolve for the run to report", async () => {
+    const check = owned({ d2: ELSEWHERE });
+    expect(await check(HERE, { a: { src: "hda", id: "nope" } })).toBeUndefined();
+    const out = refused(
+      await check(HERE, { a: { src: "hda", id: "nope" }, b: { src: "hda", id: "d2" } }),
+    );
+    expect(out).toContain("d2");
+    expect(out).not.toContain("nope");
+  });
+
+  it("still ends when the call does", async () => {
+    const stopped = new Error("stopped");
+    await expect(
+      owned({ d1: HERE }, stopped)(HERE, { input: { src: "hda", id: "d1" } }),
+    ).rejects.toThrow("stopped");
+  });
+
+  it("asks once per reference, for no more than where it lives, a few at a time", async () => {
+    const owners = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`d${i}`, HERE]));
+    const values = [...Object.keys(owners), "d0", "d1"].map((id) => ({ src: "hda", id }));
+    expect(
+      await owned({ ...owners, c1: HERE })(HERE, {
+        list: { values },
+        coll: { src: "hdca", id: "c1" },
+      }),
+    ).toBeUndefined();
+    expect(asked.filter((p) => !p.startsWith("api/tools/"))).toHaveLength(13);
+    expect(asked.filter((p) => p.startsWith("api/datasets/"))).toSatisfy((ps: string[]) =>
+      ps.every((p) => p.endsWith("?keys=history_id,name")),
+    );
+    expect(asked).toContain("api/dataset_collections/c1?view=collection");
+    expect(mostInFlight).toBeLessThanOrEqual(4);
+    expect(mostInFlight).toBeGreaterThan(1);
   });
 
   it("allows working in a newly created history", async () => {
