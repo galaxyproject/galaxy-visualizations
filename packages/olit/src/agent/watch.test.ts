@@ -26,7 +26,7 @@ import {
 import { FollowUps } from "./documents";
 import { FOLLOW_UP_MARK } from "./markers";
 import { HttpError, type Galaxy } from "./galaxy";
-import { context, watchedBy } from "./runtime";
+import { context, hold, watchedBy } from "./runtime";
 import {
   followUpPrompt,
   galaxyWatch,
@@ -315,6 +315,20 @@ describe("the watch task", () => {
     const inbox = await harness.snapshot(InboxDoc, conversation.id, context);
     expect(inbox?.items).toHaveLength(1);
     expect((await harness.snapshot(FollowUps, conversation.id, context))?.automatic).toBe(0);
+    await harness.close(context);
+  });
+
+  it("keeps watching a held conversation's work, and queues its follow-up for the user", async () => {
+    let state = "running";
+    const { harness, conversation, task } = await submitted(new MemoryStorage(), () => state);
+    await hold([conversation]);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(await watchedBy(harness, conversation.id, context)).toHaveLength(1);
+    state = "ok";
+    const done = await harness.waitForTask(task, context);
+    expect(done.state.outcome).toMatchObject({ status: "completed" });
+    expect(await followUps(conversation)).toEqual([]);
+    expect((await harness.snapshot(InboxDoc, conversation.id, context))?.items).toHaveLength(1);
     await harness.close(context);
   });
 

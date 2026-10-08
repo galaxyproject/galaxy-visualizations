@@ -223,9 +223,11 @@ export class Runtime {
       },
       context,
     );
-    harness.resume();
     const runtime = new Runtime(harness, galaxy, galaxyStatus, current, connect, env);
     runtime.galaxyProblem = galaxyProblem;
+    // Before scheduling starts, so no run the store holds takes another step unasked.
+    await runtime.hold(await runtime.active());
+    harness.resume();
     return runtime;
   }
 
@@ -321,6 +323,20 @@ export class Runtime {
     await conversation.abort(context, { keepQueued: true });
   }
 
+  /** Every conversation with live work: a run, or Galaxy work it watches. */
+  async active(): Promise<Conversation[]> {
+    const { tasks } = await this.harness.inspect(context);
+    const ids = new Set(tasks.map(({ record }) => record.conversationId).filter((id) => id));
+    const found = await Promise.all(
+      [...ids].map((id) => this.harness.conversation(id as ConversationId, context)),
+    );
+    return found.filter((c): c is Conversation => c !== undefined);
+  }
+
+  hold(conversations: Conversation[]): Promise<void> {
+    return hold(conversations);
+  }
+
   /** The conversation as a saved session: its context, and what binds it to Galaxy. */
   async export(conversation: Conversation, title = ""): Promise<SessionDocument> {
     const [exported, bound, usage] = await Promise.all([
@@ -410,6 +426,25 @@ export class Runtime {
 
   close() {
     return this.harness.close(context);
+  }
+}
+
+/**
+ * Hold conversations nobody is looking at: each run ends and its follow-ups wait for the user's
+ * next message, while its Galaxy work is still watched. Returns once the pauses are committed and
+ * the aborts enqueued, without waiting for a running tool to end.
+ */
+export async function hold(conversations: Conversation[]): Promise<void> {
+  for (const conversation of conversations) {
+    await conversation.commit(async (tx) => {
+      (await tx.doc(FollowUps, conversation.id)).paused = true;
+    }, context);
+  }
+  // One synchronous pass: every abort mark is enqueued before scheduling can take a step.
+  for (const conversation of conversations) {
+    conversation
+      .abort(context, { keepQueued: true })
+      .catch((e) => console.warn("[olit] a held conversation did not stop", e));
   }
 }
 

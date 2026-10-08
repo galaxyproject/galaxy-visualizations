@@ -282,7 +282,7 @@ async function main() {
       if (message.held) {
         info(
           message.held === "stopped"
-            ? "Galaxy results are waiting -- automatic follow-up is paused since you stopped. Say continue when you're ready."
+            ? "Galaxy results are waiting -- automatic follow-up is paused. Say continue when you're ready."
             : "Galaxy results are waiting -- automatic follow-up paused after several automatic turns. Say continue to resume.",
         );
       }
