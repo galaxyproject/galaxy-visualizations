@@ -222,12 +222,3 @@ export class ChatView {
     }
   }
 }
-
-/** The last non-blank line of an error, which for a traceback is the error itself. */
-export function lastLine(text: string): string {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  return lines[lines.length - 1] || text;
-}

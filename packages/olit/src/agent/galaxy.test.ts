@@ -114,6 +114,11 @@ describe("an error, as the model reads it", () => {
     );
   });
 
+  it("keeps the whole of a multi-line error on one line, not its closing brace", () => {
+    const error = `400 ${JSON.stringify({ error: { message: "context too long" } }, null, 2)}`;
+    expect(briefly(error)).toBe('400 { "error": { "message": "context too long" } }');
+  });
+
   it("cuts anything else that runs long", () => {
     const out = briefly("Traceback: " + "frame ".repeat(1000));
     expect(out.length).toBeLessThan(ERROR_MAX + 40);

@@ -11,11 +11,11 @@ import { galaxyCanRun, galaxyRefusalMessage } from "./diagnostics";
 import { buildConfig } from "./config";
 import { saveCredentials } from "./credentials";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
-import { ChatView, lastLine, type RunOutcome } from "./transcript";
+import { ChatView, type RunOutcome } from "./transcript";
 import { NotYours, reportSavedState, savedSessions } from "./saved-session";
 import { createConfirm } from "./confirm-modal";
 import { AgentClient } from "./agent/client";
-import { connectGalaxy } from "./agent/galaxy";
+import { briefly, connectGalaxy } from "./agent/galaxy";
 import type { GalaxyStatus } from "./agent/prompt";
 import { WHAT } from "./agent/markers";
 import type { Settled } from "./agent/watch";
@@ -163,7 +163,7 @@ async function main() {
   function ended(outcome: RunOutcome) {
     if (outcome.error) {
       console.error("[olit] run failed", outcome.error);
-      chat.addErrorMessage(lastLine(outcome.error));
+      chat.addErrorMessage(briefly(outcome.error));
     } else if (outcome.aborted) {
       info("Stopped.");
     } else if (outcome.exhausted) {
@@ -377,7 +377,7 @@ async function main() {
       console.error("[olit] worker failed", message.message);
       chat.hideThinking();
       setBusy(false);
-      chat.addErrorMessage(lastLine(message.message));
+      chat.addErrorMessage(briefly(message.message));
     }
   });
   agent.open(opening);
@@ -399,7 +399,7 @@ async function main() {
           saveCredentials(previous.creds);
           Object.assign(config, previous.model);
           showModel();
-          chat.addErrorMessage(`Could not switch the model: ${lastLine(String(e))}`);
+          chat.addErrorMessage(`Could not switch the model: ${briefly(String(e))}`);
         });
     }
   });
@@ -422,7 +422,7 @@ async function main() {
       // The conversation itself is untouched; only the save failed.
       console.error("[olit] could not save the session", e);
       el.save.textContent = "Save";
-      chat.addErrorMessage(`Could not save this conversation: ${lastLine(String(e))}`);
+      chat.addErrorMessage(`Could not save this conversation: ${briefly(String(e))}`);
     } finally {
       refreshSave();
     }
