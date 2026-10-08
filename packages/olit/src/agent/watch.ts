@@ -156,6 +156,14 @@ export interface WatchOptions {
   pollMs?: number;
 }
 
+/**
+ * The wait after `polls` polls: `pollMs` for the first six, about a minute at Galaxy's pace, then
+ * doubling to twelve times it. Work is watched until it settles, however long that takes.
+ */
+export function pollDelay(polls: number, pollMs: number): number {
+  return Math.min(pollMs * 2 ** Math.max(0, polls - 6), pollMs * 12);
+}
+
 export const watchKey = (w: { kind: string; id: string }) => `${w.kind}:${w.id}`;
 
 export const WATCH_TASK = "olit.galaxy-watch";
@@ -208,7 +216,7 @@ export function galaxyWatch({ galaxy, editRecord, pollMs = 10_000 }: WatchOption
             ...(noted.record ? { record: noted.record } : {}),
           };
           await runtime.commit(() => ({ status: "running", checkpoint }), context);
-          await runtime.sleep(Date.now() + pollMs, context);
+          await runtime.sleep(Date.now() + pollDelay(checkpoint.polls, pollMs), context);
           return;
         }
         const outcome: Outcome = refused ? "unreadable" : outcomeOf(watched.kind, state);
