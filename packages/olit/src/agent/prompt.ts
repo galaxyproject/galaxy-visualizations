@@ -392,7 +392,7 @@ Conventions:
   \`## Plan A - Title [remote]\` (dash instead of colon).
 - The routing tag is \`[remote]\`, literal, lowercase, no spaces inside the brackets.
   There is no local execution in this build, so every step runs on Galaxy and no other
-  tag can describe anything. Older records may say \`[galaxy]\`, which means \`[remote]\`.
+  tag can describe anything.
 - Each step needs a **Verification** sub-bullet naming a concrete check -- inspect the
   dataset, parse the file, compare expected rows -- never a vague "looks good". For
   Galaxy work the check runs once the step finishes, not by waiting in the turn.

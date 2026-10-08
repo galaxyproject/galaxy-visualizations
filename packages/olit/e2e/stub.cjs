@@ -408,7 +408,7 @@ const server = http.createServer(async (req, res) => {
             }
             // A plan card, so the driver has an Approve button to click.
             return answer(message(
-                "```plan\n## Plan A: Stub Plan [galaxy]\n\n" +
+                "```plan\n## Plan A: Stub Plan [remote]\n\n" +
                 "Draft used only to render an approvable card.\n\n### Steps\n\n" +
                 "- [ ] 1. **Concatenate the inputs** -- join the two datasets\n" +
                 "  - Routing: galaxy\n  - Tool: cat\n" +

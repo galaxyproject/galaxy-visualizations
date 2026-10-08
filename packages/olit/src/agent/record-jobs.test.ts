@@ -3,7 +3,7 @@ import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 
 const RECORD = `## Record
 
-### Plan A: Filter and sort [galaxy]
+### Plan A: Filter and sort [remote]
 
 - [ ] 1. **Filter rows** where column 3 > 500 using **Filter1**
   - Input dataset: \`40876639881ca029\` (1.tabular)

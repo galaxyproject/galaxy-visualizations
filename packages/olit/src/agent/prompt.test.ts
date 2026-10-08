@@ -141,7 +141,7 @@ describe("plan convention", () => {
     for (const absent of ["[local]", "[hybrid]"]) {
       expect(PLAN_CONVENTION).not.toContain(absent);
     }
-    expect(PLAN_CONVENTION).toContain("Older records may say `[galaxy]`");
+    expect(PLAN_CONVENTION).not.toContain("[galaxy]");
   });
 
   it("does not teach step anchors", () => {
