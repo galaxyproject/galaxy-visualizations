@@ -13,7 +13,7 @@ function check(name, ok, detail) {
 }
 
 /** A fresh browser profile, so nothing of an earlier session is stored: another machine. */
-async function machine(browser, url) {
+async function machine(browser, url, booting = true) {
     const page = await (await browser.newContext()).newPage();
     await page.goto(url, { waitUntil: "domcontentloaded" });
     const frame = page.frameLocator("#galaxy_visualization");
@@ -23,6 +23,7 @@ async function machine(browser, url) {
     await frame.locator("#cred-key").fill("sk-or-v1-stubkeystubkey");
     await frame.locator("#cred-model").fill("stub-model");
     await frame.locator("#cred-save").click();
+    if (!booting) return { page, frame, ready: false };
     const ready = await frame
         .locator("text=/olit ready/i")
         .first()
@@ -88,6 +89,25 @@ async function save(frame) {
             after.writes.at(-1) === `PUT ${visualization?.id}`,
         JSON.stringify(after.writes.slice(-2)),
     );
+
+    // The same session, now another user's: shared with this one, or open to anyone with its link.
+    for (const owner of ["u2", ""]) {
+        await fetch(`${STUB}/__owner?id=${visualization?.id}&user_id=${owner}`);
+        const asked = (await (await fetch(`${STUB}/__seen`)).json()).prompts.length;
+        const other = await machine(browser, `${HOST}?visualization_id=${visualization?.id}&frame=1`, false);
+        const whose = owner ? "another user's session" : "a session with no owner";
+        const refused = await other.frame
+            .locator("text=/Olit opens only your own sessions/")
+            .first()
+            .waitFor({ timeout: 30000 })
+            .then(() => true, () => false);
+        check(`${whose} is refused`, refused);
+        const shown = await other.frame.locator("body").innerText();
+        check(`none of ${whose} is shown`, !shown.includes("remember the saved session marker"));
+        check(`${whose} leaves nothing to write in`, await other.frame.locator("#input").isDisabled());
+        const sent = (await (await fetch(`${STUB}/__seen`)).json()).prompts.length;
+        check(`${whose} reaches no model`, sent === asked, `${asked} -> ${sent} prompts`);
+    }
 
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

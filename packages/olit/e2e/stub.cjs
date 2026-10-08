@@ -323,6 +323,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.startsWith("/__pages")) return json(res, 200, { pages: [...pages.values()] });
     if (url.startsWith("/__visualizations")) return json(res, 200, { visualizations: [...visualizations.values()], writes: visualizationWrites });
+    // Hand a saved visualization to another owner, or to none, as sharing it with this user leaves it.
+    if (url.startsWith("/__owner")) {
+        const params = new URL(url, "http://x").searchParams;
+        const found = visualizations.get(params.get("id"));
+        if (found) found.user_id = params.get("user_id") || undefined;
+        return json(res, 200, { owner: found?.user_id ?? null });
+    }
     if (url.startsWith("/__public")) return json(res, 200, { public: true });
 
     if (url.startsWith(`${NGL_HREF}/${NGL.entry_point.attr.src}`)) {

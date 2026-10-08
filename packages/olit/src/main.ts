@@ -11,7 +11,7 @@ import { buildConfig } from "./config";
 import { saveCredentials } from "./credentials";
 import { ensureCredentials, switchProvider } from "./credentials-modal";
 import { ChatView, lastLine, type RunOutcome } from "./transcript";
-import { reportSavedState, savedSessions } from "./saved-session";
+import { NotYours, reportSavedState, savedSessions } from "./saved-session";
 import { createConfirm } from "./confirm-modal";
 import { AgentClient } from "./agent/client";
 import { connectGalaxy } from "./agent/galaxy";
@@ -100,6 +100,7 @@ async function main() {
   const saved = savedSessions(galaxy);
   // Opening a saved visualization opens that conversation; otherwise the history's own.
   let savedProblem: string | undefined;
+  let notYours: string | undefined;
   const fromGalaxy = incoming.visualizationId
     ? await saved.load(incoming.visualizationId).then(
         (document) => {
@@ -107,11 +108,22 @@ async function main() {
           return document;
         },
         (e) => {
-          savedProblem = String((e as Error)?.message ?? e);
+          if (e instanceof NotYours) notYours = e.message;
+          else savedProblem = String((e as Error)?.message ?? e);
           return null;
         },
       )
     : null;
+  // Nothing of another user's session is used, not even the dataset Galaxy launched it with.
+  if (notYours) {
+    chat.addErrorMessage(
+      `Olit opens only your own sessions, and saved session ${incoming.visualizationId} is not ` +
+        `one: ${notYours}.`,
+    );
+    el.input.disabled = true;
+    el.send.disabled = true;
+    return;
+  }
   let savedId = fromGalaxy ? incoming.visualizationId : undefined;
   // A saved session carries its own history; otherwise the launch decides it.
   const launch = fromGalaxy ? {} : await resolveLaunch(galaxy, config.dataset_id);

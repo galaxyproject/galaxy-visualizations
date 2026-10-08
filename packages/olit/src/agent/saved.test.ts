@@ -18,6 +18,7 @@ import type { Python } from "./tool";
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";
 const KEY = "sk-test-secret-value";
+const USER = "f2db41e1fa331b3e";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -45,11 +46,14 @@ function world() {
       requests.push(JSON.parse(await request.text()));
       return reply(`answer ${requests.length}`);
     }
+    if (request.url.endsWith("/api/users/current")) return json({ id: USER });
     const id = request.url.split("/api/visualizations/")[1];
     if (request.url.includes("/api/visualizations")) {
       if (request.method === "GET") {
         const row = rows.get(id!);
-        return row ? json({ latest_revision: { config: row.config } }) : json("not found", 404);
+        return row
+          ? json({ user_id: USER, latest_revision: { config: row.config } })
+          : json("not found", 404);
       }
       const body = JSON.parse(await request.text());
       if (request.method === "POST") {

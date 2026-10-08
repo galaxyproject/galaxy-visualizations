@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { connectGalaxy } from "./agent/galaxy";
 import { SCHEMA, title, type SessionDocument } from "./agent/saved";
-import { PLUGIN_TYPE, reportSavedState, savedSessions } from "./saved-session";
+import { NotYours, PLUGIN_TYPE, reportSavedState, savedSessions } from "./saved-session";
 
 const document = (over: Partial<SessionDocument["session"]> = {}): SessionDocument => ({
   olit_session: SCHEMA,
@@ -18,22 +18,29 @@ const document = (over: Partial<SessionDocument["session"]> = {}): SessionDocume
   entries: [{ kind: "pi.user", model: [{ role: "user", content: "a", timestamp: 0 }] }],
 });
 
-/** A Galaxy that keeps visualizations in memory. */
-function fakeGalaxy() {
-  const rows = new Map<string, { title: string; config: unknown; type?: string }>();
+const ME = "f2db41e1fa331b3e";
+
+/** A Galaxy that keeps visualizations in memory, each owned by the user who saved it. */
+function fakeGalaxy(me: string | null = ME) {
+  const rows = new Map<string, { title: string; config: unknown; type?: string; owner?: string }>();
   let next = 1;
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const fetchMock = vi.fn(async (request: Request) => {
+    if (request.url.endsWith("/api/users/current")) {
+      return json(me ? { id: me } : { username: "Anonymous" });
+    }
     const id = request.url.split("/api/visualizations/")[1];
     if (request.method === "GET") {
       const row = rows.get(id!);
-      return row ? json({ latest_revision: { config: row.config } }) : json("not found", 404);
+      return row
+        ? json({ user_id: row.owner, latest_revision: { config: row.config } })
+        : json("not found", 404);
     }
     const body = JSON.parse(await request.text());
     if (request.method === "POST") {
       const created = `v${next++}`;
-      rows.set(created, body);
+      rows.set(created, { ...body, owner: me ?? undefined });
       return json({ id: created });
     }
     rows.set(id!, { ...rows.get(id!), ...body });
@@ -64,16 +71,33 @@ describe("a saved Olit visualization", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each([
+    ["shared with this user, or open to anyone with the link", "0a248a1f62a0cc04"],
+    ["saved with no owner Galaxy reports", undefined],
+  ])("refuses a session %s, before reading it", async (_, owner) => {
+    const { rows, fetchMock } = fakeGalaxy();
+    vi.stubGlobal("fetch", fetchMock);
+    rows.set("v9", { title: "theirs", config: document(), owner });
+    await expect(
+      savedSessions(connectGalaxy({ root: "http://galaxy/" })).load("v9"),
+    ).rejects.toThrow(NotYours);
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses every session to a user who is not signed in", async () => {
+    const { rows, fetchMock } = fakeGalaxy(null);
+    vi.stubGlobal("fetch", fetchMock);
+    rows.set("v9", { title: "theirs", config: document(), owner: ME });
+    await expect(
+      savedSessions(connectGalaxy({ root: "http://galaxy/" })).load("v9"),
+    ).rejects.toThrow(NotYours);
+    vi.unstubAllGlobals();
+  });
+
   it("refuses a visualization that is not an Olit session", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({ latest_revision: { config: { settings: {}, tracks: [] } } }),
-          ),
-      ),
-    );
+    const { rows, fetchMock } = fakeGalaxy();
+    vi.stubGlobal("fetch", fetchMock);
+    rows.set("v1", { title: "chart", config: { settings: {}, tracks: [] }, owner: ME });
     expect(await savedSessions(connectGalaxy({ root: "http://galaxy/" })).load("v1")).toBeNull();
     vi.unstubAllGlobals();
   });
