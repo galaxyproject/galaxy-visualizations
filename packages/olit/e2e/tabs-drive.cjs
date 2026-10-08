@@ -42,6 +42,15 @@ const shows = (page, pattern, ms = 120000) =>
     check("the first tab says it lost the conversation", await shows(first, /another tab, which has it now/, 30000));
     check("and takes no more input", await first.evaluate(() => document.querySelector("#input").disabled));
 
+    // A third tab waits behind the second; when the second closes, it gets the conversation by
+    // itself, and the offer to take it over must go with the wait.
+    const third = await context.newPage();
+    await third.goto(APP, { waitUntil: "domcontentloaded" });
+    check("a third tab waits behind the second", await shows(third, /open in another tab/));
+    await second.close();
+    check("it gets the conversation once the second tab closes", await shows(third, /olit ready/));
+    check("and no longer offers to take it over", (await third.locator("text=Use it here").count()) === 0);
+
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
     await browser.close();
