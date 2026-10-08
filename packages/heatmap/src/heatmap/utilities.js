@@ -174,3 +174,16 @@ export function makeUniqueCategories(keys, groups, with_index = false) {
 
     return array;
 }
+
+/** Open a label link, but only as an http or https page once the browser has resolved it */
+export function openLink(url) {
+    let protocol;
+    try {
+        protocol = new URL(url, document.baseURI).protocol;
+    } catch {
+        return;
+    }
+    if (protocol === "http:" || protocol === "https:") {
+        window.open(url);
+    }
+}
