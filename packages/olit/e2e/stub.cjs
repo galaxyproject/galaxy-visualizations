@@ -458,6 +458,7 @@ const server = http.createServer(async (req, res) => {
                 : message("", createVisualization));
         }
         if (script === "plain") return answer(message("Noted."));
+        if (script === "echo") return answer(message(String(last.role === "user" ? last.content : "")));
         if (script === "linked") return answer(message("Dataset 0123456789abcdef is ready."));
         if (script === "reset-watch") {
             // Open the record, run a tool, then say so; anything asked after that is a follow-up.

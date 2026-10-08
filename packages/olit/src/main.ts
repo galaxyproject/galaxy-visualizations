@@ -1,6 +1,7 @@
 /** olit shell: mounts Orbit's ChatPanel, starts the agent worker, drives the chat. */
 import "./orbit/app/src/renderer/styles.css";
 import "./olit.css";
+import { useChatMarkdown } from "./chat-markdown";
 import { settlePlanDrafts } from "./plan-drafts";
 import { resolveLaunch, summarize } from "./seed-dataset";
 import { ChatPanel } from "./orbit/app/src/renderer/chat/chat-panel";
@@ -71,6 +72,7 @@ async function main() {
 
   const el = mountLayout(container);
   const artifactPane = mountArtifactPane(container);
+  useChatMarkdown();
   const chat = new ChatPanel(el.messages);
   /** An info line as text: the vendored panel parses it as HTML, and dataset names, ids and
    * approval prompts reach it. */
