@@ -278,6 +278,20 @@ describe("the watch task", () => {
     await harness.close(context);
   });
 
+  it.each([401, 403])(
+    "keeps watching through an HTTP %i, which a lapsed login gives for work still there",
+    async (status) => {
+      let state: string | Error = new HttpError(`HTTP ${status}: login`, status);
+      const { harness, conversation, task } = await submitted(new MemoryStorage(), () => state);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(await watchedBy(harness, conversation.id, context)).toHaveLength(1);
+      state = "ok";
+      const done = await harness.waitForTask(task, context);
+      expect(done.state.outcome).toMatchObject({ result: { outcome: "completed" } });
+      await harness.close(context);
+    },
+  );
+
   it("keeps watching when Galaxy errors, rather than dropping the job", async () => {
     let state: string | Error = new Error("502");
     const { harness, conversation, task } = await submitted(new MemoryStorage(), () => state);

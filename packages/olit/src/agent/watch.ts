@@ -189,13 +189,11 @@ export function galaxyWatch({ galaxy, editRecord, pollMs = 10_000 }: WatchOption
       },
       poll: async (task, runtime, context) => {
         const watched = task.input;
-        // A Galaxy that is down is waited out; one that refuses this item will not show it again.
+        // Only a missing or malformed id is gone; anything else, a lapsed login included, is
+        // waited out.
         const answer = await read(watched).catch((e: unknown) => e);
         const refused =
-          answer instanceof HttpError &&
-          answer.status >= 400 &&
-          answer.status < 500 &&
-          answer.status !== 429;
+          answer instanceof HttpError && (answer.status === 404 || answer.status === 400);
         const state = refused
           ? `HTTP ${(answer as HttpError).status}`
           : typeof answer === "string"
