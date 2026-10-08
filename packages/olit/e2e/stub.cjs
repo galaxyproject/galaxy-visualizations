@@ -62,6 +62,20 @@ const seen = [];            // every Galaxy request the agent actually made
 const cookies = [];         // each Galaxy request's URL and the session cookie it carried
 const prompts = [];         // what the agent sent us, so compaction can be checked
 
+// A request's JSON body, or undefined when it is not JSON, which Galaxy refuses rather than reads.
+const readJson = (req) =>
+    new Promise((resolve) => {
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", () => {
+            try {
+                resolve(raw ? JSON.parse(raw) : {});
+            } catch {
+                resolve(undefined);
+            }
+        });
+    });
+
 function json(res, code, body) {
     const text = JSON.stringify(body);
     res.writeHead(code, {
@@ -525,14 +539,11 @@ const server = http.createServer(async (req, res) => {
             const found = pages.get(id);
             return found ? json(res, 200, found) : json(res, 404, { err_msg: "Page not found" });
         }
-        const body = await new Promise((resolve) => {
-            let raw = "";
-            req.on("data", (c) => (raw += c));
-            req.on("end", () => resolve(raw ? JSON.parse(raw) : {}));
-        });
+        const body = await readJson(req);
+        if (!body) return json(res, 400, { err_msg: "The request body is not JSON." });
         const fence = badFence(body.content);
         if (fence) return json(res, 400, { err_msg: `Unsupported fenced block type [${fence.slice(3)}].` });
-        const now = new Date().toISOString();
+        const now = new Date().toISOString().replace("Z", ""); // Galaxy writes UTC without a zone
         if (req.method === "POST") {
             const created = `p${pages.size + 1}`;
             pages.set(created, {
@@ -550,7 +561,10 @@ const server = http.createServer(async (req, res) => {
         }
         const found = pages.get(id);
         if (!found) return json(res, 404, { err_msg: "Page not found" });
-        Object.assign(found, { content: body.content, content_editor: body.content, update_time: now });
+        // As Galaxy's update_page: a title only when given, a new revision only when content is.
+        if (body.title) found.title = body.title;
+        if (body.content != null) Object.assign(found, { content: body.content, content_editor: body.content });
+        found.update_time = now;
         return json(res, 200, found);
     }
     if (url.startsWith("/api/visualizations")) {
@@ -560,11 +574,8 @@ const server = http.createServer(async (req, res) => {
             const found = visualizations.get(id);
             return found ? json(res, 200, found) : json(res, 404, { err_msg: "Visualization not found" });
         }
-        const body = await new Promise((resolve) => {
-            let raw = "";
-            req.on("data", (c) => (raw += c));
-            req.on("end", () => resolve(raw ? JSON.parse(raw) : {}));
-        });
+        const body = await readJson(req);
+        if (!body) return json(res, 400, { err_msg: "The request body is not JSON." });
         visualizationWrites.push(`${req.method} ${id || ""}`.trim());
         if (req.method === "POST") {
             const created = `v${visualizations.size + 1}`;
