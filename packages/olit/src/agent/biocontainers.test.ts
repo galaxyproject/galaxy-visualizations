@@ -39,8 +39,8 @@ describe("pickTag", () => {
     expect(pickTag(tags, "2.2.1")).toEqual(["2.2.1--pyhd8ed1ab_1", "exact_version"]);
   });
 
-  it("falls back to the newest when no built tag matches the version", () => {
-    expect(pickTag([tag("1.5.2", 5), tag("2.2.1", 30)], "9.9.9")).toEqual(["2.2.1", "name_only"]);
+  it("resolves a pinned version with no built tag to nothing, not the newest", () => {
+    expect(pickTag([tag("1.5.2", 5), tag("2.2.1", 30)], "9.9.9")).toEqual([null, "not_found"]);
   });
 
   it("takes the newest built tag when no version is pinned", () => {
@@ -82,10 +82,26 @@ describe("recommend", () => {
     expect(out.notes).toEqual([]);
   });
 
-  it("says so when it substitutes a tag", async () => {
+  it("reports a pinned version that is not built instead of substituting the newest", async () => {
     const out = await recommend(["pandas=9.9.9"], quay([tag("2.2.1", 20)]).fetchImpl);
-    expect(out.match_quality).toBe("name_only");
-    expect(out.notes[0]).toContain("9.9.9");
+    expect(out.found).toBe(false);
+    expect(out.image).toBeNull();
+    expect(out.match_quality).toBe("not_found");
+    expect(out.verified).toBe(false);
+    expect(out.notes[0]).toContain("'pandas' version '9.9.9'");
+  });
+
+  it("asks quay.io for the pinned version's tags, so one past the first page is found", async () => {
+    const fake = quay([tag("1.2--1", 5)]);
+    const out = await recommend(["samtools=1.2"], fake.fetchImpl);
+    expect(new URL(fake.urls[0]).searchParams.get("filter_tag_name")).toBe("like:1.2");
+    expect(out.image).toMatch(/samtools:1\.2--1$/);
+  });
+
+  it("lists every tag when no version is pinned", async () => {
+    const fake = quay([tag("1.2--1", 5)]);
+    await recommend(["samtools"], fake.fetchImpl);
+    expect(new URL(fake.urls[0]).searchParams.has("filter_tag_name")).toBe(false);
   });
 
   it("answers not found for several packages instead of guessing a mulled hash", async () => {
