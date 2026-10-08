@@ -14,8 +14,7 @@ const ARCHIVE_HINT =
   "A sequencing-archive fetch failed. Do not construct another url: ENA and SRA fastq " +
   "paths are not derivable from an accession, and whether a run is paired is a property " +
   "of the run rather than its name. Call `ena_runs` with the accession to read the exact " +
-  "urls, checksums and layout. For more than a couple of runs, submit the accessions to " +
-  "fastq_dump/fasterq_dump in one call instead of fetching urls at all.";
+  "urls, checksums and layout.";
 
 const GENERIC_HINT =
   "A url fetch failed. Do not retry with another url written from memory; a url that was " +

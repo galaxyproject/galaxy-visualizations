@@ -125,7 +125,6 @@ async function enaRuns(
         ? { truncated: true, note: `Showing ${limit} runs; raise \`limit\` for more.` }
         : {}),
       hint:
-        "Submit these run accessions to fastq_dump/fasterq_dump in one call. " +
         "The urls are exact and are for the cases that need a direct fetch; " +
         "never edit or construct one.",
     }),

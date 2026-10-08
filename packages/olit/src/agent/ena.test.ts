@@ -179,11 +179,11 @@ describe("ena_runs", () => {
     expect(calls).toEqual([]);
   });
 
-  it("points at the importer rather than at url uploads", async () => {
+  it("says what its urls are for, and leaves the route to the prompt", async () => {
     net(PAIRED);
     const { out } = await call({ accession: "SRR390728" });
-    expect(out.hint).toContain("fasterq_dump");
     expect(out.hint).toContain("never edit or construct one");
+    expect(out.hint).not.toMatch(/fastq_dump|fasterq_dump/);
   });
 
   it("is declared without a capability", () => {

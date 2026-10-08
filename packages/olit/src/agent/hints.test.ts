@@ -34,7 +34,7 @@ describe("fetchFailureHint", () => {
     const out = fetchFailureHint(ENA_FAILURE)!;
     expect(out).toContain("ena_runs");
     expect(out).toContain("not derivable");
-    expect(out).toContain("fasterq_dump");
+    expect(out).not.toMatch(/fastq_dump|fasterq_dump/);
   });
 
   it("refuses a second guess for any other fetch failure", () => {
