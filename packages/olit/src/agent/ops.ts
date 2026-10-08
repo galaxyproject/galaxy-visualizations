@@ -88,11 +88,6 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
         return policy.refused?.(message, args) ?? fail(message);
       }
       ctx.watch.add(watchedFrom(op.name, envelope.data));
-      // A conversation stays on the history it was launched on; an unbound one takes the first.
-      const created = (envelope.data as { id?: unknown } | undefined)?.id;
-      if (op.name === "create_history" && typeof created === "string" && !ctx.binding.historyId) {
-        ctx.binding.historyId = created;
-      }
       const payload = rendered(envelope);
       const hint = await annotate?.(op.name, args, envelope.data, ctx);
       return new Outcome(hint ? `${payload}\n\n${hint}` : payload);

@@ -181,11 +181,6 @@ export function durableTool(tool: OlitTool, host: ToolHost): ToolRegistration {
       if (!(value instanceof Outcome)) {
         submitted.push(...watchedFrom(tool.name, value));
       }
-      const named = (args as { history_id?: unknown }).history_id;
-      const wrote = tool.capability === "write" && !(value instanceof Outcome && value.isError);
-      if (wrote && typeof named === "string" && !ctx.binding.historyId) {
-        ctx.binding.historyId = named;
-      }
       const text =
         value instanceof Outcome
           ? value.text

@@ -430,13 +430,13 @@ describe("the history a conversation is bound to", () => {
     expect((await bound(session))?.historyId).toBe("h1");
   });
 
-  it("takes the first history the agent creates when it was launched on none", async () => {
+  it("does not take a history the agent creates when it was launched on none", async () => {
     const { session } = await turn(
       [{ calls: [{ name: "create_history", args: { history_name: "x" } }] }, { text: "ok" }],
       {},
       { "api/histories": { id: "hnew", name: "x", model_class: "History" } },
     );
-    expect((await bound(session))?.historyId).toBe("hnew");
+    expect((await bound(session))?.historyId).toBeUndefined();
   });
 
   it("stays put when a result merely mentions another history", async () => {
@@ -449,7 +449,7 @@ describe("the history a conversation is bound to", () => {
     expect((await bound(session))?.historyId).toBe("h1");
   });
 
-  it("binds an unbound conversation to the history the agent writes into", async () => {
+  it("does not take a history the agent writes into when it was launched on none", async () => {
     const { session } = await turn(
       [
         { calls: [{ name: "update_history", args: { history_id: "hw", name: "renamed" } }] },
@@ -458,7 +458,7 @@ describe("the history a conversation is bound to", () => {
       {},
       { "api/histories/hw": { id: "hw", name: "renamed" } },
     );
-    expect((await bound(session))?.historyId).toBe("hw");
+    expect((await bound(session))?.historyId).toBeUndefined();
   });
 });
 

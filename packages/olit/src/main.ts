@@ -115,6 +115,16 @@ async function main() {
   let savedId = fromGalaxy ? incoming.visualizationId : undefined;
   // A saved session carries its own history; otherwise the launch decides it.
   const launch = fromGalaxy ? {} : await resolveLaunch(galaxy, config.dataset_id);
+  if (!fromGalaxy && !launch.historyId) {
+    const what = config.dataset_id ? `dataset ${config.dataset_id}` : "the current history";
+    chat.addErrorMessage(
+      `Could not read ${what} from Galaxy (${launch.problem ?? "it named no history"}). Olit ` +
+        "works in a history, so it cannot start; reload to try again.",
+    );
+    el.input.disabled = true;
+    el.send.disabled = true;
+    return;
+  }
 
   const usage = mountUsageBar(container);
   mountBuildStamp(container, {
@@ -308,14 +318,7 @@ async function main() {
             ? "Resumed this history's conversation. Olit ready."
             : "Olit ready. Ask me to run something.",
       );
-      // Its own message: being ready and having a dataset to start from are separate facts.
-      if (launch.problem) {
-        const what = config.dataset_id ? `dataset ${config.dataset_id}` : "the current history";
-        chat.addErrorMessage(
-          `Could not read ${what} from Galaxy (${launch.problem}), so this conversation is not ` +
-            "bound to a history.",
-        );
-      } else if (launch.dataset) {
+      if (launch.dataset) {
         info(summarize(launch.dataset));
       }
     } else if (message.type === "recoverable") {
