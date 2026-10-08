@@ -156,7 +156,7 @@ async function main() {
     el.send.classList.toggle("hidden", running);
     el.abort.classList.toggle("hidden", !running);
     if (!running) retryNotice.stop();
-    refreshSave();
+    refreshControls();
   }
 
   /** Exactly one explanation for a quiet ending, most specific first. */
@@ -174,7 +174,7 @@ async function main() {
     }
     el.save.textContent = "Save";
     reportSavedState(false);
-    refreshSave();
+    refreshControls();
   }
 
   /**
@@ -203,9 +203,13 @@ async function main() {
     retried: () => retryNotice.stop(),
   });
 
-  /** Saving mid-run would store a half-finished run, and an empty conversation has none. */
-  function refreshSave() {
+  /**
+   * Saving mid-run would store a half-finished run, and an empty conversation has none. A model
+   * switch configures the open conversation, so it waits for the worker to have one.
+   */
+  function refreshControls() {
     el.save.disabled = busy || !ready || view.turns === 0;
+    el.model.disabled = !ready;
     el.reset.classList.toggle("hidden", view.turns === 0);
   }
 
@@ -213,6 +217,7 @@ async function main() {
   const showModel = () =>
     (el.model.textContent = creds.model ? `${creds.provider} · ${creds.model}` : creds.provider);
   showModel();
+  refreshControls();
 
   /** What the worker runs on: urls resolved against the page, and the key. */
   function workerConfig() {
@@ -268,7 +273,7 @@ async function main() {
         info(afterReset);
         afterReset = undefined;
       }
-      refreshSave();
+      refreshControls();
     } else if (message.type === "settled") {
       settledOne(message.settled);
     } else if (message.type === "held") {
@@ -286,7 +291,7 @@ async function main() {
     } else if (message.type === "ready") {
       ready = true;
       galaxyStatus = message.galaxy;
-      refreshSave();
+      refreshControls();
       if (message.unkept) {
         chat.addErrorMessage(
           `Olit is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
@@ -371,7 +376,7 @@ async function main() {
       ready = false;
       el.input.disabled = true;
       el.send.disabled = true;
-      refreshSave();
+      refreshControls();
       chat.addErrorMessage("Olit was opened in another tab, which has it now.");
     } else if (message.type === "failed") {
       console.error("[olit] worker failed", message.message);
@@ -424,7 +429,7 @@ async function main() {
       el.save.textContent = "Save";
       chat.addErrorMessage(`Could not save this conversation: ${briefly(String(e))}`);
     } finally {
-      refreshSave();
+      refreshControls();
     }
   });
 

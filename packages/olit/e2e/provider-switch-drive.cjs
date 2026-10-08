@@ -2,7 +2,8 @@
 // and must not discard the conversation, which lives in the browser's files (OPFS).
 const { chromium } = require("playwright");
 const offline = require("./offline.cjs");
-const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olit";
+const STUB = "http://127.0.0.1:8099";
+const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit`;
 
 const results = [];
 const settled = (wait) => wait.then(() => true, () => false);
@@ -15,6 +16,8 @@ function check(name, ok, detail) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
     await offline(page);
+    // A slow boot, as on a busy runner: the picker is reachable before the agent is ready.
+    await fetch(`${STUB}/__slow?ms=4000`);
     await page.goto(APP);
 
     await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 20000 });

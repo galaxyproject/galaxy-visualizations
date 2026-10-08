@@ -55,6 +55,7 @@ const badFence = (content) =>
         .split("\n")
         .map((line) => line.trim())
         .find((line) => line.startsWith("```") && line.length > 3 && !PAGE_CELLS.includes(line.slice(3)));     // confirm | slow | slow-once | compact | ratelimit | plan | plan-after-graph
+let bootDelay = 0;          // ms the agent's user lookup waits, so a drive can act while Olit boots
 let galaxyUp = true;        // /api/version answers, which is what the agent probes for reachability
 let rateLimited = 0;
 let calls = 0;
@@ -315,6 +316,7 @@ const server = http.createServer(async (req, res) => {
     if (url.startsWith("/__reset")) {
         script = "confirm";
         galaxyUp = true;
+        bootDelay = 0;
         jobState = "queued";
         rateLimited = 0;
         calls = 0;
@@ -334,6 +336,10 @@ const server = http.createServer(async (req, res) => {
     // Drives that assert on what the model was sent need the record to start empty;
     // `/__script` deliberately keeps it, because a drive may switch scripts mid-turn.
     // The agent probes /api/version once per session; a drive needs Galaxy down before it boots.
+    if (url.startsWith("/__slow")) {
+        bootDelay = Number(new URL(url, "http://x").searchParams.get("ms")) || 0;
+        return json(res, 200, { bootDelay });
+    }
     if (url.startsWith("/__galaxy")) {
         galaxyUp = new URL(url, "http://x").searchParams.get("up") !== "0";
         return json(res, 200, { galaxyUp });
@@ -510,6 +516,9 @@ const server = http.createServer(async (req, res) => {
     if (url.includes("/api/plugins/ngl")) return json(res, 200, NGL);
     if (url.includes("/api/plugins")) return json(res, 200, [{ name: "ngl", settings: [], tracks: [] }]);
     if (url.includes("/api/datatypes/")) return json(res, 200, [{ visualization: "ngl" }]);
+    if (url.includes("/api/users/current") && !url.includes("from=python") && bootDelay) {
+        await new Promise((resolve) => setTimeout(resolve, bootDelay));
+    }
     if (url.includes("/api/users/current")) {
         // Galaxy answers a signed-in user with its id; an anonymous one has none.
         return json(res, 200, /galaxysession=/.test(req.headers.cookie || "") ? { id: "u1", username: "e2e-user" } : {});

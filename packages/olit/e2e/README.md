@@ -48,7 +48,7 @@ request off 127.0.0.1.
 
 - `/__reset` restores a fresh Galaxy; `run-all.sh` calls it before every drive.
 - `/__script?name=…` selects the scripted model responses.
-- `/__galaxy?up=0|1`, `/__job?state=…` set what Galaxy answers.
+- `/__galaxy?up=0|1`, `/__job?state=…`, `/__slow?ms=…` (a slow boot) set what Galaxy answers.
 - `/__seen`, `/__pages`, `/__visualizations` report what the agent sent, so "declining sends
   nothing to Galaxy" is an assertion about the network rather than the UI.
 
