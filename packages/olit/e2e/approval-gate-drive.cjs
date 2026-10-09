@@ -7,6 +7,7 @@
 // charting, and no Galaxy tool reads it. So a plan is approved both when nothing has asked for
 // the catalog and after the catalog has been asked for and failed.
 const { chromium } = require("playwright");
+const { eventually } = require("./eventually.cjs");
 
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = process.env.STUB_URL || "http://127.0.0.1:8099";
@@ -19,13 +20,11 @@ const check = (name, ok, detail) => {
 const calls = async () => (await (await fetch(`${STUB}/__seen`)).json()).calls;
 
 /** Until the approval is answered: a turn reaches the provider, or the page says it refused. */
-async function answered(page, before, refusal) {
-    const end = Date.now() + 30000;
-    while (Date.now() < end) {
-        if ((await calls()) > before || refusal.test(await page.evaluate(() => document.body.innerText))) return;
-        await page.waitForTimeout(400);
-    }
-}
+const answered = (page, before, refusal) =>
+    eventually(
+        async () => (await calls()) > before || refusal.test(await page.evaluate(() => document.body.innerText)),
+        { what: "the approval to be answered" },
+    ).catch(() => {});
 
 async function waitFor(page, fn, ms, arg) {
     const end = Date.now() + ms;
