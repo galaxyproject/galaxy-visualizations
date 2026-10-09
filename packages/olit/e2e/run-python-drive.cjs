@@ -58,7 +58,8 @@ const toolResults = async () =>
     await fetch(`${STUB}/__script?name=python-forever`);
     await p.fill("#input", "loop forever");
     await p.click("#send-btn");
-    await p.waitForTimeout(5000);
+    check("the endless Python is running before Stop",
+        await waitFor(p, () => !!document.querySelector(".tool-card .tool-status.running"), 60000));
     await p.click("#abort-btn");
     const stopped = await waitFor(p, () => !document.querySelector("#send-btn").classList.contains("hidden"), 30000);
     check("Stop ends a Python run that never returns", stopped);

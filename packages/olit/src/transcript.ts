@@ -204,6 +204,8 @@ export class ChatView {
       } else if (text) this.say(text);
       if (answer.stopReason === "error") this.run.error = answer.errorMessage;
       if (answer.stopReason === "aborted") this.run.aborted = true;
+      // A call's id is unique only within its response; some servers reuse ids across responses.
+      this.cards.clear();
       for (const c of answer.content) {
         if (c.type === "toolCall") this.card(c.id, c.name);
       }
@@ -221,13 +223,4 @@ export class ChatView {
       if (made.length && !this.restoring) this.hooks.artifacts(made, false);
     }
   }
-}
-
-/** The last meaningful line of a Python traceback, which is the actual error. */
-export function lastLine(text: string): string {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  return lines[lines.length - 1] || text;
 }

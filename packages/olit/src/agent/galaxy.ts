@@ -37,10 +37,13 @@ function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
 /** A value placed in a Galaxy path, encoded: an id the model wrote must not add a segment,
  * a query or a fragment to the request it names. Encoding leaves dots alone, and a URL reads
  * `..` (or `%2e%2e`) as the parent, so those are refused outright. */
+/** A value that cannot be one path segment, so no Galaxy id. */
+export class NotAnId extends Error {}
+
 export function segment(value: unknown): string {
   const text = String(value);
   if (/^(\.|%2e){0,2}$/i.test(text)) {
-    throw new Error(`${JSON.stringify(text)} is not a Galaxy id`);
+    throw new NotAnId(`${JSON.stringify(text)} is not a Galaxy id`);
   }
   return encodeURIComponent(text);
 }
@@ -107,6 +110,33 @@ export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOpti
   };
 }
 
+/** The most of an error a message carries: the model reads every one, some every turn. */
+export const ERROR_MAX = 1000;
+
+/**
+ * An error as one short line: Galaxy's own `err_msg`, an HTML page by its title (whatever a proxy
+ * answered with), and anything longer cut at `ERROR_MAX`.
+ */
+export function briefly(text: string): string {
+  let said = text.trim();
+  try {
+    const own = JSON.parse(said)?.err_msg;
+    if (typeof own === "string") said = own;
+  } catch {
+    // Not JSON: said as it stands.
+  }
+  const html = said.search(/<!doctype html|<html[\s>]/i);
+  if (html >= 0) {
+    const page = said.slice(html);
+    const title = (page.match(/<title[^>]*>([^<]*)</i) ?? page.match(/<h1[^>]*>([^<]*)</i))?.[1];
+    said = `${said.slice(0, html).replace(/b?['"]$/, "")}${title?.trim() || "an HTML page"}`;
+  }
+  said = said.replace(/\s+/g, " ").trim();
+  return said.length > ERROR_MAX
+    ? `${said.slice(0, ERROR_MAX)}… (${said.length - ERROR_MAX} more characters)`
+    : said;
+}
+
 export function connectGalaxy(options: GalaxyOptions): Galaxy {
   const root = options.root.replace(/\/*$/, "/");
   const send = galaxyFetch(options);
@@ -119,7 +149,10 @@ export function connectGalaxy(options: GalaxyOptions): Galaxy {
     }
     const response = await send(`${root}${path.replace(/^\//, "")}`, init);
     if (!response.ok) {
-      throw new HttpError(`HTTP ${response.status}: ${await response.text()}`, response.status);
+      throw new HttpError(
+        `HTTP ${response.status}: ${briefly(await response.text())}`,
+        response.status,
+      );
     }
     return response;
   }
@@ -141,6 +174,35 @@ export function connectGalaxy(options: GalaxyOptions): Galaxy {
     put: (path, body = {}) => json("PUT", path, body),
     delete: (path) => json("DELETE", path),
     fetch: send,
+  };
+}
+
+/** The longest one tool call waits on hosts other than Galaxy, retries included. */
+export const WEB_TIMEOUT_MS = 30_000;
+
+/**
+ * Hosts other than Galaxy, for one tool call: reached as Galaxy is, retried and with short errors,
+ * but never with Galaxy's login, and ended by the call's abort or once its time is up.
+ */
+export interface Web {
+  connect(root: string): Galaxy;
+  fetch: typeof fetch;
+}
+
+export function connectWeb(signal?: AbortSignal, timeoutMs = WEB_TIMEOUT_MS): Web {
+  const ended = new AbortController();
+  const end = (reason: unknown) => ended.abort(reason);
+  if (signal?.aborted) end(signal.reason);
+  signal?.addEventListener("abort", () => end(signal.reason), { once: true });
+  // A timeout signal keeps no process alive, as a timer would; its own reason says less.
+  AbortSignal.timeout(timeoutMs).addEventListener(
+    "abort",
+    () => end(new Error(`no answer within ${timeoutMs / 1000} s`)),
+    { once: true },
+  );
+  return {
+    connect: (root) => connectGalaxy({ root, credentials: "omit", signal: ended.signal }),
+    fetch: (input, init) => fetch(input, { ...init, credentials: "omit", signal: ended.signal }),
   };
 }
 

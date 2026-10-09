@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Galaxy } from "./galaxy";
+import { connectGalaxy, type Galaxy } from "./galaxy";
 import { pageBody } from "./page-edit";
 import {
   excerpt,
@@ -138,7 +138,18 @@ describe("notebook_resume", () => {
 });
 
 describe("excerpt", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   const text = (galaxy: Galaxy) => excerpt(galaxy, "p1", HISTORY);
+
+  it("says in one line that Galaxy answered with a page instead of the record", async () => {
+    const page = "<html><head><title>403 Forbidden</title></head><body>" + "x".repeat(50_000);
+    vi.stubGlobal("fetch", async () => new Response(page, { status: 403 }));
+    const out = await text(connectGalaxy({ root: "http://galaxy.test/" }));
+    expect(out).toContain("HTTP 403: 403 Forbidden");
+    expect(out).not.toContain("<html");
+    expect(out.length).toBeLessThan(3000);
+  });
 
   it("is empty with neither binding", async () => {
     expect(await excerpt(fakeGalaxy().galaxy, undefined, undefined)).toBe("");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { toPage, type Artifact } from "../artifacts/kinds";
-import type { Galaxy } from "./galaxy";
+import { connectWeb, type Galaxy } from "./galaxy";
 import { claim, type Context, Outcome, rendered } from "./tool";
 import {
   chartOptions,
@@ -48,7 +48,6 @@ const context = (galaxy: unknown) =>
     galaxy: galaxy as Galaxy,
     artifacts: { prior: [], produced: [] },
     binding: {},
-    watch: { add: () => undefined },
   }) as unknown as Context;
 
 function call(name: string, galaxy: unknown, args: Json, charts = fakeCharts()): Promise<any> {
@@ -69,6 +68,14 @@ function refused(out: unknown): any {
 }
 
 describe("list_visualizations", () => {
+  it("is described as where showing a dataset starts, viewer named or not", () => {
+    const { description } = visualizationTools().find((t) => t.name === "list_visualizations")!;
+    expect(description).toContain("structure viewers");
+    expect(description).toContain("open or view a dataset in a viewer");
+    expect(description).not.toMatch(/chart|plot/i);
+    expect(description).toContain("no tool search lists them");
+  });
+
   const COMPATIBLE = [
     {
       name: "plotly",
@@ -804,6 +811,19 @@ describe("show_visualization and save_visualization", () => {
           },
         };
       if (path === "api/visualizations/s1") return { id: "s1", type: "olit" };
+      if (path === "api/visualizations/p9")
+        return {
+          id: "p9",
+          type: "plotly",
+          title: "Amino Acids Plotly",
+          latest_revision: {
+            config: {
+              dataset_id: "d1",
+              tracks: [{ name: "Hydrophobicity", label: "auto", x: "0", y: "1" }],
+              transcripts: [{ role: "user" }],
+            },
+          },
+        };
       const declared = path.match(/^api\/plugins\/(.+)$/);
       if (declared) return plugins[declared[1]] ?? [];
       if (path.startsWith("api/plugins?")) return compatible.map((n) => ({ name: n }));
@@ -854,10 +874,138 @@ describe("show_visualization and save_visualization", () => {
       title: "Hydrophobicity",
       visualization: "plotly",
       dataset_id: "d1",
-      tracks: [{ y: "1" }],
+      tracks: [{ x: "auto", y: "1" }],
     });
     expect(saved.artifact).toEqual({ ...shown.artifact, visualization_id: "v1" });
-    expect(g.posted![1].config).toEqual({ dataset_id: "d1", tracks: [{ y: "1" }] });
+    expect(g.posted![1].config).toEqual({ dataset_id: "d1", tracks: [{ x: "auto", y: "1" }] });
+  });
+
+  describe("a config stored as galaxy-charts resolves it", () => {
+    // Galaxy's /api/plugins/plotly, as the plotly plugin declares its inputs.
+    const DEPLOYED = {
+      name: "plotly",
+      settings: [
+        { name: "stack_bar", type: "boolean", value: "false" },
+        { name: "stack_lines", type: "boolean", value: "false" },
+        { name: "x_axis_label", type: "text", value: "X-axis" },
+        { name: "y_axis_label", type: "text", value: "Y-axis" },
+      ],
+      tracks: [
+        { name: "color", type: "color" },
+        {
+          name: "type",
+          type: "select",
+          value: "bar",
+          data: [
+            { label: "Bar", value: "bar" },
+            { label: "Lines", value: "lines" },
+            { label: "Scatter", value: "scatter" },
+          ],
+        },
+        { name: "name", type: "text", value: "Track label" },
+        { name: "label", type: "data_column", is_auto: "true" },
+        { name: "x", type: "data_column", is_auto: "true" },
+        { name: "y", type: "data_column", is_number: "true" },
+      ],
+    };
+    const deployed = () => server(["plotly"], { plotly: DEPLOYED });
+    const aminos = () =>
+      fakeCharts([
+        { label: "Column: Default", value: "auto" },
+        ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ label: `Column: ${i + 1}`, value: String(i) })),
+      ]);
+    /** What each tool stored: the artifact shown, and for a save the config Galaxy was sent. */
+    async function stored(args: Json) {
+      const shown = (await show(deployed(), { visualization: "plotly", ...args }, aminos()))
+        .artifact;
+      const g = deployed();
+      const saved = (await save(g, { visualization: "plotly", ...args }, aminos())).artifact;
+      return { shown, saved, sent: g.posted![1].config };
+    }
+
+    it("fills a default the config leaves out, the same when shown and saved", async () => {
+      const { shown, saved, sent } = await stored({
+        tracks: [{ name: "Buried", type: "bar", x: "0", y: "5" }],
+      });
+      const track = { name: "Buried", type: "bar", label: "auto", x: "0", y: "5" };
+      const settings = {
+        stack_bar: false,
+        stack_lines: false,
+        x_axis_label: "X-axis",
+        y_axis_label: "Y-axis",
+      };
+      for (const config of [shown, saved, sent]) {
+        expect(config.tracks).toEqual([track]);
+        expect(config.settings).toEqual(settings);
+      }
+    });
+
+    it("keeps every value the config gives, the same when shown and saved", async () => {
+      const track = {
+        color: "#ED8282",
+        type: "lines",
+        name: "Flexibility",
+        label: "0",
+        x: "0",
+        y: "3",
+      };
+      const settings = {
+        stack_bar: true,
+        stack_lines: false,
+        x_axis_label: "Aminoacid",
+        y_axis_label: "Property",
+      };
+      const { shown, saved, sent } = await stored({ settings, tracks: [track] });
+      for (const config of [shown, saved, sent]) {
+        expect(config.tracks).toEqual([track]);
+        expect(config.settings).toEqual(settings);
+      }
+    });
+
+    it("keeps what the plugin stored outside settings and tracks when revising", async () => {
+      const g = deployed();
+      await save(
+        g,
+        {
+          visualization: "plotly",
+          visualization_id: "p9",
+          tracks: [
+            { name: "Hydrophobicity", label: "auto", x: "0", y: "1" },
+            { name: "Buried", x: "0", y: "5" },
+          ],
+        },
+        aminos(),
+      );
+      const [, body] = g.putTo!;
+      expect(body.config.transcripts).toEqual([{ role: "user" }]);
+      expect(body.config.dataset_id).toBe("d1");
+      expect(body.config.tracks[1]).toEqual({
+        name: "Buried",
+        type: "bar",
+        label: "auto",
+        x: "0",
+        y: "5",
+      });
+      expect(body.title).toBe("Amino Acids Plotly");
+    });
+
+    it("names every column the published plotly reads before it plots anything", async () => {
+      // Plotly 0.0.30's galaxy-charts fills no defaults: a track missing one of these plots nothing.
+      const { saved, sent } = await stored({
+        tracks: [
+          { name: "Hydrophobicity", label: "auto", x: "0", y: "1" },
+          { name: "Buried", x: "0", y: "5" },
+          { name: "Helix", y: "6" },
+        ],
+      });
+      for (const config of [saved, sent]) {
+        for (const track of config.tracks) {
+          for (const column of ["label", "x", "y"]) {
+            expect(typeof track[column] === "string" && track[column].trim() !== "").toBe(true);
+          }
+        }
+      }
+    });
   });
 
   it("refuses either way a config that leaves the viewer to pick a column", async () => {
@@ -1301,13 +1449,30 @@ describe("show_visualization and save_visualization", () => {
     expect(out.other_cases).toEqual(["builtin"]);
   });
 
-  it("does not let a lookup that could not be made block a save", async () => {
-    const out = await igvGenome(
-      igv(CONDITIONAL),
-      fakeCharts([], { success: false }),
-      INVENTED_MM10,
+  it("refuses to save a value its options could not be read to check", async () => {
+    const g = igv(CONDITIONAL);
+    const out = refused(
+      await igvGenome(g, fakeCharts([], { message: "no route to host" }), INVENTED_MM10),
     );
-    expect(out.saved).toBe(true);
+    expect(out.saved).toBe(false);
+    expect(g.posted).toBeUndefined();
+    expect(out.error).toBe(
+      "Refused: source.genome could not be checked, because this server's options for it could " +
+        "not be read (no route to host).",
+    );
+    expect(out.hint).toContain("unavailable, not the value wrong");
+  });
+
+  it("refuses to show it too, since showing renders the same config", async () => {
+    const out = refused(
+      await show(
+        igv(CONDITIONAL),
+        { visualization: "igv", settings: { source: { origin: "igv", genome: { id: "mm10" } } } },
+        fakeCharts([], { message: "no route to host" }),
+      ),
+    );
+    expect(out.shown).toBe(false);
+    expect(out.error).toContain("could not be checked");
   });
 
   it("accepts the value an input holds by default", async () => {
@@ -1507,7 +1672,7 @@ describe("galaxy-charts option resolution", () => {
       seen.push(path);
       return { columns: ["name", "value"], fields: [["hg38", "hg38.fa"]] };
     });
-    const out = await chartOptions(g as unknown as Galaxy)(
+    const out = await chartOptions(g as unknown as Galaxy, connectWeb())(
       { type: "data_table", tables: ["t1"] },
       {},
     );
@@ -1520,7 +1685,10 @@ describe("galaxy-charts option resolution", () => {
 
   it("reports a request that could not be read", async () => {
     const g = fakeGalaxy(() => ({ history_id: null }));
-    const out = await chartOptions(g as unknown as Galaxy)({ type: "data" }, { datasetId: "d9" });
+    const out = await chartOptions(g as unknown as Galaxy, connectWeb())(
+      { type: "data" },
+      { datasetId: "d9" },
+    );
     expect(out.success).toBe(false);
     expect(!out.success && out.message).toContain("d9");
   });
@@ -1531,11 +1699,14 @@ describe("galaxy-charts option resolution", () => {
       reads += 1;
       return { metadata_column_types: { 0: "int" } };
     });
-    const call = chartOptions(g as unknown as Galaxy);
+    const call = chartOptions(g as unknown as Galaxy, connectWeb());
     await call({ type: "data_column" }, { datasetId: "d9" });
     await call({ type: "data_column", is_number: "true" }, { datasetId: "d9" });
     expect(reads).toBe(1);
-    await chartOptions(g as unknown as Galaxy)({ type: "data_column" }, { datasetId: "d9" });
+    await chartOptions(g as unknown as Galaxy, connectWeb())(
+      { type: "data_column" },
+      { datasetId: "d9" },
+    );
     expect(reads).toBe(2);
   });
 });

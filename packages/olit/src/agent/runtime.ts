@@ -14,10 +14,10 @@ import {
 } from "@earendil-works/pi-durable";
 
 import { artifactsOf, type Artifact } from "../artifacts/kinds";
-import type { Ask } from "./destructive";
+import type { AskFor } from "./destructive";
 import { Binding, FollowUps, Sessions } from "./documents";
 import { DEFAULT_CAPABILITIES, MAX_STEPS, olitExtension } from "./extension";
-import { connectGalaxy, type Galaxy } from "./galaxy";
+import { connectGalaxy, connectWeb, type Galaxy } from "./galaxy";
 import { olitModels } from "./model";
 import { recordsOn, type RecordSummary } from "./notebook";
 import { GALAXY_READY, GALAXY_UNREACHABLE, systemText, type GalaxyStatus } from "./prompt";
@@ -79,7 +79,7 @@ export interface RuntimeOptions {
   /** Where a headless run reads provider keys; a browser has none. */
   env?: Record<string, string | undefined>;
   /** Present when a user can approve a destructive operation. */
-  ask?: Ask;
+  ask?: AskFor;
   /** Galaxy work is polled this often. */
   pollMs?: number;
 }
@@ -165,6 +165,7 @@ export class Runtime {
       galaxy,
       clients: (signal) => ({
         galaxy: connectGalaxy({ ...galaxyOptions, signal }),
+        web: connectWeb(signal),
         ops: galaxyOps({ ...galaxyOptions, root: galaxy.root, signal }),
         python: { ...python, run: (code) => python.run(code, signal) },
       }),
@@ -223,18 +224,12 @@ export class Runtime {
       },
       context,
     );
-    harness.resume();
     const runtime = new Runtime(harness, galaxy, galaxyStatus, current, connect, env);
     runtime.galaxyProblem = galaxyProblem;
+    // Before scheduling starts, so no run the store holds takes another step unasked.
+    await runtime.hold(await runtime.active());
+    harness.resume();
     return runtime;
-  }
-
-  get capabilities(): Capability[] {
-    return this.current.config.capabilities ?? DEFAULT_CAPABILITIES;
-  }
-
-  get maxSteps(): number {
-    return this.current.config.max_steps || MAX_STEPS;
   }
 
   /** The model new requests use. */
@@ -313,12 +308,18 @@ export class Runtime {
     return conversation.submit({ type: "input", content: text }, context);
   }
 
-  /** Stop: the run ends, and follow-ups wait for the user's next message. */
-  async stop(conversation: Conversation): Promise<void> {
-    await conversation.commit(async (tx) => {
-      (await tx.doc(FollowUps, conversation.id)).paused = true;
-    }, context);
-    await conversation.abort(context, { keepQueued: true });
+  /** Every conversation with live work: a run, or Galaxy work it watches. */
+  async active(): Promise<Conversation[]> {
+    const { tasks } = await this.harness.inspect(context);
+    const ids = new Set(tasks.map(({ record }) => record.conversationId).filter((id) => id));
+    const found = await Promise.all(
+      [...ids].map((id) => this.harness.conversation(id as ConversationId, context)),
+    );
+    return found.filter((c): c is Conversation => c !== undefined);
+  }
+
+  hold(conversations: Conversation[]): Promise<void> {
+    return hold(conversations);
   }
 
   /** The conversation as a saved session: its context, and what binds it to Galaxy. */
@@ -378,6 +379,16 @@ export class Runtime {
             ...(document.session.recordPageId ? { pageId: document.session.recordPageId } : {}),
           });
           if (document.history_id) (await tx.doc(Sessions)).byHistory[document.history_id] = id;
+          // A save keeps totals, not a breakdown by model.
+          const { input, output, cost } = document.session.usage;
+          (await tx.doc(UsageDoc, id)).models["saved"] = {
+            input,
+            output,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: input + output,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: cost ?? 0 },
+          };
         },
       },
       context,
@@ -400,6 +411,25 @@ export class Runtime {
 
   close() {
     return this.harness.close(context);
+  }
+}
+
+/**
+ * Hold conversations nobody is looking at: each run ends and its follow-ups wait for the user's
+ * next message, while its Galaxy work is still watched. Returns once the pauses are committed and
+ * the aborts enqueued, without waiting for a running tool to end.
+ */
+export async function hold(conversations: Conversation[]): Promise<void> {
+  for (const conversation of conversations) {
+    await conversation.commit(async (tx) => {
+      (await tx.doc(FollowUps, conversation.id)).paused = true;
+    }, context);
+  }
+  // One synchronous pass: every abort mark is enqueued before scheduling can take a step.
+  for (const conversation of conversations) {
+    conversation
+      .abort(context, { keepQueued: true })
+      .catch((e) => console.warn("[olit] a held conversation did not stop", e));
   }
 }
 

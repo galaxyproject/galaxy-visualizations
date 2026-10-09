@@ -24,6 +24,7 @@ export interface JobOutcome {
 }
 
 const SUBMITTED = "submitted, awaiting completion";
+const STATUS = "- Status:";
 
 /** The status line each outcome leaves in the record. */
 const STAMP: Record<Outcome, (state: string) => string> = {
@@ -62,9 +63,9 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   if (at < 0) return content;
 
   const stamp = STAMP[outcome.outcome](outcome.state);
-  // Already recorded: do not append a second time.
+  // Already recorded: this entry's own status lines follow it directly.
   if (lines[at].includes(stamp)) return content;
-  for (let i = at; i < Math.min(at + 4, lines.length); i++) {
+  for (let i = at + 1; i < lines.length && lines[i].trimStart().startsWith(STATUS); i++) {
     if (lines[i].includes(stamp)) return content;
   }
 
@@ -91,7 +92,7 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   }
 
   const indent = (lines[at].match(/^\s*/) || [""])[0];
-  lines.splice(at + 1, 0, `${indent}- Status: ${stamp} — recorded automatically`);
+  lines.splice(at + 1, 0, `${indent}${STATUS} ${stamp} — recorded automatically`);
 
   // The agent's "currently running" line is false once everything it covered has settled.
   const stillPending = lines.some((l) => l.trimStart().startsWith(PENDING));
@@ -113,9 +114,7 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
  * loom has `galaxy_invocation_record({ invocationId, ... })`: the agent hands the poller the
  * id and the poller owns the entry from then on. olit's watcher already holds the correct
  * id -- it took it from the tool result -- so the session writes the entry itself rather than
- * trusting the model to transcribe a hex string. A live run wrote the invocation's `uuid`
- * where Galaxy's `id` was needed, which left the record unmatchable and the poller unable to
- * advance anything.
+ * trusting the model to transcribe a hex string.
  */
 export function noteSubmitted(
   content: string,

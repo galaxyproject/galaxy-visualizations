@@ -10,6 +10,8 @@
  * sometimes; this cannot be talked out of happening.
  */
 
+import { contentHash } from "@galaxyproject/galaxy-ops/browser";
+
 import { HttpError, segment, type Galaxy } from "./galaxy";
 import { pageBody } from "./page-edit";
 
@@ -29,6 +31,43 @@ export function serialized<T>(work: () => Promise<T>): Promise<T> {
   const next = pending.then(work, work);
   pending = next.catch(() => undefined);
   return next;
+}
+
+/** Page content a session's agent was shown, by session, page and the content_hash shown with it. */
+const shown = new Map<string, string>();
+const SHOWN_KEPT = 20;
+const shownKey = (sessionId: string, pageId: string, hash: string) =>
+  JSON.stringify([sessionId, pageId, hash]);
+
+/** Keep `content` as this session's agent read page `pageId`; a session without an id keeps none. */
+export function remember(sessionId: string | undefined, pageId: string, content: string): void {
+  if (!sessionId) return;
+  const key = shownKey(sessionId, pageId, contentHash({ content_editor: content }));
+  shown.delete(key);
+  shown.set(key, content);
+  if (shown.size > SHOWN_KEPT) shown.delete(shown.keys().next().value!);
+}
+
+/** What this session's agent read of page `pageId` under `hash`, if it read it. */
+export const shownAs = (
+  sessionId: string | undefined,
+  pageId: string,
+  hash: string,
+): string | undefined => (sessionId ? shown.get(shownKey(sessionId, pageId, hash)) : undefined);
+
+/** The text of every section headed by `heading`, split as galaxy-ops' section edit splits it. */
+export function sectionsHeaded(content: string, heading: string): string[] {
+  const out: string[] = [];
+  let inside = false;
+  content.split("\n").forEach((line, i) => {
+    const opens = /^#{1,6}\s/.test(line);
+    if (opens || i === 0) {
+      inside = opens && line === heading;
+      if (inside) out.push("");
+    }
+    if (inside) out[out.length - 1] += `${line}\n`;
+  });
+  return out;
 }
 
 export interface RecordTarget {

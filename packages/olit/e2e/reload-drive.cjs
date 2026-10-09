@@ -1,7 +1,6 @@
 // A browser closed while the model is answering does not lose the turn: the conversation is
-// committed in the browser's files, and the reopened page resumes the run and answers once.
-// A plain reload can let the old page's worker finish the request itself; closing the browser
-// cannot, so the run has to be picked up from what was stored.
+// committed in the browser's files and comes back with the page. The agent does not resume on its
+// own: the run waits until the user says to continue, and is then answered once.
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -51,15 +50,25 @@ const calls = async () => (await (await fetch(`${STUB}/__seen`)).json()).calls;
     check("the agent comes back", await boot(page));
     check("the question is still there", /answer slowly/.test(await page.evaluate(() => document.body.innerText)));
 
+    await new Promise((r) => setTimeout(r, 3000));
+    check("the agent does not resume on its own", (await calls()) === 1, String(await calls()));
+    check("Send is there to continue with",
+        await page.evaluate(() => !document.querySelector("#send-btn").classList.contains("hidden")));
+
+    await page.fill("#input", "continue");
+    await page.click("#send-btn");
     const answered = await page
         .waitForFunction(() => /The answer after the reload\./.test(document.body.innerText), null, { timeout: 60000 })
         .then(() => true)
         .catch(() => false);
-    check("the run resumes and answers", answered);
+    check("saying continue answers", answered);
     const text = await page.evaluate(() => document.body.innerText);
     check("the answer is shown once", (text.match(/The answer after the reload\./g) || []).length === 1);
     check("the abandoned answer never shows", !/the abandoned answer/.test(text));
-    check("the model was asked once more, not more", (await calls()) === 2, String(await calls()));
+    // Requests that carry the user's own turn; a compaction summary asks the model too.
+    const { prompts } = await (await fetch(`${STUB}/__seen`)).json();
+    const turns = prompts.filter((p) => /"role":"user","content":"(answer slowly|continue)"\}\]$/.test(p.tail));
+    check("the model was asked once more, not more", turns.length === 2, String(turns.length));
     const back = await page.evaluate(() => !document.querySelector("#send-btn").classList.contains("hidden"));
     check("Send comes back once the run is done", back);
 

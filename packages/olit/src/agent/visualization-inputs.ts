@@ -324,6 +324,25 @@ export function offeredValue(value: unknown, options: Json[] | undefined, param:
 }
 
 /**
+ * The settings and tracks as galaxy-charts' loader resolves a config: each declared input takes
+ * its value, else its default, and anything the plugin does not declare is kept. A plugin with
+ * tracks gets one empty track when the config holds none. Stored resolved, a config renders the
+ * same in a viewer built with a galaxy-charts that fills no defaults.
+ */
+export function resolveConfig(plugin: Json, config: Json): { settings?: Json; tracks?: Json[] } {
+  const declares = (level: unknown) => Array.isArray(level) && level.length > 0;
+  const settings = declares(plugin.settings)
+    ? parseValues(plugin.settings, isObject(config.settings) ? config.settings : {})
+    : config.settings;
+  const tracks = declares(plugin.tracks)
+    ? (Array.isArray(config.tracks) && config.tracks.length ? config.tracks : [{}]).map(
+        (track: unknown) => parseValues(plugin.tracks, isObject(track) ? track : {}),
+      )
+    : config.tracks;
+  return { settings, tracks };
+}
+
+/**
  * What a config leaves the viewer to choose: inputs still unset once galaxy-charts' defaults
  * apply, whose options only the server can offer, such as a dataset's columns. An input the
  * plugin declares optional may stay unset, as galaxy-charts' form lets it.
@@ -344,19 +363,10 @@ export function unresolved(plugin: Json, config: Json, types: Types): string[] {
       }
     }
   };
-  const settings = isObject(config.settings) ? config.settings : {};
-  walk(plugin.settings, parseValues(plugin.settings, settings), "settings.");
+  const { settings, tracks } = resolveConfig(plugin, config);
+  walk(plugin.settings, isObject(settings) ? settings : {}, "settings.");
   if (Array.isArray(plugin.tracks) && plugin.tracks.length) {
-    // galaxy-charts gives a plugin with tracks one empty track when a config holds none.
-    const tracks: unknown[] =
-      Array.isArray(config.tracks) && config.tracks.length ? config.tracks : [{}];
-    tracks.forEach((track, i) =>
-      walk(
-        plugin.tracks,
-        parseValues(plugin.tracks, isObject(track) ? track : {}),
-        `tracks[${i}].`,
-      ),
-    );
+    (tracks || []).forEach((track, i) => walk(plugin.tracks, track, `tracks[${i}].`));
   }
   return missing;
 }

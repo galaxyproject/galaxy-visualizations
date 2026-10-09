@@ -16,7 +16,7 @@ import {
 } from "@earendil-works/pi-durable";
 
 import { Binding } from "./documents";
-import type { Ask } from "./destructive";
+import type { AskFor } from "./destructive";
 import type { Galaxy } from "./galaxy";
 import { guards, plainToolName, withoutControlTokens } from "./guards";
 import { EMPTY_REPLY } from "./markers";
@@ -39,7 +39,7 @@ export const DEFAULT_CAPABILITIES: Capability[] = ["llm", "local", "read", "writ
 export interface OlitHost {
   galaxy: Galaxy;
   /** Galaxy clients and Python for one call, ended by its abort signal. */
-  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "ops" | "python">;
+  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "web" | "ops" | "python">;
   /** The artifacts earlier results of a conversation carried, newest last. */
   artifacts(conversationId: ConversationId, context: Chord): Promise<Artifact[]>;
   /** Galaxy work a conversation is watching, with the state last read. */
@@ -50,7 +50,7 @@ export interface OlitHost {
   secrets: () => string[];
   /** The standing system prompt for a conversation on this model. */
   prompt: (input: { model?: string; provider?: string; datasetId?: string }) => string;
-  ask?: Ask;
+  ask?: AskFor;
   watch: Task<Watched, any, any, object>;
 }
 
@@ -126,7 +126,7 @@ export function olitExtension(host: OlitHost) {
         secrets: host.secrets(),
         withheld,
         advertised,
-        ask: host.ask,
+        ask: host.ask && ((title, message) => host.ask!(title, message, conversationId)),
       }),
       retried: false,
     };
@@ -175,8 +175,10 @@ export function olitExtension(host: OlitHost) {
       hook(GenerationTask, {
         beforeRequest: async (request, api, context) => {
           // Read for every request, as loom's context hook does: a run's own writes change both.
+          // Through the request's own signal, so a Stop ends the reads with the run.
           const bound = await api.snapshot(Binding, api.conversationId, context);
-          const text = await excerpt(host.galaxy, bound?.pageId, bound?.historyId);
+          const { galaxy } = host.clients(context.abortSignal);
+          const text = await excerpt(galaxy, bound?.pageId, bound?.historyId);
           return { messages: withRecord(request.messages, text) };
         },
         afterResponse: async (message, api, context) => {

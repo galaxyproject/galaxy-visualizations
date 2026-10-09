@@ -2,6 +2,7 @@ import { query, segment, type Galaxy } from "./galaxy";
 import { contentHash } from "@galaxyproject/galaxy-ops/browser";
 
 import { pageBody } from "./page-edit";
+import { remember } from "./record-write";
 import { fail, Outcome, type Capability, type Context, type OlitTool } from "./tool";
 
 export const STARTER = `## Record
@@ -80,9 +81,9 @@ async function datasetManifest(galaxy: Galaxy, historyId: string): Promise<strin
   );
 }
 
-/** The record excerpt and history binding injected each turn. */
 export const ELIDED = "_(... middle elided ...)_";
 
+/** The record excerpt and history binding injected each turn. */
 export async function excerpt(
   galaxy: Galaxy,
   pageId?: string,
@@ -256,6 +257,7 @@ export function notebookTools(): OlitTool[] {
           return opened;
         }
         ctx.binding.pageId = opened.page_id;
+        remember(ctx.binding.sessionId, opened.page_id, opened.content);
         return new Outcome(JSON.stringify(opened));
       },
     },

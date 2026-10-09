@@ -1,10 +1,10 @@
 # End-to-end checks
 
 Drives the real page against a stub that serves both the provider and Galaxy. Covers the
-worker-boundary wiring the Python and vitest suites cannot reach: the destructive-op gate,
-Stop, and compaction.
+worker-boundary wiring vitest cannot reach: the destructive-op gate, Stop, compaction, Pyodide.
 
-Two tiers. The dev tier runs vite; the built tier runs the bundle Galaxy would ship.
+`bash e2e/run-all.sh` (or `npm run test:e2e`) runs both tiers; its loops are the list of drives.
+Drives it does not run need a real Galaxy and model, and say what they need at the top.
 
 ## Dev tier — port 5173
 
@@ -14,78 +14,42 @@ node e2e/stub.cjs &                                   # provider + Galaxy on :80
 GALAXY_ROOT=http://127.0.0.1:8099 \
   LLM_PROVIDER=ollama LLM_ROOT=http://127.0.0.1:8099 LLM_PATH=/v1 \
   LLM_KEY=stub LLM_MODEL=stub-model \
-  LLM_CONTEXT_WINDOW=40000 LLM_KEEP_RECENT_TOKENS=50 npm run dev &
+  LLM_CONTEXT_WINDOW=64000 LLM_KEEP_RECENT_TOKENS=50 npm run dev &
 
-LLM_CONTEXT_WINDOW=40000 node e2e/confirm-drive.cjs   # non-zero if a check fails
-node e2e/session-drive.cjs
-node e2e/catalog-refusal-drive.cjs
-node e2e/ratelimit-drive.cjs
-node e2e/visualization-artifact-drive.cjs
-node e2e/artifact-survives-switch-drive.cjs
-node e2e/run-python-drive.cjs
+LLM_CONTEXT_WINDOW=64000 node e2e/confirm-drive.cjs   # non-zero if a check fails
 ```
 
-`bash e2e/run-all.sh` runs both tiers. `live-workflow-drive.cjs` and
-`live-visualization-drive.cjs` need a real Galaxy and model and are opt-in; each says what
-it needs at the top.
+`LLM_PROVIDER` skips the credentials modal and routes the agent through vite's `/llm` proxy.
+The dev page opens on `?dataset_id=` (default `__test__`, in the stub's `h1`); the history
+holding that dataset keys the conversation kept in the browser's files (OPFS).
 
-`LLM_PROVIDER` skips the credentials modal, which would otherwise block startup, and routes
-the agent through vite's `/llm` proxy.
-
-**Which tier a new driver belongs to: the dev tier for fast iteration on `src/`, the built
-tier for anything that has to hold in a deployment.** The dev tier bakes `LLM_PROVIDER` in
-and so never shows the credentials modal; the built tier shows it and reaches the agent
-through the same paths Galaxy uses.
-
-`run-python` runs submitted Python in real Pyodide, in its isolated realm, through the dev
-server: top-level `await` and a cross-origin `pyfetch` against the stub, so the CORS path is
-real. `python-isolation` (built tier) proves the realm's boundary from the Galaxy origin: Python
-still reads a CORS-enabled endpoint, and its requests carry no Galaxy session, it has no storage,
-and it cannot see the agent's worker or the model key. `run-all.sh` runs it in Chromium, Firefox
-and WebKit, because only the last two attach Galaxy's SameSite-less cookie where the realm's
-credential lock has to stop it. `src/agent/python-node.test.ts` covers the headless realm.
-
-**Anything about persistence needs `?history_id=`.** A reload continues the conversation the
-history last pointed at, kept in the browser's files (OPFS), so without a history in the URL the
-dev page starts a new conversation every load, where Galaxy supplies one in production. Saving to a
-Visualization is deliberate and independent of this.
-
-`LLM_KEEP_RECENT_TOKENS` must be small enough that the short test transcript has something
-older than the kept tail; at 500 the agent correctly reports "nothing older to summarize"
-and the compaction checks fail. Compaction checks are skipped entirely unless
+`LLM_KEEP_RECENT_TOKENS` must be small enough that the short transcript has something older
+than the kept tail, or the compaction checks fail. They are skipped unless
 `LLM_CONTEXT_WINDOW` is set.
 
 ## Built tier — port 8099
 
-The stub also serves the built bundle the way a deployment does: `/api/plugins/olit`,
-the host page carrying `data-incoming`, and the plugin static path
-`/static/plugins/visualizations/olit/static/`. So `root`, the plugin `href`, the Pyodide
-URL and the system prompt are the deployment's, and the credentials modal appears because
-the build carries no dev env.
+The stub serves the built bundle as a deployment does: `/api/plugins/olit`, the host page
+carrying `data-incoming`, and the plugin static path. So `root`, the plugin `href`, the
+Pyodide URL and the system prompt are the deployment's, and the credentials modal appears.
 
 ```bash
 env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build
 node e2e/stub.cjs &
-
-node e2e/credentials-drive.cjs
-node e2e/artifact-pane-drive.cjs
-node e2e/provider-switch-drive.cjs
 node e2e/galaxy-boot-drive.cjs
-node e2e/python-isolation-drive.cjs                   # BROWSER=firefox|webkit for the others
+BROWSER=firefox node e2e/python-isolation-drive.cjs   # chromium by default; also webkit
 ```
 
-`galaxy-boot` connects a self-hosted endpoint through the modal and drives a full turn, so
-a built app whose agent fails to start, whose Pyodide path 404s, or whose prompt does not
-come from the plugin XML fails here.
-
-Drivers that name a real provider call `offline.cjs` first, which aborts every request off
-127.0.0.1: the agent boots on this tier and would otherwise reach the provider for real.
+Use the dev tier for fast iteration on `src/`, the built tier for anything that has to hold in
+a deployment. Drives that name a real provider call `offline.cjs` first, which aborts every
+request off 127.0.0.1.
 
 ## The stub
 
-`/__script?name=…` selects a scripted response (`confirm`, `slow`, `compact`, `ratelimit`,
-`plan`, `visualization`, `python`).
-`/__seen` returns every Galaxy request received, which is what makes "declining sends nothing
-to Galaxy" an assertion about the network rather than the UI.
+- `/__reset` restores a fresh Galaxy; `run-all.sh` calls it before every drive.
+- `/__script?name=…` selects the scripted model responses.
+- `/__galaxy?up=0|1`, `/__job?state=…`, `/__slow?ms=…` (a slow boot) set what Galaxy answers.
+- `/__seen`, `/__pages`, `/__visualizations` report what the agent sent, so "declining sends
+  nothing to Galaxy" is an assertion about the network rather than the UI.
 
 Screenshots land at each driver's `OUT` path. A check can pass on a page that renders nothing.

@@ -61,6 +61,13 @@ describe("pairing", () => {
     expect(out.unmatched).toEqual(["notes.txt"]);
   });
 
+  it("pairs only when more than half the files sit in complete pairs", () => {
+    const files = (extra: number) =>
+      names([...ILLUMINA, ...Array.from({ length: extra }, (_, i) => `other${i}.fastq.gz`)]);
+    expect(groupDatasets({ datasets: files(3) }).structure).toBe("list:paired");
+    expect(groupDatasets({ datasets: files(4) }).structure).toBe("list");
+  });
+
   it("forces pairing past the majority rule with structure paired", () => {
     const out = groupDatasets({
       datasets: names(["a.fq", "b.fq", "c.fq", "s_1.fq", "s_2.fq"]),

@@ -22,7 +22,10 @@ async function render(spec: object) {
 }
 
 describe("renderVega", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it("keeps a spec's usermeta from replacing the embed options", async () => {
     const spec = {
@@ -48,7 +51,6 @@ describe("renderVega", () => {
       return new Response("[]", { headers: { "content-type": "application/json" } });
     });
     const { warned } = await render(chart({ url: "/api/datasets/f2c1/display" }));
-    vi.unstubAllGlobals();
     expect(warned).not.toMatch(/may only load/);
     expect(fetched).toEqual([`${window.location.origin}/api/datasets/f2c1/display`]);
   });

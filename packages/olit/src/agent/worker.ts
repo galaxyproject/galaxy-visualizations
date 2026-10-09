@@ -6,6 +6,7 @@ import {
   watchEvents,
   type AgentEvent,
   type Conversation,
+  type ConversationId,
   type TaskId,
 } from "@earendil-works/pi-durable";
 
@@ -30,7 +31,7 @@ export interface OpenRequest {
 }
 
 /** Why follow-ups are waiting for the user, when they are. */
-export type Waiting = "stopped" | "capped" | undefined;
+export type Waiting = "paused" | "capped" | undefined;
 
 export type WorkerMessage =
   /** Another tab has this conversation open. */
@@ -52,6 +53,8 @@ export type WorkerMessage =
   | { type: "settled"; settled: Settled }
   | { type: "held"; held: Waiting }
   | { type: "confirm"; id: number; title: string; message: string }
+  /** A confirmation the agent no longer waits on. */
+  | { type: "withdrawn"; id: number }
   | { type: "reply"; id: number; value?: unknown; error?: string }
   | { type: "failed"; message: string };
 
@@ -69,7 +72,11 @@ export type PageMessage =
 
 const post = (message: WorkerMessage) => self.postMessage(message);
 
-const confirms = new Map<number, (approved: boolean) => void>();
+/** Confirmations waiting on the user, each held by the conversation whose run asked. */
+const confirms = new Map<
+  number,
+  { conversation: ConversationId; resolve: (approved: boolean) => void }
+>();
 let confirmId = 0;
 let runtime: Runtime | undefined;
 let conversation: Conversation | undefined;
@@ -78,17 +85,22 @@ let held: Waiting;
 /** A launch waiting for the user to choose among the history's records. */
 let choosing: { placement: Placement; records: RecordSummary[]; unkept?: string } | undefined;
 
-function ask(title: string, message: string): Promise<boolean> {
+function ask(title: string, message: string, conversation: ConversationId): Promise<boolean> {
   return new Promise((resolve) => {
     const id = confirmId++;
-    confirms.set(id, resolve);
+    confirms.set(id, { conversation, resolve });
     post({ type: "confirm", id, title, message });
   });
 }
 
-function declineAll() {
-  confirms.forEach((resolve) => resolve(false));
-  confirms.clear();
+/** Decline what `conversation`'s run is waiting on, so that run can end. */
+function decline(conversation: ConversationId) {
+  for (const [id, waiting] of confirms) {
+    if (waiting.conversation !== conversation) continue;
+    confirms.delete(id);
+    waiting.resolve(false);
+    post({ type: "withdrawn", id });
+  }
 }
 
 /** Follow-ups queued for the user while the conversation is idle, and why. */
@@ -118,7 +130,7 @@ async function attach(next: Conversation) {
   post({ type: "events", events: [stream.snapshot] });
   stream.start(async (events) => {
     post({ type: "events", events });
-    if (events.some((e) => e.type === "run_end")) declineAll();
+    if (events.some((e) => e.type === "run_end")) decline(next.id);
     await postHeld();
   });
   const graph = await harness.watchTaskGraph(context);
@@ -231,38 +243,53 @@ async function reply(id: number, work: () => Promise<unknown>) {
   }
 }
 
-self.onmessage = async ({ data }: MessageEvent<PageMessage>) => {
-  try {
-    if (data.type === "open") {
-      await open(data.request);
-    } else if (data.type === "submit") {
-      await runtime!.submit(conversation!, data.text);
-    } else if (data.type === "stop") {
-      declineAll();
-      await runtime!.stop(conversation!);
-    } else if (data.type === "confirmed") {
-      confirms.get(data.id)?.(data.approved === true);
-      confirms.delete(data.id);
-    } else if (data.type === "reset") {
-      const bound = await runtime!.harness.snapshot(Binding, conversation!.id, context);
-      // The conversation left behind keeps its record current, but starts no run nobody sees:
-      // its settled work waits for the user, as after a Stop.
-      await conversation!.commit(async (tx) => {
-        (await tx.doc(FollowUps, conversation!.id)).paused = true;
-      }, context);
-      await attach(
-        await runtime!.create({ historyId: bound?.historyId, datasetId: bound?.datasetId }),
-      );
-    } else if (data.type === "switch") {
-      await reply(data.id, () => runtime!.switchModel(conversation!, data.config));
-    } else if (data.type === "export") {
-      await reply(data.id, () => runtime!.export(conversation!, data.title));
-    } else if (data.type === "recover") {
-      await recover(data.pageId);
-    } else if (data.type === "saved") {
-      await reply(data.id, () => runtime!.saved(conversation!, data.savedId, data.document));
-    }
-  } catch (err) {
-    post({ type: "failed", message: String((err as Error)?.message ?? err) });
+const failed = (err: unknown) =>
+  post({ type: "failed", message: String((err as Error)?.message ?? err) });
+
+/** Work on the attached conversation, one message at a time in the order the page sent them. */
+let queue: Promise<unknown> = Promise.resolve();
+function inOrder(work: () => Promise<unknown>) {
+  queue = queue.then(work).catch(failed);
+}
+
+self.onmessage = ({ data }: MessageEvent<PageMessage>) => {
+  if (data.type === "open") {
+    // Outside the order: it may wait for another tab's lock, and "Use it here" opens again.
+    open(data.request).catch(failed);
+  } else if (data.type === "confirmed") {
+    const waiting = confirms.get(data.id);
+    confirms.delete(data.id);
+    waiting?.resolve(data.approved === true);
+  } else if (data.type === "stop") {
+    // The conversation the user stopped; its run is released from its confirmations at once.
+    const stopped = conversation;
+    if (!stopped) return;
+    decline(stopped.id);
+    inOrder(() => runtime!.hold([stopped]));
+  } else {
+    inOrder(() => handle(data));
   }
 };
+
+async function handle(data: PageMessage) {
+  if (data.type === "submit") {
+    await runtime!.submit(conversation!, data.text);
+  } else if (data.type === "reset") {
+    const left = conversation!;
+    const bound = await runtime!.harness.snapshot(Binding, left.id, context);
+    // The conversation left behind is held: its run ends, its Galaxy work is still watched.
+    decline(left.id);
+    await runtime!.hold([left]);
+    await attach(
+      await runtime!.create({ historyId: bound?.historyId, datasetId: bound?.datasetId }),
+    );
+  } else if (data.type === "switch") {
+    await reply(data.id, () => runtime!.switchModel(conversation!, data.config));
+  } else if (data.type === "export") {
+    await reply(data.id, () => runtime!.export(conversation!, data.title));
+  } else if (data.type === "recover") {
+    await recover(data.pageId);
+  } else if (data.type === "saved") {
+    await reply(data.id, () => runtime!.saved(conversation!, data.savedId, data.document));
+  }
+}

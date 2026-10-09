@@ -2,9 +2,11 @@
 // and must not discard the conversation, which lives in the browser's files (OPFS).
 const { chromium } = require("playwright");
 const offline = require("./offline.cjs");
-const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olit";
+const STUB = "http://127.0.0.1:8099";
+const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit`;
 
 const results = [];
+const settled = (wait) => wait.then(() => true, () => false);
 function check(name, ok, detail) {
     results.push({ name, ok });
     console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  — " + detail : ""}`);
@@ -14,6 +16,8 @@ function check(name, ok, detail) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
     await offline(page);
+    // A slow boot, as on a busy runner: the picker is reachable before the agent is ready.
+    await fetch(`${STUB}/__slow?ms=4000`);
     await page.goto(APP);
 
     await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 20000 });
@@ -30,20 +34,18 @@ function check(name, ok, detail) {
     check("button names the active provider and model", /openrouter/.test(label), label);
 
     await page.click("#model-btn");
-    await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 10000 });
-    check("picker reopens without clearing storage", true);
+    check("picker reopens without clearing storage",
+        await settled(page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 10000 })));
     check("previous provider is preselected",
         (await page.inputValue("#cred-provider")) === "openrouter");
 
     await page.selectOption("#cred-provider", "deepseek");
     await page.fill("#cred-key", "k2");
     await page.click("#cred-save");
-    await page.waitForSelector("#model-btn", { timeout: 20000 });
-    await page.waitForFunction(
+    const switched = await settled(page.waitForFunction(
         () => (document.querySelector("#model-btn")?.textContent || "").includes("deepseek"),
-        null, { timeout: 20000 });
-
-    check("switch took effect after reload", true, await page.textContent("#model-btn"));
+        null, { timeout: 20000 }));
+    check("switch took effect after reload", switched, await page.textContent("#model-btn"));
     const stored = await page.evaluate(() => sessionStorage.getItem("olit.credentials"));
     check("stored credentials replaced", stored.includes("deepseek") && !stored.includes("k1"), stored);
     check("overlay does not reappear once switched",
@@ -58,8 +60,8 @@ function check(name, ok, detail) {
     await page.click("#model-btn");
     await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 10000 });
     await page.keyboard.press("Escape");
-    await page.waitForFunction(() => !document.querySelector("#cred-overlay"), null, { timeout: 5000 });
-    check("Escape dismisses the switch picker", true);
+    check("Escape dismisses the switch picker",
+        await settled(page.waitForFunction(() => !document.querySelector("#cred-overlay"), null, { timeout: 5000 })));
     check("Escape leaves the active model untouched",
         (await page.textContent("#model-btn")) === labelBefore, await page.textContent("#model-btn"));
 
@@ -67,8 +69,8 @@ function check(name, ok, detail) {
     await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 10000 });
     const box = await page.locator("#cred-overlay").boundingBox();
     await page.mouse.click(box.x + 8, box.y + 8);   // backdrop, outside the dialog
-    await page.waitForFunction(() => !document.querySelector("#cred-overlay"), null, { timeout: 5000 });
-    check("backdrop click dismisses the switch picker", true);
+    check("backdrop click dismisses the switch picker",
+        await settled(page.waitForFunction(() => !document.querySelector("#cred-overlay"), null, { timeout: 5000 })));
     check("credentials survive dismissal",
         (await page.evaluate(() => sessionStorage.getItem("olit.credentials"))).includes("deepseek"));
 

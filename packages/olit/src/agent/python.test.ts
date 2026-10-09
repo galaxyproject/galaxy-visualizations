@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { realmPython, serveAsset, type Channel } from "./python";
+import { browserPython, realmPython, serveAsset, type Channel } from "./python";
 
 /** A realm the test speaks for: what the client sent, and a way to answer as the realm. */
 function fakeRealm() {
@@ -94,6 +94,63 @@ describe("realmPython", () => {
     realm.reply({ op: "confirm", id: 0 });
     await tick();
     expect(onAsset).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("browserPython", () => {
+  /** The browser's worker, failing when the test says. */
+  class FakeWorker {
+    static made: FakeWorker[] = [];
+    onmessage: ((event: { data: unknown }) => void) | null = null;
+    onerror: ((event: { message: string; preventDefault(): void }) => void) | null = null;
+    onmessageerror: (() => void) | null = null;
+    terminated = false;
+    constructor() {
+      FakeWorker.made.push(this);
+    }
+    postMessage() {}
+    terminate() {
+      this.terminated = true;
+    }
+  }
+
+  afterEach(() => {
+    FakeWorker.made = [];
+    vi.unstubAllGlobals();
+  });
+
+  /** The call's outcome, or "pending" if it has not settled within a moment. */
+  const settled = (call: Promise<unknown>) =>
+    Promise.race([
+      call.then(
+        () => "resolved",
+        (e: Error) => e.message,
+      ),
+      new Promise((r) => setTimeout(() => r("pending"), 200)),
+    ]);
+
+  it("fails a call whose realm crashes, and starts a fresh realm for the next", async () => {
+    vi.stubGlobal("Worker", FakeWorker);
+    const python = browserPython("http://galaxy.test/pyodide/");
+    const call = python.run("1 + 1");
+    const [worker] = FakeWorker.made;
+    worker.onerror?.({ message: "Uncaught RangeError: out of memory", preventDefault() {} });
+    expect(await settled(call)).toBe(
+      "Python stopped working (Uncaught RangeError: out of memory); its state was reset.",
+    );
+    expect(worker.terminated).toBe(true);
+    void python.run("2").catch(() => undefined);
+    expect(FakeWorker.made).toHaveLength(2);
+  });
+
+  it("fails a call whose realm never started", async () => {
+    vi.stubGlobal("Worker", FakeWorker);
+    const python = browserPython("http://galaxy.test/pyodide/");
+    const call = python.run("1 + 1");
+    FakeWorker.made[0].onerror?.({ message: "", preventDefault() {} });
+    expect(await settled(call)).toBe(
+      "Python stopped working (its worker failed); its state was reset.",
+    );
   });
 });
 

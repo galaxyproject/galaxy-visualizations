@@ -248,7 +248,8 @@ export function groupDatasets({
     }
   }
   const explicitSeen = [...complete.values()].some((m) => [...m.values()].some(([, , e]) => e));
-  // Two independent guards: enough of the files pair, and the marker means what we think.
+  // Two independent guards: more than half the files sit in complete pairs, and the marker means
+  // what we think.
   const majority = complete.size * 2 > inScope.length / 2;
   const evidenced = explicitSeen || complete.size >= 2;
 

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable } from "./model";
+import { catalogued, connect, DEFAULT_CONTEXT_WINDOW, keyVariable, olitModels } from "./model";
 import { piProvider, providerById, PROVIDERS, resolve, type LlmConfig } from "./providers";
 
 /** The model a connection serves, as pi-ai resolves it. */
@@ -137,8 +137,104 @@ describe("connect", () => {
     expect(headers.has("authorization")).toBe(false);
   });
 
+  it("does not carry a provider's earlier key over to a connection that gives none", async () => {
+    const { connect } = olitModels();
+    await connect(resolve({ ai_provider: "openrouter", ai_model: "m", ai_api_key: "sk-first" }));
+    const typed = await connect(
+      resolve({ ai_provider: "openrouter", ai_model: "m", ai_base_url: "http://elsewhere/v1" }),
+    );
+    expect(typed.apiKey).not.toBe("sk-first");
+    const listed = await connect(resolve({ ai_provider: "openrouter", ai_model: "m" }));
+    expect(listed.apiKey).toBeUndefined();
+  });
+
   it("sends the key to an endpoint that takes one", async () => {
     const { headers } = await request({ ai_provider: "openrouter", ai_api_key: "sk-or" });
     expect(headers.get("authorization")).toBe("Bearer sk-or");
+  });
+});
+
+describe("the rate limit", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  /** One request per minute to OpenRouter under `key`, through `connect`, and what reached it. */
+  async function limited(
+    connect: ReturnType<typeof olitModels>["connect"],
+    key = "k1",
+    model = "m",
+  ) {
+    const { models, model: chosen } = await connect(
+      resolve({ ai_provider: "openrouter", ai_model: model, ai_api_key: key, ai_rate_limit: 1 }),
+    );
+    const target = models.getModel(chosen.provider as never, chosen.modelId)!;
+    return (signal?: AbortSignal) =>
+      models
+        .streamSimple(
+          target,
+          { messages: [{ role: "user", content: "hi", timestamp: 0 }] } as never,
+          { signal } as never,
+        )
+        .result();
+  }
+
+  /** A provider that answers at once, counting the requests that reached it. */
+  function provider() {
+    const reached: string[] = [];
+    vi.stubGlobal("fetch", async () => {
+      reached.push("request");
+      return new Response("data: [DONE]\n\n", { headers: { "content-type": "text/event-stream" } });
+    });
+    return reached;
+  }
+
+  it("lets Stop end a waiting request at once, taking nothing from the bucket", async () => {
+    vi.useFakeTimers();
+    const reached = provider();
+    const send = await limited(olitModels().connect);
+    await send();
+    const stop = new AbortController();
+    const stopped = send(stop.signal);
+    const next = send();
+    await vi.advanceTimersByTimeAsync(1000);
+    stop.abort();
+    expect((await stopped).stopReason).toBe("aborted");
+    expect(reached).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await next;
+    expect(reached).toHaveLength(2);
+  });
+
+  it("keeps a quota's state when the same model is connected again", async () => {
+    vi.useFakeTimers();
+    const reached = provider();
+    const { connect } = olitModels();
+    await (
+      await limited(connect)
+    )();
+    const again = (await limited(connect))();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(reached).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await again;
+    expect(reached).toHaveLength(2);
+  });
+
+  it("gives another key or another model a quota of its own", async () => {
+    vi.useFakeTimers();
+    const reached = provider();
+    const { connect } = olitModels();
+    await (
+      await limited(connect, "k1", "m")
+    )();
+    await (
+      await limited(connect, "k2", "m")
+    )();
+    await (
+      await limited(connect, "k1", "other")
+    )();
+    expect(reached).toHaveLength(3);
   });
 });

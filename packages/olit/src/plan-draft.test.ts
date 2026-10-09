@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ChatPanel } from "./orbit/app/src/renderer/chat/chat-panel";
 import { settlePlanDrafts } from "./plan-drafts";
 
-const BODY = "## Plan A: chrM Variant Calling [galaxy]\n\n- [ ] 1. **QC**";
+const BODY = "## Plan A: chrM Variant Calling [remote]\n\n- [ ] 1. **QC**";
 
 /** The card exactly as injectPlanFenceCards builds it. */
 function mountCard(): HTMLElement {
@@ -48,7 +48,7 @@ describe("plan draft card", () => {
   it("carries the plan body, which is what Edit hands back to the user", () => {
     const seen = click(mountCard(), ".plan-draft-edit");
 
-    expect(seen[0].body).toContain("## Plan A: chrM Variant Calling [galaxy]");
+    expect(seen[0].body).toContain("## Plan A: chrM Variant Calling [remote]");
     // No fence: main.ts re-wraps it in ```plan when putting it in the input.
     expect(seen[0].body).not.toContain("```");
   });

@@ -54,6 +54,17 @@ describe("composition", () => {
     expect(EXECUTING_A_STEP).toContain("Do not spend a turn in a polling loop");
   });
 
+  it("sends opening or viewing a dataset to list_visualizations, and says nothing of charts", () => {
+    expect(GALAXY_TERMINOLOGY).toContain("no tool search finds them");
+    expect(GALAXY_TERMINOLOGY).toContain("call `list_visualizations` with its id");
+    expect(GALAXY_TERMINOLOGY).not.toMatch(/chart|plot/i);
+  });
+
+  it("tells how to place a session's visualization on a page without fetching a skill", () => {
+    expect(GALAXY_PAGE_MARKDOWN).toContain("write `{{artifact}}` on its own\nline");
+    expect(GALAXY_PAGE_MARKDOWN).toContain("`{{artifact: <title>}}`");
+  });
+
   it("names IWC correctly", () => {
     expect(GALAXY_TERMINOLOGY).toContain("Intergalactic Workflow Commission");
   });
@@ -141,7 +152,7 @@ describe("plan convention", () => {
     for (const absent of ["[local]", "[hybrid]"]) {
       expect(PLAN_CONVENTION).not.toContain(absent);
     }
-    expect(PLAN_CONVENTION).toContain("Older records may say `[galaxy]`");
+    expect(PLAN_CONVENTION).not.toContain("[galaxy]");
   });
 
   it("does not teach step anchors", () => {

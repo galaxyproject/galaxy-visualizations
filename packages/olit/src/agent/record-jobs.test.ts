@@ -3,7 +3,7 @@ import { applyJobOutcome, noteSubmitted } from "./record-jobs";
 
 const RECORD = `## Record
 
-### Plan A: Filter and sort [galaxy]
+### Plan A: Filter and sort [remote]
 
 - [ ] 1. **Filter rows** where column 3 > 500 using **Filter1**
   - Input dataset: \`40876639881ca029\` (1.tabular)
@@ -168,6 +168,16 @@ describe("anchoring", () => {
 
   it("leaves other plan steps and fenced embeds alone", () => {
     expect(applyJobOutcome(record, ok)).toBe(record);
+  });
+
+  it("records each of two neighbouring entries that settle the same way", () => {
+    const noted = noteSubmitted(noteSubmitted("# Record", { id: "d1", kind: "dataset" }), {
+      id: "d2",
+      kind: "dataset",
+    });
+    const both = applyJobOutcome(applyJobOutcome(noted, { ...ok, id: "d2" }), ok);
+    expect(both).toMatch(/- \[x\] .*`d1` — .*\n- Status: finished \(ok\)/);
+    expect(both).toMatch(/- \[x\] .*`d2` — .*\n- Status: finished \(ok\)/);
   });
 
   it("prefers the session's own entry for the id", () => {

@@ -18,8 +18,23 @@ const DEFAULT_NATIVE_MAX_TOKENS = 8192;
 /** The window of a model nobody configured and pi's catalog does not list. */
 export const DEFAULT_CONTEXT_WINDOW = 128000;
 
-/** At most `perMinute` requests in any minute, spaced as a token bucket refills. */
-function rateLimiter(perMinute: number): () => Promise<void> {
+/** A wait that ends early, without failing, when `signal` aborts. */
+const pause = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener("abort", done, { once: true });
+  });
+
+/**
+ * At most `perMinute` requests in any minute, spaced as a token bucket refills, in turn. A request
+ * whose signal aborts leaves at once, while queued or waiting, and takes no token.
+ */
+function rateLimiter(perMinute: number): (signal?: AbortSignal) => Promise<void> {
   let tokens = perMinute;
   let last = Date.now();
   let queue = Promise.resolve();
@@ -28,15 +43,23 @@ function rateLimiter(perMinute: number): () => Promise<void> {
     tokens = Math.min(perMinute, tokens + ((now - last) / 60000) * perMinute);
     last = now;
   };
-  return () =>
-    (queue = queue.then(async () => {
-      refill();
-      while (tokens < 1) {
-        await new Promise((resolve) => setTimeout(resolve, ((1 - tokens) / perMinute) * 60000));
+  return (signal) =>
+    new Promise<void>((resolve, reject) => {
+      const leave = () => reject(signal!.reason);
+      if (signal?.aborted) return leave();
+      signal?.addEventListener("abort", leave, { once: true });
+      queue = queue.then(async () => {
         refill();
-      }
-      tokens -= 1;
-    }));
+        while (tokens < 1 && !signal?.aborted) {
+          await pause(((1 - tokens) / perMinute) * 60000, signal);
+          refill();
+        }
+        if (signal?.aborted) return;
+        tokens -= 1;
+        signal?.removeEventListener("abort", leave);
+        resolve();
+      });
+    });
 }
 
 /** pi's catalog entry for this model, whichever API pi itself would reach it through. */
@@ -109,16 +132,17 @@ export function olitModels(env: Record<string, string | undefined> = {}) {
   const credentials = new InMemoryCredentialStore();
   const inner = createModels({ credentials, authContext: authContext(env) });
   const chosen = new Map<string, Model<Api>>();
-  const limits = new Map<string, () => Promise<void>>();
+  /** One bucket per quota: a model at an endpoint, under one key and limit, kept across connects. */
+  const limits = new Map<string, (signal?: AbortSignal) => Promise<void>>();
+  const quota = (m: Model<Api>, key: string | undefined, perMinute: number) =>
+    JSON.stringify([m.provider, m.baseUrl, m.id, key ?? "", perMinute]);
+  const owner = new Map<string, string>();
 
   const streamSimple: Models["streamSimple"] = (m, context, options) => {
     const out = createAssistantMessageEventStream();
     void (async () => {
       try {
-        await limits.get(m.provider)?.();
-        if (options?.signal?.aborted) {
-          throw options.signal.reason ?? new Error("aborted");
-        }
+        await limits.get(owner.get(`${m.provider}/${m.id}`) ?? "")?.(options?.signal);
         const stream = inner.streamSimple(m, context, options);
         for await (const event of stream) out.push(event);
         out.end(await stream.result());
@@ -151,8 +175,11 @@ export function olitModels(env: Record<string, string | undefined> = {}) {
     const pi = await piProvider(provider.id);
     const store = (key: string) =>
       credentials.modify(provider.id, async () => ({ type: "api_key", key }));
+    // Each connection states the provider's credential exactly, so no earlier key carries over.
     if (target.apiKey) {
       await store(target.apiKey);
+    } else {
+      await credentials.delete(provider.id);
     }
     let model: Model<Api>;
     if (pi) {
@@ -205,8 +232,10 @@ export function olitModels(env: Record<string, string | undefined> = {}) {
       resolved = await inner.getAuth(model).catch(() => undefined);
     }
     chosen.set(`${model.provider}/${model.id}`, model);
-    limits.set(model.provider, rateLimiter(target.rateLimit));
     const apiKey = target.apiKey ?? resolved?.auth.apiKey;
+    const bucket = quota(model, apiKey, target.rateLimit);
+    if (!limits.has(bucket)) limits.set(bucket, rateLimiter(target.rateLimit));
+    owner.set(`${model.provider}/${model.id}`, bucket);
     return { models, model: { provider: model.provider, modelId: model.id }, apiKey };
   }
 

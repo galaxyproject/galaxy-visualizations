@@ -1,5 +1,6 @@
 import { quote } from "./quote";
 import { segment } from "./galaxy";
+import * as tables from "./tables";
 import { compile } from "vega-lite";
 
 type Json = Record<string, any>;
@@ -10,9 +11,6 @@ export const SIZE_LIMIT = 25_000_000;
 
 const displayUrl = (datasetId: string, root: string) =>
   `${root}api/datasets/${segment(datasetId)}/display`;
-
-/** Galaxy column types Vega reads as numbers. */
-const NUMERIC = ["int", "float"];
 
 /** The one state in which a dataset's content is final. */
 const READABLE = "ok";
@@ -31,20 +29,7 @@ const DATUM = /datum(?:\.([A-Za-z_]\w*)|\[\s*['"]([^'"]+)['"]\s*\])/g;
 const isObject = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const named = (details: Json): string[] =>
-  ((details.metadata_column_names as unknown[]) || []).filter(Boolean) as string[];
-
 const isInt = (value: unknown): value is number => Number.isInteger(value);
-
-/** The names a spec may encode: Galaxy's own where it has them, else `col:N` by position. */
-export function columnNames(details: Json): string[] {
-  const names = named(details);
-  if (names.length) {
-    return names;
-  }
-  const count = details.metadata_columns;
-  return isInt(count) && count > 0 ? Array.from({ length: count }, (_, i) => `col:${i + 1}`) : [];
-}
 
 /** Why Vega cannot read this dataset directly, or null when it can. */
 export function unreferenceable(details: Json): string | null {
@@ -63,10 +48,6 @@ export function unreferenceable(details: Json): string | null {
       "converting it or changing its datatype."
     );
   }
-  const columns = details.metadata_columns;
-  if (!isInt(columns) || columns < 1) {
-    return "Galaxy reports no column count for this dataset, so Vega cannot be told how to read it.";
-  }
   if (!isInt(details.metadata_data_lines)) {
     return "Galaxy has not measured this dataset's lines, so how Vega should read it is unknown.";
   }
@@ -78,40 +59,18 @@ export function unreferenceable(details: Json): string | null {
       "chart the result."
     );
   }
-  const comments = details.metadata_comment_lines || 0;
-  const hasNames = named(details).length > 0;
-  if (comments && !hasNames) {
-    return (
-      `the first ${comments} line(s) are comments, which Vega reads as data rather than ` +
-      "skipping. Produce a dataset without them with a Galaxy tool and chart that."
-    );
-  }
-  const delimiter = details.metadata_delimiter;
-  if (hasNames && delimiter !== ",") {
-    return (
-      `Galaxy names this dataset's columns and separates them with ${quote(delimiter)}, a ` +
-      "combination Vega's reader has not been verified against here."
-    );
-  }
-  return null;
+  return tables.unreadable(details);
 }
 
 /** The one data source a spec gets: this dataset's bytes, described from its metadata. */
 export function dataBlock(datasetId: string, details: Json, root = "/"): Json {
-  const format: Json = named(details).length
-    ? { type: "csv" }
-    : {
-        type: "dsv",
-        delimiter: details.metadata_delimiter || "\t",
-        header: columnNames(details),
-      };
-  const types: unknown[] = details.metadata_column_types || [];
-  const parse: Record<string, string> = {};
-  columnNames(details).forEach((name, i) => {
-    if (i < types.length && NUMERIC.includes(types[i] as string)) {
-      parse[name] = "number";
-    }
-  });
+  const delimiter = tables.delimiter(details);
+  const format: Json = tables.isHeaded(details)
+    ? delimiter === ","
+      ? { type: "csv" }
+      : { type: "dsv", delimiter }
+    : { type: "dsv", delimiter, header: tables.columnNames(details) };
+  const parse = Object.fromEntries(tables.numericColumns(details).map((name) => [name, "number"]));
   if (Object.keys(parse).length) {
     format.parse = parse;
   }
@@ -123,7 +82,7 @@ export function dataPaths(node: unknown, path: string[] = []): string[] {
   const found: string[] = [];
   if (isObject(node)) {
     for (const [key, value] of Object.entries(node)) {
-      if (key === "data") {
+      if (key === "data" || key === "datasets") {
         found.push([...path, key].join("."));
       }
       found.push(...dataPaths(value, [...path, key]));
@@ -132,6 +91,11 @@ export function dataPaths(node: unknown, path: string[] = []): string[] {
     node.forEach((item, index) => found.push(...dataPaths(item, [...path, String(index)])));
   }
   return found;
+}
+
+/** A top-level `data` that only names a source; with no `datasets`, nothing backs the name. */
+function placeholder(data: unknown): boolean {
+  return isObject(data) && Object.keys(data).length === 1 && typeof data.name === "string";
 }
 
 /** Every transform step anywhere in the spec, layers included. */
@@ -214,9 +178,9 @@ export function readFields(node: unknown): Set<string> {
 
 /** Quantitative encodings on columns Galaxy typed as text, which plot nothing. */
 export function unsatisfiableTypes(spec: Json, details: Json): string[] {
-  const types: unknown[] = details.metadata_column_types || [];
+  const types = tables.columnTypes(details);
   const typed = new Map<string, unknown>();
-  columnNames(details).forEach((name, i) => {
+  tables.columnNames(details).forEach((name, i) => {
     if (i < types.length) {
       typed.set(name, types[i]);
     }
@@ -228,7 +192,7 @@ export function unsatisfiableTypes(spec: Json, details: Json): string[] {
         continue;
       }
       const field = entry.field;
-      if (typed.has(field) && !NUMERIC.includes(typed.get(field) as string)) {
+      if (typed.has(field) && !tables.NUMERIC.includes(typed.get(field) as string)) {
         suspect.add(field);
       }
     }
@@ -239,13 +203,15 @@ export function unsatisfiableTypes(spec: Json, details: Json): string[] {
 /** The spec Olit will render, or a sentence saying why it will not. */
 export function build(
   datasetId: string,
-  spec: unknown,
+  given: unknown,
   details: Json,
   root = "/",
 ): { ready: Json | null; refusal: string | null } {
-  if (!isObject(spec) || !Object.keys(spec).length) {
+  if (!isObject(given) || !Object.keys(given).length) {
     return { ready: null, refusal: "`spec` has to be a Vega-Lite specification object." };
   }
+  const { data, ...unnamed } = given;
+  const spec = placeholder(data) ? unnamed : given;
   const owned = dataPaths(spec);
   if (owned.length) {
     return {
@@ -260,7 +226,7 @@ export function build(
   if (refusal) {
     return { ready: null, refusal };
   }
-  const available = columnNames(details);
+  const available = tables.columnNames(details);
   if (!namesAreOpaque(spec)) {
     const produced = producedFields(spec);
     const unknown = [...readFields(spec)]
@@ -299,5 +265,3 @@ export function compiled(spec: Json): { compiles: boolean; problems: string[] } 
   }
   return { compiles: problems.length === 0, problems };
 }
-
-/** The spec as the markdown a Galaxy page holds. */

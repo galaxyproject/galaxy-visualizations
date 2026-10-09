@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
-import type { Galaxy } from "./galaxy";
+import { connectWeb, HttpError, type Galaxy } from "./galaxy";
 import {
   annotate,
   OPS_POLICY,
@@ -12,7 +12,7 @@ import {
 } from "./galaxy-tools";
 import { ELIDED } from "./notebook";
 import { olitTools } from "./tools";
-import { Outcome, traitsOf, type Context, type Python } from "./tool";
+import { Outcome, submittedBy, traitsOf, type Context, type Python } from "./tool";
 
 type Fake = Partial<
   Record<"get" | "post" | "put" | "bytes", (path: string, body?: any) => Promise<any>>
@@ -31,11 +31,11 @@ function files(): Python & { fs: Map<string, Uint8Array> } {
 function context(galaxy: Fake, extra: Partial<Context> = {}): Context {
   return {
     galaxy: galaxy as unknown as Galaxy,
+    web: connectWeb(),
     ops: createGalaxyContext({ baseUrl: "http://galaxy.test/", apiKey: "" }),
     python: files(),
     binding: {},
     artifacts: { prior: [], produced: [] },
-    watch: { add: () => undefined },
     ...extra,
   };
 }
@@ -96,11 +96,16 @@ describe("run_tool input keys", () => {
   };
   const TP_CAT = { id: "tp_cat", inputs: [{ name: "inputs", type: "data", multiple: true }] };
 
-  function check(schema: unknown, inputs: unknown) {
+  function check(
+    schema: unknown,
+    inputs: unknown,
+    run: { tool_id?: string; tool_version?: string } = {},
+  ) {
     const ctx = context({
       get: async (path) => (path.startsWith("api/tools/") ? schema : { id: "d", history_id: "h1" }),
     });
-    return OPS_POLICY.run_tool.check!({ history_id: "h1", tool_id: "cat1", inputs }, ctx);
+    const tool_id = run.tool_id ?? (schema as { id?: string } | null)?.id ?? "cat1";
+    return OPS_POLICY.run_tool.check!({ history_id: "h1", inputs, ...run, tool_id }, ctx);
   }
 
   it("allows every key Galaxy's legacy tool state reads", async () => {
@@ -144,6 +149,34 @@ describe("run_tool input keys", () => {
     expect(out).toContain('"queries"');
   });
 
+  it("checks the schema Galaxy expands an unversioned id to", async () => {
+    const shed = { ...CAT1, id: "toolshed.example/repos/iuc/cat1/cat1/1.0", version: "1.0" };
+    const out = await check(
+      shed,
+      { nonsense: 1 },
+      { tool_id: "toolshed.example/repos/iuc/cat1/cat1" },
+    );
+    expect(refused(out)).toContain('"nonsense"');
+  });
+
+  it("leaves the keys to Galaxy when the schema describes another tool", async () => {
+    expect(
+      await check({ ...CAT1, id: "cat2" }, { nonsense: 1 }, { tool_id: "cat1" }),
+    ).toBeUndefined();
+    expect(
+      await check({ ...CAT1, id: "cat10" }, { nonsense: 1 }, { tool_id: "cat1" }),
+    ).toBeUndefined();
+  });
+
+  it("leaves the keys to Galaxy when the schema is of another version than the run's", async () => {
+    const served = { ...CAT1, version: "2.0" };
+    expect(await check(served, { nonsense: 1 }, { tool_version: "1.0" })).toBeUndefined();
+    expect(await check(CAT1, { nonsense: 1 }, { tool_version: "1.0" })).toBeUndefined();
+    expect(refused(await check(served, { nonsense: 1 }, { tool_version: "2.0" }))).toContain(
+      '"nonsense"',
+    );
+  });
+
   it("leaves the keys unchecked when the tool's parameters cannot be read", async () => {
     expect(await check(null, { anything: 1 })).toBeUndefined();
     expect(await check({ id: "cat1" }, { anything: 1 })).toBeUndefined();
@@ -154,11 +187,28 @@ describe("run_tool history guard", () => {
   const HERE = "aaaaaaaaaaaaaaaa";
   const ELSEWHERE = "bbbbbbbbbbbbbbbb";
 
-  /** Olit's check over galaxy-ops' run_tool, against datasets owned as `owners` says. */
-  function owned(owners: Record<string, string>) {
+  /** What the check asked Galaxy, and the most it asked at once. */
+  const asked: string[] = [];
+  let inFlight = 0;
+  let mostInFlight = 0;
+
+  /**
+   * Olit's check over galaxy-ops' run_tool, against datasets owned as `owners` says; an id it does
+   * not list is one Galaxy will not show, and `failing` makes every lookup fail some other way.
+   */
+  function owned(owners: Record<string, string>, failing?: Error) {
+    asked.length = 0;
+    mostInFlight = 0;
     const ctx = context({
       get: async (path) => {
-        const id = path.split("/").pop()!;
+        asked.push(path);
+        inFlight++;
+        mostInFlight = Math.max(mostInFlight, inFlight);
+        await new Promise((r) => setTimeout(r, 1));
+        inFlight--;
+        if (failing) throw failing;
+        const id = path.split("?")[0].split("/").pop()!;
+        if (!(id in owners)) throw new HttpError("HTTP 404: History dataset not found", 404);
         return { id, name: `ds-${id}`, history_id: owners[id] };
       },
     });
@@ -172,10 +222,53 @@ describe("run_tool history guard", () => {
 
   it("refuses a dataset from another history", async () => {
     const out = refused(await owned({ d1: ELSEWHERE })(HERE, { input: { src: "hda", id: "d1" } }));
-    expect(out).toContain("do not identify a dataset in history");
+    expect(out).toContain("are in another history");
     expect(out).toContain("d1");
+    expect(out).toContain("ds-d1");
     expect(out).toContain(ELSEWHERE);
     expect(out).toContain(HERE);
+  });
+
+  it("says what to do without naming an operation Olit does not have", async () => {
+    const out = refused(await owned({ d1: ELSEWHERE })(HERE, { input: { src: "hda", id: "d1" } }));
+    expect(out).toContain("get_history_contents");
+    expect(out).toContain("ask them to copy it into this one in Galaxy");
+    expect(out).not.toContain("copy it into this history first");
+  });
+
+  it("leaves an id Galaxy will not resolve for the run to report", async () => {
+    const check = owned({ d2: ELSEWHERE });
+    expect(await check(HERE, { a: { src: "hda", id: "nope" } })).toBeUndefined();
+    const out = refused(
+      await check(HERE, { a: { src: "hda", id: "nope" }, b: { src: "hda", id: "d2" } }),
+    );
+    expect(out).toContain("d2");
+    expect(out).not.toContain("nope");
+  });
+
+  it("still ends when the call does", async () => {
+    const stopped = new Error("stopped");
+    await expect(
+      owned({ d1: HERE }, stopped)(HERE, { input: { src: "hda", id: "d1" } }),
+    ).rejects.toThrow("stopped");
+  });
+
+  it("asks once per reference, for no more than where it lives, a few at a time", async () => {
+    const owners = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`d${i}`, HERE]));
+    const values = [...Object.keys(owners), "d0", "d1"].map((id) => ({ src: "hda", id }));
+    expect(
+      await owned({ ...owners, c1: HERE })(HERE, {
+        list: { values },
+        coll: { src: "hdca", id: "c1" },
+      }),
+    ).toBeUndefined();
+    expect(asked.filter((p) => !p.startsWith("api/tools/"))).toHaveLength(13);
+    expect(asked.filter((p) => p.startsWith("api/datasets/"))).toSatisfy((ps: string[]) =>
+      ps.every((p) => p.endsWith("?keys=history_id,name")),
+    );
+    expect(asked).toContain("api/dataset_collections/c1?view=collection");
+    expect(mostInFlight).toBeLessThanOrEqual(4);
+    expect(mostInFlight).toBeGreaterThan(1);
   });
 
   it("allows working in a newly created history", async () => {
@@ -502,5 +595,90 @@ describe("update_page policy", () => {
     expect(title?.text).toContain('"## Results"');
     expect(await section("## Results", "## Results\n\nCounted 3 teams.")).toBeUndefined();
     expect(await section("## Results", "## Findings\n\nRenamed.")).toBeUndefined();
+  });
+});
+
+describe("a galaxy-ops failure, as the model reads it", () => {
+  it("names the page Galaxy answered with, not the page itself", async () => {
+    const page =
+      "<html><head><title>500 Internal Server Error</title></head><body>" + "x".repeat(50_000);
+    const fetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(page, { status: 500, headers: { "content-type": "text/html" } });
+    try {
+      const details = olitTools().find((t) => t.name === "get_history_details")!;
+      const text = refused(await details.run({ history_id: "h1" }, context({})));
+      expect(text).toContain("500 Internal Server Error");
+      expect(text).not.toContain("<html");
+      expect(text.length).toBeLessThan(200);
+    } finally {
+      globalThis.fetch = fetch;
+    }
+  });
+});
+
+describe("the work a call submitted", () => {
+  const queued = { id: "o1", state: "queued" };
+
+  /** An upload of /data/x.txt to a Galaxy answering the fetch with `outputs`. */
+  async function upload(outputs: unknown[]) {
+    const python = files();
+    python.fs.set("/data/x.txt", new TextEncoder().encode("a\tb\n"));
+    const ctx = context({ post: async () => ({ outputs, jobs: [] }) }, { python });
+    return run("upload_file", { path: "/data/x.txt", history_id: "h1" }, ctx);
+  }
+
+  it("is read from a plain result", async () => {
+    const out = await upload([queued]);
+    expect(out).not.toBeInstanceOf(Outcome);
+    expect(submittedBy("upload_file", out)).toEqual([
+      { kind: "dataset", id: "o1", label: "upload_file", state: "queued" },
+    ]);
+  });
+
+  it("is read from a result wrapped with a hint, as from a plain one", async () => {
+    const failed = {
+      id: "o2",
+      state: "error",
+      misc_info: "Failed to fetch url https://example.org/x.fastq",
+    };
+    const out = await upload([failed, queued]);
+    expect(out).toBeInstanceOf(Outcome);
+    expect(out.text).toContain("[olit]");
+    expect(submittedBy("upload_file", out)).toEqual([
+      { kind: "dataset", id: "o1", label: "upload_file", state: "queued" },
+    ]);
+  });
+
+  it("is read from what galaxy-ops answered, not from its rendering", async () => {
+    const fetch = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(String(input), init);
+      return new Response(
+        JSON.stringify(
+          request.method === "POST" && request.url.endsWith("/api/tools")
+            ? { jobs: [{ id: "j1", state: "queued" }], outputs: [{ id: "o1" }] }
+            : {},
+        ),
+        { headers: { "content-type": "application/json" } },
+      );
+    };
+    try {
+      const runTool = olitTools().find((t) => t.name === "run_tool")!;
+      const out = await runTool.run(
+        { history_id: "h1", tool_id: "cat1", inputs: {} },
+        context({ get: async () => null }),
+      );
+      expect(out).toBeInstanceOf(Outcome);
+      expect(submittedBy("run_tool", out)).toEqual([
+        { kind: "job", id: "j1", label: "run_tool", state: "queued", outputs: ["o1"] },
+      ]);
+    } finally {
+      globalThis.fetch = fetch;
+    }
+  });
+
+  it("is nothing for a refusal", () => {
+    expect(submittedBy("run_tool", new Outcome("Refused: no", true))).toEqual([]);
   });
 });

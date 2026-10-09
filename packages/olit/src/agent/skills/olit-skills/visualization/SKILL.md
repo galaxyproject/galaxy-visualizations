@@ -14,8 +14,7 @@ which implementation runs.
 **`save_visualization`** stores a durable Galaxy visualization: an object with its own URL that
 the user keeps, can share, and can open outside this conversation. It binds the plugin's typed
 inputs from Galaxy's metadata, so those columns must have been detected. **`show_visualization`**
-displays the dataset with an installed visualization and saves nothing, rendering with the
-plugin's defaults and binding no columns.
+displays the dataset with an installed visualization and saves nothing.
 
 **`vega_dataset`** renders a Vega-Lite chart you write yourself, inline as an artifact, for a
 chart no installed visualization covers. It points the spec at the dataset, so leave `data` out
@@ -111,11 +110,6 @@ steps, the same shape as editing a page:
 3. `save_visualization` with the same `visualization_id`, passing everything back.
 
 Anything left out is gone. Adding a second track means sending both tracks, not only the new one.
-
-For IGV specifically, start the visualization from the dataset alone and let the plugin work out
-the genome and the first track. Add further datasets as entries in `tracks`, each naming its
-dataset in `urlDataset`. `get_visualization_details` says which datatypes each input accepts, and
-they differ: a genome takes a reference, a track takes the track formats.
 
 ## Neither tool guesses
 

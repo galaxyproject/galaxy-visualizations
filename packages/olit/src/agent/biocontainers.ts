@@ -1,6 +1,9 @@
 const REGISTRY = "quay.io/biocontainers";
-const tagsUrl = (name: string) =>
-  `https://quay.io/api/v1/repository/biocontainers/${encodeURIComponent(name)}/tag/?onlyActiveTags=true&limit=100`;
+/** The active tags of `name`; for a pinned version, those containing it, wherever they sort. */
+const tagsUrl = (name: string, version: string | null) =>
+  `https://quay.io/api/v1/repository/biocontainers/${encodeURIComponent(name)}/tag/` +
+  `?onlyActiveTags=true&limit=100` +
+  (version ? `&filter_tag_name=${encodeURIComponent(`like:${version}`)}` : "");
 
 export type MatchQuality = "exact_version" | "name_only" | "not_found";
 
@@ -66,19 +69,14 @@ function compareTags(a: Tag, b: Tag): number {
 const newest = (tags: Tag[]) =>
   tags.reduce((best, tag) => (compareTags(tag, best) > 0 ? tag : best)).name!;
 
-/** The tag to use, and whether it matches the pinned version. */
+/** The tag to use: the newest build of the pinned version, or the newest of all when none is. */
 export function pickTag(tags: unknown[], version: string | null): [string | null, MatchQuality] {
   const named = tags.filter((t): t is Tag => !!t && typeof t === "object" && !!(t as Tag).name);
-  if (!named.length) {
-    return [null, "not_found"];
-  }
   if (version) {
     const exact = named.filter((t) => t.name === version || t.name!.startsWith(`${version}--`));
-    if (exact.length) {
-      return [newest(exact), "exact_version"];
-    }
+    return exact.length ? [newest(exact), "exact_version"] : [null, "not_found"];
   }
-  return [newest(named), "name_only"];
+  return named.length ? [newest(named), "name_only"] : [null, "not_found"];
 }
 
 /** One package resolves against the registry; several need mulled, which is not here. */
@@ -92,15 +90,18 @@ export async function recommend(
     return result({
       notes: [
         `A single image for several packages (${names}) is a mulled-v2 hash over the ` +
-          "package set, which a tag listing cannot reveal. Ask Galaxy's own MCP server, " +
-          "or install the packages in one tool one at a time.",
+          "package set, which a tag listing cannot reveal, so no image was resolved. Resolve " +
+          "one package at a time, or ask the user which image to use.",
       ],
     });
   }
   const [[name, version]] = parsed;
   let body: string;
   try {
-    const response = await fetchImpl(tagsUrl(name));
+    // quay.io refuses a browser's API call that does not say it is one.
+    const response = await fetchImpl(tagsUrl(name, version), {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
     body = await response.text();
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${body}`);
@@ -115,16 +116,18 @@ export async function recommend(
   const tags = (JSON.parse(body) as { tags?: unknown[] } | null)?.tags ?? [];
   const [tag, quality] = pickTag(tags, version);
   if (tag === null) {
-    return result({ notes: [`quay.io lists no active tags for '${name}'.`] });
+    return version
+      ? result({
+          verified: false,
+          notes: [
+            `quay.io has no built tag for '${name}' version '${version}'; no image was ` +
+              "resolved. Pin a version that is built, or leave the version out for the newest.",
+          ],
+        })
+      : result({ notes: [`quay.io lists no active tags for '${name}'.`] });
   }
-  const notes: string[] = [];
-  if (quality === "name_only") {
-    notes.push(
-      version
-        ? `No built tag matches version '${version}'; using the newest instead.`
-        : "No version was pinned; using the newest built tag.",
-    );
-  }
+  const notes =
+    quality === "name_only" ? ["No version was pinned; using the newest built tag."] : [];
   return result({
     image: `${REGISTRY}/${name}:${tag}`,
     found: true,

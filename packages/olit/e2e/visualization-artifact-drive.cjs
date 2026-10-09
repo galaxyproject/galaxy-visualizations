@@ -2,6 +2,7 @@
 // VisualizationFrame mounts a plugin, and must reach the model as a reference only. Both cross the worker boundary, where a dict that is serialized before it is
 // claimed loses the artifact without any test below noticing.
 const { chromium } = require("playwright");
+const { eventually } = require("./eventually.cjs");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = "http://127.0.0.1:8099";
@@ -79,8 +80,14 @@ const mounted = () => {
 
     // The payload must not have ridden along to the provider: the second request carries
     // the tool result, and a reference is all the model is owed.
-    const { prompts } = await (await fetch(`${STUB}/__seen`)).json();
-    const toolResults = prompts.flatMap((q) => q.toolResults || []);
+    const toolResults = await eventually(
+        async () => {
+            const { prompts } = await (await fetch(`${STUB}/__seen`)).json();
+            const results = prompts.flatMap((q) => q.toolResults || []);
+            return results.length ? results : undefined;
+        },
+        { what: "a request carrying the tool result" },
+    ).catch((error) => (console.log(error.message), []));
     check("the model was given a tool result at all", toolResults.length > 0);
     check(
         "the config is withheld from the model",

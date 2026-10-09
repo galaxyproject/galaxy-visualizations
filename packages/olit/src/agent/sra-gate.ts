@@ -1,4 +1,4 @@
-const RUN_TOOL = /^(?:galaxy_)?run_tool$/;
+const RUN_TOOL = /^run_tool$/;
 const SRA_TOOL = /^(?:(?:[^/]+\/repos\/iuc\/sra_tools\/)?(?:fastq_dump|fasterq_dump))(?:\/[^/]+)?$/;
 const ACCESSION = /^(?:SRR|ERR|DRR)\d+$/;
 const SEPARATORS = /[\s,;]+/;

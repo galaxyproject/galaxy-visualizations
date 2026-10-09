@@ -112,11 +112,6 @@ export const viteConfigCharts = defineConfig({
     },
   },
   define: defines(env),
-  resolve: {
-    alias: {
-      "@": "/src",
-    },
-  },
   server: {
     proxy: {
       "/api": proxyGalaxy(),

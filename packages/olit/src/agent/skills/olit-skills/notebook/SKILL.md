@@ -18,11 +18,11 @@ revisions give the analysis a version history for free.
 
 ### Attaching to it
 
-Call `notebook_resume(history_id)` **once**, before writing anything. It finds or
-creates the one record page for that history and returns its `page_id` and current
-`content`. Do not go looking for the record with `list_pages` and do not invent a
-title or slug for it — the page is addressed by a fixed per-history slug, and a
-second page created by hand is a second record nobody will find.
+Call `notebook_resume()` **once**, before writing anything. It takes no arguments:
+the session owns one record page, and this finds or creates it and returns its
+`page_id` and current `content`. Do not go looking for the record with `list_pages`
+and do not create a page for it by hand — a second page is a second record nobody
+will find.
 
 If `created` comes back `false`, you are continuing earlier work: read the `content`
 before doing anything, because it tells you what was already decided and run.

@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import Colors from "./colorsets";
-import { addZoom, makeTickFormat, makeUniqueCategories } from "./utilities";
+import { addZoom, makeTickFormat, makeUniqueCategories, openLink } from "./utilities";
 
 export default class Heatmap {
     constructor(container, settings, track, trackData) {
@@ -189,8 +189,8 @@ export default class Heatmap {
                     evt.stopPropagation();
                     var xLabel = self.categories.x[d.x];
                     var yLabel = self.categories.y[d.y];
-                    window.open(url.replace("__LABEL__", xLabel));
-                    window.open(url.replace("__LABEL__", yLabel));
+                    openLink(url.replace("__LABEL__", xLabel));
+                    openLink(url.replace("__LABEL__", yLabel));
                 }
             })
             .on("mouseover", function (event, d) {

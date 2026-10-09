@@ -77,7 +77,6 @@ const waitFor = async (page, fn, ms) => {
     await b.close();
     process.exit(1);
   }
-  check("the executor is installed in the worker", true);
 
   await p.fill("textarea", "run the delegated operations");
   await p.keyboard.press("Enter");

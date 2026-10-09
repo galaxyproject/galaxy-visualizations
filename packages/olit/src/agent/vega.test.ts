@@ -19,6 +19,7 @@ const TABULAR = {
 const CSV = {
   ...TABULAR,
   name: "prices.csv",
+  extension: "csv",
   metadata_column_names: ["Transaction_date", "Product", "Price", "Country"],
   metadata_delimiter: ",",
   metadata_comment_lines: 1,
@@ -71,6 +72,18 @@ describe("the data source", () => {
     expect(ready!.data.format).toEqual({ type: "csv", parse: { Price: "number" } });
   });
 
+  it("lets a tsv's own header name the columns, read with its delimiter", () => {
+    const spec = { mark: "point", encoding: { x: { field: "Price", type: "quantitative" } } };
+    const tsv = { ...CSV, extension: "tsv", metadata_delimiter: "\t" };
+    const { ready, refusal } = vega.build("abc123", spec, tsv);
+    expect(refusal).toBeNull();
+    expect(ready!.data.format).toEqual({
+      type: "dsv",
+      delimiter: "\t",
+      parse: { Price: "number" },
+    });
+  });
+
   it("uses the schema Olit renders with, whatever the caller names", () => {
     expect(built(SCATTER).ready!.$schema).toBe("https://vega.github.io/schema/vega-lite/v6.json");
     const { ready } = built({
@@ -93,10 +106,19 @@ describe("the data invariant", () => {
     { mark: "point", transform: [{ lookup: "a", from: { data: { values: [] }, key: "a" } }] },
     { hconcat: [{ data: { url: "/elsewhere" }, mark: "bar" }] },
     { facet: { field: "col:1" }, spec: { data: { values: [] }, mark: "bar" } },
+    { data: { name: "rows" }, datasets: { rows: [{ a: 1 }] }, mark: "point" },
+    { data: { name: "rows", values: [{ a: 1 }] }, mark: "point" },
+    { layer: [{ data: { name: "rows" }, mark: "line" }], mark: "point" },
   ])("refuses a spec naming data of its own: %j", (spec) => {
     const { ready, refusal } = built(spec);
     expect(ready).toBeNull();
     expect(refusal).toContain("names its own data");
+  });
+
+  it("points a spec that only names its data source at the dataset", () => {
+    const { ready, refusal } = built({ data: { name: "dataset" }, mark: "point" });
+    expect(refusal).toBeNull();
+    expect(ready!.data.url).toBe("/api/datasets/abc123/display");
   });
 
   it("names where the data was", () => {
@@ -143,11 +165,13 @@ describe("which datasets can be referenced", () => {
     );
   });
 
-  it("refuses named columns with an unverified delimiter", () => {
-    const { refusal } = built(SCATTER, { ...CSV, metadata_delimiter: "\t" });
-    expect(refusal).toContain("has not been verified");
-    expect(refusal).toContain('"\\t"');
-  });
+  it.each([",", "\t"])(
+    "refuses names a datatype sets without a header row vega can read (%j)",
+    (delimiter) => {
+      const named = { ...CSV, extension: "mzml.tabular", metadata_delimiter: delimiter };
+      expect(built(SCATTER, named).refusal).toContain("not from a header row");
+    },
+  );
 });
 
 describe("field names", () => {
@@ -281,5 +305,36 @@ describe("an encoding the column cannot satisfy", () => {
   it("does not report a nominal encoding on a text column", () => {
     const { ready } = built({ mark: "bar", encoding: { x: { field: "col:1", type: "nominal" } } });
     expect(vega.unsatisfiableTypes(ready!, TABULAR)).toEqual([]);
+  });
+});
+
+describe("the data block for Galaxy's tabular, csv and tsv", () => {
+  const base = { ...TABULAR, metadata_columns: 2, metadata_column_types: ["str", "int"] };
+  const tabular = { ...base, extension: "tabular", metadata_delimiter: "\t" };
+  const csv = {
+    ...base,
+    extension: "csv",
+    metadata_delimiter: ",",
+    metadata_column_names: ["Product", "Price"],
+    metadata_comment_lines: 1,
+  };
+  const tsv = { ...csv, extension: "tsv", metadata_delimiter: "\t" };
+
+  it("hands vega tabular's columns by position, its first row as data", () => {
+    expect(vega.dataBlock("d", tabular).format).toEqual({
+      type: "dsv",
+      delimiter: "\t",
+      header: ["col:1", "col:2"],
+      parse: { "col:2": "number" },
+    });
+  });
+
+  it("lets vega read a csv or tsv header itself, with the dataset's delimiter", () => {
+    expect(vega.dataBlock("d", csv).format).toEqual({ type: "csv", parse: { Price: "number" } });
+    expect(vega.dataBlock("d", tsv).format).toEqual({
+      type: "dsv",
+      delimiter: "\t",
+      parse: { Price: "number" },
+    });
   });
 });

@@ -26,9 +26,5 @@ export function buildConfig(
     ai_keep_recent_tokens: Number(process.env.llm_keep_recent_tokens) || undefined,
     galaxy_root: incoming.root,
     dataset_id: incoming.datasetId,
-    // Filled in from the session document once it is loaded.
-    session_id: undefined as string | undefined,
-    record_page_id: undefined as string | undefined,
-    session_started_at: undefined as string | undefined,
   };
 }

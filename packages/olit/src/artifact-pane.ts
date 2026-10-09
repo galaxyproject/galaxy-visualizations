@@ -25,7 +25,6 @@ function writePreference(collapsed: boolean): void {
 export interface ArtifactPane {
   /** Show the pane because something was produced for it. */
   reveal(): void;
-  toggle(): void;
 }
 
 export function mountArtifactPane(container: HTMLElement): ArtifactPane {
@@ -58,8 +57,7 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
   let narrow = window.innerWidth < BREAKPOINT;
   show(narrow || preferred);
 
-  // The pane reads its own contents rather than trusting a caller to announce them:
-  // the reset path emptied it without saying so, leaving a stale artifact on screen.
+  // The pane reads its own contents rather than trusting a caller to announce them.
   new MutationObserver(() => show(narrow || preferred)).observe(content, { childList: true });
 
   window.addEventListener("resize", () => {
@@ -111,6 +109,5 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
 
   return {
     reveal: () => set(false),
-    toggle: () => set(!collapsed()),
   };
 }

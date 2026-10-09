@@ -22,6 +22,9 @@ export const GALAXY_TERMINOLOGY = `## Galaxy
   rather than inventing a workaround. When authoring the UDT definition, fetch
   the \`udt-authoring\` skill first (see Skills repositories below) rather
   than writing the YAML from memory.
+- **Visualization**: a viewer Galaxy opens on a dataset in the browser, such as a genome
+  browser or a structure viewer. Visualizations are not tools and no tool search finds them:
+  to open or view a dataset in a viewer, call \`list_visualizations\` with its id.
 - **Workflow invocation**: a single run of a Galaxy workflow on a history.
 - **IWC**: Intergalactic Workflow Commission -- registry of curated
   workflows. See "Finding a community workflow".`;
@@ -392,7 +395,7 @@ Conventions:
   \`## Plan A - Title [remote]\` (dash instead of colon).
 - The routing tag is \`[remote]\`, literal, lowercase, no spaces inside the brackets.
   There is no local execution in this build, so every step runs on Galaxy and no other
-  tag can describe anything. Older records may say \`[galaxy]\`, which means \`[remote]\`.
+  tag can describe anything.
 - Each step needs a **Verification** sub-bullet naming a concrete check -- inspect the
   dataset, parse the file, compare expected rows -- never a vague "looks good". For
   Galaxy work the check runs once the step finishes, not by waiting in the turn.
@@ -543,7 +546,11 @@ lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only wit
 
 A \`\`\` fence on a Galaxy page opens a cell, and Galaxy renders only \`\`\`galaxy, \`\`\`vega and
 \`\`\`visualization cells; any other type shows as an error and Galaxy refuses the page. Present
-data as Markdown tables or prose; for code or plain text use ~~~ fences.`;
+data as Markdown tables or prose; for code or plain text use ~~~ fences.
+
+To put a chart or visualization from this session on the page, write \`{{artifact}}\` on its own
+line, or \`{{artifact: <title>}}\` for an earlier one; the cell is built for you from what the
+user saw. Never write that cell, or an embed of your own invention, yourself.`;
 
 function localDate(now: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");

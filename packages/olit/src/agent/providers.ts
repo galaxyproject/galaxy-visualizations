@@ -193,9 +193,17 @@ export function resolve(config: LlmConfig, env: Record<string, string | undefine
 }
 
 /** llama.cpp's /props; any other server simply does not answer it. */
-export async function probeWindow(baseUrl: string): Promise<number | undefined> {
+/** How long a local server may take to say its context window before the default is used. */
+export const PROBE_TIMEOUT_MS = 3000;
+
+export async function probeWindow(
+  baseUrl: string,
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<number | undefined> {
   try {
-    const response = await fetch(`${baseUrl.replace(/\/+$/, "").replace(/\/v1$/, "")}/props`);
+    const response = await fetch(`${baseUrl.replace(/\/+$/, "").replace(/\/v1$/, "")}/props`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     const window = (await response.json())?.default_generation_settings?.n_ctx;
     return Number.isInteger(window) && window > 0 ? window : undefined;
   } catch {

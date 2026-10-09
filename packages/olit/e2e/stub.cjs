@@ -55,12 +55,27 @@ const badFence = (content) =>
         .split("\n")
         .map((line) => line.trim())
         .find((line) => line.startsWith("```") && line.length > 3 && !PAGE_CELLS.includes(line.slice(3)));     // confirm | slow | slow-once | compact | ratelimit | plan | plan-after-graph
+let bootDelay = 0;          // ms the agent's user lookup waits, so a drive can act while Olit boots
 let galaxyUp = true;        // /api/version answers, which is what the agent probes for reachability
 let rateLimited = 0;
 let calls = 0;
 const seen = [];            // every Galaxy request the agent actually made
 const cookies = [];         // each Galaxy request's URL and the session cookie it carried
 const prompts = [];         // what the agent sent us, so compaction can be checked
+
+// A request's JSON body, or undefined when it is not JSON, which Galaxy refuses rather than reads.
+const readJson = (req) =>
+    new Promise((resolve) => {
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", () => {
+            try {
+                resolve(raw ? JSON.parse(raw) : {});
+            } catch {
+                resolve(undefined);
+            }
+        });
+    });
 
 function json(res, code, body) {
     const text = JSON.stringify(body);
@@ -297,6 +312,19 @@ const server = http.createServer(async (req, res) => {
     const url = req.url || "";
     if (req.method === "OPTIONS") return json(res, 204, {});
 
+    // Every drive starts from a fresh Galaxy, whatever the one before it left behind.
+    if (url.startsWith("/__reset")) {
+        script = "confirm";
+        galaxyUp = true;
+        bootDelay = 0;
+        jobState = "queued";
+        rateLimited = 0;
+        calls = 0;
+        for (const list of [seen, cookies, prompts, visualizationWrites]) list.length = 0;
+        pages.clear();
+        visualizations.clear();
+        return json(res, 200, { reset: true });
+    }
     if (url.startsWith("/__script")) {
         script = new URL(url, "http://x").searchParams.get("name") || "confirm";
         calls = 0;
@@ -308,6 +336,10 @@ const server = http.createServer(async (req, res) => {
     // Drives that assert on what the model was sent need the record to start empty;
     // `/__script` deliberately keeps it, because a drive may switch scripts mid-turn.
     // The agent probes /api/version once per session; a drive needs Galaxy down before it boots.
+    if (url.startsWith("/__slow")) {
+        bootDelay = Number(new URL(url, "http://x").searchParams.get("ms")) || 0;
+        return json(res, 200, { bootDelay });
+    }
     if (url.startsWith("/__galaxy")) {
         galaxyUp = new URL(url, "http://x").searchParams.get("up") !== "0";
         return json(res, 200, { galaxyUp });
@@ -323,6 +355,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.startsWith("/__pages")) return json(res, 200, { pages: [...pages.values()] });
     if (url.startsWith("/__visualizations")) return json(res, 200, { visualizations: [...visualizations.values()], writes: visualizationWrites });
+    // Hand a saved visualization to another owner, or to none, as sharing it with this user leaves it.
+    if (url.startsWith("/__owner")) {
+        const params = new URL(url, "http://x").searchParams;
+        const found = visualizations.get(params.get("id"));
+        if (found) found.user_id = params.get("user_id") || undefined;
+        return json(res, 200, { owner: found?.user_id ?? null });
+    }
     if (url.startsWith("/__public")) return json(res, 200, { public: true });
 
     if (url.startsWith(`${NGL_HREF}/${NGL.entry_point.attr.src}`)) {
@@ -401,7 +440,7 @@ const server = http.createServer(async (req, res) => {
             }
             // A plan card, so the driver has an Approve button to click.
             return answer(message(
-                "```plan\n## Plan A: Stub Plan [galaxy]\n\n" +
+                "```plan\n## Plan A: Stub Plan [remote]\n\n" +
                 "Draft used only to render an approvable card.\n\n### Steps\n\n" +
                 "- [ ] 1. **Concatenate the inputs** -- join the two datasets\n" +
                 "  - Routing: galaxy\n  - Tool: cat\n" +
@@ -451,6 +490,7 @@ const server = http.createServer(async (req, res) => {
                 : message("", createVisualization));
         }
         if (script === "plain") return answer(message("Noted."));
+        if (script === "echo") return answer(message(String(last.role === "user" ? last.content : "")));
         if (script === "linked") return answer(message("Dataset 0123456789abcdef is ready."));
         if (script === "reset-watch") {
             // Open the record, run a tool, then say so; anything asked after that is a follow-up.
@@ -476,6 +516,9 @@ const server = http.createServer(async (req, res) => {
     if (url.includes("/api/plugins/ngl")) return json(res, 200, NGL);
     if (url.includes("/api/plugins")) return json(res, 200, [{ name: "ngl", settings: [], tracks: [] }]);
     if (url.includes("/api/datatypes/")) return json(res, 200, [{ visualization: "ngl" }]);
+    if (url.includes("/api/users/current") && !url.includes("from=python") && bootDelay) {
+        await new Promise((resolve) => setTimeout(resolve, bootDelay));
+    }
     if (url.includes("/api/users/current")) {
         // Galaxy answers a signed-in user with its id; an anonymous one has none.
         return json(res, 200, /galaxysession=/.test(req.headers.cookie || "") ? { id: "u1", username: "e2e-user" } : {});
@@ -505,14 +548,11 @@ const server = http.createServer(async (req, res) => {
             const found = pages.get(id);
             return found ? json(res, 200, found) : json(res, 404, { err_msg: "Page not found" });
         }
-        const body = await new Promise((resolve) => {
-            let raw = "";
-            req.on("data", (c) => (raw += c));
-            req.on("end", () => resolve(raw ? JSON.parse(raw) : {}));
-        });
+        const body = await readJson(req);
+        if (!body) return json(res, 400, { err_msg: "The request body is not JSON." });
         const fence = badFence(body.content);
         if (fence) return json(res, 400, { err_msg: `Unsupported fenced block type [${fence.slice(3)}].` });
-        const now = new Date().toISOString();
+        const now = new Date().toISOString().replace("Z", ""); // Galaxy writes UTC without a zone
         if (req.method === "POST") {
             const created = `p${pages.size + 1}`;
             pages.set(created, {
@@ -530,7 +570,10 @@ const server = http.createServer(async (req, res) => {
         }
         const found = pages.get(id);
         if (!found) return json(res, 404, { err_msg: "Page not found" });
-        Object.assign(found, { content: body.content, content_editor: body.content, update_time: now });
+        // As Galaxy's update_page: a title only when given, a new revision only when content is.
+        if (body.title) found.title = body.title;
+        if (body.content != null) Object.assign(found, { content: body.content, content_editor: body.content });
+        found.update_time = now;
         return json(res, 200, found);
     }
     if (url.startsWith("/api/visualizations")) {
@@ -540,11 +583,8 @@ const server = http.createServer(async (req, res) => {
             const found = visualizations.get(id);
             return found ? json(res, 200, found) : json(res, 404, { err_msg: "Visualization not found" });
         }
-        const body = await new Promise((resolve) => {
-            let raw = "";
-            req.on("data", (c) => (raw += c));
-            req.on("end", () => resolve(raw ? JSON.parse(raw) : {}));
-        });
+        const body = await readJson(req);
+        if (!body) return json(res, 400, { err_msg: "The request body is not JSON." });
         visualizationWrites.push(`${req.method} ${id || ""}`.trim());
         if (req.method === "POST") {
             const created = `v${visualizations.size + 1}`;
@@ -562,6 +602,13 @@ const server = http.createServer(async (req, res) => {
         found.title = body.title || found.title;
         found.latest_revision = { config: body.config || found.latest_revision.config, title: found.title };
         return json(res, 200, { id });
+    }
+    // A history's contents are a list, as Galaxy answers them; h1 holds the dataset drives open on.
+    if (/^\/api\/histories\/[^/?]+\/contents/.test(url)) {
+        const contents = url.startsWith("/api/histories/h1/")
+            ? [{ id: "d1", hid: 1, name: "peptide.pdb", extension: "pdb", state: "ok", history_content_type: "dataset" }]
+            : [];
+        return json(res, 200, contents);
     }
     if (url.includes("/api/histories")) return json(res, 200, { id: "h1", name: "stub" });
     if (url.startsWith("/history/current_history_json")) return json(res, 200, { id: "h1", name: "stub" });

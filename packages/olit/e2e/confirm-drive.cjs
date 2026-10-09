@@ -1,5 +1,6 @@
 // Drives the real page; only the provider and Galaxy are stubbed (stub.cjs).
 const { chromium } = require("playwright");
+const { eventually } = require("./eventually.cjs");
 const OUT = process.env.OUT || "/tmp";
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = "http://127.0.0.1:8099";
@@ -117,13 +118,20 @@ async function ask(page, msg) {
     }
 
     // ---- 3. Stop ends a turn parked on a slow provider -----------------------
+    await eventually(
+        () => p.evaluate(() => !document.querySelector("#send-btn").classList.contains("hidden")),
+        { what: "the approved turn to end", timeout: 90000 },
+    );
     await script("slow");
     await ask(p, "do something slow");
-    await p.waitForTimeout(3000);
-    const stopVisible = await p.evaluate(
-        () => !document.querySelector("#abort-btn").classList.contains("hidden"),
-    );
+    const stopVisible = await waitFor(
+        p, () => !document.querySelector("#abort-btn").classList.contains("hidden"), 30000);
     check("Stop replaces Send while a turn is in flight", stopVisible);
+    const parked = await eventually(
+        async () => (await (await fetch(`${STUB}/__seen`)).json()).calls > 0,
+        { what: "the slow request to reach the provider" },
+    ).catch(() => false);
+    check("the turn is waiting on the provider", parked);
     await p.click("#abort-btn");
     const stopped = await waitFor(p, () => /Stopped\./.test(document.body.innerText), 30000);
     check("Stop ends the turn without waiting for the provider", stopped);

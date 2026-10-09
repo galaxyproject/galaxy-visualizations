@@ -11,7 +11,7 @@ import type { GalaxyContext } from "@galaxyproject/galaxy-ops/browser";
 
 import type { Artifact } from "../artifacts/kinds";
 import { Binding as Bound } from "./documents";
-import type { Galaxy } from "./galaxy";
+import type { Galaxy, Web } from "./galaxy";
 import { isTerminal, watchedFrom, type Watched } from "./watch";
 
 export type { Artifact } from "../artifacts/kinds";
@@ -44,8 +44,14 @@ export class Outcome {
     readonly text: string,
     readonly isError = false,
     readonly guard?: Guard,
+    /** The result `text` renders, which the work a call submitted is read from. */
+    readonly data?: unknown,
   ) {}
 }
+
+/** The Galaxy work a call submitted, read from its result in whichever form it came back. */
+export const submittedBy = (name: string, value: unknown): Watched[] =>
+  watchedFrom(name, value instanceof Outcome ? value.data : value);
 
 export const fail = (text: string) => new Outcome(text, true);
 
@@ -65,14 +71,14 @@ export interface Binding {
 
 export interface Context {
   galaxy: Galaxy;
+  /** Hosts other than Galaxy, ended with the call or once its time is up. */
+  web: Web;
   ops: GalaxyContext;
   python: Python;
   /** What this session is bound to; the session owns it and reports its changes. */
   binding: Binding;
   /** Earlier turns' artifacts and this turn's, which a page may place. */
   artifacts: { prior: Artifact[]; produced: Artifact[] };
-  /** Galaxy work a tool submitted, watched once the call returns. */
-  watch: { add(items: Watched[]): void };
 }
 
 export interface OlitTool {
@@ -134,7 +140,7 @@ export function claim(value: unknown, ctx: Context, hint?: string): unknown {
 /** What a durable tool needs from its host besides the conversation's binding. */
 export interface ToolHost {
   /** Galaxy clients and Python for one call, ended by its abort signal. */
-  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "ops" | "python">;
+  clients(signal: AbortSignal | undefined): Pick<Context, "galaxy" | "web" | "ops" | "python">;
   /** The artifacts earlier results carried, newest last. */
   artifacts(conversationId: ConversationId, context: Chord): Promise<Artifact[]>;
   watch: Task<Watched, any, JsonValue, object>;
@@ -165,12 +171,10 @@ export function durableTool(tool: OlitTool, host: ToolHost): ToolRegistration {
         host.artifacts(id, context),
       ]);
       const before = JSON.stringify(bound ?? {});
-      const submitted: Watched[] = [];
       const ctx: Context = {
         ...host.clients(context.abortSignal),
         binding: { ...(bound ?? {}) },
         artifacts: { prior, produced: [] },
-        watch: { add: (items) => submitted.push(...items) },
       };
       let value: unknown;
       try {
@@ -178,14 +182,7 @@ export function durableTool(tool: OlitTool, host: ToolHost): ToolRegistration {
       } catch (err) {
         value = fail(`Tool '${tool.name}' raised: ${(err as Error)?.message ?? err}`);
       }
-      if (!(value instanceof Outcome)) {
-        submitted.push(...watchedFrom(tool.name, value));
-      }
-      const named = (args as { history_id?: unknown }).history_id;
-      const wrote = tool.capability === "write" && !(value instanceof Outcome && value.isError);
-      if (wrote && typeof named === "string" && !ctx.binding.historyId) {
-        ctx.binding.historyId = named;
-      }
+      const submitted = submittedBy(tool.name, value);
       const text =
         value instanceof Outcome
           ? value.text

@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { savedSessions } from "../saved-session";
 import { Binding } from "./documents";
+import { json, text, visualizationStore } from "./fake-model";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
 import { artifactsIn, context, Runtime } from "./runtime";
@@ -18,48 +19,22 @@ import type { Python } from "./tool";
 const ROOT = "http://galaxy.test/";
 const LLM = "http://llm.test/v1";
 const KEY = "sk-test-secret-value";
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-
-function reply(text: string): Response {
-  const chunks = [
-    { choices: [{ index: 0, delta: { content: text } }] },
-    {
-      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-      usage: { prompt_tokens: 10, completion_tokens: 5 },
-    },
-  ];
-  const body = chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") + "data: [DONE]\n\n";
-  return new Response(body, { headers: { "content-type": "text/event-stream" } });
-}
+const USER = "f2db41e1fa331b3e";
 
 /** A Galaxy keeping visualizations in memory, so a "second machine" reads them back, and a model. */
 function world() {
-  const rows = new Map<string, Record<string, unknown>>();
+  const { rows, answer } = visualizationStore(USER);
   const requests: Array<{ messages: Array<{ role: string; content: string }> }> = [];
-  let next = 1;
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
     if (request.url.startsWith(LLM)) {
       requests.push(JSON.parse(await request.text()));
-      return reply(`answer ${requests.length}`);
+      return text(`answer ${requests.length}`);
     }
-    const id = request.url.split("/api/visualizations/")[1];
-    if (request.url.includes("/api/visualizations")) {
-      if (request.method === "GET") {
-        const row = rows.get(id!);
-        return row ? json({ latest_revision: { config: row.config } }) : json("not found", 404);
-      }
-      const body = JSON.parse(await request.text());
-      if (request.method === "POST") {
-        rows.set(`v${next}`, body);
-        return json({ id: `v${next++}` });
-      }
-      rows.set(id!, { ...rows.get(id!), ...body });
-      return json({});
-    }
-    return json(request.url.endsWith("api/version") ? { version_major: "26.1" } : {});
+    return (
+      (await answer(request)) ??
+      json(request.url.endsWith("api/version") ? { version_major: "26.1" } : {})
+    );
   });
   return { rows, requests, saved: savedSessions(connectGalaxy({ root: ROOT })) };
 }
@@ -161,6 +136,23 @@ describe("a saved Olit visualization is a restorable conversation", () => {
     expect(roles(after)).toEqual(roles(before));
     expect(after.entries[0].kind).toBe("pi.compaction");
     expect((await artifactsIn(reopened, context)).map((a) => a.title)).toEqual([CHART.title]);
+  });
+
+  it("keeps the usage it was saved with when it continues on another machine", async () => {
+    const { saved } = world();
+    const one = await machine();
+    const conversation = await one.create({ historyId: "h1" });
+    await say(one, conversation, "first");
+    const id = await saved.save(await one.export(conversation));
+
+    const two = await machine();
+    const reopened = await two.open((await saved.load(id))!, id);
+    await say(two, reopened, "second");
+    expect((await two.export(reopened)).session.usage).toEqual({
+      input: 20,
+      output: 10,
+      cost: null,
+    });
   });
 
   it("continues on the second machine and saves back to the same visualization", async () => {

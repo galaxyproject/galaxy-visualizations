@@ -7,9 +7,17 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const ROOT = process.cwd();
-const read = (p) => JSON.parse(readFileSync(join(ROOT, p), "utf8"));
+const read = (p) =>
+  JSON.parse(readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), p), "utf8"));
+
+/** The version spec `package.json` pins `name` to, wherever it declares it. */
+export function pinned(pkg, name) {
+  const spec = pkg.devDependencies?.[name] ?? pkg.dependencies?.[name];
+  if (!spec) throw new Error(`package.json pins no ${name}`);
+  return spec;
+}
 
 async function github(path) {
   const headers = { "User-Agent": "olit-stale-check", Accept: "application/vnd.github+json" };
@@ -44,7 +52,7 @@ async function npmLatest(pkg) {
 const ARTIFACT = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases\/download\/([^/]+)\//;
 
 async function galaxyOps() {
-  const spec = read("package.json").dependencies["@galaxyproject/galaxy-ops"];
+  const spec = pinned(read("package.json"), "@galaxyproject/galaxy-ops");
   const latest = await npmLatest("@galaxyproject/galaxy-ops");
   const artifact = ARTIFACT.exec(spec);
   if (artifact) {
@@ -55,19 +63,19 @@ async function galaxyOps() {
       `           replace it with the first npm release that contains it: npm install @galaxyproject/galaxy-ops@<version>, then npm test`
     );
   }
-  const pinned = spec.replace(/^[\^~]/, "");
-  return pinned === latest
-    ? `galaxy-ops up to date at ${pinned}`
-    : `galaxy-ops BEHIND: package.json wants ${pinned}, npm has ${latest}\n` +
+  const version = spec.replace(/^[\^~]/, "");
+  return version === latest
+    ? `galaxy-ops up to date at ${version}`
+    : `galaxy-ops BEHIND: package.json wants ${version}, npm has ${latest}\n` +
         `           update: bump it and run npm test; ops.ts runs its operations directly`;
 }
 
 async function galaxyCharts() {
-  const pinned = read("package.json").dependencies["galaxy-charts"].replace(/^[\^~]/, "");
+  const version = pinned(read("package.json"), "galaxy-charts").replace(/^[\^~]/, "");
   const latest = await npmLatest("galaxy-charts");
-  return pinned === latest
-    ? `charts     up to date at ${pinned}`
-    : `charts     BEHIND: package.json wants ${pinned}, npm has ${latest}\n` +
+  return version === latest
+    ? `charts     up to date at ${version}`
+    : `charts     BEHIND: package.json wants ${version}, npm has ${latest}\n` +
         `           update: bump it and run npm test; visualizations.ts imports its input contract directly`;
 }
 
@@ -101,7 +109,9 @@ async function orbit() {
   return `orbit ui   up to date: loom is ${cmp.total_commits} commit(s) past ${pinned}, none touching the vendored files`;
 }
 
-const results = await Promise.allSettled([skills(), galaxyOps(), galaxyCharts(), orbit()]);
-for (const r of results) {
-  console.log(r.status === "fulfilled" ? r.value : `(could not check: ${r.reason.message})`);
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const results = await Promise.allSettled([skills(), galaxyOps(), galaxyCharts(), orbit()]);
+  for (const r of results) {
+    console.log(r.status === "fulfilled" ? r.value : `(could not check: ${r.reason.message})`);
+  }
 }

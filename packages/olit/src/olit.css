@@ -17,8 +17,7 @@
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  /* Theme tokens, not literals: the shell is dark, so a #fff fallback put
-       near-white text on a white field. */
+  /* Theme tokens, not literals, so the field follows the shell's theme. */
   background: var(--bg-inset);
   color: var(--text);
   font: inherit;
@@ -57,4 +56,11 @@
 /* Usage sits at the right end of the footer, apart from the controls. */
 #usage-bar {
   margin-left: auto;
+}
+
+.olit-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }

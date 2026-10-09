@@ -7,10 +7,11 @@ import {
   type ValueIssueType,
 } from "galaxy-charts/runtime";
 
-import { query, segment, type Galaxy } from "./galaxy";
+import { query, segment, type Galaxy, type Web } from "./galaxy";
 import type { ArtifactOf } from "../artifacts/kinds";
-import { fail, type Artifact, type OlitTool } from "./tool";
+import { fail, type Artifact, type Context, type OlitTool } from "./tool";
 import * as vega from "./vega";
+import * as tables from "./tables";
 import {
   buildVisualizationTemplate,
   declaredPaths,
@@ -18,6 +19,7 @@ import {
   offeredValue,
   optionBearing,
   resolvedDefault,
+  resolveConfig,
   resolveParameter,
   unresolved,
   type Types,
@@ -30,17 +32,20 @@ export type Envelope = { success: true; data: any } | { success: false; message:
 /** galaxy-charts' option resolution for one tool call: built once per call, then asked per input. */
 export type ResolveOptions = (
   galaxy: Galaxy,
+  web: Web,
 ) => (input: Json, context: { datasetId?: string }) => Promise<Envelope>;
+
+/** `ResolveOptions` with one call's `web` already given. */
+type Resolve = (galaxy: Galaxy) => ReturnType<ResolveOptions>;
 
 /** What each galaxy-charts input type stores, and where its options come from. */
 const TYPES: Types = (inputs as { types: Types }).types;
 
-/** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
 const rootPath = (galaxy: Galaxy) => new URL(galaxy.root || "/", "http://localhost").pathname;
 
+/** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
 export const NOT_OFFERED = new Set(["olit", "vintent"]);
 
-const NUMERIC_COLUMNS = new Set(["int", "float"]);
 const MATCH_CAP = 5;
 const ROW_CAP = 100;
 const STR = { type: "string" };
@@ -75,11 +80,11 @@ function pyType(value: unknown): string {
  * what a client fetched for as long as that client lives, so one client per tool call shares a
  * dataset between the inputs of one save and never carries it into the next call.
  */
-export const chartOptions: ResolveOptions = (galaxy) => {
+export const chartOptions: ResolveOptions = (galaxy, web) => {
   const client = {
     api: (path: string) => galaxy.get(path),
     url: async (target: string) => {
-      const response = await fetch(target);
+      const response = await web.fetch(target);
       if (!response.ok) {
         throw new Error(`${response.status} ${response.statusText}`);
       }
@@ -133,9 +138,7 @@ async function preferredVisualizations(galaxy: Galaxy, extension: unknown): Prom
 async function listVisualizations(galaxy: Galaxy, a: Json): Promise<Json> {
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(a.dataset_id)}`)) || {};
   const extension = dataset.extension;
-  const numeric = ((dataset.metadata_column_types as string[]) || []).filter((t) =>
-    NUMERIC_COLUMNS.has(t),
-  );
+  const numeric = tables.numericColumns(dataset);
 
   let matching: Json[] =
     (await galaxy.get(`api/plugins${query({ dataset_id: a.dataset_id })}`)) || [];
@@ -295,7 +298,7 @@ function matches(entry: Json, search: string | undefined): boolean {
 
 async function getVisualizationOptions(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<unknown> {
   const name = a.visualization;
@@ -381,7 +384,7 @@ async function getVisualization(galaxy: Galaxy, a: Json): Promise<unknown> {
  */
 async function checked(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<{ artifact?: ArtifactOf<"visualization">; refusal?: Json; rejected?: Json }> {
   const { dataset, refusal } = await resolveVisualization(galaxy, a);
@@ -390,10 +393,15 @@ async function checked(
   }
   const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
   const chosen = { ...a, settings: structuredClone(a.settings), tracks: structuredClone(a.tracks) };
-  const rejected =
-    rejectUndeclared(plugin, chosen) ??
-    (await selectOffered(resolveOptions(galaxy), plugin, chosen)) ??
-    rejectIncomplete(plugin, chosen);
+  // The values as sent are checked before galaxy-charts' coercion could hide a wrong one; from
+  // then on, checks and the stored config are the one resolved config.
+  let rejected = rejectUndeclared(plugin, chosen);
+  if (!rejected) {
+    Object.assign(chosen, resolveConfig(plugin, chosen));
+    rejected =
+      (await selectOffered(resolveOptions(galaxy), plugin, chosen)) ??
+      rejectIncomplete(plugin, chosen);
+  }
   if (rejected) {
     return { rejected };
   }
@@ -427,7 +435,7 @@ function rejectIncomplete(plugin: Json, a: Json): Json | null {
 
 async function showVisualization(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<unknown> {
   const { artifact, refusal, rejected } = await checked(galaxy, resolveOptions, a);
@@ -576,8 +584,16 @@ async function selectOffered(
   for (const [entry, declared] of levels) {
     for (const { path, param, value, branch } of optionBearing(entry, declared, TYPES)) {
       const envelope = await lookup(param, { datasetId: a.dataset_id });
+      // A value nobody could check is not stored: an option is kept as the whole entry offered.
       if (!envelope.success) {
-        continue;
+        return {
+          error:
+            `Refused: ${path} could not be checked, because this server's options for it ` +
+            `could not be read (${envelope.message}).`,
+          hint:
+            "The options are unavailable, not the value wrong: try again, or use a case whose " +
+            "options can be read.",
+        };
       }
       const offered: Json[] = envelope.data || [];
       const stored = offeredValue(value, offered, param);
@@ -618,7 +634,7 @@ async function selectOffered(
 
 async function saveVisualization(
   galaxy: Galaxy,
-  resolveOptions: ResolveOptions,
+  resolveOptions: Resolve,
   a: Json,
 ): Promise<unknown> {
   const { artifact, refusal, rejected } = await checked(galaxy, resolveOptions, a);
@@ -701,7 +717,7 @@ async function vegaDataset(galaxy: Galaxy, a: Json): Promise<Json> {
   const result: Json = {
     charted: true,
     title,
-    columns: vega.columnNames(details),
+    columns: tables.columnNames(details),
     artifact: { kind: "vega-lite", title, spec: ready } satisfies Artifact,
     hint:
       "The chart is displayed to the user. Writing it into the record means putting " +
@@ -723,6 +739,11 @@ function schema(properties: Json, required: string[]): Json {
 
 /** The visualization tools, in the order the catalogue lists them. */
 export function visualizationTools(resolveOptions: ResolveOptions = chartOptions): OlitTool[] {
+  /** Options resolved for this call, its requests to other hosts ended with it. */
+  const withWeb =
+    (ctx: Context): Resolve =>
+    (galaxy) =>
+      resolveOptions(galaxy, ctx.web);
   return [
     {
       name: "get_visualization_options",
@@ -742,7 +763,7 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         },
         ["visualization", "parameter"],
       ),
-      run: (args, ctx) => getVisualizationOptions(ctx.galaxy, resolveOptions, args),
+      run: (args, ctx) => getVisualizationOptions(ctx.galaxy, withWeb(ctx), args),
     },
     {
       name: "get_visualization",
@@ -780,7 +801,7 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         },
         ["dataset_id", "visualization"],
       ),
-      run: (args, ctx) => showVisualization(ctx.galaxy, resolveOptions, args),
+      run: (args, ctx) => showVisualization(ctx.galaxy, withWeb(ctx), args),
     },
     {
       name: "save_visualization",
@@ -800,7 +821,7 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         },
         ["dataset_id", "visualization"],
       ),
-      run: (args, ctx) => saveVisualization(ctx.galaxy, resolveOptions, args),
+      run: (args, ctx) => saveVisualization(ctx.galaxy, withWeb(ctx), args),
     },
     {
       name: "vega_dataset",
@@ -822,7 +843,10 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
     {
       name: "list_visualizations",
       capability: "read",
-      description: "List the Galaxy visualizations that can display a dataset.",
+      description:
+        "List the Galaxy visualizations that can display a dataset, such as genome browsers and " +
+        "structure viewers. Start here when the user wants to open or view a dataset in a viewer, " +
+        "whether or not they name one. Visualizations are not tools, so no tool search lists them.",
       parameters: schema({ dataset_id: STR }, ["dataset_id"]),
       run: (args, ctx) => listVisualizations(ctx.galaxy, args),
     },

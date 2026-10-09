@@ -45,6 +45,8 @@ async function connect(page) {
     p.on("pageerror", (e) => logs.push(`[pageerror] ${e.message}`));
     // A 404 under the plugin href is the deployment-path failure this tier exists to catch.
     const missing = [];
+    const galaxyCalls = [];
+    p.on("request", (r) => r.url().startsWith(`${STUB}/api/`) && galaxyCalls.push(r.url()));
     p.on("response", (r) => {
         if (r.status() >= 400 && r.url().includes("/static/plugins/visualizations/")) missing.push(`${r.status()} ${r.url()}`);
     });
@@ -65,8 +67,7 @@ async function connect(page) {
         process.exit(1);
     }
 
-    const context = logs.find((l) => l.includes("[olit] context"));
-    check("Galaxy calls resolve against the deployment root", !!context && context.includes(`${STUB}/`), context);
+    check("Galaxy calls resolve against the deployment root", galaxyCalls.length > 0, galaxyCalls[0]);
 
     await fetch(`${STUB}/__forget`);
     await p.fill("#input", "delete my history");
@@ -76,6 +77,7 @@ async function connect(page) {
 
     const { prompts } = await (await fetch(`${STUB}/__seen`)).json();
     const system = prompts[0] && prompts[0].text;
+    check("the turn lists the history's datasets", /Datasets in this history.*peptide\.pdb/.test(prompts[0]?.tail || ""));
     check(
         "the system prompt is the session's own, without the plugin XML's",
         !!system && /"role":"system","content":"You are Olit\./.test(system) && !/co-scientist that orchestrates/.test(system),

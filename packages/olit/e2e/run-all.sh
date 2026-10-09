@@ -14,6 +14,18 @@ done
 
 fail=0
 pids=()
+# A failing driver's own words, where CI shows them: its log stays behind on the runner.
+failed() {
+    echo "FAIL  $1  ($2)"
+    tail -n 25 "$2" | sed 's/^/      /'
+    fail=1
+}
+# Wait for a server, or stop: drivers run against a server that never came up only fail obscurely.
+await() {
+    for _ in $(seq "$2"); do curl -sf -o /dev/null "$1" && return 0; sleep 1; done
+    echo "e2e: $1 did not answer within $2s (see $3)" >&2
+    exit 1
+}
 # `npm run dev` outlives the kill: npm is the recorded pid, vite is its child, and the
 # orphan then answers the next run's drivers. Take the servers by name as well.
 cleanup() {
@@ -24,45 +36,51 @@ cleanup() {
 trap cleanup EXIT
 
 node e2e/stub.cjs > /tmp/olit-e2e-stub.log 2>&1 & pids+=($!)
-for _ in $(seq 20); do curl -sf -o /dev/null http://127.0.0.1:8099/__seen && break; sleep 0.5; done
+await http://127.0.0.1:8099/__seen 10 /tmp/olit-e2e-stub.log
 
 GALAXY_ROOT=http://127.0.0.1:8099 LLM_PROVIDER=ollama LLM_ROOT=http://127.0.0.1:8099 \
   LLM_PATH=/v1 LLM_KEY=stub LLM_MODEL=stub-model \
   LLM_CONTEXT_WINDOW=64000 LLM_KEEP_RECENT_TOKENS=50 \
   npm run dev > /tmp/olit-e2e-dev.log 2>&1 & pids+=($!)
-for _ in $(seq 40); do curl -sf -o /dev/null http://localhost:5173/ && break; sleep 1; done
+await http://localhost:5173/ 40 /tmp/olit-e2e-dev.log
 
 ran=""
 for d in confirm session reload tabs unsaved-changes approval-gate ratelimit visualization-artifact artifact-survives-switch artifact-restore-newest run-python; do
     ran="$ran $d"
+    curl -sf -o /dev/null http://127.0.0.1:8099/__reset
     if LLM_CONTEXT_WINDOW=64000 node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
-        echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1
+        failed "$d" "/tmp/olit-e2e-$d.log"
     fi
 done
 
 # The built bundle, served the way Galaxy serves it: the stub renders the host page and
 # the plugin static path, so these drivers get the credentials modal and the agent both.
 # The build must not carry the dev env, or LLM_PROVIDER suppresses the modal.
-env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tmp/olit-e2e-build.log 2>&1
+if ! env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tmp/olit-e2e-build.log 2>&1; then
+    echo "e2e: the build failed (see /tmp/olit-e2e-build.log)" >&2
+    exit 1
+fi
 
 for d in credentials artifact-pane provider-switch galaxy-boot galaxy-frame saved-session recovery reset python-isolation; do
     ran="$ran $d"
+    curl -sf -o /dev/null http://127.0.0.1:8099/__reset
     if node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then
         echo "PASS  $d"
     else
-        echo "FAIL  $d  (/tmp/olit-e2e-$d.log)"; fail=1
+        failed "$d" "/tmp/olit-e2e-$d.log"
     fi
 done
 
 # The credential lock in run_python's realm only shows in Firefox and WebKit, which attach
 # Galaxy's SameSite-less cookie to a credentialed request from an opaque origin.
 for browser in firefox webkit; do
+    curl -sf -o /dev/null http://127.0.0.1:8099/__reset
     if BROWSER=$browser node e2e/python-isolation-drive.cjs > "/tmp/olit-e2e-python-isolation-$browser.log" 2>&1; then
         echo "PASS  python-isolation ($browser)"
     else
-        echo "FAIL  python-isolation ($browser)  (/tmp/olit-e2e-python-isolation-$browser.log)"; fail=1
+        failed "python-isolation ($browser)" "/tmp/olit-e2e-python-isolation-$browser.log"
     fi
 done
 

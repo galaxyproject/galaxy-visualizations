@@ -244,6 +244,31 @@ describe("a run drawn live and the same run restored", () => {
       "reply: There are 12 rows.",
     ]);
   });
+
+  it("gives a later response's call its own step when the server reuses the id", () => {
+    const again = user("count them again");
+    const live = view();
+    live.view.apply([
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      { type: "message_end", entry: asked } as AgentEvent,
+      { type: "message_end", entry: calling } as AgentEvent,
+      { type: "message_end", entry: stepped } as AgentEvent,
+      { type: "message_end", entry: answered } as AgentEvent,
+      { type: "run_end" } as unknown as AgentEvent,
+      { type: "run_start", inputs: [] } as unknown as AgentEvent,
+      { type: "message_end", entry: again } as AgentEvent,
+      { type: "message_end", entry: calling } as AgentEvent,
+      {
+        type: "tool_execution_start",
+        toolCallId: "c1",
+        toolName: "get_tool_details",
+      } as AgentEvent,
+    ]);
+    expect(live.chat.addToolCard).toHaveBeenCalledTimes(2);
+    const restored = view();
+    restored.view.apply([snapshot([asked, calling, stepped, answered, again, calling, stepped])]);
+    expect(restored.chat.addToolCard).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("a reply streamed live ends as the stored answer reads", () => {

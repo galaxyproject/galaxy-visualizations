@@ -1,14 +1,13 @@
 // The refuse path, and the paths that must not refuse.
 //
-// With Galaxy unreachable, approving a plan must be refused *before* the turn is sent. loom's
-// init gate short-circuits before any LLM call; this asserts the same property the same way the
-// live driver asserts the approval gate -- by counting calls on the far side, not by trusting
-// the UI.
+// With Galaxy unreachable, Olit does not start, so nothing reaches the model; this is asserted
+// by counting calls on the far side, not by trusting the UI.
 //
 // The catalog takes no part in that decision: it gates lineage_report, organize_datasets and
 // charting, and no Galaxy tool reads it. So a plan is approved both when nothing has asked for
 // the catalog and after the catalog has been asked for and failed.
 const { chromium } = require("playwright");
+const { eventually } = require("./eventually.cjs");
 
 const APP = process.env.APP_URL || "http://localhost:5173/";
 const STUB = process.env.STUB_URL || "http://127.0.0.1:8099";
@@ -19,6 +18,13 @@ const check = (name, ok, detail) => {
     console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  — " + detail : ""}`);
 };
 const calls = async () => (await (await fetch(`${STUB}/__seen`)).json()).calls;
+
+/** Until the approval is answered: a turn reaches the provider, or the page says it refused. */
+const answered = (page, before, refusal) =>
+    eventually(
+        async () => (await calls()) > before || refusal.test(await page.evaluate(() => document.body.innerText)),
+        { what: "the approval to be answered" },
+    ).catch(() => {});
 
 async function waitFor(page, fn, ms, arg) {
     const end = Date.now() + ms;
@@ -52,7 +58,7 @@ async function waitFor(page, fn, ms, arg) {
     // An ordinary session: Galaxy answers and nothing has failed.
     const beforeAllowed = await calls();
     await page.click(".plan-draft-approve");
-    await page.waitForTimeout(2500);
+    await answered(page, beforeAllowed, /Galaxy is not available/i);
     const afterAllowed = await calls();
     const allowedBody = await page.evaluate(() => document.body.innerText);
     check("an ordinary session does not refuse the plan",
@@ -78,7 +84,7 @@ async function waitFor(page, fn, ms, arg) {
 
     const before = await calls();
     await page.locator(".plan-draft-approve").last().click();
-    await page.waitForTimeout(2500);
+    await answered(page, before, /nothing in this plan can run/i);
     const after = await calls();
 
     const failedBody = await page.evaluate(() => document.body.innerText);
@@ -87,35 +93,15 @@ async function waitFor(page, fn, ms, arg) {
           /nothing in this plan can run/i.test(failedBody) ? "refused after the process" : "approval proceeded");
     check("the approved turn was sent", after > before, `${before} -> ${after} provider calls`);
 
-    // Now the state the gate is actually for: Galaxy itself does not answer. The agent probes
-    // once per session, so this needs a fresh load.
+    // Galaxy itself does not answer, from a fresh load.
     await fetch(`${STUB}/__galaxy?up=0`);
     await fetch(`${STUB}/__script?name=plan`);
     await page.goto(APP, { waitUntil: "domcontentloaded" });
-    check("booted against an unreachable Galaxy",
-          await waitFor(page, () => /olit ready/i.test(document.body.innerText), 240000));
-    await page.fill("#input", "Draft a plan to concatenate my two datasets.");
-    await page.click("#send-btn");
-    const downCarded = await waitFor(page, () => !!document.querySelector(".plan-draft-approve"), 120000);
-    check("plan draft card offered with Galaxy down", downCarded);
-    if (!downCarded) {
-        console.log(logs.slice(-8).join("\n"));
-        await fetch(`${STUB}/__galaxy?up=1`);
-        await browser.close();
-        process.exit(1);
-    }
-
     const beforeDown = await calls();
-    await page.locator(".plan-draft-approve").last().click();
-    await page.waitForTimeout(2500);
-    const afterDown = await calls();
-
-    const body = await page.evaluate(() => document.body.innerText);
-    check("approval was refused in the UI", /Galaxy did not answer/i.test(body),
-          /Galaxy did not answer/i.test(body) ? "notice shown" : "no refusal notice");
-    // The point of the whole driver: refused *before* the turn was sent, not after.
-    check("no turn was sent", afterDown === beforeDown, `${beforeDown} -> ${afterDown} provider calls`);
-    check("the plan card survives the refusal", !!(await page.locator(".plan-draft-approve").count()));
+    check("an unreachable Galaxy stops Olit with an error",
+          await waitFor(page, () => /Olit\s+works in a history, so it cannot start/i.test(document.body.innerText), 120000));
+    check("the input is disabled", await page.locator("#input").isDisabled());
+    check("no turn was sent", (await calls()) === beforeDown);
     await fetch(`${STUB}/__galaxy?up=1`);
 
     console.log(failed ? `\n${failed} check(s) failed` : "\nall checks passed");

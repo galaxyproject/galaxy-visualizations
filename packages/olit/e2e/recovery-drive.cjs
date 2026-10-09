@@ -46,12 +46,13 @@ const shown = (frame, pattern, ms = 120000) =>
     await fetch(`${STUB}/__script?name=plain`);
     await fetch(`${STUB}/__forget`);
     const second = await machine(browser);
-    check("another machine is offered the history's earlier session",
-        await shown(second.frame, "/earlier sessions on this history/"));
+    check("another machine is offered the history's earlier record",
+        await shown(second.frame, "/Continue the record/"));
     const early = await second.frame.locator("body").innerText();
     check("nothing starts before the user decides", !/olit ready/i.test(early));
-    await second.frame.locator("button", { hasText: "Continue" }).first().click();
+    await second.frame.locator("button", { hasText: "Continue the record" }).first().click();
     check("continuing it starts the session", await shown(second.frame, "/olit ready/i"));
+    check("continuing says the conversation is gone", await shown(second.frame, "/this chat starts empty/"));
     const restored = await second.frame.locator("body").innerText();
     check("the lost conversation is not reconstructed", !restored.includes("start the record for this analysis"));
 
