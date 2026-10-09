@@ -68,7 +68,7 @@ function getSourceUrl(dataset) {
   return (
     prefixedDownloadUrl(
       root,
-      `datasets/${dataset.id}/display/${dataset.metadata_store_root}`
+      `datasets/${dataset.id}/display/${dataset.metadata_store_root ?? ""}`
     )
   );
 }
