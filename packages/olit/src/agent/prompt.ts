@@ -546,7 +546,11 @@ lists, tables, links, emphasis, blockquotes -- and embed Galaxy results only wit
 
 A \`\`\` fence on a Galaxy page opens a cell, and Galaxy renders only \`\`\`galaxy, \`\`\`vega and
 \`\`\`visualization cells; any other type shows as an error and Galaxy refuses the page. Present
-data as Markdown tables or prose; for code or plain text use ~~~ fences.`;
+data as Markdown tables or prose; for code or plain text use ~~~ fences.
+
+To put a chart or visualization from this session on the page, write \`{{artifact}}\` on its own
+line, or \`{{artifact: <title>}}\` for an earlier one; the cell is built for you from what the
+user saw. Never write that cell, or an embed of your own invention, yourself.`;
 
 function localDate(now: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");

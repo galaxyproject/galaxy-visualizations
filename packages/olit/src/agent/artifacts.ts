@@ -36,6 +36,27 @@ function pick(title: string | undefined, artifacts: Artifact[]): Artifact | unde
 
 const titles = (artifacts: Artifact[]) => artifacts.map((a) => a.title).filter(Boolean);
 
+const EMBED = /\{\{\s*visualization\b[^{}]*\}\}/g;
+
+/**
+ * Why `text` would show an embed Galaxy does not render, or null. A `{{visualization...}}` token
+ * is no Galaxy syntax, so the page would show it as text in place of the chart; written as code,
+ * in a fence or between backticks, it is text on purpose and stays.
+ */
+export function inventedEmbed(text: string): string | null {
+  const prose = text.replace(/`[^`\n]*`/g, (code) => " ".repeat(code.length));
+  for (const found of prose.matchAll(EMBED)) {
+    if (!insideFence(text, found.index!)) {
+      return (
+        `${quote(found[0])} is not something a Galaxy page renders, so the page would show it ` +
+        "as text. To place a visualization from this session, write {{artifact}} on its own " +
+        "line, or {{artifact: <title>}} for an earlier one."
+      );
+    }
+  }
+  return null;
+}
+
 /** Replace every {{artifact}} token in `value`; a non-string passes through unchanged. */
 export function resolveArtifacts<T>(
   value: T,

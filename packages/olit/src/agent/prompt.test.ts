@@ -60,6 +60,11 @@ describe("composition", () => {
     expect(GALAXY_TERMINOLOGY).not.toMatch(/chart|plot/i);
   });
 
+  it("tells how to place a session's visualization on a page without fetching a skill", () => {
+    expect(GALAXY_PAGE_MARKDOWN).toContain("write `{{artifact}}` on its own\nline");
+    expect(GALAXY_PAGE_MARKDOWN).toContain("`{{artifact: <title>}}`");
+  });
+
   it("names IWC correctly", () => {
     expect(GALAXY_TERMINOLOGY).toContain("Intergalactic Workflow Commission");
   });

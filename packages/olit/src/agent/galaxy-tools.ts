@@ -1,6 +1,7 @@
 import { quote } from "./quote";
 import { contentHash, malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
+import { inventedEmbed } from "./artifacts";
 import * as biocontainers from "./biocontainers";
 import { HttpError, NotAnId, segment, type Galaxy } from "./galaxy";
 import * as tables from "./tables";
@@ -88,7 +89,10 @@ function headingless(args: Record<string, unknown>) {
 
 /** A refusal for page content Galaxy would not render, before it is sent. */
 const invalidPage = async (content: unknown) => {
-  const problem = typeof content === "string" ? pageContentProblem(content) : undefined;
+  const problem =
+    typeof content === "string"
+      ? (pageContentProblem(content) ?? inventedEmbed(content) ?? undefined)
+      : undefined;
   return problem ? fail(`Refused: ${problem}`) : undefined;
 };
 
