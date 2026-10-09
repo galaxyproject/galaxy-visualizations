@@ -126,7 +126,25 @@ describe("catalogMissHint", () => {
     expect(await search(galaxy, "plotly")).toBeUndefined();
   });
 
-  it("never asks about plugins when the search found tools", async () => {
+  it("redirects a search for a visualization's exact name, whatever tools it matched", async () => {
+    const { galaxy } = plugins(VIEWERS);
+    const fuzzy = [{ id: "createInterval", name: "Create single interval" }];
+    for (const query of ["ngl", "NGL", "plotly_box"]) {
+      const hint = await search(galaxy, query, fuzzy);
+      expect(hint, query).toContain(`'${query}' is an installed visualization`);
+      expect(hint, query).toContain("list_visualizations");
+    }
+  });
+
+  it("leaves a search that found tools alone unless it is a visualization's exact name", async () => {
+    const { galaxy } = plugins(VIEWERS);
+    const found = [{ id: "some_tool" }];
+    for (const query of ["structure viewer", "plotly scatter", "ngl viewer", "olit", "mol"]) {
+      expect(await search(galaxy, query, found), query).toBeUndefined();
+    }
+  });
+
+  it("never asks about plugins when a search of several words found tools", async () => {
     const { galaxy, asked } = plugins(VIEWERS);
     expect(await search(galaxy, "heatmap viewer", [{ id: "heatmap2" }])).toBeUndefined();
     expect(asked).toEqual([]);

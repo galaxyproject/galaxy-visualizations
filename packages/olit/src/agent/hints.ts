@@ -84,25 +84,28 @@ type Plugin = { name?: string; html?: string; tags?: string[] | null };
 
 const words = (text: string) => new Set(text.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []);
 
-/**
- * Whether a search names an installed visualization: every word of a plugin's name is in it.
- * Titles and tags share words with tools ("fasta", "tree"), so they do not count, and a plugin
- * list Galaxy will not give is no reason to say anything.
- */
-async function namesVisualization(galaxy: Galaxy, query: string): Promise<boolean> {
-  const wanted = words(query);
-  if (!wanted.size) {
-    return false;
-  }
+/** The installed visualizations Olit offers, by name; none when Galaxy will not list them. */
+async function offeredPlugins(galaxy: Galaxy): Promise<string[]> {
   let installed: Plugin[];
   try {
     installed = (await galaxy.get("api/plugins")) || [];
   } catch {
-    return false;
+    return [];
   }
-  return installed.some((plugin) => {
-    const name = words(plugin.name ?? "");
-    return name.size > 0 && !NOT_OFFERED.has(plugin.name!) && [...name].every((w) => wanted.has(w));
+  return installed
+    .map((plugin) => plugin.name ?? "")
+    .filter((plugin) => plugin && !NOT_OFFERED.has(plugin));
+}
+
+/**
+ * Whether a search names an installed visualization: every word of a plugin's name is in it.
+ * Titles and tags share words with tools ("fasta", "tree"), so they do not count.
+ */
+function namesVisualization(plugins: string[], query: string): boolean {
+  const wanted = words(query);
+  return plugins.some((plugin) => {
+    const name = words(plugin);
+    return wanted.size > 0 && name.size > 0 && [...name].every((w) => wanted.has(w));
   });
 }
 
@@ -112,13 +115,27 @@ export async function catalogMissHint(
   args: Record<string, unknown>,
   data: unknown,
 ): Promise<string | undefined> {
-  const empty =
-    !data || (Array.isArray(data) && !data.length) || (isRow(data) && !Object.keys(data).length);
-  if (!CATALOG_SEARCHES.has(name) || !empty) {
+  if (!CATALOG_SEARCHES.has(name)) {
     return undefined;
   }
+  const empty =
+    !data || (Array.isArray(data) && !data.length) || (isRow(data) && !Object.keys(data).length);
   const query = (args.query as string) || ((args.keywords as string[]) || []).join(" ");
-  if (!(await namesVisualization(galaxy, query))) {
+  // A plugin's name is one word, so a search of several that found tools names none.
+  if (!empty && /\s/.test(query.trim())) {
+    return undefined;
+  }
+  const plugins = await offeredPlugins(galaxy);
+  if (!empty) {
+    // A plugin's own name is a visualization whatever tools share letters with it ("ngl" in "single").
+    const exact = plugins.some((plugin) => plugin.toLowerCase() === query.trim().toLowerCase());
+    return exact
+      ? `[olit] '${query}' is an installed visualization, not a Galaxy tool, so the tools this ` +
+          "search matched only share letters with it. Visualizations are not in the tool catalog: " +
+          "list_visualizations names the ones that can render a given dataset."
+      : undefined;
+  }
+  if (!namesVisualization(plugins, query)) {
     return undefined;
   }
   return (
