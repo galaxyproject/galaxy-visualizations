@@ -10,6 +10,8 @@
  * sometimes; this cannot be talked out of happening.
  */
 
+import { contentHash } from "@galaxyproject/galaxy-ops/browser";
+
 import { HttpError, segment, type Galaxy } from "./galaxy";
 import { pageBody } from "./page-edit";
 
@@ -29,6 +31,35 @@ export function serialized<T>(work: () => Promise<T>): Promise<T> {
   const next = pending.then(work, work);
   pending = next.catch(() => undefined);
   return next;
+}
+
+/** The record content the agent was shown, by the content_hash it was shown with. */
+const shown = new Map<string, string>();
+const SHOWN_KEPT = 20;
+
+/** Keep `content` as the agent read it, under the hash it reads with it. */
+export function remember(content: string): void {
+  const hash = contentHash({ content_editor: content });
+  shown.delete(hash);
+  shown.set(hash, content);
+  if (shown.size > SHOWN_KEPT) shown.delete(shown.keys().next().value!);
+}
+
+export const shownAs = (hash: string): string | undefined => shown.get(hash);
+
+/** The text of every section headed by `heading`, split as galaxy-ops' section edit splits it. */
+export function sectionsHeaded(content: string, heading: string): string[] {
+  const out: string[] = [];
+  let inside = false;
+  content.split("\n").forEach((line, i) => {
+    const opens = /^#{1,6}\s/.test(line);
+    if (opens || i === 0) {
+      inside = opens && line === heading;
+      if (inside) out.push("");
+    }
+    if (inside) out[out.length - 1] += `${line}\n`;
+  });
+  return out;
 }
 
 export interface RecordTarget {

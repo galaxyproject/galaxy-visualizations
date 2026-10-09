@@ -1,5 +1,5 @@
 import { quote } from "./quote";
-import { malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
+import { contentHash, malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
 import * as biocontainers from "./biocontainers";
 import { HttpError, NotAnId, segment, type Galaxy } from "./galaxy";
@@ -11,9 +11,9 @@ import {
   iwcCandidatesHint,
 } from "./hints";
 import { ELIDED } from "./notebook";
-import { pageContentProblem } from "./page-edit";
+import { pageBody, pageContentProblem } from "./page-edit";
 import { type Annotate, type OpPolicy } from "./ops";
-import { serialized } from "./record-write";
+import { remember, sectionsHeaded, serialized, shownAs } from "./record-write";
 import { fail, Outcome, rendered, type Capability, type Context, type OlitTool } from "./tool";
 
 export const DATA_DIR = "/data";
@@ -21,6 +21,46 @@ export const DATA_DIR = "/data";
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 const HEADING = /^#{1,6}\s+\S/;
+
+/** Keep the page a call answered with as what the agent was shown. */
+function shownPage<T>(envelope: T): T {
+  const { success, data } = envelope as { success?: boolean; data?: Record<string, unknown> };
+  if (success && data && (data.content_editor != null || data.content != null)) {
+    remember(pageBody(data));
+  }
+  return envelope;
+}
+
+/**
+ * A section edit's arguments against the page as it is now. The session writes its own lines
+ * into the record, so a hash read before one of them no longer matches; when the agent's read
+ * is known and the sections it replaces are unchanged since, the edit is checked against the
+ * current hash instead. Anything else is sent as given, and galaxy-ops refuses a stale hash.
+ */
+async function againstCurrent(
+  args: Record<string, unknown>,
+  ctx: Context,
+): Promise<Record<string, unknown>> {
+  const { expect_hash: read, section_heading: heading, page_id: pageId } = args;
+  if (typeof read !== "string" || typeof heading !== "string" || args.content != null) {
+    return args;
+  }
+  const base = shownAs(read);
+  if (base === undefined) {
+    return args;
+  }
+  let current: string;
+  try {
+    current = pageBody((await ctx.galaxy.get(`api/pages/${segment(String(pageId))}`)) || {});
+  } catch {
+    return args;
+  }
+  const now = contentHash({ content_editor: current });
+  const same =
+    JSON.stringify(sectionsHeaded(base, heading)) ===
+    JSON.stringify(sectionsHeaded(current, heading));
+  return now !== read && same ? { ...args, expect_hash: now } : args;
+}
 
 /** A refusal for a section edit that would leave its text without a heading in the record. */
 function headingless(args: Record<string, unknown>) {
@@ -80,7 +120,8 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   update_history: { destructiveWhen: (args) => args.deleted === true },
   create_page: { check: async (args) => invalidPage(args.content) },
   // A revert rewrites the page too, so it waits its turn behind the session's own record writes.
-  revert_page_revision: { around: serialized },
+  revert_page_revision: { around: (call) => serialized(() => call()) },
+  get_page: { around: (call) => call().then(shownPage) },
   get_dataset_details: { polls: "dataset_id" },
   get_job_details: { polls: "dataset_id" },
   get_invocations: { polls: "invocation_id" },
@@ -96,7 +137,8 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
             "Refused: this content still holds the record excerpt's elision marker, so it would delete the elided middle. Edit a section instead.",
           )
         : (headingless(args) ?? invalidPage(args.section_content ?? args.content)),
-    around: serialized,
+    around: (call, args, ctx) =>
+      serialized(async () => shownPage(await call(await againstCurrent(args, ctx)))),
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length
         ? new Outcome(

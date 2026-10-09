@@ -25,8 +25,15 @@ export type Annotate = (
 export interface OpPolicy {
   /** Olit's refusal before the operation runs, or undefined to let it run. */
   check?: (args: Record<string, unknown>, ctx: Context) => Promise<Outcome | undefined>;
-  /** Runs the call, for a queue the call has to wait its turn in. */
-  around?: <T>(call: () => Promise<T>) => Promise<T>;
+  /**
+   * Runs the call, for a queue the call has to wait its turn in; `call` sends `args`, or the
+   * arguments it is given in their place.
+   */
+  around?: <T>(
+    call: (sent?: Record<string, unknown>) => Promise<T>,
+    args: Record<string, unknown>,
+    ctx: Context,
+  ) => Promise<T>;
   /** Olit's own answer to a refusal, when its policy has something to add to the message. */
   refused?: (message: string, args: Record<string, unknown>) => Outcome | undefined;
   destructiveWhen?: (args: Record<string, unknown>) => boolean;
@@ -77,12 +84,10 @@ function opsTool(op: AnyOperation, annotate: Annotate | undefined, policy: OpPol
       if (refused) {
         return refused;
       }
-      const input = inputOf(args, toInput);
-      const call = () => runWithEnvelope(op, input as never, ctx.ops);
-      const envelope = (await (policy.around ? policy.around(call) : call())) as unknown as Record<
-        string,
-        unknown
-      >;
+      const call = (sent = args) => runWithEnvelope(op, inputOf(sent, toInput) as never, ctx.ops);
+      const envelope = (await (policy.around
+        ? policy.around(call, args, ctx)
+        : call())) as unknown as Record<string, unknown>;
       if (!envelope.success) {
         const message = briefly(String(envelope.message || `${op.name} failed`));
         return policy.refused?.(message, args) ?? fail(message);

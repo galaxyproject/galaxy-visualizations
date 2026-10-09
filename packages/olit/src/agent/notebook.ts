@@ -2,6 +2,7 @@ import { query, segment, type Galaxy } from "./galaxy";
 import { contentHash } from "@galaxyproject/galaxy-ops/browser";
 
 import { pageBody } from "./page-edit";
+import { remember } from "./record-write";
 import { fail, Outcome, type Capability, type Context, type OlitTool } from "./tool";
 
 export const STARTER = `## Record
@@ -202,6 +203,7 @@ export async function resume(
     const existing = await usable(galaxy, pageId);
     if (existing) {
       const content = pageBody(existing);
+      remember(content);
       return {
         created: false,
         page_id: existing.id,
@@ -222,6 +224,7 @@ export async function resume(
   if (typeof created !== "object" || created === null || !created.id) {
     return fail(JSON.stringify({ error: "Could not create the record page." }));
   }
+  remember(STARTER);
   return {
     created: true,
     page_id: created.id,
