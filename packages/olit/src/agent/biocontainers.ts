@@ -98,7 +98,10 @@ export async function recommend(
   const [[name, version]] = parsed;
   let body: string;
   try {
-    const response = await fetchImpl(tagsUrl(name, version));
+    // quay.io refuses a browser's API call that does not say it is one.
+    const response = await fetchImpl(tagsUrl(name, version), {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
     body = await response.text();
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${body}`);

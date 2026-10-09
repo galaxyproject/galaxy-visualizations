@@ -9,11 +9,13 @@ const tag = (name: string, start_ts: number) => ({ name, start_ts });
 
 function quay(tags: unknown[] = [], status = 200) {
   const urls: string[] = [];
-  const fetchImpl = (async (url: string) => {
+  const headers: Headers[] = [];
+  const fetchImpl = (async (url: string, init?: RequestInit) => {
     urls.push(url);
+    headers.push(new Headers(init?.headers));
     return new Response(JSON.stringify({ tags }), { status });
   }) as unknown as typeof fetch;
-  return { urls, fetchImpl };
+  return { urls, headers, fetchImpl };
 }
 
 describe("parsePackages", () => {
@@ -96,6 +98,12 @@ describe("recommend", () => {
     const out = await recommend(["samtools=1.2"], fake.fetchImpl);
     expect(new URL(fake.urls[0]).searchParams.get("filter_tag_name")).toBe("like:1.2");
     expect(out.image).toMatch(/samtools:1\.2--1$/);
+  });
+
+  it("says it is an XMLHttpRequest, which quay.io requires of a browser's API call", async () => {
+    const fake = quay([tag("3.1.1", 5)]);
+    await recommend(["plotly"], fake.fetchImpl);
+    expect(fake.headers[0].get("X-Requested-With")).toBe("XMLHttpRequest");
   });
 
   it("lists every tag when no version is pinned", async () => {
