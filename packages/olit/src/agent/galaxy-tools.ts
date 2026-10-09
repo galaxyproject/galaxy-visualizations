@@ -22,11 +22,11 @@ export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 const HEADING = /^#{1,6}\s+\S/;
 
-/** Keep the page a call answered with as what the agent was shown. */
-function shownPage<T>(envelope: T): T {
+/** Keep the page a call answered with as what this session's agent was shown. */
+function shownPage<T>(envelope: T, args: Record<string, unknown>, ctx: Context): T {
   const { success, data } = envelope as { success?: boolean; data?: Record<string, unknown> };
   if (success && data && (data.content_editor != null || data.content != null)) {
-    remember(pageBody(data));
+    remember(ctx.binding.sessionId, String(args.page_id), pageBody(data));
   }
   return envelope;
 }
@@ -45,7 +45,7 @@ async function againstCurrent(
   if (typeof read !== "string" || typeof heading !== "string" || args.content != null) {
     return args;
   }
-  const base = shownAs(read);
+  const base = shownAs(ctx.binding.sessionId, String(pageId), read);
   if (base === undefined) {
     return args;
   }
@@ -121,7 +121,7 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
   create_page: { check: async (args) => invalidPage(args.content) },
   // A revert rewrites the page too, so it waits its turn behind the session's own record writes.
   revert_page_revision: { around: (call) => serialized(() => call()) },
-  get_page: { around: (call) => call().then(shownPage) },
+  get_page: { around: (call, args, ctx) => call().then((out) => shownPage(out, args, ctx)) },
   get_dataset_details: { polls: "dataset_id" },
   get_job_details: { polls: "dataset_id" },
   get_invocations: { polls: "invocation_id" },
@@ -138,7 +138,7 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
           )
         : (headingless(args) ?? invalidPage(args.section_content ?? args.content)),
     around: (call, args, ctx) =>
-      serialized(async () => shownPage(await call(await againstCurrent(args, ctx)))),
+      serialized(async () => shownPage(await call(await againstCurrent(args, ctx)), args, ctx)),
     refused: (message, args) =>
       malformedObjectIds(String(args.section_content ?? args.content ?? "")).length
         ? new Outcome(

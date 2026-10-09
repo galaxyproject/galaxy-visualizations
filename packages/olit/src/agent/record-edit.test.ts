@@ -26,23 +26,24 @@ function galaxyPage(content: string) {
   return page;
 }
 
-const context = (): Context => ({
+/** A tool call's context, as the session hosting the conversation hands it over. */
+const context = (sessionId: string): Context => ({
   galaxy: connectGalaxy({ root: ROOT }),
   web: connectWeb(),
   ops: createGalaxyContext({ baseUrl: ROOT, apiKey: "" }),
   python: { run: async () => "", write: async () => {}, read: async () => undefined },
-  binding: {},
+  binding: { sessionId, pageId: "p1" },
   artifacts: { prior: [], produced: [] },
 });
 
-const call = (name: string, args: Record<string, unknown>) =>
+const call = (name: string, args: Record<string, unknown>, sessionId = "s1") =>
   olitTools()
     .find((t) => t.name === name)!
-    .run(args, context()) as Promise<Outcome>;
+    .run(args, context(sessionId)) as Promise<Outcome>;
 
-/** The agent's read of the record, and the hash it would edit against. */
-async function read(): Promise<string> {
-  const out = await call("get_page", { page_id: "p1" });
+/** A session's read of the record, and the hash it would edit against. */
+async function read(sessionId = "s1"): Promise<string> {
+  const out = await call("get_page", { page_id: "p1" }, sessionId);
   return JSON.parse(out.text).data.content_hash;
 }
 
@@ -88,6 +89,25 @@ describe("a record edit made while the session wrote the record", () => {
     expect(out.isError).toBe(true);
     expect(out.text).toContain("changed since it was read");
     expect(page.content_editor).toContain("Status: failed (error) — recorded automatically");
+  });
+
+  it("refuses an edit against another session's read of the same page and content", async () => {
+    const page = galaxyPage(RECORD);
+    const hash = await read("s1");
+    await settles("d1");
+    const out = await call(
+      "update_page",
+      {
+        page_id: "p1",
+        section_heading: "## Data Import",
+        section_content: IMPORT,
+        expect_hash: hash,
+      },
+      "s2",
+    );
+    expect(out.isError).toBe(true);
+    expect(out.text).toContain("changed since it was read");
+    expect(page.content_editor).not.toContain(IMPORT.trim());
   });
 
   it("refuses an edit against a read it was not shown", async () => {

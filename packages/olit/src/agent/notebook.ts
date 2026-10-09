@@ -203,7 +203,6 @@ export async function resume(
     const existing = await usable(galaxy, pageId);
     if (existing) {
       const content = pageBody(existing);
-      remember(content);
       return {
         created: false,
         page_id: existing.id,
@@ -224,7 +223,6 @@ export async function resume(
   if (typeof created !== "object" || created === null || !created.id) {
     return fail(JSON.stringify({ error: "Could not create the record page." }));
   }
-  remember(STARTER);
   return {
     created: true,
     page_id: created.id,
@@ -259,6 +257,7 @@ export function notebookTools(): OlitTool[] {
           return opened;
         }
         ctx.binding.pageId = opened.page_id;
+        remember(ctx.binding.sessionId, opened.page_id, opened.content);
         return new Outcome(JSON.stringify(opened));
       },
     },

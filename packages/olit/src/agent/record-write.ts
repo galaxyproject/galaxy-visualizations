@@ -33,19 +33,27 @@ export function serialized<T>(work: () => Promise<T>): Promise<T> {
   return next;
 }
 
-/** The record content the agent was shown, by the content_hash it was shown with. */
+/** Page content a session's agent was shown, by session, page and the content_hash shown with it. */
 const shown = new Map<string, string>();
 const SHOWN_KEPT = 20;
+const shownKey = (sessionId: string, pageId: string, hash: string) =>
+  JSON.stringify([sessionId, pageId, hash]);
 
-/** Keep `content` as the agent read it, under the hash it reads with it. */
-export function remember(content: string): void {
-  const hash = contentHash({ content_editor: content });
-  shown.delete(hash);
-  shown.set(hash, content);
+/** Keep `content` as this session's agent read page `pageId`; a session without an id keeps none. */
+export function remember(sessionId: string | undefined, pageId: string, content: string): void {
+  if (!sessionId) return;
+  const key = shownKey(sessionId, pageId, contentHash({ content_editor: content }));
+  shown.delete(key);
+  shown.set(key, content);
   if (shown.size > SHOWN_KEPT) shown.delete(shown.keys().next().value!);
 }
 
-export const shownAs = (hash: string): string | undefined => shown.get(hash);
+/** What this session's agent read of page `pageId` under `hash`, if it read it. */
+export const shownAs = (
+  sessionId: string | undefined,
+  pageId: string,
+  hash: string,
+): string | undefined => (sessionId ? shown.get(shownKey(sessionId, pageId, hash)) : undefined);
 
 /** The text of every section headed by `heading`, split as galaxy-ops' section edit splits it. */
 export function sectionsHeaded(content: string, heading: string): string[] {
