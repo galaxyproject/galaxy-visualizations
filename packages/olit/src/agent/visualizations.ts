@@ -843,7 +843,10 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
     {
       name: "list_visualizations",
       capability: "read",
-      description: "List the Galaxy visualizations that can display a dataset.",
+      description:
+        "List the Galaxy visualizations that can display a dataset, such as genome browsers and " +
+        "structure viewers. Start here when the user wants to open or view a dataset in a viewer, " +
+        "whether or not they name one. Visualizations are not tools, so no tool search lists them.",
       parameters: schema({ dataset_id: STR }, ["dataset_id"]),
       run: (args, ctx) => listVisualizations(ctx.galaxy, args),
     },

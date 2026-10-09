@@ -22,6 +22,9 @@ export const GALAXY_TERMINOLOGY = `## Galaxy
   rather than inventing a workaround. When authoring the UDT definition, fetch
   the \`udt-authoring\` skill first (see Skills repositories below) rather
   than writing the YAML from memory.
+- **Visualization**: a viewer Galaxy opens on a dataset in the browser, such as a genome
+  browser or a structure viewer. Visualizations are not tools and no tool search finds them:
+  to open or view a dataset in a viewer, call \`list_visualizations\` with its id.
 - **Workflow invocation**: a single run of a Galaxy workflow on a history.
 - **IWC**: Intergalactic Workflow Commission -- registry of curated
   workflows. See "Finding a community workflow".`;

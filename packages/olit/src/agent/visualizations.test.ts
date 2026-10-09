@@ -68,6 +68,14 @@ function refused(out: unknown): any {
 }
 
 describe("list_visualizations", () => {
+  it("is described as where showing a dataset starts, viewer named or not", () => {
+    const { description } = visualizationTools().find((t) => t.name === "list_visualizations")!;
+    expect(description).toContain("structure viewers");
+    expect(description).toContain("open or view a dataset in a viewer");
+    expect(description).not.toMatch(/chart|plot/i);
+    expect(description).toContain("no tool search lists them");
+  });
+
   const COMPATIBLE = [
     {
       name: "plotly",

@@ -54,6 +54,12 @@ describe("composition", () => {
     expect(EXECUTING_A_STEP).toContain("Do not spend a turn in a polling loop");
   });
 
+  it("sends opening or viewing a dataset to list_visualizations, and says nothing of charts", () => {
+    expect(GALAXY_TERMINOLOGY).toContain("no tool search finds them");
+    expect(GALAXY_TERMINOLOGY).toContain("call `list_visualizations` with its id");
+    expect(GALAXY_TERMINOLOGY).not.toMatch(/chart|plot/i);
+  });
+
   it("names IWC correctly", () => {
     expect(GALAXY_TERMINOLOGY).toContain("Intergalactic Workflow Commission");
   });
