@@ -1,4 +1,4 @@
-import { createViewer } from "vizarr/dist/index";
+import { createViewer } from "./vendor/vizarr/index.js";
 import axios from "axios";
 
 const appElementId = "#app";
@@ -7,12 +7,13 @@ const appElement = document.querySelector(appElementId);
 
 // Attach mock data for development
 if (import.meta.env.DEV) {
-  // Build the incoming data object
+  // Build the incoming data object; Galaxy passes an absolute root
+  const pageUrl = new URL(window.location.href);
   const dataIncoming = {
     visualization_config: {
-      dataset_id: "09f1e31b9542a75b",
+      dataset_id: pageUrl.searchParams.get("dataset_id") || "__test__",
     },
-    root: "/",
+    root: `${window.location.origin}/`,
   };
 
   // Attach config to the data-incoming attribute
