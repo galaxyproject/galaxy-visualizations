@@ -1,4 +1,4 @@
-import { createViewer } from "vizarr/dist/index";
+import { createViewer } from "./vendor/vizarr/index.js";
 import axios from "axios";
 
 const appElementId = "#app";
