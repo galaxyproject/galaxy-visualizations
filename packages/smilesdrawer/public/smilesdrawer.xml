@@ -1,0 +1,38 @@
+<visualization name="Smiles Drawer" embeddable="true">
+    <description>Visualize molecular structures from SMILES notation</description>
+    <tags>
+        <tag>Chemistry</tag>
+        <tag>Molecules</tag>
+        <tag>SMILES</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">smi</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.smi" ftype="smi" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# SmilesDrawer
+
+Visualizes **2D molecular structures** from SMILES (Simplified Molecular Input Line Entry System) notation.
+
+## Supported format
+- `.smi` — SMILES files (one SMILES string per line, optionally followed by a molecule name)
+
+## Usage
+Select a dataset containing SMILES strings and open it with this visualization.
+The viewer will render each molecule as a 2D structural diagram on an HTML5 canvas.
+
+To learn more about SmilesDrawer, visit:
+[https://github.com/reymond-group/smilesDrawer](https://github.com/reymond-group/smilesDrawer)
+    ]]></help>
+</visualization>
