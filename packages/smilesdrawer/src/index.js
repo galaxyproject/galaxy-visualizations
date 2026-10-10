@@ -25,7 +25,8 @@ const datasetId = config.dataset_id;
 let allMolecules = [];   // [{smiles, name}]
 let filtered     = [];   // subset after search filter
 let currentPage  = 1;
-let currentTheme = "light";   // "light" | "dark"
+let currentTheme = "light";
+let availableThemes = {};
 let drawerOptions = { width: CANVAS_SIZE, height: CANVAS_SIZE };
 
 /* ── Build UI skeleton ──────────────────────────────────────── */
@@ -37,7 +38,6 @@ document.body.innerHTML = `
     <label for="sd-theme-select">Theme</label>
     <select id="sd-theme-select">
       <option value="light">Light</option>
-      <option value="dark">Dark</option>
     </select>
     <label for="sd-col-select">Columns</label>
     <select id="sd-col-select">
@@ -77,6 +77,56 @@ function setStatus(msg) {
 
 function truncate(str, n) {
     return str.length > n ? str.slice(0, n - 1) + "…" : str;
+}
+
+function formatThemeName(name) {
+    return name
+        .split("-")
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+}
+
+function isDarkTheme(themeName) {
+    const bg = availableThemes[themeName]?.BACKGROUND;
+    if (bg && typeof bg === "string" && bg.startsWith("#")) {
+        const hex = bg.replace("#", "");
+        if (hex.length === 6) {
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            return luminance < 128;
+        }
+    }
+    return themeName.toLowerCase().includes("dark");
+}
+
+function populateThemes() {
+    try {
+        const probe = new SmilesDrawer.Drawer(drawerOptions);
+        availableThemes = probe.opts?.themes || {};
+        const themeNames = Object.keys(availableThemes).filter(t => t !== "custom");
+
+        if (themeNames.length > 0) {
+            themeEl.innerHTML = "";
+            themeNames.forEach(theme => {
+                const opt = document.createElement("option");
+                opt.value = theme;
+                opt.textContent = formatThemeName(theme);
+                if (theme === currentTheme) {
+                    opt.selected = true;
+                }
+                themeEl.appendChild(opt);
+            });
+
+            if (!themeNames.includes(currentTheme)) {
+                currentTheme = themeNames.includes("light") ? "light" : themeNames[0];
+                themeEl.value = currentTheme;
+            }
+        }
+    } catch (err) {
+        console.warn("Could not load dynamic themes from SmilesDrawer:", err);
+    }
 }
 
 /* ── Parse text content → [{smiles, name}] ──────────────────── */
@@ -169,7 +219,7 @@ function renderPage() {
         }, (err) => {
             // Show parse error on canvas
             const ctx = canvas.getContext("2d");
-            ctx.fillStyle = currentTheme === "dark" ? "#555" : "#eee";
+            ctx.fillStyle = isDarkTheme(currentTheme) ? "#555" : "#eee";
             ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             ctx.fillStyle = "#c00";
             ctx.font = "11px monospace";
@@ -229,7 +279,7 @@ function applyFilter() {
 /* ── Theme toggle ───────────────────────────────────────────── */
 themeEl.addEventListener("change", () => {
     currentTheme = themeEl.value;
-    document.body.className = currentTheme === "dark" ? "theme-dark" : "";
+    document.body.className = isDarkTheme(currentTheme) ? "theme-dark" : "";
     renderPage();
 });
 
@@ -292,6 +342,10 @@ async function init() {
         setStatus("");
         return;
     }
+
+    // Populate theme selector dynamically from SmilesDrawer built-in themes
+    populateThemes();
+    document.body.className = isDarkTheme(currentTheme) ? "theme-dark" : "";
 
     // 4. Render
     filtered = [...allMolecules];
