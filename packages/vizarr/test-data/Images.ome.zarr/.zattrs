@@ -1,0 +1,36 @@
+{
+    "multiscales": [
+        {
+            "axes": [
+                "t",
+                "c",
+                "z",
+                "y",
+                "x"
+            ],
+            "datasets": [
+                {
+                    "path": "s0"
+                }
+            ],
+            "metadata": {
+                "kwargs": {
+                    "axes_names": [
+                        "t",
+                        "c",
+                        "z",
+                        "y",
+                        "x"
+                    ],
+                    "is_label": false,
+                    "scale": 0.5
+                },
+                "method": "bellavista.utils.ngff_writer.array_utils.ngff_spatially_rescale",
+                "version": null
+            },
+            "name": "gaussian",
+            "type": "gaussian",
+            "version": "0.3"
+        }
+    ]
+}
