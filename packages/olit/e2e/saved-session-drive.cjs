@@ -77,6 +77,15 @@ async function save(frame) {
     check("it is said to be the saved session", /Opened a saved Olit session/.test(text));
     check("nothing claims the load failed", !/Could not open saved session/.test(text));
 
+    const fromUrl = await machine(browser, `${HOST}?visualization_id=${visualization?.id}&incoming_id=0&frame=1`);
+    const fromUrlText = await fromUrl.frame.locator("body").innerText();
+    check(
+        "a saved session named only in the page's query opens too",
+        fromUrlText.includes("remember the saved session marker") &&
+            /Opened a saved Olit session/.test(fromUrlText),
+        fromUrlText.replace(/\s+/g, " ").slice(0, 300),
+    );
+
     await say(second.frame, "and one more turn");
     const after = await save(second.frame);
     check(

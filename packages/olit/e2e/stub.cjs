@@ -263,7 +263,10 @@ function hostPage(url) {
               ? { dataset_id: datasetId }
               : {},
         visualization_plugin: pluginDict(),
-        ...(saved ? { visualization_id: saved.id, visualization_title: saved.title } : {}),
+        // With `incoming_id=0` the id is only in the page's own query.
+        ...(saved && params.get("incoming_id") !== "0"
+            ? { visualization_id: saved.id, visualization_title: saved.title }
+            : {}),
     };
     if (params.get("frame")) {
         // As Galaxy's VisualizationFrame.vue mounts a plugin: it asks the plugin API for the

@@ -59,6 +59,15 @@ function autosize(input: HTMLTextAreaElement): void {
   input.style.overflowY = wanted > MAX_INPUT_HEIGHT ? "auto" : "hidden";
 }
 
+/** The hosting Galaxy page's query; its iframe has no src, so it shares Galaxy's origin. */
+function hostSearch(): string {
+  try {
+    return window.parent === window ? "" : window.parent.location.search;
+  } catch {
+    return "";
+  }
+}
+
 async function main() {
   const scriptUrl = new URL(import.meta.url);
   const containerId = scriptUrl.searchParams.get("container") || "app";
@@ -68,7 +77,7 @@ async function main() {
     await seedDevIncoming(container);
   }
 
-  const incoming = parseIncoming(container);
+  const incoming = parseIncoming(container, hostSearch());
   applyOrbitTheme("light", document.documentElement);
 
   const el = mountLayout(container);
