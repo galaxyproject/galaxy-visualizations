@@ -74,15 +74,15 @@ async function save(frame) {
         text.includes("remember the saved session marker"),
         text.replace(/\s+/g, " ").slice(0, 300),
     );
-    check("it is said to be the saved session", /Opened a saved Olit session/.test(text));
-    check("nothing claims the load failed", !/Could not open saved session/.test(text));
+    check("it is said to be the saved session", /Opened a saved conversation/.test(text));
+    check("nothing claims the load failed", !/Could not open saved conversation/.test(text));
 
     const fromUrl = await machine(browser, `${HOST}?visualization_id=${visualization?.id}&incoming_id=0&frame=1`);
     const fromUrlText = await fromUrl.frame.locator("body").innerText();
     check(
         "a saved session named only in the page's query opens too",
         fromUrlText.includes("remember the saved session marker") &&
-            /Opened a saved Olit session/.test(fromUrlText),
+            /Opened a saved conversation/.test(fromUrlText),
         fromUrlText.replace(/\s+/g, " ").slice(0, 300),
     );
 
@@ -102,7 +102,7 @@ async function save(frame) {
         const other = await machine(browser, `${HOST}?visualization_id=${visualization?.id}&frame=1`, false);
         const whose = owner ? "another user's session" : "a session with no owner";
         const refused = await other.frame
-            .locator("text=/Olit opens only your own sessions/")
+            .locator("text=/Olit opens only your own saved conversations/")
             .first()
             .waitFor({ timeout: 30000 })
             .then(() => true, () => false);

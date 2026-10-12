@@ -38,7 +38,7 @@ const seen = async () => (await fetch(`${STUB}/__seen`)).json();
     await storedProvider(p, { provider: "openrouter", baseUrl: `${STUB}/v1`, apiKey: KEY, model: "stub-model" });
     await p.goto(APP, { waitUntil: "domcontentloaded" });
 
-    const ready = await waitFor(p, () => /olit ready|resumed this history/i.test(document.body.innerText), 300000);
+    const ready = await waitFor(p, () => /olit ready|restored this history/i.test(document.body.innerText), 300000);
     check("the agent is up", ready);
     if (!ready) {
         console.log(logs.slice(-20).join("\n"));

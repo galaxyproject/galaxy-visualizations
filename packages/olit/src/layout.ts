@@ -33,7 +33,7 @@ export const LAYOUT = `
         </div>
       </div>
       <div id="app-footer">
-        <button id="save-btn" class="footer-control is-interactive" title="Save this conversation as a Galaxy visualization">Save</button>
+        <button id="save-btn" class="footer-control is-interactive" title="Save this conversation to Galaxy to reopen it on any device">Save</button>
         <button id="model-btn" class="footer-control is-interactive" title="Change the model provider">Model</button>
         <button id="artifact-btn" class="footer-control is-interactive" title="Show or hide the artifact pane (Ctrl/Cmd+\\)">Artifact</button>
         <div id="usage-bar" class="footer-control hidden" title="Session token usage">

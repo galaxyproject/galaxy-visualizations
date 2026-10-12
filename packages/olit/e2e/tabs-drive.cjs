@@ -38,7 +38,7 @@ const shows = (page, pattern, ms = 120000) =>
     check("it takes the conversation over", await shows(second, /olit ready/));
     check("with the conversation it took", /remember this/.test(await second.evaluate(() => document.body.innerText)));
     check("kept in the browser's files, not in memory",
-        !/not keeping this conversation/i.test(await second.evaluate(() => document.body.innerText)));
+        !/can't keep conversations/i.test(await second.evaluate(() => document.body.innerText)));
     check("the first tab says it lost the conversation", await shows(first, /another tab, which has it now/, 30000));
     check("and takes no more input", await first.evaluate(() => document.querySelector("#input").disabled));
 

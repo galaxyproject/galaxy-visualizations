@@ -18,7 +18,7 @@ function check(name, ok, detail) {
 
 const paneFrames = (p) => p.evaluate(() => document.querySelectorAll("#artifact-content iframe").length);
 /** The page says so when it is not keeping the conversation, and nothing could survive a reload. */
-const durable = (p) => p.evaluate(() => !/not keeping this conversation/i.test(document.body.innerText));
+const durable = (p) => p.evaluate(() => !/can't keep conversations/i.test(document.body.innerText));
 
 (async () => {
     const browser = await chromium.launch();

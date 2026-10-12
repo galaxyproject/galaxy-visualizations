@@ -27,7 +27,7 @@ function check(name, ok, detail) {
         }
         return false;
     };
-    const booted = () => wait(() => /olit ready|Resumed this history/i.test(document.body.innerText), 60000);
+    const booted = () => wait(() => /olit ready|Restored this history/i.test(document.body.innerText), 60000);
     const idle = () => wait(() => !document.querySelector("#send-btn").classList.contains("hidden"), 60000);
 
     // The default scenario answers with a destructive call and opens the gate; this one just replies.
@@ -54,7 +54,7 @@ function check(name, ok, detail) {
 
     const after = await page.evaluate(() => document.body.innerText);
     check("the conversation came back", after.includes(ASK), "user message replayed");
-    check("the resume is announced", /Resumed this history/i.test(after));
+    check("the resume is announced", /Restored this history/i.test(after));
     check("no traceback", !/Traceback|PythonError/.test(after));
     await page.screenshot({ path: `${OUT}/session-resumed.png` });
 
@@ -63,7 +63,7 @@ function check(name, ok, detail) {
     await page.waitForTimeout(500);
     const reset = await page.evaluate(() => document.body.innerText);
     check("reset clears the panel", !reset.includes(ASK));
-    check("reset says the record is safe", /record on Galaxy is untouched/i.test(reset));
+    check("reset says the notebook is unchanged", /its notebook is unchanged/i.test(reset));
 
     await page.reload({ waitUntil: "domcontentloaded" });
     check("booted after reset", await booted());
