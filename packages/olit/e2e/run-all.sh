@@ -63,7 +63,7 @@ if ! env -u LLM_PROVIDER -u LLM_ROOT -u LLM_MODEL -u LLM_KEY npm run build > /tm
     exit 1
 fi
 
-for d in credentials artifact-pane provider-switch galaxy-boot galaxy-frame saved-session recovery reset python-isolation; do
+for d in credentials artifact-pane artifact-resize provider-switch galaxy-boot galaxy-frame saved-session recovery reset python-isolation; do
     ran="$ran $d"
     curl -sf -o /dev/null http://127.0.0.1:8099/__reset
     if node "e2e/$d-drive.cjs" > "/tmp/olit-e2e-$d.log" 2>&1; then

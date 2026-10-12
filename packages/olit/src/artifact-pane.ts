@@ -60,6 +60,14 @@ export function mountArtifactPane(container: HTMLElement): ArtifactPane {
   // The pane reads its own contents rather than trusting a caller to announce them.
   new MutationObserver(() => show(narrow || preferred)).observe(content, { childList: true });
 
+  // Charts sized to their container measure it again only on a window resize, so whatever
+  // opens or resizes the pane announces it as one; a chart drawn while it was shut is 0x0.
+  new ResizeObserver(() => {
+    if (content.clientWidth && content.clientHeight) {
+      window.dispatchEvent(new Event("resize"));
+    }
+  }).observe(content);
+
   window.addEventListener("resize", () => {
     const isNarrow = window.innerWidth < BREAKPOINT;
     if (isNarrow === narrow) {
