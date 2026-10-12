@@ -11,6 +11,7 @@ import {
 import { query, segment, type Galaxy, type Web } from "./galaxy";
 import type { ArtifactOf } from "../artifacts/kinds";
 import { fail, type Artifact, type Context, type OlitTool } from "./tool";
+import { isTerminal, outcomeOf } from "./watch";
 import * as vega from "./vega";
 import * as tables from "./tables";
 import {
@@ -46,6 +47,9 @@ const rootPath = (galaxy: Galaxy) => new URL(galaxy.root || "/", "http://localho
 
 /** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
 export const NOT_OFFERED = new Set(["olit", "vintent"]);
+
+/** The dataset states Galaxy tests a plugin's datatypes in; in any other, no plugin matches. */
+const VIEWABLE = new Set(["ok", "deferred"]);
 
 const MATCH_CAP = 5;
 const ROW_CAP = 100;
@@ -136,9 +140,30 @@ async function preferredVisualizations(galaxy: Galaxy, extension: unknown): Prom
   return new Set(mappings.filter(isObject).map((m) => m.visualization));
 }
 
+/** Why Galaxy offers no visualization for a dataset in its state, or nothing when it would. */
+function notViewable(dataset: Json): Json | undefined {
+  const state = dataset.state;
+  if (VIEWABLE.has(state)) {
+    return undefined;
+  }
+  const final = isTerminal("dataset", state) && outcomeOf("dataset", state) !== "paused";
+  return {
+    error:
+      `Dataset is in state ${quote(state)}, and Galaxy offers visualizations only for a ` +
+      'dataset in state "ok", whatever its datatype.',
+    hint: final
+      ? "It will not reach that state, so no visualization can display it."
+      : "Wait until it is ok, then call list_visualizations for it again.",
+  };
+}
+
 async function listVisualizations(galaxy: Galaxy, a: Json): Promise<Json> {
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(a.dataset_id)}`)) || {};
   const extension = dataset.extension;
+  const unready = notViewable(dataset);
+  if (unready) {
+    return { dataset_id: a.dataset_id, extension, state: dataset.state, ...unready };
+  }
   const numeric = tables.numericColumns(dataset);
 
   let matching: Json[] =
@@ -182,6 +207,10 @@ async function resolveVisualization(
     };
   }
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(datasetId)}`)) || {};
+  const unready = notViewable(dataset);
+  if (unready) {
+    return { refusal: { ...unready, error: `Refused: ${unready.error}` } };
+  }
   const compatible: Json[] =
     (await galaxy.get(`api/plugins${query({ dataset_id: datasetId })}`)) || [];
   if (!compatible.some((p) => p.name === name)) {

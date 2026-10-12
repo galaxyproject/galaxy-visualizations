@@ -525,7 +525,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.includes("/api/datasets/")) {
         const id = decodeURIComponent(url.split("/api/datasets/")[1].split(/[/?]/)[0]);
-        return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", history_id: historyOf(id) });
+        return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", state: "ok", history_id: historyOf(id) });
     }
     // A tool run as Galaxy's POST /api/tools answers it: the queued job and the output it will write.
     if (url.startsWith("/api/tools") && req.method === "POST") {
