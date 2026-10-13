@@ -157,7 +157,31 @@ function notViewable(dataset: Json): Json | undefined {
   };
 }
 
+/** The datatypes a plugin renders: Galaxy matches only `ext` equality tests, subclasses included. */
+function acceptedDatatypes(plugin: Json): string[] {
+  const tests = ((plugin.data_sources as Json[]) || []).flatMap((s) => (s.tests as Json[]) || []);
+  const datatypes = tests.filter((t) => t.attr === "ext" && t.type === "eq").map((t) => t.result);
+  return [...new Set(datatypes)].sort();
+}
+
+/** Every visualization this server offers, with the datatypes each renders. */
+async function installedVisualizations(galaxy: Galaxy): Promise<Json> {
+  const installed: Json[] = (await galaxy.get("api/plugins")) || [];
+  return {
+    visualizations: installed
+      .filter((p) => !NOT_OFFERED.has(p.name))
+      .map((p) => ({ name: p.name, description: p.description, datatypes: acceptedDatatypes(p) }))
+      .sort((p, q) => p.name.localeCompare(q.name)),
+    hint:
+      "Each renders datasets of its datatypes or ones derived from them. Pass a dataset_id to " +
+      "see which can display that dataset.",
+  };
+}
+
 async function listVisualizations(galaxy: Galaxy, a: Json): Promise<Json> {
+  if (!present(a.dataset_id)) {
+    return installedVisualizations(galaxy);
+  }
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(a.dataset_id)}`)) || {};
   const extension = dataset.extension;
   const unready = notViewable(dataset);
@@ -202,7 +226,7 @@ async function resolveVisualization(
     return {
       refusal: {
         error: `Refused: ${quote(name)} is not an installed visualization.`,
-        hint: "Call list_visualizations for the dataset to see what this server offers.",
+        hint: "Call list_visualizations without a dataset_id to see what this server offers.",
       },
     };
   }
@@ -299,7 +323,7 @@ async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown
   if (!plugin.name) {
     return fail(
       `Refused: ${quote(name)} is not an installed visualization. Call list_visualizations ` +
-        "for a dataset to see what this server offers.",
+        "without a dataset_id to see what this server offers.",
     );
   }
   return {
@@ -889,8 +913,10 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
       description:
         "List the Galaxy visualizations that can display a dataset, such as genome browsers and " +
         "structure viewers. Start here when the user wants to open or view a dataset in a viewer, " +
-        "whether or not they name one. Visualizations are not tools, so no tool search lists them.",
-      parameters: schema({ dataset_id: STR }, ["dataset_id"]),
+        "whether or not they name one. Without a dataset_id, list every visualization this " +
+        "server has and the datatypes each renders. Visualizations are not tools, so no tool " +
+        "search lists them.",
+      parameters: schema({ dataset_id: STR }, []),
       run: (args, ctx) => listVisualizations(ctx.galaxy, args),
     },
   ];

@@ -86,6 +86,7 @@ describe("list_visualizations", () => {
     expect(description).toContain("open or view a dataset in a viewer");
     expect(description).not.toMatch(/chart|plot/i);
     expect(description).toContain("no tool search lists them");
+    expect(description).toContain("Without a dataset_id, list every visualization");
   });
 
   const COMPATIBLE = [
@@ -109,6 +110,48 @@ describe("list_visualizations", () => {
     });
     return call("list_visualizations", g, { dataset_id: "d1" });
   }
+
+  it("lists every offered visualization and its datatypes without a dataset", async () => {
+    const asked: string[] = [];
+    const g = fakeGalaxy((path) => {
+      asked.push(path);
+      if (path === "api/plugins")
+        return [
+          {
+            name: "cytoscape",
+            description: "Graph viewer",
+            data_sources: [
+              {
+                model_class: "HistoryDatasetAssociation",
+                tests: [{ attr: "ext", type: "eq", result: "cytoscapejson" }],
+              },
+            ],
+          },
+          {
+            name: "ngl",
+            description: "Molecular structures",
+            data_sources: [
+              {
+                model_class: "HistoryDatasetAssociation",
+                tests: [
+                  { attr: "ext", type: "eq", result: "pdb" },
+                  { attr: "ext", type: "eq", result: "gro" },
+                ],
+              },
+            ],
+          },
+          { name: "olit", data_sources: [] },
+        ];
+      return [];
+    });
+    const out = await call("list_visualizations", g, {});
+    expect(out.visualizations).toEqual([
+      { name: "cytoscape", description: "Graph viewer", datatypes: ["cytoscapejson"] },
+      { name: "ngl", description: "Molecular structures", datatypes: ["gro", "pdb"] },
+    ]);
+    expect(out.hint).toContain("Pass a dataset_id");
+    expect(asked).toEqual(["api/plugins"]);
+  });
 
   it("lets the server decide what is compatible", async () => {
     const out = await list({

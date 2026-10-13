@@ -132,16 +132,16 @@ export async function catalogMissHint(
     return exact
       ? `[olit] '${query}' is an installed visualization, not a Galaxy tool, so the tools this ` +
           "search matched only share letters with it. Visualizations are not in the tool catalog: " +
-          "list_visualizations names the ones that can render a given dataset."
+          "list_visualizations without a dataset_id lists what this server has and the datatypes each renders."
       : undefined;
   }
   if (!namesVisualization(plugins, query)) {
     return undefined;
   }
   return (
-    `[olit] No Galaxy tool matched '${query}', which names an installed visualization. ` +
-    "Visualizations are not in the tool catalog: list_visualizations names the ones that can " +
-    "render a given dataset."
+    `[olit] No Galaxy tool matched '${query}', which names a visualization installed on this ` +
+    "server. Visualizations are not in the tool catalog: list_visualizations without a " +
+    "dataset_id lists them and the datatypes each renders."
   );
 }
 

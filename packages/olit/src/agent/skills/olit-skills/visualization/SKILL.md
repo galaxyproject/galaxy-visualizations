@@ -61,9 +61,11 @@ Showing is still the default. Seeing a visualization is not a reason to keep it 
 
 ## Finding out what is available
 
-`list_visualizations` takes a `dataset_id` and returns what this server can display it with. Call
-it before saying anything about which visualizations exist. The installed set differs between
-servers and changes over time, so it is never something to answer from memory.
+`list_visualizations` with a `dataset_id` returns what this server can display that dataset with;
+without one, it returns every visualization the server has and the datatypes each renders. Call it
+before saying anything about which visualizations exist. A visualization missing for one dataset
+may still be installed for another datatype. The installed set differs between servers and changes
+over time, so it is never something to answer from memory.
 
 It answers only that question. For the dataset's columns and their types, use
 `get_dataset_details`. Read it before writing a `vega_dataset` spec: the columns it reports are
