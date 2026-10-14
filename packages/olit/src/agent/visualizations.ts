@@ -9,7 +9,7 @@ import {
   type ValueIssueType,
 } from "galaxy-charts/runtime";
 
-import { query, segment, type Galaxy, type Web } from "./galaxy";
+import { HttpError, query, segment, type Galaxy, type Web } from "./galaxy";
 import type { ArtifactOf } from "../artifacts/kinds";
 import { fail, type Artifact, type Context, type OlitTool } from "./tool";
 import { isTerminal, outcomeOf } from "./watch";
@@ -47,6 +47,33 @@ const rootPath = (galaxy: Galaxy) => new URL(galaxy.root || "/", "http://localho
 
 /** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
 export const NOT_OFFERED = new Set(["olit", "vintent"]);
+
+const NOT_INSTALLED_HINT =
+  "Call list_visualizations without a dataset_id to see what this server offers.";
+
+const notInstalled = (name: unknown) =>
+  `Refused: ${quote(name)} is not an installed visualization.`;
+
+/** The definition of a visualization this server offers, or what to say when it offers none by that
+ * name. Galaxy answers an unknown name with 404; any other failure is the server's and propagates. */
+async function installedPlugin(
+  galaxy: Galaxy,
+  name: unknown,
+): Promise<{ plugin?: Json; missing?: string }> {
+  if (NOT_OFFERED.has(name as string)) {
+    return { missing: notInstalled(name) };
+  }
+  let plugin: unknown;
+  try {
+    plugin = await galaxy.get(`api/plugins/${segment(name)}`);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      return { missing: notInstalled(name) };
+    }
+    throw error;
+  }
+  return isObject(plugin) && plugin.name ? { plugin } : { missing: notInstalled(name) };
+}
 
 /** The dataset states Galaxy tests a plugin's datatypes in; in any other, no plugin matches. */
 const VIEWABLE = new Set(["ok", "deferred"]);
@@ -224,10 +251,7 @@ async function resolveVisualization(
   const installed: Json[] = (await galaxy.get("api/plugins")) || [];
   if (NOT_OFFERED.has(name) || !installed.some((p) => p.name === name)) {
     return {
-      refusal: {
-        error: `Refused: ${quote(name)} is not an installed visualization.`,
-        hint: "Call list_visualizations without a dataset_id to see what this server offers.",
-      },
+      refusal: { error: notInstalled(name), hint: NOT_INSTALLED_HINT },
     };
   }
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(datasetId)}`)) || {};
@@ -262,12 +286,9 @@ function visualizationConfig(a: Json): Json {
 
 async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown> {
   const name = a.visualization;
-  const plugin: Json = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
-  if (!plugin.name) {
-    return fail(
-      `Refused: ${quote(name)} is not an installed visualization. Call list_visualizations ` +
-        "without a dataset_id to see what this server offers.",
-    );
+  const { plugin, missing } = await installedPlugin(galaxy, name);
+  if (!plugin) {
+    return fail(`${missing} ${NOT_INSTALLED_HINT}`);
   }
   let parameters: Json;
   try {
@@ -309,9 +330,9 @@ async function getVisualizationOptions(
 ): Promise<unknown> {
   const name = a.visualization;
   const asked = a.parameter;
-  const plugin = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
-  if (!isObject(plugin) || !plugin.name) {
-    return fail(`Refused: ${quote(name)} is not an installed visualization.`);
+  const { plugin, missing } = await installedPlugin(galaxy, name);
+  if (!plugin) {
+    return fail(`${missing} ${NOT_INSTALLED_HINT}`);
   }
 
   const { hit, problem } = resolveParameter(plugin, asked, a.config);
@@ -397,7 +418,10 @@ async function checked(
   if (refusal) {
     return { refusal };
   }
-  const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
+  const { plugin, missing } = await installedPlugin(galaxy, a.visualization);
+  if (!plugin) {
+    return { refusal: { error: missing, hint: NOT_INSTALLED_HINT } };
+  }
   const chosen = { ...a, settings: structuredClone(a.settings), tracks: structuredClone(a.tracks) };
   // The values as sent are checked before galaxy-charts' coercion could hide a wrong one; from
   // then on, checks and the stored config are the one resolved config.

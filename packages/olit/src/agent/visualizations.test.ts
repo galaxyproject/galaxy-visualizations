@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parametersSchema } from "galaxy-charts/runtime";
 
 import { toPage, type Artifact } from "../artifacts/kinds";
-import { connectWeb, type Galaxy } from "./galaxy";
+import { connectWeb, HttpError, type Galaxy } from "./galaxy";
 import { claim, type Context, Outcome, rendered } from "./tool";
 import {
   chartOptions,
@@ -383,6 +383,62 @@ describe("get_visualization_details", () => {
   it("does not publish a numeric default that is not a number", async () => {
     const plugin = { name: "igv", settings: [{ name: "width", type: "integer", value: "wide" }] };
     expect((await settingsOf(plugin)).width).not.toHaveProperty("default");
+  });
+});
+
+describe("a visualization the server does not have", () => {
+  const unknown = (status: number) =>
+    fakeGalaxy((path) => {
+      if (path.startsWith("api/plugins/")) {
+        throw new HttpError(`HTTP ${status}: Unknown or invalid visualization`, status);
+      }
+      return [];
+    });
+
+  it("is refused with where to look, by details and options alike", async () => {
+    for (const [tool, args] of [
+      ["get_visualization_details", { visualization: "nope" }],
+      ["get_visualization_options", { visualization: "nope", parameter: "settings.x" }],
+    ] as const) {
+      const text = refused(await call(tool, unknown(404), args));
+      expect(text).toBe(
+        'Refused: "nope" is not an installed visualization. ' +
+          "Call list_visualizations without a dataset_id to see what this server offers.",
+      );
+    }
+  });
+
+  it("is told apart from a server failure, which propagates", async () => {
+    await expect(
+      call("get_visualization_details", unknown(500), { visualization: "igv" }),
+    ).rejects.toThrow("HTTP 500");
+  });
+
+  it("includes one this session does not offer, without asking Galaxy", async () => {
+    const asked: string[] = [];
+    const g = fakeGalaxy((path) => {
+      asked.push(path);
+      return { name: "olit" };
+    });
+    expect(
+      refused(await call("get_visualization_details", g, { visualization: "olit" })),
+    ).toContain("not an installed visualization");
+    expect(asked).toEqual([]);
+  });
+
+  it("is refused by a save that finds the definition gone after the listing", async () => {
+    const g = fakeGalaxy((path) => {
+      if (path.startsWith("api/plugins/")) throw new HttpError("HTTP 404: gone", 404);
+      if (path.startsWith("api/datasets/")) return { extension: "tabular", state: "ok" };
+      return [{ name: "atlas" }];
+    });
+    const out = await call("save_visualization", g, { dataset_id: "d1", visualization: "atlas" });
+    expect(out).toMatchObject({
+      saved: false,
+      error: 'Refused: "atlas" is not an installed visualization.',
+      hint: "Call list_visualizations without a dataset_id to see what this server offers.",
+    });
+    expect(g.posted).toBeUndefined();
   });
 });
 
@@ -1021,7 +1077,7 @@ describe("show_visualization and save_visualization", () => {
           },
         };
       const declared = path.match(/^api\/plugins\/(.+)$/);
-      if (declared) return plugins[declared[1]] ?? [];
+      if (declared) return plugins[declared[1]] ?? { name: declared[1] };
       if (path.startsWith("api/plugins?")) return compatible.map((n) => ({ name: n }));
       if (path === "api/plugins")
         return [...INSTALLED, ...compatible.filter((n) => n !== "atlas").map((n) => ({ name: n }))];
@@ -1791,6 +1847,7 @@ describe("show_visualization and save_visualization", () => {
 describe("artifact claim", () => {
   const DATASET = "0f74b56904a59856";
   const galaxy = fakeGalaxy((path) => {
+    if (path.startsWith("api/plugins/")) return { name: "ngl", settings: [], tracks: [] };
     if (path.startsWith("api/plugins")) return [{ name: "ngl", settings: [], tracks: [] }];
     if (path.startsWith("api/datasets/"))
       return { id: DATASET, name: "peptide.pdb", extension: "pdb", state: "ok" };
