@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parametersSchema } from "galaxy-charts/runtime";
 
 import { toPage, type Artifact } from "../artifacts/kinds";
 import { connectWeb, type Galaxy } from "./galaxy";
@@ -301,58 +302,50 @@ describe("get_visualization_details", () => {
       { visualization: "igv" },
     );
 
-  it("states the object a dataset input stores", async () => {
-    const track = (await details()).tracks[0];
-    expect(track.stores.type).toBe("object");
-    expect(track.stores.required).toEqual(["id"]);
+  const schemaOf = async (plugin: Json = IGV) => (await details(plugin)).parameters_schema;
+  const settingsOf = async (plugin: Json = IGV) =>
+    (await schemaOf(plugin)).properties.settings.properties;
+
+  it("publishes galaxy-charts' schema of the settings and tracks", async () => {
+    const schema = await schemaOf();
+    expect(schema.type).toBe("object");
+    expect(schema.additionalProperties).toBe(false);
+    expect(Object.keys(schema.properties)).toEqual(["settings", "tracks"]);
   });
 
-  it("states the datatypes a dataset input accepts", async () => {
-    expect((await details()).tracks[0].options).toEqual({
-      kind: "history_dataset",
-      extension: "bam,bed",
-      resolve: "get_visualization_options",
-      chosen_by: "an option's id, as get_visualization_options lists it",
-    });
+  it("states the object a dataset input stores and the datatypes it accepts", async () => {
+    const track = (await schemaOf()).properties.tracks.items.properties.urlDataset;
+    expect(track.type).toBe("object");
+    expect(track.required).toEqual(["id"]);
+    expect(track.gx_source).toEqual({ kind: "history_dataset" });
+    expect(track.gx_extensions).toEqual(["bam", "bed"]);
   });
 
-  it("expands a conditional into its cases", async () => {
-    const source = (await details()).settings[1];
-    expect(source.cases.map((c: Json) => c.when)).toEqual(["igv", "history"]);
-    expect(source.chosen_by.name).toBe("origin");
-    const historyGenome = source.cases[1].inputs[0];
-    expect(historyGenome.options.extension).toBe("fasta,twobit");
-    expect(historyGenome.stores.required).toEqual(["id"]);
-  });
-
-  it("names where a remote option source is fetched", async () => {
-    expect((await details()).settings[1].cases[0].inputs[0].options).toEqual({
+  it("gives a conditional one branch per case", async () => {
+    const source = (await settingsOf()).source;
+    expect(source.oneOf.map((branch: Json) => branch.properties.origin)).toEqual([
+      { const: "igv", title: "IGV" },
+      { const: "history", title: "History" },
+    ]);
+    expect(source.oneOf[1].properties.genome.gx_extensions).toEqual(["fasta", "twobit"]);
+    expect(source.oneOf[0].properties.genome.gx_source).toEqual({
       kind: "data_json",
       url: "https://x/g.json",
-      resolve: "get_visualization_options",
-      chosen_by: "an option's id, as get_visualization_options lists it",
     });
-  });
-
-  it("names no call for a declared source", async () => {
-    expect((await details()).settings[1].chosen_by.options).not.toHaveProperty("resolve");
   });
 
   it("states a string for a plain text input and claims nothing else", async () => {
-    const locus = (await details()).settings[0];
-    expect(locus.stores).toEqual({
-      $schema: "https://json-schema.org/draft/2020-12/schema",
-      type: "string",
-    });
-    expect(locus).not.toHaveProperty("options");
+    const locus = (await settingsOf()).locus;
+    expect(locus).toEqual({ type: "string", gx_type: "gx_text", default: "all" });
   });
 
   it("refuses an unknown visualization", async () => {
     expect(refused(await details({}))).toContain("not an installed visualization");
   });
 
-  it("publishes a declared default", async () => {
-    expect((await details()).settings[0].default).toBe("all");
+  it("refuses a plugin declaring an input type galaxy-charts does not know", async () => {
+    const plugin = { name: "locuszoom", settings: [{ name: "chromosome", type: "string" }] };
+    expect(refused(await details(plugin))).toContain("Unknown input type 'string'");
   });
 
   it("publishes the default that chooses a conditional's case", async () => {
@@ -360,8 +353,8 @@ describe("get_visualization_details", () => {
       ...IGV.settings[1],
       test_param: { name: "origin", type: "select", value: "igv" },
     };
-    const published = (await details({ name: "igv", settings: [source] })).settings[0];
-    expect(published.chosen_by.default).toBe("igv");
+    const published = (await settingsOf({ name: "igv", settings: [source] })).source;
+    expect(published.default).toEqual({ origin: "igv" });
   });
 
   it("coerces a default by what the contract declares", async () => {
@@ -372,22 +365,24 @@ describe("get_visualization_details", () => {
         { name: "width", type: "integer", value: "800" },
         { name: "ratio", type: "float", value: "1.5" },
         { name: "title", type: "text", value: "800" },
+        { name: "legend", type: "boolean" },
       ],
     };
     const published = Object.fromEntries(
-      (await details(plugin)).settings.map((p: Json) => [p.name, p.default]),
+      Object.entries(await settingsOf(plugin)).map(([name, p]) => [name, (p as Json).default]),
     );
-    expect(published).toEqual({ show_legend: true, width: 800, ratio: 1.5, title: "800" });
-  });
-
-  it("publishes an unset switch as off, as galaxy-charts reads it", async () => {
-    const plugin = { name: "igv", settings: [{ name: "legend", type: "boolean" }] };
-    expect((await details(plugin)).settings[0].default).toBe(false);
+    expect(published).toEqual({
+      show_legend: true,
+      width: 800,
+      ratio: 1.5,
+      title: "800",
+      legend: false,
+    });
   });
 
   it("does not publish a numeric default that is not a number", async () => {
     const plugin = { name: "igv", settings: [{ name: "width", type: "integer", value: "wide" }] };
-    expect((await details(plugin)).settings[0]).not.toHaveProperty("default");
+    expect((await settingsOf(plugin)).width).not.toHaveProperty("default");
   });
 });
 
@@ -540,6 +535,18 @@ describe("get_visualization_options", () => {
     expect(out.parameter).toBe("settings.source.genome");
   });
 
+  it("refuses a path with an empty segment rather than skipping it", async () => {
+    for (const parameter of [
+      "settings..source.genome",
+      "tracks[0]..displayMode",
+      "settings.source.genome.",
+    ]) {
+      expect(refused(await options({ parameter, config: builtin }))).toContain(
+        "is not a parameter path",
+      );
+    }
+  });
+
   it("refuses a path not rooted at a group", async () => {
     expect(refused(await options({ parameter: "source.genome", config: builtin }))).toContain(
       "is not a parameter path",
@@ -559,6 +566,96 @@ describe("get_visualization_options", () => {
     expect(out.options[0]).toEqual({ id: "EXPANDED", name: "Expanded" });
     expect(out.source).toBe("declared");
     expect(out.total).toBe(1);
+  });
+
+  it("reads a track parameter named with the index a refusal gives it", async () => {
+    const out = await options(
+      { parameter: "tracks[0].displayMode" },
+      fakeCharts([{ label: "Expanded", value: "EXPANDED" }]),
+    );
+    expect(out.parameter).toBe("tracks.displayMode");
+  });
+
+  describe("a conditional inside tracks", () => {
+    // One definition, shared by every track; each track's own values pick its branch.
+    const withDefault = (value?: string) => ({
+      name: "tracked",
+      tracks: [
+        {
+          ...IGV.settings[0],
+          test_param: { ...IGV.settings[0].test_param, ...(value ? { value } : {}) },
+        },
+      ],
+    });
+    const genome = (index: number, config: Json, plugin: Json = withDefault("igv")) => {
+      const charts = fakeCharts([HG19]);
+      return options({ parameter: `tracks[${index}].source.genome`, config }, charts, plugin).then(
+        (out) => ({ out, asked: charts.asked.map((a) => a.input.type) }),
+      );
+    };
+    const tracks = (...sources: Json[]) => ({ tracks: sources.map((source) => ({ source })) });
+
+    it("resolves each track's branch from that track alone", async () => {
+      const config = tracks({ origin: "builtin" }, { origin: "igv" }, { origin: "builtin" });
+      const picked = await Promise.all([0, 1, 2].map((i) => genome(i, config)));
+      expect(picked.map(({ out }) => out.source)).toEqual([
+        "data_table",
+        "data_json",
+        "data_table",
+      ]);
+      expect(picked.map(({ asked }) => asked)).toEqual([
+        ["data_table"],
+        ["data_json"],
+        ["data_table"],
+      ]);
+    });
+
+    it("takes the default branch for a track that omits its test value or does not exist", async () => {
+      const config = tracks({ origin: "builtin" }, {});
+      for (const index of [1, 5]) {
+        expect((await genome(index, config)).out.source).toBe("data_json");
+      }
+    });
+
+    it("refuses an undeclared case rather than falling back to the default", async () => {
+      const { out, asked } = await genome(1, tracks({ origin: "igv" }, { origin: "remote" }));
+      expect(refused(out)).toContain('selects its inputs by "origin"');
+      expect(asked).toEqual([]);
+    });
+
+    it("names the track a refusal needs, and refuses tracks that are not a list", async () => {
+      const text = refused((await genome(1, tracks({ origin: "builtin" }), withDefault())).out);
+      expect(text).toContain('config whose tracks[1] is {"source":{"origin":"<value>"}}');
+      const object = { tracks: { source: { origin: "builtin" } } };
+      expect(refused((await genome(0, object)).out)).toContain("config.tracks is a list");
+    });
+
+    it("refuses a track index that is not a safe whole number", async () => {
+      for (const parameter of [
+        "tracks[].source.genome",
+        "tracks[-1].source.genome",
+        "tracks[9007199254740993].source.genome",
+      ]) {
+        const out = await options({ parameter, config: tracks({}) }, undefined, withDefault("igv"));
+        expect(refused(out)).toContain("is not a parameter path");
+      }
+    });
+  });
+
+  it("resolves an omitted test parameter to the case the schema's default branch holds", async () => {
+    const source = {
+      ...IGV.settings[0],
+      test_param: { ...IGV.settings[0].test_param, value: "builtin" },
+    };
+    const plugin = { ...IGV, settings: [source] };
+    const absent = (
+      parametersSchema(plugin as never).properties as Json
+    ).settings.properties.source.oneOf.find((branch: Json) => !("origin" in branch.properties));
+    expect(absent.properties.genome.gx_type).toBe("gx_data_table");
+    for (const config of [undefined, { settings: { source: {} } }]) {
+      const out = await options({ parameter: "settings.source.genome", config }, undefined, plugin);
+      expect(out.source).toBe("data_table");
+    }
   });
 
   it("answers a search with its matches alone", async () => {
@@ -803,6 +900,25 @@ describe("get_visualization_options", () => {
       );
       expect(out.parameter).toBe("settings.mode.depth");
     }
+  });
+
+  it("gives a false or defaulted-false case none of the true case's inputs", async () => {
+    const declared = (value?: string) => ({
+      ...BOOLEAN,
+      settings: [{ ...BOOLEAN_CASE, test_param: { ...BOOLEAN_CASE.test_param, value } }],
+    });
+    for (const [plugin, config] of [
+      [BOOLEAN, { settings: { mode: { advanced: false } } }],
+      [BOOLEAN, { settings: { mode: { advanced: "false" } } }],
+      [declared("false"), undefined],
+    ] as const) {
+      const out = await options({ parameter: "settings.mode.depth", config }, undefined, plugin);
+      expect(refused(out)).toContain('declares nothing named "depth"');
+    }
+    const open = refused(await options({ parameter: "settings.mode.depth" }, undefined, BOOLEAN));
+    expect(open).toContain('selects its inputs by "advanced"');
+    const on = await options({ parameter: "settings.mode.depth" }, undefined, declared("true"));
+    expect(on.parameter).toBe("settings.mode.depth");
   });
 
   it("reads a case value the same way in the save validator", () => {

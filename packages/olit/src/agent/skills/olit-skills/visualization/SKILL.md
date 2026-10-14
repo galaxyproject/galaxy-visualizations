@@ -71,21 +71,26 @@ It answers only that question. For the dataset's columns and their types, use
 `get_dataset_details`. Read it before writing a `vega_dataset` spec: the columns it reports are
 the names the spec may encode, and a name the dataset does not hold is refused.
 
-For one visualization's parameters, use `get_visualization_details`. Each input comes back with
-`stores`, the shape its value must take, and `options`, where its legal values come from. Call it
-before binding anything, the way `get_tool_details` comes before `run_tool`.
+For one visualization's parameters, use `get_visualization_details`. Its `parameters_schema` is
+the JSON Schema `settings` and `tracks` must match: each property gives the shape its value must
+take, and `gx_source` marks one whose legal values come from elsewhere. Call it before binding
+anything, the way `get_tool_details` comes before `run_tool`.
 
-`get_visualization_options` resolves an `options` source into the actual choices, whether they
-come from a remote list, a Galaxy data table or the history. Choose one by its id, as Galaxy's form
-does: pass `{"id": ...}` where the input stores an object and the id itself where it stores a
-string, and the server stores the whole entry it names. Name the parameter by the `path` each input
-publishes. Where that path crosses a conditional, pass `config` in the shape `save_visualization`
-takes: the test parameter in it says which case is in play, so the same name under two
-conditionals stays distinct.
+`get_visualization_options` lists the actual choices for a property marked `gx_source`, whether
+they come from a remote list, a Galaxy data table or the history. Name the property by its path,
+the property names joined by dots, such as `settings.source.genome` or `tracks.<name>`; it takes
+the path, not the `gx_source` itself. Choose an option by its id, as Galaxy's form does: pass
+`{"id": ...}` where the input stores an object and the id itself where it stores a string, and the
+server stores the whole entry it names.
 
-`options` is what separates inputs that look alike. Two inputs can both take a dataset and accept
-different datatypes: a genome takes a reference, a track takes the track formats. Match the
-dataset to the `extension` list before using it. An input whose options come from a data table or
+A conditional is a `oneOf` with one branch per case, chosen by its test parameter, and one branch
+without it: leaving the test parameter out selects the case its `default` names. Where a path
+crosses a conditional, pass `config` in the shape `save_visualization` takes: the test parameter
+in it says which case is in play, so the same name under two conditionals stays distinct.
+
+`gx_source` is what separates inputs that look alike. Two inputs can both take a dataset and
+accept different datatypes: a genome takes a reference, a track takes the track formats. Match the
+dataset to the `gx_extensions` list before using it. An input whose options come from a data table or
 a URL names that source instead, and its value is chosen from there, not invented.
 
 An entry marked `preferred_for_datatype` is the visualization the datatype itself declares, and is

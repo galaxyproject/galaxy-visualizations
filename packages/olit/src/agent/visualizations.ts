@@ -3,6 +3,7 @@ import { normalizeGalaxyLinkServer } from "../orbit/shared/galaxy-artifact-links
 import inputs from "galaxy-charts/galaxy-charts.inputs.json";
 import {
   getOptions,
+  parametersSchema,
   validateValues,
   type InputElementType,
   type ValueIssueType,
@@ -20,7 +21,6 @@ import {
   identity,
   offeredValue,
   optionBearing,
-  resolvedDefault,
   resolveConfig,
   resolveParameter,
   unresolved,
@@ -260,63 +260,6 @@ function visualizationConfig(a: Json): Json {
   return config;
 }
 
-/** One declared input, joined with what galaxy-charts stores for its type. */
-function describeParameter(param: Json, types: Types, path: string[] = []): Json {
-  const kind = param.type;
-  const spec = types[kind] || {};
-  const described: Json = { name: param.name, type: kind };
-  if (path.length) {
-    described.path = [...path, param.name || "?"].join(".");
-  }
-  for (const key of ["label", "help"]) {
-    if (param[key]) {
-      described[key] = param[key];
-    }
-  }
-  const fallback = resolvedDefault(param);
-  if (fallback !== null) {
-    described.default = fallback;
-  }
-  if (present(spec.stores)) {
-    described.stores = spec.stores;
-  }
-  for (const bound of spec.bounds || []) {
-    if (param[bound] !== null && param[bound] !== undefined) {
-      described[bound] = param[bound];
-    }
-  }
-
-  const source = spec.options;
-  if (present(source)) {
-    const options: Json = { kind: source.kind };
-    const declared = param[source.from || ""];
-    if (present(declared)) {
-      options[source.kind === "declared" ? "values" : source.from] = declared;
-    }
-    for (const f of source.filters || []) {
-      if (param[f] !== null && param[f] !== undefined) {
-        options[f] = param[f];
-      }
-    }
-    if (source.kind !== "declared") {
-      options.resolve = "get_visualization_options";
-      options.chosen_by = "an option's id, as get_visualization_options lists it";
-    }
-    described.options = options;
-  }
-
-  const test = param.test_param;
-  if (present(test)) {
-    const inside = path.length ? [...path, param.name || "?"] : [];
-    described.chosen_by = describeParameter(test, types, inside);
-    described.cases = ((param.cases as Json[]) || []).map((c) => ({
-      when: c.value,
-      inputs: ((c.inputs as Json[]) || []).map((i) => describeParameter(i, types, inside)),
-    }));
-  }
-  return described;
-}
-
 async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown> {
   const name = a.visualization;
   const plugin: Json = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
@@ -326,19 +269,28 @@ async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown
         "without a dataset_id to see what this server offers.",
     );
   }
+  let parameters: Json;
+  try {
+    parameters = parametersSchema(plugin as Parameters<typeof parametersSchema>[0]);
+  } catch (error) {
+    return fail(`Refused: ${quote(name)} cannot be configured here: ${(error as Error).message}`);
+  }
   return {
     name: plugin.name,
     description: plugin.description,
     config_template: buildVisualizationTemplate(plugin, TYPES),
-    settings: ((plugin.settings as Json[]) || []).map((p) =>
-      describeParameter(p, TYPES, ["settings"]),
-    ),
-    tracks: ((plugin.tracks as Json[]) || []).map((p) => describeParameter(p, TYPES, ["tracks"])),
+    parameters_schema: parameters,
     hint:
-      "`stores` is the schema a value is validated against. For an input naming `chosen_by`, " +
-      'resolve its options and pass the chosen id, as {"id": ...} where it stores an object; ' +
-      "the server stores the whole entry. Build `settings` and `tracks` and pass them to " +
-      "show_visualization or save_visualization; both take the same config.",
+      "`parameters_schema` is the JSON Schema `settings` and `tracks` are validated against. A " +
+      "parameter's path is its property names joined by dots, such as `settings.source.genome` " +
+      "or `tracks.<name>`. " +
+      "For a property with `gx_source`, list its options with get_visualization_options, naming " +
+      'the property by its path, and pass the chosen id, as {"id": ...} where it stores an ' +
+      "object; the server stores the whole entry. A conditional's `oneOf` has one branch per " +
+      "case, chosen by its test parameter, and one without it: leaving the test parameter out " +
+      "selects the case its `default` names. " +
+      "Pass `settings` and `tracks` to show_visualization or save_visualization; both take the " +
+      "same config.",
   };
 }
 
@@ -815,7 +767,9 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
       capability: "read",
       description:
         "Resolve a visualization parameter's selectable options from wherever the plugin says " +
-        "they live. `parameter` is the `path` get_visualization_details publishes. Where a name is " +
+        "they live. `parameter` is the path of a property marked `gx_source` in " +
+        "get_visualization_details' `parameters_schema`, such as `settings.source.genome`, not " +
+        "the `gx_source` itself. Where a name is " +
         "declared in several cases of a conditional, pass `config` in the shape save_visualization " +
         "takes, so the test parameter in it says which case. Use `search` to find the id to choose.",
       parameters: schema(
