@@ -704,8 +704,10 @@ async function saveVisualization(
     hint:
       "Saved to the user's visualizations and displayed. It is not a history dataset. " +
       "Writing it into the record means putting {{artifact}} where it belongs in the " +
-      "page content, which places it with these settings and tracks. Say what it shows " +
-      "and finish.",
+      "page content, which places it with these settings and tracks. To change it later, save " +
+      "again with this visualization_id first, then put the new {{artifact}} in place of its " +
+      "block; editing the block alone leaves the saved visualization as it was. Say what it " +
+      "shows and finish.",
   };
 }
 
