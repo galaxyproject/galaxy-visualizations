@@ -1,0 +1,33 @@
+{
+    "name": "@galaxyproject/bigtree",
+    "version": "0.0.0",
+    "description": "A visualization for very large phylogenetic trees based on Big Tree Viewer.",
+    "keywords": [
+        "galaxy",
+        "visualization",
+        "phylogenetics",
+        "tree",
+        "newick",
+        "bigtreeviewer"
+    ],
+    "type": "module",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "npm run build:viewer && vite",
+        "build": "npm run build:viewer && vite build",
+        "build:viewer": "vite build --config vite.config.viewer.js",
+        "preview": "vite preview",
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,css}'",
+        "test": "npx playwright test"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.64.0",
+        "@vitejs/plugin-react": "^6.1.2",
+        "big-tree-viewer": "github:John-Allard/big_tree_viewer#0c264b7b74d1cd292dd32e4c7ab4b91b4327dc11",
+        "prettier": "^3.9.10",
+        "vite": "^8.3.4"
+    }
+}
