@@ -10,7 +10,7 @@ const TYPES = {
   boolean: { stores: { type: "boolean" } },
   integer: { stores: { type: "integer" } },
   data_column: { stores: { type: "string" } },
-  select: { stores: { type: "string" }, options: { kind: "declared", from: "options" } },
+  select: { stores: { type: "string" }, options: { kind: "declared", from: "data" } },
   data: { stores: { type: "object", required: ["id"] } },
   data_json: { stores: { type: "object", required: ["id"] } },
   conditional: { stores: { type: "object" } },
@@ -25,7 +25,7 @@ const PLOTLY = {
     {
       name: "type",
       type: "select",
-      options: [
+      data: [
         { label: "Bar", value: "bar" },
         { label: "Lines", value: "lines" },
       ],
@@ -54,9 +54,23 @@ const ENTRY = { "<from get_visualization_options>": true };
 describe("a visualization config template", () => {
   it("gives a scalar input a bare placeholder, not an entry", () => {
     const template = buildVisualizationTemplate(PLOTLY, TYPES);
-    expect(template.tracks[0].type).toBe("bar");
+    expect(template.tracks[0].type).toBe("<one of: bar, lines>");
     expect(template.tracks[0].x).toBe("<value>");
     expect(template.settings).toEqual({ stack_bar: false, x_axis_label: "<value>" });
+  });
+
+  it("lists a select's choices rather than picking one when it declares no default", () => {
+    const shape = {
+      name: "shape",
+      type: "select",
+      data: [{ value: "circle" }, { value: "square" }],
+    };
+    const picked = { ...shape, value: "square" };
+    const { settings } = buildVisualizationTemplate(
+      { settings: [shape, { ...picked, name: "kept" }] },
+      TYPES,
+    );
+    expect(settings).toEqual({ shape: "<one of: circle, square>", kept: "square" });
   });
 
   it("marks an entry-valued input as one", () => {

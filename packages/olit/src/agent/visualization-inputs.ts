@@ -45,9 +45,10 @@ function placeholder(param: Json, types: Types): unknown {
   if (fallback !== null) {
     return fallback;
   }
+  // No choice is picked for a select without a declared default; the schema states none either.
   const choices = declaredValues(param, spec);
   if (choices.length) {
-    return choices[0];
+    return `<one of: ${choices.join(", ")}>`;
   }
   return SCALAR_PLACEHOLDER[stores.type] ?? "<value>";
 }
