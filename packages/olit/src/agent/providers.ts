@@ -70,7 +70,7 @@ export interface Provider {
 }
 
 export const PROVIDERS: Provider[] = [
-  { id: "galaxy", name: "Galaxy chat proxy", maxTokens: 8192, compat: SELF_HOSTED },
+  { id: "galaxy", name: "Galaxy AI", maxTokens: 8192, compat: SELF_HOSTED },
   {
     id: "google",
     name: "Google Gemini",

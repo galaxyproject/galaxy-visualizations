@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Artifact } from "../artifacts/kinds";
+import { toPage, type Artifact } from "../artifacts/kinds";
 import { inventedEmbed, resolveArtifacts } from "./artifacts";
 
 const VEGA: Artifact = { kind: "vega-lite", title: "Glucose by BMI", spec: { mark: "point" } };
@@ -80,6 +80,29 @@ describe("resolving tokens", () => {
     expect(text).toBe(content);
     expect(refusal).toContain("on its own");
     expect(refusal).toContain("fence");
+  });
+
+  it("starts a token's block on its own line after a sentence, as Galaxy renders only that", () => {
+    const { text } = resolveArtifacts("The structure is shown below.  {{artifact}}", [READS]);
+    expect(text).toBe(`The structure is shown below.  \n${toPage(READS)}`);
+  });
+
+  it("ends a token's block on its own line when text follows it", () => {
+    const { text } = resolveArtifacts("{{artifact}} It shows glucose by BMI.\n", [VEGA]);
+    expect(text).toBe(`${toPage(VEGA)}\n It shows glucose by BMI.\n`);
+  });
+
+  it("gives each of two tokens on one line its own lines", () => {
+    const { text } = resolveArtifacts("{{artifact: Reads}} {{artifact: Glucose by BMI}}", [
+      VEGA,
+      READS,
+    ]);
+    expect(text).toBe(`${toPage(READS)}\n \n${toPage(VEGA)}`);
+  });
+
+  it("expands a token on its own line exactly in its place", () => {
+    const { text } = resolveArtifacts("Before.\n{{artifact}}\nAfter.", [VEGA]);
+    expect(text).toBe(`Before.\n${toPage(VEGA)}\nAfter.`);
   });
 
   it("resolves a token after a closed fence", () => {

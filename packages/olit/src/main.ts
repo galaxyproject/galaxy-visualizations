@@ -59,6 +59,15 @@ function autosize(input: HTMLTextAreaElement): void {
   input.style.overflowY = wanted > MAX_INPUT_HEIGHT ? "auto" : "hidden";
 }
 
+/** The hosting Galaxy page's query; its iframe has no src, so it shares Galaxy's origin. */
+function hostSearch(): string {
+  try {
+    return window.parent === window ? "" : window.parent.location.search;
+  } catch {
+    return "";
+  }
+}
+
 async function main() {
   const scriptUrl = new URL(import.meta.url);
   const containerId = scriptUrl.searchParams.get("container") || "app";
@@ -68,7 +77,7 @@ async function main() {
     await seedDevIncoming(container);
   }
 
-  const incoming = parseIncoming(container);
+  const incoming = parseIncoming(container, hostSearch());
   applyOrbitTheme("light", document.documentElement);
 
   const el = mountLayout(container);
@@ -112,7 +121,7 @@ async function main() {
   // Nothing of another user's session is used, not even the dataset Galaxy launched it with.
   if (notYours) {
     chat.addErrorMessage(
-      `Olit opens only your own sessions, and saved session ${incoming.visualizationId} is not ` +
+      `Olit opens only your own saved conversations, and ${incoming.visualizationId} is not ` +
         `one: ${notYours}.`,
     );
     el.input.disabled = true;
@@ -205,11 +214,14 @@ async function main() {
 
   /**
    * Saving mid-run would store a half-finished run, and an empty conversation has none. A model
-   * switch configures the open conversation, so it waits for the worker to have one.
+   * switch configures the open conversation, so it waits for the worker to have one, as does a
+   * message.
    */
   function refreshControls() {
     el.save.disabled = busy || !ready || view.turns === 0;
     el.model.disabled = !ready;
+    el.input.disabled = !ready;
+    el.send.disabled = !ready;
     el.reset.classList.toggle("hidden", view.turns === 0);
   }
 
@@ -294,8 +306,8 @@ async function main() {
       refreshControls();
       if (message.unkept) {
         chat.addErrorMessage(
-          `Olit is not keeping this conversation in the browser (${message.unkept}), so it ends when ` +
-            "the page closes. Save it to Galaxy to keep it.",
+          `This browser can't keep conversations (${message.unkept}), so this one ends when the ` +
+            "page closes. Save it to Galaxy to keep it.",
         );
       }
       if (message.galaxyProblem) {
@@ -306,18 +318,18 @@ async function main() {
       }
       if (message.recordsProblem) {
         chat.addErrorMessage(
-          `Could not look for earlier Olit sessions on this history (${message.recordsProblem}), ` +
-            "so this is a new session.",
+          `Could not look for notebooks on this history (${message.recordsProblem}), so this ` +
+            "starts a new one.",
         );
       }
       if (savedProblem) {
         chat.addErrorMessage(
-          `Could not open saved session ${incoming.visualizationId} (${savedProblem}). This is ` +
-            "the history's own conversation instead, and Save stores it as a new session.",
+          `Could not open saved conversation ${incoming.visualizationId} (${savedProblem}). This ` +
+            "is the history's conversation in this browser instead, and Save stores it as a new one.",
         );
       }
       if (fromGalaxy) {
-        info("Opened a saved Olit session.");
+        info("Opened a saved conversation.");
       }
       if (continuing) {
         info(continuing);
@@ -326,7 +338,7 @@ async function main() {
         fromGalaxy
           ? "Olit ready."
           : view.turns
-            ? "Resumed this history's conversation. Olit ready."
+            ? "Restored this history's conversation from this browser. Olit ready."
             : "Olit ready. Ask me to run something.",
       );
       if (launch.dataset) {
@@ -335,8 +347,10 @@ async function main() {
     } else if (message.type === "recoverable") {
       // The browser kept nothing of a session here; the user says which, if any, this is.
       const line = info(
-        "This browser keeps no Olit conversation for this history. Continue one of its records, " +
-          "or start new. A conversation saved with Save opens from Galaxy's visualizations.",
+        "This browser has no conversation for this history. Start a new one, with a new notebook " +
+          "or adding to one of this history's notebooks. Adding to a notebook starts a fresh chat " +
+          "without its earlier transcript. To reopen a saved conversation, open it from Galaxy's " +
+          "visualizations.",
       );
       const choices = document.createElement("div");
       choices.className = "olit-choices";
@@ -348,18 +362,18 @@ async function main() {
       for (const record of message.records) {
         const button = document.createElement("button");
         button.className = "plan-btn";
-        button.textContent = `Continue the record ${record.title} (updated ${localTime(record.updated)})`;
+        button.textContent = `New conversation, add to ${record.title} (updated ${localTime(record.updated)})`;
         button.addEventListener("click", () => {
           continuing =
-            `Continuing the record ${record.title}: new entries go to that page. Its ` +
-            "conversation is not in this browser, so this chat starts empty.";
+            `New conversation, without the earlier transcript. Notes go to the notebook ` +
+            `${record.title}.`;
           choose(record.pageId);
         });
         choices.append(button);
       }
       const fresh = document.createElement("button");
       fresh.className = "plan-btn";
-      fresh.textContent = "Start new";
+      fresh.textContent = "New conversation, new notebook";
       fresh.addEventListener("click", () => choose());
       choices.append(fresh);
     } else if (message.type === "waiting") {
@@ -374,8 +388,6 @@ async function main() {
       line.append(take);
     } else if (message.type === "lost") {
       ready = false;
-      el.input.disabled = true;
-      el.send.disabled = true;
       refreshControls();
       chat.addErrorMessage("Olit was opened in another tab, which has it now.");
     } else if (message.type === "failed") {
@@ -420,9 +432,7 @@ async function main() {
       await agent.saved(savedId, document);
       el.save.textContent = "Saved";
       reportSavedState(true);
-      info(
-        "Saved this conversation. Open it again from Galaxy's visualizations to continue it anywhere.",
-      );
+      info("Saved. Open it from Galaxy's visualizations on any device.");
     } catch (e) {
       // The conversation itself is untouched; only the save failed.
       console.error("[olit] could not save the session", e);
@@ -468,8 +478,8 @@ async function main() {
     reportSavedState(true);
     el.artifactContent.innerHTML = "";
     afterReset =
-      "Started a new conversation. The previous one stays in this browser but is no longer " +
-      "reachable from here unless you saved it; its record on Galaxy is untouched.";
+      "Started a new conversation. The previous one can't be reopened here unless you saved it; " +
+      "its notebook is unchanged.";
     agent.reset();
   });
   el.input.addEventListener("keydown", (e) => {

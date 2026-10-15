@@ -1,15 +1,18 @@
 import { quote } from "./quote";
+import { normalizeGalaxyLinkServer } from "../orbit/shared/galaxy-artifact-links.js";
 import inputs from "galaxy-charts/galaxy-charts.inputs.json";
 import {
   getOptions,
+  parametersSchema,
   validateValues,
   type InputElementType,
   type ValueIssueType,
 } from "galaxy-charts/runtime";
 
-import { query, segment, type Galaxy, type Web } from "./galaxy";
+import { HttpError, query, segment, type Galaxy, type Web } from "./galaxy";
 import type { ArtifactOf } from "../artifacts/kinds";
 import { fail, type Artifact, type Context, type OlitTool } from "./tool";
+import { isTerminal, outcomeOf } from "./watch";
 import * as vega from "./vega";
 import * as tables from "./tables";
 import {
@@ -18,7 +21,6 @@ import {
   identity,
   offeredValue,
   optionBearing,
-  resolvedDefault,
   resolveConfig,
   resolveParameter,
   unresolved,
@@ -45,6 +47,36 @@ const rootPath = (galaxy: Galaxy) => new URL(galaxy.root || "/", "http://localho
 
 /** This agent, and a standalone plugin that defers its chart to its own LLM at view time. */
 export const NOT_OFFERED = new Set(["olit", "vintent"]);
+
+const NOT_INSTALLED_HINT =
+  "Call list_visualizations without a dataset_id to see what this server offers.";
+
+const notInstalled = (name: unknown) =>
+  `Refused: ${quote(name)} is not an installed visualization.`;
+
+/** The definition of a visualization this server offers, or what to say when it offers none by that
+ * name. Galaxy answers an unknown name with 404; any other failure is the server's and propagates. */
+async function installedPlugin(
+  galaxy: Galaxy,
+  name: unknown,
+): Promise<{ plugin?: Json; missing?: string }> {
+  if (NOT_OFFERED.has(name as string)) {
+    return { missing: notInstalled(name) };
+  }
+  let plugin: unknown;
+  try {
+    plugin = await galaxy.get(`api/plugins/${segment(name)}`);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      return { missing: notInstalled(name) };
+    }
+    throw error;
+  }
+  return isObject(plugin) && plugin.name ? { plugin } : { missing: notInstalled(name) };
+}
+
+/** The dataset states Galaxy tests a plugin's datatypes in; in any other, no plugin matches. */
+const VIEWABLE = new Set(["ok", "deferred"]);
 
 const MATCH_CAP = 5;
 const ROW_CAP = 100;
@@ -135,9 +167,54 @@ async function preferredVisualizations(galaxy: Galaxy, extension: unknown): Prom
   return new Set(mappings.filter(isObject).map((m) => m.visualization));
 }
 
+/** Why Galaxy offers no visualization for a dataset in its state, or nothing when it would. */
+function notViewable(dataset: Json): Json | undefined {
+  const state = dataset.state;
+  if (VIEWABLE.has(state)) {
+    return undefined;
+  }
+  const final = isTerminal("dataset", state) && outcomeOf("dataset", state) !== "paused";
+  return {
+    error:
+      `Dataset is in state ${quote(state)}, and Galaxy offers visualizations only for a ` +
+      'dataset in state "ok", whatever its datatype.',
+    hint: final
+      ? "It will not reach that state, so no visualization can display it."
+      : "Wait until it is ok, then call list_visualizations for it again.",
+  };
+}
+
+/** The datatypes a plugin renders: Galaxy matches only `ext` equality tests, subclasses included. */
+function acceptedDatatypes(plugin: Json): string[] {
+  const tests = ((plugin.data_sources as Json[]) || []).flatMap((s) => (s.tests as Json[]) || []);
+  const datatypes = tests.filter((t) => t.attr === "ext" && t.type === "eq").map((t) => t.result);
+  return [...new Set(datatypes)].sort();
+}
+
+/** Every visualization this server offers, with the datatypes each renders. */
+async function installedVisualizations(galaxy: Galaxy): Promise<Json> {
+  const installed: Json[] = (await galaxy.get("api/plugins")) || [];
+  return {
+    visualizations: installed
+      .filter((p) => !NOT_OFFERED.has(p.name))
+      .map((p) => ({ name: p.name, description: p.description, datatypes: acceptedDatatypes(p) }))
+      .sort((p, q) => p.name.localeCompare(q.name)),
+    hint:
+      "Each renders datasets of its datatypes or ones derived from them. Pass a dataset_id to " +
+      "see which can display that dataset.",
+  };
+}
+
 async function listVisualizations(galaxy: Galaxy, a: Json): Promise<Json> {
+  if (!present(a.dataset_id)) {
+    return installedVisualizations(galaxy);
+  }
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(a.dataset_id)}`)) || {};
   const extension = dataset.extension;
+  const unready = notViewable(dataset);
+  if (unready) {
+    return { dataset_id: a.dataset_id, extension, state: dataset.state, ...unready };
+  }
   const numeric = tables.numericColumns(dataset);
 
   let matching: Json[] =
@@ -174,13 +251,14 @@ async function resolveVisualization(
   const installed: Json[] = (await galaxy.get("api/plugins")) || [];
   if (NOT_OFFERED.has(name) || !installed.some((p) => p.name === name)) {
     return {
-      refusal: {
-        error: `Refused: ${quote(name)} is not an installed visualization.`,
-        hint: "Call list_visualizations for the dataset to see what this server offers.",
-      },
+      refusal: { error: notInstalled(name), hint: NOT_INSTALLED_HINT },
     };
   }
   const dataset: Json = (await galaxy.get(`api/datasets/${segment(datasetId)}`)) || {};
+  const unready = notViewable(dataset);
+  if (unready) {
+    return { refusal: { ...unready, error: `Refused: ${unready.error}` } };
+  }
   const compatible: Json[] =
     (await galaxy.get(`api/plugins${query({ dataset_id: datasetId })}`)) || [];
   if (!compatible.some((p) => p.name === name)) {
@@ -206,85 +284,34 @@ function visualizationConfig(a: Json): Json {
   return config;
 }
 
-/** One declared input, joined with what galaxy-charts stores for its type. */
-function describeParameter(param: Json, types: Types, path: string[] = []): Json {
-  const kind = param.type;
-  const spec = types[kind] || {};
-  const described: Json = { name: param.name, type: kind };
-  if (path.length) {
-    described.path = [...path, param.name || "?"].join(".");
-  }
-  for (const key of ["label", "help"]) {
-    if (param[key]) {
-      described[key] = param[key];
-    }
-  }
-  const fallback = resolvedDefault(param);
-  if (fallback !== null) {
-    described.default = fallback;
-  }
-  if (present(spec.stores)) {
-    described.stores = spec.stores;
-  }
-  for (const bound of spec.bounds || []) {
-    if (param[bound] !== null && param[bound] !== undefined) {
-      described[bound] = param[bound];
-    }
-  }
-
-  const source = spec.options;
-  if (present(source)) {
-    const options: Json = { kind: source.kind };
-    const declared = param[source.from || ""];
-    if (present(declared)) {
-      options[source.kind === "declared" ? "values" : source.from] = declared;
-    }
-    for (const f of source.filters || []) {
-      if (param[f] !== null && param[f] !== undefined) {
-        options[f] = param[f];
-      }
-    }
-    if (source.kind !== "declared") {
-      options.resolve = "get_visualization_options";
-      options.chosen_by = "an option's id, as get_visualization_options lists it";
-    }
-    described.options = options;
-  }
-
-  const test = param.test_param;
-  if (present(test)) {
-    const inside = path.length ? [...path, param.name || "?"] : [];
-    described.chosen_by = describeParameter(test, types, inside);
-    described.cases = ((param.cases as Json[]) || []).map((c) => ({
-      when: c.value,
-      inputs: ((c.inputs as Json[]) || []).map((i) => describeParameter(i, types, inside)),
-    }));
-  }
-  return described;
-}
-
 async function getVisualizationDetails(galaxy: Galaxy, a: Json): Promise<unknown> {
   const name = a.visualization;
-  const plugin: Json = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
-  if (!plugin.name) {
-    return fail(
-      `Refused: ${quote(name)} is not an installed visualization. Call list_visualizations ` +
-        "for a dataset to see what this server offers.",
-    );
+  const { plugin, missing } = await installedPlugin(galaxy, name);
+  if (!plugin) {
+    return fail(`${missing} ${NOT_INSTALLED_HINT}`);
+  }
+  let parameters: Json;
+  try {
+    parameters = parametersSchema(plugin as Parameters<typeof parametersSchema>[0]);
+  } catch (error) {
+    return fail(`Refused: ${quote(name)} cannot be configured here: ${(error as Error).message}`);
   }
   return {
     name: plugin.name,
     description: plugin.description,
     config_template: buildVisualizationTemplate(plugin, TYPES),
-    settings: ((plugin.settings as Json[]) || []).map((p) =>
-      describeParameter(p, TYPES, ["settings"]),
-    ),
-    tracks: ((plugin.tracks as Json[]) || []).map((p) => describeParameter(p, TYPES, ["tracks"])),
+    parameters_schema: parameters,
     hint:
-      "`stores` is the schema a value is validated against. For an input naming `chosen_by`, " +
-      'resolve its options and pass the chosen id, as {"id": ...} where it stores an object; ' +
-      "the server stores the whole entry. Build `settings` and `tracks` and pass them to " +
-      "show_visualization or save_visualization; both take the same config.",
+      "`parameters_schema` is the JSON Schema `settings` and `tracks` are validated against. A " +
+      "parameter's path is its property names joined by dots, such as `settings.source.genome` " +
+      "or `tracks.<name>`. " +
+      "For a property with `gx_source`, list its options with get_visualization_options, naming " +
+      'the property by its path, and pass the chosen id, as {"id": ...} where it stores an ' +
+      "object; the server stores the whole entry. A conditional's `oneOf` has one branch per " +
+      "case, chosen by its test parameter, and one without it: leaving the test parameter out " +
+      "selects the case its `default` names. " +
+      "Pass `settings` and `tracks` to show_visualization or save_visualization; both take the " +
+      "same config.",
   };
 }
 
@@ -303,9 +330,9 @@ async function getVisualizationOptions(
 ): Promise<unknown> {
   const name = a.visualization;
   const asked = a.parameter;
-  const plugin = (await galaxy.get(`api/plugins/${segment(name)}`)) || {};
-  if (!isObject(plugin) || !plugin.name) {
-    return fail(`Refused: ${quote(name)} is not an installed visualization.`);
+  const { plugin, missing } = await installedPlugin(galaxy, name);
+  if (!plugin) {
+    return fail(`${missing} ${NOT_INSTALLED_HINT}`);
   }
 
   const { hit, problem } = resolveParameter(plugin, asked, a.config);
@@ -391,7 +418,10 @@ async function checked(
   if (refusal) {
     return { refusal };
   }
-  const plugin: Json = (await galaxy.get(`api/plugins/${segment(a.visualization)}`)) || {};
+  const { plugin, missing } = await installedPlugin(galaxy, a.visualization);
+  if (!plugin) {
+    return { refusal: { error: missing, hint: NOT_INSTALLED_HINT } };
+  }
   const chosen = { ...a, settings: structuredClone(a.settings), tracks: structuredClone(a.tracks) };
   // The values as sent are checked before galaxy-charts' coercion could hide a wrong one; from
   // then on, checks and the stored config are the one resolved config.
@@ -632,6 +662,15 @@ async function selectOffered(
   return null;
 }
 
+/** Where Galaxy shows a saved visualization: its plugin and id, as Galaxy's own client links it. */
+export function displayUrl(root: unknown, plugin: string, id: string): string | null {
+  const base = normalizeGalaxyLinkServer(root);
+  return base
+    ? `${base}/visualizations/display?visualization=${encodeURIComponent(plugin)}` +
+        `&visualization_id=${encodeURIComponent(id)}`
+    : null;
+}
+
 async function saveVisualization(
   galaxy: Galaxy,
   resolveOptions: Resolve,
@@ -679,16 +718,20 @@ async function saveVisualization(
       );
     }
   }
+  const url = displayUrl(galaxy.root, name, visualizationId);
   return {
     saved: true,
     visualization_id: visualizationId,
+    ...(url ? { url } : {}),
     title,
     artifact: { ...artifact!, title, visualization_id: visualizationId },
     hint:
       "Saved to the user's visualizations and displayed. It is not a history dataset. " +
       "Writing it into the record means putting {{artifact}} where it belongs in the " +
-      "page content, which places it with these settings and tracks. Say what it shows " +
-      "and finish.",
+      "page content, which places it with these settings and tracks. To change it later, save " +
+      "again with this visualization_id first, then put the new {{artifact}} in place of its " +
+      "block; editing the block alone leaves the saved visualization as it was. Say what it " +
+      "shows and finish.",
   };
 }
 
@@ -750,7 +793,9 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
       capability: "read",
       description:
         "Resolve a visualization parameter's selectable options from wherever the plugin says " +
-        "they live. `parameter` is the `path` get_visualization_details publishes. Where a name is " +
+        "they live. `parameter` is the path of a property marked `gx_source` in " +
+        "get_visualization_details' `parameters_schema`, such as `settings.source.genome`, not " +
+        "the `gx_source` itself. Where a name is " +
         "declared in several cases of a conditional, pass `config` in the shape save_visualization " +
         "takes, so the test parameter in it says which case. Use `search` to find the id to choose.",
       parameters: schema(
@@ -831,9 +876,11 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
         "inline and placeable in the record with {{artifact}}. Leave `data` out of the spec: it " +
         "is pointed at the dataset here, so the chart reads the file rather than carrying a copy " +
         "of it. Refer to columns as this dataset names them, `col:1`, `col:2` and so on where it " +
-        "names none. For a chart of something the dataset does not hold, make a derived dataset " +
-        "with a Galaxy tool and chart that. Where an installed visualization fits, " +
-        "save_visualization keeps a Galaxy object instead.",
+        "names none. Vega-Lite computes aggregates, bins and filters itself, so an average, sum " +
+        "or count per group charts straight from the dataset, with `aggregate` in an encoding or " +
+        "a transform. Make a derived dataset with a Galaxy tool only for what Vega-Lite cannot " +
+        "compute from this one dataset, such as a join with another. Where an installed " +
+        "visualization fits, save_visualization keeps a Galaxy object instead.",
       parameters: schema({ dataset_id: STR, spec: { type: "object" }, title: STR }, [
         "dataset_id",
         "spec",
@@ -846,8 +893,10 @@ export function visualizationTools(resolveOptions: ResolveOptions = chartOptions
       description:
         "List the Galaxy visualizations that can display a dataset, such as genome browsers and " +
         "structure viewers. Start here when the user wants to open or view a dataset in a viewer, " +
-        "whether or not they name one. Visualizations are not tools, so no tool search lists them.",
-      parameters: schema({ dataset_id: STR }, ["dataset_id"]),
+        "whether or not they name one. Without a dataset_id, list every visualization this " +
+        "server has and the datatypes each renders. Visualizations are not tools, so no tool " +
+        "search lists them.",
+      parameters: schema({ dataset_id: STR }, []),
       run: (args, ctx) => listVisualizations(ctx.galaxy, args),
     },
   ];

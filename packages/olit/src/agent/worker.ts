@@ -14,7 +14,7 @@ import { Binding, FollowUps, heldBy } from "./documents";
 import { connectGalaxy } from "./galaxy";
 import type { GalaxyStatus } from "./prompt";
 import { browserPython } from "./python";
-import { context, Runtime, type Placement, type RuntimeConfig } from "./runtime";
+import { context, drawnEvents, Runtime, type Placement, type RuntimeConfig } from "./runtime";
 import type { SessionDocument } from "./saved";
 import type { RecordSummary } from "./notebook";
 import { holdStorage, openStorage } from "./storage";
@@ -127,9 +127,9 @@ async function attach(next: Conversation) {
   held = undefined;
   const harness = runtime!.harness;
   const stream = await watchEvents(harness, next.id, context);
-  post({ type: "events", events: [stream.snapshot] });
+  post({ type: "events", events: await drawnEvents(next, [stream.snapshot], context) });
   stream.start(async (events) => {
-    post({ type: "events", events });
+    post({ type: "events", events: await drawnEvents(next, events, context) });
     if (events.some((e) => e.type === "run_end")) decline(next.id);
     await postHeld();
   });

@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { Message } from "@earendil-works/pi-ai";
-import { MemoryStorage, type Conversation, type Storage } from "@earendil-works/pi-durable";
+import {
+  MemoryStorage,
+  watchEvents,
+  type AgentEvent,
+  type Conversation,
+  type Storage,
+} from "@earendil-works/pi-durable";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +18,8 @@ import { Binding } from "./documents";
 import { json, text, visualizationStore } from "./fake-model";
 import { connectGalaxy } from "./galaxy";
 import { artifactsOf } from "../artifacts/kinds";
-import { artifactsIn, context, Runtime } from "./runtime";
+import { ChatView } from "../transcript";
+import { artifactsIn, context, drawnEvents, Runtime, type RuntimeConfig } from "./runtime";
 import { title, usageTotals, type SessionDocument } from "./saved";
 import type { Python } from "./tool";
 
@@ -53,10 +60,13 @@ const chart: Message = {
 const python: Python = { run: async () => "", write: async () => {}, read: async () => undefined };
 const opened: Runtime[] = [];
 
-async function machine(storage: Storage = new MemoryStorage()) {
+async function machine(
+  storage: Storage = new MemoryStorage(),
+  config: Partial<RuntimeConfig> = {},
+) {
   const runtime = await Runtime.open({
     storage,
-    config: { galaxy_root: ROOT, ai_base_url: LLM, ai_model: "m", ai_api_key: KEY },
+    config: { galaxy_root: ROOT, ai_base_url: LLM, ai_model: "m", ai_api_key: KEY, ...config },
     python,
   });
   opened.push(runtime);
@@ -315,6 +325,142 @@ describe("artifacts across a compaction", () => {
     };
     const titles = (await artifactsIn(conversation as never, context)).map((a) => a.title);
     expect(titles).toEqual(["Before", "After"]);
+  });
+});
+
+describe("a compacted conversation, as the page draws it", () => {
+  /** What the page shows, in order: the user's messages, the replies and the notices. */
+  function page() {
+    const shown: string[] = [];
+    const charts: string[][] = [];
+    const ignore = () => {};
+    const chat = {
+      addUserMessage: (text: string) => shown.push(`user: ${text}`),
+      appendDelta: (text: string) => shown.push(`reply: ${text}`),
+      addToolCard: ignore,
+      updateToolCard: ignore,
+      startAssistantMessage: ignore,
+      finishAssistantMessage: ignore,
+      hideThinking: ignore,
+      showThinking: ignore,
+      clear: () => shown.splice(0),
+    };
+    const hooks = {
+      info: (text: string) => shown.push(`info: ${text}`),
+      artifacts: (made: Array<{ title: string }>, all: boolean) =>
+        charts.push(...(all ? [made.map((a) => a.title)] : [])),
+      busy: ignore,
+      ended: ignore,
+      usage: ignore,
+      retry: ignore,
+      retried: ignore,
+      failed: ignore,
+      wrote: ignore,
+    };
+    return { shown, charts, view: new ChatView(chat, hooks) };
+  }
+
+  const NOTICE = "info: Summarized the earlier conversation to make room.";
+
+  /** Three turns, a chart in the first, and a compaction that lands before the third. */
+  async function compacted(runtime: Runtime) {
+    const conversation = await runtime.create({ historyId: "h1" });
+    await say(runtime, conversation, "first");
+    await conversation.commit(async (tx) => {
+      await tx.appendEntry(conversation.id, { kind: "pi.tool-result", model: [chart] });
+    }, context);
+    await say(runtime, conversation, "second");
+    await runtime.harness.waitForTask(await conversation.compact(undefined, context), context);
+    await say(runtime, conversation, "third");
+    const view = await conversation.context(context);
+    expect(view.entries[0].kind).toBe("pi.compaction");
+    expect(artifactsOf(view.entries)).toEqual([]);
+    return conversation;
+  }
+
+  /** The page as an attach draws it: the snapshot a watch opens with. */
+  async function attached(runtime: Runtime, conversation: Conversation) {
+    const stream = await watchEvents(runtime.harness, conversation.id, context);
+    await stream.stop();
+    const drawn = page();
+    drawn.view.apply(await drawnEvents(conversation, [stream.snapshot], context));
+    return drawn;
+  }
+
+  const WHOLE = [
+    "user: first",
+    "reply: answer 1",
+    "user: second",
+    "reply: answer 2",
+    NOTICE,
+    "user: third",
+    "reply: answer 4",
+  ];
+
+  it("shows every turn after a reload, the summary notice where the compaction landed", async () => {
+    world();
+    const file = join(mkdtempSync(join(tmpdir(), "olit-compacted-")), "olit.sqlite3");
+    const one = await machine(await openNodeSqliteStorage(file), { ai_keep_recent_tokens: 1 });
+    const conversation = await compacted(one);
+    await one.close();
+    opened.splice(opened.indexOf(one), 1);
+
+    const two = await machine(await openNodeSqliteStorage(file), { ai_keep_recent_tokens: 1 });
+    const reopened = (await two.harness.conversation(conversation.id, context))!;
+    const { shown, charts } = await attached(two, reopened);
+    expect(shown).toEqual(WHOLE);
+    expect(charts).toEqual([[CHART.title]]);
+  });
+
+  it("shows every turn of a saved session opened on another machine", async () => {
+    const { saved } = world();
+    const one = await machine(new MemoryStorage(), { ai_keep_recent_tokens: 1 });
+    const id = await saved.save(await one.export(await compacted(one)));
+
+    const two = await machine();
+    const reopened = await two.open((await saved.load(id))!, id);
+    const { shown, charts } = await attached(two, reopened);
+    expect(shown).toEqual(WHOLE);
+    expect(charts).toEqual([[CHART.title]]);
+  });
+
+  it("redraws every turn from a snapshot a lagging page is sent instead of its batches", async () => {
+    world();
+    const runtime = await machine(new MemoryStorage(), { ai_keep_recent_tokens: 1 });
+    const conversation = await compacted(runtime);
+    const drawn = await attached(runtime, conversation);
+    const stream = await watchEvents(runtime.harness, conversation.id, context);
+    await stream.stop();
+    // An overflow delivers one snapshot of the newest view in place of the undelivered batches.
+    const recovered: AgentEvent[] = [stream.snapshot];
+    drawn.view.apply(await drawnEvents(conversation, recovered, context));
+    expect(drawn.shown).toEqual(WHOLE);
+    expect(drawn.charts.at(-1)).toEqual([CHART.title]);
+  });
+
+  it("draws no entry committed after the snapshot, which the next batches bring", async () => {
+    world();
+    const runtime = await machine(new MemoryStorage(), { ai_keep_recent_tokens: 1 });
+    const conversation = await compacted(runtime);
+    const stream = await watchEvents(runtime.harness, conversation.id, context);
+    await stream.stop();
+    await say(runtime, conversation, "fourth");
+    const drawn = page();
+    drawn.view.apply(await drawnEvents(conversation, [stream.snapshot], context));
+    expect(drawn.shown).toEqual(WHOLE);
+  });
+
+  it("passes a conversation that never compacted, and every other event, through as it is", async () => {
+    world();
+    const runtime = await machine();
+    const conversation = await runtime.create({ historyId: "h1" });
+    await say(runtime, conversation, "only");
+    const stream = await watchEvents(runtime.harness, conversation.id, context);
+    await stream.stop();
+    const other = { type: "run_end" } as unknown as AgentEvent;
+    const [snapshot, passed] = await drawnEvents(conversation, [stream.snapshot, other], context);
+    expect(snapshot).toBe(stream.snapshot);
+    expect(passed).toBe(other);
   });
 });
 

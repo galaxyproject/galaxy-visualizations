@@ -263,7 +263,10 @@ function hostPage(url) {
               ? { dataset_id: datasetId }
               : {},
         visualization_plugin: pluginDict(),
-        ...(saved ? { visualization_id: saved.id, visualization_title: saved.title } : {}),
+        // With `incoming_id=0` the id is only in the page's own query.
+        ...(saved && params.get("incoming_id") !== "0"
+            ? { visualization_id: saved.id, visualization_title: saved.title }
+            : {}),
     };
     if (params.get("frame")) {
         // As Galaxy's VisualizationFrame.vue mounts a plugin: it asks the plugin API for the
@@ -484,6 +487,12 @@ const server = http.createServer(async (req, res) => {
                 ? message(`Chart ${turns} is open.`)
                 : message("", showTitled(turns < 2 ? "First Chart" : "Second Chart")));
         }
+        if (script === "chart") {
+            const spec = { mark: "bar", encoding: { x: { field: "col:1", type: "nominal" }, y: { field: "col:2", type: "quantitative" } } };
+            return answer(last.role === "tool"
+                ? message("The chart is open.")
+                : message("", [{ id: "call_1", type: "function", function: { name: "vega_dataset", arguments: JSON.stringify({ dataset_id: "dchart", spec, title: "Counts" }) } }]));
+        }
         if (script === "visualization") {
             return answer(last.role === "tool"
                 ? message("The structure is open in the viewer.")
@@ -525,7 +534,19 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.includes("/api/datasets/")) {
         const id = decodeURIComponent(url.split("/api/datasets/")[1].split(/[/?]/)[0]);
-        return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", history_id: historyOf(id) });
+        // A small table the chart drive plots, read through its display route as a chart reads it.
+        if (id === "dchart") {
+            if (/\/display(\?|$)/.test(url)) {
+                res.writeHead(200, { "Content-Type": "text/plain" });
+                return res.end("A\t28\nB\t55\nC\t43\n");
+            }
+            return json(res, 200, {
+                id, name: "counts.tabular", extension: "tabular", state: "ok", history_id: historyOf(id),
+                metadata_columns: 2, metadata_column_names: [], metadata_column_types: ["str", "int"],
+                metadata_delimiter: "\t", metadata_comment_lines: 0, metadata_data_lines: 3, file_size: 15,
+            });
+        }
+        return json(res, 200, { id, name: "peptide.pdb", extension: "pdb", state: "ok", history_id: historyOf(id) });
     }
     // A tool run as Galaxy's POST /api/tools answers it: the queued job and the output it will write.
     if (url.startsWith("/api/tools") && req.method === "POST") {

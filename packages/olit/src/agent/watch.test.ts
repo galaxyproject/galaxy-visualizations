@@ -233,7 +233,7 @@ describe("the watch task", () => {
     expect(asked).toHaveLength(1);
     expect(asked[0].startsWith(FOLLOW_UP_MARK)).toBe(true);
     expect((await harness.snapshot(FollowUps, conversation.id, context))?.automatic).toBe(1);
-    expect(edits[0]).toContain("Galaxy job `j1` — submitted");
+    expect(edits[0]).toContain("Galaxy job `j1`\n  - Status: submitted, awaiting completion");
     await harness.close(context);
   });
 

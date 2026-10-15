@@ -19,6 +19,16 @@ const csv = {
 };
 const tsv = { ...csv, extension: "tsv", metadata_delimiter: "\t" };
 
+describe("csv and tsv rows", () => {
+  it("leave out a blank line, which Galaxy counts as a data line", () => {
+    for (const headed of [csv, tsv]) {
+      const rows = tables.dataRows(headed);
+      expect(rows?.test).not.toContain("#");
+      expect(rows?.numericAfter).toEqual([]);
+    }
+  });
+});
+
 describe("tabular", () => {
   it("has no header: its columns go by position and its first row is data", () => {
     expect(tables.isHeaded(tabular)).toBe(false);
@@ -26,10 +36,20 @@ describe("tabular", () => {
     expect(tables.unreadable(tabular)).toBeNull();
   });
 
-  it("counts leading # and blank rows in comment_lines, which a reader takes as data", () => {
-    expect(tables.unreadable({ ...tabular, metadata_comment_lines: 2 })).toContain(
-      "first 2 line(s) are comments or blank",
-    );
+  it("reads a tabular dataset with # and blank rows, leaving those rows out as Galaxy does", () => {
+    const commented = { ...tabular, metadata_comment_lines: 2 };
+    expect(tables.unreadable(commented)).toBeNull();
+    expect(tables.dataRows(commented)?.test).toContain("!test(/^#/");
+    expect(tables.dataRows(tabular)).toBeNull();
+  });
+
+  it("converts a numeric first column after the # test, so its text is still there", () => {
+    const numeric = {
+      ...tabular,
+      metadata_column_types: ["int", "str"],
+      metadata_comment_lines: 1,
+    };
+    expect(tables.dataRows(numeric)?.numericAfter).toEqual(["col:1"]);
   });
 
   it("does not trust names a tabular datatype sets, which are not a header row", () => {

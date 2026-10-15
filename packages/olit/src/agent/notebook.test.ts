@@ -126,6 +126,26 @@ describe("notebook_resume", () => {
     expect(tool.capability).toBe("write");
   });
 
+  it("links the record under Galaxy's own path, beside the page's id and fields", async () => {
+    const id = "6681121d008ae337";
+    const g = fakeGalaxy([{ id, title: "Olit Notebook", content_editor: "## Record\n" }]);
+    Object.assign(g.galaxy, { root: "https://galaxy.example/galaxy/" });
+    const ctx = {
+      galaxy: g.galaxy,
+      binding: { sessionId: SESSION, pageId: id },
+    } as unknown as Context;
+    const [tool] = notebookTools();
+    const opened = JSON.parse(((await tool.run({}, ctx)) as Outcome).text);
+    expect(opened).toEqual({
+      created: false,
+      page_id: id,
+      url: `https://galaxy.example/galaxy/published/page?id=${id}`,
+      title: "Olit Notebook",
+      content: "## Record\n",
+      content_hash: expect.any(String),
+    });
+  });
+
   it("keeps the page it just created", async () => {
     const g = fakeGalaxy();
     const ctx = { galaxy: g.galaxy, binding: { sessionId: SESSION } } as unknown as Context;

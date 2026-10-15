@@ -2,6 +2,9 @@ const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
 const IDEMPOTENT = new Set(["GET", "HEAD", "PUT", "DELETE"]);
 const ATTEMPTS = 3;
 const MAX_RETRY_AFTER_S = 60;
+const CREDENTIALS = ["x-api-key", "authorization", "cookie"];
+const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 20;
 
 /** RFC 9110 `Retry-After` in seconds: delta-seconds or an HTTP-date. */
 function retryAfter(headers: Headers): number | undefined {
@@ -90,14 +93,15 @@ export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOpti
       headers.set("x-api-key", key);
     }
     const method = request.method.toUpperCase();
+    const authenticated = CREDENTIALS.some((name) => headers.has(name));
+    const body = authenticated && request.body ? await request.clone().arrayBuffer() : undefined;
     for (let attempt = 0; ; attempt++) {
-      const response = await fetch(
-        new Request(request.clone(), {
-          headers,
-          credentials: key ? "omit" : credentials,
-          cache: "no-store",
-        }),
-      );
+      const sent = new Request(request.clone(), {
+        headers,
+        credentials: key ? "omit" : credentials,
+        cache: "no-store",
+      });
+      const response = authenticated ? await withinOrigin(sent, body) : await fetch(sent);
       // A POST Galaxy already applied would run twice; a rate limit applied nothing.
       const retryable =
         response.status === 429 || (IDEMPOTENT.has(method) && RETRY_STATUS.has(response.status));
@@ -108,6 +112,52 @@ export function galaxyFetch({ key, credentials = "include", signal }: GalaxyOpti
       await sleep((retryAfter(response.headers) ?? 2 ** attempt) * 1000, request.signal);
     }
   };
+}
+
+/**
+ * An authenticated request with its redirects followed by hand: credentials go only to the
+ * origin they were sent to, so a redirect anywhere else is refused before it is sent.
+ */
+async function withinOrigin(request: Request, body?: ArrayBuffer): Promise<Response> {
+  const origin = new URL(request.url).origin;
+  const headers = new Headers(request.headers);
+  let { method, url } = request;
+  for (let hops = 0; ; hops++) {
+    const response = await fetch(
+      new Request(url, {
+        method,
+        headers,
+        body,
+        credentials: request.credentials,
+        cache: request.cache,
+        signal: request.signal,
+        redirect: "manual",
+      }),
+    );
+    const location = response.headers.get("location");
+    if (!REDIRECT_STATUS.has(response.status) || location === null) {
+      return response;
+    }
+    await response.body?.cancel();
+    const target = new URL(location, url);
+    if (target.origin !== origin) {
+      throw new Error(
+        `refused a redirect to ${target.origin}: it would carry this request's credentials`,
+      );
+    }
+    if (hops === MAX_REDIRECTS) {
+      throw new Error(`more than ${MAX_REDIRECTS} redirects from ${request.url}`);
+    }
+    if (
+      (response.status === 303 && method !== "HEAD") ||
+      ((response.status === 301 || response.status === 302) && method === "POST")
+    ) {
+      method = "GET";
+      body = undefined;
+      headers.delete("content-type");
+    }
+    url = target.href;
+  }
 }
 
 /** The most of an error a message carries: the model reads every one, some every turn. */

@@ -101,7 +101,8 @@ describe("catalogMissHint", () => {
     for (const query of ["ngl", "molstar structure", "plotly scatter", "plotly box chart"]) {
       const hint = await search(galaxy, query);
       expect(hint, query).toContain(`No Galaxy tool matched '${query}'`);
-      expect(hint, query).toContain("list_visualizations");
+      expect(hint, query).toContain("installed on this server");
+      expect(hint, query).toContain("list_visualizations without a dataset_id");
     }
   });
 

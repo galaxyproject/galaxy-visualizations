@@ -5,6 +5,7 @@ import {
   DEFAULT_COMPACTION_POLICY,
   Harness,
   UsageDoc,
+  type AgentEvent,
   type Conversation,
   type ConversationId,
   type Cursor,
@@ -58,6 +59,38 @@ export async function artifactsIn(
     cursor = page.next;
   } while (cursor && found.length < ARTIFACT_LIMIT);
   return found.slice(-ARTIFACT_LIMIT);
+}
+
+/**
+ * Events as the page draws them. A snapshot past a compaction holds only what the model is given,
+ * so it carries the conversation's whole history instead, through the snapshot's newest entry and
+ * in the order it was written, the summary where it landed.
+ */
+export async function drawnEvents(
+  conversation: Pick<Conversation, "entries">,
+  events: readonly AgentEvent[],
+  ctx: Chord,
+): Promise<AgentEvent[]> {
+  const drawn: AgentEvent[] = [];
+  for (const event of events) {
+    if (event.type !== "snapshot" || event.entries[0]?.head === undefined) {
+      drawn.push(event);
+      continue;
+    }
+    const maxEntryId = event.entries.reduce(
+      (newest, entry) => (entry.id > newest ? entry.id : newest),
+      event.entries[0].id,
+    );
+    const history: EntryRecord[] = [];
+    let cursor: Cursor | undefined;
+    do {
+      const page = await conversation.entries({ maxEntryId }, 500, cursor, ctx);
+      history.push(...page.items);
+      cursor = page.next;
+    } while (cursor !== undefined);
+    drawn.push({ ...event, entries: history.sort((a, b) => a.id - b.id) });
+  }
+  return drawn;
 }
 
 export interface RuntimeConfig extends LlmConfig {

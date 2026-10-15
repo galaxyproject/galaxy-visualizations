@@ -180,3 +180,25 @@ describe("a visualization placed in the record", () => {
     expect(page.content_editor).toBe(RECORD);
   });
 });
+
+describe("a page create_page makes", () => {
+  it("is linked under Galaxy's own path, beside the fields Galaxy answered with", async () => {
+    const galaxyRoot = "https://galaxy.example/galaxy/";
+    const id = "0123456789abcdef";
+    const made = { id, title: "Report", slug: "report", content_format: "markdown" };
+    vi.stubGlobal("fetch", async () =>
+      Response.json(made, { headers: { "content-type": "application/json" } }),
+    );
+    const ctx: Context = {
+      ...context("s1"),
+      galaxy: connectGalaxy({ root: galaxyRoot }),
+      ops: createGalaxyContext({ baseUrl: galaxyRoot, apiKey: "" }),
+    };
+    const out = (await olitTools()
+      .find((t) => t.name === "create_page")!
+      .run({ title: "Report", slug: "report", content: "## Report" }, ctx)) as Outcome;
+    expect(out.isError).toBe(false);
+    const { data } = JSON.parse(out.text);
+    expect(data).toEqual({ ...made, url: `${galaxyRoot}published/page?id=${id}` });
+  });
+});

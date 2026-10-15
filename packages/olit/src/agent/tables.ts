@@ -4,7 +4,7 @@
  * csv and tsv (Galaxy's BaseCSV): the first row is always the header and names the columns, no
  * row is a comment, and `comment_lines` only flags that the header is there. Every other table
  * datatype reads as tabular: no header, columns by position, and `comment_lines` counting the
- * leading `#` and blank rows.
+ * rows that start with `#` and the blank ones, wherever they are.
  */
 
 type Json = Record<string, any>;
@@ -53,6 +53,33 @@ export function numericColumns(details: Json): string[] {
   return columnNames(details).filter((_, i) => NUMERIC.includes(types[i]));
 }
 
+/** A Vega expression naming one column of `datum`. */
+const field = (name: string) => `datum[${JSON.stringify(name)}]`;
+
+/**
+ * Which parsed rows Galaxy counts as data, as a Vega expression over `datum`, or null when every
+ * row is. A blank line is never data; in a tabular dataset with comments, neither is a row whose
+ * first field starts with `#`. Galaxy does not count a csv's or tsv's blank lines apart, so they
+ * are always looked for. The `#` is read off the first column's text, so when that column is
+ * numeric it is in `numericAfter`: converted after the test rather than while the file is read.
+ */
+export function dataRows(details: Json): { test: string; numericAfter: string[] } | null {
+  const names = columnNames(details);
+  const comments = !isHeaded(details) && (details.metadata_comment_lines || 0) > 0;
+  if (!names.length || (!isHeaded(details) && !comments)) {
+    return null;
+  }
+  const filled = names.map((n) => `(isValid(${field(n)}) && ${field(n)} !== '')`).join(" || ");
+  if (!comments) {
+    return { test: filled, numericAfter: [] };
+  }
+  const first = names[0];
+  return {
+    test: `(${filled}) && !test(/^#/, '' + ${field(first)})`,
+    numericAfter: numericColumns(details).includes(first) ? [first] : [],
+  };
+}
+
 /** Why the rows cannot be read as the metadata describes them, or null when they can. */
 export function unreadable(details: Json): string | null {
   const columns = details.metadata_columns;
@@ -68,13 +95,6 @@ export function unreadable(details: Json): string | null {
     return (
       `Galaxy names this "${details.extension}" dataset's columns, but not from a header row in ` +
       "the file. Convert it to csv or tsv with a Galaxy tool and use that."
-    );
-  }
-  const comments = details.metadata_comment_lines || 0;
-  if (comments) {
-    return (
-      `the first ${comments} line(s) are comments or blank, which a reader of the file takes as ` +
-      "data. Produce a dataset without them with a Galaxy tool and use that."
     );
   }
   return null;

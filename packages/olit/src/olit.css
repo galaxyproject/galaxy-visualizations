@@ -64,3 +64,20 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+/* The vendored styles give a disabled control no look of its own; until Olit is ready, these
+   cannot act, and should look it. */
+.footer-control:disabled,
+#input:disabled,
+#send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.footer-control.is-interactive:disabled:hover {
+  background: var(--bg-subtle);
+  color: var(--footer-control-text);
+  border-color: var(--border);
+}
+#send-btn:disabled:hover {
+  opacity: 0.5;
+}

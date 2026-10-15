@@ -1,6 +1,7 @@
 // Drives the built bundle the way a deployment serves it: the stub renders Galaxy's
 // host page, so data-incoming, the plugin href and the Pyodide path are production's.
 const { chromium } = require("playwright");
+const openPicker = require("./open-picker.cjs");
 const OUT = process.env.OUT || "/tmp";
 const STUB = "http://127.0.0.1:8099";
 const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?dataset_id=d1`;
@@ -24,7 +25,7 @@ const credOpen = () => {
     const el = document.querySelector("#cred-overlay");
     return !!el && !el.classList.contains("hidden");
 };
-const isReady = () => /olit ready|resumed this history/i.test(document.body.innerText);
+const isReady = () => /olit ready|restored this history/i.test(document.body.innerText);
 const modalOpen = () => {
     const el = document.querySelector("#ext-overlay");
     return !!el && !el.classList.contains("hidden");
@@ -54,7 +55,8 @@ async function connect(page) {
     await fetch(`${STUB}/__script?name=confirm`);
     await p.goto(APP, { waitUntil: "domcontentloaded" });
 
-    check("a built app asks for a provider before booting", await waitFor(p, credOpen, 20000));
+    check("a built app starts without asking for a provider", !(await waitFor(p, credOpen, 4000)));
+    await openPicker(p);
     await connect(p);
 
     const ready = await waitFor(p, isReady, 300000);
@@ -101,7 +103,7 @@ async function connect(page) {
 
     // ---- the history from data-incoming keys the session ----------------------
     await p.reload({ waitUntil: "domcontentloaded" });
-    const resumed = await waitFor(p, () => /resumed this history/i.test(document.body.innerText), 300000);
+    const resumed = await waitFor(p, () => /restored this history/i.test(document.body.innerText), 300000);
     check("the history in data-incoming restores the conversation", resumed);
     check("the restored turns come back with it", /delete my history/i.test(await p.evaluate(() => document.body.innerText)));
     await p.screenshot({ path: `${OUT}/g3-resumed.png` });

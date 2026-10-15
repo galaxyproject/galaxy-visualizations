@@ -140,10 +140,10 @@ describe("the data invariant", () => {
 });
 
 describe("which datasets can be referenced", () => {
-  it("refuses a file whose comments vega would read as data", () => {
-    const { refusal } = built(SCATTER, VCF);
-    expect(refusal).toContain("first 5 line(s) are comments");
-    expect(refusal).toContain("Galaxy tool");
+  it("charts a file with comments, leaving the rows Galaxy counts as comments out", () => {
+    const { ready, refusal } = built(SCATTER, VCF);
+    expect(refusal).toBeNull();
+    expect((ready!.transform as any[])[0].filter).toContain("!test(/^#/");
   });
 
   it("accepts a csv header row, which is not a comment galaxy cannot skip", () => {

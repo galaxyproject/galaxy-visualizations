@@ -1,6 +1,7 @@
 import { quote } from "./quote";
 import { contentHash, malformedObjectIds } from "@galaxyproject/galaxy-ops/browser";
 
+import { galaxyArtifactUrl } from "../orbit/shared/galaxy-artifact-links.js";
 import { inventedEmbed } from "./artifacts";
 import * as biocontainers from "./biocontainers";
 import { HttpError, NotAnId, segment, type Galaxy } from "./galaxy";
@@ -22,6 +23,13 @@ export const DATA_DIR = "/data";
 export const PREVIEW_LINES = 50;
 export const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 const HEADING = /^#{1,6}\s+\S/;
+
+/** The page a call answered with, its browser URL beside its id. */
+function linkedPage<T>(envelope: T, ctx: Context): T {
+  const { success, data } = envelope as { success?: boolean; data?: Record<string, unknown> };
+  const url = success && data ? galaxyArtifactUrl(ctx.galaxy.root, "page", String(data.id)) : null;
+  return url ? ({ ...envelope, data: { ...data, url } } as T) : envelope;
+}
 
 /** Keep the page a call answered with as what this session's agent was shown. */
 function shownPage<T>(envelope: T, args: Record<string, unknown>, ctx: Context): T {
@@ -122,7 +130,10 @@ export const OPS_POLICY: Record<string, OpPolicy> = {
     },
   },
   update_history: { destructiveWhen: (args) => args.deleted === true },
-  create_page: { check: async (args) => invalidPage(args.content) },
+  create_page: {
+    check: async (args) => invalidPage(args.content),
+    around: (call, _args, ctx) => call().then((envelope) => linkedPage(envelope, ctx)),
+  },
   // A revert rewrites the page too, so it waits its turn behind the session's own record writes.
   revert_page_revision: { around: (call) => serialized(() => call()) },
   get_page: { around: (call, args, ctx) => call().then((out) => shownPage(out, args, ctx)) },

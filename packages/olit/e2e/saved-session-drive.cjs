@@ -2,6 +2,7 @@
 // hands the plugin the saved config and, for its owner, the visualization id. The conversation must
 // come back as saved, and saving it again must revise that visualization, not add another.
 const playwright = require("playwright");
+const storedProvider = require("./stored-provider.cjs");
 const BROWSER = process.env.BROWSER || "chromium";
 const STUB = "http://127.0.0.1:8099";
 const HOST = `${STUB}/plugins/visualizations/olit`;
@@ -15,14 +16,9 @@ function check(name, ok, detail) {
 /** A fresh browser profile, so nothing of an earlier session is stored: another machine. */
 async function machine(browser, url, booting = true) {
     const page = await (await browser.newContext()).newPage();
+    await storedProvider(page, { provider: "openrouter", baseUrl: `${STUB}/v1`, apiKey: "sk-or-v1-stubkeystubkey", model: "stub-model" });
     await page.goto(url, { waitUntil: "domcontentloaded" });
     const frame = page.frameLocator("#galaxy_visualization");
-    await frame.locator("#cred-provider").waitFor({ timeout: 30000 });
-    await frame.locator("#cred-provider").selectOption("openrouter");
-    await frame.locator("#cred-endpoint").fill(`${STUB}/v1`);
-    await frame.locator("#cred-key").fill("sk-or-v1-stubkeystubkey");
-    await frame.locator("#cred-model").fill("stub-model");
-    await frame.locator("#cred-save").click();
     if (!booting) return { page, frame, ready: false };
     const ready = await frame
         .locator("text=/olit ready/i")
@@ -78,8 +74,17 @@ async function save(frame) {
         text.includes("remember the saved session marker"),
         text.replace(/\s+/g, " ").slice(0, 300),
     );
-    check("it is said to be the saved session", /Opened a saved Olit session/.test(text));
-    check("nothing claims the load failed", !/Could not open saved session/.test(text));
+    check("it is said to be the saved session", /Opened a saved conversation/.test(text));
+    check("nothing claims the load failed", !/Could not open saved conversation/.test(text));
+
+    const fromUrl = await machine(browser, `${HOST}?visualization_id=${visualization?.id}&incoming_id=0&frame=1`);
+    const fromUrlText = await fromUrl.frame.locator("body").innerText();
+    check(
+        "a saved session named only in the page's query opens too",
+        fromUrlText.includes("remember the saved session marker") &&
+            /Opened a saved conversation/.test(fromUrlText),
+        fromUrlText.replace(/\s+/g, " ").slice(0, 300),
+    );
 
     await say(second.frame, "and one more turn");
     const after = await save(second.frame);
@@ -97,7 +102,7 @@ async function save(frame) {
         const other = await machine(browser, `${HOST}?visualization_id=${visualization?.id}&frame=1`, false);
         const whose = owner ? "another user's session" : "a session with no owner";
         const refused = await other.frame
-            .locator("text=/Olit opens only your own sessions/")
+            .locator("text=/Olit opens only your own saved conversations/")
             .first()
             .waitFor({ timeout: 30000 })
             .then(() => true, () => false);

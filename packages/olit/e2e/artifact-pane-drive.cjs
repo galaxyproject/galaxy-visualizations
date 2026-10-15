@@ -2,6 +2,7 @@
 // window must collapse the pane without overwriting the stored preference.
 const { chromium } = require("playwright");
 const offline = require("./offline.cjs");
+const storedProvider = require("./stored-provider.cjs");
 const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olit";
 
 const results = [];
@@ -16,11 +17,8 @@ const stored = (p) => p.evaluate(() => localStorage.getItem("olit.artifactCollap
     const browser = await chromium.launch();
     const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
     await offline(page);
+    await storedProvider(page, { provider: "openrouter", apiKey: "demo", model: "stub-model" });
     await page.goto(APP);
-    await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 20000 });
-    await page.selectOption("#cred-provider", "openrouter");
-    await page.fill("#cred-key", "demo");
-    await page.click("#cred-save");
     await page.waitForFunction(() => (document.querySelector("#model-btn")?.textContent||"").includes("·"));
 
     check("starts collapsed", await collapsed(page));

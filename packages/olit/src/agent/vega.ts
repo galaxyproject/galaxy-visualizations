@@ -70,7 +70,13 @@ export function dataBlock(datasetId: string, details: Json, root = "/"): Json {
       ? { type: "csv" }
       : { type: "dsv", delimiter }
     : { type: "dsv", delimiter, header: tables.columnNames(details) };
-  const parse = Object.fromEntries(tables.numericColumns(details).map((name) => [name, "number"]));
+  const later = tables.dataRows(details)?.numericAfter ?? [];
+  const parse = Object.fromEntries(
+    tables
+      .numericColumns(details)
+      .filter((name) => !later.includes(name))
+      .map((name) => [name, "number"]),
+  );
   if (Object.keys(parse).length) {
     format.parse = parse;
   }
@@ -242,8 +248,25 @@ export function build(
     }
   }
   const { $schema: _, ...rest } = spec;
+  // At the top, where every layer, facet and concatenated view reads the one source from.
+  const rows = tables.dataRows(details);
+  const kept = rows
+    ? [
+        { filter: rows.test },
+        ...rows.numericAfter.map((name) => ({
+          calculate: `toNumber(datum[${JSON.stringify(name)}])`,
+          as: name,
+        })),
+      ]
+    : [];
+  const transform = [...kept, ...((rest.transform as Json[] | undefined) ?? [])];
   return {
-    ready: { $schema: SCHEMA, ...rest, data: dataBlock(datasetId, details, root) },
+    ready: {
+      $schema: SCHEMA,
+      ...rest,
+      data: dataBlock(datasetId, details, root),
+      ...(transform.length ? { transform } : {}),
+    },
     refusal: null,
   };
 }

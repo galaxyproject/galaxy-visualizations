@@ -2,6 +2,7 @@
 // about:blank while its origin is Galaxy's. A visualization must still mount in the artifact pane,
 // in a frame of its own inside that one, from the plugin's entry point on Galaxy.
 const playwright = require("playwright");
+const storedProvider = require("./stored-provider.cjs");
 const BROWSER = process.env.BROWSER || "chromium";
 const STUB = "http://127.0.0.1:8099";
 const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit?dataset_id=d1&frame=1`;
@@ -15,22 +16,18 @@ function check(name, ok, detail) {
 (async () => {
     const browser = await playwright[BROWSER].launch();
     const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    await storedProvider(page, { provider: "openrouter", baseUrl: `${STUB}/v1`, apiKey: "sk-or-v1-stubkeystubkey", model: "stub-model" });
     await page.goto(APP, { waitUntil: "domcontentloaded" });
     const frame = page.frameLocator("#galaxy_visualization");
     const inner = () => page.frames().find((f) => f !== page.mainFrame());
 
-    await frame.locator("#cred-provider").waitFor({ timeout: 30000 });
+    await frame.locator("#model-btn").waitFor({ timeout: 30000 });
     check("the plugin's location is about:blank, as in Galaxy",
         (await inner().evaluate(() => window.location.href)) === "about:blank");
     const handed = await inner().evaluate(() => JSON.parse(document.getElementById("app").dataset.incoming));
     check("it is launched as Galaxy launches a plugin on a dataset: the dataset and nothing else",
         JSON.stringify(handed.visualization_config) === JSON.stringify({ dataset_id: "d1" }),
         JSON.stringify(handed.visualization_config));
-    await frame.locator("#cred-provider").selectOption("openrouter");
-    await frame.locator("#cred-endpoint").fill(`${STUB}/v1`);
-    await frame.locator("#cred-key").fill("sk-or-v1-stubkeystubkey");
-    await frame.locator("#cred-model").fill("stub-model");
-    await frame.locator("#cred-save").click();
     const ready = await frame.locator("text=/olit ready/i").first().waitFor({ timeout: 120000 })
         .then(() => true).catch(() => false);
     check("the agent boots inside the frame", ready);

@@ -122,6 +122,24 @@ export interface Connection {
   apiKey?: string;
 }
 
+type StreamOptions = Parameters<Models["streamSimple"]>[2];
+
+/** Galaxy's chat proxy drops system messages; sent as user messages, they reach the model in place. */
+function systemAsUser(options: StreamOptions): StreamOptions {
+  return {
+    ...options,
+    onPayload: async (payload, model) => {
+      const out = ((await options?.onPayload?.(payload, model)) ?? payload) as {
+        messages?: { role: string }[];
+      };
+      return {
+        ...out,
+        messages: out.messages?.map((m) => (m.role === "system" ? { ...m, role: "user" } : m)),
+      };
+    },
+  };
+}
+
 /**
  * One pi-ai `Models` for every model a host connects, each provider held to its own rate limit.
  * A provider pi defines is pi's own: its endpoint, wire API, compat, catalog and key variable, with
@@ -143,7 +161,11 @@ export function olitModels(env: Record<string, string | undefined> = {}) {
     void (async () => {
       try {
         await limits.get(owner.get(`${m.provider}/${m.id}`) ?? "")?.(options?.signal);
-        const stream = inner.streamSimple(m, context, options);
+        const stream = inner.streamSimple(
+          m,
+          context,
+          m.provider === "galaxy" ? systemAsUser(options) : options,
+        );
         for await (const event of stream) out.push(event);
         out.end(await stream.result());
       } catch (error) {
@@ -204,8 +226,14 @@ export function olitModels(env: Record<string, string | undefined> = {}) {
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         contextWindow: target.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
         maxTokens: target.maxTokens || 0,
-        // A keyless endpoint (the Galaxy proxy) authenticates with the page's session instead.
-        headers: target.apiKey ? {} : { Authorization: null },
+        // A keyless endpoint (the Galaxy proxy) authenticates with the page's session instead;
+        // given a Galaxy API key, as headless, the proxy reads it where Galaxy reads one.
+        headers:
+          provider.id === "galaxy" && target.apiKey
+            ? { "x-api-key": target.apiKey, Authorization: null }
+            : target.apiKey
+              ? {}
+              : { Authorization: null },
         compat: provider.compat,
       } as unknown as Model<Api>;
       inner.setProvider(

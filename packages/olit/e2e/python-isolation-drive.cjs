@@ -4,6 +4,7 @@
 // without CORS headers, as Galaxy's do, so the realm booting at all proves they reach it.
 // BROWSER=firefox or webkit runs it there: they attach Galaxy's cookie where Chromium does not.
 const playwright = require("playwright");
+const storedProvider = require("./stored-provider.cjs");
 const BROWSER = process.env.BROWSER || "chromium";
 const OUT = process.env.OUT || "/tmp";
 const STUB = "http://127.0.0.1:8099";
@@ -34,15 +35,10 @@ const seen = async () => (await fetch(`${STUB}/__seen`)).json();
     p.on("console", (m) => logs.push(`[${m.type()}] ${m.text()}`));
 
     await fetch(`${STUB}/__script?name=python-isolation`);
+    await storedProvider(p, { provider: "openrouter", baseUrl: `${STUB}/v1`, apiKey: KEY, model: "stub-model" });
     await p.goto(APP, { waitUntil: "domcontentloaded" });
-    await waitFor(p, () => !!document.querySelector("#cred-provider"), 20000);
-    await p.selectOption("#cred-provider", "openrouter");
-    await p.fill("#cred-endpoint", `${STUB}/v1`);
-    await p.fill("#cred-key", KEY);
-    await p.fill("#cred-model", "stub-model");
-    await p.click("#cred-save");
 
-    const ready = await waitFor(p, () => /olit ready|resumed this history/i.test(document.body.innerText), 300000);
+    const ready = await waitFor(p, () => /olit ready|restored this history/i.test(document.body.innerText), 300000);
     check("the agent is up", ready);
     if (!ready) {
         console.log(logs.slice(-20).join("\n"));

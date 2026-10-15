@@ -9,7 +9,8 @@ export interface OlitIncoming {
   settings: Record<string, any>;
 }
 
-export function parseIncoming(container: HTMLElement): OlitIncoming {
+/** `hostSearch` is the hosting page's query, read for a `visualization_id` the config lacks. */
+export function parseIncoming(container: HTMLElement, hostSearch = ""): OlitIncoming {
   let raw: any;
   try {
     raw = JSON.parse(container.dataset.incoming || "{}");
@@ -20,7 +21,8 @@ export function parseIncoming(container: HTMLElement): OlitIncoming {
   const plugin = raw.visualization_plugin || {};
   return {
     root: raw.root || "/",
-    visualizationId: raw.visualization_id,
+    visualizationId:
+      raw.visualization_id || new URLSearchParams(hostSearch).get("visualization_id") || undefined,
     datasetId: config.dataset_id,
     specs: plugin.specs || raw.specs || {},
     settings: config.settings || {},

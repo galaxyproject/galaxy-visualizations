@@ -137,6 +137,16 @@ describe("connect", () => {
     expect(headers.has("authorization")).toBe(false);
   });
 
+  it("sends a Galaxy API key to the Galaxy proxy as Galaxy reads one, not as a bearer token", async () => {
+    const { headers } = await request({
+      ai_provider: "galaxy",
+      ai_base_url: "http://g/api/plugins/olit",
+      ai_api_key: "galaxy-key",
+    });
+    expect(headers.get("x-api-key")).toBe("galaxy-key");
+    expect(headers.has("authorization")).toBe(false);
+  });
+
   it("does not carry a provider's earlier key over to a connection that gives none", async () => {
     const { connect } = olitModels();
     await connect(resolve({ ai_provider: "openrouter", ai_model: "m", ai_api_key: "sk-first" }));
@@ -236,5 +246,35 @@ describe("the rate limit", () => {
       await limited(connect, "k1", "other")
     )();
     expect(reached).toHaveLength(3);
+  });
+});
+
+describe("the Galaxy chat proxy", () => {
+  it("receives system messages as user messages, in place, and the rest unchanged", async () => {
+    const { models, model } = await connect(resolve({ ai_provider: "galaxy", ai_model: "" }));
+    let sent: { messages: { role: string; content: unknown }[] } = { messages: [] };
+    const stream = models.streamSimple(
+      models.getModel(model.provider as never, model.modelId)!,
+      {
+        systemPrompt: "You are Olit.",
+        messages: [
+          { role: "user", content: "hi", timestamp: 0 },
+          { role: "system", content: "", sections: { record: "## The record" }, timestamp: 1 },
+          { role: "user", content: "again", timestamp: 2 },
+        ],
+      } as never,
+      {
+        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+          sent = JSON.parse(String(init?.body));
+          return new Response("data: [DONE]\n\n", {
+            headers: { "content-type": "text/event-stream" },
+          });
+        },
+      } as never,
+    );
+    await stream.result();
+    expect(sent.messages.map((m) => m.role)).toEqual(["user", "user", "user", "user"]);
+    expect(sent.messages[0].content).toBe("You are Olit.");
+    expect(String(sent.messages[2].content)).toContain("## The record");
   });
 });

@@ -85,6 +85,12 @@ your context and what you invent will not be the chart the user saw. `{{artifact
 takes the most recent one; `{{artifact: <title>}}` takes the one with that title, as
 the tool result reported it.
 
+A block is a copy of the chart, not a link to it. When it came from `save_visualization`
+and you have its `visualization_id`, change it by saving again with that `visualization_id`
+first, then replace its block with the new `{{artifact}}`; editing the block alone leaves
+the saved visualization as it was. A chart that was only shown is changed by showing it
+again and replacing its block the same way.
+
 ### Reading it back
 
 `get_page` withholds the body unless you ask for it — pass `include_rendered` to see

@@ -2,6 +2,7 @@ import { query, segment, type Galaxy } from "./galaxy";
 import { contentHash } from "@galaxyproject/galaxy-ops/browser";
 
 import { pageBody } from "./page-edit";
+import { galaxyArtifactUrl } from "../orbit/shared/galaxy-artifact-links.js";
 import { remember } from "./record-write";
 import { fail, Outcome, type Capability, type Context, type OlitTool } from "./tool";
 
@@ -258,7 +259,8 @@ export function notebookTools(): OlitTool[] {
         }
         ctx.binding.pageId = opened.page_id;
         remember(ctx.binding.sessionId, opened.page_id, opened.content);
-        return new Outcome(JSON.stringify(opened));
+        const url = galaxyArtifactUrl(ctx.galaxy.root, "page", opened.page_id);
+        return new Outcome(JSON.stringify({ ...opened, ...(url ? { url } : {}) }));
       },
     },
   ];

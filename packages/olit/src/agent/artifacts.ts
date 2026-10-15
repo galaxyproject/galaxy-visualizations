@@ -92,7 +92,12 @@ export function resolveArtifacts<T>(
         "Galaxy page cannot render; describe it in the record instead.";
       return match;
     }
-    return block;
+    // A fence opens and closes only on its own line, wherever the token stood in it.
+    const start = value.lastIndexOf("\n", offset - 1) + 1;
+    const end = value.indexOf("\n", offset + match.length);
+    const before = value.slice(start, offset).trim() ? "\n" : "";
+    const after = value.slice(offset + match.length, end < 0 ? undefined : end).trim() ? "\n" : "";
+    return before + block + after;
   });
   return { text, refusal };
 }

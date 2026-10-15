@@ -2,6 +2,7 @@
 // and must not discard the conversation, which lives in the browser's files (OPFS).
 const { chromium } = require("playwright");
 const offline = require("./offline.cjs");
+const openPicker = require("./open-picker.cjs");
 const STUB = "http://127.0.0.1:8099";
 const APP = process.env.APP_URL || `${STUB}/plugins/visualizations/olit`;
 
@@ -16,11 +17,11 @@ function check(name, ok, detail) {
     const browser = await chromium.launch();
     const page = await browser.newPage();
     await offline(page);
-    // A slow boot, as on a busy runner: the picker is reachable before the agent is ready.
+    // A slow boot, as on a busy runner: the model button waits for the agent to be ready.
     await fetch(`${STUB}/__slow?ms=4000`);
     await page.goto(APP);
 
-    await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 20000 });
+    await openPicker(page);
     await page.selectOption("#cred-provider", "openrouter");
     await page.fill("#cred-key", "k1");
     await page.click("#cred-save");
@@ -74,13 +75,21 @@ function check(name, ok, detail) {
     check("credentials survive dismissal",
         (await page.evaluate(() => sessionStorage.getItem("olit.credentials"))).includes("deepseek"));
 
-    // First run must NOT be dismissible: there is nothing to fall back to.
-    await page.evaluate(() => sessionStorage.clear());
+    await page.click("#model-btn");
+    await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 10000 });
+    await page.click("#cred-forget");
+    check("Disconnect returns to Galaxy AI and forgets the selection",
+        await settled(page.waitForFunction(() => document.querySelector("#model-btn")?.textContent === "galaxy",
+            null, { timeout: 10000 })) &&
+        (await page.evaluate(() => sessionStorage.getItem("olit.credentials"))) === null);
+
+    // A stored selection that no longer works is fixed, not dismissed: nothing works to fall back to.
+    await page.evaluate(() => sessionStorage.setItem("olit.credentials", JSON.stringify({ provider: "openrouter" })));
     await page.reload();
     await page.waitForSelector("#cred-overlay:not(.hidden)", { timeout: 20000 });
     await page.keyboard.press("Escape");
     await page.waitForTimeout(600);
-    check("first-run picker ignores Escape",
+    check("the picker for a broken selection ignores Escape",
         await page.evaluate(() => {
             const el = document.querySelector("#cred-overlay");
             return !!el && !el.classList.contains("hidden");

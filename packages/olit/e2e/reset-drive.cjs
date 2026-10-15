@@ -1,6 +1,7 @@
 // Reset leaves the old conversation behind with Galaxy work still running. That work may finish
 // and update the old conversation's record, but it must not start a model request nobody sees.
 const playwright = require("playwright");
+const storedProvider = require("./stored-provider.cjs");
 const BROWSER = process.env.BROWSER || "chromium";
 const STUB = "http://127.0.0.1:8099";
 const LAUNCH = `${STUB}/plugins/visualizations/olit?dataset_id=dreset&frame=1`;
@@ -21,20 +22,15 @@ const shown = (frame, pattern, ms = 120000) =>
     await fetch(`${STUB}/__script?name=reset-watch`);
     const browser = await playwright[BROWSER].launch();
     const page = await (await browser.newContext()).newPage();
+    await storedProvider(page, { provider: "openrouter", baseUrl: `${STUB}/v1`, apiKey: "sk-or-v1-stubkeystubkey", model: "stub-model" });
     await page.goto(LAUNCH, { waitUntil: "domcontentloaded" });
     const frame = page.frameLocator("#galaxy_visualization");
-    await frame.locator("#cred-provider").waitFor({ timeout: 30000 });
-    await frame.locator("#cred-provider").selectOption("openrouter");
-    await frame.locator("#cred-endpoint").fill(`${STUB}/v1`);
-    await frame.locator("#cred-key").fill("sk-or-v1-stubkeystubkey");
-    await frame.locator("#cred-model").fill("stub-model");
-    await frame.locator("#cred-save").click();
     check("boots", await shown(frame, "/olit ready/i"));
 
     await frame.locator("#input").fill("run cat on it");
     await frame.locator("#send-btn").click();
     check("the tool run is submitted", await shown(frame, "Submitted.", 60000));
-    check("the record notes the job as submitted", /jreset1`? — submitted/.test((await record())?.content || ""));
+    check("the record notes the job as submitted", /jreset1`?\n\s*- Status: submitted/.test((await record())?.content || ""));
 
     await frame.locator("#reset-btn").click();
     check("Reset starts a new conversation", await shown(frame, "Started a new conversation", 30000));

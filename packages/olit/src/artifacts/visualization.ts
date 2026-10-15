@@ -44,6 +44,9 @@ export async function renderVisualization(
   const script = doc.createElement("script");
   script.type = attr.type || "module";
   script.src = new URL(`${plugin.href}/${attr.src}`, root).href;
+  script.addEventListener("error", () => {
+    body.textContent = `Could not load the visualization '${a.visualization}'.`;
+  });
   doc.body.appendChild(script);
   if (attr.css) {
     const link = doc.createElement("link");

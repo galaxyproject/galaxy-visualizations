@@ -2,6 +2,7 @@
 // resolves before the worker boots, which is the point of the ordering.
 const { chromium } = require("playwright");
 const offline = require("./offline.cjs");
+const openPicker = require("./open-picker.cjs");
 const APP = process.env.APP_URL || "http://127.0.0.1:8099/plugins/visualizations/olit";
 
 const results = [];
@@ -35,7 +36,19 @@ async function waitFor(page, fn, ms) {
     await offline(page);
     await page.goto(APP);
 
-    check("overlay appears when no key is stored", await waitFor(page, credOpen, 15000));
+    check("no overlay when nothing is stored: Olit starts on Galaxy AI", !(await waitFor(page, credOpen, 4000)));
+    await openPicker(page);
+    check("the model button opens the overlay", await page.evaluate(credOpen));
+    const galaxy = await page.evaluate(() => ({
+        label: document.querySelector('#cred-provider option[value="galaxy"]')?.textContent,
+        selected: document.querySelector("#cred-provider").value,
+        note: !document.querySelector("#cred-galaxy-note").classList.contains("hidden"),
+    }));
+    check("Galaxy AI is preselected and explained",
+        galaxy.label === "Galaxy AI" && galaxy.selected === "galaxy" && galaxy.note, JSON.stringify(galaxy));
+    const buttons = () => page.evaluate(() =>
+        ["#cred-save", "#cred-forget", "#cred-close"].map((s) => !document.querySelector(s).classList.contains("hidden")));
+    check("Galaxy AI offers only Close", JSON.stringify(await buttons()) === "[false,false,true]");
 
     const providers = await page.evaluate(() =>
         [...document.querySelectorAll("#cred-provider option")].map((o) => o.value),
@@ -50,6 +63,7 @@ async function waitFor(page, fn, ms) {
     check("key field hidden for the Galaxy proxy", galaxyKeyHidden);
 
     await page.selectOption("#cred-provider", "openrouter");
+    check("another provider offers Connect instead", JSON.stringify(await buttons()) === "[true,false,false]");
     const keyShown = await page.evaluate(() =>
         !document.querySelector("#cred-key-field").classList.contains("hidden"));
     check("key field shown for a keyed provider", keyShown);

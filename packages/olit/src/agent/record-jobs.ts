@@ -1,20 +1,15 @@
-/** Record the outcome of submitted Galaxy work, by the session rather than the model.
+/** Record submitted Galaxy work and how it ran, by the session rather than the model.
  *
- * loom's `applyJobPollUpdate` advances the notebook block for a finished job; the checkbox
- * flips and the status line updates without the agent being asked. olit's record is prose
- * written by the model, so there is no block to key on -- what there is, reliably, is the
- * id: the model writes ids into the record, and the watcher knows which id settled.
+ * The record is prose written by the model, so there is no block to key on -- what there is,
+ * reliably, is the id: the model writes ids into the record, and the watcher knows which id
+ * settled. So each job's status line sits under its id's line.
  *
- * So the update is anchored on the id's line. Anything the agent wrote stays; only status
- * is appended, and only once.
+ * The session owns submission and execution status only. A checkbox is the model's claim of a
+ * verified result, which Galaxy's state alone neither makes nor refutes, so it is never touched.
  */
 
 import { WHAT } from "./markers";
 import type { Outcome } from "./watch";
-
-const DONE = "- [x]";
-const PENDING = "- [ ]";
-const FAILED = "- [!]";
 
 export interface JobOutcome {
   id: string;
@@ -23,8 +18,8 @@ export interface JobOutcome {
   outcome: Outcome;
 }
 
-const SUBMITTED = "submitted, awaiting completion";
 const STATUS = "- Status:";
+const SUBMITTED = `${STATUS} submitted, awaiting completion`;
 
 /** The status line each outcome leaves in the record. */
 const STAMP: Record<Outcome, (state: string) => string> = {
@@ -44,14 +39,23 @@ function unfencedLine(lines: string[], id: string): number {
   });
 }
 
-/** The session's own entry for `id`, else its first mention outside a fenced block, or -1. */
+/** The line `id`'s pending status follows, else its first mention outside a fenced block, or -1. */
 function lineWithId(lines: string[], id: string): number {
-  const own = lines.findIndex((l) => l.includes(id) && l.includes(SUBMITTED));
+  const own = lines.findIndex((l, i) => l.includes(id) && lines[i + 1]?.trimStart() === SUBMITTED);
   return own >= 0 ? own : unfencedLine(lines, id);
 }
 
+/** The status lines directly under line `at`. */
+function statusAfter(lines: string[], at: number): number[] {
+  const found: number[] = [];
+  for (let i = at + 1; i < lines.length && lines[i].trimStart().startsWith(STATUS); i++) {
+    found.push(i);
+  }
+  return found;
+}
+
 /**
- * Mark the step carrying `id` as finished and append the observed state.
+ * Record the observed state under the line carrying `id`, in place of its pending status.
  *
  * Pure and idempotent -- `editRecord` re-runs it against fresh content on every retry, and an
  * unchanged return means the record already says this.
@@ -63,40 +67,19 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
   if (at < 0) return content;
 
   const stamp = STAMP[outcome.outcome](outcome.state);
-  // Already recorded: this entry's own status lines follow it directly.
-  if (lines[at].includes(stamp)) return content;
-  for (let i = at + 1; i < lines.length && lines[i].trimStart().startsWith(STATUS); i++) {
-    if (lines[i].includes(stamp)) return content;
+  const status = statusAfter(lines, at);
+  if (lines[at].includes(stamp) || status.some((i) => lines[i].includes(stamp))) return content;
+
+  const pending = status.find((i) => lines[i].trimStart() === SUBMITTED);
+  const recorded = `${STATUS} ${stamp} — recorded automatically`;
+  if (pending === undefined) {
+    lines.splice(at + 1, 0, `${(lines[at].match(/^\s*/) || [""])[0]}${recorded}`);
+  } else {
+    lines[pending] = lines[pending].replace(SUBMITTED, recorded);
   }
 
-  // Walk back to the checklist item this line belongs to; sub-bullets are indented.
-  let step = at;
-  while (
-    step >= 0 &&
-    !lines[step].trimStart().startsWith(PENDING) &&
-    !lines[step].trimStart().startsWith(DONE)
-  ) {
-    step = step < at && /^\s*($|#)/.test(lines[step]) ? -1 : step - 1;
-  }
-  // Only a completed or failed run settles the step; any other leaves its marker as the agent
-  // wrote it, and the status line below says what happened.
-  if (step >= 0) {
-    const marker = lines[step].trimStart();
-    if (marker.startsWith(PENDING) && outcome.outcome === "completed") {
-      lines[step] = lines[step].replace(PENDING, DONE);
-    } else if (marker.startsWith(DONE) && outcome.outcome === "failed") {
-      // Verified-complete for a job Galaxy says failed is a false claim. A step still
-      // pending is left alone: it was never claimed, and a retry is legitimate.
-      lines[step] = lines[step].replace(DONE, FAILED);
-    }
-  }
-
-  const indent = (lines[at].match(/^\s*/) || [""])[0];
-  lines.splice(at + 1, 0, `${indent}${STATUS} ${stamp} — recorded automatically`);
-
-  // The agent's "currently running" line is false once everything it covered has settled.
-  const stillPending = lines.some((l) => l.trimStart().startsWith(PENDING));
-  if (!stillPending) {
+  // The agent's "currently running" line is false once no submitted work awaits completion.
+  if (!lines.some((l) => l.trimStart() === SUBMITTED)) {
     return lines
       .map((l) =>
         /^\*Submitted jobs are currently running\.\*$/.test(l.trim())
@@ -109,21 +92,25 @@ export function applyJobOutcome(content: string, outcome: JobOutcome): string {
 }
 
 /**
- * Note submitted work in the record, keyed by the id the session observed.
+ * Note submitted work in the record, keyed by the id the session observed: a pending status under
+ * the id where the agent already wrote it, else an entry of the session's own.
  *
- * loom has `galaxy_invocation_record({ invocationId, ... })`: the agent hands the poller the
- * id and the poller owns the entry from then on. olit's watcher already holds the correct
- * id -- it took it from the tool result -- so the session writes the entry itself rather than
- * trusting the model to transcribe a hex string.
+ * The watcher holds the correct id -- it took it from the tool result -- so the session writes
+ * the entry itself rather than trusting the model to transcribe a hex string.
  */
 export function noteSubmitted(
   content: string,
   w: { id: string; kind: "job" | "invocation" | "dataset" },
 ): string {
-  if (unfencedLine(content.split("\n"), w.id) >= 0) return content;
-  const what = WHAT[w.kind];
-  const entry = `- [ ] ${what} \`${w.id}\` — ${SUBMITTED}`;
-  const lines = content.replace(/\n+$/, "").split("\n");
-  const pad = lines.length && lines.at(-1)!.trim() !== "" ? ["", entry, ""] : [entry, ""];
-  return [...lines, ...pad].join("\n");
+  const lines = content.split("\n");
+  const at = unfencedLine(lines, w.id);
+  if (at >= 0) {
+    if (statusAfter(lines, at).length) return content;
+    lines.splice(at + 1, 0, `${(lines[at].match(/^\s*/) || [""])[0]}${SUBMITTED}`);
+    return lines.join("\n");
+  }
+  const entry = [`- ${WHAT[w.kind]} \`${w.id}\``, `  ${SUBMITTED}`];
+  const kept = content.replace(/\n+$/, "").split("\n");
+  const pad = kept.length && kept.at(-1)!.trim() !== "" ? ["", ...entry, ""] : [...entry, ""];
+  return [...kept, ...pad].join("\n");
 }

@@ -45,9 +45,10 @@ function placeholder(param: Json, types: Types): unknown {
   if (fallback !== null) {
     return fallback;
   }
+  // No choice is picked for a select without a declared default; the schema states none either.
   const choices = declaredValues(param, spec);
   if (choices.length) {
-    return choices[0];
+    return `<one of: ${choices.join(", ")}>`;
   }
   return SCALAR_PLACEHOLDER[stores.type] ?? "<value>";
 }
@@ -122,12 +123,9 @@ export function declaredPaths(plugin: Json | undefined, name: string): string[] 
   return [...new Set(found)];
 }
 
-/** The stored state a group's walk reads its cases from. */
-function state(config: Json | undefined, group: string): Json {
-  let held = config?.[group];
-  if (group === "tracks" && Array.isArray(held)) {
-    held = held.length ? held[0] : null;
-  }
+/** The stored state a group's walk reads its cases from: for tracks, the entry at the index. */
+function state(config: Json | undefined, group: string, track: number): Json {
+  const held = group === "tracks" ? config?.tracks?.[track] : config?.[group];
   return isObject(held) ? held : {};
 }
 
@@ -143,13 +141,16 @@ export function namedCase(test: Json | undefined, value: unknown): string {
   return label ? `${quote(value)} (${label})` : quote(value);
 }
 
-/** The config a caller has to send, written the way the template writes an unfilled value. */
-function shape(trail: string[], testName: string): string {
+/** The config a caller has to send, written the way the template writes an unfilled value. A
+ * track's part is named by its place in the `tracks` list rather than written out as a list. */
+function shape(trail: string[], testName: string, track: number): string {
   let nested: Json = { [testName]: "<value>" };
-  for (const step of [...trail].reverse()) {
+  for (const step of trail.slice(1).reverse()) {
     nested = { [step]: nested };
   }
-  return JSON.stringify(nested ?? null);
+  return trail[0] === "tracks"
+    ? `config whose tracks[${track}] is ${JSON.stringify(nested)}`
+    : `config=${JSON.stringify({ [trail[0]]: nested })}`;
 }
 
 export interface Hit {
@@ -168,7 +169,13 @@ const hit = (declared: Json, path: string): Resolution => ({
 
 const problem = (text: string): Resolution => ({ hit: null, problem: text });
 
-function resolve(params: unknown, segments: string[], held: unknown, trail: string[]): Resolution {
+function resolve(
+  params: unknown,
+  segments: string[],
+  held: unknown,
+  trail: string[],
+  track: number,
+): Resolution {
   const [name, ...rest] = segments;
   const here = [...trail, name].join(".");
   const param = ((params as unknown[]) || []).find(
@@ -208,10 +215,10 @@ function resolve(params: unknown, segments: string[], held: unknown, trail: stri
     const offered = cases.map((c) => namedCase(test, c.value)).join(", ");
     return problem(
       `${quote(here)} selects its inputs by ${quote(test.name)}. Pass ` +
-        `config=${shape([...trail, name], test.name)} with ${quote(test.name)} as one of ${offered}.`,
+        `${shape([...trail, name], test.name, track)} with ${quote(test.name)} as one of ${offered}.`,
     );
   }
-  const found = resolve(active.inputs, rest, nested, [...trail, name]);
+  const found = resolve(active.inputs, rest, nested, [...trail, name], track);
   if (found.hit && found.hit.case === undefined) {
     found.hit.case = active.value;
     found.hit.otherCases = cases
@@ -227,17 +234,28 @@ export function resolveParameter(
   parameter: unknown,
   config?: Json,
 ): Resolution {
+  const indexed = /^tracks\[(\d+)\]/.exec(String(parameter ?? ""));
+  const track = indexed ? Number(indexed[1]) : 0;
   const segments = String(parameter ?? "")
-    .split(".")
-    .filter(Boolean);
-  if (segments.length < 2 || !GROUPS.includes(segments[0])) {
+    .replace(/^tracks\[\d+\]/, "tracks")
+    .split(".");
+  if (
+    segments.length < 2 ||
+    segments.includes("") ||
+    !GROUPS.includes(segments[0]) ||
+    !Number.isSafeInteger(track)
+  ) {
     return problem(
-      `${quote(parameter)} is not a parameter path. Name one as get_visualization_details ` +
-        `publishes it, rooted at ${GROUPS.join(" or ")}.`,
+      `${quote(parameter)} is not a parameter path. Join the property names of ` +
+        `get_visualization_details' \`parameters_schema\` with dots, rooted at ` +
+        `${GROUPS.join(" or ")}, such as \`tracks.<name>\`.`,
     );
   }
   const group = segments[0];
-  return resolve(plugin?.[group], segments.slice(1), state(config, group), [group]);
+  if (group === "tracks" && config?.tracks != null && !Array.isArray(config.tracks)) {
+    return problem("config.tracks is a list, one object per track.");
+  }
+  return resolve(plugin?.[group], segments.slice(1), state(config, group, track), [group], track);
 }
 
 export interface Branch {
