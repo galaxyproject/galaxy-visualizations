@@ -1,0 +1,30 @@
+{
+    "name": "@galaxyproject/pdf",
+    "version": "0.0.0",
+    "description": "A visualization for PDF documents based on PDF.js.",
+    "keywords": [
+        "galaxy",
+        "visualization",
+        "pdf",
+        "document",
+        "pdfjs"
+    ],
+    "type": "module",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,css}'",
+        "test": "npx playwright test"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.64.0",
+        "pdfjs-dist": "^6.4.299",
+        "prettier": "^3.9.10",
+        "vite": "^8.3.4"
+    }
+}
