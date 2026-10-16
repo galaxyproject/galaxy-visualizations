@@ -5,6 +5,7 @@ public/olit.xml          plugin manifest: data sources, ai_prompt, capabilities
 src/                      the shell (TypeScript)
   main.ts                   boots the agent worker, wires the chat, sends what the user writes
   layout.ts artifact-pane.ts usage-bar.ts retry-notice.ts   the pane's parts
+  dictation.ts              the composer's mic: the browser's Web Speech API, where it has one
   config.ts incoming.ts credentials*.ts   what the agent is handed, and by whom
   saved-session.ts          a conversation saved to Galaxy as a visualization
   transcript.ts artifacts/  the chat drawn from the conversation's events; charts and visualizations

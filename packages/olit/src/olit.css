@@ -65,6 +65,47 @@
   margin-top: 8px;
 }
 
+/* Dictation, beside Send: quiet until it listens. */
+#mic-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+#mic-btn.hidden {
+  display: none;
+}
+#mic-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+#mic-btn.listening {
+  border-color: var(--error);
+  color: var(--error);
+  animation: olit-mic-pulse 1.4s ease-in-out infinite;
+}
+#mic-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@keyframes olit-mic-pulse {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--error) 25%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mic-btn.listening {
+    animation: none;
+  }
+}
+
 /* The vendored styles give a disabled control no look of its own; until Olit is ready, these
    cannot act, and should look it. */
 .footer-control:disabled,

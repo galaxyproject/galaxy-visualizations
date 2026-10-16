@@ -8,6 +8,14 @@ export const LAYOUT = `
             <div class="composer-row">
               <textarea id="input" rows="1" aria-label="Chat input"
                 placeholder="Ask Olit to run something..."></textarea>
+              <!-- Shown by dictation.ts where the browser can recognize speech. -->
+              <button id="mic-btn" class="hidden" type="button" aria-label="Dictate" aria-pressed="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" />
+                  <line x1="12" y1="17" x2="12" y2="22" />
+                </svg>
+              </button>
               <button id="send-btn" title="Send" aria-label="Send message">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -59,6 +67,7 @@ export const LAYOUT = `
 export interface Elements {
   messages: HTMLElement;
   input: HTMLTextAreaElement;
+  mic: HTMLButtonElement;
   send: HTMLButtonElement;
   abort: HTMLButtonElement;
   reset: HTMLButtonElement;
@@ -74,6 +83,7 @@ export function mountLayout(container: HTMLElement): Elements {
   return {
     messages: find("#messages"),
     input: find<HTMLTextAreaElement>("#input"),
+    mic: find<HTMLButtonElement>("#mic-btn"),
     send: find<HTMLButtonElement>("#send-btn"),
     abort: find<HTMLButtonElement>("#abort-btn"),
     reset: find<HTMLButtonElement>("#reset-btn"),

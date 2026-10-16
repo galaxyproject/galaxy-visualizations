@@ -26,6 +26,7 @@ import { mountUsageBar } from "./usage-bar";
 import { mountBuildStamp } from "./build-stamp";
 import { localTime } from "./galaxy-time";
 import { createRetryNotice } from "./retry-notice";
+import { isDictationShortcut, mountDictation } from "./dictation";
 
 const PLUGIN_NAME = "olit";
 const MAX_INPUT_HEIGHT = 150;
@@ -152,6 +153,7 @@ async function main() {
   });
 
   el.input.addEventListener("input", () => autosize(el.input));
+  const dictation = mountDictation(el.mic, el.input);
 
   let busy = false;
   let ready = false;
@@ -452,6 +454,7 @@ async function main() {
       info("Olit is still starting; send again once it says it is ready.");
       return;
     }
+    dictation?.cancel();
     el.input.value = "";
     el.input.style.height = "auto";
     // Busy from the click: the run starts once the worker has stored the message.
@@ -492,6 +495,10 @@ async function main() {
   container.addEventListener("keydown", (e) => {
     if ((e as KeyboardEvent).key === "Escape" && busy) {
       stop();
+    }
+    if (dictation && isDictationShortcut(e as KeyboardEvent)) {
+      e.preventDefault();
+      dictation.toggle();
     }
   });
 
