@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="PDF Viewer" embeddable="true">
+    <description>Read PDF documents page by page</description>
+    <tags>
+        <tag>Document</tag>
+        <tag>PDF</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">pdf</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" label="Canonical correlation analysis" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/cca_out2.pdf" ftype="pdf" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the PDF Viewer?
+
+The PDF Viewer draws a `pdf` dataset in your browser with **PDF.js**, the same way in every browser and on phones.
+
+## Key Features
+
+- **Pages**: Scroll through every page; the toolbar shows which page you are on.
+- **Zoom**: Zoom in and out, or fit the pages to the width of the window.
+- **Large documents**: Pages are drawn as they scroll into view.
+
+To learn more about PDF.js, visit:
+[https://mozilla.github.io/pdf.js/](https://mozilla.github.io/pdf.js/)
+    ]]></help>
+</visualization>

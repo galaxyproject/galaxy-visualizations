@@ -1,0 +1,94 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f8f9fa;
+    color: #333;
+}
+
+html,
+body,
+#app {
+    height: 100%;
+    overflow: hidden;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+}
+
+#pdf-error {
+    display: none;
+    padding: 0.75rem 1rem;
+    background: #f8d7da;
+    color: #721c24;
+    border-bottom: 1px solid #f5c6cb;
+    font-size: 0.85rem;
+}
+
+#pdf-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background: #fff;
+    font-size: 0.85rem;
+}
+
+#pdf-page {
+    margin-right: auto;
+}
+
+#pdf-zoom {
+    min-width: 3.5rem;
+    text-align: center;
+}
+
+#pdf-toolbar button {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background: #fff;
+    color: #333;
+    font: inherit;
+    cursor: pointer;
+}
+
+#pdf-toolbar button:hover {
+    background: #e9ecef;
+}
+
+#pdf-status {
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+#pdf-pages {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+    background: #e9ecef;
+}
+
+.pdf-page {
+    margin: 0 auto 1rem;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.pdf-page canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
