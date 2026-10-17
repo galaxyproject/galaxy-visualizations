@@ -26,7 +26,7 @@
     "devDependencies": {
         "@playwright/test": "^1.64.0",
         "@vitejs/plugin-react": "^6.1.2",
-        "big-tree-viewer": "github:John-Allard/big_tree_viewer#0c264b7b74d1cd292dd32e4c7ab4b91b4327dc11",
+        "big-tree-viewer": "github:John-Allard/big_tree_viewer#v0.1.24",
         "prettier": "^3.9.10",
         "vite": "^8.3.4"
     }
