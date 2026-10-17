@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="Markdown Viewer" embeddable="true">
+    <description>Read Markdown documents as formatted text</description>
+    <tags>
+        <tag>Document</tag>
+        <tag>Text</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">markdown</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" label="Galaxy Visualizations README" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-visualizations/README.md" ftype="markdown" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the Markdown Viewer?
+
+The Markdown Viewer shows a `markdown` dataset as formatted text, with headings, lists, tables, links and code blocks, using **markdown-it**.
+
+## Key Features
+
+- **CommonMark**: Renders standard Markdown plus tables and strikethrough, and turns plain URLs into links.
+- **Safe**: Raw HTML in the dataset is shown as text, and the output is sanitised with DOMPurify, so a dataset cannot run scripts.
+- **Large files**: Datasets above 1 MB show their first megabyte, with a notice.
+
+To learn more about markdown-it, visit:
+[https://github.com/markdown-it/markdown-it](https://github.com/markdown-it/markdown-it)
+    ]]></help>
+</visualization>
