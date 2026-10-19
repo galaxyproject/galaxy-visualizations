@@ -1,0 +1,31 @@
+{
+    "name": "@galaxyproject/markdown",
+    "version": "0.0.0",
+    "description": "A visualization that renders Markdown datasets as formatted text.",
+    "keywords": [
+        "galaxy",
+        "visualization",
+        "markdown",
+        "document",
+        "markdown-it"
+    ],
+    "type": "module",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,css}'",
+        "test": "npx playwright test"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.64.1",
+        "dompurify": "^3.4.17",
+        "markdown-it": "^15.0.3",
+        "prettier": "^3.9.10",
+        "vite": "^8.3.4"
+    }
+}
