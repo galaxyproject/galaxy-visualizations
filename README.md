@@ -23,5 +23,5 @@ Each visualization here is a self-contained module following Galaxy’s visualiz
 If you want to add a third-party visualization or build your own:
 - Start by reading the [Galaxy Charts Documentation](https://charts.galaxyproject.org) to understand the framework and development process.
 - Use the [galaxy-charts-starter](https://github.com/guerler/galaxy-charts-starter) template to quickly scaffold a new project. It provides a Vue environment, utilities to simplify common tasks, and an automatically generated input form by parsing your Galaxy visualization XML configuration.
-- Alternatively, you can follow the [Vite-only project](https://charts.galaxyproject.org/galaxy-charts/content/xml-framework.html#building-a-vite-plugin-vanilla-vue-react-and-more) guide to create a standalone plugin without using the Galaxy Charts Vue package (supports Vanilla, Vue, React, and more).
+- Alternatively, you can follow the [Vite-only project](https://charts.galaxyproject.org/galaxy-charts/xml-framework/#building-a-vite-plugin-vanillavuereact-and-more) guide to create a standalone plugin without using the Galaxy Charts Vue package (supports Vanilla, Vue, React, and more).
 - Once your visualization is ready, you can contribute it to this repository by following Galaxy’s plugin submission guidelines.
