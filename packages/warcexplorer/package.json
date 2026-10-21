@@ -1,0 +1,20 @@
+{
+  "name": "@galaxyproject/warcexplorer",
+  "version": "0.0.0",
+  "description": "Explore WARC records with the National Library of Norway's WARC Explorer.",
+  "type": "module",
+  "license": "MIT",
+  "files": ["static"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "npm run test:unit && npm run build && npm run test:e2e",
+    "test:unit": "node --test tests/*.test.js",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "vite": "^8.1.5"
+  }
+}
