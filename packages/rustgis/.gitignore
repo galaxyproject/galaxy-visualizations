@@ -1,0 +1,4 @@
+.vendor/
+public/vendor/
+public/ADAPTER-LICENSE.txt
+playwright-report/

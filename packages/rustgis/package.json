@@ -1,0 +1,24 @@
+{
+    "name": "@galaxyproject/rustgis",
+    "version": "0.0.1",
+    "type": "module",
+    "description": "RustGIS browser GIS for Galaxy, including LAS/LAZ and deferred HTTP(S) datasets",
+    "license": "MIT",
+    "files": [
+        "static"
+    ],
+    "scripts": {
+        "prepare:vendor": "node scripts/prepare-vendor.mjs",
+        "dev": "npm run prepare:vendor && vite",
+        "build": "npm run prepare:vendor && vite build",
+        "preview": "vite preview",
+        "test": "npm run test:e2e",
+        "test:e2e": "npm run build && playwright test",
+        "prettier": "prettier --write '*.json' '*.js' '*.html' 'src/**/*.{js,css}' 'viewer/*.{js,html}' 'scripts/*.mjs' 'tests/*.{js,mjs}'"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.62.1",
+        "prettier": "^3.7.4",
+        "vite": "^6.4.3"
+    }
+}

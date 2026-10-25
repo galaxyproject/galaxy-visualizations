@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Galaxy RustGIS</title>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script>
+            const params = new URLSearchParams(location.search);
+            document.querySelector("#app").setAttribute(
+                "data-incoming",
+                JSON.stringify({
+                    root: new URL(params.get("root") || "./", location.href).href,
+                    visualization_config: { dataset_id: params.get("dataset_id") || "__demo__" },
+                }),
+            );
+        </script>
+        <script type="module" src="./src/main.js"></script>
+    </body>
+</html>
