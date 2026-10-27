@@ -1,1 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#c45e30"/><g fill="none" stroke="#fff" stroke-width="3"><circle cx="32" cy="32" r="23"/><ellipse cx="32" cy="32" rx="10" ry="23"/><path d="M10 25h44M10 39h44M32 9v46"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>RustGIS</title>
+  <defs>
+    <linearGradient id="rust" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E4783D"/>
+      <stop offset="1" stop-color="#A83F24"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B8EDB"/>
+      <stop offset="1" stop-color="#1F5FA8"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22B5A2"/>
+      <stop offset="1" stop-color="#0E8576"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8CC84B"/>
+      <stop offset="1" stop-color="#4E9A2E"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8C150"/>
+      <stop offset="1" stop-color="#E39A22"/>
+    </linearGradient>
+    <clipPath id="globe"><circle cx="256" cy="256" r="166"/></clipPath>
+  </defs>
+  <!-- Cog -->
+  <path d="M201.13,51.22 L221.74,46.79 L229.01,11.49 L282.99,11.49 L290.26,46.79 L310.87,51.22 L330.94,57.69 L354.88,30.75 L401.64,57.74 L390.28,91.95 L405.91,106.09 L420.05,121.72 L454.26,110.36 L481.25,157.12 L454.31,181.06 L460.78,201.13 L465.21,221.74 L500.51,229.01 L500.51,282.99 L465.21,290.26 L460.78,310.87 L454.31,330.94 L481.25,354.88 L454.26,401.64 L420.05,390.28 L405.91,405.91 L390.28,420.05 L401.64,454.26 L354.88,481.25 L330.94,454.31 L310.87,460.78 L290.26,465.21 L282.99,500.51 L229.01,500.51 L221.74,465.21 L201.13,460.78 L181.06,454.31 L157.12,481.25 L110.36,454.26 L121.72,420.05 L106.09,405.91 L91.95,390.28 L57.74,401.64 L30.75,354.88 L57.69,330.94 L51.22,310.87 L46.79,290.26 L11.49,282.99 L11.49,229.01 L46.79,221.74 L51.22,201.13 L57.69,181.06 L30.75,157.12 L57.74,110.36 L91.95,121.72 L106.09,106.09 L121.72,91.95 L110.36,57.74 L157.12,30.75 L181.06,57.69 Z" fill="url(#rust)"/>
+  <circle cx="256" cy="256" r="184" fill="#FFFFFF"/>
+  <!-- Globe: four segments split by a curved meridian and a tilted parallel -->
+  <g clip-path="url(#globe)">
+    <path d="M60,60 L250,60 C215,150 205,230 214,262 C150,250 100,262 60,282 Z" fill="url(#blue)"/>
+    <path d="M250,60 L452,60 L452,226 C380,236 300,250 214,262 C205,230 215,150 250,60 Z" fill="url(#teal)"/>
+    <path d="M60,282 C100,262 150,250 214,262 C222,330 250,400 280,452 L60,452 Z" fill="url(#green)"/>
+    <path d="M214,262 C300,250 380,236 452,226 L452,452 L280,452 C250,400 222,330 214,262 Z" fill="url(#gold)"/>
+    <!-- White gaps -->
+    <path d="M250,60 C215,150 205,230 214,262 C222,330 250,400 280,452" fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
+    <path d="M60,282 C100,262 150,250 214,262 C300,250 380,236 452,226" fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
+    <!-- Latitude lines -->
+    <path d="M70,170 C170,135 330,125 440,150" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="5"/>
+    <path d="M75,360 C180,345 330,335 440,345" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="5"/>
+  </g>
+  <!-- Orbit: the front half of a tilted ellipse, ending in a node -->
+  <g transform="rotate(-28 256 256)">
+    <path d="M30,256 A226,70 0 0,0 482,256" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round"/>
+    <path d="M30,256 A226,70 0 0,0 482,256" fill="none" stroke="url(#rust)" stroke-width="11" stroke-linecap="round"/>
+  </g>
+  <circle cx="455.5" cy="149.9" r="22" fill="#FFFFFF"/>
+  <circle cx="455.5" cy="149.9" r="14" fill="url(#rust)"/>
+</svg>
