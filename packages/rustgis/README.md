@@ -93,7 +93,4 @@ an existing Chromium. Software WebGL is enabled for headless CI.
 
 `tests/fixtures/berlin.las` and `berlin.laz` contain three generated, fictional LiDAR records
 at Berlin coordinates, with classes 2, 5 and 6 and elevations 35, 48 and 70. They contain no
-third-party survey data. To regenerate, install `laspy[lazrs]` and `numpy` in a separate Python
-environment and run `python tests/generate_lidar.py`; test execution needs no Python packages.
-The synthetic tiled `berlin.tif` can be regenerated with `python tests/generate_raster.py`
-after installing `tifffile` and `numpy`.
+third-party survey data. `tests/fixtures/berlin.tif` is a synthetic tiled GeoTIFF.
