@@ -1,0 +1,32 @@
+{
+    "repository": "opengeos/rustgis-web",
+    "revision": "cb2c8a3823b51838809d6e211a300eca8dee8093",
+    "sourceRevision": "797ccab15bf97a2f4c3cbda689bc5a2447ef1a8d",
+    "files": [
+        {
+            "path": "LICENSE",
+            "size": 10174,
+            "sha": "f433b1a53f5b830a205fd2df78e2b34974656c7b"
+        },
+        {
+            "path": "THIRD-PARTY-LICENSES.txt",
+            "size": 619362,
+            "sha": "3fc4cc01f71de650c705087b671f8faa7e489568"
+        },
+        {
+            "path": "rustgis-web-95de3c693fa4cfc2.js",
+            "size": 178606,
+            "sha": "e44cd53f85e22ec39cf58da35a508ae7d01c28d0"
+        },
+        {
+            "path": "rustgis-web-95de3c693fa4cfc2_bg.wasm",
+            "size": 39557369,
+            "sha": "6c6f101cd35a053cc9c7ae2da80620627d0fd48a"
+        },
+        {
+            "path": "snippets/rustgis-web-16bb2518e3b497a1/inline0.js",
+            "size": 2346,
+            "sha": "340a9e18213574f4e15fb838cdc0643e80c77f4f"
+        }
+    ]
+}

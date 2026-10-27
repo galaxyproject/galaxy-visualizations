@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="RustGIS" embeddable="true">
+    <description>Explore geographic data and LAS/LAZ point clouds with RustGIS</description>
+    <tags><tag>GIS</tag><tag>Map</tag><tag>LiDAR</tag><tag>LAZ</tag></tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">geojson</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">las</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">laz</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">csv</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">tsv</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">tiff</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">tif</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">parquet</test>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">zip</test>
+            <to_param param_attr="id">dataset_id</to_param>
+        </data_source>
+    </data_sources>
+    <params><param required="true">dataset_id</param></params>
+    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <help format="markdown"><![CDATA[
+# RustGIS
+
+Explore geographic data using the RustGIS browser application: maps, styling, attribute
+tables, editing, layouts and browser-supported spatial analysis. Save and Export download
+files to your computer; edits are not automatically saved to Galaxy history.
+
+Supported inputs: GeoJSON, LAS/LAZ, CSV/TSV with coordinate or WKT columns, georeferenced
+TIFF, GeoParquet, and ZIP archives of Shapefiles or other supported vector data. A Galaxy
+composite Shapefile must first be packaged as a ZIP. Plain Parquet without supported
+geospatial metadata is not supported.
+
+Deferred HTTP(S) datasets load directly from their source, leaving the Galaxy dataset deferred.
+The external server must allow browser requests from your Galaxy origin (CORS) and provide
+appropriate access. Sources requiring Galaxy file-source credentials or transformations
+must first be materialized. HTTPS Galaxy pages require HTTPS sources.
+
+LAS/LAZ are displayed as sampled point layers, including elevation, classification, intensity
+and available RGB. At most 500,000 points are displayed; LAZ sampling considers up to the
+first 40 million points. Remote LAZ and COPC files download completely, with a 256 MiB browser
+download limit. COPC spatial streaming is not available. Use smaller extracts for large clouds.
+
+WebGPU or WebGL2 and WebAssembly are required. Native GDAL/DuckDB features and direct database
+connections are unavailable. Read more at https://github.com/opengeos/RustGIS.
+    ]]></help>
+</visualization>
