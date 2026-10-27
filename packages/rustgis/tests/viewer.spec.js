@@ -248,6 +248,29 @@ test("relays asynchronous dataset HTTP failures from the real viewer", async ({ 
     await expect(wrapper.getByRole("alert")).toHaveText("Could not load the dataset (HTTP 403).", { timeout: 100_000 });
 });
 
+test("clears the timeout error when the dataset opens late", async ({ page }) => {
+    await page.clock.install();
+    let release;
+    const held = new Promise((resolve) => (release = resolve));
+    await page.route("**/galaxy/api/datasets/**", async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith("/display")) {
+            await held;
+            return route.fulfill({ status: 200, contentType: "application/octet-stream", body: geojson });
+        }
+        await route.fulfill({
+            json: { id: "selected", name: "Berlin data", state: "ok", extension: "geojson", file_size: geojson.length },
+        });
+    });
+    const wrapper = await open(page);
+    await expect(wrapper.locator("#app")).toHaveAttribute("data-state", "loading", { timeout: 100_000 });
+    await page.clock.fastForward(121_000);
+    await expect(wrapper.getByRole("alert")).toContainText("The dataset did not open");
+    release();
+    await loaded(wrapper);
+    await expect(wrapper.getByRole("alert")).toHaveCount(0);
+});
+
 test("ignores forged viewer messages from another window", async ({ page }) => {
     await dataset(page);
     const wrapper = await open(page);
