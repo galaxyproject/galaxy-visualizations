@@ -15,6 +15,11 @@
         <param required="true">dataset_id</param>
     </params>
     <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/1.warc.gz" ftype="warc.gz" label="WebData manual text" />
+        </test>
+    </tests>
     <help format="markdown"><![CDATA[
 Browse a gzip-compressed WARC dataset using the National Library of Norway's
 [WARC Explorer](https://github.com/NationalLibraryOfNorway/webdata-warc-explorer).
