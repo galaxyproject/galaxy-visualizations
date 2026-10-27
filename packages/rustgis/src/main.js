@@ -15,9 +15,10 @@ app.append(toolbar, status);
 let timer;
 let failed = false;
 
-function error(message) {
+// Shows the error; a late start or import still clears one from a timeout.
+function error(message, final = true) {
     clearTimeout(timer);
-    failed = true;
+    failed = failed || final;
     app.dataset.state = "error";
     status.hidden = false;
     status.setAttribute("role", "alert");
@@ -68,7 +69,7 @@ async function main() {
     status.textContent = "Starting RustGIS…";
     app.dataset.state = "starting";
     timer = setTimeout(
-        () => error("RustGIS did not start. Check browser graphics and WebAssembly support, then reload."),
+        () => error("RustGIS did not start. Check browser graphics and WebAssembly support, then reload.", false),
         120_000,
     );
     let ready = false;
@@ -81,11 +82,13 @@ async function main() {
             ready = true;
             clearTimeout(timer);
             app.dataset.state = "loading";
+            status.setAttribute("role", "status");
             status.textContent = `Opening ${source.name}…`;
             timer = setTimeout(
                 () =>
                     error(
                         "The dataset did not open. Check the notices inside RustGIS for format, size or access errors.",
+                        false,
                     ),
                 120_000,
             );
@@ -111,6 +114,7 @@ async function main() {
                 if (inMap || inTable) {
                     clearTimeout(timer);
                     app.dataset.state = "loaded";
+                    status.setAttribute("role", "status");
                     status.hidden = true;
                 }
             } catch {

@@ -1,35 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <visualization name="RustGIS" embeddable="true">
-    <description>Explore geographic data and LAS/LAZ point clouds with RustGIS</description>
-    <tags><tag>GIS</tag><tag>Map</tag><tag>LiDAR</tag><tag>LAZ</tag></tags>
+    <description>Explore geographic data and LAS/LAZ point clouds</description>
+    <tags>
+        <tag>GIS</tag>
+        <tag>Map</tag>
+        <tag>LiDAR</tag>
+        <tag>LAZ</tag>
+    </tags>
     <data_sources>
         <data_source>
             <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext" allow_uri_if_protocol="https,http">geocsv</test>
             <test test_attr="ext" allow_uri_if_protocol="https,http">geojson</test>
             <test test_attr="ext" allow_uri_if_protocol="https,http">las</test>
             <test test_attr="ext" allow_uri_if_protocol="https,http">laz</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">csv</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">tsv</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">tiff</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">tif</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">parquet</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">zip</test>
             <to_param param_attr="id">dataset_id</to_param>
         </data_source>
     </data_sources>
-    <params><param required="true">dataset_id</param></params>
-    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/1.geojson" ftype="geojson" label="Hurricane Irma" />
+        </test>
+    </tests>
     <help format="markdown"><![CDATA[
-# RustGIS
+# What is RustGIS?
 
 Explore geographic data using the RustGIS browser application: maps, styling, attribute
 tables, editing, layouts and browser-supported spatial analysis. Save and Export download
 files to your computer; edits are not automatically saved to Galaxy history.
 
-Supported inputs: GeoJSON, LAS/LAZ, CSV/TSV with coordinate or WKT columns, georeferenced
-TIFF, GeoParquet, and ZIP archives of Shapefiles or other supported vector data. A Galaxy
-composite Shapefile must first be packaged as a ZIP. Plain Parquet without supported
-geospatial metadata is not supported.
+Supported inputs: GeoJSON, LAS/LAZ, and GeoCSV (CSV with latitude and longitude columns).
 
 Deferred HTTP(S) datasets load directly from their source, leaving the Galaxy dataset deferred.
 The external server must allow browser requests from your Galaxy origin (CORS) and provide

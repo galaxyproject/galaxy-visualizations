@@ -165,54 +165,21 @@ test("shows dataset access failures without starting the viewer", async ({ page 
     await expect(wrapper.locator("#rustgis-viewer")).toHaveCount(0);
 });
 
-for (const [name, content, isTable] of [
-    ["coordinate CSV", "name,longitude,latitude\nGate,13.3777,52.5163\nSquare,13.4132,52.5219\n", false],
-    ["standalone CSV table", "name,value\nGate,35\nSquare,70\n", true],
-]) {
-    test(`opens a ${name} without leaving the loading indicator visible`, async ({ page }) => {
-        await dataset(page, { extension: "csv" }, { content: Buffer.from(content) });
+for (const header of ["name,latitude,longitude", "name,lat,lng"]) {
+    test(`opens a GeoCSV with ${header} as points without leaving the loading indicator visible`, async ({ page }) => {
+        const content = `${header}\nGate,52.5163,13.3777\nSquare,52.5219,13.4132\n`;
+        await dataset(page, { extension: "geocsv" }, { content: Buffer.from(content) });
         const wrapper = await open(page);
         await loaded(wrapper);
         const frame = page.frames().find((item) => item.parentFrame() === page.mainFrame());
         const project = await frame.evaluate(() => window.rustgisProjects.at(-1));
-        const rows = isTable ? project.tables[0].features : project.maps[0].layers[0].dataset.features;
-        expect(rows).toHaveLength(2);
+        const points = project.maps[0].layers[0].dataset.features;
+        expect(points.map((point) => point.geometry.Point)).toEqual([
+            { x: 13.3777, y: 52.5163 },
+            { x: 13.4132, y: 52.5219 },
+        ]);
     });
 }
-
-test("reads a deferred tiled GeoTIFF by range and recognizes its tile layer", async ({ page }) => {
-    const url = `${remote}/berlin.tif`;
-    const bytes = await fixture("tif");
-    const displays = await dataset(page, { extension: "tiff", state: "deferred", sources: [{ source_uri: url }] });
-    const ranges = [];
-    await page.route(`${remote}/**`, async (route) => {
-        const range = route.request().headers().range;
-        const headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Expose-Headers": "Content-Range",
-            "Accept-Ranges": "bytes",
-        };
-        if (!range) return route.fulfill({ status: 200, headers, body: bytes });
-        ranges.push(range);
-        const match = range.match(/^bytes=(\d*)-(\d*)$/);
-        const start = match[1] ? Number(match[1]) : Math.max(0, bytes.length - Number(match[2]));
-        const end = Math.min(match[1] && match[2] ? Number(match[2]) : bytes.length - 1, bytes.length - 1);
-        if (start >= bytes.length)
-            return route.fulfill({ status: 416, headers: { ...headers, "Content-Range": `bytes */${bytes.length}` } });
-        await route.fulfill({
-            status: 206,
-            headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${bytes.length}` },
-            body: bytes.subarray(start, end + 1),
-        });
-    });
-    const wrapper = await open(page);
-    await loaded(wrapper);
-    expect(displays).toHaveLength(0);
-    expect(ranges.length).toBeGreaterThan(0);
-    const frame = page.frames().find((item) => item.parentFrame() === page.mainFrame());
-    const tiles = await frame.evaluate(() => window.rustgisProjects.at(-1).maps[0].tiles);
-    expect(tiles.some((tile) => tile.name === "Berlin data" && tile.url === url)).toBe(true);
-});
 
 for (const [label, metadata, message] of [
     ["missing source", { state: "deferred", sources: [] }, "has no source URL"],
@@ -246,6 +213,29 @@ test("relays asynchronous dataset HTTP failures from the real viewer", async ({ 
     await dataset(page, {}, { displayStatus: 403 });
     const wrapper = await open(page);
     await expect(wrapper.getByRole("alert")).toHaveText("Could not load the dataset (HTTP 403).", { timeout: 100_000 });
+});
+
+test("clears the timeout error when the dataset opens late", async ({ page }) => {
+    await page.clock.install();
+    let release;
+    const held = new Promise((resolve) => (release = resolve));
+    await page.route("**/galaxy/api/datasets/**", async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith("/display")) {
+            await held;
+            return route.fulfill({ status: 200, contentType: "application/octet-stream", body: geojson });
+        }
+        await route.fulfill({
+            json: { id: "selected", name: "Berlin data", state: "ok", extension: "geojson", file_size: geojson.length },
+        });
+    });
+    const wrapper = await open(page);
+    await expect(wrapper.locator("#app")).toHaveAttribute("data-state", "loading", { timeout: 100_000 });
+    await page.clock.fastForward(121_000);
+    await expect(wrapper.getByRole("alert")).toContainText("The dataset did not open");
+    release();
+    await loaded(wrapper);
+    await expect(wrapper.getByRole("alert")).toHaveCount(0);
 });
 
 test("ignores forged viewer messages from another window", async ({ page }) => {

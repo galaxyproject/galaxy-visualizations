@@ -1,5 +1,5 @@
 export const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024;
-export const SUPPORTED_EXTENSIONS = new Set(["geojson", "las", "laz", "csv", "tsv", "tif", "tiff", "parquet", "zip"]);
+export const SUPPORTED_EXTENSIONS = new Set(["geojson", "las", "laz", "geocsv"]);
 
 export function galaxyRoot(root, base = window.location.href) {
     const url = new URL(root || "/", base);
@@ -42,8 +42,7 @@ export function datasetSource(dataset, root, datasetId) {
         url = new URL(`api/datasets/${encodeURIComponent(datasetId)}/display`, root);
         url.searchParams.set("preview", "false");
     }
-    const streamed = dataset.state === "deferred" && /\.(tiff?|fgb|(?:geo)?parquet)$/i.test(url.pathname);
-    if (!streamed && dataset.file_size > MAX_DOWNLOAD_BYTES)
+    if (dataset.file_size > MAX_DOWNLOAD_BYTES)
         throw new Error("This file exceeds RustGIS's 256 MiB browser download limit. Use a smaller extract.");
     const name = typeof dataset.name === "string" ? dataset.name.trim() : "";
     return { url: url.href, name: name || `Dataset ${datasetId}`, extension, deferred: dataset.state === "deferred" };
