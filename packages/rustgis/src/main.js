@@ -101,7 +101,13 @@ async function main() {
                     clearTimeout(timer);
                     app.dataset.state = "loaded";
                     status.setAttribute("role", "status");
-                    status.hidden = true;
+                    // Keeps the LiDAR sampling limits in view; other data needs no status once open.
+                    if (["las", "laz"].includes(source.extension)) {
+                        status.textContent =
+                            "LiDAR: up to 500,000 sampled points; files download in full (256 MiB maximum).";
+                    } else {
+                        status.hidden = true;
+                    }
                 }
             } catch {
                 error("RustGIS returned an invalid project.");

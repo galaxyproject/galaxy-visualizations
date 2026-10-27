@@ -98,6 +98,7 @@ test("opens an authenticated stored GeoJSON dataset in Galaxy's blank frame with
     expect(await requests[0].headerValue("cookie")).toContain("galaxysession=test-session");
     const layer = await importedLayer(page);
     expect(layer.dataset.features).toHaveLength(3);
+    await expect(wrapper.locator(".status")).toBeHidden();
     expect(errors).toEqual([]);
 });
 
@@ -122,6 +123,7 @@ for (const extension of ["las", "laz"]) {
             "green",
             "blue",
         ]);
+        await expect(wrapper.getByRole("status")).toHaveText(/500,000 sampled points/);
     });
 }
 
