@@ -1,5 +1,5 @@
 export const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024;
-export const SUPPORTED_EXTENSIONS = new Set(["geojson", "las", "laz", "csv", "tsv"]);
+export const SUPPORTED_EXTENSIONS = new Set(["geojson", "las", "laz", "geocsv"]);
 
 export function galaxyRoot(root, base = window.location.href) {
     const url = new URL(root || "/", base);

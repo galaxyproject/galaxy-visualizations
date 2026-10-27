@@ -165,18 +165,19 @@ test("shows dataset access failures without starting the viewer", async ({ page 
     await expect(wrapper.locator("#rustgis-viewer")).toHaveCount(0);
 });
 
-for (const [name, content, isTable] of [
-    ["coordinate CSV", "name,longitude,latitude\nGate,13.3777,52.5163\nSquare,13.4132,52.5219\n", false],
-    ["standalone CSV table", "name,value\nGate,35\nSquare,70\n", true],
-]) {
-    test(`opens a ${name} without leaving the loading indicator visible`, async ({ page }) => {
-        await dataset(page, { extension: "csv" }, { content: Buffer.from(content) });
+for (const header of ["name,latitude,longitude", "name,lat,lng"]) {
+    test(`opens a GeoCSV with ${header} as points without leaving the loading indicator visible`, async ({ page }) => {
+        const content = `${header}\nGate,52.5163,13.3777\nSquare,52.5219,13.4132\n`;
+        await dataset(page, { extension: "geocsv" }, { content: Buffer.from(content) });
         const wrapper = await open(page);
         await loaded(wrapper);
         const frame = page.frames().find((item) => item.parentFrame() === page.mainFrame());
         const project = await frame.evaluate(() => window.rustgisProjects.at(-1));
-        const rows = isTable ? project.tables[0].features : project.maps[0].layers[0].dataset.features;
-        expect(rows).toHaveLength(2);
+        const points = project.maps[0].layers[0].dataset.features;
+        expect(points.map((point) => point.geometry.Point)).toEqual([
+            { x: 13.3777, y: 52.5163 },
+            { x: 13.4132, y: 52.5219 },
+        ]);
     });
 }
 

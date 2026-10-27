@@ -4,10 +4,10 @@ Embeds the full [RustGIS](https://github.com/opengeos/RustGIS) browser applicati
 Open a history dataset to explore maps, layer styles, attribute tables, edits, layouts and
 browser-supported analysis. The application runs on the Galaxy origin with no extra GIS server.
 
-Supported dataset extensions: `geojson`, `las`, `laz`, `csv` and `tsv`. Coordinate columns are
-inferred for CSV/TSV; without them, CSV/TSV open as attribute tables. Galaxy has no datatypes
-for GeoTIFF, GeoParquet or zipped Shapefiles, and its generic `tiff`, `parquet` and `zip` are
-mostly not geographic, so the plugin does not offer itself for them. Native GDAL/DuckDB and
+Supported dataset extensions: `geojson`, `las`, `laz` and `geocsv`, which Galaxy assigns to CSV
+files with latitude and longitude columns. Galaxy has no datatypes for GeoTIFF, GeoParquet or
+zipped Shapefiles, and its generic `csv`, `tsv`, `tiff`, `parquet` and `zip` are mostly not
+geographic, so the plugin does not offer itself for them. Native GDAL/DuckDB and
 database features are unavailable in this browser build.
 
 Save and Export use RustGIS's normal local downloads. Changes are held in the browser and
@@ -80,9 +80,9 @@ npm test
 
 Playwright builds and serves the production artifact, reproducing Galaxy's script injection
 into a blank frame under a prefixed URL. Tests use the **real WASM engine** with synthetic
-GeoJSON, LAS, LAZ and CSV fixtures. They cover session-authenticated stored
+GeoJSON, LAS, LAZ and GeoCSV fixtures. They cover session-authenticated stored
 data, direct deferred sources and preserved signed URLs, native LiDAR classification decoding,
-standalone tables, source/access/size errors, forged messages, nested asset
+GeoCSV points, source/access/size errors, forged messages, nested asset
 paths, registration and licenses. All external services
 are blocked; the tests require no running Galaxy or public data service. A live deployment
 check is still needed for the target Galaxy's proxy, authentication and object-store routing.
