@@ -10,10 +10,6 @@
             <test test_attr="ext" allow_uri_if_protocol="https,http">laz</test>
             <test test_attr="ext" allow_uri_if_protocol="https,http">csv</test>
             <test test_attr="ext" allow_uri_if_protocol="https,http">tsv</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">tiff</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">tif</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">parquet</test>
-            <test test_attr="ext" allow_uri_if_protocol="https,http">zip</test>
             <to_param param_attr="id">dataset_id</to_param>
         </data_source>
     </data_sources>
@@ -31,10 +27,8 @@ Explore geographic data using the RustGIS browser application: maps, styling, at
 tables, editing, layouts and browser-supported spatial analysis. Save and Export download
 files to your computer; edits are not automatically saved to Galaxy history.
 
-Supported inputs: GeoJSON, LAS/LAZ, CSV/TSV with coordinate or WKT columns, georeferenced
-TIFF, GeoParquet, and ZIP archives of Shapefiles or other supported vector data. A Galaxy
-composite Shapefile must first be packaged as a ZIP. Plain Parquet without supported
-geospatial metadata is not supported.
+Supported inputs: GeoJSON, LAS/LAZ, and CSV/TSV with coordinate or WKT columns. CSV/TSV
+without them open as attribute tables.
 
 Deferred HTTP(S) datasets load directly from their source, leaving the Galaxy dataset deferred.
 The external server must allow browser requests from your Galaxy origin (CORS) and provide

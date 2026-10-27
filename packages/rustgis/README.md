@@ -4,11 +4,11 @@ Embeds the full [RustGIS](https://github.com/opengeos/RustGIS) browser applicati
 Open a history dataset to explore maps, layer styles, attribute tables, edits, layouts and
 browser-supported analysis. The application runs on the Galaxy origin with no extra GIS server.
 
-Supported dataset extensions: `geojson`, `las`, `laz`, `csv`, `tsv`, `tif`, `tiff`, `parquet`
-(GeoParquet), and `zip` (including zipped Shapefiles). Coordinate columns are inferred for
-CSV/TSV. A Galaxy composite `shp` dataset must first be packaged as a ZIP. Plain Parquet
-without supported geospatial geometry is not supported. Native GDAL/DuckDB and database
-features are unavailable in this browser build.
+Supported dataset extensions: `geojson`, `las`, `laz`, `csv` and `tsv`. Coordinate columns are
+inferred for CSV/TSV; without them, CSV/TSV open as attribute tables. Galaxy has no datatypes
+for GeoTIFF, GeoParquet or zipped Shapefiles, and its generic `tiff`, `parquet` and `zip` are
+mostly not geographic, so the plugin does not offer itself for them. Native GDAL/DuckDB and
+database features are unavailable in this browser build.
 
 Save and Export use RustGIS's normal local downloads. Changes are held in the browser and
 are not automatically saved to a Galaxy visualization or uploaded into history. Use the
@@ -31,9 +31,8 @@ session credentials (for example, a public or signed HTTPS URL). Signed query st
 preserved. HTTPS Galaxy pages require HTTPS sources. Galaxy file-source URIs, embedded login
 credentials and declared source transformations are rejected with an explanation.
 
-Remote TIFF, GeoParquet and FlatGeobuf URLs with recognized suffixes can use RustGIS's range
-readers when the server supports them. Stored datasets use an extensionless Galaxy display
-URL and therefore take the full-download path. The download limit also applies to those files.
+Stored datasets use an extensionless Galaxy display URL and download in full. The download
+limit applies to them.
 
 ## Build and run
 
@@ -81,9 +80,9 @@ npm test
 
 Playwright builds and serves the production artifact, reproducing Galaxy's script injection
 into a blank frame under a prefixed URL. Tests use the **real WASM engine** with synthetic
-GeoJSON, LAS, LAZ, CSV and tiled GeoTIFF fixtures. They cover session-authenticated stored
+GeoJSON, LAS, LAZ and CSV fixtures. They cover session-authenticated stored
 data, direct deferred sources and preserved signed URLs, native LiDAR classification decoding,
-raster ranges, standalone tables, source/access/size errors, forged messages, nested asset
+standalone tables, source/access/size errors, forged messages, nested asset
 paths, registration and licenses. All external services
 are blocked; the tests require no running Galaxy or public data service. A live deployment
 check is still needed for the target Galaxy's proxy, authentication and object-store routing.
@@ -93,4 +92,4 @@ an existing Chromium. Software WebGL is enabled for headless CI.
 
 `tests/fixtures/berlin.las` and `berlin.laz` contain three generated, fictional LiDAR records
 at Berlin coordinates, with classes 2, 5 and 6 and elevations 35, 48 and 70. They contain no
-third-party survey data. `tests/fixtures/berlin.tif` is a synthetic tiled GeoTIFF.
+third-party survey data.

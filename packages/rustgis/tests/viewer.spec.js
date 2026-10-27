@@ -180,40 +180,6 @@ for (const [name, content, isTable] of [
     });
 }
 
-test("reads a deferred tiled GeoTIFF by range and recognizes its tile layer", async ({ page }) => {
-    const url = `${remote}/berlin.tif`;
-    const bytes = await fixture("tif");
-    const displays = await dataset(page, { extension: "tiff", state: "deferred", sources: [{ source_uri: url }] });
-    const ranges = [];
-    await page.route(`${remote}/**`, async (route) => {
-        const range = route.request().headers().range;
-        const headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Expose-Headers": "Content-Range",
-            "Accept-Ranges": "bytes",
-        };
-        if (!range) return route.fulfill({ status: 200, headers, body: bytes });
-        ranges.push(range);
-        const match = range.match(/^bytes=(\d*)-(\d*)$/);
-        const start = match[1] ? Number(match[1]) : Math.max(0, bytes.length - Number(match[2]));
-        const end = Math.min(match[1] && match[2] ? Number(match[2]) : bytes.length - 1, bytes.length - 1);
-        if (start >= bytes.length)
-            return route.fulfill({ status: 416, headers: { ...headers, "Content-Range": `bytes */${bytes.length}` } });
-        await route.fulfill({
-            status: 206,
-            headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${bytes.length}` },
-            body: bytes.subarray(start, end + 1),
-        });
-    });
-    const wrapper = await open(page);
-    await loaded(wrapper);
-    expect(displays).toHaveLength(0);
-    expect(ranges.length).toBeGreaterThan(0);
-    const frame = page.frames().find((item) => item.parentFrame() === page.mainFrame());
-    const tiles = await frame.evaluate(() => window.rustgisProjects.at(-1).maps[0].tiles);
-    expect(tiles.some((tile) => tile.name === "Berlin data" && tile.url === url)).toBe(true);
-});
-
 for (const [label, metadata, message] of [
     ["missing source", { state: "deferred", sources: [] }, "has no source URL"],
     [
