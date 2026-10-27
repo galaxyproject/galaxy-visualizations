@@ -27,7 +27,7 @@
         </test>
     </tests>
     <help format="markdown"><![CDATA[
-# RustGIS
+# What is RustGIS?
 
 Explore geographic data using the RustGIS browser application: maps, styling, attribute
 tables, editing, layouts and browser-supported spatial analysis. Save and Export download
