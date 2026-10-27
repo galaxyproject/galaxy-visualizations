@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/rustgis",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "description": "RustGIS browser GIS for Galaxy, including LAS/LAZ and deferred HTTP(S) datasets",
     "license": "MIT",
