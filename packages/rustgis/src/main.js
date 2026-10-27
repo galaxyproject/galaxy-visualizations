@@ -5,13 +5,7 @@ const app = document.querySelector("#app");
 const status = document.createElement("div");
 status.className = "status";
 status.setAttribute("role", "status");
-const heading = document.createElement("span");
-heading.className = "dataset-name";
-const note = document.createElement("span");
-note.className = "note";
-const toolbar = document.createElement("header");
-toolbar.append(heading, note);
-app.append(toolbar, status);
+app.append(status);
 let timer;
 let failed = false;
 
@@ -36,7 +30,6 @@ async function main() {
         source = {
             url: new URL(/* @vite-ignore */ path, import.meta.url).href,
             name: "Berlin landmarks",
-            extension: "geojson",
         };
     } else {
         status.textContent = "Reading dataset information…";
@@ -46,13 +39,6 @@ async function main() {
         if (!response.ok) throw new Error(`Could not access the dataset (HTTP ${response.status}).`);
         source = datasetSource(await response.json(), root, id);
     }
-    heading.textContent = `RustGIS · ${source.name}`;
-    if (["las", "laz"].includes(source.extension)) {
-        note.textContent = "LiDAR: up to 500,000 sampled points; files download in full (256 MiB maximum).";
-    } else if (source.deferred) {
-        note.textContent = "Loading directly from the deferred dataset's source.";
-    }
-
     const relative = import.meta.env.DEV ? "../vendor/rustgis/index.html" : "./vendor/rustgis/index.html";
     const viewerUrl = new URL(/* @vite-ignore */ relative, import.meta.url);
     // Upstream recognizes bare flags; URLSearchParams would turn this into
@@ -115,7 +101,13 @@ async function main() {
                     clearTimeout(timer);
                     app.dataset.state = "loaded";
                     status.setAttribute("role", "status");
-                    status.hidden = true;
+                    // Keeps the LiDAR sampling limits in view; other data needs no status once open.
+                    if (["las", "laz"].includes(source.extension)) {
+                        status.textContent =
+                            "LiDAR: up to 500,000 sampled points; files download in full (256 MiB maximum).";
+                    } else {
+                        status.hidden = true;
+                    }
                 }
             } catch {
                 error("RustGIS returned an invalid project.");
