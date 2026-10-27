@@ -45,5 +45,5 @@ export function datasetSource(dataset, root, datasetId) {
     if (dataset.file_size > MAX_DOWNLOAD_BYTES)
         throw new Error("This file exceeds RustGIS's 256 MiB browser download limit. Use a smaller extract.");
     const name = typeof dataset.name === "string" ? dataset.name.trim() : "";
-    return { url: url.href, name: name || `Dataset ${datasetId}`, extension, deferred: dataset.state === "deferred" };
+    return { url: url.href, name: name || `Dataset ${datasetId}` };
 }
