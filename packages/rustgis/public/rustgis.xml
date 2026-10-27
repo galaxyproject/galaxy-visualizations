@@ -20,7 +20,7 @@
     <params>
         <param required="true">dataset_id</param>
     </params>
-    <entry_point entry_point_type="script" src="index.js" css="index.css" />
+    <entry_point src="index.js" css="index.css" />
     <tests>
         <test>
             <param name="dataset_id" value="https://raw.githubusercontent.com/galaxyproject/galaxy-test-data/master/1.geojson" ftype="geojson" label="Hurricane Irma" />
