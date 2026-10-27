@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <visualization name="RustGIS" embeddable="true">
-    <description>Explore geographic data and LAS/LAZ point clouds with RustGIS</description>
+    <description>Explore geographic data and LAS/LAZ point clouds</description>
     <tags>
         <tag>GIS</tag>
         <tag>Map</tag>
