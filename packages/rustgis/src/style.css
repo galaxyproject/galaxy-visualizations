@@ -7,26 +7,34 @@ body,
     font-family: system-ui, sans-serif;
 }
 #app {
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
     background: #e4e8ee;
-    color: #263447;
 }
-.status {
-    padding: 0.65rem 0.75rem;
-    background: #edf3fa;
+:root {
+    --message-background: rgba(255, 255, 255, 0.9);
+    --message-color: rgba(0, 0, 0, 0.9);
 }
-.status[hidden] {
+#message {
+    background: var(--message-background);
+    border-radius: 4px;
+    color: var(--message-color);
+    font-family: sans-serif;
+    font-weight: 100;
+    font-size: 0.85rem;
+    left: 1rem;
+    padding: 0.7rem;
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    word-break: break-all;
+    z-index: 9999;
+}
+#message[hidden] {
     display: none;
 }
-.status[role="alert"] {
-    background: #fef2f2;
-    color: #991b1b;
-}
 #rustgis-viewer {
-    flex: 1;
-    min-height: 0;
+    display: block;
     width: 100%;
+    height: 100%;
     border: 0;
 }

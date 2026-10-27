@@ -91,14 +91,20 @@ test("opens an authenticated stored GeoJSON dataset in Galaxy's blank frame with
     await context.addCookies([{ name: "galaxysession", value: "test-session", url: baseURL }]);
     const requests = await dataset(page);
     const wrapper = await open(page);
+    // The message overlays the viewer, which keeps its full size from start to finish.
+    const size = () => wrapper.locator("#rustgis-viewer").boundingBox();
+    await expect(wrapper.locator("#rustgis-viewer")).toBeAttached();
+    const starting = await size();
     await loaded(wrapper);
+    expect(await size()).toEqual(starting);
+    expect(starting.height).toBe(page.viewportSize().height);
     expect(requests).toHaveLength(1);
     expect(new URL(requests[0].url()).pathname).toBe("/galaxy/api/datasets/selected/display");
     expect(new URL(requests[0].url()).searchParams.get("preview")).toBe("false");
     expect(await requests[0].headerValue("cookie")).toContain("galaxysession=test-session");
     const layer = await importedLayer(page);
     expect(layer.dataset.features).toHaveLength(3);
-    await expect(wrapper.locator(".status")).toBeHidden();
+    await expect(wrapper.locator("#message")).toBeHidden();
     expect(errors).toEqual([]);
 });
 
@@ -124,6 +130,8 @@ for (const extension of ["las", "laz"]) {
             "blue",
         ]);
         await expect(wrapper.getByRole("status")).toHaveText(/500,000 sampled points/);
+        await wrapper.getByRole("status").click();
+        await expect(wrapper.locator("#message")).toBeHidden();
     });
 }
 

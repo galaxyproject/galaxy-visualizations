@@ -3,9 +3,15 @@ import "./style.css";
 
 const app = document.querySelector("#app");
 const status = document.createElement("div");
-status.className = "status";
+status.id = "message";
 status.setAttribute("role", "status");
 app.append(status);
+// Closes the LiDAR note on click, so it does not keep covering the RustGIS toolbar.
+status.addEventListener("click", () => {
+    if (app.dataset.state === "loaded") {
+        status.hidden = true;
+    }
+});
 let timer;
 let failed = false;
 
@@ -104,7 +110,7 @@ async function main() {
                     // Keeps the LiDAR sampling limits in view; other data needs no status once open.
                     if (["las", "laz"].includes(source.extension)) {
                         status.textContent =
-                            "LiDAR: up to 500,000 sampled points; files download in full (256 MiB maximum).";
+                            "LiDAR: up to 500,000 sampled points; files download in full (256 MiB maximum). Click to close.";
                     } else {
                         status.hidden = true;
                     }
