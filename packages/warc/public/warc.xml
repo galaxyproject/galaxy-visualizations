@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="WARC Explorer" embeddable="true">
+    <description>Explore archived web records, headers, and payloads</description>
+    <tags>
+        <tag>WARC</tag>
+        <tag>Web archives</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">warc.gz</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.warc.gz" ftype="warc.gz" label="WebData manual text" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the WARC Explorer?
+
+The WARC Explorer lets you browse web archives stored in the WARC format directly in your browser. A WARC file holds the records captured while crawling websites: requests, responses, metadata and the archived page content.
+
+After selecting a gzip-compressed WARC dataset, the archive is indexed in your browser and its records are listed for inspection. Archive data stays in your browser.
+
+## Key Features
+
+- **Record Filters**: Filter records by type and search by URI or record ID.
+- **Header Viewers**: Inspect WARC and HTTP headers of each record.
+- **Payload Display**: View text or binary payloads, with decoded previews of up to 16 MiB.
+- **Isolated HTML Previews**: HTML previews are static, with scripts and live resource requests blocked.
+
+Selected records are fetched with HTTP byte ranges when available. Files compressed as a single gzip member are read sequentially, which can be slower.
+
+This tool inspects individual archive records, making it useful for web archivists and researchers working with crawled web content.
+
+To learn more, visit:
+- [WARC Explorer by the National Library of Norway](https://github.com/NationalLibraryOfNorway/webdata-warc-explorer)
+- [WARC format specification](https://iipc.github.io/warc-specifications/)
+    ]]></help>
+</visualization>
