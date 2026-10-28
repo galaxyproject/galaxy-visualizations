@@ -180,10 +180,15 @@ test("updates an owned visualization and reports save errors", async ({ page }) 
     });
     const viewer = await openViewer(page, { visualizationId: "existing-id" });
     await expect(viewer.locator("#save-view")).toBeEnabled();
+    const panes = await viewer.locator(".panes").boundingBox();
     await viewer.locator("#save-view").click();
-    await expect(viewer.locator("#galaxy-message")).toContainText("HTTP 403");
-    await expect(viewer.locator("#save-view")).toBeEnabled();
-    expect(methods).toEqual(["PUT"]);
+    await expect(viewer.locator("#message")).toContainText("HTTP 403");
+    expect(await viewer.locator(".panes").boundingBox()).toEqual(panes);
+    await viewer.locator("#message").click();
+    await expect(viewer.locator("#message")).toBeHidden();
+    await viewer.locator("#save-view").click();
+    await expect(viewer.locator("#message")).toContainText("HTTP 403");
+    expect(methods).toEqual(["PUT", "PUT"]);
 });
 
 test("renders HTML in a sandbox without scripts, live resources, or an opener", async ({ page }) => {
@@ -255,5 +260,5 @@ test("loads the test dataset in development", async ({ page }) => {
 
 test("reports missing dataset configuration", async ({ page }) => {
     const viewer = await openViewer(page, { config: {} });
-    await expect(viewer.locator("#galaxy-message")).toContainText("No dataset_id");
+    await expect(viewer.locator("#message")).toContainText("No dataset_id");
 });

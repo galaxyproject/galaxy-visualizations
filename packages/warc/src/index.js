@@ -28,10 +28,13 @@ const fileHint = document.querySelector("#fileTree .empty-hint");
 if (fileHint) fileHint.textContent = "Loading history dataset…";
 document.getElementById("statusLeft").setAttribute("role", "status");
 const banner = document.createElement("div");
-banner.id = "galaxy-message";
+banner.id = "message";
 banner.setAttribute("role", "alert");
 banner.hidden = true;
-document.querySelector(".panes").before(banner);
+banner.addEventListener("click", () => {
+    banner.hidden = true;
+});
+app.append(banner);
 const save = document.createElement("button");
 save.id = "save-view";
 save.textContent = "Save view";
