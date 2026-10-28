@@ -25,7 +25,7 @@ Build output is `static/`, containing `warc.xml`, `index.js`, `index.css`, and t
 GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_DATASET_ID=ENCODED_ID npm run dev
 ```
 
-Open the development server, or supply `?dataset_id=ENCODED_ID`. `GALAXY_KEY` optionally configures the development proxy; it is not included in the built JavaScript. Galaxy served under a URL prefix is supported by the incoming `root` configuration. Production accepts only the inherited Galaxy origin, including its `about:blank` visualization iframe.
+Open the development server, or supply `?dataset_id=ENCODED_ID`. `GALAXY_KEY` optionally configures the development proxy; it is not included in the built JavaScript. Galaxy served under a URL prefix is supported by the incoming `root` configuration.
 
 `npm run test:unit` covers the actual vendored parser, plain/member/single-member gzip layouts, HTTP decompression, resource MIME types, payload limits, malformed input, cancellation, record identity, range transport, and Blob fallback. `npm run test:e2e` drives the built JavaScript/CSS inside a Galaxy-style iframe and mocks only the Galaxy API. It covers search/filter/selection, stale requests, save/restore/error paths, and browser isolation of HTML/image previews. Browser tests require a build first. The repository's existing CI discovers the package and builds it before running its tests.
 

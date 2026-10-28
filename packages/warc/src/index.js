@@ -10,7 +10,7 @@ const TEST_DATASET_URL = "https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-
 const app = document.getElementById("app");
 if (import.meta.env.DEV && !app.dataset.incoming) {
     app.dataset.incoming = JSON.stringify({
-        root: `${window.location.origin}/`,
+        root: "/",
         visualization_config: {
             dataset_id:
                 new URL(window.location.href).searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
@@ -49,9 +49,9 @@ let changeVersion = 0;
 let saving = false;
 const lifetime = new AbortController();
 function reportSaved(saved) {
-    window.parent.postMessage(
+    window.parent?.postMessage(
         { from: "galaxy-visualization", visualization_saved: saved },
-        root?.origin || window.origin,
+        URL.canParse(root) ? new URL(root).origin : "*",
     );
 }
 function showError(error) {
@@ -76,7 +76,7 @@ const explorer = createExplorer({
 });
 
 async function jsonRequest(path, options = {}) {
-    const response = await fetch(new URL(path, root), {
+    const response = await fetch(`${root}${path}`, {
         credentials: "same-origin",
         signal: lifetime.signal,
         ...options,
@@ -88,25 +88,21 @@ async function jsonRequest(path, options = {}) {
 async function init() {
     try {
         incoming = JSON.parse(app.dataset.incoming || "{}");
-        root = new URL(incoming.root || "./", window.location.href);
-        // Galaxy uses an about:blank iframe; its inherited origin is window.origin.
-        if (root.origin !== window.origin)
-            throw new Error("Galaxy root must use the same origin as this visualization.");
-        if (!root.pathname.endsWith("/")) root.pathname += "/";
+        root = incoming.root || "/";
         datasetId = incoming.visualization_config?.dataset_id;
         visualizationId = incoming.visualization_id;
         if (!datasetId) throw new Error("No dataset_id was provided by Galaxy.");
         let url;
         if (datasetId === "__test__") {
             datasetName = "1.warc.gz";
-            url = new URL(TEST_DATASET_URL);
+            url = TEST_DATASET_URL;
         } else {
             const datasetPath = `api/datasets/${encodeURIComponent(datasetId)}`;
             const dataset = await jsonRequest(datasetPath);
             datasetName = dataset.name || "WARC dataset";
             if (dataset.state && dataset.state !== "ok")
                 throw new Error(`This dataset is not ready to view (state: ${dataset.state}).`);
-            url = new URL(`${datasetPath}/display`, root);
+            url = `${root}${datasetPath}/display`;
         }
         explorer.setStatus(`Loading ${datasetName}…`, true);
         const source = await openDataset(url, { signal: lifetime.signal });
