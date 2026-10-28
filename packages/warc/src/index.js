@@ -108,7 +108,7 @@ save.addEventListener("click", async () => {
     const payload = {
       title: incoming.visualization_title || `WARC Explorer: ${datasetName}`,
       config: { dataset_id: datasetId, ...explorer.getView() },
-      ...(!visualizationId ? { type: "warcexplorer" } : {}),
+      ...(!visualizationId ? { type: "warc" } : {}),
     };
     const result = await jsonRequest(visualizationId ? `api/visualizations/${encodeURIComponent(visualizationId)}` : "api/visualizations", {
       method: visualizationId ? "PUT" : "POST",

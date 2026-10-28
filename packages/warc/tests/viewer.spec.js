@@ -127,7 +127,7 @@ test("creates and updates a saved view, and restores its record and filters", as
   await viewer.locator("#save-view").click();
   await expect(viewer.locator("#save-view")).toHaveText("Saved");
   expect(writes[0].method).toBe("POST");
-  expect(writes[0].body.type).toBe("warcexplorer");
+  expect(writes[0].body.type).toBe("warc");
   expect(writes[0].body.config).toMatchObject({ dataset_id: "archive-id", query: "record-2", types: ["metadata"], recordId: "<urn:uuid:record-2>" });
   await viewer.locator("#searchInput").fill("absent");
   await expect(viewer.locator(".record-row")).toHaveCount(0);

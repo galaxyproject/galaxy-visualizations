@@ -1,5 +1,5 @@
 {
-  "name": "@galaxyproject/warcexplorer",
+  "name": "@galaxyproject/warc",
   "version": "0.0.0",
   "description": "Explore WARC records with the National Library of Norway's WARC Explorer.",
   "type": "module",

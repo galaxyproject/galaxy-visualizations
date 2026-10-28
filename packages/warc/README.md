@@ -17,7 +17,7 @@ npx playwright install chromium
 npm test
 ```
 
-Build output is `static/`, containing `warcexplorer.xml`, `index.js`, `index.css`, and the license/provenance notices. Install the built package through Galaxy's visualization plugin packaging in the same way as other packages in this repository. The entry point consumes `#app.dataset.incoming` supplied by Galaxy; it does not need Vue or Galaxy Charts.
+Build output is `static/`, containing `warc.xml`, `index.js`, `index.css`, and the license/provenance notices. Install the built package through Galaxy's visualization plugin packaging in the same way as other packages in this repository. The entry point consumes `#app.dataset.incoming` supplied by Galaxy; it does not need Vue or Galaxy Charts.
 
 For development against Galaxy:
 
