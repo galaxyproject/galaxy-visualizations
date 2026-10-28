@@ -1,13 +1,44 @@
-html, body, #app { height: 100%; overflow: hidden; }
-[hidden] { display: none !important; }
-#pane-files { flex-basis: 230px; }
-#pane-records { flex-basis: 38%; }
-#galaxy-message { padding: 10px 12px; background: #f8d7da; color: #721c24; }
-#save-view { font: inherit; padding: 4px 10px; cursor: pointer; }
-#save-view:disabled { cursor: default; }
-.titlebar .hint { white-space: normal; }
+html,
+body,
+#app {
+    height: 100%;
+    overflow: hidden;
+}
+[hidden] {
+    display: none !important;
+}
+#pane-files {
+    flex-basis: 230px;
+}
+#pane-records {
+    flex-basis: 38%;
+}
+#galaxy-message {
+    padding: 10px 12px;
+    background: #f8d7da;
+    color: #721c24;
+}
+#save-view {
+    font: inherit;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+#save-view:disabled {
+    cursor: default;
+}
+.titlebar .hint {
+    white-space: normal;
+}
 @media (max-width: 800px) {
-  #pane-files, #resizer1 { display: none; }
-  .gh-link i, .titlebar .hint { display: none; }
-  #pane-records { flex-basis: 40%; }
+    #pane-files,
+    #resizer1 {
+        display: none;
+    }
+    .gh-link i,
+    .titlebar .hint {
+        display: none;
+    }
+    #pane-records {
+        flex-basis: 40%;
+    }
 }

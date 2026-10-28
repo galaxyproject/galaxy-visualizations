@@ -7,10 +7,12 @@ import { previewPayload } from "./preview.js";
 
 const app = document.getElementById("app");
 if (import.meta.env.DEV && !app.dataset.incoming) {
-  app.dataset.incoming = JSON.stringify({
-    root: `${window.location.origin}/`,
-    visualization_config: { dataset_id: new URL(window.location.href).searchParams.get("dataset_id") || process.env.dataset_id },
-  });
+    app.dataset.incoming = JSON.stringify({
+        root: `${window.location.origin}/`,
+        visualization_config: {
+            dataset_id: new URL(window.location.href).searchParams.get("dataset_id") || process.env.dataset_id,
+        },
+    });
 }
 
 // Keep upstream's markup without executing its standalone script tags.
@@ -44,91 +46,117 @@ let changeVersion = 0;
 let saving = false;
 const lifetime = new AbortController();
 function reportSaved(saved) {
-  window.parent.postMessage({ from: "galaxy-visualization", visualization_saved: saved }, root?.origin || window.origin);
+    window.parent.postMessage(
+        { from: "galaxy-visualization", visualization_saved: saved },
+        root?.origin || window.origin,
+    );
 }
 function showError(error) {
-  banner.textContent = error.message;
-  banner.hidden = false;
+    banner.textContent = error.message;
+    banner.hidden = false;
 }
 const explorer = createExplorer({
-  onChange() {
-    if (!ready) return;
-    changeVersion++;
-    dirty = true;
-    save.textContent = "Save view";
-    reportSaved(false);
-  },
-  previewPayload(bytes, type) {
-    try { previewPayload(bytes, type); } catch (error) { showError(error); }
-  },
+    onChange() {
+        if (!ready) return;
+        changeVersion++;
+        dirty = true;
+        save.textContent = "Save view";
+        reportSaved(false);
+    },
+    previewPayload(bytes, type) {
+        try {
+            previewPayload(bytes, type);
+        } catch (error) {
+            showError(error);
+        }
+    },
 });
 
 async function jsonRequest(path, options = {}) {
-  const response = await fetch(new URL(path, root), { credentials: "same-origin", signal: lifetime.signal, ...options });
-  if (!response.ok) throw new Error(`Galaxy request failed: HTTP ${response.status}`);
-  return response.json();
+    const response = await fetch(new URL(path, root), {
+        credentials: "same-origin",
+        signal: lifetime.signal,
+        ...options,
+    });
+    if (!response.ok) throw new Error(`Galaxy request failed: HTTP ${response.status}`);
+    return response.json();
 }
 
 async function init() {
-  try {
-    incoming = JSON.parse(app.dataset.incoming || "{}");
-    root = new URL(incoming.root || "./", window.location.href);
-    // Galaxy uses an about:blank iframe; its inherited origin is window.origin.
-    if (root.origin !== window.origin) throw new Error("Galaxy root must use the same origin as this visualization.");
-    if (!root.pathname.endsWith("/")) root.pathname += "/";
-    datasetId = incoming.visualization_config?.dataset_id;
-    visualizationId = incoming.visualization_id;
-    if (!datasetId) throw new Error("No dataset_id was provided by Galaxy.");
-    const datasetPath = `api/datasets/${encodeURIComponent(datasetId)}`;
-    const dataset = await jsonRequest(datasetPath);
-    datasetName = dataset.name || "WARC dataset";
-    if (dataset.state && dataset.state !== "ok") throw new Error(`This dataset is not ready to view (state: ${dataset.state}).`);
-    explorer.setStatus(`Loading ${datasetName}…`, true);
-    const source = await openDataset(new URL(`${datasetPath}/display`, root), { signal: lifetime.signal });
-    if (!await explorer.open(source, datasetName)) return;
-    await explorer.restore(incoming.visualization_config || {});
-    ready = true;
-    save.disabled = false;
-    reportSaved(true);
-  } catch (error) {
-    if (error.name !== "AbortError") {
-      showError(error);
-      explorer.setStatus(`Error: ${error.message}`, false);
+    try {
+        incoming = JSON.parse(app.dataset.incoming || "{}");
+        root = new URL(incoming.root || "./", window.location.href);
+        // Galaxy uses an about:blank iframe; its inherited origin is window.origin.
+        if (root.origin !== window.origin)
+            throw new Error("Galaxy root must use the same origin as this visualization.");
+        if (!root.pathname.endsWith("/")) root.pathname += "/";
+        datasetId = incoming.visualization_config?.dataset_id;
+        visualizationId = incoming.visualization_id;
+        if (!datasetId) throw new Error("No dataset_id was provided by Galaxy.");
+        const datasetPath = `api/datasets/${encodeURIComponent(datasetId)}`;
+        const dataset = await jsonRequest(datasetPath);
+        datasetName = dataset.name || "WARC dataset";
+        if (dataset.state && dataset.state !== "ok")
+            throw new Error(`This dataset is not ready to view (state: ${dataset.state}).`);
+        explorer.setStatus(`Loading ${datasetName}…`, true);
+        const source = await openDataset(new URL(`${datasetPath}/display`, root), { signal: lifetime.signal });
+        if (!(await explorer.open(source, datasetName))) return;
+        await explorer.restore(incoming.visualization_config || {});
+        ready = true;
+        save.disabled = false;
+        reportSaved(true);
+    } catch (error) {
+        if (error.name !== "AbortError") {
+            showError(error);
+            explorer.setStatus(`Error: ${error.message}`, false);
+        }
     }
-  }
 }
 
 save.addEventListener("click", async () => {
-  if (!ready || saving) return;
-  saving = true;
-  save.disabled = true;
-  banner.hidden = true;
-  const version = changeVersion;
-  try {
-    const payload = {
-      title: incoming.visualization_title || `WARC Explorer: ${datasetName}`,
-      config: { dataset_id: datasetId, ...explorer.getView() },
-      ...(!visualizationId ? { type: "warc" } : {}),
-    };
-    const result = await jsonRequest(visualizationId ? `api/visualizations/${encodeURIComponent(visualizationId)}` : "api/visualizations", {
-      method: visualizationId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    visualizationId = result.id;
-    dirty = version !== changeVersion;
-    save.textContent = dirty ? "Save view" : "Saved";
-    reportSaved(!dirty);
-  } catch (error) {
-    showError(error);
-  } finally {
-    saving = false;
-    save.disabled = false;
-  }
+    if (!ready || saving) return;
+    saving = true;
+    save.disabled = true;
+    banner.hidden = true;
+    const version = changeVersion;
+    try {
+        const payload = {
+            title: incoming.visualization_title || `WARC Explorer: ${datasetName}`,
+            config: { dataset_id: datasetId, ...explorer.getView() },
+            ...(!visualizationId ? { type: "warc" } : {}),
+        };
+        const result = await jsonRequest(
+            visualizationId ? `api/visualizations/${encodeURIComponent(visualizationId)}` : "api/visualizations",
+            {
+                method: visualizationId ? "PUT" : "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            },
+        );
+        visualizationId = result.id;
+        dirty = version !== changeVersion;
+        save.textContent = dirty ? "Save view" : "Saved";
+        reportSaved(!dirty);
+    } catch (error) {
+        showError(error);
+    } finally {
+        saving = false;
+        save.disabled = false;
+    }
 });
 
-window.addEventListener("beforeunload", event => {
-  if (dirty) { event.preventDefault(); event.returnValue = ""; }
+window.addEventListener("beforeunload", (event) => {
+    if (dirty) {
+        event.preventDefault();
+        event.returnValue = "";
+    }
 });
-window.addEventListener("pagehide", () => { lifetime.abort(); explorer.destroy(); }, { once: true });
+window.addEventListener(
+    "pagehide",
+    () => {
+        lifetime.abort();
+        explorer.destroy();
+    },
+    { once: true },
+);
 init();
