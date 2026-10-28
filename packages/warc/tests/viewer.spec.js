@@ -43,16 +43,12 @@ async function serveDataset(
 }
 
 /** Exercise the built entry point exactly as Galaxy mounts it in an about:blank iframe. */
-async function openViewer(page, { config = { dataset_id: "archive-id" }, visualizationId, title } = {}) {
+async function openViewer(page, { config = { dataset_id: "archive-id" } } = {}) {
     await page.goto("/");
     await page.evaluate(
-        ({ config, visualizationId, title }) => {
+        ({ config }) => {
             document.body.replaceChildren();
             document.body.style.cssText = "margin:0;height:100vh";
-            window.hostMessages = [];
-            window.addEventListener("message", (event) => {
-                if (event.data?.from === "galaxy-visualization") window.hostMessages.push(event.data);
-            });
             const frame = document.createElement("iframe");
             frame.id = "galaxy_visualization";
             frame.style.cssText = "width:100%;height:100%;border:0";
@@ -62,8 +58,6 @@ async function openViewer(page, { config = { dataset_id: "archive-id" }, visuali
             app.dataset.incoming = JSON.stringify({
                 root: `${window.location.origin}/galaxy/`,
                 visualization_config: config,
-                visualization_id: visualizationId,
-                visualization_title: title,
             });
             frame.contentDocument.body.appendChild(app);
             const link = frame.contentDocument.createElement("link");
@@ -75,7 +69,7 @@ async function openViewer(page, { config = { dataset_id: "archive-id" }, visuali
             script.src = `${window.location.origin}/static/index.js`;
             frame.contentDocument.body.appendChild(script);
         },
-        { config, visualizationId, title },
+        { config },
     );
     return page.frameLocator("#galaxy_visualization");
 }
@@ -86,6 +80,8 @@ test("loads the history dataset in Galaxy, searches and filters the upstream rec
     const requests = await serveDataset(page, { name: "<img src=x onerror=alert(1)>.warc.gz" });
     const viewer = await openViewer(page);
     await expect(viewer.locator("#currentFileLabel")).toHaveText("3 records");
+    await expect(viewer.locator(".titlebar")).toBeHidden();
+    await expect(viewer.locator("#pane-files")).toBeHidden();
     await expect(viewer.locator("#fileTree")).toContainText("<img src=x onerror=alert(1)>.warc.gz");
     await expect(viewer.locator("#fileTree img")).toHaveCount(0);
     await viewer.locator(".record-row").first().click();
@@ -141,56 +137,6 @@ test("a slower previous selection cannot overwrite a newer record", async ({ pag
     await expect(viewer.locator("#payloadView")).toHaveValue("Archived payload 3");
 });
 
-test("creates and updates a saved view, and restores its record and filters", async ({ page }) => {
-    await serveDataset(page);
-    const writes = [];
-    await page.route("**/galaxy/api/visualizations{,/*}", async (route) => {
-        writes.push({ method: route.request().method(), body: route.request().postDataJSON() });
-        await route.fulfill({ json: { id: "saved-id", revision: "revision-id" } });
-    });
-    const viewer = await openViewer(page, {
-        config: { dataset_id: "archive-id", query: "record-2", types: ["metadata"], recordId: "<urn:uuid:record-2>" },
-    });
-    await expect(viewer.locator("#payloadView")).toHaveValue("Archived payload 2");
-    await expect(viewer.locator(".record-row")).toHaveCount(1);
-    await viewer.locator("#save-view").click();
-    await expect(viewer.locator("#save-view")).toHaveText("Saved");
-    expect(writes[0].method).toBe("POST");
-    expect(writes[0].body.type).toBe("warc");
-    expect(writes[0].body.config).toMatchObject({
-        dataset_id: "archive-id",
-        query: "record-2",
-        types: ["metadata"],
-        recordId: "<urn:uuid:record-2>",
-    });
-    await viewer.locator("#searchInput").fill("absent");
-    await expect(viewer.locator(".record-row")).toHaveCount(0);
-    await viewer.locator("#save-view").click();
-    await expect(viewer.locator("#save-view")).toHaveText("Saved");
-    expect(writes[1].method).toBe("PUT");
-    expect(writes[1].body.config.query).toBe("absent");
-});
-
-test("updates an owned visualization and reports save errors", async ({ page }) => {
-    await serveDataset(page);
-    const methods = [];
-    await page.route("**/galaxy/api/visualizations/existing-id", async (route) => {
-        methods.push(route.request().method());
-        await route.fulfill({ status: 403, body: "Forbidden" });
-    });
-    const viewer = await openViewer(page, { visualizationId: "existing-id" });
-    await expect(viewer.locator("#save-view")).toBeEnabled();
-    const panes = await viewer.locator(".panes").boundingBox();
-    await viewer.locator("#save-view").click();
-    await expect(viewer.locator("#message")).toContainText("HTTP 403");
-    expect(await viewer.locator(".panes").boundingBox()).toEqual(panes);
-    await viewer.locator("#message").click();
-    await expect(viewer.locator("#message")).toBeHidden();
-    await viewer.locator("#save-view").click();
-    await expect(viewer.locator("#message")).toContainText("HTTP 403");
-    expect(methods).toEqual(["PUT", "PUT"]);
-});
-
 test("renders HTML in a sandbox without scripts, live resources, or an opener", async ({ page }) => {
     const leaked = [];
     await page.context().route("https://live.example/**", async (route) => {
@@ -243,7 +189,6 @@ for (const [label, fixture, message] of [
         await serveDataset(page, fixture);
         const viewer = await openViewer(page);
         await expect(viewer.locator("#statusLeft")).toContainText(message);
-        await expect(viewer.locator("#save-view")).toBeDisabled();
     });
 }
 
@@ -253,12 +198,15 @@ test("loads the test dataset in development", async ({ page }) => {
     );
     await page.goto("/");
     await expect(page.locator("#currentFileLabel")).toHaveText("3 records");
-    await expect(page.locator("#fileTree")).toContainText("1.warc.gz");
     await page.locator(".record-row").first().click();
     await expect(page.locator("#payloadView")).toHaveValue("Archived payload 1");
 });
 
 test("reports missing dataset configuration", async ({ page }) => {
     const viewer = await openViewer(page, { config: {} });
+    const panes = await viewer.locator(".panes").boundingBox();
     await expect(viewer.locator("#message")).toContainText("No dataset_id");
+    expect(await viewer.locator(".panes").boundingBox()).toEqual(panes);
+    await viewer.locator("#message").click();
+    await expect(viewer.locator("#message")).toBeHidden();
 });

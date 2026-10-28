@@ -4,7 +4,7 @@ A Galaxy visualization based on the [National Library of Norway's WARC Explorer]
 
 The selected Galaxy `warc.gz` history dataset opens automatically. Archive processing happens in the browser; no third-party service receives the data. The initial scan streams the archive, and selected records are fetched using authenticated HTTP byte ranges. If the server does not advertise ranges, the viewer downloads a Blob once. Multi-record gzip members use sequential reading to avoid upstream's invalid individual-record offsets.
 
-Save view stores the dataset ID, query, enabled record types, and selected record in a Galaxy visualization. Reopening restores that state. Galaxy passes an owned visualization ID for updates; otherwise saving creates a new visualization. Shared views still require access to the dataset. The local file/folder controls are hidden in the Galaxy interface.
+Upstream's title bar and file pane are hidden, since the viewer opens a single dataset.
 
 The plugin registers for `warc.gz`, which must be present in the Galaxy deployment's datatype configuration. It can also parse plain WARC in development/tests, but does not register a nonexistent plain `warc` datatype or change Galaxy core.
 
@@ -27,7 +27,7 @@ GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_DATASET_ID=ENCODED_ID npm run dev
 
 Open the development server, or supply `?dataset_id=ENCODED_ID`. `GALAXY_KEY` optionally configures the development proxy; it is not included in the built JavaScript. Galaxy served under a URL prefix is supported by the incoming `root` configuration.
 
-`npm run test:unit` covers the actual vendored parser, plain/member/single-member gzip layouts, HTTP decompression, resource MIME types, payload limits, malformed input, cancellation, record identity, range transport, and Blob fallback. `npm run test:e2e` drives the built JavaScript/CSS inside a Galaxy-style iframe and mocks only the Galaxy API. It covers search/filter/selection, stale requests, save/restore/error paths, and browser isolation of HTML/image previews. Browser tests require a build first. The repository's existing CI discovers the package and builds it before running its tests.
+`npm run test:unit` covers the actual vendored parser, plain/member/single-member gzip layouts, HTTP decompression, resource MIME types, payload limits, malformed input, cancellation, record identity, range transport, and Blob fallback. `npm run test:e2e` drives the built JavaScript/CSS inside a Galaxy-style iframe and mocks only the Galaxy API. It covers search/filter/selection, stale requests, error paths, and browser isolation of HTML/image previews. Browser tests require a build first. The repository's existing CI discovers the package and builds it before running its tests.
 
 Indexing still scans the complete archive and retains record metadata in memory. Large archives can therefore take time and browser memory, even though the list is virtualized. Single-member gzip record selection can require another scan from the beginning. Decoded record previews retain at most 16 MiB, and the upstream text view further truncates at 50,000 characters. Truncated payloads cannot be opened as if they were complete.
 

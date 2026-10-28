@@ -33,9 +33,8 @@ After selecting a gzip-compressed WARC dataset, the archive is indexed in your b
 - **Header Viewers**: Inspect WARC and HTTP headers of each record.
 - **Payload Display**: View text or binary payloads, with decoded previews of up to 16 MiB.
 - **Isolated HTML Previews**: HTML previews are static, with scripts and live resource requests blocked.
-- **Saved Views**: Save a view to reopen its filters and selected record.
 
-Selected records are fetched with HTTP byte ranges when available. Files compressed as a single gzip member are read sequentially, which can be slower. Viewing a shared visualization also requires access to its underlying dataset.
+Selected records are fetched with HTTP byte ranges when available. Files compressed as a single gzip member are read sequentially, which can be slower.
 
 This tool inspects individual archive records, making it useful for web archivists and researchers working with crawled web content.
 

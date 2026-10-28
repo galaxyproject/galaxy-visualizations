@@ -7,8 +7,10 @@ body,
 [hidden] {
     display: none !important;
 }
-#pane-files {
-    flex-basis: 230px;
+.titlebar,
+#pane-files,
+#resizer1 {
+    display: none;
 }
 #pane-records {
     flex-basis: 38%;
@@ -32,28 +34,4 @@ body,
     top: 1rem;
     word-break: break-all;
     z-index: 9999;
-}
-#save-view {
-    font: inherit;
-    padding: 4px 10px;
-    cursor: pointer;
-}
-#save-view:disabled {
-    cursor: default;
-}
-.titlebar .hint {
-    white-space: normal;
-}
-@media (max-width: 800px) {
-    #pane-files,
-    #resizer1 {
-        display: none;
-    }
-    .gh-link i,
-    .titlebar .hint {
-        display: none;
-    }
-    #pane-records {
-        flex-basis: 40%;
-    }
 }

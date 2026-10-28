@@ -64,7 +64,7 @@ import { indexWarcFile, loadRecordDetail } from "../src/warc.js";
       Everything else should fall back to plain text.
  */
 
-export function createExplorer({ onChange = () => {}, previewPayload }) {
+export function createExplorer({ previewPayload }) {
 
   // ---------------------------------------------------------------
   // DOM references
@@ -447,7 +447,6 @@ export function createExplorer({ onChange = () => {}, previewPayload }) {
 
     renderRecordWindow();
     updateRecordsCountStatus();
-    onChange(getView());
   }
 
   // Updating count of filtered records below the filtering chips.
@@ -561,7 +560,6 @@ export function createExplorer({ onChange = () => {}, previewPayload }) {
     state.selectedIndex = rec.index;
     renderRecordWindow();
     scrollRowIntoView(pos);
-    onChange(getView());
 
     els.headerView.value = "Loading…";
     els.httpHeaderView.value = "";
@@ -651,40 +649,13 @@ export function createExplorer({ onChange = () => {}, previewPayload }) {
   setStatus("Ready", false);
   window.addEventListener("resize", renderRecordWindow);
 
-  function getView() {
-    const selected = state.records[state.selectedIndex];
-    return {
-      query: state.searchQuery,
-      types: [...state.activeTypes],
-      recordId: selected?.recordId || null,
-      recordIndex: selected?.index ?? null,
-    };
-  }
-
   return {
     setStatus,
-    getView,
     async open(file, name) {
       state.treeRoot.children.clear();
       addFileToTree(file, name);
       renderTree();
       return loadWarcFile(file, name);
-    },
-    async restore(view) {
-      if (typeof view.query === "string") {
-        state.searchQuery = view.query;
-        state.appliedSearchQuery = view.query.trim().toLowerCase();
-        els.searchInput.value = view.query;
-      }
-      if (Array.isArray(view.types)) {
-        state.activeTypes = new Set(view.types.filter(type => state.typesPresent.includes(type)));
-      }
-      renderTypeChips();
-      computeVisible();
-      const pos = state.visible.findIndex(record => view.recordId
-        ? record.recordId === view.recordId
-        : view.recordIndex != null && record.index === view.recordIndex);
-      if (pos >= 0) await selectRecord(pos);
     },
     destroy() {
       indexRequest?.abort();
