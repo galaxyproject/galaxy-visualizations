@@ -1,36 +1,31 @@
 **WARC Explorer for Galaxy**
 
-A Galaxy visualization based on the [National Library of Norway's WARC Explorer](https://github.com/NationalLibraryOfNorway/webdata-warc-explorer). It retains the upstream three-pane interface, record-type filters, URI/record-ID search, virtualized list, header viewers, text/hex payload display, keyboard navigation, and pane resizers.
+A Galaxy visualization for `warc.gz` datasets, based on the [National Library of Norway's WARC Explorer](https://github.com/NationalLibraryOfNorway/webdata-warc-explorer). It keeps the upstream record list, record-type filters, URI and record-ID search, header viewers, text and hex payload display, keyboard navigation and pane resizers. Upstream's title bar and file pane are hidden, since the viewer opens a single dataset.
 
-The selected Galaxy `warc.gz` history dataset opens automatically. Archive processing happens in the browser; no third-party service receives the data. The initial scan streams the archive, and selected records are fetched using authenticated HTTP byte ranges. If the server does not advertise ranges, the viewer downloads a Blob once. Multi-record gzip members use sequential reading to avoid upstream's invalid individual-record offsets.
+The archive is processed in the browser. The first pass streams the dataset to index its records; selecting a record fetches it with an HTTP byte range, or reads the archive sequentially when it is compressed as a single gzip member. Servers without range support get one complete download instead. The `warc.gz` datatype is available from Galaxy 26.2.
 
-Upstream's title bar and file pane are hidden, since the viewer opens a single dataset.
-
-The plugin registers for `warc.gz`, which must be present in the Galaxy deployment's datatype configuration. It can also parse plain WARC in development/tests, but does not register a nonexistent plain `warc` datatype or change Galaxy core.
-
-From this directory:
+## Development
 
 ```bash
 npm ci
-npm run build
 npx playwright install chromium
 npm test
 ```
 
-Build output is `static/`, containing `warc.xml`, `index.js`, `index.css`, and the license/provenance notices. Install the built package through Galaxy's visualization plugin packaging in the same way as other packages in this repository. The entry point consumes `#app.dataset.incoming` supplied by Galaxy; it does not need Vue or Galaxy Charts.
-
-`npm run dev` opens the sample archive `1.warc.gz` from [galaxy-test-data](https://github.com/galaxyproject/galaxy-test-data). For development against Galaxy:
+`npm run dev` opens the sample archive `1.warc.gz` from [galaxy-test-data](https://github.com/galaxyproject/galaxy-test-data). To open a dataset from a Galaxy server:
 
 ```bash
-GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_DATASET_ID=ENCODED_ID npm run dev
+GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_KEY=API_KEY GALAXY_DATASET_ID=ENCODED_ID npm run dev
 ```
 
-Open the development server, or supply `?dataset_id=ENCODED_ID`. `GALAXY_KEY` optionally configures the development proxy; it is not included in the built JavaScript. Galaxy served under a URL prefix is supported by the incoming `root` configuration.
+`?dataset_id=ENCODED_ID` also selects the dataset. `GALAXY_KEY` is used by the development proxy only.
 
-`npm run test:unit` covers the actual vendored parser, plain/member/single-member gzip layouts, HTTP decompression, resource MIME types, payload limits, malformed input, cancellation, record identity, range transport, and Blob fallback. `npm run test:e2e` drives the built JavaScript/CSS inside a Galaxy-style iframe and mocks only the Galaxy API. It covers search/filter/selection, stale requests, error paths, and browser isolation of HTML/image previews. Browser tests require a build first. The repository's existing CI discovers the package and builds it before running its tests.
+`npm run test:unit` covers the vendored parser, gzip layouts, payload limits, malformed input, cancellation and range transport. `npm run test:e2e` drives the built viewer inside a Galaxy-style iframe, including search, filters, error states and isolated previews. Playwright reuses a dev server already running on its port; set `PLAYWRIGHT_PORT` to test against a fresh build.
 
-Indexing still scans the complete archive and retains record metadata in memory. Large archives can therefore take time and browser memory, even though the list is virtualized. Single-member gzip record selection can require another scan from the beginning. Decoded record previews retain at most 16 MiB, and the upstream text view further truncates at 50,000 characters. Truncated payloads cannot be opened as if they were complete.
+## Limits
 
-Payload previews use a sandboxed frame with a restrictive content policy. HTML is projected onto static markup without scripts, navigation, forms, embedded documents, or live URLs. Inline CSS remains, with network requests blocked by CSP. Images, including SVG, render through an image element; audio/video use local data URLs. Other types, including PDF, are shown as text in the isolated preview rather than opening an active document on Galaxy's origin. This is record inspection, not archived-site replay or payload full-text search.
+Indexing scans the whole archive and keeps record metadata in memory, so large archives take time and memory. Decoded previews hold up to 16 MiB, and the text view shows up to 50,000 characters.
 
-See [vendor/README.md](vendor/README.md) for the upstream pin, retained files, modifications, and licenses.
+Payload previews open in a sandboxed frame with a restrictive content policy. HTML is rebuilt as static markup with scripts, forms, embedded documents and live URLs removed; images and media use local data URLs; other types are shown as text.
+
+See [public/UPSTREAM.md](public/UPSTREAM.md) for the upstream pin and changes.

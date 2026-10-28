@@ -1,4 +1,4 @@
-// Adapted from the pinned upstream app.js; see vendor/README.md.
+// Adapted from the pinned upstream app.js; see public/UPSTREAM.md.
 import { indexWarcFile, loadRecordDetail } from "../src/warc.js";
 
 /*!
