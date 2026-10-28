@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="WARC Explorer" embeddable="true">
+    <description>Explore archived web records, headers, and payloads</description>
+    <tags>
+        <tag>WARC</tag>
+        <tag>Web archives</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">warc.gz</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <help format="markdown"><![CDATA[
+Browse a gzip-compressed WARC dataset using the National Library of Norway's
+[WARC Explorer](https://github.com/NationalLibraryOfNorway/webdata-warc-explorer).
+
+Filter by record type, search URIs or record IDs, and inspect WARC headers,
+HTTP headers, and text or binary payloads. Save a view to reopen its filters
+and selected record. Viewing a shared visualization also requires access to
+its underlying dataset.
+
+Archives are indexed in your browser when opened. Selected records use HTTP
+byte ranges when available. Files compressed as a single gzip member are
+read sequentially for record inspection, which can be slower. The record list
+is virtualized; decoded payload previews are limited to 16 MiB.
+
+HTML previews are static and isolated: scripts and live resource requests are
+blocked. This is a record inspector rather than a full archived-site replay
+system. No archive data is sent to a third-party service.
+    ]]></help>
+</visualization>
