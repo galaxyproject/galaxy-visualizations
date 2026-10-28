@@ -158,7 +158,6 @@ save.addEventListener("click", async () => {
 window.addEventListener("beforeunload", (event) => {
     if (dirty) {
         event.preventDefault();
-        event.returnValue = "";
     }
 });
 window.addEventListener(
