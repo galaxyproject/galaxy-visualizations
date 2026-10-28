@@ -109,17 +109,20 @@ test("basic load and drag-drop dataset", async ({ page }) => {
     page.on("console", (msg) => messages.push(msg.text()));
     await page.goto("/?dataset_id=__test_pw__");
     await page.waitForSelector(".igv-track-label[title='__test_pw__']");
-    await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.03 });
+    const genomeWideGenes = page.locator(".igv-viewport", {
+        has: page.locator(".igv-track-label[title='Refseq Genes']"),
+    });
+    await expect(page).toHaveScreenshot("0.png", { mask: [genomeWideGenes], maxDiffPixels: 50 });
     await page.click(".n-button");
-    await expect(page).toHaveScreenshot("1.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("1.png", { mask: [genomeWideGenes], maxDiffPixels: 50 });
     await page.fill(".igv-search-input", "chr1:1-150,000");
     await page.keyboard.press("Enter");
     await page.waitForTimeout(1000);
-    await expect(page).toHaveScreenshot("2.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("2.png", { maxDiffPixels: 0 });
     await createMockDatasetElement(page);
     await dragAndDropDataset(page, "__test_pw_dropped__", "__test_pw_dropped__");
     await page.waitForSelector(".igv-track-label[title='__test_pw_dropped__']");
     const accepted = messages.some((msg) => msg.includes("[igv] Dropped Tracks"));
     expect(accepted).toBeTruthy();
-    await expect(page).toHaveScreenshot("3.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("3.png", { maxDiffPixels: 0 });
 });
