@@ -135,7 +135,6 @@ export function createExplorer({ previewPayload }) {
   };
 
   let searchDebounceTimer = null;
-  let loadGeneration = 0;
   let indexRequest = null;
   let detailRequest = null;
 
@@ -315,9 +314,6 @@ export function createExplorer({ previewPayload }) {
   // Pass 1: Indexes a WARC file's headers + byte offsets
   // ---------------------------------------------------------------
   async function loadWarcFile(file, displayName) {
-    const generation = ++loadGeneration;
-    indexRequest?.abort();
-    detailRequest?.abort();
     indexRequest = new AbortController();
     state.currentFile = file;
     state.currentFileName = displayName;
@@ -351,7 +347,6 @@ export function createExplorer({ previewPayload }) {
       const records = await indexWarcFile(file, (n) => {
         els.currentFileLabel.textContent = `Loading: ${displayName} (${n.toLocaleString()} records so far)`;
       }, { signal: indexRequest.signal });
-      if (generation !== loadGeneration) return false;
       state.records = records;
 
       state.typesPresent = [...new Set(records.map((r) => r.type))].sort();
@@ -364,12 +359,11 @@ export function createExplorer({ previewPayload }) {
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       els.currentFileLabel.textContent = `${records.length.toLocaleString()} records`;
       setStatus(`Indexed ${records.length.toLocaleString()} records in ${dt}s${records[0]?.sequential ? " · sequential gzip access" : ""}`, false);
-      return true;
     } catch (err) {
-      if (generation !== loadGeneration || err.name === "AbortError") return false;
-      els.currentFileLabel.textContent = `Failed to load ${displayName}`;
-      setStatus("Error: " + err.message, false);
-      return false;
+      if (err.name !== "AbortError") {
+        els.currentFileLabel.textContent = `Failed to load ${displayName}`;
+        setStatus("Error: " + err.message, false);
+      }
     }
   }
 

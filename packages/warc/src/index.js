@@ -32,7 +32,6 @@ banner.addEventListener("click", () => {
 });
 app.append(banner);
 
-let root;
 const lifetime = new AbortController();
 function showError(error) {
     banner.textContent = error.message;
@@ -48,19 +47,10 @@ const explorer = createExplorer({
     },
 });
 
-async function jsonRequest(path) {
-    const response = await fetch(`${root}${path}`, {
-        credentials: "same-origin",
-        signal: lifetime.signal,
-    });
-    if (!response.ok) throw new Error(`Galaxy request failed: HTTP ${response.status}`);
-    return response.json();
-}
-
 async function init() {
     try {
         const incoming = JSON.parse(app.dataset.incoming || "{}");
-        root = incoming.root || "/";
+        const root = incoming.root || "/";
         const datasetId = incoming.visualization_config?.dataset_id;
         if (!datasetId) throw new Error("No dataset_id was provided by Galaxy.");
         let datasetName;
@@ -70,7 +60,12 @@ async function init() {
             url = TEST_DATASET_URL;
         } else {
             const datasetPath = `api/datasets/${encodeURIComponent(datasetId)}`;
-            const dataset = await jsonRequest(datasetPath);
+            const response = await fetch(`${root}${datasetPath}`, {
+                credentials: "same-origin",
+                signal: lifetime.signal,
+            });
+            if (!response.ok) throw new Error(`Galaxy request failed: HTTP ${response.status}`);
+            const dataset = await response.json();
             datasetName = dataset.name || "WARC dataset";
             if (dataset.state && dataset.state !== "ok")
                 throw new Error(`This dataset is not ready to view (state: ${dataset.state}).`);

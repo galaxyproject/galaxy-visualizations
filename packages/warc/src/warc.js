@@ -1,6 +1,6 @@
 import warcio from "../vendor/warcio.js";
 
-export const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
+const MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
 const MAX_PAYLOAD_CHARS = 50000;
 const BINARY_SAMPLE_SIZE = 4000;
 const HEX_DUMP_BYTES = 2000;

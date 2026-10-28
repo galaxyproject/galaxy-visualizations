@@ -48,7 +48,7 @@ function staticHtml(text) {
     return container.innerHTML;
 }
 
-export function payloadDocument(bytes, contentType) {
+function payloadDocument(bytes, contentType) {
     const type = (contentType || "").split(";")[0].trim().toLowerCase();
     const container = document.createElement("div");
     if (type === "text/html" || type === "application/xhtml+xml") {
