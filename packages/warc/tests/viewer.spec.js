@@ -242,6 +242,17 @@ for (const [label, fixture, message] of [
     });
 }
 
+test("loads the test dataset in development", async ({ page }) => {
+    await page.route("https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.warc.gz", (route) =>
+        route.fulfill({ body: archive() }),
+    );
+    await page.goto("/");
+    await expect(page.locator("#currentFileLabel")).toHaveText("3 records");
+    await expect(page.locator("#fileTree")).toContainText("1.warc.gz");
+    await page.locator(".record-row").first().click();
+    await expect(page.locator("#payloadView")).toHaveValue("Archived payload 1");
+});
+
 test("reports missing dataset configuration", async ({ page }) => {
     const viewer = await openViewer(page, { config: {} });
     await expect(viewer.locator("#galaxy-message")).toContainText("No dataset_id");

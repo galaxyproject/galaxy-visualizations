@@ -5,12 +5,15 @@ import { createExplorer } from "../vendor/app.js";
 import { openDataset } from "./source.js";
 import { previewPayload } from "./preview.js";
 
+const TEST_DATASET_URL = "https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.warc.gz";
+
 const app = document.getElementById("app");
 if (import.meta.env.DEV && !app.dataset.incoming) {
     app.dataset.incoming = JSON.stringify({
         root: `${window.location.origin}/`,
         visualization_config: {
-            dataset_id: new URL(window.location.href).searchParams.get("dataset_id") || process.env.dataset_id,
+            dataset_id:
+                new URL(window.location.href).searchParams.get("dataset_id") || process.env.dataset_id || "__test__",
         },
     });
 }
@@ -93,13 +96,20 @@ async function init() {
         datasetId = incoming.visualization_config?.dataset_id;
         visualizationId = incoming.visualization_id;
         if (!datasetId) throw new Error("No dataset_id was provided by Galaxy.");
-        const datasetPath = `api/datasets/${encodeURIComponent(datasetId)}`;
-        const dataset = await jsonRequest(datasetPath);
-        datasetName = dataset.name || "WARC dataset";
-        if (dataset.state && dataset.state !== "ok")
-            throw new Error(`This dataset is not ready to view (state: ${dataset.state}).`);
+        let url;
+        if (datasetId === "__test__") {
+            datasetName = "1.warc.gz";
+            url = new URL(TEST_DATASET_URL);
+        } else {
+            const datasetPath = `api/datasets/${encodeURIComponent(datasetId)}`;
+            const dataset = await jsonRequest(datasetPath);
+            datasetName = dataset.name || "WARC dataset";
+            if (dataset.state && dataset.state !== "ok")
+                throw new Error(`This dataset is not ready to view (state: ${dataset.state}).`);
+            url = new URL(`${datasetPath}/display`, root);
+        }
         explorer.setStatus(`Loading ${datasetName}…`, true);
-        const source = await openDataset(new URL(`${datasetPath}/display`, root), { signal: lifetime.signal });
+        const source = await openDataset(url, { signal: lifetime.signal });
         if (!(await explorer.open(source, datasetName))) return;
         await explorer.restore(incoming.visualization_config || {});
         ready = true;

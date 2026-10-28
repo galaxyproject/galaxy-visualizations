@@ -19,7 +19,7 @@ npm test
 
 Build output is `static/`, containing `warc.xml`, `index.js`, `index.css`, and the license/provenance notices. Install the built package through Galaxy's visualization plugin packaging in the same way as other packages in this repository. The entry point consumes `#app.dataset.incoming` supplied by Galaxy; it does not need Vue or Galaxy Charts.
 
-For development against Galaxy:
+`npm run dev` opens the sample archive `1.warc.gz` from [galaxy-test-data](https://github.com/galaxyproject/galaxy-test-data). For development against Galaxy:
 
 ```bash
 GALAXY_ROOT=http://127.0.0.1:8080 GALAXY_DATASET_ID=ENCODED_ID npm run dev
