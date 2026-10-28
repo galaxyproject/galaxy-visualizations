@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/warc",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "Explore WARC records with the National Library of Norway's WARC Explorer.",
     "type": "module",
     "license": "MIT",
