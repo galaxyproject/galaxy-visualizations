@@ -21,21 +21,26 @@
         </test>
     </tests>
     <help format="markdown"><![CDATA[
-Browse a gzip-compressed WARC dataset using the National Library of Norway's
-[WARC Explorer](https://github.com/NationalLibraryOfNorway/webdata-warc-explorer).
+# What is the WARC Explorer?
 
-Filter by record type, search URIs or record IDs, and inspect WARC headers,
-HTTP headers, and text or binary payloads. Save a view to reopen its filters
-and selected record. Viewing a shared visualization also requires access to
-its underlying dataset.
+The WARC Explorer lets you browse web archives stored in the WARC format directly in your browser. A WARC file holds the records captured while crawling websites: requests, responses, metadata and the archived page content.
 
-Archives are indexed in your browser when opened. Selected records use HTTP
-byte ranges when available. Files compressed as a single gzip member are
-read sequentially for record inspection, which can be slower. The record list
-is virtualized; decoded payload previews are limited to 16 MiB.
+After selecting a gzip-compressed WARC dataset, the archive is indexed in your browser and its records are listed for inspection. Archive data stays in your browser.
 
-HTML previews are static and isolated: scripts and live resource requests are
-blocked. This is a record inspector rather than a full archived-site replay
-system. No archive data is sent to a third-party service.
+## Key Features
+
+- **Record Filters**: Filter records by type and search by URI or record ID.
+- **Header Viewers**: Inspect WARC and HTTP headers of each record.
+- **Payload Display**: View text or binary payloads, with decoded previews of up to 16 MiB.
+- **Isolated HTML Previews**: HTML previews are static, with scripts and live resource requests blocked.
+- **Saved Views**: Save a view to reopen its filters and selected record.
+
+Selected records are fetched with HTTP byte ranges when available. Files compressed as a single gzip member are read sequentially, which can be slower. Viewing a shared visualization also requires access to its underlying dataset.
+
+This tool inspects individual archive records, making it useful for web archivists and researchers working with crawled web content.
+
+To learn more, visit:
+- [WARC Explorer by the National Library of Norway](https://github.com/NationalLibraryOfNorway/webdata-warc-explorer)
+- [WARC format specification](https://iipc.github.io/warc-specifications/)
     ]]></help>
 </visualization>
