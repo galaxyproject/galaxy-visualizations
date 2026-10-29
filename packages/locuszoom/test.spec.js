@@ -7,7 +7,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BGZIP = readFileSync(resolve(__dirname, "test-data/test.gwas_bgzip"));
 const TABIX = readFileSync(resolve(__dirname, "test-data/test.gwas_bgzip.tbi"));
 
-
 function fulfillBinary(route, data) {
     const rangeHeader = route.request().headers()["range"];
     const match = rangeHeader?.match(/bytes=(\d+)-(\d+)/);
