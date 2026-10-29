@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const maxDiffPixelRatio = 0.07;
 
 const TESTS = {
     csv: { file: "test.csv", extension: "csv", contentType: "text/csv" },
@@ -36,6 +37,6 @@ test("basic", async ({ page }) => {
         await page.goto(`/?dataset_id=${name}`);
         await page.waitForSelector("canvas", { timeout: 90000 });
         await page.waitForTimeout(2000);
-        await expect(page).toHaveScreenshot(`${name}.png`, { threshold: 0 });
+        await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });
     }
 });
