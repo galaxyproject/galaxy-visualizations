@@ -127,9 +127,15 @@ jobs:
           echo "Playwright version: $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Check for the Playwright image
+        id: image
+        working-directory: packages/${{ matrix.package }}
+        run: echo "docker=$(jq -r '.scripts | has("test:e2e:docker")' package.json)" >> "$GITHUB_OUTPUT"
+
       # No restore-keys: browsers from another version are dead weight that
       # `playwright install` has to replace anyway.
       - name: Cache Playwright browsers
+        if: steps.image.outputs.docker != 'true'
         uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
@@ -137,6 +143,7 @@ jobs:
 
       # Chromium unless the package names the browsers it drives in `playwrightBrowsers`.
       - name: Install Playwright browsers
+        if: steps.image.outputs.docker != 'true'
         working-directory: packages/${{ matrix.package }}
         run: npx playwright install --with-deps $(jq -r '(.playwrightBrowsers // ["chromium"]) | join(" ")' package.json)
 
@@ -145,8 +152,19 @@ jobs:
         run: npm run build
 
       - name: Run Playwright tests
+        if: steps.image.outputs.docker != 'true'
         working-directory: packages/${{ matrix.package }}
         run: npm test
+
+      - name: Run unit tests
+        if: steps.image.outputs.docker == 'true'
+        working-directory: packages/${{ matrix.package }}
+        run: npm run test:unit
+
+      - name: Run Playwright tests in the pinned image
+        if: steps.image.outputs.docker == 'true'
+        working-directory: packages/${{ matrix.package }}
+        run: npm run test:e2e:docker
 
       # Informational: where a package's pinned upstreams sit against their sources. Never fails
       # the build; the report lands in the job summary.
