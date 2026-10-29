@@ -6,7 +6,6 @@ import { dirname, join } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STORE = "Images.ome.zarr";
 const REMOTE = "https://zarr.example.org";
-const maxDiffPixelRatio = 0.05;
 
 const DATASETS = {
     stored: { state: "ok", extension: "ome_zarr", metadata_store_root: STORE },
@@ -45,6 +44,6 @@ test("basic", async ({ page }) => {
         await page.goto(`/?dataset_id=${name}`);
         expect((await chunk).status()).toBe(200);
         await expect(page.locator("canvas")).toBeVisible();
-        await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });
+        await expect(page).toHaveScreenshot(`${name}.png`, { threshold: 0 });
     }
 });

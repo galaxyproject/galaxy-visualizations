@@ -21,5 +21,5 @@ test("basic", async ({ page }) => {
     await page.waitForSelector("canvas");
     // Give OpenLayers a moment to finish its initial render
     await page.waitForTimeout(1000);
-    await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.05 });
+    await expect(page).toHaveScreenshot("0.png", { threshold: 0 });
 });
