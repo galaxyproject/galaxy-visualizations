@@ -17,6 +17,7 @@ const props = defineProps({
 });
 
 const errorMessage = ref("");
+const busy = ref(true);
 const viewport = ref();
 
 let nv;
@@ -53,6 +54,7 @@ async function render() {
         nv.setOpacity(0, props.settings.opacity);
         nv.opts.isColorbar = props.settings.is_colorbar;
         nv.drawScene();
+        busy.value = false;
     }
 }
 
@@ -71,5 +73,5 @@ watch(
 
 <template>
     <n-alert v-if="errorMessage" type="error" class="m-2">{{ errorMessage }}</n-alert>
-    <canvas v-else id="niivue-viewport" ref="viewport" />
+    <canvas v-else id="niivue-viewport" ref="viewport" :aria-busy="busy" />
 </template>
