@@ -13,7 +13,7 @@ test("basic", async ({ page }) => {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-                extension: "pdb"
+                extension: "pdb",
             }),
         });
     });
@@ -31,7 +31,7 @@ test("basic", async ({ page }) => {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-                extension: "cif"
+                extension: "cif",
             }),
         });
     });

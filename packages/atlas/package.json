@@ -2,7 +2,9 @@
     "name": "@galaxyproject/atlas",
     "version": "0.0.1",
     "type": "module",
-    "files": ["static"],
+    "files": [
+        "static"
+    ],
     "scripts": {
         "dev": "vite",
         "build": "vite build",

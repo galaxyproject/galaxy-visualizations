@@ -12,7 +12,7 @@ test("basic", async ({ page }) => {
             status: 200,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                extension: "nii1.gz"
+                extension: "nii1.gz",
             }),
         });
     });

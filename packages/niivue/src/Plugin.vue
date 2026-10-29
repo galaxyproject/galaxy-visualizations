@@ -24,7 +24,7 @@ let nv;
 
 const mapExtension = {
     "nii1.gz": "nii1.gz",
-    "nii1": "nii1",
+    nii1: "nii1",
 };
 
 async function create() {

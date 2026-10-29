@@ -1,70 +1,70 @@
 name: Update Snapshots
 
 on:
-  workflow_dispatch:
-    inputs:
-      package:
-        description: Package directory under packages/
-        required: true
-        type: string
+    workflow_dispatch:
+        inputs:
+            package:
+                description: Package directory under packages/
+                required: true
+                type: string
 
 permissions:
-  contents: read
+    contents: read
 
 env:
-  NODE_VERSION: "22"
-  PYTHON_VERSION: "3.13"
-  PACKAGE: ${{ inputs.package }}
+    NODE_VERSION: "22"
+    PYTHON_VERSION: "3.13"
+    PACKAGE: ${{ inputs.package }}
 
 jobs:
-  update:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
+    update:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v6
 
-      - name: Check the package
-        run: |
-          set -euo pipefail
-          if ! [[ "$PACKAGE" =~ ^[A-Za-z0-9_-]+$ ]] || [ ! -f "packages/$PACKAGE/package.json" ]; then
-            echo "::error::No package named '$PACKAGE' under packages/."
-            exit 1
-          fi
-          if ! jq -e '.scripts["test:e2e"] // "" | contains("playwright-docker.sh")' "packages/$PACKAGE/package.json" >/dev/null; then
-            echo "::error::'$PACKAGE' does not run its tests in the Playwright image."
-            exit 1
-          fi
+            - name: Check the package
+              run: |
+                  set -euo pipefail
+                  if ! [[ "$PACKAGE" =~ ^[A-Za-z0-9_-]+$ ]] || [ ! -f "packages/$PACKAGE/package.json" ]; then
+                    echo "::error::No package named '$PACKAGE' under packages/."
+                    exit 1
+                  fi
+                  if ! jq -e '.scripts["test:e2e"] // "" | contains("playwright-docker.sh")' "packages/$PACKAGE/package.json" >/dev/null; then
+                    echo "::error::'$PACKAGE' does not run its tests in the Playwright image."
+                    exit 1
+                  fi
 
-      - uses: ./.github/actions/install-package
-        with:
-          package: ${{ env.PACKAGE }}
-          node-version: ${{ env.NODE_VERSION }}
-          python-version: ${{ env.PYTHON_VERSION }}
+            - uses: ./.github/actions/install-package
+              with:
+                  package: ${{ env.PACKAGE }}
+                  node-version: ${{ env.NODE_VERSION }}
+                  python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Build
-        working-directory: packages/${{ env.PACKAGE }}
-        run: npm run build
+            - name: Build
+              working-directory: packages/${{ env.PACKAGE }}
+              run: npm run build
 
-      - name: Generate snapshots
-        working-directory: packages/${{ env.PACKAGE }}
-        run: npm run test:e2e -- --update-snapshots=all
+            - name: Generate snapshots
+              working-directory: packages/${{ env.PACKAGE }}
+              run: npm run test:e2e -- --update-snapshots=all
 
-      - name: Collect changed snapshots
-        if: ${{ !cancelled() }}
-        run: |
-          set -euo pipefail
-          git ls-files --modified --others --exclude-standard -- ":(glob)packages/$PACKAGE/**/test-data/*.png" > changed.txt
-          mkdir -p snapshots
-          xargs -r cp --parents -t snapshots < changed.txt
-          {
-            echo "### Snapshots for $PACKAGE ($(wc -l < changed.txt) changed)"
-            sed 's/^/- /' changed.txt
-          } >> "$GITHUB_STEP_SUMMARY"
+            - name: Collect changed snapshots
+              if: ${{ !cancelled() }}
+              run: |
+                  set -euo pipefail
+                  git ls-files --modified --others --exclude-standard -- ":(glob)packages/$PACKAGE/**/test-data/*.png" > changed.txt
+                  mkdir -p snapshots
+                  xargs -r cp --parents -t snapshots < changed.txt
+                  {
+                    echo "### Snapshots for $PACKAGE ($(wc -l < changed.txt) changed)"
+                    sed 's/^/- /' changed.txt
+                  } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: snapshots-${{ env.PACKAGE }}
-          path: snapshots/
-          if-no-files-found: warn
-          retention-days: 7
+            - uses: actions/upload-artifact@v4
+              if: ${{ !cancelled() }}
+              with:
+                  name: snapshots-${{ env.PACKAGE }}
+                  path: snapshots/
+                  if-no-files-found: warn
+                  retention-days: 7
