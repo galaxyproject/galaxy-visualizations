@@ -19,7 +19,7 @@
         "test:watch": "vitest --watch"
     },
     "devDependencies": {
-        "@playwright/test": "^1.63.0",
+        "@playwright/test": "^1.64.1",
         "@types/cytoscape": "^3.21.8",
         "@types/node": "^25.6.0",
         "@vitejs/plugin-vue": "^6.0.3",

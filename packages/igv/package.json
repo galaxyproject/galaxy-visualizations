@@ -19,7 +19,7 @@
         "test:watch": "vitest --watch"
     },
     "devDependencies": {
-        "@playwright/test": "^1.56.0",
+        "@playwright/test": "^1.64.1",
         "@tailwindcss/vite": "^4.1.18",
         "@types/node": "^22.19.3",
         "@vitejs/plugin-vue": "^6.0.3",

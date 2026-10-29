@@ -18,7 +18,7 @@
         "test:update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {
-        "@playwright/test": "^1.60.0",
+        "@playwright/test": "^1.64.1",
         "prettier": "^3.5.3",
         "varri-js": "^1.0.2",
         "vite": "^6.2.2",
