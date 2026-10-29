@@ -10,6 +10,9 @@ const DEFAULT_TIMEOUT = 120_000;
  * while Playwright keeps waiting on the original URL.
  *
  * `command` is a function of the resolved port, for packages whose dev server is not vite.
+ *
+ * Screenshots only match in the pinned Playwright image, so outside it the config refuses to
+ * load; packages without screenshot comparisons pass `screenshots: false` to run anywhere.
  */
 export function visualizationConfig({
     port = DEFAULT_PORT,
