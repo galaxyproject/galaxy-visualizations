@@ -57,6 +57,9 @@ module.exports = {
         devMiddleware: {
             publicPath: "/static/",
         },
+        client: {
+            overlay: { warnings: false },
+        },
         port: 8080,
     },
 };
