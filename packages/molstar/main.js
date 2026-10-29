@@ -55,12 +55,14 @@ async function create() {
             viewerElement.id = "molstar-viewer";
             viewerElement.style.width = "100%";
             viewerElement.style.height = "100vh";
+            viewerElement.setAttribute("aria-busy", "true");
             appElement.appendChild(viewerElement);
 
             const loadFormat = mapToMolstarFormat(extension);
 
             const viewer = await Viewer.create(viewerElement);
             await viewer.loadStructureFromUrl(dataUrl, loadFormat);
+            viewerElement.setAttribute("aria-busy", "false");
 
             hideMessage();
         } else {

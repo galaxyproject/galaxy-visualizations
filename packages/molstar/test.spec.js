@@ -46,8 +46,10 @@ test("basic", async ({ page }) => {
 
     // start
     await page.goto("/");
+    await expect(page.locator("#molstar-viewer")).toHaveAttribute("aria-busy", "false");
     await expect(page).toHaveScreenshot("test_pdb.png", { maxDiffPixelRatio });
 
     await page.goto("/?dataset_id=__cif__");
+    await expect(page.locator("#molstar-viewer")).toHaveAttribute("aria-busy", "false");
     await expect(page).toHaveScreenshot("test_cif.png", { maxDiffPixelRatio });
 });
