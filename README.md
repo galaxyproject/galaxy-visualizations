@@ -1,27 +1,19 @@
+# <img src="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-charts/docs/public/galaxy-charts.svg" alt="Galaxy Charts Logo" width="24" /> Galaxy Visualizations
 
-# Galaxy Visualizations
+This repository contains visualization plugins built with [Galaxy Charts](https://charts.galaxyproject.org) for the [Galaxy Project](https://galaxyproject.org/).
 
-This repository contains visualizations developed for the [Galaxy Project](https://galaxyproject.org/).
+Galaxy provides an extensible visualization system for exploring, interpreting, and presenting scientific data.
 
-## Overview
+**Galaxy Charts** provides the shared framework and runtime for building visualizations, while **galaxy-visualizations** contains the visualizations built with it.
 
-Galaxy provides an interactive visualization system to help users explore, interpret, and present their data.
+Each visualization is a self-contained plugin that integrates with Galaxy datasets and provides its own interactive visualization capabilities.
 
-The **Galaxy Charts** framework and its **script-entrypoint** defines the standardized approach for visualization development in Galaxy, documented at [charts.galaxyproject.org](https://charts.galaxyproject.org).
+## Adding Visualizations
 
-Think of **Galaxy Charts** as the *"how-to-build"* guide and **galaxy-visualizations** as the *"actual built examples"*.
+New visualizations can be added using Galaxy Charts and contributed to this repository.
 
-This repository houses **concrete visualization implementations** that:
-- Follow the guidelines and structure defined by **Galaxy Charts**.
-- Integrate seamlessly into Galaxy's interface.
-- Support a variety of data types and analysis workflows.
+Galaxy Charts supports plain JavaScript, Vue, React, and other frameworks, with optional components for building configuration interfaces.
 
-Each visualization here is a self-contained module following Galaxy’s visualization plugin system.
+For development guides, plugin configuration, and runtime APIs, see the [Galaxy Charts documentation](https://charts.galaxyproject.org).
 
-## Developing and Adding Visualizations
-
-If you want to add a third-party visualization or build your own:
-- Start by reading the [Galaxy Charts Documentation](https://charts.galaxyproject.org) to understand the framework and development process.
-- Use the [galaxy-charts-starter](https://github.com/guerler/galaxy-charts-starter) template to quickly scaffold a new project. It provides a Vue environment, utilities to simplify common tasks, and an automatically generated input form by parsing your Galaxy visualization XML configuration.
-- Alternatively, you can follow the [Vite-only project](https://charts.galaxyproject.org/galaxy-charts/xml-framework/#building-a-vite-plugin-vanillavuereact-and-more) guide to create a standalone plugin without using the Galaxy Charts Vue package (supports Vanilla, Vue, React, and more).
-- Once your visualization is ready, you can contribute it to this repository by following Galaxy’s plugin submission guidelines.
+Contributions of new visualizations, improvements, and bug fixes are welcome.
