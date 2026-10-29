@@ -11,7 +11,19 @@ const DEFAULT_TIMEOUT = 120_000;
  *
  * `command` is a function of the resolved port, for packages whose dev server is not vite.
  */
-export function visualizationConfig({ port = DEFAULT_PORT, timeout = DEFAULT_TIMEOUT, command, use = {} } = {}) {
+export function visualizationConfig({
+    port = DEFAULT_PORT,
+    timeout = DEFAULT_TIMEOUT,
+    command,
+    use = {},
+    screenshots = true,
+} = {}) {
+    if (screenshots && !process.env.PLAYWRIGHT_DOCKER) {
+        throw new Error(
+            "This package compares screenshots, which only match in the pinned Playwright image. " +
+                "Run `npm run test:e2e` (add `-- --update-snapshots` to regenerate them).",
+        );
+    }
     const resolvedPort = Number(process.env.PLAYWRIGHT_PORT || port);
     const devCommand = command ? command(resolvedPort) : `npm run dev -- --port ${resolvedPort} --strictPort`;
     return {

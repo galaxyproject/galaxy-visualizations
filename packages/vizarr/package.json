@@ -17,7 +17,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "npx playwright test"
+    "test": "npm run test:e2e",
+    "test:e2e": "../../playwright-docker.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

@@ -130,7 +130,7 @@ jobs:
       - name: Check for the Playwright image
         id: image
         working-directory: packages/${{ matrix.package }}
-        run: echo "docker=$(jq -r '.scripts | has("test:e2e:docker")' package.json)" >> "$GITHUB_OUTPUT"
+        run: echo "docker=$(jq -r '.scripts["test:e2e"] // "" | contains("playwright-docker.sh")' package.json)" >> "$GITHUB_OUTPUT"
 
       # No restore-keys: browsers from another version are dead weight that
       # `playwright install` has to replace anyway.
@@ -152,19 +152,8 @@ jobs:
         run: npm run build
 
       - name: Run Playwright tests
-        if: steps.image.outputs.docker != 'true'
         working-directory: packages/${{ matrix.package }}
         run: npm test
-
-      - name: Run unit tests
-        if: steps.image.outputs.docker == 'true'
-        working-directory: packages/${{ matrix.package }}
-        run: npm run test:unit
-
-      - name: Run Playwright tests in the pinned image
-        if: steps.image.outputs.docker == 'true'
-        working-directory: packages/${{ matrix.package }}
-        run: npm run test:e2e:docker
 
       # Informational: where a package's pinned upstreams sit against their sources. Never fails
       # the build; the report lands in the job summary.

@@ -1,18 +1,20 @@
 #!/bin/sh
 set -eu
 
-package_dir=$(cd "$(dirname "$0")/.." && pwd)
-repo_dir=$(cd "$package_dir/../.." && pwd)
+repo_dir=$(cd "$(dirname "$0")" && pwd)
+package_dir=$(pwd)
 package=$(basename "$package_dir")
 version=$(node -p 'require(process.argv[1]).packages["node_modules/@playwright/test"].version' "$package_dir/package-lock.json")
 image="mcr.microsoft.com/playwright:v$version-noble"
+volume="playwright-$package-$(cksum < "$package_dir/package-lock.json" | cut -d' ' -f1)"
 
 run() {
     docker run --rm --ipc=host --platform linux/amd64 \
         -v "$repo_dir":/work \
-        -v "playwright-$package-node-modules:/work/packages/$package/node_modules" \
+        -v "$volume:/work/packages/$package/node_modules" \
         -w "/work/packages/$package" \
         -e CI=1 \
+        -e PLAYWRIGHT_DOCKER=1 \
         "$@"
 }
 

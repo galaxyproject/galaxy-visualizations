@@ -20,7 +20,8 @@
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,css}'",
-        "test": "npx playwright test"
+        "test": "npm run test:e2e",
+        "test:e2e": "../../playwright-docker.sh"
     },
     "devDependencies": {
         "@playwright/test": "^1.64.1",

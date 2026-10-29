@@ -14,7 +14,7 @@
         "preview": "vite preview",
         "test": "npm run test:unit && npm run test:e2e",
         "test:unit": "npm run build && node --test tests/*.test.mjs",
-        "test:e2e": "npx playwright test",
+        "test:e2e": "../../playwright-docker.sh",
         "test:update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {

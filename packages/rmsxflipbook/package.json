@@ -23,7 +23,8 @@
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' 'src/**/*.js' 'test.spec.js'",
         "fixture": "node scripts/make-fixture.mjs",
-        "test": "playwright test",
+        "test": "npm run test:e2e",
+        "test:e2e": "../../playwright-docker.sh",
         "test:update": "playwright test --update-snapshots"
     },
     "devDependencies": {

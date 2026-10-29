@@ -13,7 +13,7 @@
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
         "test": "npm run test:unit && npm run test:e2e",
-        "test:e2e": "npx playwright test",
+        "test:e2e": "../../playwright-docker.sh",
         "test:ui": "vitest --ui",
         "test:unit": "vitest run",
         "test:watch": "vitest --watch"

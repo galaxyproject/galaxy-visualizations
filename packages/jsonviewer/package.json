@@ -11,7 +11,7 @@
         "prettier": "prettier --write 'package.json' 'main.js'",
         "preview": "vite preview",
         "test": "npm run test:e2e",
-        "test:e2e": "npx playwright test",
+        "test:e2e": "../../playwright-docker.sh",
         "test:e2e-update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {

@@ -8,7 +8,8 @@
         "build": "vite build",
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' 'src/**/*.{js,jsx}' 'test.spec.js'",
-        "test": "npx playwright test",
+        "test": "npm run test:e2e",
+        "test:e2e": "../../playwright-docker.sh",
         "test:update": "npx playwright test --update-snapshots"
     },
     "devDependencies": {

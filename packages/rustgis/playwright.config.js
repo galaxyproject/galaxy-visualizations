@@ -6,6 +6,7 @@ export default defineConfig({
         port: 5198,
         command: (port) => `node tests/server.mjs ${port}`,
         use: { viewport: { width: 1280, height: 900 }, launchOptions: { args: ["--enable-unsafe-swiftshader"] } },
+        screenshots: false,
     }),
     testDir: "tests",
     workers: 1,
