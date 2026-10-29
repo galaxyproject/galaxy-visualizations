@@ -34,8 +34,20 @@ test("basic", async ({ page }) => {
 
     for (const name of Object.keys(TESTS)) {
         await page.goto(`?dataset_id=${name}`);
-        const viewerFrame = page.frameLocator("#varri-viewer");
-        await expect(viewerFrame.locator("#rendering-canvas svg")).toBeVisible({ timeout: 90000 });
+        const drawing = page.frameLocator("#varri-viewer").locator("#rendering-canvas svg");
+        await expect(drawing).toBeVisible({ timeout: 90000 });
+        let previous;
+        await expect
+            .poll(
+                async () => {
+                    const current = await drawing.innerHTML();
+                    const settled = current === previous;
+                    previous = current;
+                    return settled;
+                },
+                { intervals: [500], timeout: 30000 },
+            )
+            .toBe(true);
         await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });
     }
 });

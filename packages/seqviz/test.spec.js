@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const maxDiffPixelRatio = 0.07;
 
 const TESTS = {
     fasta: { file: "test.fasta", extension: "fasta" },
@@ -34,6 +33,6 @@ test("basic", async ({ page }) => {
     for (const name of Object.keys(TESTS)) {
         await page.goto(`/?dataset_id=${name}`);
         await page.waitForSelector("#seqviz-container svg");
-        await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });
+        await expect(page).toHaveScreenshot(`${name}.png`, { threshold: 0 });
     }
 });

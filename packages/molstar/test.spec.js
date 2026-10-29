@@ -13,7 +13,7 @@ test("basic", async ({ page }) => {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-                extension: "pdb"
+                extension: "pdb",
             }),
         });
     });
@@ -31,7 +31,7 @@ test("basic", async ({ page }) => {
             status: 200,
             contentType: "application/json",
             body: JSON.stringify({
-                extension: "cif"
+                extension: "cif",
             }),
         });
     });
@@ -46,8 +46,10 @@ test("basic", async ({ page }) => {
 
     // start
     await page.goto("/");
-    await expect(page).toHaveScreenshot("test_pdb.png", { maxDiffPixelRatio });
+    await expect(page.locator("#molstar-viewer")).toHaveAttribute("aria-busy", "false");
+    await expect(page).toHaveScreenshot("test_pdb.png", { mask: [page.locator(".msp-log")], maxDiffPixelRatio });
 
     await page.goto("/?dataset_id=__cif__");
-    await expect(page).toHaveScreenshot("test_cif.png", { maxDiffPixelRatio });
+    await expect(page.locator("#molstar-viewer")).toHaveAttribute("aria-busy", "false");
+    await expect(page).toHaveScreenshot("test_cif.png", { mask: [page.locator(".msp-log")], maxDiffPixelRatio });
 });

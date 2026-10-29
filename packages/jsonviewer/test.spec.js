@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const maxDiffPixelRatio = 0.05;
 
 const TESTS = {
     json: { file: "test.json", extension: "json", contentType: "application/json" },
@@ -37,6 +36,6 @@ test("json viewer", async ({ page }) => {
         await page.goto(`/?dataset_id=${name}`);
         await page.waitForSelector(".jse-main", { timeout: 15000 });
         await page.waitForTimeout(2000);
-        await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });
+        await expect(page).toHaveScreenshot(`${name}.png`, { threshold: 0 });
     }
 });

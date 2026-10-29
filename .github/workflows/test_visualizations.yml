@@ -1,177 +1,184 @@
 name: Test Visualizations
 
 on:
-  pull_request:
+    pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 permissions:
-  contents: read
+    contents: read
 
 env:
-  NODE_VERSION: "22"
-  PYTHON_VERSION: "3.13"
+    NODE_VERSION: "22"
+    PYTHON_VERSION: "3.13"
 
 jobs:
-  discover:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      packages: ${{ steps.set-packages.outputs.packages }}
-      playwright_packages: ${{ steps.set-packages.outputs.playwright_packages }}
-    steps:
-      - uses: actions/checkout@v6
+    discover:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            packages: ${{ steps.set-packages.outputs.packages }}
+            playwright_packages: ${{ steps.set-packages.outputs.playwright_packages }}
+        steps:
+            - uses: actions/checkout@v6
 
-      - name: Discover packages with tests
-        id: set-packages
-        run: |
-          set -euo pipefail
+            - name: Discover packages with tests
+              id: set-packages
+              run: |
+                  set -euo pipefail
 
-          regular=()
-          playwright=()
-          untested=()
-          for dir in packages/*/; do
-            pkg=$(basename "$dir")
-            [ -f "$dir/package.json" ] || continue
-            test_script=$(jq -r '.scripts.test // ""' "$dir/package.json")
-            if [ -z "$test_script" ]; then
-              untested+=("$pkg")
-            elif [[ "$test_script" == *playwright* ]] \
-              || jq -e '.devDependencies | has("@playwright/test") or has("playwright")' "$dir/package.json" >/dev/null 2>&1; then
-              playwright+=("$pkg")
-            else
-              regular+=("$pkg")
-            fi
-          done
+                  regular=()
+                  playwright=()
+                  untested=()
+                  for dir in packages/*/; do
+                    pkg=$(basename "$dir")
+                    [ -f "$dir/package.json" ] || continue
+                    test_script=$(jq -r '.scripts.test // ""' "$dir/package.json")
+                    if [ -z "$test_script" ]; then
+                      untested+=("$pkg")
+                    elif [[ "$test_script" == *playwright* ]] \
+                      || jq -e '.devDependencies | has("@playwright/test") or has("playwright")' "$dir/package.json" >/dev/null 2>&1; then
+                      playwright+=("$pkg")
+                    else
+                      regular+=("$pkg")
+                    fi
+                  done
 
-          as_json() { printf '%s\n' ${1+"$@"} | jq -R -s -c 'split("\n") | map(select(length > 0))'; }
-          {
-            echo "packages=$(as_json ${regular+"${regular[@]}"})"
-            echo "playwright_packages=$(as_json ${playwright+"${playwright[@]}"})"
-          } >> "$GITHUB_OUTPUT"
+                  as_json() { printf '%s\n' ${1+"$@"} | jq -R -s -c 'split("\n") | map(select(length > 0))'; }
+                  {
+                    echo "packages=$(as_json ${regular+"${regular[@]}"})"
+                    echo "playwright_packages=$(as_json ${playwright+"${playwright[@]}"})"
+                  } >> "$GITHUB_OUTPUT"
 
-          report() {
-            printf '\n%s (%s):\n' "$1" "$2"
-            shift 2
-            [ "$#" -eq 0 ] && printf '  none\n' || printf '  - %s\n' "$@"
-          }
-          report "Packages with tests" "${#regular[@]}" ${regular+"${regular[@]}"}
-          report "Packages with Playwright tests" "${#playwright[@]}" ${playwright+"${playwright[@]}"}
-          report "Packages without a test script" "${#untested[@]}" ${untested+"${untested[@]}"}
+                  report() {
+                    printf '\n%s (%s):\n' "$1" "$2"
+                    shift 2
+                    [ "$#" -eq 0 ] && printf '  none\n' || printf '  - %s\n' "$@"
+                  }
+                  report "Packages with tests" "${#regular[@]}" ${regular+"${regular[@]}"}
+                  report "Packages with Playwright tests" "${#playwright[@]}" ${playwright+"${playwright[@]}"}
+                  report "Packages without a test script" "${#untested[@]}" ${untested+"${untested[@]}"}
 
-  test:
-    needs: discover
-    if: needs.discover.outputs.packages != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        package: ${{ fromJson(needs.discover.outputs.packages) }}
-    steps:
-      - uses: actions/checkout@v6
+    test:
+        needs: discover
+        if: needs.discover.outputs.packages != '[]'
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        strategy:
+            fail-fast: false
+            matrix:
+                package: ${{ fromJson(needs.discover.outputs.packages) }}
+        steps:
+            - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/install-package
-        with:
-          package: ${{ matrix.package }}
-          node-version: ${{ env.NODE_VERSION }}
-          python-version: ${{ env.PYTHON_VERSION }}
+            - uses: ./.github/actions/install-package
+              with:
+                  package: ${{ matrix.package }}
+                  node-version: ${{ env.NODE_VERSION }}
+                  python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Run tests
-        working-directory: packages/${{ matrix.package }}
-        run: npm test
+            - name: Run tests
+              working-directory: packages/${{ matrix.package }}
+              run: npm test
 
-      # Informational: where a package's pinned upstreams sit against their sources. Never fails
-      # the build; the report lands in the job summary.
-      - name: Report stale pins
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        working-directory: packages/${{ matrix.package }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          jq -e '.scripts.stale' package.json >/dev/null || exit 0
-          {
-            echo "### Pinned upstreams: ${{ matrix.package }}"
-            echo '```'
-            npm run --silent stale
-            echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+            # Informational: where a package's pinned upstreams sit against their sources. Never fails
+            # the build; the report lands in the job summary.
+            - name: Report stale pins
+              if: ${{ !cancelled() }}
+              continue-on-error: true
+              working-directory: packages/${{ matrix.package }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  jq -e '.scripts.stale' package.json >/dev/null || exit 0
+                  {
+                    echo "### Pinned upstreams: ${{ matrix.package }}"
+                    echo '```'
+                    npm run --silent stale
+                    echo '```'
+                  } | tee -a "$GITHUB_STEP_SUMMARY"
 
-  test-playwright:
-    needs: discover
-    if: needs.discover.outputs.playwright_packages != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        package: ${{ fromJson(needs.discover.outputs.playwright_packages) }}
-    steps:
-      - uses: actions/checkout@v6
+    test-playwright:
+        needs: discover
+        if: needs.discover.outputs.playwright_packages != '[]'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        strategy:
+            fail-fast: false
+            matrix:
+                package: ${{ fromJson(needs.discover.outputs.playwright_packages) }}
+        steps:
+            - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/install-package
-        with:
-          package: ${{ matrix.package }}
-          node-version: ${{ env.NODE_VERSION }}
-          python-version: ${{ env.PYTHON_VERSION }}
+            - uses: ./.github/actions/install-package
+              with:
+                  package: ${{ matrix.package }}
+                  node-version: ${{ env.NODE_VERSION }}
+                  python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Resolve Playwright version
-        id: pw
-        working-directory: packages/${{ matrix.package }}
-        run: |
-          set -euo pipefail
-          version=$(npx --no-install playwright --version | awk '{print $2}')
-          echo "Playwright version: $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+            - name: Resolve Playwright version
+              id: pw
+              working-directory: packages/${{ matrix.package }}
+              run: |
+                  set -euo pipefail
+                  version=$(npx --no-install playwright --version | awk '{print $2}')
+                  echo "Playwright version: $version"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      # No restore-keys: browsers from another version are dead weight that
-      # `playwright install` has to replace anyway.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+            - name: Check for the Playwright image
+              id: image
+              working-directory: packages/${{ matrix.package }}
+              run: echo "docker=$(jq -r '.scripts["test:e2e"] // "" | contains("playwright-docker.sh")' package.json)" >> "$GITHUB_OUTPUT"
 
-      # Chromium unless the package names the browsers it drives in `playwrightBrowsers`.
-      - name: Install Playwright browsers
-        working-directory: packages/${{ matrix.package }}
-        run: npx playwright install --with-deps $(jq -r '(.playwrightBrowsers // ["chromium"]) | join(" ")' package.json)
+            # No restore-keys: browsers from another version are dead weight that
+            # `playwright install` has to replace anyway.
+            - name: Cache Playwright browsers
+              if: steps.image.outputs.docker != 'true'
+              uses: actions/cache@v5
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
 
-      - name: Build
-        working-directory: packages/${{ matrix.package }}
-        run: npm run build
+            # Chromium unless the package names the browsers it drives in `playwrightBrowsers`.
+            - name: Install Playwright browsers
+              if: steps.image.outputs.docker != 'true'
+              working-directory: packages/${{ matrix.package }}
+              run: npx playwright install --with-deps $(jq -r '(.playwrightBrowsers // ["chromium"]) | join(" ")' package.json)
 
-      - name: Run Playwright tests
-        working-directory: packages/${{ matrix.package }}
-        run: npm test
+            - name: Build
+              working-directory: packages/${{ matrix.package }}
+              run: npm run build
 
-      # Informational: where a package's pinned upstreams sit against their sources. Never fails
-      # the build; the report lands in the job summary.
-      - name: Report stale pins
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        working-directory: packages/${{ matrix.package }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          jq -e '.scripts.stale' package.json >/dev/null || exit 0
-          {
-            echo "### Pinned upstreams: ${{ matrix.package }}"
-            echo '```'
-            npm run --silent stale
-            echo '```'
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+            - name: Run Playwright tests
+              working-directory: packages/${{ matrix.package }}
+              run: npm test
 
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-${{ matrix.package }}
-          path: |
-            packages/${{ matrix.package }}/playwright-report/
-            packages/${{ matrix.package }}/test-results/
-          retention-days: 7
-          if-no-files-found: ignore
+            # Informational: where a package's pinned upstreams sit against their sources. Never fails
+            # the build; the report lands in the job summary.
+            - name: Report stale pins
+              if: ${{ !cancelled() }}
+              continue-on-error: true
+              working-directory: packages/${{ matrix.package }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  jq -e '.scripts.stale' package.json >/dev/null || exit 0
+                  {
+                    echo "### Pinned upstreams: ${{ matrix.package }}"
+                    echo '```'
+                    npm run --silent stale
+                    echo '```'
+                  } | tee -a "$GITHUB_STEP_SUMMARY"
+
+            - name: Upload Playwright report
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-${{ matrix.package }}
+                  path: |
+                      packages/${{ matrix.package }}/playwright-report/
+                      packages/${{ matrix.package }}/test-results/
+                  retention-days: 7
+                  if-no-files-found: ignore

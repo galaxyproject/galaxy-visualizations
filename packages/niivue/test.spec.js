@@ -12,7 +12,7 @@ test("basic", async ({ page }) => {
             status: 200,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                extension: "nii1.gz"
+                extension: "nii1.gz",
             }),
         });
     });
@@ -24,5 +24,6 @@ test("basic", async ({ page }) => {
         });
     });
     await page.goto("/");
+    await expect(page.locator("#niivue-viewport")).toHaveAttribute("aria-busy", "false");
     await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
 });

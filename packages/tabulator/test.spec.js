@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const maxDiffPixelRatio = 0.07;
 
 /* Each entry exercises a specific Galaxy metadata shape:
  *  - tsv_with_header:        column_names = first row, tab delimiter (the GTEx fixture)
@@ -146,6 +145,6 @@ test("basic", async ({ page }) => {
     for (const name of Object.keys(TESTS)) {
         await page.goto(`/?dataset_id=${name}`);
         await page.waitForSelector("#table .tabulator-row");
-        await expect(page).toHaveScreenshot(`${name}.png`, { maxDiffPixelRatio });
+        await expect(page).toHaveScreenshot(`${name}.png`, { threshold: 0 });
     }
 });

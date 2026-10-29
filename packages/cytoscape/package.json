@@ -13,13 +13,13 @@
         "preview": "vite preview",
         "prettier": "prettier --write 'package.json' '*.js' '*.ts' 'src/**/*.js' 'src/**/*.vue'",
         "test": "npm run test:unit && npm run test:e2e",
-        "test:e2e": "npx playwright test",
+        "test:e2e": "../../playwright-docker.sh",
         "test:ui": "vitest --ui",
         "test:unit": "vitest run",
         "test:watch": "vitest --watch"
     },
     "devDependencies": {
-        "@playwright/test": "^1.63.0",
+        "@playwright/test": "^1.64.1",
         "@types/cytoscape": "^3.21.8",
         "@types/node": "^25.6.0",
         "@vitejs/plugin-vue": "^6.0.3",

@@ -12,5 +12,5 @@ test("basic", async ({ page }) => {
 
     // start
     await page.goto("/");
-    await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.02 });
+    await expect(page).toHaveScreenshot("0.png", { threshold: 0 });
 });

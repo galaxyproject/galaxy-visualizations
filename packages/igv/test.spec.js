@@ -9,6 +9,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATASET_CONTENT = fs.readFileSync(path.resolve(__dirname, "./test-data/test.bed"), "utf8");
 const DATASET_CONTENT_GENOME = fs.readFileSync(path.resolve(__dirname, "./test-data/test.fa"), "utf8");
+const GENOME_DIR = path.resolve(__dirname, "./test-data/hg38");
+const [HG38] = JSON.parse(fs.readFileSync(path.join(GENOME_DIR, "genomes.json"), "utf8"));
+const GENOME_FILES = {
+    "https://s3.amazonaws.com/igv.org.genomes/genomes.json": "genomes.json",
+    "https://igv.org/genomes/genomes3.json": "igv-genomes.json",
+    [HG38.twoBitURL]: "hg38.2bit",
+    [HG38.chromSizesURL]: "hg38.chrom.sizes",
+    [HG38.aliasURL]: "hg38_alias.tab",
+    [HG38.cytobandURL]: "cytoBandIdeo.txt.gz",
+    [HG38.tracks[0].url]: "ncbiRefSeq.txt.gz",
+};
 const DATASET_DETAILS = {
     extension: "bed",
     hid: 1,
@@ -33,6 +44,34 @@ const DATASET_DETAILS_GENOME = {
     metadata_dbkey: "hg38",
     name: "__test_pw_genome__",
 };
+
+async function routeGenome(page) {
+    await page.route(/^https?:\/\/(?!localhost[:/])/, (route) => route.abort());
+    await page.route(
+        (url) => url.href in GENOME_FILES,
+        async (route) => {
+            const request = route.request();
+            const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" };
+            if (request.method() === "OPTIONS") {
+                await route.fulfill({ status: 204, headers });
+            } else {
+                const body = fs.readFileSync(path.join(GENOME_DIR, GENOME_FILES[request.url()]));
+                const range = /^bytes=(\d+)-(\d+)$/.exec(request.headers()["range"] || "");
+                if (range) {
+                    const start = Number(range[1]);
+                    const end = Math.min(Number(range[2]), body.length - 1);
+                    await route.fulfill({
+                        status: 206,
+                        headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${body.length}` },
+                        body: body.subarray(start, end + 1),
+                    });
+                } else {
+                    await route.fulfill({ status: 200, headers, body });
+                }
+            }
+        },
+    );
+}
 
 async function createMockDatasetElement(page) {
     await page.evaluate(() => {
@@ -105,21 +144,22 @@ test("basic load and drag-drop dataset", async ({ page }) => {
             });
         });
     }
+    await routeGenome(page);
     const messages = [];
     page.on("console", (msg) => messages.push(msg.text()));
     await page.goto("/?dataset_id=__test_pw__");
     await page.waitForSelector(".igv-track-label[title='__test_pw__']");
-    await expect(page).toHaveScreenshot("0.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("0.png", { threshold: 0 });
     await page.click(".n-button");
-    await expect(page).toHaveScreenshot("1.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("1.png", { threshold: 0 });
     await page.fill(".igv-search-input", "chr1:1-150,000");
     await page.keyboard.press("Enter");
     await page.waitForTimeout(1000);
-    await expect(page).toHaveScreenshot("2.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("2.png", { threshold: 0 });
     await createMockDatasetElement(page);
     await dragAndDropDataset(page, "__test_pw_dropped__", "__test_pw_dropped__");
     await page.waitForSelector(".igv-track-label[title='__test_pw_dropped__']");
     const accepted = messages.some((msg) => msg.includes("[igv] Dropped Tracks"));
     expect(accepted).toBeTruthy();
-    await expect(page).toHaveScreenshot("3.png", { maxDiffPixelRatio: 0.03 });
+    await expect(page).toHaveScreenshot("3.png", { threshold: 0 });
 });

@@ -54,6 +54,12 @@ module.exports = {
         static: {
             directory: path.join(__dirname, "./"),
         },
+        devMiddleware: {
+            publicPath: "/static/",
+        },
+        client: {
+            overlay: { warnings: false },
+        },
         port: 8080,
     },
 };
