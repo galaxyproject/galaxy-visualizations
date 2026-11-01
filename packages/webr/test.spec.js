@@ -142,3 +142,25 @@ test("installs a CRAN package from the configured repositories", async ({ page }
     await consoleRun(page, "library(praise); nchar(praise()) > 0");
     await expect(page.locator(".webr-console-log")).toContainText("[1] TRUE");
 });
+
+test("starts inside an about:blank frame like Galaxy's", async ({ page }) => {
+    await page.route("**/api/datasets/__test__", (route) => route.fulfill({ json: { ...DATASET, id: "__test__" } }));
+    await page.route("**/api/datasets/__test__/display", (route) => route.fulfill({ status: 200, body: TABLE }));
+    await page.route("**/host.html", (route) =>
+        route.fulfill({ contentType: "text/html", body: "<!doctype html><html><body></body></html>" }),
+    );
+    await page.goto("/host.html");
+    await page.evaluate(() => {
+        const frame = document.createElement("iframe");
+        frame.style.cssText = "width:1200px;height:800px";
+        document.body.appendChild(frame);
+        frame.contentDocument.write(
+            `<div id="app"></div><script type="module" src="${self.origin}/src/main.js"></scr` + `ipt>`,
+        );
+        frame.contentDocument.close();
+    });
+    const frame = page.frameLocator("iframe");
+    await expect(frame.locator(".webr-status")).toHaveText("Ready", STARTUP);
+    await expect(frame.locator(".webr-console-log")).toContainText("R version 4.6.0");
+    await expect(frame.locator(".webr-console-log")).toContainText('"counts" is at /galaxy/input/counts.tabular');
+});

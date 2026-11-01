@@ -18,9 +18,10 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,css}' 'compat/**/*.js'",
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,vue,css}' 'compat/**/*.js' 'integration/**/*.js'",
         "test": "npx playwright test",
-        "compat": "npx playwright test --config playwright.compat.config.ts"
+        "compat": "npx playwright test --config playwright.compat.config.ts",
+        "test:galaxy": "npx playwright test --config playwright.integration.config.ts"
     },
     "devDependencies": {
         "@codemirror/language": "^6.11.3",
