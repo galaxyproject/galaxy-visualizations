@@ -12,7 +12,7 @@ export const DATA = {
 export const WORKFLOWS = [
     { id: "tidyverse", packages: ["tidyverse"], data: ["limma.tsv"] },
     { id: "phyloseq", packages: ["phyloseq", "vegan", "ggplot2"], data: [] },
-    { id: "seurat", packages: ["Seurat"], data: ["pbmc3k.tar.gz"] },
+    { id: "seurat", packages: ["Seurat", "limma"], data: ["pbmc3k.tar.gz"] },
     {
         id: "scater",
         packages: ["SingleCellExperiment", "scuttle", "scater", "bluster", "uwot", "sparseMatrixStats"],

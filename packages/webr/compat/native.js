@@ -57,7 +57,7 @@ mkdirSync(RESULTS_DIR, { recursive: true });
 const workflows = WORKFLOWS.filter(({ id }) => SELECTED.includes(id));
 const packages = [...new Set(workflows.flatMap(({ packages }) => packages))];
 const install = [
-    "options(Ncpus = parallel::detectCores())",
+    "options(Ncpus = parallel::detectCores(), timeout = 3600)",
     'if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager", lib = "/library")',
     `BiocManager::install(version = "${BIOCONDUCTOR}", ask = FALSE, update = FALSE, lib = "/library")`,
     `missing <- setdiff(c(${packages.map((name) => JSON.stringify(name)).join(", ")}), rownames(installed.packages()))`,
@@ -92,6 +92,7 @@ for (const workflow of workflows) {
         image: IMAGE,
         platform: process.env.NATIVE_PLATFORM || null,
         session,
+        versions: Object.fromEntries(workflow.packages.map((name) => [name, versions[name]])),
         script: { seconds: elapsed, ...parse(output) },
     };
     writeFileSync(join(RESULTS_DIR, `${workflow.id}.json`), JSON.stringify(record, null, 4));

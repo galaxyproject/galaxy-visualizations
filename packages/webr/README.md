@@ -56,7 +56,8 @@ npm run compat                                  # all workflows, results in comp
 WORKFLOWS=seurat npm run compat                 # one workflow
 WEBR_REPOSITORIES=https://bioc-release.r-universe.dev,https://webr.bioconductor.org/3.23,https://repo.r-wasm.org npm run compat
 node compat/native.js                           # the same scripts in native R 4.6 / Bioconductor 3.23 (Docker)
-NATIVE_IMAGE=rocker/r-ver:4.6.0 NATIVE_PLATFORM=linux/amd64 node compat/native.js
+docker build -t webr-compat-native -f compat/native.Dockerfile compat   # rocker R 4.6.0 with build libraries
+NATIVE_IMAGE=webr-compat-native node compat/native.js
 node compat/compare.js                          # compat/results/report.md
 ```
 
