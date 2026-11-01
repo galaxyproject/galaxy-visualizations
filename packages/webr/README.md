@@ -56,11 +56,13 @@ npm run compat                                  # all workflows, results in comp
 WORKFLOWS=seurat npm run compat                 # one workflow
 WEBR_REPOSITORIES=https://bioc-release.r-universe.dev,https://webr.bioconductor.org/3.23,https://repo.r-wasm.org npm run compat
 node compat/native.js                           # the same scripts in native R 4.6 / Bioconductor 3.23 (Docker)
+NATIVE_IMAGE=rocker/r-ver:4.6.0 NATIVE_PLATFORM=linux/amd64 node compat/native.js
 node compat/compare.js                          # compat/results/report.md
 ```
 
 - **Scripts:** `compat/workflows/` holds the scripts. Each prints `RESULT <key> <value>` lines, which are compared with the native run.
 - **Data:** `compat/fetch-data.js` downloads the data and checks it by SHA-256: the GTN limma table and 10x PBMC 3k.
+- **Versions:** both sides record each package's version, so a differing result can be told apart from a differing version.
 - **Package cache:** package downloads are cached under `compat/data/repositories/`, so reruns measure webR rather than the network. Delete it to measure cold installs.
 
 ## Licences

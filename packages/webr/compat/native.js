@@ -9,6 +9,7 @@ const COMPAT_DIR = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(COMPAT_DIR, "results", "native");
 const IMAGE = process.env.NATIVE_IMAGE || "bioconductor/bioconductor_docker:RELEASE_3_23";
 const BIOCONDUCTOR = process.env.NATIVE_BIOCONDUCTOR || "3.23";
+const PLATFORM = process.env.NATIVE_PLATFORM ? ["--platform", process.env.NATIVE_PLATFORM] : [];
 const VOLUME = process.env.NATIVE_LIBRARY_VOLUME || "webr-compat-native-library";
 const SELECTED = process.env.WORKFLOWS ? process.env.WORKFLOWS.split(",") : WORKFLOWS.map(({ id }) => id);
 
@@ -18,6 +19,7 @@ function docker(...args) {
         [
             "run",
             "--rm",
+            ...PLATFORM,
             "-v",
             `${join(COMPAT_DIR, "workflows")}:/workflows:ro`,
             "-v",
@@ -68,11 +70,29 @@ const session = docker(
     'cat(R.version.string, "Bioconductor", as.character(BiocManager::version()), "\\n")',
 ).trim();
 
+const versionOutput = docker(
+    "Rscript",
+    "-e",
+    `for (name in c(${packages.map((name) => JSON.stringify(name)).join(", ")})) cat(sprintf("VERSION %s %s\\n", name, tryCatch(as.character(packageVersion(name)), error = function(e) NA)))`,
+);
+const versions = Object.fromEntries(
+    versionOutput
+        .split("\n")
+        .filter((line) => line.startsWith("VERSION "))
+        .map((line) => line.trim().split(" ").slice(1)),
+);
+
 for (const workflow of workflows) {
     const wrapped = `tryCatch({ source("/workflows/${workflow.id}.R"); invisible(NULL) }, error = function(e) cat(sprintf("ERROR %s: %s\\n", paste(deparse(conditionCall(e)), collapse = " "), conditionMessage(e))))`;
     const timed = `elapsed <- system.time(${wrapped})[["elapsed"]]; cat(sprintf("ELAPSED %f\\n", elapsed))`;
     const output = docker("Rscript", "-e", `pdf(NULL); ${timed}`);
     const elapsed = Number(output.match(/^ELAPSED (\S+)$/m)?.[1]);
-    const record = { workflow: workflow.id, session, script: { seconds: elapsed, ...parse(output) } };
+    const record = {
+        workflow: workflow.id,
+        image: IMAGE,
+        platform: process.env.NATIVE_PLATFORM || null,
+        session,
+        script: { seconds: elapsed, ...parse(output) },
+    };
     writeFileSync(join(RESULTS_DIR, `${workflow.id}.json`), JSON.stringify(record, null, 4));
 }

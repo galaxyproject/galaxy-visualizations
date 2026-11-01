@@ -88,6 +88,11 @@ for (const workflow of WORKFLOWS.filter(({ id }) => SELECTED.includes(id))) {
                     );
                     outcome.packages[name] = (await check.result.toArray())[0];
                 }
+                const versions = await shelter.captureR(
+                    `vapply(${rVector(packages)}, function(name) tryCatch(as.character(packageVersion(name)), error = function(e) NA_character_), "")`,
+                );
+                const versionValues = await versions.result.toArray();
+                outcome.versions = Object.fromEntries(packages.map((name, index) => [name, versionValues[index]]));
 
                 started = performance.now();
                 const wrapped = `tryCatch({ ${script}\n invisible(NULL) }, error = function(e) cat(sprintf("ERROR %s: %s\\n", paste(deparse(conditionCall(e)), collapse = " "), conditionMessage(e))))`;

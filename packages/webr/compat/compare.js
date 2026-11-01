@@ -40,6 +40,13 @@ for (const { id } of WORKFLOWS) {
         lines.push(
             `| ${id} | ${attach} | ${script} | ${webr.downloads.count} files, ${megabytes(webr.downloads.bytes)} MB | ${webr.install.seconds.toFixed(1)} s | ${webr.script.seconds.toFixed(1)} s | ${native ? `${native.script.seconds.toFixed(1)} s` : "—"} | ${megabytes(webr.heapBytes)} MB |`,
         );
+        const versions = Object.keys(webr.versions || {});
+        if (versions.length) {
+            details.push(`\n**${id} versions**\n`, "| Package | webR | Native |", "|---|---|---|");
+            for (const name of versions) {
+                details.push(`| ${name} | ${webr.versions[name] ?? "—"} | ${native?.versions?.[name] ?? "—"} |`);
+            }
+        }
         const keys = [...new Set([...Object.keys(webr.script.results), ...Object.keys(native?.script.results || {})])];
         if (keys.length) {
             details.push(`\n**${id}**\n`, "| Result | webR | Native | Agreement |", "|---|---|---|---|");
