@@ -2,6 +2,8 @@ import { cpSync, createReadStream, existsSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
 import { viteConfigCharts } from "./vite.config.charts.js";
 
 const WEBR_DIST = resolve(dirname(fileURLToPath(import.meta.url)), "node_modules/webr/dist");
@@ -34,5 +36,5 @@ function webrRuntime() {
 
 export default defineConfig({
     ...viteConfigCharts,
-    plugins: [webrRuntime()],
+    plugins: [vue(), tailwindcss(), webrRuntime()],
 });
