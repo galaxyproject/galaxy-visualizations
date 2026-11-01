@@ -1,8 +1,16 @@
 {
-    "name": "webr",
-    "private": true,
+    "name": "@galaxyproject/webr",
     "version": "0.0.0",
+    "description": "An R environment in the browser based on webR, with packages from CRAN and Bioconductor.",
+    "keywords": [
+        "galaxy",
+        "visualization",
+        "r",
+        "webr",
+        "bioconductor"
+    ],
     "type": "module",
+    "license": "MIT",
     "files": [
         "static"
     ],
@@ -10,11 +18,14 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --write 'package.json' '*.js'"
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,css}' 'compat/**/*.js'",
+        "test": "npx playwright test",
+        "compat": "npx playwright test --config playwright.compat.config.ts"
     },
     "devDependencies": {
-        "prettier": "^3.6.2",
-        "vite": "^7.0.0",
-        "webr": "^0.4.4"
+        "@playwright/test": "^1.64.0",
+        "prettier": "^3.9.10",
+        "vite": "^8.3.4",
+        "webr": "0.6.0"
     }
 }

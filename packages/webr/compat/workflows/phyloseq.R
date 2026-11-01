@@ -1,0 +1,28 @@
+suppressPackageStartupMessages({
+    library(phyloseq)
+    library(ggplot2)
+    library(vegan)
+})
+result <- function(key, value) cat(sprintf("RESULT %s %s\n", key, format(value, digits = 6)))
+set.seed(42)
+
+data(GlobalPatterns)
+gp <- prune_taxa(taxa_sums(GlobalPatterns) > 0, GlobalPatterns)
+richness <- estimate_richness(gp, measures = c("Observed", "Shannon"))
+relative <- transform_sample_counts(gp, function(x) x / sum(x))
+ordination <- ordinate(relative, method = "PCoA", distance = "bray")
+top <- prune_taxa(names(sort(taxa_sums(gp), decreasing = TRUE))[1:500], gp)
+unifrac <- UniFrac(top, weighted = TRUE)
+phyla <- tax_glom(gp, "Phylum")
+bray <- phyloseq::distance(relative, method = "bray")
+permanova <- adonis2(bray ~ SampleType, data = data.frame(sample_data(relative)), permutations = 999)
+
+print(plot_ordination(relative, ordination, color = "SampleType"))
+print(plot_richness(gp, x = "SampleType", measures = "Shannon"))
+
+result("taxa", ntaxa(gp))
+result("mean_shannon", mean(richness$Shannon))
+result("pcoa_axis1", ordination$values$Relative_eig[1])
+result("unifrac_mean", mean(unifrac))
+result("phyla", ntaxa(phyla))
+result("permanova_r2", permanova$R2[1])
