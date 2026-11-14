@@ -1,4 +1,4 @@
-name: Test Visualizations
+name: Test Plugins
 
 on:
     pull_request:
