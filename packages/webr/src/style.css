@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@layer components {
+    .webr-button {
+        @apply rounded border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50;
+    }
+    .webr-tab {
+        @apply px-2 py-1 text-xs text-gray-600 border-b-2 border-transparent;
+    }
+    .webr-tab-active {
+        @apply border-sky-600 text-sky-700;
+    }
+}

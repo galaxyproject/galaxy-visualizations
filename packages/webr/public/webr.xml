@@ -1,4 +1,58 @@
-<visualization name="WebR">
-    <description>R in the Browser.</description>
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="R (webR)" embeddable="true">
+    <description>Run R and Bioconductor in your browser</description>
+    <tags>
+        <tag>R</tag>
+        <tag>Bioconductor</tag>
+        <tag>Notebook</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">tabular</test>
+            <test test_attr="ext">csv</test>
+            <test test_attr="ext">rds</test>
+            <test test_attr="ext">rdata</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
     <entry_point src="index.js" css="index.css" />
+    <settings>
+        <input>
+            <label>Package repositories</label>
+            <help>webR package repositories, separated by commas, in priority order. The default is Bioconductor's webR repository followed by CRAN's. Restart R after changing them.</help>
+            <name>repositories</name>
+            <type>text</type>
+            <value>https://webr.bioconductor.org/3.23, https://repo.r-wasm.org</value>
+        </input>
+    </settings>
+    <tests>
+        <test>
+            <param name="dataset_id" label="Tabular dataset" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.tabular" ftype="tabular" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is R (webR)?
+
+R (webR) runs **R 4.6** in your browser with [webR](https://docs.r-wasm.org/webr/), and installs packages from **Bioconductor's webR repository** and **CRAN's webR repository**. Nothing runs on the Galaxy server.
+
+## Key Features
+
+- **Script and console**: Write a script, run it whole or line by line (Ctrl/Cmd+Enter), or type into the console.
+- **Your dataset**: The dataset you opened is in the R session; its path is in `galaxy_input`.
+- **Plots and files**: Plots and files you create can be downloaded or sent to your history.
+- **Packages**: Install CRAN and Bioconductor packages from the Packages tab, or with `install.packages()`.
+- **Saved scripts**: Save the script with the visualization and it comes back when you reopen it.
+
+## Limits
+
+- Running code cannot be interrupted; **Restart R** stops it and clears the session.
+- R has about 2 GB of memory and one core.
+- Only packages with webR builds can be installed. Some Bioconductor packages, including DESeq2 and edgeR, cannot be installed yet.
+- Packages that need the internet at run time (AnnotationHub, biomaRt) or other programs (Python, pandoc) do not work.
+
+webR and R are licensed under the GNU GPL; see `webr/LICENSE.md` in this visualization.
+    ]]></help>
 </visualization>

@@ -1,8 +1,16 @@
 {
-    "name": "webr",
-    "private": true,
+    "name": "@galaxyproject/webr",
     "version": "0.0.0",
+    "description": "An R environment in the browser based on webR, with packages from CRAN and Bioconductor.",
+    "keywords": [
+        "galaxy",
+        "visualization",
+        "r",
+        "webr",
+        "bioconductor"
+    ],
     "type": "module",
+    "license": "MIT",
     "files": [
         "static"
     ],
@@ -10,11 +18,26 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "prettier": "prettier --write 'package.json' '*.js'"
+        "prettier": "prettier --config ./prettier.config.js --write './*.{js,ts,json}' 'src/**/*.{js,ts,vue,css}' 'compat/**/*.js' 'integration/**/*.js'",
+        "test": "npx playwright test",
+        "compat": "npx playwright test --config playwright.compat.config.ts",
+        "test:galaxy": "npx playwright test --config playwright.integration.config.ts"
     },
     "devDependencies": {
-        "prettier": "^3.6.2",
-        "vite": "^7.0.0",
-        "webr": "^0.4.4"
+        "@codemirror/language": "^6.11.3",
+        "@codemirror/legacy-modes": "^6.5.2",
+        "@codemirror/view": "^6.38.6",
+        "@playwright/test": "^1.64.0",
+        "@tailwindcss/vite": "^4.1.18",
+        "@vitejs/plugin-vue": "^6.0.3",
+        "codemirror": "^6.0.2",
+        "galaxy-charts": "^0.1.19",
+        "galaxy-charts-xml-parser": "^1.0.3",
+        "prettier": "^3.9.10",
+        "tailwindcss": "^4.1.18",
+        "typescript": "^5.9.3",
+        "vite": "^8.3.4",
+        "vue": "^3.5.26",
+        "webr": "0.6.0"
     }
 }
