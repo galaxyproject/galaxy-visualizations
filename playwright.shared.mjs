@@ -2,7 +2,7 @@ const DEFAULT_PORT = 5173;
 const DEFAULT_TIMEOUT = 120_000;
 
 /**
- * Shared Playwright options for the visualization packages. Returns a plain object so
+ * Shared Playwright options for the plugin packages. Returns a plain object so
  * this file needs no dependencies of its own; each package wraps it in `defineConfig`.
  *
  * `PLAYWRIGHT_PORT` gives a run its own port so packages can be tested in parallel, and

@@ -1,24 +1,24 @@
-# <img src="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-charts/docs/public/galaxy-charts.svg" alt="Galaxy Charts Logo" width="24" /> Galaxy Visualizations
+# <img src="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-charts/docs/public/galaxy-charts.svg" alt="Galaxy Charts Logo" width="24" /> Galaxy Charts Plugins
 
-This repository contains visualization plugins built with [Galaxy Charts](https://charts.galaxyproject.org) for the [Galaxy Project](https://galaxyproject.org/).
+This repository contains browser plugins built with [Galaxy Charts](https://charts.galaxyproject.org) for the [Galaxy Project](https://galaxyproject.org/).
 
-Galaxy provides an extensible visualization system for exploring, interpreting, and presenting scientific data.
+Galaxy provides an extensible plugin system for exploring, interpreting, and presenting scientific data.
 
-**Galaxy Charts** provides the shared framework and runtime for building visualizations, while **galaxy-visualizations** contains the visualizations built with it.
+**Galaxy Charts** provides the shared framework and runtime for building browser plugins, while **galaxy-visualizations** contains the plugins built with it.
 
-Each visualization is a self-contained plugin that integrates with Galaxy datasets and provides its own interactive visualization capabilities.
+Each plugin is self-contained, integrates with Galaxy datasets and provides its own interactive capabilities.
 
-## Adding Visualizations
+## Adding Plugins
 
-New visualizations can be added using Galaxy Charts and contributed to this repository.
+New plugins can be added using Galaxy Charts and contributed to this repository.
 
 Galaxy Charts supports plain JavaScript, Vue, React, and other frameworks, with optional components for building configuration interfaces.
 
 For development guides, plugin configuration, and runtime APIs, see the [Galaxy Charts documentation](https://charts.galaxyproject.org).
 
-Contributions of new visualizations, improvements, and bug fixes are welcome.
+Contributions of new plugins, improvements, and bug fixes are welcome.
 
-## Available Visualizations (57)
+## Available Plugins (57)
 
 | Logo                                                                    | Name                                          | Description                                                                         | Package                                                                                                                                                                                                     |
 | ----------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

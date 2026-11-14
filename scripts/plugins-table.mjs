@@ -44,7 +44,7 @@ function findXml(dir, packageDirs) {
     );
 }
 
-function readVisualization(dir, packageDirs) {
+function readPlugin(dir, packageDirs) {
     const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
     const xmlPath = findXml(dir, packageDirs);
     const xml = xmlPath ? fs.readFileSync(xmlPath, "utf8") : "";
@@ -65,20 +65,20 @@ const packageDirs = fs
     .map((name) => path.join(packagesDir, name))
     .filter((dir) => fs.existsSync(path.join(dir, "package.json")));
 
-const visualizations = packageDirs
-    .map((dir) => readVisualization(dir, packageDirs))
+const plugins = packageDirs
+    .map((dir) => readPlugin(dir, packageDirs))
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
 
-const rows = visualizations.map((visualization) => {
-    const logo = visualization.logo ? `<img src="${visualization.logo}" alt="" width="32">` : "";
-    const npm = encodeURIComponent(visualization.npm);
-    const badge = `[![${visualization.npm}](https://img.shields.io/npm/v/${visualization.npm}?label=${npm})](https://www.npmjs.com/package/${visualization.npm})`;
-    return `| ${logo} | ${cell(visualization.name)} | ${cell(visualization.description) || "Not available"} | ${visualization.private ? "Not published" : badge} |`;
+const rows = plugins.map((plugin) => {
+    const logo = plugin.logo ? `<img src="${plugin.logo}" alt="" width="32">` : "";
+    const npm = encodeURIComponent(plugin.npm);
+    const badge = `[![${plugin.npm}](https://img.shields.io/npm/v/${plugin.npm}?label=${npm})](https://www.npmjs.com/package/${plugin.npm})`;
+    return `| ${logo} | ${cell(plugin.name)} | ${cell(plugin.description) || "Not available"} | ${plugin.private ? "Not published" : badge} |`;
 });
 
 process.stdout.write(
     [
-        `## Available Visualizations (${rows.length})`,
+        `## Available Plugins (${rows.length})`,
         "",
         "| Logo | Name | Description | Package |",
         "| --- | --- | --- | --- |",
