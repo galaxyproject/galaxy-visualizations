@@ -1,6 +1,6 @@
 import COLOR_SCHEMES from "@/colors.json";
 
-function generateColors(baseColors, count, delta = 0.15) {
+function generateColors(baseColors, count, delta = 0.15, shades = 4) {
     if (!Array.isArray(baseColors) || baseColors.length === 0) {
         return undefined;
     }
@@ -13,7 +13,7 @@ function generateColors(baseColors, count, delta = 0.15) {
                 continue;
             }
             const [r, g, b] = match.map(Number);
-            const factor = Math.max(0, 1 - i * delta);
+            const factor = 1 - (i % shades) * delta;
             const c = `rgb(${Math.round(r * factor)},${Math.round(g * factor)},${Math.round(b * factor)})`;
             colors.push(c);
             if (colors.length >= count) {

@@ -14,6 +14,13 @@ describe("schemeColors", () => {
         expect(colors[10]).toBe("rgb(26,101,153)");
     });
 
+    it("cycles through four shades instead of darkening to black", () => {
+        const colors = schemeColors("classic", 150);
+        expect(colors[30]).toBe("rgb(17,65,99)");
+        expect(colors[40]).toBe(colors[0]);
+        expect(colors).not.toContain("rgb(0,0,0)");
+    });
+
     it("returns nothing for an unknown scheme", () => {
         expect(schemeColors("plotly", 3)).toBeUndefined();
     });
