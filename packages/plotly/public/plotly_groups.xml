@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="Scatter Plot by Group" embeddable="true">
+    <description>Scatter plot colored by a group column from http://plotly.com</description>
+    <tags>
+        <tag>Plotly</tag>
+        <tag>Scatter</tag>
+        <tag>Group</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">tabular</test>
+            <test test_attr="ext">csv</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="../../plotly/static/index.js" css="../../plotly/static/index.css" />
+    <specs>
+        <variant>groups</variant>
+    </specs>
+    <settings>
+        <input>
+            <label>Color scheme</label>
+            <name>colorschema</name>
+            <help>Colors for the groups.</help>
+            <type>select</type>
+            <value>classic</value>
+            <data>
+                <data>
+                    <label>Classic</label>
+                    <value>classic</value>
+                </data>
+                <data>
+                    <label>Earth</label>
+                    <value>earth</value>
+                </data>
+                <data>
+                    <label>Fire</label>
+                    <value>fire</value>
+                </data>
+                <data>
+                    <label>Forest</label>
+                    <value>forest</value>
+                </data>
+                <data>
+                    <label>Galaxy</label>
+                    <value>galaxy</value>
+                </data>
+                <data>
+                    <label>Muted</label>
+                    <value>muted</value>
+                </data>
+                <data>
+                    <label>Night</label>
+                    <value>night</value>
+                </data>
+                <data>
+                    <label>Ocean</label>
+                    <value>ocean</value>
+                </data>
+                <data>
+                    <label>Pastel</label>
+                    <value>pastel</value>
+                </data>
+                <data>
+                    <label>Vibrant</label>
+                    <value>vibrant</value>
+                </data>
+            </data>
+        </input>
+        <input>
+            <name>point_size</name>
+            <label>Point size</label>
+            <help>Marker size in pixels.</help>
+            <type>float</type>
+            <min>1</min>
+            <max>20</max>
+            <value>4</value>
+        </input>
+        <input>
+            <name>equal_axes</name>
+            <label>Equal axis scales</label>
+            <help>Keep one unit the same length on both axes, for coordinates and projections such as PCA.</help>
+            <type>boolean</type>
+            <value>false</value>
+        </input>
+        <input>
+            <name>x_axis_label</name>
+            <label>X-Axis label</label>
+            <help>Provide a label for the axis.</help>
+            <type>text</type>
+            <value>x</value>
+            <placeholder>Axis label</placeholder>
+        </input>
+        <input>
+            <name>y_axis_label</name>
+            <label>Y-Axis label</label>
+            <help>Provide a label for the axis.</help>
+            <type>text</type>
+            <value>y</value>
+            <placeholder>Axis label</placeholder>
+        </input>
+    </settings>
+    <tracks>
+        <input>
+            <label>Provide a label</label>
+            <name>name</name>
+            <type>text</type>
+            <placeholder>Panel label</placeholder>
+            <value>Panel</value>
+        </input>
+        <input>
+            <name>group</name>
+            <label>Column of groups</label>
+            <help>Points are colored by the values of this column. With the default, no column is used and all points share one color.</help>
+            <type>data_column</type>
+            <is_auto>true</is_auto>
+        </input>
+        <input>
+            <name>x</name>
+            <label>Column of x-axis values</label>
+            <type>data_column</type>
+            <is_number>true</is_number>
+        </input>
+        <input>
+            <name>y</name>
+            <label>Column of y-axis values</label>
+            <type>data_column</type>
+            <is_number>true</is_number>
+        </input>
+    </tracks>
+    <tests>
+        <test>
+            <param name="dataset_id" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/iris.tabular" ftype="tabular" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the Scatter Plot by Group?
+
+This visualization draws an interactive scatter plot with the [Plotly](https://plotly.com/) library and colors each point by the value of a group column, for example samples by condition, measurements by species, or cells by cluster in a PCA or UMAP projection.
+
+Add a track and pick the x and y columns, then the column whose values define the groups. Additional tracks are drawn as side-by-side panels that share the group colors.
+
+## Key Features
+
+- **Groups**: One color per group from the selected color scheme, ordered naturally (2 before 10). Click a group in the legend to hide it, double-click to isolate it. With a single panel, the legend shows the number of points per group.
+- **Equal axis scales**: Optionally keep one unit the same length on both axes.
+- **Large data**: Rendered with WebGL for tens of thousands of points.
+- **Interactive**: Zoom, pan, hover and export the plot as an image.
+    ]]></help>
+</visualization>

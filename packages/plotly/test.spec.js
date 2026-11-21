@@ -61,6 +61,10 @@ test("basic", async ({ page }) => {
     await page.goto("/?xml=plotly_box");
     await expect(page).toHaveScreenshot("box.png", { maxDiffPixelRatio });
 
+    // start groups
+    await page.goto("/?xml=plotly_groups");
+    await expect(page).toHaveScreenshot("groups.png", { maxDiffPixelRatio });
+
     // start heatmap
     await page.goto("/?xml=plotly_heatmap");
     await expect(page).toHaveScreenshot("heatmap.png", { maxDiffPixelRatio });

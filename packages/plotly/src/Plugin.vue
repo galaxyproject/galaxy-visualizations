@@ -4,6 +4,7 @@ import { onMounted, ref, watch } from "vue";
 
 import plotlyBasics from "@/variants/basics";
 import plotlyBox from "@/variants/box";
+import plotlyGroups from "@/variants/groups";
 import plotlyHeatmap from "@/variants/heatmap";
 import plotlyHistogram from "@/variants/histogram";
 import plotlyPie from "@/variants/pie";
@@ -30,6 +31,9 @@ async function render() {
     switch (props.specs?.variant) {
         case "box":
             wrapper = plotlyBox;
+            break;
+        case "groups":
+            wrapper = plotlyGroups;
             break;
         case "heatmap":
             wrapper = plotlyHeatmap;
