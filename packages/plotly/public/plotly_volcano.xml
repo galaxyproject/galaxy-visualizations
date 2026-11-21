@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="Volcano Plot" embeddable="true">
+    <description>Volcano plot of differential analysis results from http://plotly.com</description>
+    <tags>
+        <tag>Plotly</tag>
+        <tag>Volcano</tag>
+        <tag>Differential Analysis</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">tabular</test>
+            <test test_attr="ext">csv</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point entry_point_type="script" src="../../plotly/static/index.js" css="../../plotly/static/index.css" />
+    <specs>
+        <variant>volcano</variant>
+    </specs>
+    <settings>
+        <input>
+            <name>fold_threshold</name>
+            <label>Fold change threshold</label>
+            <help>Minimum absolute log2 fold change for a feature to count as significant.</help>
+            <type>float</type>
+            <min>0</min>
+            <max>20</max>
+            <value>1</value>
+        </input>
+        <input>
+            <name>p_threshold</name>
+            <label>P-value threshold</label>
+            <help>Maximum p-value (or adjusted p-value) for a feature to count as significant.</help>
+            <type>float</type>
+            <min>0</min>
+            <max>1</max>
+            <value>0.05</value>
+        </input>
+        <input>
+            <name>label_count</name>
+            <label>Labeled features</label>
+            <help>Number of most significant features to label in each panel.</help>
+            <type>integer</type>
+            <min>0</min>
+            <max>100</max>
+            <value>10</value>
+        </input>
+        <input>
+            <name>up_color</name>
+            <label>Up color</label>
+            <help>Color of significant features with a positive fold change.</help>
+            <type>color</type>
+            <value>#b2182b</value>
+        </input>
+        <input>
+            <name>down_color</name>
+            <label>Down color</label>
+            <help>Color of significant features with a negative fold change.</help>
+            <type>color</type>
+            <value>#2166ac</value>
+        </input>
+        <input>
+            <name>none_color</name>
+            <label>Not significant color</label>
+            <help>Color of all other features.</help>
+            <type>color</type>
+            <value>#bbbbbb</value>
+        </input>
+        <input>
+            <name>x_axis_label</name>
+            <label>X-Axis label</label>
+            <help>Provide a label for the axis.</help>
+            <type>text</type>
+            <value>log2 fold change</value>
+            <placeholder>Axis label</placeholder>
+        </input>
+        <input>
+            <name>y_axis_label</name>
+            <label>Y-Axis label</label>
+            <help>Provide a label for the axis.</help>
+            <type>text</type>
+            <value>-log10 p-value</value>
+            <placeholder>Axis label</placeholder>
+        </input>
+    </settings>
+    <tracks>
+        <input>
+            <label>Provide a label</label>
+            <name>name</name>
+            <type>text</type>
+            <placeholder>Contrast label</placeholder>
+            <value>Contrast</value>
+        </input>
+        <input>
+            <name>label</name>
+            <label>Column of feature names</label>
+            <type>data_column</type>
+            <is_auto>true</is_auto>
+        </input>
+        <input>
+            <name>x</name>
+            <label>Column of log2 fold changes</label>
+            <type>data_column</type>
+            <is_number>true</is_number>
+        </input>
+        <input>
+            <name>y</name>
+            <label>Column of p-values</label>
+            <type>data_column</type>
+            <is_number>true</is_number>
+        </input>
+    </tracks>
+    <tests>
+        <test>
+            <param name="dataset_id" value="http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.tabular" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is the Volcano Plot?
+
+This visualization plots the results of a differential analysis, such as DESeq2, edgeR or limma output, as an interactive volcano plot using the [Plotly](https://plotly.com/) library: the fold change of each feature against the -log10 of its p-value.
+
+Add a track and pick the columns for feature names, log2 fold changes and p-values (or adjusted p-values). For tables with several contrasts, add one track per contrast; each contrast gets its own panel.
+
+## Key Features
+
+- **Thresholds**: Features beyond the fold change and p-value thresholds are colored as up or down; the thresholds are drawn as dotted lines.
+- **Labels**: The most significant features are labeled, and every point shows its name, fold change and p-value on hover. Features with a p-value of 0 are drawn at the top of their panel.
+- **Several contrasts**: Compare contrasts side by side, one panel each.
+- **Large tables**: Rendered with WebGL for tens of thousands of features.
+- **Interactive**: Zoom, pan and export the plot as an image.
+    ]]></help>
+</visualization>

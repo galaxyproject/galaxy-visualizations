@@ -8,6 +8,7 @@ import plotlyHeatmap from "@/variants/heatmap";
 import plotlyHistogram from "@/variants/histogram";
 import plotlyPie from "@/variants/pie";
 import plotlySurface from "@/variants/surface";
+import plotlyVolcano from "@/variants/volcano";
 
 const props = defineProps({
     datasetId: String,
@@ -41,6 +42,9 @@ async function render() {
             break;
         case "surface":
             wrapper = plotlySurface;
+            break;
+        case "volcano":
+            wrapper = plotlyVolcano;
             break;
         default:
             wrapper = plotlyBasics;
