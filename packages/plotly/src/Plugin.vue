@@ -62,7 +62,7 @@ async function render() {
         if (data?.length === 0) {
             emit("update", { collapse: false });
         } else {
-            Plotly.newPlot(viewport.value, data, layout, config);
+            Plotly.newPlot(viewport.value, data, layout, { ...config, showSendToCloud: false });
         }
     } catch (e) {
         message.value = `Failed to render: ${e}`;
