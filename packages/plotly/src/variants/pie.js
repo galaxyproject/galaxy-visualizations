@@ -1,5 +1,5 @@
 import { useColumnsStore } from "galaxy-charts";
-import COLOR_SCHEMES from "@/colors.json";
+import { schemeColors } from "@/colorSchemes";
 import { fetchDataStartOffset, sliceColumns } from "@/describeDataset";
 
 const MARGIN = 30;
@@ -7,30 +7,6 @@ const XGAP = 0.1;
 const YGAP = 0.3;
 
 const columnsStore = useColumnsStore();
-
-function generateColors(baseColors, count, delta = 0.15) {
-    if (!Array.isArray(baseColors) || baseColors.length === 0) {
-        return undefined;
-    }
-    const colors = [];
-    const steps = Math.ceil(count / baseColors.length);
-    for (let i = 0; i < steps; i++) {
-        for (const base of baseColors) {
-            const match = base.match(/\d+/g);
-            if (!match) {
-                continue;
-            }
-            const [r, g, b] = match.map(Number);
-            const factor = Math.max(0, 1 - i * delta);
-            const c = `rgb(${Math.round(r * factor)},${Math.round(g * factor)},${Math.round(b * factor)})`;
-            colors.push(c);
-            if (colors.length >= count) {
-                return colors.slice(0, count);
-            }
-        }
-    }
-    return colors;
-}
 
 export default async function (datasetId, settings, tracks) {
     const [dataStartOffset, columnsList] = await Promise.all([
@@ -62,11 +38,7 @@ export default async function (datasetId, settings, tracks) {
         const row = Math.floor(index / columns);
         const column = index % columns;
         const valueCount = columnsData.values.length;
-        const base = COLOR_SCHEMES[settings.colorschema];
-        const colors =
-            settings.colorschema && settings.colorschema !== "plotly" && base
-                ? generateColors(base, valueCount)
-                : undefined;
+        const colors = schemeColors(settings.colorschema, valueCount);
         data.push({
             automargin: true,
             domain: { row, column },
