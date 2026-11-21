@@ -61,6 +61,10 @@ test("basic", async ({ page }) => {
     await page.goto("/?xml=plotly_box");
     await expect(page).toHaveScreenshot("box.png", { maxDiffPixelRatio });
 
+    // start groups
+    await page.goto("/?xml=plotly_groups");
+    await expect(page).toHaveScreenshot("groups.png", { maxDiffPixelRatio });
+
     // start heatmap
     await page.goto("/?xml=plotly_heatmap");
     await expect(page).toHaveScreenshot("heatmap.png", { maxDiffPixelRatio });
@@ -78,4 +82,8 @@ test("basic", async ({ page }) => {
     // start surface
     await page.goto("/?xml=plotly_surface");
     await expect(page).toHaveScreenshot("surface.png", { maxDiffPixelRatio });
+
+    // start volcano
+    await page.goto("/?xml=plotly_volcano");
+    await expect(page).toHaveScreenshot("volcano.png", { maxDiffPixelRatio });
 });

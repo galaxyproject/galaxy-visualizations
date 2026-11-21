@@ -4,10 +4,12 @@ import { onMounted, ref, watch } from "vue";
 
 import plotlyBasics from "@/variants/basics";
 import plotlyBox from "@/variants/box";
+import plotlyGroups from "@/variants/groups";
 import plotlyHeatmap from "@/variants/heatmap";
 import plotlyHistogram from "@/variants/histogram";
 import plotlyPie from "@/variants/pie";
 import plotlySurface from "@/variants/surface";
+import plotlyVolcano from "@/variants/volcano";
 
 const props = defineProps({
     datasetId: String,
@@ -30,6 +32,9 @@ async function render() {
         case "box":
             wrapper = plotlyBox;
             break;
+        case "groups":
+            wrapper = plotlyGroups;
+            break;
         case "heatmap":
             wrapper = plotlyHeatmap;
             break;
@@ -41,6 +46,9 @@ async function render() {
             break;
         case "surface":
             wrapper = plotlySurface;
+            break;
+        case "volcano":
+            wrapper = plotlyVolcano;
             break;
         default:
             wrapper = plotlyBasics;
@@ -54,7 +62,7 @@ async function render() {
         if (data?.length === 0) {
             emit("update", { collapse: false });
         } else {
-            Plotly.newPlot(viewport.value, data, layout, config);
+            Plotly.newPlot(viewport.value, data, layout, { ...config, showSendToCloud: false });
         }
     } catch (e) {
         message.value = `Failed to render: ${e}`;
