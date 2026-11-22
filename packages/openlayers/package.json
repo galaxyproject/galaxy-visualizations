@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/openlayers",
-    "version": "0.0.9",
+    "version": "0.0.10",
     "type": "module",
     "license": "MIT",
     "scripts": {
@@ -25,7 +25,7 @@
         "file-saver": "^2.0.5",
         "galaxy-charts": "^0.1.9",
         "galaxy-charts-xml-parser": "^1.0.3",
-        "happy-dom": "^20.0.11",
+        "happy-dom": "^21.0.4",
         "ol": "^10.8.0",
         "prettier": "^3.8.1",
         "shpjs": "^6.2.0",
