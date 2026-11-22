@@ -17,5 +17,9 @@
         "katex": "^0.16.22",
         "prettier": "^3.4.1",
         "vite": "^6.2.0"
+    },
+    "allowScripts": {
+        "esbuild": false,
+        "fsevents": false
     }
 }

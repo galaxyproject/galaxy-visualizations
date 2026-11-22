@@ -34,5 +34,13 @@
     },
     "resolutions": {
         "**/underscore": "1.13.6"
+    },
+    "allowScripts": {
+        "@fortawesome/fontawesome-common-types": false,
+        "@fortawesome/fontawesome-free": false,
+        "@fortawesome/fontawesome-svg-core": false,
+        "@fortawesome/free-solid-svg-icons": false,
+        "@parcel/watcher": false,
+        "fsevents": false
     }
 }

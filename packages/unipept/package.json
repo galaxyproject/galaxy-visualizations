@@ -14,5 +14,9 @@
         "prettier": "^3.5.3",
         "unipept-visualizations": "^2.1.2",
         "vite": "^6.2.2"
+    },
+    "allowScripts": {
+        "esbuild": false,
+        "fsevents": false
     }
 }

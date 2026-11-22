@@ -14,5 +14,9 @@
         "axios": "^1.8.4",
         "prettier": "^3.5.3",
         "vite": "^6.2.2"
+    },
+    "allowScripts": {
+        "esbuild": false,
+        "fsevents": false
     }
 }

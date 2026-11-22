@@ -28,5 +28,10 @@
     },
     "overrides": {
         "sanitize-html": "^2.17.7"
+    },
+    "allowScripts": {
+        "@fortawesome/fontawesome-free": false,
+        "esbuild": false,
+        "fsevents": false
     }
 }

@@ -17,5 +17,13 @@
         "react-dom": "16.14.0",
         "util": "^0.12.5",
         "vite": "^6.2.2"
+    },
+    "allowScripts": {
+        "@fortawesome/fontawesome-common-types": false,
+        "@fortawesome/fontawesome-svg-core": false,
+        "@fortawesome/free-solid-svg-icons": false,
+        "@parcel/watcher": false,
+        "esbuild": false,
+        "fsevents": false
     }
 }

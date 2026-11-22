@@ -16,5 +16,11 @@
         "build": "yarn build-css && yarn build-js",
         "build-css": "cp -f 'node_modules/jquery-contextmenu/dist/jquery.contextMenu.css' 'static/'",
         "build-js": "parcel build src/script.js --dist-dir static"
+    },
+    "allowScripts": {
+        "@parcel/watcher": false,
+        "@swc/core": false,
+        "lmdb": false,
+        "msgpackr-extract": false
     }
 }

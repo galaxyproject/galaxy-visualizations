@@ -128,5 +128,10 @@
     "transform": {
       "\\.tsx?$": "ts-jest"
     }
+  },
+  "allowScripts": {
+    "core-js": false,
+    "core-js-pure": false,
+    "fsevents": false
   }
 }

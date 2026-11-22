@@ -39,5 +39,9 @@
         "vite-plugin-static-copy": "^3.1.4",
         "vitest": "^4.1.12",
         "vue": "^3.5.26"
+    },
+    "allowScripts": {
+        "esbuild": false,
+        "fsevents": false
     }
 }
