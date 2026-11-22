@@ -4,7 +4,7 @@ import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import yaml from "./vite.yml.js";
 
-import { viteConfigCharts } from "./vite.config.charts";
+import { viteConfigCharts } from "./vite.config.charts.ts";
 
 export default defineConfig({
     ...viteConfigCharts,

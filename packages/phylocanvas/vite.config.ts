@@ -4,7 +4,7 @@ import { configDefaults } from "vitest/config";
 import commonjs from "vite-plugin-commonjs";
 import vue from "@vitejs/plugin-vue";
 
-import { viteConfigCharts } from "./vite.config.charts";
+import { viteConfigCharts } from "./vite.config.charts.ts";
 
 export default defineConfig({
     ...viteConfigCharts,

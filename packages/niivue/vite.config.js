@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import tailwindcss from "tailwindcss";
 import vue from "@vitejs/plugin-vue";
 
-import { viteConfigCharts } from "./vite.config.charts";
+import { viteConfigCharts } from "./vite.config.charts.ts";
 
 export default defineConfig({
     ...viteConfigCharts,
