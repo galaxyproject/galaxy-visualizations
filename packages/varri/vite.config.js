@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
-import { viteConfigCharts } from "./vite.config.charts";
+import { viteConfigCharts } from "./vite.config.charts.js";
 
 // Vendor the complete, unmodified upstream vaRRI viewer
 // (https://www.npmjs.com/package/varri-js) into the build output, so

@@ -4,20 +4,12 @@ import { defineConfig } from "vite";
 let GALAXY_ROOT = "http://127.0.0.1:8080";
 if (process.env.GALAXY_ROOT) {
   GALAXY_ROOT = process.env.GALAXY_ROOT;
-} else {
-  console.log(
-    "GALAXY_ROOT not available. Please provide as environment variable."
-  );
 }
 
 // collect Galaxy API key
 let GALAXY_KEY = "";
 if (process.env.GALAXY_KEY) {
   GALAXY_KEY = process.env.GALAXY_KEY;
-} else {
-  console.log(
-    "GALAXY_KEY not available. Please provide as environment variable to access a remote Galaxy instance."
-  );
 }
 
 // https://vitejs.dev/config/

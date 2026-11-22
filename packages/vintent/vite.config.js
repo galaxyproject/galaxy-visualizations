@@ -4,7 +4,7 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
 
-import { viteConfigCharts } from "./vite.config.charts";
+import { viteConfigCharts } from "./vite.config.charts.ts";
 
 const staticCopyPlugin = viteStaticCopy({
     targets: [

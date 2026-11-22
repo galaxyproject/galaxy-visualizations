@@ -11,8 +11,6 @@ type EnvKeyType = keyof typeof env;
 Object.keys(env).forEach((key) => {
     if (process.env[key]) {
         env[key as EnvKeyType] = process.env[key] as string;
-    } else {
-        console.log(`${key} not available. Please provide as environment variable.`);
     }
 });
 
