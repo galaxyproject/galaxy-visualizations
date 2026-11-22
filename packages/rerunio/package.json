@@ -13,5 +13,9 @@
         "@rerun-io/web-viewer": "0.23.3",
         "prettier": "^3.5.3",
         "vite": "^5.4.11"
+    },
+    "allowScripts": {
+        "esbuild": false,
+        "fsevents": false
     }
 }

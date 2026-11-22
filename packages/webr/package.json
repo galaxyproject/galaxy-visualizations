@@ -16,5 +16,9 @@
         "prettier": "^3.6.2",
         "vite": "^7.0.0",
         "webr": "^0.4.4"
+    },
+    "allowScripts": {
+        "esbuild": false,
+        "fsevents": false
     }
 }

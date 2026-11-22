@@ -19,5 +19,9 @@
         "seqparse": "^0.2.2",
         "seqviz": "^3.10.22",
         "vite": "^6.4.3"
+    },
+    "allowScripts": {
+        "esbuild": false,
+        "fsevents": false
     }
 }

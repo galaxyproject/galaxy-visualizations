@@ -22,5 +22,8 @@
         "typescript": "^7.0.2",
         "vanilla-jsoneditor": "^3.12.0",
         "vite": "^8.1.5"
+    },
+    "allowScripts": {
+        "fsevents": false
     }
 }

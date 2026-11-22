@@ -14,5 +14,10 @@
         "plyr": "^3.7.8",
         "prettier": "^3.5.3",
         "vite": "^6.2.2"
+    },
+    "allowScripts": {
+        "core-js": false,
+        "esbuild": false,
+        "fsevents": false
     }
 }

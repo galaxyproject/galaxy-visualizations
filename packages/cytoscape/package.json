@@ -47,5 +47,8 @@
         "cytoscape",
         "vue",
         "vite"
-    ]
+    ],
+    "allowScripts": {
+        "fsevents": false
+    }
 }

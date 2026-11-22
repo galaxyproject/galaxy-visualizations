@@ -26,5 +26,12 @@
         "react-dom": "^18.2.0",
         "vite": "^6.2.6",
         "vitessce": "^3.8.2"
+    },
+    "allowScripts": {
+        "@danmarshall/deckgl-typings": false,
+        "core-js": false,
+        "core-js-pure": false,
+        "esbuild": false,
+        "fsevents": false
     }
 }
