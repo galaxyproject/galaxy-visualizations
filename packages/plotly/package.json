@@ -20,17 +20,17 @@
         "@tailwindcss/vite": "^4.1.18",
         "@types/node": "^25.6.0",
         "@vitejs/plugin-vue": "^6.0.3",
-        "@vitest/ui": "^4.0.16",
+        "@vitest/ui": "^4.1.12",
         "galaxy-charts": "^0.1.10",
         "galaxy-charts-xml-parser": "^1.0.3",
-        "happy-dom": "^20.0.11",
+        "happy-dom": "^21.0.4",
         "playwright": "^1.52.0",
         "plotly.js-dist": "^4.3.0",
         "prettier": "^3.7.4",
         "tailwindcss": "^4.1.18",
         "typescript": "^6.0.3",
         "vite": "^8.0.10",
-        "vitest": "^4.0.16",
+        "vitest": "^4.1.12",
         "vue": "^3.5.26"
     }
 }
