@@ -1,6 +1,7 @@
 {
   "name": "@galaxyproject/hivtrace",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "keywords": ["galaxy-browser-plugin"],
   "license": "MIT",
   "scripts": {
     "prettier": "prettier --write 'package.json' 'static/index.js'"

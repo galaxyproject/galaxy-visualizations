@@ -1,6 +1,7 @@
 {
     "name": "@galaxyproject/pca",
-    "version": "0.0.10",
+    "version": "0.0.11",
+    "keywords": ["galaxy-browser-plugin"],
     "license": "MIT",
     "type": "module",
     "files": ["static"],

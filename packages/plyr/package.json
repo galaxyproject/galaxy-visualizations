@@ -1,6 +1,7 @@
 {
     "name": "@galaxyproject/plyr",
-    "version": "0.0.4",
+    "version": "0.0.5",
+    "keywords": ["galaxy-browser-plugin"],
     "type": "module",
     "files": ["static"],
     "scripts": {

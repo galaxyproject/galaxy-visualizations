@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/cytoscape",
-    "version": "0.0.9",
+    "version": "0.0.10",
     "type": "module",
     "author": "Alireza Heidari",
     "license": "MIT",
@@ -46,7 +46,8 @@
     "keywords": [
         "cytoscape",
         "vue",
-        "vite"
+        "vite",
+        "galaxy-browser-plugin"
     ],
     "allowScripts": {
         "fsevents": false

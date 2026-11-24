@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/hyphyvision",
-    "version": "0.0.3",
+    "version": "0.0.4",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "license": "MIT",
     "main": "index.js",
     "files": [

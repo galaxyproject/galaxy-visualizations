@@ -1,6 +1,7 @@
 {
     "name": "@galaxyproject/venn",
-    "version": "0.0.9",
+    "version": "0.0.10",
+    "keywords": ["galaxy-browser-plugin"],
     "type": "module",
     "license": "MIT",
     "files": ["static"],

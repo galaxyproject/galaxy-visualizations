@@ -1,7 +1,10 @@
 {
     "name": "@galaxyproject/mvpapp",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "MVP Viewer",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "main": "index.js",
     "scripts": {
         "build": "webpack --mode production"

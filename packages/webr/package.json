@@ -1,7 +1,10 @@
 {
     "name": "webr",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "files": [
         "static"

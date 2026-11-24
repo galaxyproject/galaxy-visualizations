@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/plotly",
-    "version": "0.0.31",
+    "version": "0.0.32",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "license": "MIT",
     "files": [

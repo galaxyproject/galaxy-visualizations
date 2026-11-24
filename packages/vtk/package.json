@@ -1,6 +1,7 @@
 {
     "name": "@galaxyproject/vtk",
-    "version": "0.0.2",
+    "version": "0.0.3",
+    "keywords": ["galaxy-browser-plugin"],
     "type": "module",
     "files": ["static"],
     "scripts": {
