@@ -1,6 +1,7 @@
 {
     "name": "@galaxyproject/ngl",
-    "version": "0.0.30",
+    "version": "0.0.31",
+    "keywords": ["galaxy-browser-plugin"],
     "type": "module",
     "license": "MIT",
     "scripts": {

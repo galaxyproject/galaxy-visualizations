@@ -1,13 +1,14 @@
 {
     "name": "@galaxyproject/markdown",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "A visualization that renders Markdown datasets as formatted text.",
     "keywords": [
         "galaxy",
         "visualization",
         "markdown",
         "document",
-        "markdown-it"
+        "markdown-it",
+        "galaxy-browser-plugin"
     ],
     "type": "module",
     "license": "MIT",

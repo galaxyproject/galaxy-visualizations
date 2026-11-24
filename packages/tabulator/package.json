@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/tabulator",
-    "version": "0.0.12",
+    "version": "0.0.13",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "files": [
         "static"

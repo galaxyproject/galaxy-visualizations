@@ -1,11 +1,12 @@
 {
   "name": "@galaxyproject/h5web",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "type": "module",
   "keywords": [
     "galaxy",
     "visualization",
-    "h5web"
+    "h5web",
+    "galaxy-browser-plugin"
   ],
   "license": "AFL-3.0",
   "scripts": {

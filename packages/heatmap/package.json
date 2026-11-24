@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/heatmap",
-    "version": "0.0.18",
+    "version": "0.0.19",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "license": "MIT",
     "files": [

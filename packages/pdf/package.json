@@ -1,13 +1,14 @@
 {
     "name": "@galaxyproject/pdf",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "A visualization for PDF documents based on PDF.js.",
     "keywords": [
         "galaxy",
         "visualization",
         "pdf",
         "document",
-        "pdfjs"
+        "pdfjs",
+        "galaxy-browser-plugin"
     ],
     "type": "module",
     "license": "MIT",

@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/smilesdrawer",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "A visualization for 2D molecular structures from SMILES based on SmilesDrawer.",
     "keywords": [
         "galaxy",
@@ -8,7 +8,8 @@
         "chemistry",
         "smiles",
         "molecules",
-        "smilesdrawer"
+        "smilesdrawer",
+        "galaxy-browser-plugin"
     ],
     "type": "module",
     "license": "MIT",

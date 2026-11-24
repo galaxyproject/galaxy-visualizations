@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/vintent",
-    "version": "0.0.6",
+    "version": "0.0.7",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "license": "MIT",
     "files": [

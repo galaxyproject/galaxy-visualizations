@@ -1,6 +1,7 @@
 {
     "name": "@galaxyproject/ts_visjs",
-    "version": "0.0.6",
+    "version": "0.0.7",
+    "keywords": ["galaxy-browser-plugin"],
     "license": "MIT",
     "type": "module",
     "files": ["static"],

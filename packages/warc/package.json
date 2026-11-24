@@ -1,7 +1,10 @@
 {
     "name": "@galaxyproject/warc",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Explore WARC records with the National Library of Norway's WARC Explorer.",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "license": "MIT",
     "files": [

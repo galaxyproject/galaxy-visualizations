@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/seqviz",
-    "version": "0.0.3",
+    "version": "0.0.4",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "license": "MIT",
     "files": [

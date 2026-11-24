@@ -1,6 +1,6 @@
 {
     "name": "@galaxyproject/vizarr",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "description": "A visualization for Zarr-based images based on Vizarr.",
     "keywords": [
         "galaxy",
@@ -8,7 +8,8 @@
         "imaging",
         "zarr",
         "OME-Zarr",
-        "Vizarr"
+        "Vizarr",
+        "galaxy-browser-plugin"
     ],
     "type": "module",
     "license": "MIT",

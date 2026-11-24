@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/jupyterlite",
-    "version": "0.0.32",
+    "version": "0.0.33",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "files": [
         "static"

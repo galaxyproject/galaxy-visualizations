@@ -1,6 +1,9 @@
 {
     "name": "@galaxyproject/igv",
-    "version": "0.0.26",
+    "version": "0.0.27",
+    "keywords": [
+        "galaxy-browser-plugin"
+    ],
     "type": "module",
     "license": "MIT",
     "files": [
