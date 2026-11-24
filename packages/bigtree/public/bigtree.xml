@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<visualization name="Big Tree Viewer" embeddable="true">
+    <description>Explore very large phylogenetic trees</description>
+    <tags>
+        <tag>Phylogenetics</tag>
+        <tag>Tree</tag>
+    </tags>
+    <data_sources>
+        <data_source>
+            <model_class>HistoryDatasetAssociation</model_class>
+            <test test_attr="ext">newick</test>
+            <test test_attr="ext">nhx</test>
+            <test test_attr="ext">nex</test>
+        </data_source>
+    </data_sources>
+    <params>
+        <param required="true">dataset_id</param>
+    </params>
+    <entry_point src="index.js" css="index.css" />
+    <tests>
+        <test>
+            <param name="dataset_id" label="Mammals" value="https://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/1.newick" ftype="newick" />
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+# What is Big Tree Viewer?
+
+Big Tree Viewer draws **phylogenetic trees with hundreds of thousands of tips** smoothly in your browser.
+
+After selecting a `newick`, `nhx` or `nex` dataset, the tree opens in the viewer, where you can pan, zoom and collapse clades.
+
+## Key Features
+
+- **Layouts**: Rectangular, radial and spiral layouts.
+- **Taxonomy**: Map tip names to NCBI or Catalogue of Life taxonomy and show taxonomic ribbons.
+- **Metadata**: Color branches and add markers from a CSV or TSV table.
+- **Export**: Save publication-quality SVG or PNG figures.
+
+To learn more about Big Tree Viewer, visit:
+[https://bigtreeviewer.net](https://bigtreeviewer.net)
+    ]]></help>
+</visualization>
